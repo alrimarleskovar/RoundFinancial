@@ -236,3 +236,81 @@ export async function adminAttest(
     )
     .rpc();
 }
+
+// ─── Revoke attestation ──────────────────────────────────────────────
+
+export interface RevokeAttestationOpts {
+  /** Signer that created the attestation originally. Only the exact
+   *  issuer stored on the attestation may revoke (checked by the
+   *  handler). Pass a different Keypair to exercise the guard. */
+  issuer: Keypair;
+  /** Subject wallet whose profile gets reverted. */
+  subject: PublicKey;
+  /** Pre-computed attestation PDA (from `attestationFor`). */
+  attestation: PublicKey;
+  /** Identity sentinel; see AdminAttestOpts.identity. */
+  identity?: PublicKey;
+}
+
+export async function revokeAttestation(
+  env: Env,
+  opts: RevokeAttestationOpts,
+): Promise<string> {
+  const profile = reputationProfileFor(env, opts.subject);
+  return env.programs.reputation.methods
+    .revoke()
+    .accounts({
+      issuer:      opts.issuer.publicKey,
+      subject:     opts.subject,
+      profile,
+      identity:    opts.identity ?? env.ids.reputation,
+      attestation: opts.attestation,
+    })
+    .signers(
+      opts.issuer.publicKey.equals(env.payer.publicKey)
+        ? [env.payer]
+        : [env.payer, opts.issuer],
+    )
+    .rpc();
+}
+
+// ─── promote_level ───────────────────────────────────────────────────
+
+export interface PromoteLevelOpts {
+  /** Wallet whose profile to re-evaluate. */
+  subject: PublicKey;
+  /** Anyone can crank. Defaults to env.payer. */
+  caller?: Keypair;
+}
+
+export async function promoteLevel(
+  env: Env,
+  opts: PromoteLevelOpts,
+): Promise<string> {
+  const caller = opts.caller ?? env.payer;
+  const profile = reputationProfileFor(env, opts.subject);
+  return env.programs.reputation.methods
+    .promoteLevel()
+    .accounts({
+      subject: opts.subject,
+      profile,
+      caller:  caller.publicKey,
+    })
+    .signers(
+      caller.publicKey.equals(env.payer.publicKey)
+        ? [env.payer]
+        : [env.payer, caller],
+    )
+    .rpc();
+}
+
+/** Loosely-typed fetcher for an Attestation account. */
+export async function fetchAttestation(
+  env: Env,
+  attestation: PublicKey,
+): Promise<Record<string, unknown>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (await (env.programs.reputation.account as any).attestation.fetch(
+    attestation,
+  )) as Record<string, unknown>;
+}
