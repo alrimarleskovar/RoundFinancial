@@ -61,3 +61,117 @@ pub fn stake_bps_for_level(level: u8) -> Option<u16> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ─── Stake tier bijective mapping (invariant #5) ────────────────────
+
+    #[test]
+    fn stake_tier_maps_exactly_three_levels() {
+        assert_eq!(stake_bps_for_level(1), Some(STAKE_BPS_LEVEL_1));
+        assert_eq!(stake_bps_for_level(2), Some(STAKE_BPS_LEVEL_2));
+        assert_eq!(stake_bps_for_level(3), Some(STAKE_BPS_LEVEL_3));
+    }
+
+    #[test]
+    fn stake_tier_rejects_unknown_levels() {
+        assert_eq!(stake_bps_for_level(0),   None);
+        assert_eq!(stake_bps_for_level(4),   None);
+        assert_eq!(stake_bps_for_level(100), None);
+        assert_eq!(stake_bps_for_level(u8::MAX), None);
+    }
+
+    #[test]
+    fn stake_tier_is_injective() {
+        // No two levels map to the same bps value (bijection).
+        let ls: [u16; 3] = [STAKE_BPS_LEVEL_1, STAKE_BPS_LEVEL_2, STAKE_BPS_LEVEL_3];
+        assert_ne!(ls[0], ls[1]);
+        assert_ne!(ls[1], ls[2]);
+        assert_ne!(ls[0], ls[2]);
+    }
+
+    #[test]
+    fn stake_tier_is_monotone_decreasing() {
+        // Higher reputation = lower stake requirement (50-30-10 rule).
+        assert!(STAKE_BPS_LEVEL_1 > STAKE_BPS_LEVEL_2);
+        assert!(STAKE_BPS_LEVEL_2 > STAKE_BPS_LEVEL_3);
+    }
+
+    #[test]
+    fn stake_tier_values_match_whitepaper() {
+        // 50-30-10 rule — hard-coded whitepaper values.
+        assert_eq!(STAKE_BPS_LEVEL_1, 5_000); // 50%
+        assert_eq!(STAKE_BPS_LEVEL_2, 3_000); // 30%
+        assert_eq!(STAKE_BPS_LEVEL_3, 1_000); // 10%
+    }
+
+    #[test]
+    fn stake_tier_all_under_max_bps() {
+        // Sanity: no stake tier can exceed 100%.
+        assert!(STAKE_BPS_LEVEL_1 <= MAX_BPS);
+        assert!(STAKE_BPS_LEVEL_2 <= MAX_BPS);
+        assert!(STAKE_BPS_LEVEL_3 <= MAX_BPS);
+    }
+
+    #[test]
+    fn tier_advancement_multiplier_matches_whitepaper() {
+        // Veteran stakes 10% of principal vs newcomer's 50% → 5×
+        // advancement (not 10×). The "10× advancement" wording in the
+        // pitch refers to reduced lockup relative to principal, computed
+        // as L1 / L3 → 5_000 / 1_000 = 5. Guard this here so a future
+        // tweak of the bps table doesn't silently break the marketing
+        // claim.
+        assert_eq!(STAKE_BPS_LEVEL_1 / STAKE_BPS_LEVEL_3, 5);
+    }
+
+    // ─── Fee schedule sanity ────────────────────────────────────────────
+
+    #[test]
+    fn cycle_fees_monotone_by_level() {
+        // Higher reputation = lower cycle fee.
+        assert!(DEFAULT_FEE_BPS_CYCLE_L1 > DEFAULT_FEE_BPS_CYCLE_L2);
+        assert!(DEFAULT_FEE_BPS_CYCLE_L2 > DEFAULT_FEE_BPS_CYCLE_L3);
+        assert_eq!(DEFAULT_FEE_BPS_CYCLE_L3, 0); // Veterans exempt
+    }
+
+    #[test]
+    fn seed_draw_and_solidarity_in_range() {
+        assert!(SEED_DRAW_BPS <= MAX_BPS, "seed_draw_bps must be <= 10_000");
+        assert_eq!(SEED_DRAW_BPS, 9_160, "whitepaper locks seed-draw at 91.6%");
+        assert!(SOLIDARITY_BPS < MAX_BPS);
+        assert!(DEFAULT_ESCROW_RELEASE_BPS <= MAX_BPS);
+    }
+
+    #[test]
+    fn guarantee_fund_bps_can_exceed_max() {
+        // GF cap = 150% of fees, which is > 10_000 by design. Validate
+        // the whitepaper value is preserved so governance drift is caught.
+        assert_eq!(DEFAULT_GUARANTEE_FUND_BPS, 15_000);
+    }
+
+    #[test]
+    fn grace_period_is_seven_days() {
+        // Protocol constant — not per-pool overridable.
+        assert_eq!(GRACE_PERIOD_SECS, 7 * 24 * 60 * 60);
+    }
+
+    #[test]
+    fn pool_defaults_match_product_spec() {
+        // 24 members × 24 cycles, 416 USDC installment, 10_000 USDC credit.
+        assert_eq!(DEFAULT_MEMBERS_TARGET, 24);
+        assert_eq!(DEFAULT_CYCLES_TOTAL,   24);
+        assert_eq!(DEFAULT_INSTALLMENT_AMOUNT, 416_000_000);
+        assert_eq!(DEFAULT_CREDIT_AMOUNT,      10_000_000_000);
+        // 30 days per cycle.
+        assert_eq!(DEFAULT_CYCLE_DURATION, 30 * 24 * 60 * 60);
+    }
+
+    #[test]
+    fn member_bound_respects_bitmap_width() {
+        // slots_bitmap is [u8; 8] = 64 bits — any members_target above 64
+        // would overflow the PDA slot tracking.
+        assert!(MAX_MEMBERS <= 64);
+    }
+}

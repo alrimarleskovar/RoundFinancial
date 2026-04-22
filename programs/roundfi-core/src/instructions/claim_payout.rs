@@ -6,7 +6,7 @@ use roundfi_reputation::constants::SCHEMA_CYCLE_COMPLETE;
 use crate::constants::*;
 use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
-use crate::math::apply_bps;
+use crate::math::seed_draw::retained_meets_seed_draw;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -96,21 +96,25 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
 
     // ─── Seed Draw invariant (invariant #1) ─────────────────────────────
     // At the end of Month 1 (cycle 0 payout), pool must retain >= 91.6%
-    // of max possible month-1 collections:
-    //   pool_usdc_vault + escrow >= seed_draw_bps * members_target * installment
+    // of max possible month-1 collections. Delegated to
+    // `math::seed_draw::retained_meets_seed_draw` — see that module for
+    // boundary unit tests.
     if args.cycle == 0 {
-        let max_month1 = (pool.members_target as u128)
-            .checked_mul(pool.installment_amount as u128)
-            .and_then(|v| u64::try_from(v).ok())
-            .ok_or(error!(RoundfiError::MathOverflow))?;
-        let floor = apply_bps(max_month1, pool.seed_draw_bps)?;
         let retained = ctx
             .accounts
             .pool_usdc_vault
             .amount
             .checked_add(pool.escrow_balance)
             .ok_or(error!(RoundfiError::MathOverflow))?;
-        require!(retained >= floor, RoundfiError::SeedDrawShortfall);
+        require!(
+            retained_meets_seed_draw(
+                pool.members_target,
+                pool.installment_amount,
+                pool.seed_draw_bps,
+                retained,
+            )?,
+            RoundfiError::SeedDrawShortfall,
+        );
     }
 
     // ─── Ensure pool float can cover the payout ─────────────────────────

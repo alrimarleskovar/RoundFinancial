@@ -119,20 +119,31 @@ pub fn guarantee_fund_room(
 mod tests {
     use super::*;
 
+    // Default protocol values locked in Step 4c.
+    const FEE_BPS:        u16 = 2_000;  // 20%
+    const GOOD_FAITH_BPS: u16 = 5_000;  // 50% of post-fee residual
+
+    // ─── Ordering invariant ─────────────────────────────────────────────
+
     #[test]
-    fn order_matches_spec() {
-        // 1_000 yield, GF can absorb all of it → nothing flows further.
-        let w = waterfall(1_000, 1_000, 2_000, 5_000).unwrap();
-        assert_eq!(w, Waterfall { guarantee_fund: 1_000, protocol_fee: 0, good_faith: 0, participants: 0 });
+    fn order_gf_first_swallows_small_yield() {
+        // Any yield below the GF's remaining room goes entirely to GF.
+        // If the fee step ever ran first, participants would receive a
+        // non-zero slice here.
+        let w = waterfall(1_000, 1_000, FEE_BPS, GOOD_FAITH_BPS).unwrap();
+        assert_eq!(w, Waterfall {
+            guarantee_fund: 1_000, protocol_fee: 0, good_faith: 0, participants: 0,
+        });
     }
 
     #[test]
-    fn gf_partial_then_fee_then_bonus_then_residual() {
-        // 10_000 yield, GF needs only 2_000.
-        // after_gf = 8_000
-        // fee 20% of 8_000 = 1_600; after_fee = 6_400
-        // good_faith 50% of 6_400 = 3_200; participants = 3_200
-        let w = waterfall(10_000, 2_000, 2_000, 5_000).unwrap();
+    fn order_gf_partial_then_fee_then_good_faith_then_participants() {
+        // 10_000 yield, GF absorbs 2_000.
+        //   after_gf = 8_000
+        //   fee 20%     → 1_600; after_fee = 6_400
+        //   good_faith 50% of 6_400 → 3_200
+        //   participants = 3_200
+        let w = waterfall(10_000, 2_000, FEE_BPS, GOOD_FAITH_BPS).unwrap();
         assert_eq!(w, Waterfall {
             guarantee_fund: 2_000,
             protocol_fee:   1_600,
@@ -143,9 +154,9 @@ mod tests {
     }
 
     #[test]
-    fn gf_full_cap_skipped() {
-        // GF already at cap → everything flows to fee+bonus+participants.
-        let w = waterfall(5_000, 0, 2_000, 5_000).unwrap();
+    fn order_gf_empty_cap_skipped_to_fee_first() {
+        // GF already at cap → GF=0, fee takes from full yield.
+        let w = waterfall(5_000, 0, FEE_BPS, GOOD_FAITH_BPS).unwrap();
         assert_eq!(w.guarantee_fund, 0);
         assert_eq!(w.protocol_fee,   1_000);  // 20% of 5_000
         assert_eq!(w.good_faith,     2_000);  // 50% of 4_000
@@ -154,26 +165,149 @@ mod tests {
     }
 
     #[test]
-    fn zero_yield_zero_splits() {
-        let w = waterfall(0, 100, 2_000, 5_000).unwrap();
+    fn order_reordering_would_produce_different_splits() {
+        // This is the "ordering sentinel": the spec order GF→Fee→GoodFaith→
+        // Participants must produce the unique canonical split below.
+        // Any reordering (Fee first, GoodFaith first, etc.) would deliver
+        // materially different GF or participant amounts.
+        let w = waterfall(10_000, 2_000, FEE_BPS, GOOD_FAITH_BPS).unwrap();
+
+        // If fee ran first (on 10_000, not 8_000), fee would be 2_000 not 1_600.
+        let fee_if_ran_first = 10_000u64 * FEE_BPS as u64 / 10_000;
+        assert_eq!(fee_if_ran_first, 2_000);
+        assert_ne!(w.protocol_fee, fee_if_ran_first);
+
+        // If good_faith ran first (on 10_000, not 6_400), it'd be 5_000.
+        let gf_bonus_if_ran_first = 10_000u64 * GOOD_FAITH_BPS as u64 / 10_000;
+        assert_eq!(gf_bonus_if_ran_first, 5_000);
+        assert_ne!(w.good_faith, gf_bonus_if_ran_first);
+    }
+
+    // ─── Conservation invariant (total bucketed == yield) ───────────────
+
+    #[test]
+    fn conservation_zero_yield() {
+        let w = waterfall(0, 100, FEE_BPS, GOOD_FAITH_BPS).unwrap();
         assert_eq!(w, Waterfall::default());
+        assert_eq!(w.total().unwrap(), 0);
     }
 
     #[test]
-    fn conservation_holds_for_random_inputs() {
-        for y in [1u64, 7, 12345, 999_999_999, u64::MAX / 4] {
-            let w = waterfall(y, y / 3, 2_000, 5_000).unwrap();
-            assert_eq!(w.total().unwrap(), y, "y={}", y);
+    fn conservation_single_unit() {
+        // Smallest non-zero yield. GF room=0 → 1 unit flows to fee path.
+        // fee = floor(1 * 2_000 / 10_000) = 0; after_fee = 1.
+        // good_faith = floor(1 * 5_000 / 10_000) = 0; participants = 1.
+        let w = waterfall(1, 0, FEE_BPS, GOOD_FAITH_BPS).unwrap();
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.protocol_fee,   0);
+        assert_eq!(w.good_faith,     0);
+        assert_eq!(w.participants,   1);
+        assert_eq!(w.total().unwrap(), 1);
+    }
+
+    #[test]
+    fn conservation_holds_across_wide_input_grid() {
+        // Every combination: yield × gf_room × fee_bps × good_faith_bps.
+        let yields     = [0u64, 1, 7, 12_345, 999_999_999, u64::MAX / 4];
+        let gf_rooms   = [0u64, 1, 1_000, u64::MAX];
+        let fee_bpses  = [0u16, 1, 2_000, 10_000];
+        let good_bpses = [0u16, 1, 5_000, 10_000];
+        for y in yields {
+            for gf in gf_rooms {
+                for fbps in fee_bpses {
+                    for gbps in good_bpses {
+                        let w = waterfall(y, gf, fbps, gbps).unwrap();
+                        assert_eq!(
+                            w.total().unwrap(), y,
+                            "conservation broken: y={y} gf={gf} fbps={fbps} gbps={gbps}",
+                        );
+                        // Strict ordering consequence: GF can only absorb up to gf_room.
+                        assert!(w.guarantee_fund <= gf, "GF exceeded room");
+                        // And never more than yield itself.
+                        assert!(w.guarantee_fund <= y, "GF exceeded yield");
+                    }
+                }
+            }
         }
     }
 
+    // ─── Extreme bps settings ───────────────────────────────────────────
+
     #[test]
-    fn gf_cap_computes_150_percent() {
-        // 1000 cumulative fees, 150% bps → cap = 1500
+    fn fee_bps_zero_leaves_everything_for_good_faith_and_participants() {
+        let w = waterfall(1_000, 0, 0, GOOD_FAITH_BPS).unwrap();
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.protocol_fee,   0);
+        assert_eq!(w.good_faith,     500);
+        assert_eq!(w.participants,   500);
+    }
+
+    #[test]
+    fn fee_bps_full_leaves_nothing_downstream() {
+        let w = waterfall(1_000, 0, 10_000, GOOD_FAITH_BPS).unwrap();
+        assert_eq!(w.protocol_fee, 1_000);
+        assert_eq!(w.good_faith,   0);
+        assert_eq!(w.participants, 0);
+        assert_eq!(w.total().unwrap(), 1_000);
+    }
+
+    #[test]
+    fn good_faith_bps_full_leaves_nothing_for_participants() {
+        let w = waterfall(1_000, 0, FEE_BPS, 10_000).unwrap();
+        assert_eq!(w.protocol_fee, 200);
+        assert_eq!(w.good_faith,   800);
+        assert_eq!(w.participants, 0);
+    }
+
+    #[test]
+    fn good_faith_bps_zero_routes_full_residual_to_participants() {
+        let w = waterfall(1_000, 0, FEE_BPS, 0).unwrap();
+        assert_eq!(w.protocol_fee, 200);
+        assert_eq!(w.good_faith,   0);
+        assert_eq!(w.participants, 800);
+    }
+
+    // ─── GF cap helpers ─────────────────────────────────────────────────
+
+    #[test]
+    fn gf_cap_matches_150_percent_default() {
+        // Default DEFAULT_GUARANTEE_FUND_BPS = 15_000 → 150% of fees.
         assert_eq!(guarantee_fund_cap(1_000, 15_000).unwrap(), 1_500);
-        assert_eq!(guarantee_fund_room(1_000, 400, 15_000).unwrap(), 1_100);
+        assert_eq!(guarantee_fund_cap(0,     15_000).unwrap(), 0);
+        // 200% cap (25_000 bps) is allowed at the math layer — the
+        // governance layer in config rejects anything > 50_000.
+        assert_eq!(guarantee_fund_cap(1_000, 25_000).unwrap(), 2_500);
+    }
+
+    #[test]
+    fn gf_room_clamps_at_zero_when_over_cap() {
+        assert_eq!(guarantee_fund_room(1_000, 400,   15_000).unwrap(), 1_100);
         assert_eq!(guarantee_fund_room(1_000, 1_500, 15_000).unwrap(), 0);
         assert_eq!(guarantee_fund_room(1_000, 2_000, 15_000).unwrap(), 0);
+    }
+
+    #[test]
+    fn gf_cap_overflow_rejected_cleanly() {
+        // u64::MAX * 50_000 overflows u128 only when the fee accrued side
+        // equals u64::MAX; bps side caps at u16::MAX. Both factors are
+        // bounded so the computed u128 fits; what breaks is the final
+        // u64::try_from when the ratio exceeds u64::MAX.
+        assert!(guarantee_fund_cap(u64::MAX, 15_000).is_err());
+    }
+
+    // ─── Waterfall::total overflow safety ───────────────────────────────
+
+    #[test]
+    fn total_reports_none_on_overflow_combination() {
+        // Manually constructed bogus state that couldn't come from
+        // waterfall() itself but guards against refactors.
+        let w = Waterfall {
+            guarantee_fund: u64::MAX,
+            protocol_fee:   1,
+            good_faith:     0,
+            participants:   0,
+        };
+        assert_eq!(w.total(), None);
     }
 }
 

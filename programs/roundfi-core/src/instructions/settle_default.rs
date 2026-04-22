@@ -30,6 +30,7 @@ use roundfi_reputation::constants::SCHEMA_DEFAULT;
 use crate::constants::*;
 use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
+use crate::math::dc::{dc_invariant_holds, max_seizure_respecting_dc};
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -365,87 +366,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
     Ok(())
 }
 
-/// Cross-multiplied D/C invariant.
-///
-/// Returns `true` iff `D_rem * C_init <= C_rem * D_init`.
-///
-/// Special cases:
-///   - D_init == 0 → trivially holds (no debt ever).
-///   - C_init == 0 → means no collateral ever existed; any remaining
-///     debt ratio > 0 violates (holds iff D_rem == 0).
-fn dc_invariant_holds(d_init: u64, d_rem: u64, c_init: u64, c_rem: u64) -> bool {
-    if d_init == 0 {
-        return true;
-    }
-    if c_init == 0 {
-        return d_rem == 0;
-    }
-    let lhs = (d_rem as u128).saturating_mul(c_init as u128);
-    let rhs = (c_rem as u128).saturating_mul(d_init as u128);
-    lhs <= rhs
-}
-
-/// Find the largest `seizure <= proposed` such that, after seizure,
-/// `dc_invariant_holds(d_init, d_rem, c_init, c_before - seizure)` is true.
-/// Uses closed-form arithmetic (no loop): seizure_max = max(0, c_before -
-/// ceil(d_rem * c_init / d_init)).
-fn max_seizure_respecting_dc(
-    d_init: u64,
-    d_rem: u64,
-    c_init: u64,
-    c_before: u64,
-    proposed: u64,
-) -> Result<u64> {
-    if d_init == 0 {
-        // No debt → no collateral requirement; full proposed seizure is fine.
-        return Ok(proposed);
-    }
-    // Minimum collateral the invariant requires to remain post-seizure:
-    //   c_min = ceil(d_rem * c_init / d_init)
-    let numerator = (d_rem as u128)
-        .checked_mul(c_init as u128)
-        .ok_or(error!(RoundfiError::MathOverflow))?;
-    let c_min_ceil = numerator
-        .checked_add(d_init as u128 - 1)
-        .and_then(|v| v.checked_div(d_init as u128))
-        .ok_or(error!(RoundfiError::MathOverflow))?;
-    let c_min = u64::try_from(c_min_ceil).unwrap_or(u64::MAX);
-
-    let max_allowed = c_before.saturating_sub(c_min);
-    Ok(proposed.min(max_allowed))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn dc_invariant_trivial_cases() {
-        assert!(dc_invariant_holds(0, 0, 0, 0));
-        assert!(dc_invariant_holds(0, 100, 0, 0)); // no debt ever
-        assert!(!dc_invariant_holds(100, 50, 0, 0)); // no collateral, debt remains
-        assert!(dc_invariant_holds(100, 0, 0, 0)); // debt paid off, no collateral needed
-    }
-
-    #[test]
-    fn dc_invariant_proportional() {
-        // D_init=100, D_rem=60 (60%), C_init=200, C_rem=120 → 60/100 <= 120/200 ✓
-        assert!(dc_invariant_holds(100, 60, 200, 120));
-        // C_rem=119 → 60*200=12000 vs 119*100=11900 → 12000 > 11900 → fails
-        assert!(!dc_invariant_holds(100, 60, 200, 119));
-    }
-
-    #[test]
-    fn seizure_respects_dc_ceiling() {
-        // D_init=100, D_rem=50, C_init=200 ⇒ c_min = ceil(50*200/100) = 100
-        // c_before=180 → max_allowed = 80
-        assert_eq!(max_seizure_respecting_dc(100, 50, 200, 180, 30).unwrap(), 30);
-        assert_eq!(max_seizure_respecting_dc(100, 50, 200, 180, 100).unwrap(), 80);
-        assert_eq!(max_seizure_respecting_dc(100, 50, 200, 100, 50).unwrap(), 0);
-    }
-
-    #[test]
-    fn seizure_unrestricted_when_no_debt() {
-        assert_eq!(max_seizure_respecting_dc(0, 0, 100, 100, 75).unwrap(), 75);
-    }
-}
+// D/C invariant math (`dc_invariant_holds`, `max_seizure_respecting_dc`)
+// lives in `crate::math::dc` — see that module for comprehensive unit
+// tests. Keeping the handler lean.

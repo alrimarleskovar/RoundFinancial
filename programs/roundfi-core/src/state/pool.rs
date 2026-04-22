@@ -100,3 +100,135 @@ impl Pool {
         (0..self.members_target).find(|&i| !self.is_slot_taken(i))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fresh_pool(target: u8) -> Pool {
+        let mut p = Pool::default();
+        p.members_target = target;
+        p
+    }
+
+    // ─── Slot bitmap — basic operations ─────────────────────────────────
+
+    #[test]
+    fn fresh_pool_has_all_slots_free() {
+        let p = fresh_pool(24);
+        for i in 0..24 {
+            assert!(!p.is_slot_taken(i), "slot {i} should be free");
+        }
+        assert_eq!(p.next_free_slot(), Some(0));
+    }
+
+    #[test]
+    fn mark_slot_sets_exactly_that_bit() {
+        let mut p = fresh_pool(24);
+        p.mark_slot_taken(5).unwrap();
+        assert!(p.is_slot_taken(5));
+        for i in 0..24 {
+            if i != 5 {
+                assert!(!p.is_slot_taken(i), "slot {i} should still be free");
+            }
+        }
+    }
+
+    // ─── Slot monotonicity: no reuse, no regression (invariant #6) ──────
+
+    #[test]
+    fn mark_slot_twice_is_rejected() {
+        let mut p = fresh_pool(24);
+        p.mark_slot_taken(7).unwrap();
+        // Second attempt MUST error — slot_index uniqueness is what
+        // prevents double-payout collisions in claim_payout.
+        assert!(p.mark_slot_taken(7).is_err());
+    }
+
+    #[test]
+    fn mark_slot_out_of_range_rejected() {
+        let mut p = fresh_pool(24);
+        assert!(p.mark_slot_taken(24).is_err()); // == members_target
+        assert!(p.mark_slot_taken(63).is_err()); // still under bitmap width
+        assert!(p.mark_slot_taken(64).is_err()); // bitmap overflow
+        assert!(p.mark_slot_taken(u8::MAX).is_err());
+    }
+
+    #[test]
+    fn next_free_slot_advances_monotonically() {
+        // Once a slot is taken, next_free_slot must never return it again,
+        // regardless of how many more slots are taken elsewhere.
+        let mut p = fresh_pool(10);
+        let mut seen = Vec::new();
+        for _ in 0..10 {
+            let s = p.next_free_slot().expect("free slot expected");
+            assert!(!seen.contains(&s), "next_free_slot returned {s} twice");
+            p.mark_slot_taken(s).unwrap();
+            seen.push(s);
+        }
+        assert_eq!(p.next_free_slot(), None);
+        // Every slot [0, members_target) accounted for exactly once.
+        seen.sort_unstable();
+        assert_eq!(seen, (0..10u8).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn next_free_slot_is_lowest_free_index() {
+        // Takes slot 0, 2, 3 → next_free_slot = 1, then 4.
+        let mut p = fresh_pool(10);
+        p.mark_slot_taken(0).unwrap();
+        p.mark_slot_taken(2).unwrap();
+        p.mark_slot_taken(3).unwrap();
+        assert_eq!(p.next_free_slot(), Some(1));
+        p.mark_slot_taken(1).unwrap();
+        assert_eq!(p.next_free_slot(), Some(4));
+    }
+
+    #[test]
+    fn next_free_slot_none_when_full() {
+        let mut p = fresh_pool(3);
+        p.mark_slot_taken(0).unwrap();
+        p.mark_slot_taken(1).unwrap();
+        p.mark_slot_taken(2).unwrap();
+        assert_eq!(p.next_free_slot(), None);
+    }
+
+    // ─── Bitmap spans every byte of the [u8; 8] array ───────────────────
+
+    #[test]
+    fn bitmap_covers_full_64_slot_width() {
+        let mut p = fresh_pool(64);
+        for i in 0..64 {
+            p.mark_slot_taken(i).unwrap();
+            assert!(p.is_slot_taken(i), "mark failed at {i}");
+        }
+        // Every byte should now be 0xFF.
+        for (i, b) in p.slots_bitmap.iter().enumerate() {
+            assert_eq!(*b, 0xFF, "byte {i} not fully set");
+        }
+        assert_eq!(p.next_free_slot(), None);
+    }
+
+    #[test]
+    fn bitmap_cross_byte_boundary() {
+        // Slots 7 and 8 live in different bytes — verify no bleed-over.
+        let mut p = fresh_pool(16);
+        p.mark_slot_taken(7).unwrap();
+        assert!( p.is_slot_taken(7));
+        assert!(!p.is_slot_taken(8));
+        p.mark_slot_taken(8).unwrap();
+        assert!(p.is_slot_taken(8));
+        // Other byte still isolated.
+        assert_eq!(p.slots_bitmap[0] & 0x7F, 0); // only bit 7 set in byte 0
+        assert_eq!(p.slots_bitmap[1] & 0xFE, 0); // only bit 0 set in byte 1
+    }
+
+    #[test]
+    fn is_slot_taken_out_of_bitmap_returns_false() {
+        // The bitmap only covers 64 slots; querying beyond must not panic.
+        let p = fresh_pool(24);
+        assert!(!p.is_slot_taken(64));
+        assert!(!p.is_slot_taken(100));
+        assert!(!p.is_slot_taken(u8::MAX));
+    }
+}
