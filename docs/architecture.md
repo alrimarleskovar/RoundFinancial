@@ -1,7 +1,7 @@
 # RoundFi — Architecture Specification
 
-**Version:** 0.1 (Step 2 — 2026-04-22)
-**Status:** Draft — awaiting confirmation to proceed to Step 3 (Devnet environment)
+**Version:** 0.2 (2026-04-22 — adds §4.4 Identity Layer; non-breaking to v0.1)
+**Status:** Implementation in progress — Step 4b
 
 This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
 
@@ -240,6 +240,58 @@ pub struct YieldVaultState {
 **Mock implementation:** accrual is `principal * mock_apy_bps * elapsed_secs / seconds_per_year / 10_000`, computed lazily at harvest time. `mock_apy_bps` is set to 650 (6.5%) by default, configurable per-vault for scenario testing.
 
 **Kamino implementation:** thin wrapper that CPIs into Kamino Lend's `deposit_reserve_liquidity` / `redeem_reserve_collateral` / `refresh_reserve`. The wrapper normalizes cToken ↔ liquidity math back to USDC before returning, so the core program sees the same interface regardless of cluster.
+
+### 4.4 Identity Layer (added v0.2 — 2026-04-22)
+
+**Design principle: optional + modular.** Identity is never a gate for `join_pool`; it's an enrichment signal that the reputation program and the B2B score API can opt into. Providers are plugged in without program-upgrade:
+
+```
+                        ┌──────────────────────────────────────┐
+                        │      roundfi-reputation (Anchor)     │
+                        └──────────────┬───────────────────────┘
+                                       │ reads (CPI or account)
+             ┌─────────────────────────┼─────────────────────────┐
+             ▼                         ▼                         ▼
+   ┌──────────────────┐   ┌────────────────────────┐   ┌──────────────────┐
+   │ IdentityProvider │   │ IdentityProvider       │   │ IdentityProvider │
+   │ = SAS            │   │ = Civic Pass (Gateway) │   │ = <future…>      │
+   │ (in-house Dev,   │   │ (optional, opt-in)     │   │                  │
+   │  official Main)  │   │                        │   │                  │
+   └──────────────────┘   └────────────────────────┘   └──────────────────┘
+```
+
+**Accounts (added in Step 4d — does not alter Step 4a accounts):**
+
+```rust
+/// Per-wallet identity snapshot. PDA: [b"identity", wallet].
+/// Created lazily; absence implies IdentityStatus::Unverified.
+pub struct IdentityRecord {
+    pub wallet:         Pubkey,
+    pub provider:       u8,          // IdentityProvider enum
+    pub status:         u8,          // IdentityStatus enum
+    pub verified_at:    i64,
+    pub expires_at:     i64,         // 0 = never
+    pub gateway_token:  Pubkey,      // Civic gateway-token account; default when provider != Civic
+    pub bump:           u8,
+}
+
+#[repr(u8)] pub enum IdentityProvider { None=0, Sas=1, Civic=2 /* 3..=255 reserved */ }
+#[repr(u8)] pub enum IdentityStatus   { Unverified=0, Verified=1, Expired=2, Revoked=3 }
+```
+
+**Instructions (roundfi-reputation, Step 4d):**
+- `link_civic_identity(gateway_token)` — validates a Civic Gateway Token account against the Civic Networks program; sets `IdentityRecord { provider: Civic, status: Verified, expires_at }`.
+- `refresh_identity()` — re-reads the gateway token; marks `Expired` if Civic revoked it.
+- `unlink_identity()` — user-initiated removal.
+- `attest(...)` — unchanged SAS-compatible issuance; when an `IdentityRecord` exists for the subject, the attestation `payload` embeds the provider+status as a read-only hint to indexers.
+
+**Rules (non-breaking by construction):**
+1. **Never a gate.** `join_pool` does NOT read `IdentityRecord`. Reputation-level logic (`promote_level`, stake bps snapshot) continues to derive from on-chain behavior alone.
+2. **Additive only.** Absence of an `IdentityRecord` is indistinguishable from `IdentityStatus::Unverified` — no existing wallet is affected when this layer ships.
+3. **Scoring hint, not auth.** The B2B score API MAY weigh verified identities higher; the on-chain protocol MUST not.
+4. **Provider-agnostic.** Civic is the first non-SAS provider; the `provider: u8` enum reserves codes for future additions (WorldID, Sumsub-on-chain, etc.) with no account migration needed.
+
+**Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. Civic's Gateway Program ID is identical across clusters; only the Civic Network pubkey (e.g. `uniqueness`, `kyc`) changes via env config.
 
 ---
 
