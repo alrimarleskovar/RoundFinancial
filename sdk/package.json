@@ -1,0 +1,27 @@
+{
+  "name": "@roundfi/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RoundFi TypeScript SDK — PDA seeds, fee schedule, generated IDL clients",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./constants": "./src/constants.ts",
+    "./pda": "./src/pda.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}

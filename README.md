@@ -64,8 +64,8 @@ RoundFinancial/
 |---|---|
 | 1. Project analysis | ✅ Done |
 | 2. Architecture spec | ✅ Done |
-| 3. Devnet environment | ⏳ Next |
-| 4. Smart contracts (core) | ⏳ |
+| 3. Devnet environment | ✅ Done |
+| 4. Smart contracts (core) | ⏳ Next |
 | 5. Contract tests | ⏳ |
 | 6. Backend services | ⏳ |
 | 7. Frontend | ⏳ |
@@ -91,7 +91,24 @@ RoundFinancial/
 
 ## Quick Start
 
-Not yet runnable — scaffolding lands in Step 3.
+See [`docs/devnet-setup.md`](docs/devnet-setup.md) for the full prerequisites and deploy walkthrough. Short version (WSL2 / Linux / macOS):
+
+```bash
+git clone https://github.com/alrimarleskovar/RoundFinancial.git
+cd RoundFinancial
+pnpm install
+cp .env.example .env
+
+solana config set --url https://api.devnet.solana.com
+mkdir -p keypairs && solana-keygen new -o keypairs/deployer.json
+export ANCHOR_WALLET=$(pwd)/keypairs/deployer.json
+
+pnpm run devnet:airdrop           # 2 SOL (repeat as needed)
+pnpm run devnet:deploy            # build → keys sync → build → deploy
+# copy the printed IDs into .env
+```
+
+Business logic lands in Step 4 — until then, deployed programs only expose a `ping` smoke instruction.
 
 ## License
 
