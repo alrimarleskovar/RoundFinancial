@@ -71,6 +71,10 @@ pub mod roundfi_core {
         instructions::harvest_yield::handler(ctx, args)
     }
 
+    pub fn settle_default(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<()> {
+        instructions::settle_default::handler(ctx, args)
+    }
+
     /// Dev-only smoke instruction; retained until Step 10 deprecates it.
     pub fn ping(_ctx: Context<Ping>) -> Result<()> {
         msg!("roundfi-core: ping");

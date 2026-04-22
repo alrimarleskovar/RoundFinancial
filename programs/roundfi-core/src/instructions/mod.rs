@@ -6,6 +6,7 @@ pub mod harvest_yield;
 pub mod initialize_protocol;
 pub mod join_pool;
 pub mod release_escrow;
+pub mod settle_default;
 
 pub use claim_payout::*;
 pub use contribute::*;
@@ -15,3 +16,4 @@ pub use harvest_yield::*;
 pub use initialize_protocol::*;
 pub use join_pool::*;
 pub use release_escrow::*;
+pub use settle_default::*;
