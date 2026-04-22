@@ -3,6 +3,8 @@
 
 pub mod bps;
 pub mod escrow_vesting;
+pub mod waterfall;
 
 pub use bps::*;
 pub use escrow_vesting::*;
+pub use waterfall::*;
