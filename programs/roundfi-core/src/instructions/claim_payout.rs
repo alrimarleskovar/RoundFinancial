@@ -159,7 +159,13 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
         args.cycle, member.slot_index, credit, ctx.accounts.pool_usdc_vault.amount,
     );
 
-    // TODO(4d): CPI roundfi-reputation to emit CycleComplete / LevelUp attestation.
+    // TODO(4d/wiring): CPI into roundfi-reputation::attest with
+    //   schema_id = SCHEMA_CYCLE_COMPLETE,
+    //   nonce     = (cycle as u64) << 32 | slot_index as u64,
+    //   pool / pool_authority / pool_seed_id as in contribute,
+    //   issuer = pool PDA.
+    // The reputation program enforces MIN_CYCLE_COOLDOWN_SECS so rapid
+    // cycle-complete spam across fake pools cannot ladder-jump the level.
     let _ = clock;
     Ok(())
 }

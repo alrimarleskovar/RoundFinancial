@@ -274,6 +274,13 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         d_remaining, c_initial, c_after,
     );
 
+    // TODO(4d/wiring): CPI into roundfi-reputation::attest with
+    //   schema_id = SCHEMA_DEFAULT,
+    //   nonce     = (cycle as u64) << 32 | slot_index as u64,
+    //   pool / pool_authority / pool_seed_id as in contribute,
+    //   issuer    = pool PDA (signed via core).
+    // Default is sticky in the reputation program: future positive
+    // attestations for the same pool/subject are rejected.
     Ok(())
 }
 

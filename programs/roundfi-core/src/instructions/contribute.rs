@@ -203,6 +203,14 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
         args.cycle, member.slot_index, on_time, solidarity_amt, escrow_deposit, pool_amt,
     );
 
-    // TODO(4d): CPI into roundfi-reputation to emit Payment/Late attestation.
+    // TODO(4d/wiring): CPI into roundfi-reputation::attest with
+    //   schema_id = if on_time { SCHEMA_PAYMENT } else { SCHEMA_LATE },
+    //   nonce     = (cycle as u64) << 32 | slot_index as u64,
+    //   pool      = pool.key(),
+    //   pool_authority = pool.authority,
+    //   pool_seed_id   = pool.seed_id,
+    //   issuer = pool PDA (signed via core's program).
+    // The reputation program auto-initializes the ReputationProfile if
+    // missing, so no pre-bootstrap is required.
     Ok(())
 }
