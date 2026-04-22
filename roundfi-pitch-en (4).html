@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoundFi — Colosseum Pitch</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03070d;
+  --s1:#0a1220;
+  --s2:#0f1c2e;
+  --acc:#00ff88;
+  --acc2:#00c4ff;
+  --warn:#ff6b35;
+  --danger:#ff3860;
+  --gold:#ffd166;
+  --txt:#deeaf5;
+  --muted:#5a7a94;
+  --border:rgba(0,255,136,0.12);
+  --r:10px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'Space Grotesk',sans-serif}
+
+/* ─── DECK ─── */
+.deck{width:100vw;height:100vh;position:relative}
+.slide{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  padding:52px 72px 72px;
+  opacity:0;pointer-events:none;
+  transition:opacity .45s ease;
+  overflow:hidden;
+}
+.slide.active{opacity:1;pointer-events:all}
+
+/* ─── GRID BG ─── */
+.gb{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);
+  background-size:56px 56px;
+}
+.gb-radial{
+  position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 55% at 50% 40%,rgba(0,255,136,0.05) 0%,transparent 70%);
+}
+
+/* ─── PROGRESS ─── */
+.progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .4s ease;z-index:200}
+
+/* ─── SIDE ARROWS ─── */
+.nav-btn{
+  position:fixed;top:50%;transform:translateY(-50%);
+  width:36px;height:80px;
+  background:rgba(10,18,32,0.7);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:.25s;z-index:100;backdrop-filter:blur(8px);outline:none;
+}
+.nav-btn:hover{color:var(--acc);border-color:rgba(0,255,136,0.35);background:rgba(0,255,136,0.06)}
+.nav-btn.prev{left:0;border-left:none;border-radius:0 8px 8px 0}
+.nav-btn.next{right:0;border-right:none;border-radius:8px 0 0 8px}
+
+/* ─── FOOTER ─── */
+.footer{
+  position:fixed;bottom:0;left:0;right:0;z-index:90;
+  background:rgba(3,7,13,0.93);border-top:1px solid rgba(0,255,136,0.08);
+  padding:6px 52px;
+  display:flex;align-items:center;justify-content:space-between;
+  backdrop-filter:blur(10px);pointer-events:none;
+}
+.footer-src{font-size:10px;color:rgba(90,122,148,0.65);letter-spacing:.02em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.footer-src strong{color:rgba(0,255,136,0.55);font-weight:500}
+.footer-id{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.15em;color:rgba(90,122,148,0.4);flex-shrink:0;margin-left:20px}
+
+/* ─── TYPOGRAPHY ─── */
+.eyebrow{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--acc);margin-bottom:14px;font-weight:500}
+.eyebrow.blue{color:var(--acc2)}
+.eyebrow.orange{color:var(--warn)}
+h1.big{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px,7vw,100px);line-height:.92;letter-spacing:.02em;color:#fff}
+h2.section{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,4.5vw,58px);letter-spacing:.03em;color:#fff;margin-bottom:6px}
+.sub{font-size:clamp(13px,1.3vw,17px);color:var(--muted);line-height:1.6;max-width:680px}
+.sub em{color:var(--txt);font-style:normal}
+
+/* ─── SLIDE NUMBER ─── */
+.snum{position:absolute;top:28px;right:72px;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.2em;color:rgba(90,122,148,0.35)}
+
+/* ─── DIVIDER ─── */
+.div-line{width:60px;height:2px;background:var(--acc);margin:16px 0;border-radius:1px}
+.div-line.blue{background:var(--acc2)}
+
+/* ─── FADE ANIMS ─── */
+.fu{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease}
+.slide.active .fu{opacity:1;transform:none}
+.fu:nth-child(1){transition-delay:.05s}.fu:nth-child(2){transition-delay:.15s}
+.fu:nth-child(3){transition-delay:.25s}.fu:nth-child(4){transition-delay:.35s}
+.fu:nth-child(5){transition-delay:.45s}.fu:nth-child(6){transition-delay:.55s}
+
+/* ─── CARDS ─── */
+.card{background:var(--s2);border:1px solid rgba(255,255,255,0.06);border-radius:var(--r);padding:22px 24px}
+.card.green{border-color:rgba(0,255,136,0.2);background:rgba(0,255,136,0.04)}
+.card.blue{border-color:rgba(0,196,255,0.2);background:rgba(0,196,255,0.04)}
+.card.orange{border-color:rgba(255,107,53,0.2);background:rgba(255,107,53,0.04)}
+
+/* ══════════════════════════════════════
+   SLIDE 1 — HACKER HOOK
+══════════════════════════════════════ */
+#s1{justify-content:center;align-items:flex-start;overflow:hidden}
+
+/* scanline overlay */
+#s1::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.07) 3px,rgba(0,0,0,0.07) 4px);
+}
+
+/* giant watermark */
+#s1 .s1-watermark{
+  position:absolute;right:-60px;top:50%;transform:translateY(-50%);
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(200px,28vw,380px);
+  line-height:1;letter-spacing:-.02em;
+  color:rgba(0,255,136,0.04);
+  pointer-events:none;user-select:none;white-space:nowrap;
+  z-index:0;
+}
+
+#s1 .hook-content{position:relative;z-index:2;display:flex;flex-direction:column}
+
+#s1 .hook-kicker{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(11px,1vw,14px);letter-spacing:.35em;text-transform:uppercase;
+  color:var(--acc);margin-bottom:28px;
+  opacity:0;transition:opacity .5s ease;transition-delay:.05s;
+}
+#s1.active .hook-kicker{opacity:1}
+
+#s1 .hook-line{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(52px,6.5vw,90px);
+  letter-spacing:.02em;color:#ffffff;line-height:.96;
+  opacity:0;transform:translateX(-40px);
+  transition:opacity .55s ease,transform .55s ease;
+}
+#s1.active .hook-line:nth-child(1){opacity:.45;transform:none;transition-delay:.2s;color:#fff}
+#s1.active .hook-line:nth-child(2){opacity:.45;transform:none;transition-delay:.45s;color:#fff}
+#s1.active .hook-line:nth-child(3){opacity:1;transform:none;transition-delay:.75s;color:#fff;text-shadow:0 0 60px rgba(0,255,136,0.3)}
+
+#s1 .hook-accent{
+  display:inline-block;color:var(--acc);
+  animation:blink-acc 2.5s ease-in-out infinite;
+  animation-delay:1.5s;
+}
+@keyframes blink-acc{0%,80%,100%{opacity:1}85%,95%{opacity:.4}}
+
+#s1 .hook-sep{
+  width:0;height:3px;
+  background:linear-gradient(90deg,var(--acc),var(--acc2),transparent);
+  border-radius:2px;transition:width .9s ease;margin:28px 0 24px;
+}
+#s1.active .hook-sep{width:200px;transition-delay:1.1s}
+
+#s1 .hook-impact{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(14px,1.6vw,22px);letter-spacing:.08em;
+  color:#ffffff;line-height:1.4;
+  max-width:680px;
+  opacity:0;transform:translateY(12px);
+  transition:opacity .6s ease,transform .6s ease;transition-delay:1.3s;
+  text-transform:uppercase;
+}
+#s1.active .hook-impact{opacity:1;transform:none}
+#s1 .hook-impact .acc{color:var(--acc)}
+#s1 .hook-impact .dim{color:rgba(255,255,255,0.45);font-size:.8em}
+
+#s1 .hook-sub{
+  max-width:600px;font-size:clamp(12px,1.2vw,15px);
+  color:rgba(255,255,255,0.45);line-height:1.75;
+  opacity:0;transition:opacity .6s ease;transition-delay:1.65s;
+  margin-top:14px;
+}
+#s1.active .hook-sub{opacity:1}
+#s1 .hook-sub em{color:rgba(255,255,255,0.75);font-style:normal;font-weight:500}
+
+#s1 .tag-col{
+  position:absolute;bottom:80px;right:72px;
+  font-family:'Bebas Neue',sans-serif;font-size:12px;
+  letter-spacing:.25em;color:rgba(255,255,255,0.2);
+  text-align:right;z-index:2;text-transform:uppercase;
+}
+
+/* ══════════════════════════════════════
+   SLIDE 2 — GLOBAL CREDIT PROBLEM
+══════════════════════════════════════ */
+#s2 .big-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:28px;flex:1;align-items:center}
+.bn-card{
+  background:var(--s2);border:1px solid rgba(255,255,255,0.06);
+  border-radius:var(--r);padding:28px 24px;text-align:center;
+  transition:.3s;
+}
+.bn-card:hover{border-color:rgba(0,255,136,0.25);transform:translateY(-4px)}
+.bn-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(52px,6vw,84px);
+  line-height:1;letter-spacing:.02em;
+}
+.bn-num.green{color:var(--acc)}
+.bn-num.blue{color:var(--acc2)}
+.bn-num.gold{color:var(--gold)}
+.bn-label{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.5}
+.bn-src{font-size:10px;color:rgba(90,122,148,0.4);margin-top:12px;letter-spacing:.05em;text-transform:uppercase}
+
+/* ══════════════════════════════════════
+   SLIDE 3 — WHY CREDIT FAILS
+══════════════════════════════════════ */
+#s3 .fail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:28px;flex:1;align-items:start}
+.fail-card{
+  border-radius:var(--r);padding:28px 24px;
+  display:flex;flex-direction:column;gap:14px;
+  border:1px solid;
+}
+.fail-card.red{border-color:rgba(255,56,96,0.3);background:rgba(255,56,96,0.04)}
+.fail-card.orange{border-color:rgba(255,107,53,0.3);background:rgba(255,107,53,0.04)}
+.fail-card.blue{border-color:rgba(0,196,255,0.3);background:rgba(0,196,255,0.04)}
+.fail-icon{font-size:28px}
+.fail-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.05em;color:#fff}
+.fail-badge{
+  display:inline-block;font-size:11px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;
+  border-radius:20px;
+}
+.fail-card.red .fail-badge{background:rgba(255,56,96,0.15);color:#ff3860}
+.fail-card.orange .fail-badge{background:rgba(255,107,53,0.15);color:var(--warn)}
+.fail-card.blue .fail-badge{background:rgba(0,196,255,0.15);color:var(--acc2)}
+.fail-desc{font-size:13px;color:var(--muted);line-height:1.65}
+
+/* ══════════════════════════════════════
+   SLIDE 4 — COMPARISON TABLE
+══════════════════════════════════════ */
+#s4 .comp-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;margin-top:20px}
+.comp-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.comp-tbl th{
+  padding:12px 18px;text-align:left;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.07);
+  background:var(--s1);
+}
+.comp-tbl th.rf{color:var(--acc)}
+.comp-tbl td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+.comp-tbl tr:hover td{background:rgba(255,255,255,0.02)}
+.comp-tbl td.rf-data{background:rgba(0,255,136,0.04);border-left:1px solid rgba(0,255,136,0.15);border-right:1px solid rgba(0,255,136,0.15)}
+.proto-name{font-weight:600;color:#fff;font-size:13px}
+.proto-sub{font-size:10px;color:var(--muted)}
+.prob-red{color:var(--danger);font-size:13px}
+.prob-orange{color:var(--warn);font-size:13px}
+.prob-green{color:var(--acc);font-size:13px;font-weight:600}
+.col-heavy{color:var(--gold)}
+.rf-pill{
+  display:inline-block;background:var(--acc);color:#000;
+  font-size:11px;font-weight:700;padding:2px 8px;
+  border-radius:20px;margin-left:6px;
+}
+
+/* ══════════════════════════════════════
+   SLIDE 5 — THE INSIGHT
+══════════════════════════════════════ */
+#s5{justify-content:center;align-items:center;text-align:center}
+#s5 .insight-pre{
+  font-size:clamp(14px,1.5vw,18px);color:var(--muted);
+  letter-spacing:.05em;margin-bottom:20px;
+}
+#s5 .insight-main{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(44px,6vw,88px);
+  line-height:.95;letter-spacing:.03em;color:#fff;
+  margin-bottom:20px;
+}
+#s5 .insight-main .acc{color:var(--acc)}
+#s5 .insight-sub{
+  font-size:clamp(14px,1.4vw,18px);color:var(--muted);
+  line-height:1.65;max-width:560px;margin:0 auto;
+}
+#s5 .rosca-stat{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);
+  border-radius:40px;padding:8px 20px;margin-top:28px;
+  font-size:14px;color:var(--acc);font-weight:500;
+}
+
+/* ══════════════════════════════════════
+   SLIDE 6 — TRANSITION TO ROUNDFI
+══════════════════════════════════════ */
+#s6{justify-content:center;align-items:center;text-align:center}
+#s6 .trans-main{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(38px,5.5vw,80px);
+  line-height:.95;letter-spacing:.02em;color:#fff;
+  margin-bottom:24px;
+}
+#s6 .trans-main .acc{color:var(--acc)}
+#s6 .pillars{display:flex;gap:16px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.pillar{
+  background:var(--s2);border:1px solid rgba(255,255,255,0.08);
+  border-radius:40px;padding:10px 22px;
+  font-size:14px;color:var(--txt);font-weight:500;
+}
+.pillar span{color:var(--acc);margin-right:6px}
+
+/* ══════════════════════════════════════
+   SLIDE 7 — ARCHITECTURE
+══════════════════════════════════════ */
+#s7 .arch-wrap{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  gap:0;
+}
+.arch-flow{display:flex;flex-direction:column;align-items:center;gap:0;width:260px}
+.arch-node{
+  width:240px;padding:16px 20px;
+  background:var(--s2);border:1px solid rgba(255,255,255,0.08);
+  border-radius:var(--r);text-align:center;
+}
+.arch-node.highlight{border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.06)}
+.arch-node-icon{font-size:22px;margin-bottom:6px}
+.arch-node-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.05em;color:#fff}
+.arch-node-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.arch-arrow{
+  display:flex;flex-direction:column;align-items:center;
+  margin:4px 0;gap:0;
+}
+.arch-arrow-line{width:2px;height:20px;background:linear-gradient(180deg,var(--acc),transparent);opacity:.5}
+.arch-arrow-head{
+  width:0;height:0;
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:7px solid var(--acc);opacity:.5;
+}
+#s7 .arch-details{
+  flex:1;display:flex;flex-direction:column;gap:12px;
+  margin-left:40px;padding-left:40px;
+  border-left:1px solid rgba(255,255,255,0.06);
+}
+.arch-detail-item{
+  background:var(--s2);border:1px solid rgba(255,255,255,0.06);
+  border-radius:var(--r);padding:14px 16px;
+  display:flex;gap:12px;align-items:flex-start;
+}
+.arch-detail-dot{width:6px;height:6px;border-radius:50%;background:var(--acc);flex-shrink:0;margin-top:5px}
+.arch-detail-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:3px}
+.arch-detail-desc{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* ══════════════════════════════════════
+   SLIDE 8 — TRIPLE SHIELD
+══════════════════════════════════════ */
+#s8 .shield-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:28px}
+.shield-card{
+  background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.2);
+  border-radius:var(--r);padding:28px 22px;display:flex;flex-direction:column;gap:12px;
+  transition:.3s;
+}
+.shield-card:hover{border-color:rgba(0,255,136,0.45);background:rgba(0,255,136,0.08);transform:translateY(-3px)}
+.shield-icon{font-size:28px}
+.shield-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.04em;color:#fff}
+.shield-arrow{font-size:18px;color:var(--acc);margin:0 2px}
+.shield-result{font-size:13px;font-weight:600;color:var(--acc)}
+.shield-desc{font-size:12px;color:var(--muted);line-height:1.6}
+#s8 .shield-footer{
+  margin-top:auto;padding:18px 24px;
+  background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);
+  border-radius:var(--r);text-align:center;
+  font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,2.2vw,28px);
+  letter-spacing:.05em;color:var(--acc);
+}
+
+/* ══════════════════════════════════════
+   SLIDE 9 — CREDIT TRILEMMA
+══════════════════════════════════════ */
+#s9{justify-content:center;align-items:center;text-align:center}
+.trilemma-wrap{position:relative;width:420px;height:380px;margin:20px auto 0}
+.tri-svg{width:100%;height:100%}
+.tri-node{
+  position:absolute;
+  background:var(--s2);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--r);padding:14px 20px;text-align:center;
+  min-width:120px;
+}
+.tri-node.top{top:0;left:50%;transform:translateX(-50%)}
+.tri-node.bl{bottom:0;left:0}
+.tri-node.br{bottom:0;right:0}
+.tri-node-label{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.05em;color:#fff}
+.tri-node-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.tri-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-40%);
+  width:90px;height:90px;border-radius:50%;
+  background:rgba(0,255,136,0.12);border:2px solid var(--acc);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.05em;color:var(--acc);
+  text-align:center;line-height:1.2;
+  animation:gpulse 3s ease-in-out infinite;
+}
+@keyframes gpulse{0%,100%{box-shadow:0 0 20px rgba(0,255,136,0.15)}50%{box-shadow:0 0 40px rgba(0,255,136,0.35)}}
+#s9 .trilemma-caption{
+  font-size:13px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;
+  margin-top:12px;
+}
+
+/* ══════════════════════════════════════
+   SLIDE 10 — WHY NOW
+══════════════════════════════════════ */
+#s10 .now-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:28px;flex:1;align-items:start}
+.now-card{
+  background:var(--s2);border:1px solid rgba(255,255,255,0.07);
+  border-radius:var(--r);padding:28px 22px;
+  transition:.3s;
+}
+.now-card:hover{border-color:rgba(0,196,255,0.3);transform:translateY(-3px)}
+.now-icon{font-size:32px;margin-bottom:14px}
+.now-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.04em;color:#fff;margin-bottom:8px}
+.now-desc{font-size:13px;color:var(--muted);line-height:1.65}
+.now-stat{
+  margin-top:14px;display:inline-block;
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--acc2);
+}
+
+/* ══════════════════════════════════════
+   SLIDE 11 — WHY SOLANA
+══════════════════════════════════════ */
+#s11{justify-content:center;align-items:center;text-align:center}
+#s11 .sol-headline{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(52px,7vw,100px);
+  letter-spacing:.03em;color:#fff;margin-bottom:8px;
+}
+#s11 .sol-headline span{color:var(--acc2)}
+#s11 .sol-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:760px;margin:28px auto 0}
+.sol-block{
+  background:var(--s2);border:1px solid rgba(0,196,255,0.15);
+  border-radius:var(--r);padding:22px 18px;text-align:center;
+}
+.sol-icon{font-size:28px;margin-bottom:10px}
+.sol-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.04em;color:#fff;margin-bottom:6px}
+.sol-stat{font-size:13px;color:var(--acc2);font-weight:600}
+.sol-desc{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* ══════════════════════════════════════
+   SLIDE 12 — REVENUE MODEL
+══════════════════════════════════════ */
+#s12 .rev-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;margin-top:20px}
+.rev-tbl{width:100%;border-collapse:collapse;font-size:14px}
+.rev-tbl th{
+  padding:12px 20px;text-align:left;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.07);
+  background:var(--s1);
+}
+.rev-tbl td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+.rev-tbl tr:hover td{background:rgba(255,255,255,0.02)}
+.rev-name{font-weight:600;color:#fff;font-size:15px}
+.rev-desc{font-size:13px;color:var(--muted)}
+.rev-phase{
+  display:inline-block;font-size:10px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:20px;
+}
+.rev-phase.p1{background:rgba(0,255,136,0.1);color:var(--acc)}
+.rev-phase.p2{background:rgba(0,196,255,0.1);color:var(--acc2)}
+.rev-phase.p3{background:rgba(255,209,102,0.1);color:var(--gold)}
+.rev-val{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.04em}
+.rev-val.green{color:var(--acc)}
+.rev-val.blue{color:var(--acc2)}
+.rev-val.gold{color:var(--gold)}
+
+/* ══════════════════════════════════════
+   SLIDE 13 — NETWORK EFFECTS
+══════════════════════════════════════ */
+#s13{justify-content:center;align-items:center;text-align:center}
+.network-wrap{position:relative;width:380px;height:380px;margin:0 auto}
+.net-ring{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  border-radius:50%;border:1px dashed rgba(0,255,136,0.15);
+}
+.net-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:80px;height:80px;border-radius:50%;
+  background:rgba(0,255,136,0.1);border:2px solid var(--acc);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--acc);text-align:center;line-height:1.2;
+  animation:gpulse 3s ease-in-out infinite;
+  z-index:2;
+}
+.net-node{
+  position:absolute;
+  background:var(--s2);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--r);padding:10px 14px;text-align:center;
+  font-size:13px;font-weight:600;color:#fff;white-space:nowrap;
+}
+.net-node.top{top:10px;left:50%;transform:translateX(-50%)}
+.net-node.right{right:10px;top:50%;transform:translateY(-50%)}
+.net-node.bottom{bottom:10px;left:50%;transform:translateX(-50%)}
+.net-node.left{left:10px;top:50%;transform:translateY(-50%)}
+.net-node sub{display:block;font-size:10px;color:var(--muted);font-weight:400;margin-top:2px}
+#s13 .net-phrase{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(22px,2.8vw,38px);
+  letter-spacing:.04em;color:#fff;margin-top:24px;
+}
+#s13 .net-phrase span{color:var(--acc)}
+
+/* ══════════════════════════════════════
+   SLIDE 14 — THE VISION
+══════════════════════════════════════ */
+#s14{justify-content:center;align-items:center;text-align:center}
+#s14 .vision-main{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(36px,5vw,72px);
+  line-height:.95;letter-spacing:.02em;color:#fff;
+  max-width:800px;margin:0 auto 24px;
+}
+#s14 .vision-main .acc{color:var(--acc)}
+#s14 .vision-main .blue{color:var(--acc2)}
+#s14 .vision-sub{
+  font-size:clamp(14px,1.4vw,18px);color:var(--muted);
+  max-width:560px;margin:0 auto;line-height:1.65;
+}
+#s14 .vision-pillars{
+  display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px;
+}
+.vp{
+  background:var(--s2);border:1px solid rgba(255,255,255,0.08);
+  border-radius:40px;padding:8px 18px;font-size:13px;color:var(--muted);
+}
+.vp strong{color:var(--acc)}
+
+/* ══════════════════════════════════════
+   SLIDE 15 — IMPACT CLOSING
+══════════════════════════════════════ */
+#s15{justify-content:center;align-items:flex-start}
+#s15 .close-wrap{width:100%}
+#s15 .close-line{
+  font-family:'Bebas Neue',sans-serif;
+  line-height:.95;letter-spacing:.02em;
+  opacity:0;transform:translateY(20px);
+  transition:opacity .6s ease,transform .6s ease;
+}
+#s15.active .close-line:nth-child(1){opacity:1;transform:none;transition-delay:.1s;font-size:clamp(52px,7vw,96px);color:var(--muted)}
+#s15.active .close-line:nth-child(2){opacity:1;transform:none;transition-delay:.4s;font-size:clamp(52px,7vw,96px);color:var(--muted)}
+#s15.active .close-line:nth-child(3){opacity:0;transform:none;transition-delay:.65s}
+#s15.active .close-line:nth-child(4){opacity:1;transform:none;transition-delay:.9s;font-size:clamp(52px,7vw,96px);color:#fff}
+#s15.active .close-line:nth-child(5){opacity:1;transform:none;transition-delay:1.1s;font-size:clamp(52px,7vw,96px);color:var(--acc)}
+#s15 .close-cta{
+  margin-top:36px;
+  opacity:0;transition:opacity .6s ease;transition-delay:1.4s;
+}
+#s15.active .close-cta{opacity:1}
+.cta-pill{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--acc);color:#000;
+  font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.1em;
+  padding:14px 32px;border-radius:40px;
+  box-shadow:0 0 30px rgba(0,255,136,0.25);
+}
+
+/* S4 extra row styles */
+.rf-row td{background:rgba(0,255,136,0.04);border-bottom:none}
+.rf-row:hover td{background:rgba(0,255,136,0.07)!important}
+.rf-name{color:var(--acc);font-weight:700}
+.rf-sub{color:rgba(0,255,136,0.6)}
+.rf-val{color:var(--acc);font-weight:600}
+.rf-chk{font-size:15px}
+.rf-edge{color:var(--acc);font-size:12px;font-weight:600}
+
+/* ══════════════════════════════════════
+   SLIDE 15 — DUE DILIGENCE / Q&A
+══════════════════════════════════════ */
+#s15-qa{background:linear-gradient(135deg,rgba(255,56,96,0.03) 0%,transparent 60%)}
+.qa-list{display:flex;flex-direction:column;gap:14px;margin-top:18px;flex:1}
+.qa-item{
+  background:var(--s2);border:1px solid rgba(255,255,255,0.06);
+  border-radius:var(--r);padding:18px 22px;cursor:pointer;transition:.3s;
+}
+.qa-item:hover{border-color:rgba(255,56,96,0.3)}
+.qa-item.open{border-color:var(--danger);background:rgba(255,56,96,0.04)}
+.qa-header{display:flex;gap:14px;align-items:flex-start}
+.qa-badge{
+  width:36px;height:36px;flex-shrink:0;border-radius:50%;
+  background:rgba(255,56,96,0.12);border:1px solid rgba(255,56,96,0.3);
+  color:var(--danger);font-family:'Bebas Neue',sans-serif;font-size:16px;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.qa-q-text{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(14px,1.4vw,19px);letter-spacing:.03em;color:#fff;
+  line-height:1.2;flex:1;
+}
+.qa-toggle{
+  margin-left:auto;flex-shrink:0;
+  color:var(--muted);font-size:18px;transition:.3s;padding-top:2px;
+}
+.qa-item.open .qa-toggle{transform:rotate(180deg);color:var(--danger)}
+.qa-answer{
+  max-height:0;overflow:hidden;transition:max-height .4s ease, margin-top .3s ease;
+}
+.qa-item.open .qa-answer{max-height:300px;margin-top:14px}
+.qa-answer-inner{
+  padding-top:14px;border-top:1px solid rgba(255,56,96,0.12);
+  font-size:13px;color:rgba(222,234,245,0.7);line-height:1.75;
+}
+.qa-answer-inner strong{color:var(--acc);font-weight:600}
+.qa-answer-inner em{color:#fff;font-style:normal}
+.qa-risk-tag{
+  display:inline-block;font-size:10px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 8px;border-radius:20px;margin-bottom:8px;
+}
+.risk-high{background:rgba(255,56,96,0.15);color:var(--danger)}
+.risk-mid{background:rgba(255,107,53,0.15);color:var(--warn)}
+.risk-tech{background:rgba(0,196,255,0.15);color:var(--acc2)}
+.qa-footnote{
+  margin-top:12px;font-size:11px;
+  color:rgba(90,122,148,0.5);font-style:italic;letter-spacing:.02em;
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<button class="nav-btn prev" onclick="go(-1)">&#9664;</button>
+<button class="nav-btn next" onclick="go(1)">&#9654;</button>
+
+<div class="deck">
+
+<!-- ══ S1 — HACKER HOOK ══ -->
+<div class="slide" id="s1">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <div class="s1-watermark">CREDIT</div>
+  <div class="hook-content">
+    <div class="hook-kicker">Colosseum Hackathon 2026 · Built on Solana</div>
+    <div class="hook-line">DeFi solved trading.</div>
+    <div class="hook-line">DeFi solved liquidity.</div>
+    <div class="hook-line">But DeFi never solved <span class="hook-accent">credit.</span></div>
+    <div class="hook-sep"></div>
+    <div class="hook-impact">
+      <span class="dim">Billions are disciplined. Billions are creditworthy.</span><br>
+      The system just never <span class="acc">looked at their behavior.</span>
+    </div>
+    <div class="hook-sub">
+      <em>Aave</em> requires 150% collateral — locking out those without crypto wealth.<br>
+      <em>Goldfinch</em> tried unsecured lending — and suffered real defaults in 2022.<br>
+      Neither asked the right question: <em>what if behavior is the collateral?</em>
+    </div>
+  </div>
+  <div class="tag-col">Colosseum Hackathon 2026 · Built on Solana</div>
+</div>
+
+<!-- ══ S2 — GLOBAL CREDIT PROBLEM ══ -->
+<div class="slide" id="s2">
+  <div class="gb"></div>
+  <span class="snum">02 / 15</span>
+  <p class="eyebrow fu">The Problem</p>
+  <h2 class="section fu">The Global Credit Gap</h2>
+  <div class="big-nums fu">
+    <div class="bn-card">
+      <div class="bn-num green">1.3B</div>
+      <div class="bn-label">Adults worldwide<br>without access to formal financial services</div>
+      <div class="bn-src">World Bank Global Findex 2025 (data 2024, published Jul 2025)</div>
+    </div>
+    <div class="bn-card">
+      <div class="bn-num gold">$5.7T</div>
+      <div class="bn-label">MSME finance gap<br>in emerging markets (formal + informal: $8T)</div>
+      <div class="bn-src">IFC MSME Finance Gap Report — Apr 2025</div>
+    </div>
+    <div class="bn-card">
+      <div class="bn-num blue">20M+</div>
+      <div class="bn-label">Active DeFi users —<br>zero with behavioral credit scoring</div>
+      <div class="bn-src">CoinLaw / Statista / Dune Analytics 2025</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S3 — WHY CREDIT FAILS ══ -->
+<div class="slide" id="s3">
+  <div class="gb"></div>
+  <span class="snum">03 / 15</span>
+  <p class="eyebrow orange fu">Root Cause Analysis</p>
+  <h2 class="section fu">Why Credit Fails in DeFi</h2>
+  <div class="fail-grid fu">
+    <div class="fail-card red">
+      <div class="fail-icon">🔴</div>
+      <div class="fail-title">Overcollateralized</div>
+      <div class="fail-badge">Aave · Marginfi · MakerDAO</div>
+      <div class="fail-desc">Requires 120–150% collateral to issue credit. Serves crypto-wealthy, excludes the global majority. Capital-inefficient by design.</div>
+    </div>
+    <div class="fail-card orange">
+      <div class="fail-icon">🟠</div>
+      <div class="fail-title">Unsecured</div>
+      <div class="fail-badge">Goldfinch · TrueFi</div>
+      <div class="fail-desc">No collateral required but relies on off-chain credit checks. Suffered defaults in 2022. Doesn't serve retail users at scale.</div>
+    </div>
+    <div class="fail-card blue">
+      <div class="fail-icon">🔵</div>
+      <div class="fail-title">Social Trust</div>
+      <div class="fail-badge">Informal ROSCAs</div>
+      <div class="fail-desc">Hundreds of millions use savings circles globally. Proven behavioral credit. But it's informal, unverifiable, and can't scale on-chain.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S4 — COMPARISON ══ -->
+<div class="slide" id="s4">
+  <div class="gb"></div>
+  <span class="snum">04 / 15</span>
+  <p class="eyebrow blue fu">Market Landscape</p>
+  <h2 class="section fu">DeFi Lending — Where Everyone Falls Short</h2>
+  <div class="comp-wrap fu">
+    <table class="comp-tbl">
+      <thead>
+        <tr>
+          <th>Protocolo</th>
+          <th>Sub-colateral</th>
+          <th>Score comportamental</th>
+          <th>Usuário de varejo</th>
+          <th>Mercados emergentes</th>
+          <th>NFT como posição</th>
+          <th>Sem cripto prévia</th>
+          <th class="rf">RoundFi&nbsp;<span class="rf-pill">NEW</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="proto-name">Aave / Marginfi</div><div class="proto-sub">Over-collateral</div></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td class="rf-data chk-col"><span class="prob-green rf-chk">✓</span></td>
+        </tr>
+        <tr>
+          <td><div class="proto-name">Goldfinch</div><div class="proto-sub">RWA / Empresas</div></td>
+          <td><span class="prob-green">✓</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-orange">~</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td class="rf-data chk-col"><span class="prob-green rf-chk">✓</span></td>
+        </tr>
+        <tr>
+          <td><div class="proto-name">Maple Finance</div><div class="proto-sub">Institucional</div></td>
+          <td><span class="prob-orange">~</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td class="rf-data chk-col"><span class="prob-green rf-chk">✓</span></td>
+        </tr>
+        <tr>
+          <td><div class="proto-name">TrueFi</div><div class="proto-sub">Institucional</div></td>
+          <td><span class="prob-orange">~</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td class="rf-data chk-col"><span class="prob-green rf-chk">✓</span></td>
+        </tr>
+        <tr>
+          <td><div class="proto-name">Credix</div><div class="proto-sub">LATAM · Solana</div></td>
+          <td><span class="prob-green">✓</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-green">✓</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td class="rf-data chk-col"><span class="prob-green rf-chk">✓</span></td>
+        </tr>
+        <tr>
+          <td><div class="proto-name">RociFi</div><div class="proto-sub">Credit Score</div></td>
+          <td><span class="prob-green">✓</span></td>
+          <td><span class="prob-orange">~</span></td>
+          <td><span class="prob-orange">~</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td><span class="prob-red">✗</span></td>
+          <td class="rf-data chk-col"><span class="prob-green rf-chk">✓</span></td>
+        </tr>
+        <tr class="rf-row">
+          <td><div class="proto-name rf-name">RoundFi</div><div class="proto-sub rf-sub">ROSCA · Behavior</div></td>
+          <td><span class="prob-green rf-chk">✓</span></td>
+          <td><span class="prob-green rf-chk">✓</span></td>
+          <td><span class="prob-green rf-chk">✓</span></td>
+          <td><span class="prob-green rf-chk">✓</span></td>
+          <td><span class="prob-green rf-chk">✓</span></td>
+          <td><span class="prob-green rf-chk">✓</span></td>
+          <td class="rf-data rf-edge">Único com todos ✓</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px">✗ Não possui &nbsp;&nbsp;~ Parcial &nbsp;&nbsp;✓ Completo &nbsp;·&nbsp; Fontes: Protocol docs · CoinGecko Research · DeFi Prime 2026 · Tracxn · Fensory Analysis</div>
+  </div>
+</div>
+
+<!-- ══ S5 — THE INSIGHT ══ -->
+<div class="slide" id="s5">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">05 / 15</span>
+  <div class="fu" style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+    <p class="insight-pre">The answer already exists.</p>
+    <div class="insight-main">Credit already exists globally.<br>It's called <span class="acc">ROSCA.</span></div>
+    <div class="div-line" style="margin:0 auto 20px"></div>
+    <p class="insight-sub">Rotating Savings & Credit Associations — savings circles used by <em>hundreds of millions</em> of people across Africa, Latin America, and Asia for centuries.</p>
+    <div class="rosca-stat">⚡ Proven behavioral credit — just not on-chain. Until now.</div>
+  </div>
+</div>
+
+<!-- ══ S6 — TRANSITION TO ROUNDFI ══ -->
+<div class="slide" id="s6">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">06 / 15</span>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+    <p class="eyebrow fu">The Solution</p>
+    <div class="trans-main fu">RoundFi brings<br><span class="acc">cooperative credit</span><br>on-chain.</div>
+    <div class="pillars fu">
+      <div class="pillar"><span>🔗</span>ROSCA Pools</div>
+      <div class="pillar"><span>📜</span>Smart Contracts</div>
+      <div class="pillar"><span>🧠</span>Behavioral Credit</div>
+      <div class="pillar"><span>⚡</span>Solana Speed</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S7 — ARCHITECTURE ══ -->
+<div class="slide" id="s7">
+  <div class="gb"></div>
+  <span class="snum">07 / 15</span>
+  <p class="eyebrow fu">Protocol Design</p>
+  <h2 class="section fu">RoundFi Architecture</h2>
+  <div class="arch-wrap fu">
+    <div class="arch-flow">
+      <div class="arch-node"><div class="arch-node-icon">🪪</div><div class="arch-node-title">Identity</div><div class="arch-node-sub">Proof of Personhood · SAS</div></div>
+      <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-head"></div></div>
+      <div class="arch-node highlight"><div class="arch-node-icon">🧠</div><div class="arch-node-title">Behavior Engine</div><div class="arch-node-sub">Score · Reputation · SAS Attestation</div></div>
+      <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-head"></div></div>
+      <div class="arch-node"><div class="arch-node-icon">🔄</div><div class="arch-node-title">ROSCA Pools</div><div class="arch-node-sub">24 members · $416/mo · $10K credit</div></div>
+      <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-head"></div></div>
+      <div class="arch-node highlight"><div class="arch-node-icon">🛡️</div><div class="arch-node-title">Triple Shield</div><div class="arch-node-sub">Seed Draw · Escrow · Yield Waterfall</div></div>
+    </div>
+    <div class="arch-details">
+      <div class="arch-detail-item">
+        <div class="arch-detail-dot"></div>
+        <div><div class="arch-detail-title">Solana Attestation Service (SAS)</div><div class="arch-detail-desc">Immutable on-chain behavioral records. Every payment is an attestation — building a verifiable credit identity over time.</div></div>
+      </div>
+      <div class="arch-detail-item">
+        <div class="arch-detail-dot" style="background:var(--acc2)"></div>
+        <div><div class="arch-detail-title">Reputation Ladder (50-30-10 Rule)</div><div class="arch-detail-desc">Stake drops from 50% → 10% as reputation grows. Veterans access 10x leverage by depositing $1K and receiving $3.5K on Day 1.</div></div>
+      </div>
+      <div class="arch-detail-item">
+        <div class="arch-detail-dot" style="background:var(--gold)"></div>
+        <div><div class="arch-detail-title">Kamino Yield Integration</div><div class="arch-detail-desc">Idle float earns 5–8% APY. Distributed via waterfall: Protocol 20% → Guarantee Fund 150% → LP Angels → Participants.</div></div>
+      </div>
+      <div class="arch-detail-item">
+        <div class="arch-detail-dot" style="background:var(--danger)"></div>
+        <div><div class="arch-detail-title">NFT Escape Valve</div><div class="arch-detail-desc">Positions tokenized as dynamic NFTs. Users in distress sell instead of defaulting — injecting fresh capital via free market arbitrage.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S8 — TRIPLE SHIELD ══ -->
+<div class="slide" id="s8">
+  <div class="gb"></div>
+  <span class="snum">08 / 15</span>
+  <p class="eyebrow fu">Risk Management</p>
+  <h2 class="section fu">Triple Shield System</h2>
+  <div class="shield-grid fu">
+    <div class="shield-card">
+      <div class="shield-icon">🌱</div>
+      <div class="shield-title">Partial Collateral</div>
+      <div><span class="shield-arrow">→</span><span class="shield-result">Reduces default risk</span></div>
+      <div class="shield-desc">Month 1 Seed Draw retains 91.6% of capital before first full credit card. Protocol is overcapitalized from Day 0.</div>
+    </div>
+    <div class="shield-card">
+      <div class="shield-icon">📊</div>
+      <div class="shield-title">Behavior Score</div>
+      <div><span class="shield-arrow">→</span><span class="shield-result">Creates reputation</span></div>
+      <div class="shield-desc">Adaptive Escrow locks portions of rewards. Debt always decreases faster than collateral returns — making default mathematically irrational.</div>
+    </div>
+    <div class="shield-card">
+      <div class="shield-icon">🤝</div>
+      <div class="shield-title">Group Structure</div>
+      <div><span class="shield-arrow">→</span><span class="shield-result">Aligns incentives</span></div>
+      <div class="shield-desc">1% Solidarity Vault from every installment. Paid back as Good Faith Bonus to on-time participants. Social pressure on-chain.</div>
+    </div>
+  </div>
+  <div class="shield-footer fu">Three protections. One credit system.</div>
+</div>
+
+<!-- ══ S9 — CREDIT TRILEMMA ══ -->
+<div class="slide" id="s9">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">09 / 15</span>
+  <p class="eyebrow fu" style="text-align:center">Why This Works</p>
+  <h2 class="section fu" style="text-align:center">Solving the Credit Trilemma</h2>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center" class="fu">
+    <div class="trilemma-wrap">
+      <svg class="tri-svg" viewBox="0 0 420 380" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="210,30 50,330 370,330" fill="none" stroke="rgba(0,255,136,0.15)" stroke-width="1" stroke-dasharray="6 4"/>
+        <line x1="210" y1="30" x2="210" y2="230" stroke="rgba(0,255,136,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="50" y1="330" x2="210" y2="230" stroke="rgba(0,255,136,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="370" y1="330" x2="210" y2="230" stroke="rgba(0,255,136,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+      </svg>
+      <div class="tri-node top"><div class="tri-node-label">Protection</div><div class="tri-node-sub">Triple Shield</div></div>
+      <div class="tri-node bl"><div class="tri-node-label">Accessibility</div><div class="tri-node-sub">No crypto required</div></div>
+      <div class="tri-node br"><div class="tri-node-label">Trust</div><div class="tri-node-sub">Behavioral SAS</div></div>
+      <div class="tri-center">ROUND<br>Fi</div>
+    </div>
+    <div class="trilemma-caption">RoundFi is the only protocol that solves all three.</div>
+  </div>
+</div>
+
+<!-- ══ S10 — WHY NOW ══ -->
+<div class="slide" id="s10">
+  <div class="gb"></div>
+  <span class="snum">10 / 15</span>
+  <p class="eyebrow fu">Market Timing</p>
+  <h2 class="section fu">Why Now</h2>
+  <div class="now-grid fu">
+    <div class="now-card">
+      <div class="now-icon">📱</div>
+      <div class="now-title">Smartphones Everywhere</div>
+      <div class="now-desc">6.8 billion smartphone users globally. Mobile-first populations in LATAM, Africa, and Southeast Asia are already digitally connected — just financially excluded.</div>
+      <div class="now-stat">96% of adults have mobile or bank account</div>
+    </div>
+    <div class="now-card">
+      <div class="now-icon">🌍</div>
+      <div class="now-title">DeFi Infrastructure Mature</div>
+      <div class="now-desc">DeFi TVL approaching $10B in 2026. RWA tokenization and programmable credit growing rapidly. The rails are ready. The use case was missing.</div>
+      <div class="now-stat">DeFi outstanding loans grew 37% in 2025</div>
+    </div>
+    <div class="now-card">
+      <div class="now-icon">⚡</div>
+      <div class="now-title">Fast Blockchains Exist</div>
+      <div class="now-desc">Solana processes 65,000 TPS at sub-cent fees. Kamino Finance provides yield infrastructure. SAS enables behavioral attestations. Everything needed is live.</div>
+      <div class="now-stat">Solana: &lt;$0.001 avg transaction cost</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S11 — WHY SOLANA ══ -->
+<div class="slide" id="s11">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">11 / 15</span>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <p class="eyebrow blue fu" style="text-align:center">Infrastructure Choice</p>
+    <div class="sol-headline fu">Built on <span>Solana</span></div>
+    <div class="sol-grid fu">
+      <div class="sol-block">
+        <div class="sol-icon">⚡</div>
+        <div class="sol-title">High Throughput</div>
+        <div class="sol-stat">65,000 TPS</div>
+        <div class="sol-desc">Instant settlement for 24-member groups processing monthly installments.</div>
+      </div>
+      <div class="sol-block">
+        <div class="sol-icon">💰</div>
+        <div class="sol-title">Low Transaction Cost</div>
+        <div class="sol-stat">&lt;$0.001 per tx</div>
+        <div class="sol-desc">Microtransactions viable. $416 installment with &lt;0.001% fee friction.</div>
+      </div>
+      <div class="sol-block">
+        <div class="sol-icon">🌎</div>
+        <div class="sol-title">Global Accessibility</div>
+        <div class="sol-stat">No KYC to start</div>
+        <div class="sol-desc">Solana Blinks enable participation directly from X/Twitter feeds. Zero wallet friction.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S12 — REVENUE MODEL ══ -->
+<div class="slide" id="s12">
+  <div class="gb"></div>
+  <span class="snum">12 / 15</span>
+  <p class="eyebrow fu">Business Model</p>
+  <h2 class="section fu">Revenue Model</h2>
+  <div class="rev-wrap fu">
+    <table class="rev-tbl">
+      <thead>
+        <tr>
+          <th>Revenue Source</th>
+          <th>Description</th>
+          <th>Phase</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="rev-name">Performance Fee</div><div class="rev-desc">% of yield generated from Kamino Finance float</div></td>
+          <td>~20% of pool yield. Passive, continuous across all active cycles.</td>
+          <td><span class="rev-phase p1">Phase 1</span></td>
+          <td><span class="rev-val green">20%</span></td>
+        </tr>
+        <tr>
+          <td><div class="rev-name">Admin Fee</div><div class="rev-desc">Per-cycle fee for Level 1 & 2 users</div></td>
+          <td>1–2% per cycle. Level 3 Veterans exempt as VIP benefit.</td>
+          <td><span class="rev-phase p1">Phase 1</span></td>
+          <td><span class="rev-val green">1–2%</span></td>
+        </tr>
+        <tr>
+          <td><div class="rev-name">Yield Spread</div><div class="rev-desc">Treasury yield from idle capital allocation</div></td>
+          <td>5–8% APY via Kamino. Distributed via waterfall: protocol, fund, LPs, users.</td>
+          <td><span class="rev-phase p2">Phase 1–2</span></td>
+          <td><span class="rev-val blue">5–8% APY</span></td>
+        </tr>
+        <tr>
+          <td><div class="rev-name">Credit API — B2B SaaS</div><div class="rev-desc">Behavioral score licensing to DeFi protocols & neobanks</div></td>
+          <td>Institutional subscriptions to RoundFi SAS score API. The "Serasa of Web3".</td>
+          <td><span class="rev-phase p3">Phase 2–3</span></td>
+          <td><span class="rev-val gold">Unlimited</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:14px;display:flex;gap:12px">
+      <div style="flex:1;background:var(--s2);border:1px solid rgba(255,255,255,0.06);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--muted)"><strong style="color:var(--acc)">Benchmark:</strong> Esusu (Web2 ROSCA unicorn) valued at US$1.2B. RoundFi adds deterministic on-chain logic.</div>
+      <div style="flex:1;background:var(--s2);border:1px solid rgba(255,255,255,0.06);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--muted)"><strong style="color:var(--acc2)">LP Angels:</strong> 60% of residual yield · 24-month lock · Protected by 3-layer anti-bank-run mechanism.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S13 — NETWORK EFFECTS ══ -->
+<div class="slide" id="s13">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">13 / 15</span>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <p class="eyebrow fu" style="text-align:center">Flywheel</p>
+    <div class="network-wrap fu">
+      <div class="net-ring" style="width:320px;height:320px;margin-left:-160px;margin-top:-160px"></div>
+      <div class="net-ring" style="width:200px;height:200px;margin-left:-100px;margin-top:-100px"></div>
+      <div class="net-center">ROUND<br>Fi</div>
+      <div class="net-node top">Users<sub>pay on time</sub></div>
+      <div class="net-node right">Better<br>lending<sub>lower stake</sub></div>
+      <div class="net-node bottom">Credit score<sub>SAS on-chain</sub></div>
+      <div class="net-node left">Behavior<br>data<sub>immutable</sub></div>
+    </div>
+    <div class="net-phrase fu">Credit becomes a <span>network effect.</span></div>
+  </div>
+</div>
+
+<!-- ══ S14 — THE VISION ══ -->
+<div class="slide" id="s14">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">14 / 15</span>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <p class="eyebrow fu" style="text-align:center">End Game</p>
+    <div class="vision-main fu">The <span class="acc">Global Credit</span><br>Coordination <span class="blue">Layer</span><br>for Web3</div>
+    <p class="vision-sub fu">Access to credit based on behavior, not wealth.<br>The behavioral oracle that makes DeFi credit work for everyone.</p>
+    <div class="vision-pillars fu">
+      <div class="vp"><strong>50M</strong> target wallets · Phase 1</div>
+      <div class="vp">BCB Sandbox · Brazil</div>
+      <div class="vp">SOFIPO expansion · Mexico</div>
+      <div class="vp"><strong>"Serasa of Web3"</strong></div>
+      <div class="vp">Marginfi · Reputation Bond</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S15 — DUE DILIGENCE ══ -->
+<div class="slide" id="s15-qa">
+  <div class="gb"></div>
+  <span class="snum">15 / 16</span>
+  <p class="eyebrow fu" style="color:var(--danger)">Due Diligence · High-Level</p>
+  <h2 class="section fu">3 Perguntas que os Jurados Vão Fazer</h2>
+  <div class="qa-list fu">
+
+    <div class="qa-item" onclick="toggleQA(this)">
+      <div class="qa-header">
+        <div class="qa-badge">01</div>
+        <div class="qa-q-text">"O protocolo depende de grupos se formarem espontaneamente. Como você resolve o cold start problem — e como garante que os 24 slots sempre se preenchem antes do ciclo começar?"</div>
+        <div class="qa-toggle">▾</div>
+      </div>
+      <div class="qa-answer">
+        <div class="qa-answer-inner">
+          <span class="qa-risk-tag risk-high">Risco de Tração · Go-to-Market</span>
+          <p>Esta é a vulnerabilidade mais concreta do modelo: um grupo incompleto bloqueia o ciclo inteiro. A resposta não pode ser "o mercado vai se organizar". <strong>A estratégia real são os líderes de consórcio existentes</strong> — pessoas que já gerenciam grupos de 20–40 pessoas no WhatsApp. Eles chegam com o grupo formado, não com indivíduos avulsos. <strong>O protocolo digitaliza um hábito já existente, não cria um novo</strong>. Adicionalmente, o modelo permite <em>grupos parciais com Sorteio Semente calibrado</em> ao número de participantes, reduzindo o risco de ciclos travados. Para o Hackathon, o MVP foca em 2–3 grupos piloto com líderes já identificados no Brasil e México.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa-item" onclick="toggleQA(this)">
+      <div class="qa-header">
+        <div class="qa-badge">02</div>
+        <div class="qa-q-text">"O SAS atesta comportamento on-chain — mas o usuário Nível 1 não tem histórico nenhum. Como você distingue um bom pagador de um oportunista no primeiro ciclo, quando o risco é maior e o stake é só 50%?"</div>
+        <div class="qa-toggle">▾</div>
+      </div>
+      <div class="qa-answer">
+        <div class="qa-answer-inner">
+          <span class="qa-risk-tag risk-mid">Risco de Seleção Adversa · Protocolo</span>
+          <p>Esta é a pergunta técnica mais sofisticada. No Nível 1, o SAS ainda não tem dados — o protocolo compensa isso com <strong>duas camadas matemáticas</strong>: (1) o Escrow Adaptativo retém 50% do prêmio, criando uma dívida que só vale dar calote se o usuário abrir mão de mais do que recebeu; (2) o Sorteio Semente no Mês 1 garante que <em>ninguém recebe a carta cheia antes de o cofre estar supercapitalizado</em>. O design torna o calote irracional mesmo sem histórico prévio. <strong>O comportamento não precisa ser verificado antes — ele é forçado pelo design do contrato</strong>. O SAS registra o resultado, não é um pré-requisito.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa-item" onclick="toggleQA(this)">
+      <div class="qa-header">
+        <div class="qa-badge">03</div>
+        <div class="qa-q-text">"Um grupo depositando capital rotativo em smart contracts pode ser enquadrado como captação pública no Brasil, ativando regulação do BCB. Como vocês evitam virar uma instituição financeira?"</div>
+        <div class="qa-toggle">▾</div>
+      </div>
+      <div class="qa-answer">
+        <div class="qa-answer-inner">
+          <span class="qa-risk-tag risk-tech">Risco Regulatório · Estrutural</span>
+          <p>
+            <strong>O MVP começa com grupos de até 15 pessoas.</strong> A Lei nº 11.795/2008 só regula consórcios <em>promovidos por administradora autorizada pelo BCB</em> — grupos informais peer-to-peer entre pessoas ficam fora desse escopo. O smart contract não é uma administradora comercial, então o gatilho regulatório não é acionado.<br><br>
+            ROSCAs informais de 10–20 membros operam sem regulamentação há séculos em todo o mundo — e só no Brasil existem mais de 5 milhões de participantes ativos nesse modelo. O MVP do RoundFi é juridicamente equivalente a um grupo de WhatsApp com smart contract no lugar de uma planilha.<br><br>
+            <strong>Quando escalar:</strong> grupos maiores entram pelo BCB Sandbox (Res. nº 207/2022) como fintech supervisionada — não como banco.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="qa-footnote fu">
+    <strong>Fontes Q1:</strong> RoundFi Whitepaper · Plano de Expansão Estratégica · Solana Blinks/Actions documentation &nbsp;·&nbsp;
+    <strong>Q2:</strong> RoundFi Viabilidade Técnica — Escrow Adaptativo &amp; Sorteio Semente &nbsp;·&nbsp;
+    <strong>Q3:</strong> Lei nº 11.795/2008 (Planalto.gov.br) · BCB Sandbox Res. nº 207/2022 · Wikipedia — ROSCA: 5M+ usuários no Brasil (2015) · World Bank: 25% adultos África Subsaariana usam savings clubs · Invested Development / FinMark Trust: grupos informais de 15–20 membros operam sem regulamentação
+  </div>
+</div>
+
+<!-- ══ S16 — IMPACT CLOSING ══ -->
+<div class="slide" id="s15">
+  <div class="gb"></div><div class="gb-radial"></div>
+  <span class="snum">16 / 16</span>
+  <div class="close-wrap" style="margin-top:auto;margin-bottom:auto">
+    <div class="close-line">DeFi unlocked capital.</div>
+    <div class="close-line" style="margin-bottom:4px">Goldfinch tried unsecured credit.</div>
+    <div class="close-line">&nbsp;</div>
+    <div class="close-line">RoundFi unlocks</div>
+    <div class="close-line">credit.</div>
+    <div class="close-cta">
+      <div class="cta-pill">Built on Solana · Colosseum Hackathon 2026 &#9654;</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- FOOTER SOURCES -->
+<div class="footer" id="footer">
+  <div class="footer-src" id="footerSrc"></div>
+  <div class="footer-id" id="footerId">01 / 15</div>
+</div>
+
+<script>
+const TOTAL = 16;
+let cur = 0;
+
+const slides = document.querySelectorAll('.slide');
+const progressEl = document.getElementById('progress');
+
+const sources = [
+  'Aave Protocol Docs · Goldfinch Finance — documented defaults 2022 · DeFi Prime Tranched Credit Markets 2026 · CoinGecko Research',
+  'World Bank Global Findex 2025 (Jul 2025, data 2024): 1.3B unbanked · IFC MSME Finance Gap $5.7T (Apr 2025) · CoinLaw / Statista DeFi 20M+ active users 2025',
+  'Goldfinch Finance default history · TrueFi 2022 crisis · Aave overcollateralization model · CoinGecko Undercollateralized Lending Research',
+  'Protocol documentation — Aave, Goldfinch, Maple Finance, TrueFi, RoundFi Whitepaper · CoinGecko Research · DeFi Prime 2026 · Fensory Analysis',
+  'World Bank — ROSCA / Rotating Savings & Credit Associations research · Esusu unicorn benchmark US$1.2B · RoundFi Whitepaper',
+  'RoundFi Technical Whitepaper · Viability Analysis · B2B Strategic Plan · Solana Attestation Service (SAS) documentation',
+  'RoundFi Technical Whitepaper — Architecture & Solvency · Solana Attestation Service · Kamino Finance · Margin Fi Reputation Bond',
+  'RoundFi Technical Whitepaper — Triple Shield System · Seed Draw metrics · Adaptive Escrow matrix · Solidarity Vault mechanics',
+  'RoundFi Technical Whitepaper — Solvency by Construction · Triple Default stress test: +$4,152 surplus at 0% yield',
+  'CoinLaw Unbanked Statistics 2026 · DeFi Prime 2026 — DeFi TVL / outstanding loans · Solana network statistics · World Bank Financial Inclusion',
+  'Solana Foundation — network throughput & fee data · Kamino Finance documentation · Solana Blinks / Actions specification',
+  'RoundFi B2B Strategic Plan · Expansion Plan · Esusu unicorn benchmark · Kamino yield data · LP Angel structure',
+  'RoundFi Whitepaper — Reputation Ladder & SAS flywheel · Solana Attestation Service · Behavioral Credit oracle design',
+  'RoundFi Expansion Strategic Plan · BCB Sandbox Resolução nº 207/2022 · SOFIPO Mexico expansion · Marginfi integration roadmap',
+  'RoundFi Technical Whitepaper · Viability Analysis · BCB Sandbox Resolução 207/2022 · Lei 11.795/2008 · SAS Design · Adaptive Escrow mechanics — critical analysis by RoundFi team',
+  'RoundFi Pitch — all sources compiled: World Bank, IFC, DeFi Prime, CoinGecko, Goldfinch, RoundFi Whitepaper, BCB Sandbox'
+];
+
+function goTo(n){
+  slides[cur].classList.remove('active');
+  cur = Math.max(0, Math.min(TOTAL-1, n));
+  slides[cur].classList.add('active');
+  progressEl.style.width = `${((cur+1)/TOTAL)*100}%`;
+  document.getElementById('footerSrc').innerHTML = '<strong>Sources: </strong>' + sources[cur];
+  document.getElementById('footerId').textContent = String(cur+1).padStart(2,'0') + ' / 15';
+}
+
+function go(d){ goTo(cur + d); }
+
+function toggleQA(el){ el.classList.toggle('open'); }
+
+document.addEventListener('keydown', e => {
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') go(1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(-1);
+});
+
+let tx = 0;
+document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+document.addEventListener('touchend', e => { const dx = e.changedTouches[0].clientX - tx; if(Math.abs(dx)>50) go(dx<0?1:-1); });
+
+goTo(0);
+</script>
+</body>
+</html>
