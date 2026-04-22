@@ -1,0 +1,26 @@
+[workspace]
+members = [
+    "programs/roundfi-core",
+    "programs/roundfi-reputation",
+    "programs/roundfi-yield-mock",
+    "programs/roundfi-yield-kamino",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["RoundFi"]
+license = "Apache-2.0"
+repository = "https://github.com/alrimarleskovar/RoundFinancial"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1

@@ -17,6 +17,9 @@ test-ledger/
 .cache/
 *.so
 *.keypair.json
+
+# Wallet keypairs — never commit these
+keypairs/*
 !keypairs/.gitkeep
 
 # Env & secrets

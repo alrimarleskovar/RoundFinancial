@@ -1,0 +1,36 @@
+[toolchain]
+anchor_version = "0.30.1"
+solana_version = "1.18.17"
+
+[features]
+resolution = true
+skip-lint = false
+
+# Program IDs below are placeholders — run `anchor build && anchor keys sync`
+# after the first local build to generate real keypairs under target/deploy/
+# and have this file (and every declare_id! macro) rewritten automatically.
+
+[programs.localnet]
+roundfi_core        = "11111111111111111111111111111111"
+roundfi_reputation  = "11111111111111111111111111111111"
+roundfi_yield_mock  = "11111111111111111111111111111111"
+roundfi_yield_kamino = "11111111111111111111111111111111"
+
+[programs.devnet]
+roundfi_core        = "11111111111111111111111111111111"
+roundfi_reputation  = "11111111111111111111111111111111"
+roundfi_yield_mock  = "11111111111111111111111111111111"
+roundfi_yield_kamino = "11111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Devnet"
+wallet  = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm exec mocha -t 1000000 tests/**/*.ts"
+
+[workspace]
+types = "sdk/src/generated"
