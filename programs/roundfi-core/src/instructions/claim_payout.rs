@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
+use roundfi_reputation::constants::SCHEMA_CYCLE_COMPLETE;
+
 use crate::constants::*;
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
 use crate::math::apply_bps;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -62,6 +65,23 @@ pub struct ClaimPayout<'info> {
     pub pool_usdc_vault: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+
+    // ─── Step 4e: reputation sidecar ────────────────────────────────────
+    /// CHECK: program-id guard against config.reputation_program.
+    pub reputation_program: UncheckedAccount<'info>,
+    /// CHECK: seeds validated inside reputation::attest.
+    #[account(mut)]
+    pub reputation_config: UncheckedAccount<'info>,
+    /// CHECK: seeds validated inside reputation::attest.
+    #[account(mut)]
+    pub reputation_profile: UncheckedAccount<'info>,
+    /// CHECK: Option<IdentityRecord>. Pass reputation_program to signal None.
+    pub identity_record: UncheckedAccount<'info>,
+    /// CHECK: new attestation PDA; reputation::attest inits.
+    #[account(mut)]
+    pub attestation: UncheckedAccount<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
@@ -159,13 +179,53 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
         args.cycle, member.slot_index, credit, ctx.accounts.pool_usdc_vault.amount,
     );
 
-    // TODO(4d/wiring): CPI into roundfi-reputation::attest with
-    //   schema_id = SCHEMA_CYCLE_COMPLETE,
-    //   nonce     = (cycle as u64) << 32 | slot_index as u64,
-    //   pool / pool_authority / pool_seed_id as in contribute,
-    //   issuer = pool PDA.
-    // The reputation program enforces MIN_CYCLE_COOLDOWN_SECS so rapid
-    // cycle-complete spam across fake pools cannot ladder-jump the level.
+    // ─── Step 4e: CycleComplete attestation ─────────────────────────────
+    let config = &ctx.accounts.config;
+    if config.reputation_program != Pubkey::default() {
+        let nonce = ((args.cycle as u64) << 32) | (member.slot_index as u64);
+        let pool_key = pool.key();
+
+        let signer_seeds_inner: &[&[u8]] = &[
+            SEED_POOL,
+            authority_key.as_ref(),
+            seed_id_le.as_ref(),
+            std::slice::from_ref(&pool_bump),
+        ];
+        let signer_seeds_arr: &[&[&[u8]]] = &[signer_seeds_inner];
+
+        let identity_slot = if ctx.accounts.identity_record.key()
+            == ctx.accounts.reputation_program.key()
+        {
+            None
+        } else {
+            Some(ctx.accounts.identity_record.to_account_info())
+        };
+
+        invoke_attest(AttestCall {
+            reputation_program:  &ctx.accounts.reputation_program.to_account_info(),
+            expected_program_id: config.reputation_program,
+            accounts: AttestAccounts {
+                issuer:         pool.to_account_info(),
+                subject:        ctx.accounts.member_wallet.to_account_info(),
+                rep_config:     ctx.accounts.reputation_config.to_account_info(),
+                profile:        ctx.accounts.reputation_profile.to_account_info(),
+                identity:       identity_slot,
+                attestation:    ctx.accounts.attestation.to_account_info(),
+                payer:          ctx.accounts.member_wallet.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+            },
+            signer_seeds: signer_seeds_arr,
+            schema_id:    SCHEMA_CYCLE_COMPLETE,
+            nonce,
+            payload:      EMPTY_PAYLOAD,
+            pool:         pool_key,
+            pool_authority: authority_key,
+            pool_seed_id:   pool.seed_id,
+        })?;
+    } else {
+        msg!("roundfi-core: claim_payout skipped reputation CPI (reputation_program unset)");
+    }
+
     let _ = clock;
     Ok(())
 }
