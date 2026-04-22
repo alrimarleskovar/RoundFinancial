@@ -94,8 +94,15 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
     }
 
     // ─── Ensure pool float can cover the payout ─────────────────────────
+    // 4c: Guarantee Fund is earmarked inside pool_usdc_vault — it must
+    // remain after a payout so the shock absorber is never drained.
+    let spendable = ctx
+        .accounts
+        .pool_usdc_vault
+        .amount
+        .saturating_sub(pool.guarantee_fund_balance);
     require!(
-        ctx.accounts.pool_usdc_vault.amount >= pool.credit_amount,
+        spendable >= pool.credit_amount,
         RoundfiError::WaterfallUnderflow,
     );
 

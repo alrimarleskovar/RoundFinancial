@@ -1,6 +1,8 @@
 pub mod claim_payout;
 pub mod contribute;
 pub mod create_pool;
+pub mod deposit_idle_to_yield;
+pub mod harvest_yield;
 pub mod initialize_protocol;
 pub mod join_pool;
 pub mod release_escrow;
@@ -8,6 +10,8 @@ pub mod release_escrow;
 pub use claim_payout::*;
 pub use contribute::*;
 pub use create_pool::*;
+pub use deposit_idle_to_yield::*;
+pub use harvest_yield::*;
 pub use initialize_protocol::*;
 pub use join_pool::*;
 pub use release_escrow::*;

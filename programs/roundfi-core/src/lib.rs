@@ -57,6 +57,20 @@ pub mod roundfi_core {
         instructions::release_escrow::handler(ctx, args)
     }
 
+    pub fn deposit_idle_to_yield<'info>(
+        ctx: Context<'_, '_, '_, 'info, DepositIdleToYield<'info>>,
+        args: DepositIdleToYieldArgs,
+    ) -> Result<()> {
+        instructions::deposit_idle_to_yield::handler(ctx, args)
+    }
+
+    pub fn harvest_yield<'info>(
+        ctx: Context<'_, '_, '_, 'info, HarvestYield<'info>>,
+        args: HarvestYieldArgs,
+    ) -> Result<()> {
+        instructions::harvest_yield::handler(ctx, args)
+    }
+
     /// Dev-only smoke instruction; retained until Step 10 deprecates it.
     pub fn ping(_ctx: Context<Ping>) -> Result<()> {
         msg!("roundfi-core: ping");
