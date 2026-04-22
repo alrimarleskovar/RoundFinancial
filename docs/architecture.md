@@ -1,7 +1,7 @@
 # RoundFi — Architecture Specification
 
-**Version:** 0.3 (2026-04-22 — Step 4c: waterfall order updated to GF→Fee→GoodFaith→Participants; settle_default + escape valve detail)
-**Status:** Implementation in progress — Step 4c
+**Version:** 0.4 (2026-04-22 — Step 4d: reputation anti-gaming rules + Civic identity untrusted-provider validation)
+**Status:** Implementation in progress — Step 4d
 
 This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
 
@@ -151,18 +151,22 @@ Seeds: `[b"reputation", wallet]`
 
 ```rust
 pub struct ReputationProfile {
-    pub wallet:            Pubkey,
-    pub level:             u8,
-    pub cycles_completed:  u32,
-    pub on_time_payments:  u32,
-    pub late_payments:     u32,
-    pub defaults:          u32,
-    pub score:             u64,   // derived; updated via attestations
-    pub first_seen_at:     i64,
-    pub last_updated_at:   i64,
-    pub bump:              u8,
+    pub wallet:                    Pubkey,
+    pub level:                     u8,     // 1..=3
+    pub cycles_completed:          u32,
+    pub on_time_payments:          u32,
+    pub late_payments:             u32,
+    pub defaults:                  u32,
+    pub total_participated:        u32,    // lifetime pools joined (unique)
+    pub score:                     u64,    // derived; updated via attestations
+    pub last_cycle_complete_at:    i64,    // anti-gaming cooldown stamp (Step 4d)
+    pub first_seen_at:             i64,
+    pub last_updated_at:           i64,
+    pub bump:                      u8,
 }
 ```
+
+Step 4d extends this struct with `total_participated` and `last_cycle_complete_at`. Absence of a profile is treated as score=0, level=1 (default unverified).
 
 ### 3.5 `Attestation` (program: `roundfi-reputation`)
 Seeds: `[b"attestation", issuer, subject, schema_id_le, nonce_le]`
@@ -221,12 +225,32 @@ pub struct YieldVaultState {
 
 | Instruction | Caller | Effect |
 |---|---|---|
-| `init_profile(wallet)` | anyone (S) | Creates `ReputationProfile` for a wallet |
-| `attest(schema_id, nonce, payload)` | authorized issuer (S) | Creates `Attestation`; updates `ReputationProfile.score` and `level` according to schema |
-| `revoke(attestation)` | issuer (S) | Marks revoked; recomputes score |
-| `promote_level(wallet)` | anyone (S) | Permissionless — verifies threshold met from on-chain score, advances `level` 1→2 or 2→3 |
+| `initialize_reputation(cfg)` | authority (S) | One-time singleton init of `ReputationConfig` — stores `roundfi_core_program` and the Civic network pubkey. |
+| `init_profile(wallet)` | anyone (S) | Creates `ReputationProfile` for a wallet. Permissionless bootstrap. |
+| `attest(schema_id, nonce, payload)` | authorized issuer (S) | Creates `Attestation`; updates `ReputationProfile.score` and counters according to schema. Rejects unwhitelisted issuers and cooldown violations. |
+| `revoke(attestation)` | issuer (S) | Marks revoked; recomputes score. |
+| `promote_level(wallet)` | anyone (S) | Permissionless — re-reads the score and applies the threshold rule. Advances `level` 1→2 or 2→3; no admin override. |
+| `link_civic_identity(gateway_token)` | user (S) | Validates Civic gateway-token account against the Civic Networks program and writes `IdentityRecord { provider: Civic, status: Verified }`. Untrusted-provider checks enforced. |
+| `refresh_identity()` | anyone (S) | Re-reads the gateway token and flips status to `Expired` / `Revoked` when appropriate. No privileged access; anyone can refresh any profile. |
+| `unlink_identity()` | user (S) | Owner-only removal — frees the `IdentityRecord`. |
 
-**Authorized issuers** = whitelist stored in `ProtocolConfig`-like `ReputationConfig`, initialized with `roundfi-core` program's `Pool` PDA derivation authority. On Mainnet this whitelist is replaced by signed SAS issuance.
+**Authorized issuers** = whitelist stored in `ReputationConfig`, initialized with `roundfi-core`'s program ID. On Mainnet, the whitelist is replaced by signed SAS issuance. The core program CPIs into `attest()` inside `contribute` / `claim_payout` / `settle_default`; every CPI is checked against the stored program id (program-id guard).
+
+**Anti-gaming rules (locked Step 4d):**
+
+1. **Cycle-complete cooldown.** A `CycleComplete` attestation for a given subject is rejected when `clock.unix_timestamp < profile.last_cycle_complete_at + MIN_CYCLE_COOLDOWN_SECS`. Default `MIN_CYCLE_COOLDOWN_SECS = 518_400` (60 % of a 10-day cycle). Prevents a sybil farm spinning up fake pools that all "complete" in one slot.
+2. **Same-issuer / same-subject rate limit.** Per schema, an issuer may only attest once per cooldown window. Enforced by the attestation PDA seeds `[b"attestation", issuer, subject, schema_id, nonce]` *plus* an on-chain time check against `profile.last_updated_at`.
+3. **Sybil hint.** If `IdentityRecord.status == Verified`, on-time increments are applied at full weight; if Unverified/Expired/Revoked, on-time weight is **halved** (integer arithmetic: `delta / 2`). Defaults are never reduced — this rule only dampens positive signals.
+4. **Default stickiness.** Once a `Default` attestation lands with `schema_id == SCHEMA_DEFAULT` for a `(subject, pool)` tuple, subsequent `CycleComplete` attestations for that same pool are rejected. Recovery is deferred (post-4d).
+5. **Permissionless promotion.** `promote_level` re-reads the score and applies the threshold. No admin can bypass; no admin can demote either — level is monotonic up except via `Default` attestations that drop the score below a threshold.
+
+**Score arithmetic (v1):**
+- `+10` per `Payment` (on-time)
+- `+50` per `CycleComplete` (halved to `+25` if unverified)
+- `-100` per `Late`
+- `-500` per `Default`
+- Saturating, no underflow below 0.
+- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`. Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score.
 
 ### 4.3 `yield-adapter` interface (shared by mock + kamino)
 
@@ -356,6 +380,53 @@ This section freezes the behavior contracts for the Step 4c instructions. Any ch
 - **`pause(paused: bool)`** — authority-only. When paused, all user-facing instructions short-circuit with `ProtocolPaused`. Read paths and `settle_default` remain available (pause must not trap funds).
 - **`update_protocol_config(patch)`** — authority-only. Only mutable fields: `fee_bps_yield`, `fee_bps_cycle_l*`, `guarantee_fund_bps`, `treasury`. Identity-critical fields (`usdc_mint`, `metaplex_core`, `authority`, `reputation_program`) are **frozen** post-initialization.
 
+### 4.6 Step 4d mechanics — reputation + identity (added v0.4 — 2026-04-22)
+
+This section freezes the behavior contracts for the Step 4d instructions that live in the `roundfi-reputation` program.
+
+#### 4.6.1 Program boundary with `roundfi-core`
+
+- `ReputationConfig` stores `roundfi_core_program: Pubkey` at init time. This is **frozen** — no admin path can rotate it.
+- Every write-path instruction that can be triggered by core CPI (`attest`, `revoke`) validates the *caller program id* via `anchor_lang::solana_program::sysvar::instructions` introspection OR via a PDA signer check: core passes the `Pool` PDA as the issuer signer, and `attest` computes `Pubkey::find_program_address(...)` with `roundfi_core_program` and requires a match.
+- Non-whitelisted programs are rejected with `InvalidIssuer`. Direct wallet-signed `attest` calls are only allowed from the `ReputationConfig.authority` (used for manual corrections in Step 9 forward).
+
+#### 4.6.2 Identity validator — untrusted provider contract
+
+`link_civic_identity` accepts an arbitrary account claimed to be a Civic gateway token. The validator:
+
+1. Verifies the account's **owner** equals the Civic Networks program ID stored in `ReputationConfig`.
+2. Deserializes the gateway-token layout (Civic's 83-byte state struct) from raw account data — no Anchor `Account<'info, T>` trust, since the program does not own that type.
+3. Checks: `state == Active`, `expires_at == 0 || expires_at > clock.unix_timestamp`, `owner_wallet == signer.key()`.
+4. Checks the token's *gatekeeper network* matches `ReputationConfig.civic_network`.
+5. On success, writes `IdentityRecord { provider: Civic, status: Verified, verified_at: clock.unix_timestamp, expires_at, gateway_token: token.key(), bump }`.
+
+Any deserialization error, owner mismatch, or state flag mismatch rejects with `InvalidIdentityProof` — never a silent downgrade.
+
+`refresh_identity()` is permissionless (anyone can refresh anyone's record). It re-runs the validator; if the token now fails validation, the record's status is flipped to `Expired` / `Revoked`. This path lets indexers keep the on-chain state fresh without privileged crank authority.
+
+#### 4.6.3 Attestation issuance flow (core → reputation)
+
+When `roundfi-core` finalizes a contribution / claim / default, it CPIs into `roundfi-reputation::attest` with:
+
+- `issuer` = pool PDA (signed via core's program).
+- `subject` = member wallet.
+- `schema_id` = one of `SCHEMA_PAYMENT = 1`, `SCHEMA_LATE = 2`, `SCHEMA_DEFAULT = 3`, `SCHEMA_CYCLE_COMPLETE = 4`, `SCHEMA_LEVEL_UP = 5`.
+- `nonce` = `(pool.current_cycle as u64) << 32 | slot_index as u64` — deterministic, prevents double-attesting the same event.
+- `payload` = 96-byte struct: `{ pool, cycle, installment_amount, on_time_bonus_bps, identity_hint }`.
+
+The reputation program:
+- Derives the expected pool-issuer PDA from `(roundfi_core_program, b"pool", pool_authority, seed_id_le)` and **requires the signer to match**.
+- Applies the schema's delta to `ReputationProfile.score` with saturating math.
+- Checks anti-gaming rules (§4.2 #1–#4) before committing.
+- For `SCHEMA_CYCLE_COMPLETE`: updates `last_cycle_complete_at` and `total_participated` + `cycles_completed`.
+- For `SCHEMA_DEFAULT`: flips an internal `(subject, pool)` default-sticky bit.
+
+`promote_level` is a **read-only** re-computation: anyone may call it, the program re-reads the score, picks the highest threshold tier, and writes the new level. No admin override, no demotion path — defaults reduce the *score*, and the next `promote_level` call naturally settles the level if it drops.
+
+#### 4.6.4 Non-breaking guarantee
+
+Step 4d does NOT alter any instruction in `roundfi-core`'s storage layout. The existing `join_pool` still reads `ReputationProfile` for the stake-bps snapshot; the new identity record is an **optional** side-car that `join_pool` continues to ignore. If the reputation program is not yet deployed, `join_pool` treats `level = 1` (the same behavior it has today).
+
 ---
 
 ## 5. Critical On-chain Invariants
@@ -393,7 +464,7 @@ MathOverflow, Unauthorized, ProtocolPaused, InvalidMint, InvalidNftAsset,
 EscapeValveNotListed, EscapeValvePriceMismatch
 ```
 
-`roundfi-reputation`: `InvalidSchema, InvalidIssuer, AttestationRevoked, LevelThresholdNotMet`.
+`roundfi-reputation`: `InvalidSchema, InvalidIssuer, AttestationRevoked, LevelThresholdNotMet, CooldownActive, DefaultSticky, InvalidIdentityProof, IdentityExpired, IdentityAlreadyLinked, ProfileNotFound, ReputationUnderflow, UnauthorizedProvider`.
 
 `yield-adapter`: `InsufficientLiquidity, AdapterPaused, HarvestTooSoon`.
 
@@ -413,6 +484,7 @@ EscapeValveNotListed, EscapeValvePriceMismatch
 | ReputationProfile | reputation | `[b"reputation", wallet]` |
 | ReputationConfig | reputation | `[b"rep-config"]` |
 | Attestation | reputation | `[b"attestation", issuer, subject, schema_id.to_le_bytes(), nonce.to_le_bytes()]` |
+| IdentityRecord | reputation | `[b"identity", wallet]` |
 | YieldVaultState | yield-* | `[b"yield-state", owner]` |
 
 ---
