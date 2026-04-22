@@ -38,6 +38,9 @@ wallet*.json
 .DS_Store
 Thumbs.db
 
+# Claude Code session artifacts (per-developer, local only)
+.claude/
+
 # Logs
 *.log
 logs/
