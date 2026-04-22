@@ -12,6 +12,17 @@ pub const SEED_ESCROW:     &[u8] = b"escrow";
 pub const SEED_SOLIDARITY: &[u8] = b"solidarity";
 pub const SEED_YIELD:      &[u8] = b"yield";
 pub const SEED_POSITION:   &[u8] = b"position";
+pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
+
+// ─── Step 4c: timing & defaults ─────────────────────────────────────────
+/// Grace window after `pool.next_cycle_at` before settle_default is callable.
+/// 7 days = 604_800 seconds. Protocol constant — not per-pool overridable.
+pub const GRACE_PERIOD_SECS: i64 = 604_800;
+
+/// Step in the yield waterfall that routes to good-faith bonuses. Default 50%
+/// of the residual after GF top-up + protocol fee — tuned to match the
+/// whitepaper's §6 distribution table.
+pub const DEFAULT_GOOD_FAITH_SHARE_BPS: u16 = 5_000;
 
 // ─── Product defaults (USDC base units, 6 decimals) ─────────────────────
 pub const DEFAULT_MEMBERS_TARGET:     u8  = 24;

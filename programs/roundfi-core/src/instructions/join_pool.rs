@@ -168,22 +168,28 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     // ─── Initialize Member ──────────────────────────────────────────────
     let clock = Clock::get()?;
     let member = &mut ctx.accounts.member;
-    member.pool               = pool.key();
-    member.wallet             = ctx.accounts.member_wallet.key();
-    member.nft_asset          = ctx.accounts.nft_asset.key();
-    member.slot_index         = args.slot_index;
-    member.reputation_level   = args.reputation_level;
-    member.stake_bps          = stake_bps;
-    member.stake_deposited    = stake_amount;
-    member.contributions_paid = 0;
-    member.total_contributed  = 0;
-    member.total_received     = 0;
-    member.escrow_balance     = stake_amount;
-    member.on_time_count      = 0;
-    member.late_count         = 0;
-    member.defaulted          = false;
-    member.joined_at          = clock.unix_timestamp;
-    member.bump               = ctx.bumps.member;
+    member.pool                      = pool.key();
+    member.wallet                    = ctx.accounts.member_wallet.key();
+    member.nft_asset                 = ctx.accounts.nft_asset.key();
+    member.slot_index                = args.slot_index;
+    member.reputation_level          = args.reputation_level;
+    member.stake_bps                 = stake_bps;
+    member.stake_deposited           = stake_amount;
+    member.contributions_paid        = 0;
+    member.total_contributed         = 0;
+    member.total_received            = 0;
+    member.escrow_balance            = stake_amount;
+    member.on_time_count             = 0;
+    member.late_count                = 0;
+    member.defaulted                 = false;
+    member.paid_out                  = false;
+    member.last_released_checkpoint  = 0;
+    member.joined_at                 = clock.unix_timestamp;
+    // 4c: snapshot initial collateral for D/C invariant + seed escrow as "deposited"
+    member.stake_deposited_initial   = stake_amount;
+    member.total_escrow_deposited    = stake_amount;
+    member.last_transferred_at       = 0;
+    member.bump                      = ctx.bumps.member;
 
     // ─── Pool state update ──────────────────────────────────────────────
     pool.members_joined = pool

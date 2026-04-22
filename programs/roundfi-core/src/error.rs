@@ -76,4 +76,29 @@ pub enum RoundfiError {
     InvalidPoolParams,
     #[msg("Metadata URI exceeds MAX_URI_LEN")]
     MetadataUriTooLong,
+    // ─── Step 4c ────────────────────────────────────────────────────────
+    #[msg("Grace period not yet elapsed — default cannot be settled")]
+    GracePeriodNotElapsed,
+    #[msg("Member is current on contributions — default not applicable")]
+    MemberNotBehind,
+    #[msg("Debt/collateral invariant would be violated: D/D_init > C/C_init")]
+    DebtCollateralViolation,
+    #[msg("Yield adapter returned a nonsensical balance delta")]
+    YieldAdapterBalanceMismatch,
+    #[msg("Waterfall bucket computation did not conserve total")]
+    WaterfallNotConserved,
+    #[msg("Listing price must be non-zero")]
+    InvalidListingPrice,
+    #[msg("Listing is not active")]
+    ListingNotActive,
+    #[msg("Buyer already holds a Member account for this pool")]
+    BuyerAlreadyMember,
+    #[msg("Pool is not in Completed state")]
+    PoolNotCompleted,
+    #[msg("Protocol config field is immutable after initialization")]
+    ImmutableConfigField,
+    #[msg("Pool has outstanding defaults — cannot close")]
+    OutstandingDefaults,
+    #[msg("Yield adapter not configured for this pool")]
+    YieldAdapterNotConfigured,
 }

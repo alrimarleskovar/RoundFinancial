@@ -179,6 +179,10 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
         .escrow_balance
         .checked_add(escrow_deposit)
         .ok_or(error!(RoundfiError::MathOverflow))?;
+    member.total_escrow_deposited = member
+        .total_escrow_deposited
+        .checked_add(escrow_deposit)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
 
     // ─── Pool bookkeeping ───────────────────────────────────────────────
     pool.total_contributed = pool

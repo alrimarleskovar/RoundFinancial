@@ -34,6 +34,19 @@ pub struct Pool {
     pub escrow_balance:     u64,
     pub yield_accrued:      u64,
 
+    // ─── Step 4c: yield waterfall + default tracking ────────────────────
+    /// Running tally of USDC currently held in the Guarantee Fund.
+    /// Replenished in step 1 of the yield waterfall; debited on default shortfall.
+    pub guarantee_fund_balance:  u64,
+    /// Cumulative protocol fee transferred to treasury over pool life.
+    /// GF top-up cap = `guarantee_fund_bps * total_protocol_fee_accrued / 10_000`.
+    pub total_protocol_fee_accrued: u64,
+    /// Principal currently deposited in the yield adapter (tracked locally,
+    /// never trusted from adapter).
+    pub yield_principal_deposited: u64,
+    /// Count of members that have been settled as defaulted.
+    pub defaulted_members: u8,
+
     /// Bitmap over MAX_MEMBERS=64 slots. Bit set ⇒ slot taken.
     pub slots_bitmap:       [u8; 8],
 
@@ -61,9 +74,10 @@ impl Pool {
         + 2 + 2 + 2            // seed_draw, solidarity, escrow_release bps
         + 1 + 1 + 8 + 1 + 8    // joined, status, started_at, current_cycle, next_cycle_at
         + 8 + 8 + 8 + 8 + 8    // contributed, paid_out, solidarity, escrow, yield
+        + 8 + 8 + 8 + 1        // 4c: gf_balance, total_protocol_fee_accrued, yield_principal, defaulted_members
         + 8                    // slots_bitmap (64 bits = 8 bytes)
         + 4                    // four bumps
-        + 32;                  // padding for future state fields
+        + 7;                   // padding (was 32 in v0.1; 25 bytes consumed for Step 4c state)
 
     #[inline]
     pub fn is_slot_taken(&self, slot: u8) -> bool {
