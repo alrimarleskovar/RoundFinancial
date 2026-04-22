@@ -25,7 +25,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
+use roundfi_reputation::constants::SCHEMA_DEFAULT;
+
 use crate::constants::*;
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
@@ -39,6 +42,7 @@ pub struct SettleDefaultArgs {
 
 #[derive(Accounts)]
 pub struct SettleDefault<'info> {
+    #[account(mut)]
     pub caller: Signer<'info>,
 
     #[account(
@@ -64,6 +68,13 @@ pub struct SettleDefault<'info> {
         constraint = !member.defaulted @ RoundfiError::DefaultedMember,
     )]
     pub member: Account<'info, Member>,
+
+    /// CHECK: defaulted member's wallet — used as the reputation subject.
+    /// Validated by constraint against `member.wallet`; does NOT sign.
+    #[account(
+        constraint = defaulted_member_wallet.key() == member.wallet @ RoundfiError::NotAMember,
+    )]
+    pub defaulted_member_wallet: UncheckedAccount<'info>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
@@ -106,6 +117,23 @@ pub struct SettleDefault<'info> {
     pub escrow_vault: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+
+    // ─── Step 4e: reputation sidecar ────────────────────────────────────
+    /// CHECK: program-id guard against config.reputation_program.
+    pub reputation_program: UncheckedAccount<'info>,
+    /// CHECK: seeds validated inside reputation::attest.
+    #[account(mut)]
+    pub reputation_config: UncheckedAccount<'info>,
+    /// CHECK: seeds validated inside reputation::attest (init_if_needed).
+    #[account(mut)]
+    pub reputation_profile: UncheckedAccount<'info>,
+    /// CHECK: Option<IdentityRecord>. Pass reputation_program to signal None.
+    pub identity_record: UncheckedAccount<'info>,
+    /// CHECK: new attestation PDA; reputation::attest inits.
+    #[account(mut)]
+    pub attestation: UncheckedAccount<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<()> {
@@ -113,6 +141,9 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
 
     // ─── Snapshot pool fields before the mutable borrow of member ───────
     let pool_key             = ctx.accounts.pool.key();
+    let pool_authority       = ctx.accounts.pool.authority;
+    let pool_seed_id         = ctx.accounts.pool.seed_id;
+    let pool_bump            = ctx.accounts.pool.bump;
     let solidarity_bump      = ctx.accounts.pool.solidarity_vault_bump;
     let escrow_bump          = ctx.accounts.pool.escrow_vault_bump;
     let pool_current_cycle   = ctx.accounts.pool.current_cycle;
@@ -251,6 +282,10 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         RoundfiError::DebtCollateralViolation,
     );
 
+    // ─── Snapshot member fields for the reputation CPI below ───────────
+    let member_slot_index = member.slot_index;
+    let member_wallet     = member.wallet;
+
     // ─── Irreversible state transition ──────────────────────────────────
     member.defaulted = true;
 
@@ -269,18 +304,64 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
 
     msg!(
         "roundfi-core: settle_default cycle={} member={} seized_total={} solidarity={} escrow={} stake={} d_rem={} c_init={} c_after={}",
-        args.cycle, member.wallet, seized_total,
+        args.cycle, member_wallet, seized_total,
         from_solidarity, from_escrow, from_stake,
         d_remaining, c_initial, c_after,
     );
 
-    // TODO(4d/wiring): CPI into roundfi-reputation::attest with
-    //   schema_id = SCHEMA_DEFAULT,
-    //   nonce     = (cycle as u64) << 32 | slot_index as u64,
-    //   pool / pool_authority / pool_seed_id as in contribute,
-    //   issuer    = pool PDA (signed via core).
-    // Default is sticky in the reputation program: future positive
-    // attestations for the same pool/subject are rejected.
+    // ─── Step 4e: Default attestation (sticky — SCHEMA_DEFAULT) ─────────
+    // The reputation program enforces stickiness: once a subject has a
+    // DEFAULT attestation for (pool_authority, pool_seed_id), future
+    // positive attestations against the same pool become no-ops on the
+    // delta side (max downside). Idempotent via deterministic nonce.
+    let config = &ctx.accounts.config;
+    if config.reputation_program != Pubkey::default() {
+        let nonce = ((args.cycle as u64) << 32) | (member_slot_index as u64);
+        let seed_id_le = pool_seed_id.to_le_bytes();
+
+        let signer_seeds_inner: &[&[u8]] = &[
+            SEED_POOL,
+            pool_authority.as_ref(),
+            seed_id_le.as_ref(),
+            std::slice::from_ref(&pool_bump),
+        ];
+        let signer_seeds_arr: &[&[&[u8]]] = &[signer_seeds_inner];
+
+        // Option<IdentityRecord> encoding: passing the reputation program
+        // pubkey itself signals "no identity linked" (Anchor convention).
+        let identity_slot = if ctx.accounts.identity_record.key()
+            == ctx.accounts.reputation_program.key()
+        {
+            None
+        } else {
+            Some(ctx.accounts.identity_record.to_account_info())
+        };
+
+        invoke_attest(AttestCall {
+            reputation_program:  &ctx.accounts.reputation_program.to_account_info(),
+            expected_program_id: config.reputation_program,
+            accounts: AttestAccounts {
+                issuer:         pool.to_account_info(),
+                subject:        ctx.accounts.defaulted_member_wallet.to_account_info(),
+                rep_config:     ctx.accounts.reputation_config.to_account_info(),
+                profile:        ctx.accounts.reputation_profile.to_account_info(),
+                identity:       identity_slot,
+                attestation:    ctx.accounts.attestation.to_account_info(),
+                payer:          ctx.accounts.caller.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+            },
+            signer_seeds: signer_seeds_arr,
+            schema_id:    SCHEMA_DEFAULT,
+            nonce,
+            payload:      EMPTY_PAYLOAD,
+            pool:         pool_key,
+            pool_authority,
+            pool_seed_id,
+        })?;
+    } else {
+        msg!("roundfi-core: settle_default skipped reputation CPI (reputation_program unset)");
+    }
+
     Ok(())
 }
 
