@@ -113,9 +113,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
 
     // ─── Snapshot pool fields before the mutable borrow of member ───────
     let pool_key             = ctx.accounts.pool.key();
-    let pool_authority       = ctx.accounts.pool.authority;
-    let pool_seed_id_le      = ctx.accounts.pool.seed_id.to_le_bytes();
-    let pool_bump            = ctx.accounts.pool.bump;
     let solidarity_bump      = ctx.accounts.pool.solidarity_vault_bump;
     let escrow_bump          = ctx.accounts.pool.escrow_vault_bump;
     let pool_current_cycle   = ctx.accounts.pool.current_cycle;
@@ -276,9 +273,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         from_solidarity, from_escrow, from_stake,
         d_remaining, c_initial, c_after,
     );
-
-    // Silence if we ever drop the guard (compile-time hint).
-    let _ = (pool_authority, pool_seed_id_le, pool_bump);
 
     Ok(())
 }

@@ -18,7 +18,7 @@ use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::constants::*;
-use crate::cpi::yield_adapter::{anchor_ix_discriminator, invoke_adapter, token_amount, AdapterCpiArgs};
+use crate::cpi::yield_adapter::{invoke_adapter, token_amount, AdapterCpiArgs};
 use crate::error::RoundfiError;
 use crate::math::{guarantee_fund_room, waterfall};
 use crate::state::{Pool, PoolStatus, ProtocolConfig};
@@ -163,9 +163,6 @@ pub fn handler<'info>(
             signer_seeds: signer_seeds_arr,
         },
     )?;
-    // Silence unused-warning when discriminator helper isn't referenced elsewhere.
-    let _ = anchor_ix_discriminator;
-
     // ─── Measure realized yield from pool_usdc_vault delta ──────────────
     // Reload the pool vault so the Anchor account cache reflects post-CPI state.
     ctx.accounts.pool_usdc_vault.reload()?;
