@@ -6,6 +6,8 @@
 //! CPI, and returns the *actual* delta so callers never rely on the
 //! adapter's return values for accounting.
 
+pub mod reputation;
 pub mod yield_adapter;
 
+pub use reputation::*;
 pub use yield_adapter::*;

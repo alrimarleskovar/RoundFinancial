@@ -101,4 +101,9 @@ pub enum RoundfiError {
     OutstandingDefaults,
     #[msg("Yield adapter not configured for this pool")]
     YieldAdapterNotConfigured,
+    // ─── Step 4e ────────────────────────────────────────────────────────
+    #[msg("roundfi-reputation CPI failed — the attestation was rejected by the target program")]
+    ReputationCpiFailed,
+    #[msg("Passed reputation program does not match config.reputation_program")]
+    ReputationProgramMismatch,
 }
