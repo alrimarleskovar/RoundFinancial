@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
+use roundfi_reputation::constants::{SCHEMA_LATE, SCHEMA_PAYMENT};
+
 use crate::constants::*;
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
 use crate::math::split_installment;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -90,6 +93,28 @@ pub struct Contribute<'info> {
     pub escrow_vault: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+
+    // ─── Step 4e: reputation sidecar ────────────────────────────────────
+    // All reputation accounts are UncheckedAccount: the reputation
+    // program validates seeds + ownership inside `attest`. Core only
+    // enforces the program-id guard against `config.reputation_program`.
+    //
+    /// CHECK: program-id guard against config.reputation_program.
+    pub reputation_program: UncheckedAccount<'info>,
+    /// CHECK: PDA seeds validated inside reputation::attest.
+    #[account(mut)]
+    pub reputation_config: UncheckedAccount<'info>,
+    /// CHECK: PDA seeds validated inside reputation::attest (init_if_needed).
+    #[account(mut)]
+    pub reputation_profile: UncheckedAccount<'info>,
+    /// CHECK: Optional IdentityRecord. Pass the reputation program itself
+    /// to signal "no identity linked" (Anchor Option<Account> convention).
+    pub identity_record: UncheckedAccount<'info>,
+    /// CHECK: New attestation PDA; reputation::attest will init.
+    #[account(mut)]
+    pub attestation: UncheckedAccount<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
@@ -203,14 +228,61 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
         args.cycle, member.slot_index, on_time, solidarity_amt, escrow_deposit, pool_amt,
     );
 
-    // TODO(4d/wiring): CPI into roundfi-reputation::attest with
-    //   schema_id = if on_time { SCHEMA_PAYMENT } else { SCHEMA_LATE },
-    //   nonce     = (cycle as u64) << 32 | slot_index as u64,
-    //   pool      = pool.key(),
-    //   pool_authority = pool.authority,
-    //   pool_seed_id   = pool.seed_id,
-    //   issuer = pool PDA (signed via core's program).
-    // The reputation program auto-initializes the ReputationProfile if
-    // missing, so no pre-bootstrap is required.
+    // ─── Step 4e: reputation attestation (one CPI per event) ────────────
+    let config = &ctx.accounts.config;
+    if config.reputation_program != Pubkey::default() {
+        let schema_id = if on_time { SCHEMA_PAYMENT } else { SCHEMA_LATE };
+        let nonce = ((args.cycle as u64) << 32) | (member.slot_index as u64);
+
+        // Freeze pool signer-seed components before mutable borrows drop.
+        let pool_authority = pool.authority;
+        let pool_seed_id   = pool.seed_id;
+        let pool_bump      = pool.bump;
+        let pool_key       = pool.key();
+        let seed_id_le     = pool_seed_id.to_le_bytes();
+
+        let signer_seeds: &[&[u8]] = &[
+            SEED_POOL,
+            pool_authority.as_ref(),
+            seed_id_le.as_ref(),
+            std::slice::from_ref(&pool_bump),
+        ];
+        let signer_seeds_arr: &[&[&[u8]]] = &[signer_seeds];
+
+        // If identity_record is the reputation program itself, the CPI
+        // treats it as `None` (Anchor Option<Account> convention).
+        let identity_slot = if ctx.accounts.identity_record.key()
+            == ctx.accounts.reputation_program.key()
+        {
+            None
+        } else {
+            Some(ctx.accounts.identity_record.to_account_info())
+        };
+
+        invoke_attest(AttestCall {
+            reputation_program: &ctx.accounts.reputation_program.to_account_info(),
+            expected_program_id: config.reputation_program,
+            accounts: AttestAccounts {
+                issuer:         pool.to_account_info(),
+                subject:        ctx.accounts.member_wallet.to_account_info(),
+                rep_config:     ctx.accounts.reputation_config.to_account_info(),
+                profile:        ctx.accounts.reputation_profile.to_account_info(),
+                identity:       identity_slot,
+                attestation:    ctx.accounts.attestation.to_account_info(),
+                payer:          ctx.accounts.member_wallet.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+            },
+            signer_seeds: signer_seeds_arr,
+            schema_id,
+            nonce,
+            payload: EMPTY_PAYLOAD,
+            pool: pool_key,
+            pool_authority,
+            pool_seed_id,
+        })?;
+    } else {
+        msg!("roundfi-core: contribute skipped reputation CPI (reputation_program unset)");
+    }
+
     Ok(())
 }
