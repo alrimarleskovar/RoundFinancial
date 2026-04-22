@@ -1,9 +1,11 @@
 # RoundFi — Architecture Specification
 
-**Version:** 0.4 (2026-04-22 — Step 4d: reputation anti-gaming rules + Civic identity untrusted-provider validation)
-**Status:** Implementation in progress — Step 4d
+**Version:** 0.5 (2026-04-22 — Step 4f: narrative alignment + `get_profile` read path + stress-test script)
+**Status:** Implementation in progress — Step 4f (pre-Step-5)
 
 This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
+
+> **Pitch alignment.** For the authoritative mapping between product-narrative claims and on-chain behavior (shield names, solvency framing, the "up to 10× capital advancement" wording, roadmap vs. shipped product), see [pitch-alignment.md](./pitch-alignment.md). For the yield waterfall + Guarantee Fund deep-dive, see [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md).
 
 ---
 
@@ -12,6 +14,7 @@ This document is the single source of truth for RoundFi's on-chain and off-chain
 **Goals**
 - Production-ready, hackathon-grade protocol on **Solana Devnet** with a clean **Mainnet migration path**.
 - Enforce all product invariants (Triple Shield, 50-30-10 ladder, seed draw 91.6%, 1% solidarity, yield waterfall) directly on-chain — off-chain services may read/present, never gate.
+- **Losses are bounded and the protocol remains solvent by construction.** The D/C invariant (per-member, in `settle_default`) and the Seed-Draw invariant (per-pool, in `claim_payout`) together bound per-transaction loss to the defaulter's own posted collateral, and guarantee the pool retains ≥91.6% of max-month-1 collections at cycle 0. No profit claim is made under stress; solvency is the claim.
 - Abstract volatile dependencies (**SAS**, **Kamino**) behind stable program interfaces so they can be swapped without changing the core contract.
 - Every account address is a deterministic PDA → SDK and indexer work without on-chain account discovery heuristics.
 
@@ -318,6 +321,20 @@ pub struct IdentityRecord {
 **Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. Civic's Gateway Program ID is identical across clusters; only the Civic Network pubkey (e.g. `uniqueness`, `kyc`) changes via env config.
 
 ### 4.5 Step 4c mechanics — defaults, escape valve, yield (added v0.3 — 2026-04-22)
+
+#### 4.5.0 Triple Shield — canonical mapping (added v0.5 — 2026-04-22)
+
+The product narrative refers to a "Triple Shield" security architecture. The canonical mapping below — authoritative from v0.5 forward — matches the shipping code in [settle_default.rs](../programs/roundfi-core/src/instructions/settle_default.rs). Any deck, demo, or copy that uses a different ordering is out of sync and must be corrected against this table.
+
+| # | Name (pitch) | Code primitive | Role on default | Funded from |
+|---|--------------|------------------|------------------|--------------|
+| **Shield 1** | **Solidarity Vault** | `solidarity_vault` PDA | **Seized first**, up to the missed installment | 1% of every contribution (`solidarity_bps = 100`) |
+| **Shield 2** | **Member Stake + Escrow** | `member.escrow_balance` + `member.stake_deposited` | Seized second and third; capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`) | The defaulting member's own collateral |
+| **Shield 3** | **Guarantee Fund** | `pool.guarantee_fund_balance` (earmark inside `pool_usdc_vault`) | **Not drawn in v1** — earmarked to block payout drain. v2 adds a catastrophic-loss draw path. | Yield harvest (step 1 of the waterfall) |
+
+**Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The "10× leverage" slogan is to be phrased as "**up to 10× capital advancement based on reputation tier**" — this distinguishes the ROSCA rotation mechanic from DeFi margin-leverage. The "Serasa da Web3 / on-chain behavior oracle" pitch is roadmap, not shipped; the `get_profile` instruction (§4.2, added in Step 4f) is the foundation layer.
+
+See [pitch-alignment.md](./pitch-alignment.md) for the full pitch ↔ code cross-reference and the per-phrase revision table, and [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md) for a detailed explainer of the yield waterfall and the Guarantee Fund's v1 vs. v2 roles.
 
 This section freezes the behavior contracts for the Step 4c instructions. Any change here requires a new architecture version AND a migration plan for pools on Devnet.
 
