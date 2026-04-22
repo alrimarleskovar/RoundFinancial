@@ -1,7 +1,7 @@
 # RoundFi — Architecture Specification
 
-**Version:** 0.2 (2026-04-22 — adds §4.4 Identity Layer; non-breaking to v0.1)
-**Status:** Implementation in progress — Step 4b
+**Version:** 0.3 (2026-04-22 — Step 4c: waterfall order updated to GF→Fee→GoodFaith→Participants; settle_default + escape valve detail)
+**Status:** Implementation in progress — Step 4c
 
 This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
 
@@ -214,7 +214,7 @@ pub struct YieldVaultState {
 | `escape_valve_list(price)` | member (S) | Pool, Member (M), NFT asset (M) | Lists position for sale (on-chain bid book) |
 | `escape_valve_buy(member)` | buyer (S) | Pool (M), Member (M old → new wallet), NFT asset (M), buyer_src (M), seller_dst (M) | Transfers NFT + Member PDA re-anchors to buyer; emits reputation transfer attestation |
 | `deposit_idle_to_yield(amount)` | crank | Pool (M), pool_usdc_vault (M), yield_vault (M), yield_adapter CPI | Moves idle float into yield adapter |
-| `harvest_yield()` | crank | Pool (M), yield adapter CPI, treasury ATA (M), pool_usdc_vault (M) | Pulls yield, splits per waterfall (Protocol 20% → Guarantee Fund 150% → LPs → Participants) |
+| `harvest_yield()` | crank | Pool (M), yield adapter CPI, treasury ATA (M), pool_usdc_vault (M) | Pulls yield, splits per waterfall in strict order: **(1) Guarantee Fund top-up → (2) Protocol fee 20% → (3) Good-faith bonus → (4) Remaining to participants**. No step skippable or reorderable. |
 | `close_pool()` | authority (S) | Pool (M), vaults (M) | After all cycles completed; sweeps residuals; emits CycleComplete attestations for all members |
 
 ### 4.2 `roundfi-reputation`
@@ -293,6 +293,69 @@ pub struct IdentityRecord {
 
 **Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. Civic's Gateway Program ID is identical across clusters; only the Civic Network pubkey (e.g. `uniqueness`, `kyc`) changes via env config.
 
+### 4.5 Step 4c mechanics — defaults, escape valve, yield (added v0.3 — 2026-04-22)
+
+This section freezes the behavior contracts for the Step 4c instructions. Any change here requires a new architecture version AND a migration plan for pools on Devnet.
+
+#### 4.5.1 `settle_default(member)` — 7-day grace + D/C invariant
+
+- **Precondition:** `clock.unix_timestamp >= pool.next_cycle_at + GRACE_PERIOD_SECS` where `GRACE_PERIOD_SECS = 7 days = 604_800` (protocol constant, not per-pool).
+- **Precondition:** `member.contributions_paid < pool.current_cycle` — the member is genuinely behind.
+- **Debt/Collateral invariant (#2 strengthened).** Let
+  - `D_initial = pool.credit_amount` (full debt at payout)
+  - `D_remaining = D_initial - member.total_contributed_toward_debt()` (scheduled installments not yet paid)
+  - `C_initial = member.stake_deposited_initial + member.total_escrow_deposited`
+  - `C_remaining = member.stake_deposited + member.escrow_balance`
+
+  The seizure amount must satisfy `D_remaining * C_initial <= C_remaining_after_seizure * D_initial` (cross-multiplied, no division). If the invariant cannot hold, the handler seizes *less* rather than violating it.
+- **Order of operations:**
+  1. Flag `member.defaulted = true` (atomic with seizure — state never half-set).
+  2. Seize from solidarity vault first (up to remaining installments covered), then from member escrow, then from member stake.
+  3. Route seized funds to `pool_usdc_vault` so remaining members are not out-of-pocket.
+  4. Emit a `DefaultSettled` msg! log with per-bucket amounts and the final D/C ratio.
+- **No indefinite locks:** after `settle_default`, the pool can always advance its cycle — a defaulted member no longer blocks `claim_payout` for their slot (payout for that slot is funded by seized stake + solidarity).
+- **Irreversibility:** `member.defaulted` can never transition back to `false`. The escape valve cannot be listed for a defaulted member.
+
+#### 4.5.2 Escape Valve — `escape_valve_list` + `escape_valve_buy`
+
+- **Purpose:** Provide a non-default exit for members who cannot continue, without breaking the pool.
+- **Listing preconditions (`escape_valve_list`):**
+  - `!member.defaulted`
+  - `member.contributions_paid == pool.current_cycle` (member is fully current; cannot offload an overdue obligation)
+  - `!member.paid_out` OR pool is not yet at that member's slot (i.e., listing is most useful pre-payout; post-payout listings are permitted but have limited utility)
+  - Price is denominated in USDC and stored in an `EscapeValveListing` account at PDA `[b"listing", pool, slot_index]`.
+- **Buy preconditions (`escape_valve_buy`):**
+  - Listing exists and is `Active`.
+  - Buyer has no existing `Member` PDA for this pool (one-wallet-per-pool).
+  - Buyer pays the listed price in USDC directly to seller (protocol takes **no fee in Step 4c** — reserved for future).
+- **Atomic re-anchor:** Because `Member` PDA seeds include `wallet`, the transfer uses a **close-old / create-new** pattern:
+  1. Snapshot old Member state (slot_index, contributions_paid, escrow_balance, on_time_count, late_count, stake_deposited, nft_asset, reputation_level, stake_bps).
+  2. Close old Member PDA; rent returns to seller.
+  3. Create new Member PDA at `[b"member", pool, buyer]`; populate with snapshot except `wallet` and `joined_at`.
+  4. Transfer NFT asset ownership to buyer via Metaplex Core CPI (escrow-frozen remains, it's soulbound to the *position* not the wallet).
+  5. Close the listing account; rent returns to seller.
+- **Irrelevant to invariants:** The escape valve does NOT change pool totals (`total_contributed`, `solidarity_balance`, `escrow_balance`) — only the wallet pointer moves.
+
+#### 4.5.3 Yield adapter — adapter-is-untrusted contract
+
+- **Validation on every CPI:**
+  - `require!(ctx.accounts.yield_adapter.key() == pool.yield_adapter, YieldAdapterMismatch)`.
+  - All adapter-side accounts are passed through `remaining_accounts`; core never assumes PDA layout.
+- **Balance-based verification (never trust return values):**
+  - Before `deposit`/`withdraw`/`harvest`, snapshot the affected token account amounts.
+  - After the CPI, reload accounts and compute the *actual* delta.
+  - Use the actual delta — never the requested amount — for subsequent accounting.
+- **Failure modes:**
+  - Adapter reverts → core reverts (normal behavior).
+  - Adapter returns less than requested → core accepts the lower amount and logs it; waterfall proceeds on the smaller yield.
+  - Adapter returns more than requested → core accepts the bonus and routes it per waterfall (no free money is lost, no buckets are exceeded).
+- **Isolation:** `pool_usdc_vault` is separate from `yield_vault`. Core never gives the adapter direct authority over `pool_usdc_vault`.
+
+#### 4.5.4 Admin — `update_protocol_config` + `pause`
+
+- **`pause(paused: bool)`** — authority-only. When paused, all user-facing instructions short-circuit with `ProtocolPaused`. Read paths and `settle_default` remain available (pause must not trap funds).
+- **`update_protocol_config(patch)`** — authority-only. Only mutable fields: `fee_bps_yield`, `fee_bps_cycle_l*`, `guarantee_fund_bps`, `treasury`. Identity-critical fields (`usdc_mint`, `metaplex_core`, `authority`, `reputation_program`) are **frozen** post-initialization.
+
 ---
 
 ## 5. Critical On-chain Invariants
@@ -302,7 +365,13 @@ These are enforced by assertions inside instruction handlers. A test per invaria
 1. **Seed Draw 91.6%** — at the end of Month 1 (cycle 0 payout), `pool_usdc_vault.balance + escrow_vault.balance >= 0.916 * (members_target * installment_amount)`.
 2. **Debt-faster-than-collateral** — for any member holding both outstanding debt *D* and escrowed collateral *C*, after any `release_escrow`, the new state must satisfy `D / D_initial <= C / C_initial` (escrow releases lag debt paydown).
 3. **Solidarity conservation** — `sum(solidarity_in) == sum(good_faith_out) + solidarity_balance` across the life of a pool.
-4. **Yield waterfall order** — `harvest_yield` must pay in order: Protocol 20% → Guarantee Fund fill-up to 150% of protocol fee → LP Angels share → Participants pro-rata. No step may underflow or reorder.
+4. **Yield waterfall order** — `harvest_yield` must pay in this strict order (revised in v0.3 for Step 4c):
+   1. **Guarantee Fund top-up** up to `guarantee_fund_bps` × cumulative protocol fees (default 150%). GF is topped up FIRST so the pool's shock absorber is funded before any fee skimming.
+   2. **Protocol fee** — 20% of the *remaining* yield (after GF top-up) is transferred to `treasury`.
+   3. **Good-faith bonus** — configurable share of the remaining yield is routed to the solidarity vault for distribution to on-time members via `distribute_good_faith_bonus`.
+   4. **Participants** — the residual is credited to `pool_usdc_vault` for pro-rata distribution (effectively reducing future installments or topping up payouts).
+
+   The handler must enforce `gf + fee + bonus + participants == harvested` and reject any reordering. If the yield adapter returns less than requested, the handler uses the actual post-CPI delta — never the requested amount.
 5. **Stake bps by level** — `Member.stake_bps` is snapshotted at `join_pool` from current `ReputationProfile.level`, and never changes mid-cycle.
 6. **Slot monotonicity** — each `claim_payout(cycle)` must be called exactly once per cycle by exactly one `Member.slot_index == cycle`.
 7. **NFT mirrors state** — after any state transition, the NFT's on-chain attributes (contributions_paid, defaulted, level) must match the `Member` PDA. Enforced by updating both in the same instruction.
