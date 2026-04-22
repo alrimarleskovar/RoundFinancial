@@ -16,9 +16,14 @@
  */
 
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
 
 import type { Env } from "./env.js";
-import { reputationConfigFor, reputationProfileFor } from "./pda.js";
+import {
+  attestationFor,
+  reputationConfigFor,
+  reputationProfileFor,
+} from "./pda.js";
 
 /** Matches `roundfi_reputation::constants::SCHEMA_*`. */
 export const SCHEMA = {
@@ -137,4 +142,97 @@ export async function fetchProfile(
   return (await (env.programs.reputation.account as any).reputationProfile.fetch(
     pda,
   )) as Record<string, unknown>;
+}
+
+// ─── Admin-path attest ───────────────────────────────────────────────
+
+export interface AdminAttestOpts {
+  /** Wallet whose profile is being scored. Must already have a profile
+   *  (init_if_needed will create it, but most callers pre-init). */
+  subject: PublicKey;
+  /** One of the SCHEMA values. */
+  schemaId: number;
+  /** 64-bit PDA nonce. Combined with (issuer, subject, schema) to seed
+   *  the attestation PDA — so reusing the same nonce against the same
+   *  tuple will fail (duplicate init). */
+  nonce: bigint;
+  /** Optional 96-byte payload (truncated / zero-padded). */
+  payload?: Uint8Array;
+  /** Issuer override. Defaults to env.payer (the config authority,
+   *  i.e. the admin path). Pass a non-authority Keypair to exercise
+   *  the InvalidIssuer guard. */
+  issuer?: Keypair;
+  /** Admin path leaves pool/poolAuthority = default; override only for
+   *  pool-PDA issuance paths that the specs drive manually. */
+  poolKey?: PublicKey;
+  poolAuthority?: PublicKey;
+  poolSeedId?: bigint;
+  /** Identity sentinel. Defaults to env.ids.reputation — Anchor resolves
+   *  the Option<Account<IdentityRecord>> to None because the owner check
+   *  fails on the program account, so the handler treats the subject
+   *  as Unverified (positive deltas halved). Pass a real identity PDA
+   *  to exercise the Verified path. */
+  identity?: PublicKey;
+}
+
+/**
+ * Direct-issue an attestation against the admin authorization path,
+ * bypassing the core→reputation CPI. Useful for:
+ *   • Seeding score deltas without burning pool cycles.
+ *   • Exercising the InvalidIssuer / InvalidSchema guards.
+ *   • Driving promote_level boundaries deterministically.
+ *
+ * Returns the transaction signature. Throws (with Anchor's error) on
+ * any program-side failure — callers in negative-path tests should
+ * wrap this in their own try/catch.
+ */
+export async function adminAttest(
+  env: Env,
+  opts: AdminAttestOpts,
+): Promise<string> {
+  const issuer = opts.issuer ?? env.payer;
+
+  // Fixed 96-byte payload; Anchor expects number[].
+  const payload: number[] = new Array(96).fill(0);
+  if (opts.payload) {
+    const n = Math.min(opts.payload.length, 96);
+    for (let i = 0; i < n; i++) payload[i] = opts.payload[i]!;
+  }
+
+  const profile = reputationProfileFor(env, opts.subject);
+  const attestation = attestationFor(
+    env,
+    issuer.publicKey,
+    opts.subject,
+    opts.schemaId,
+    opts.nonce,
+  );
+
+  return env.programs.reputation.methods
+    .attest({
+      schemaId:      opts.schemaId,
+      nonce:         new BN(opts.nonce.toString()),
+      payload,
+      pool:          opts.poolKey ?? PublicKey.default,
+      poolAuthority: opts.poolAuthority ?? PublicKey.default,
+      poolSeedId:    new BN((opts.poolSeedId ?? 0n).toString()),
+    })
+    .accounts({
+      issuer:        issuer.publicKey,
+      subject:       opts.subject,
+      config:        reputationConfigFor(env),
+      profile,
+      identity:      opts.identity ?? env.ids.reputation,
+      attestation,
+      payer:         env.payer.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers(
+      // env.payer is always a signer (fee payer). If issuer is a different
+      // keypair, it also needs to sign.
+      issuer.publicKey.equals(env.payer.publicKey)
+        ? [env.payer]
+        : [env.payer, issuer],
+    )
+    .rpc();
 }
