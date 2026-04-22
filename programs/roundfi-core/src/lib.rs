@@ -75,6 +75,14 @@ pub mod roundfi_core {
         instructions::settle_default::handler(ctx, args)
     }
 
+    pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
+        instructions::escape_valve_list::handler(ctx, args)
+    }
+
+    pub fn escape_valve_buy(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result<()> {
+        instructions::escape_valve_buy::handler(ctx, args)
+    }
+
     /// Dev-only smoke instruction; retained until Step 10 deprecates it.
     pub fn ping(_ctx: Context<Ping>) -> Result<()> {
         msg!("roundfi-core: ping");
