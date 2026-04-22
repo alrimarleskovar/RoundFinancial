@@ -24,9 +24,12 @@
     "devnet:airdrop": "tsx scripts/devnet/airdrop.ts",
     "devnet:deploy": "tsx scripts/devnet/deploy.ts",
     "devnet:init": "tsx scripts/devnet/init-protocol.ts",
-    "devnet:seed": "tsx scripts/devnet/seed-pool.ts"
+    "devnet:seed": "tsx scripts/devnet/seed-pool.ts",
+    "test:parity": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/parity.spec.ts'"
   },
   "devDependencies": {
+    "@roundfi/sdk": "workspace:*",
+    "@types/chai": "^4.3.17",
     "@types/mocha": "^10.0.7",
     "@types/node": "^22.5.0",
     "chai": "^4.5.0",

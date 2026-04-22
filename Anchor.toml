@@ -30,7 +30,11 @@ cluster = "Devnet"
 wallet  = "~/.config/solana/id.json"
 
 [scripts]
-test = "pnpm exec mocha -t 1000000 tests/**/*.ts"
+# Only *.spec.ts files are test entrypoints; *.ts files under tests/_harness/
+# are helpers imported by specs. `anchor test` runs this on localnet after
+# building all programs from the workspace. tests/tsconfig.json overrides
+# module to CommonJS so ts-mocha can `require()` the workspace @roundfi/sdk.
+test = "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 1000000 'tests/**/*.spec.ts'"
 
 [workspace]
 types = "sdk/src/generated"

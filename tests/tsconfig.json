@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node", "mocha", "chai"],
+    "allowJs": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "./**/*.ts",
+    "../sdk/src/**/*.ts",
+    "../config/**/*.ts"
+  ],
+  "exclude": ["../node_modules", "../target", "../dist", "**/generated/**"]
+}
