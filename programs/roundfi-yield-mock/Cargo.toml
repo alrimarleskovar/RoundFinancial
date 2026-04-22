@@ -1,0 +1,23 @@
+[package]
+name = "roundfi-yield-mock"
+version.workspace = true
+edition.workspace = true
+description = "RoundFi yield adapter (mock) — simulated APY for Devnet; interface-compatible with the Kamino adapter"
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "roundfi_yield_mock"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
+anchor-spl  = { version = "0.30.1" }
