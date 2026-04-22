@@ -1,4 +1,5 @@
 pub mod claim_payout;
+pub mod close_pool;
 pub mod contribute;
 pub mod create_pool;
 pub mod deposit_idle_to_yield;
@@ -7,10 +8,13 @@ pub mod escape_valve_list;
 pub mod harvest_yield;
 pub mod initialize_protocol;
 pub mod join_pool;
+pub mod pause;
 pub mod release_escrow;
 pub mod settle_default;
+pub mod update_protocol_config;
 
 pub use claim_payout::*;
+pub use close_pool::*;
 pub use contribute::*;
 pub use create_pool::*;
 pub use deposit_idle_to_yield::*;
@@ -19,5 +23,7 @@ pub use escape_valve_list::*;
 pub use harvest_yield::*;
 pub use initialize_protocol::*;
 pub use join_pool::*;
+pub use pause::*;
 pub use release_escrow::*;
 pub use settle_default::*;
+pub use update_protocol_config::*;

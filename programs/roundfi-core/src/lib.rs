@@ -8,7 +8,12 @@
 //! Step 4b scope: `contribute`, `claim_payout` (with seed-draw invariant),
 //! `release_escrow` + pure-math `math::bps` and `math::escrow_vesting`
 //! modules.
-//! Step 4c: yield deposit/harvest, settle_default, escape valve, close.
+//! Step 4c scope: `deposit_idle_to_yield`, `harvest_yield` (strict
+//! GF→Fee→GoodFaith→Participants waterfall), `settle_default`
+//! (7-day grace + D/C invariant), `escape_valve_list` /
+//! `escape_valve_buy` (close-old / create-new Member), `close_pool`,
+//! `update_protocol_config`, `pause` + `cpi::yield_adapter` safe
+//! wrapper + `math::waterfall`.
 
 use anchor_lang::prelude::*;
 
@@ -81,6 +86,21 @@ pub mod roundfi_core {
 
     pub fn escape_valve_buy(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result<()> {
         instructions::escape_valve_buy::handler(ctx, args)
+    }
+
+    pub fn close_pool(ctx: Context<ClosePool>) -> Result<()> {
+        instructions::close_pool::handler(ctx)
+    }
+
+    pub fn update_protocol_config(
+        ctx: Context<UpdateProtocolConfig>,
+        args: UpdateProtocolConfigArgs,
+    ) -> Result<()> {
+        instructions::update_protocol_config::handler(ctx, args)
+    }
+
+    pub fn pause(ctx: Context<Pause>, args: PauseArgs) -> Result<()> {
+        instructions::pause::handler(ctx, args)
     }
 
     /// Dev-only smoke instruction; retained until Step 10 deprecates it.
