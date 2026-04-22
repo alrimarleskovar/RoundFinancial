@@ -1,4 +1,5 @@
 pub mod attest;
+pub mod get_profile;
 pub mod init_profile;
 pub mod initialize_reputation;
 pub mod link_civic_identity;
@@ -9,6 +10,7 @@ pub mod unlink_identity;
 pub mod update_reputation_config;
 
 pub use attest::*;
+pub use get_profile::*;
 pub use init_profile::*;
 pub use initialize_reputation::*;
 pub use link_civic_identity::*;

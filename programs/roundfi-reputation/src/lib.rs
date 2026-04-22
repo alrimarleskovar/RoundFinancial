@@ -80,6 +80,15 @@ pub mod roundfi_reputation {
         instructions::unlink_identity::handler(ctx)
     }
 
+    /// Public read-only view (Step 4f). Returns a `ProfileSnapshot`
+    /// via both an anchor event and `set_return_data`, so off-chain
+    /// consumers (B2B score API, indexers) and on-chain composers
+    /// (partner programs CPIing into this view) share one canonical
+    /// read surface.
+    pub fn get_profile(ctx: Context<GetProfile>) -> Result<()> {
+        instructions::get_profile::handler(ctx)
+    }
+
     /// Dev-only smoke instruction; retained until Step 10 deprecates it.
     pub fn ping(_ctx: Context<Ping>) -> Result<()> {
         msg!("roundfi-reputation: ping");
