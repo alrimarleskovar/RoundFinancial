@@ -18,6 +18,8 @@ pub struct Member {
     pub on_time_count:      u16,
     pub late_count:         u16,
     pub defaulted:          bool,
+    pub paid_out:           bool,    // 4b: true after claim_payout transfers credit_amount
+    pub last_released_checkpoint: u8, // 4b: highest checkpoint already released (0 = none)
     pub joined_at:          i64,
     pub bump:               u8,
 }
@@ -32,7 +34,8 @@ impl Member {
         + 8 + 8 + 8         // total_contributed, total_received, escrow_balance
         + 2 + 2             // on_time_count, late_count
         + 1                 // defaulted
+        + 1 + 1             // paid_out, last_released_checkpoint (Step 4b)
         + 8                 // joined_at
         + 1                 // bump
-        + 16;               // padding
+        + 14;               // padding (was 16 in v0.1)
 }
