@@ -23,3 +23,4 @@ export * from "./protocol.js";
 export * from "./reputation.js";
 export * from "./events.js";
 export * from "./pool.js";
+export * from "./actions.js";
