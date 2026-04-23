@@ -13,7 +13,8 @@
     "./setup": "./src/setup.ts",
     "./runCycle": "./src/runCycle.ts",
     "./simulateDefault": "./src/simulateDefault.ts",
-    "./lifecycleDemo": "./src/lifecycleDemo.ts"
+    "./lifecycleDemo": "./src/lifecycleDemo.ts",
+    "./indexer": "./src/indexer.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

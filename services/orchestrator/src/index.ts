@@ -11,3 +11,4 @@ export * from "./setup.js";
 export * from "./runCycle.js";
 export * from "./simulateDefault.js";
 export * from "./lifecycleDemo.js";
+export * from "./indexer.js";
