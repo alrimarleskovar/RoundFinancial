@@ -1,4 +1,4 @@
 packages:
   - "sdk"
-  # - "backend/packages/*"   # added in Step 6
+  - "services/*"
   # - "app"                  # added in Step 7
