@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RoundFi — Pitch 3min</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#06090F; --s1:#0C1018; --s2:#111828;
+  --green:#14F195; --teal:#00C8FF; --purple:#9945FF;
+  --amber:#FFB547; --red:#FF5656;
+  --text:#EEF0F8; --muted:#4E5870; --border:rgba(255,255,255,0.07);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  width:100%;height:100%;background:#000;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;font-family:'DM Sans',sans-serif;
+  color:var(--text); /* ← AQUI ESTÁ A CORREÇÃO QUE SALVA A LEITURA */
+}
+
+/* ── STAGE 16:9 ── */
+.stage{position:relative;width:100vw;aspect-ratio:16/9;max-height:100vh;max-width:calc(100vh*16/9);overflow:hidden;background:var(--bg);}
+
+/* ── BG ── */
+.bg-grid{position:absolute;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(20,241,149,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,241,149,.025) 1px,transparent 1px);
+  background-size:4% 4%;}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);z-index:0;pointer-events:none;}
+.o1{width:50%;height:70%;background:rgba(153,69,255,.08);top:-20%;left:-10%;}
+.o2{width:40%;height:55%;background:rgba(20,241,149,.06);bottom:-15%;right:-5%;}
+.o3{width:25%;height:35%;background:rgba(0,200,255,.05);top:15%;right:20%;}
+
+/* ── SLIDES ── */
+.slide{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;padding:5% 7%;opacity:0;pointer-events:none;transition:opacity .55s cubic-bezier(.4,0,.2,1);}
+.slide.active{opacity:1;pointer-events:all;}
+
+/* ── PROGRESS ── */
+.prog{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(255,255,255,.05);z-index:100;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--teal));transition:width .5s ease;}
+.ctr{position:absolute;top:3.5%;right:5%;font-family:'JetBrains Mono',monospace;font-size:.8vw;color:var(--muted);z-index:50;letter-spacing:.1em;}
+
+/* ── TIME CHIP ── */
+.chip{display:inline-flex;align-items:center;gap:.5vw;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:100px;padding:.3vw .9vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--muted);letter-spacing:.08em;margin-bottom:2.5%;align-self:flex-start;}
+.cdot{width:.45vw;height:.45vw;border-radius:50%;background:var(--green);}
+
+/* ── TYPE ── */
+.label{font-family:'JetBrains Mono',monospace;font-size:.7vw;letter-spacing:.2em;color:var(--green);text-transform:uppercase;margin-bottom:1%;}
+h1.hero{font-family:'Syne',sans-serif;font-weight:800;font-size:9vw;line-height:.9;letter-spacing:-.04em;color:var(--text);}
+h1.hero span{background:linear-gradient(90deg,var(--green),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+h2.t{font-family:'Syne',sans-serif;font-weight:800;font-size:4vw;line-height:1.0;letter-spacing:-.03em;color:var(--text);margin-bottom:3%;}
+h2.t em{font-style:normal;color:var(--green);}
+.sub{font-size:1.05vw;color:rgba(238,240,248,.55);line-height:1.7;max-width:50%;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* ── CARDS ── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:1.2vw;padding:4% 5%;}
+.card.g-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--green),transparent);margin-bottom:5%;}
+.card.p-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--purple),transparent);margin-bottom:5%;}
+.card.t-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--teal),transparent);margin-bottom:5%;}
+.card.a-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--amber),transparent);margin-bottom:5%;}
+.bignum{font-family:'Syne',sans-serif;font-weight:800;font-size:3.5vw;line-height:1;letter-spacing:-.03em;}
+.bignum.g{color:var(--green);}
+.bignum.p{color:var(--purple);}
+.bignum.t{color:var(--teal);}
+.bignum.a{color:var(--amber);}
+.bignum.r{color:var(--red);}
+.cardlabel{font-size:.75vw;color:rgba(238,240,248,.55);line-height:1.5;margin-top:.5%;}
+.cardsrc{font-family:'JetBrains Mono',monospace;font-size:.58vw;color:var(--muted);margin-top:.6%;}
+
+/* ── GRIDS ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:2%;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:2%;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5%;}
+.g22{display:grid;grid-template-columns:1fr 1fr;gap:2%;flex:1;align-items:center;}
+
+/* ── ANIMATIONS ── */
+@keyframes up{from{opacity:0;transform:translateY(1.2vw);}to{opacity:1;transform:translateY(0);}}
+.slide.active .a{animation:up .5s cubic-bezier(.4,0,.2,1) forwards;opacity:0;}
+.slide.active .a:nth-child(1){animation-delay:.04s;}
+.slide.active .a:nth-child(2){animation-delay:.11s;}
+.slide.active .a:nth-child(3){animation-delay:.18s;}
+.slide.active .a:nth-child(4){animation-delay:.25s;}
+.slide.active .a:nth-child(5){animation-delay:.32s;}
+.slide.active .a:nth-child(6){animation-delay:.39s;}
+.slide.active .a:nth-child(7){animation-delay:.46s;}
+
+/* ── NAV ── */
+.nav{position:absolute;bottom:2%;left:50%;transform:translateX(-50%);display:flex;gap:.6vw;z-index:100;}
+.dot{width:.5vw;height:.5vw;border-radius:50%;background:var(--muted);cursor:pointer;border:none;transition:all .3s;}
+.dot.active{background:var(--green);width:1.8vw;border-radius:.3vw;}
+.hint{position:absolute;bottom:2.2%;left:4%;font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--muted);z-index:100;}
+
+/* ── LEDGER ── */
+.ledger{display:flex;flex-direction:column;gap:1%;}
+.lrow{display:flex;justify-content:space-between;align-items:center;font-size:.82vw;color:rgba(238,240,248,.55);padding:.6% 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.lrow:last-child{border:none;}
+.lrow.tot{border-top:1px solid rgba(255,255,255,.12);border-bottom:none;padding-top:1.5%;margin-top:.5%;color:var(--text);font-weight:600;}
+.lval{font-family:'JetBrains Mono',monospace;font-size:.78vw;}
+.lval.r{color:var(--red);}
+.lval.g{color:var(--green);}
+
+/* ── SURPLUS BOX ── */
+.surplus{background:rgba(20,241,149,.05);border:1px solid rgba(20,241,149,.18);border-radius:.8vw;padding:3% 4%;text-align:center;}
+.surplus .n{font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:var(--green);line-height:1;}
+.surplus .s{font-size:.7vw;color:var(--muted);margin-top:.4%;}
+
+/* ── PILL ── */
+.pill{display:inline-flex;align-items:center;gap:.4vw;padding:.3vw .9vw;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:.62vw;letter-spacing:.06em;}
+.pill.g{border:1px solid rgba(20,241,149,.3);color:var(--green);background:rgba(20,241,149,.06);}
+.pill.p{border:1px solid rgba(153,69,255,.3);color:var(--purple);background:rgba(153,69,255,.06);}
+.pill.n{border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.02);}
+
+/* ── CHECK / CROSS TABLE ── */
+.ctable{width:100%;border-collapse:collapse;}
+.ctable th{font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.6vw 1vw;text-align:left;border-bottom:1px solid var(--border);}
+.ctable td{font-size:.82vw;padding:.7vw 1vw;border-bottom:1px solid rgba(255,255,255,.03);color:rgba(238,240,248,.7);}
+.ctable td:first-child{color:var(--text);font-weight:500;}
+.ctable .yes{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.9vw;}
+.ctable .no{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.9vw;}
+.ctable .partial{color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:.9vw;}
+
+/* ── PHASE ITEM ── */
+.phase{display:flex;gap:2%;align-items:flex-start;padding:2% 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.phase:last-child{border:none;}
+.pnum{width:1.8vw;height:1.8vw;border-radius:50%;background:rgba(20,241,149,.1);border:1px solid rgba(20,241,149,.25);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.62vw;color:var(--green);flex-shrink:0;margin-top:.1vw;}
+.ptitle{font-size:.9vw;font-weight:600;margin-bottom:.25vw;}
+.pdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+
+/* ── PROFILE CARD ── */
+.prof{background:var(--s1);border:1px solid var(--border);border-radius:1.2vw;padding:5% 5%;display:flex;flex-direction:column;gap:.8vw;}
+.prof .icon{font-size:2vw;}
+.prof .ptag{font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.prof .pname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.3vw;margin:.2vw 0;}
+.prof .pdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+
+/* ── SHIELD ITEM ── */
+.shi{background:var(--s1);border:1px solid var(--border);border-radius:1vw;padding:4% 4.5%;}
+.shi .snum{font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5vw;}
+.shi .stitle{font-size:.95vw;font-weight:600;margin-bottom:.4vw;}
+.shi .sdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+.shi .smetric{font-family:'JetBrains Mono',monospace;font-size:.7vw;color:var(--green);margin-top:.6vw;}
+
+/* ── REVENUE CARD ── */
+.rev{background:var(--s1);border:1px solid var(--border);border-radius:1vw;padding:3.5% 4.5%;position:relative;overflow:hidden;}
+.rev::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;}
+.rev.rv1::before{background:var(--green);}
+.rev.rv2::before{background:var(--teal);}
+.rev.rv3::before{background:var(--purple);}
+.rev .rtitle{font-size:.9vw;font-weight:600;margin-bottom:.3vw;}
+.rev .rdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="bg-grid"></div>
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <div class="prog"><div class="prog-fill" id="pbar" style="width:0%"></div></div>
+  <div class="ctr" id="ctr">01 / 12</div>
+
+  <div class="slide active" data-slide="0">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+      <div class="label a">Crédito além do Capital</div>
+      <h1 class="hero a">Round<span>Fi</span></h1>
+      <p class="sub a" style="margin-top:2%">O consórcio na blockchain Solana.<br/>O seu comportamento é a sua garantia.</p>
+      <div class="a" style="display:flex;gap:.8vw;margin-top:3%;flex-wrap:wrap;">
+        <span class="pill g">Solana · SAS</span>
+        <span class="pill p">Kamino Finance</span>
+        <span class="pill n">Micro-Alavancagem</span>
+        <span class="pill n">B2B SaaS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="1">
+    <div class="chip a"><div class="cdot"></div>0:00 – 0:30</div>
+    <div class="label a">Mercado Global</div>
+    <h2 class="t a">O dinheiro já existe.<br/><em>A infraestrutura, não.</em></h2>
+    <div class="g4 a" style="flex:1;align-items:center;">
+      <div class="card g-line">
+        <div class="bignum g">$5,7 Tri</div>
+        <div class="cardlabel">Gap de crédito para PMEs globalmente</div>
+        <div class="cardsrc">→ IFC / World Bank</div>
+      </div>
+      <div class="card p-line">
+        <div class="bignum p">1,4 Bi</div>
+        <div class="cardlabel">Adultos desbancarizados no mundo</div>
+        <div class="cardsrc">→ World Bank Findex, 2021</div>
+      </div>
+      <div class="card t-line">
+        <div class="bignum t">R$300 Bi</div>
+        <div class="cardlabel">Consórcios ativos só no Brasil</div>
+        <div class="cardsrc">→ ABAC, 2023</div>
+      </div>
+      <div class="card a-line">
+        <div class="bignum a">45 Mi</div>
+        <div class="cardlabel">Invisíveis ao crédito no Brasil</div>
+        <div class="cardsrc">→ Serasa / IBGE</div>
+      </div>
+    </div>
+    <div class="a" style="margin-top:2%;font-size:.85vw;color:var(--muted);">O DeFi exige 150% de garantia para liberar crédito. <strong style="color:var(--text)">A RoundFi precisa de apenas 10%.</strong></div>
+  </div>
+
+  <div class="slide" data-slide="2">
+    <div class="chip a"><div class="cdot"></div>0:30 – 0:50</div>
+    <div class="label a">A Solução</div>
+    <h2 class="t a">Crédito Comportamental.<br/><em>Comportamento é garantia.</em></h2>
+    <div class="g22 a">
+      <div>
+        <div style="display:flex;flex-direction:column;gap:1.5%;">
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:1vw;padding:3.5% 4%;display:flex;align-items:center;gap:3%;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:rgba(238,240,248,.3);flex-shrink:0;">50%</div>
+            <div>
+              <div style="font-size:.8vw;font-weight:600;">Nível 1 · Iniciante</div>
+              <div style="font-size:.75vw;color:var(--muted);">2x de alavancagem</div>
+            </div>
+          </div>
+          <div style="background:var(--s1);border:1px solid rgba(0,200,255,.2);border-radius:1vw;padding:3.5% 4%;display:flex;align-items:center;gap:3%;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:var(--teal);flex-shrink:0;">30%</div>
+            <div>
+              <div style="font-size:.8vw;font-weight:600;">Nível 2 · Comprovado</div>
+              <div style="font-size:.75vw;color:var(--muted);">3,3x de alavancagem</div>
+            </div>
+          </div>
+          <div style="background:rgba(20,241,149,.04);border:1px solid rgba(20,241,149,.3);border-radius:1vw;padding:3.5% 4%;display:flex;align-items:center;gap:3%;position:relative;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:var(--green);flex-shrink:0;">10%</div>
+            <div>
+              <div style="font-size:.8vw;font-weight:600;">Nível 3 · Veterano <span style="font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--green);border:1px solid rgba(20,241,149,.3);padding:.2vw .5vw;border-radius:100px;margin-left:.4vw;">✦ VIP</span></div>
+              <div style="font-size:.75vw;color:var(--muted);">10x de alavancagem máxima</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1.5%;">
+        <div class="card">
+          <div class="label" style="font-size:.6vw;margin-bottom:1%;">Por que colocar dinheiro aqui?</div>
+          <div style="font-size:.9vw;font-weight:500;margin-bottom:.5vw;">Deposita $1.000 → saca $3.500</div>
+          <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">Veteranos injetam liquidez real com apenas 10% de garantia. Yield de 5–8% APY sobre o float via Kamino. Isenção de taxas. Micro-Ciclos expressos.</div>
+        </div>
+        <div class="card" style="background:rgba(153,69,255,.04);border-color:rgba(153,69,255,.2);">
+          <div class="label" style="font-size:.6vw;color:var(--purple);margin-bottom:1%;">O verdadeiro ativo</div>
+          <div style="font-size:.82vw;color:rgba(238,240,248,.7);line-height:1.5;">Cada pagamento gera um <strong style="color:var(--text)">Reputation Bond</strong> no Solana Attestation Service — um passaporte financeiro portátil e utilizável em todo o ecossistema.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="3">
+    <div class="chip a"><div class="cdot"></div>0:50 – 1:10</div>
+    <div class="label a">O Público-Alvo</div>
+    <h2 class="t a">Renda alta. <em>Ativos baixos.</em></h2>
+    <div class="a" style="margin-bottom:2%;font-size:.95vw;color:var(--muted);max-width:60%;">Não buscamos apenas o informal. Buscamos qualquer usuário com fluxo de caixa constante, mas que se recusa a travar 150% de capital no DeFi tradicional.</div>
+    <div class="g3 a" style="flex:1;align-items:center;">
+      <div class="prof">
+        <div class="icon">💻</div>
+        <div class="ptag">Tomador de Crédito</div>
+        <div class="pname">O "Asset-Poor" com Renda</div>
+        <div class="pdesc">Freelancers Web3, PMEs e usuários DeFi com fluxo de caixa mensal, mas sem grandes capitais ociosos para dar em garantia. Buscam 10x de alavancagem.</div>
+        <span class="pill g" style="align-self:flex-start;margin-top:.5vw;">Demanda Real</span>
+      </div>
+      <div class="prof">
+        <div class="icon">📊</div>
+        <div class="ptag">Provedor de Liquidez</div>
+        <div class="pname">O Caçador de Alpha</div>
+        <div class="pdesc">Não quer empréstimo, quer rendimento. Compra NFTs de cotas com desconto no mercado secundário para herdar a reputação e a liquidez do grupo.</div>
+        <span class="pill p" style="align-self:flex-start;margin-top:.5vw;">Arbitrador</span>
+      </div>
+      <div class="prof">
+        <div class="icon">🏛️</div>
+        <div class="ptag">O Cliente Final (B2B)</div>
+        <div class="pname">O Ecossistema Solana</div>
+        <div class="pdesc">Marginfi, Kamino e Neobancos. Eles não entram no grupo, eles pagam pela API da RoundFi para saber quem é confiável antes de emprestar.</div>
+        <span class="pill n" style="align-self:flex-start;margin-top:.5vw;border-color:rgba(0,200,255,.3);color:var(--teal);">Consumidor do Score</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="4">
+    <div class="chip a"><div class="cdot"></div>1:10 – 1:30</div>
+    <div class="label a">A Jornada do Score</div>
+    <h2 class="t a">O crédito é a isca.<br/><em>O Score é o produto.</em></h2>
+    <div class="a" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:2%;">
+      <div class="phase" style="align-items:center;padding:3% 0;">
+        <div class="pnum" style="width:3vw;height:3vw;font-size:1.2vw;">1</div>
+        <div style="flex:1;margin-left:2%;">
+          <div class="ptitle" style="font-size:1.1vw;color:var(--text);">Skin in the Game (O Stake)</div>
+          <div class="pdesc" style="font-size:.85vw;">Usuário trava uma pequena garantia inicial (10% a 50%) num grupo de pessoas com o mesmo objetivo. Zero necessidade de ser "cripto-rico".</div>
+        </div>
+      </div>
+      <div class="phase" style="align-items:center;padding:3% 0;">
+        <div class="pnum" style="width:3vw;height:3vw;font-size:1.2vw;color:var(--purple);border-color:rgba(153,69,255,.3);background:rgba(153,69,255,.1);">2</div>
+        <div style="flex:1;margin-left:2%;">
+          <div class="ptitle" style="font-size:1.1vw;color:var(--text);">Micro-Alavancagem (Funding & Escrow)</div>
+          <div class="pdesc" style="font-size:.85vw;">O pool financia o usuário em até 10x o valor depositado. O prêmio é protegido pela <strong style="color:var(--purple);">Matriz de Escrow</strong> — o capital fica retido e só é liberado mediante o pagamento mensal. O protocolo nunca fica exposto.</div>
+        </div>
+      </div>
+      <div class="phase" style="align-items:center;padding:3% 0;border:none;">
+        <div class="pnum" style="width:3vw;height:3vw;font-size:1.2vw;color:var(--teal);border-color:rgba(0,200,255,.3);background:rgba(0,200,255,.1);">3</div>
+        <div style="flex:1;margin-left:2%;">
+          <div class="ptitle" style="font-size:1.1vw;color:var(--teal);">Atestado SAS (A Cunhagem do Score)</div>
+          <div class="pdesc" style="font-size:.85vw;">Cada parcela paga não apenas libera o Escrow, mas emite um <strong style="color:var(--text)">Reputation Bond</strong> no Solana Attestation Service. O usuário termina o ciclo com o capital na mão e um FICO Score imutável na rede.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="5">
+    <div class="chip a"><div class="cdot"></div>1:30 – 1:55</div>
+    <div class="label a">Por que não quebra</div>
+    <h2 class="t a">O Triplo Escudo.<br/><em>Solvente por Construção.</em></h2>
+    <div class="g22 a">
+      <div style="display:flex;flex-direction:column;gap:1.2%;">
+        <div class="shi">
+          <div class="snum">Escudo 01</div>
+          <div class="stitle">🌱 Sorteio Semente</div>
+          <div class="sdesc">Mês 1 retém 91,6% — o protocolo nunca se expõe no Dia 0.</div>
+          <div class="smetric">→ $9.152 blindados antes do 1º prêmio</div>
+        </div>
+        <div class="shi">
+          <div class="snum">Escudo 02</div>
+          <div class="stitle">🔒 Escrow Adaptativo</div>
+          <div class="sdesc">65% do prêmio nunca sai do contrato. O dinheiro simplesmente não estava nas mãos deles.</div>
+          <div class="smetric">→ Calote = matematicamente ilógico</div>
+        </div>
+        <div class="shi">
+          <div class="snum">Escudo 03</div>
+          <div class="stitle">🛡️ Cofre Solidário + Yield</div>
+          <div class="sdesc">1% de cada parcela em fundo independente + 5–8% APY na Kamino Finance.</div>
+          <div class="smetric">→ 0% de yield = ainda solvente</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1.5%;">
+        <div class="card" style="background:var(--s1);">
+          <div class="label" style="font-size:.6vw;margin-bottom:1.5%;">Pior cenário — Triplo Calote Nível 3</div>
+          <div class="ledger">
+            <div class="lrow"><span>Passivo bruto (3 cartas)</span><span class="lval r">−$30.000</span></div>
+            <div class="lrow"><span>Escrow retido 65%</span><span class="lval g">+$19.500</span></div>
+            <div class="lrow"><span>Stake confiscado</span><span class="lval g">+$3.000</span></div>
+            <div class="lrow"><span>Colchão Mês 1</span><span class="lval g">+$9.152</span></div>
+            <div class="lrow"><span>Cofre + Yield</span><span class="lval g">+$2.500</span></div>
+            <div class="lrow tot"><span>Saldo líquido</span><span class="lval g">+$4.152</span></div>
+          </div>
+        </div>
+        <div class="surplus">
+          <div class="n" style="font-size:.68vw;color:var(--muted);margin-bottom:.4%;">Superávit — mesmo com 0% de yield</div>
+          <div class="n">+$4.152</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="6">
+    <div class="chip a"><div class="cdot"></div>1:55 – 2:10</div>
+    <div class="label a">Risco para o usuário</div>
+    <h2 class="t a">E se a vida <em>der errado?</em></h2>
+    <div class="g22 a">
+      <div style="display:flex;flex-direction:column;gap:1.5%;">
+        <div class="card" style="border-color:rgba(255,86,86,.2);">
+          <div style="font-size:.75vw;font-family:'JetBrains Mono',monospace;color:var(--red);margin-bottom:1%;">❌ DeFi Tradicional</div>
+          <div style="font-size:.9vw;font-weight:600;margin-bottom:.5vw;">Hard Default</div>
+          <div style="font-size:.8vw;color:rgba(238,240,248,.5);line-height:1.6;">Protocolo confisca tudo. Reputação destruída. Pagamentos anteriores: perdidos.</div>
+        </div>
+        <div class="card" style="border-color:rgba(20,241,149,.25);background:rgba(20,241,149,.03);">
+          <div style="font-size:.75vw;font-family:'JetBrains Mono',monospace;color:var(--green);margin-bottom:1%;">✓ RoundFi — Válvula de Escape</div>
+          <div style="font-size:.9vw;font-weight:600;margin-bottom:.5vw;">Três saídas antes do calote</div>
+          <div style="font-size:.8vw;color:rgba(238,240,248,.5);line-height:1.6;">
+            <strong style="color:var(--text)">1. Válvula de Escape</strong> — vende o NFT no mercado livre<br/>
+            <strong style="color:var(--text)">2. Saída Limpa</strong> — recupera liquidez e mantém reputação SAS intacta<br/>
+            <strong style="color:var(--text)">3. Slashing</strong> — confisco automático da garantia como último recurso
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label" style="font-size:.6vw;margin-bottom:2%;">Caso da Maria — 6 meses de disciplina</div>
+        <div style="display:flex;flex-direction:column;gap:1.2%;">
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted)">Capital injetado</span><span class="mono" style="color:var(--text);">$7.496</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted)">NFT vendido por</span><span class="mono" style="color:var(--green);">$6.000</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted)">Dívida quitada</span><span class="mono" style="color:var(--green);">✓</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;"><span style="color:var(--muted)">Reputação SAS</span><span class="mono" style="color:var(--green);">Intacta</span></div>
+        </div>
+        <div style="margin-top:2%;font-size:.72vw;color:var(--muted);border-top:1px solid var(--border);padding-top:1.5%;">O Pedro compra com desconto e ganha <strong style="color:var(--green)">+34%</strong> de chance no sorteio.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="7">
+    <div class="chip a"><div class="cdot"></div>2:10 – 2:20</div>
+    <div class="label a">Perguntas Comuns</div>
+    <h2 class="t a">Respostas <em>diretas.</em></h2>
+    <div class="g3 a" style="flex:1;align-items:center;">
+      <div class="card" style="background:var(--s1);">
+        <div class="label" style="font-size:.6vw;margin-bottom:1%;">Quem entra no grupo?</div>
+        <div style="font-size:.85vw;font-weight:600;margin-bottom:.5vw;">Civic Pass + Score SAS</div>
+        <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">Proof of Personhood via Civic Pass elimina exércitos de bots farmando reputação. SAS registra o histórico imutável.</div>
+      </div>
+      <div class="card" style="background:var(--s1);">
+        <div class="label" style="font-size:.6vw;margin-bottom:1%;">E se ninguém comprar o NFT?</div>
+        <div style="font-size:.85vw;font-weight:600;margin-bottom:.5vw;">Venda livre → Saída → Slashing</div>
+        <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">Três camadas antes do calote. E mesmo que ocorra: os Escudos cobrem a perda com superávit garantido.</div>
+      </div>
+      <div class="card" style="background:var(--s1);">
+        <div class="label" style="font-size:.6vw;margin-bottom:1%;">Por que Solana?</div>
+        <div style="font-size:.85vw;font-weight:600;margin-bottom:.5vw;">SAS · Kamino · Blinks</div>
+        <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">SAS para atestados imutáveis. Kamino para yield do float. Blinks para pagamento direto no feed do X — zero fricção.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="8">
+    <div class="chip a"><div class="cdot"></div>2:20 – 2:35</div>
+    <div class="label a">Competidores</div>
+    <h2 class="t a">O que os outros <em>não fazem.</em></h2>
+    <div class="a" style="flex:1;align-items:center;display:flex;flex-direction:column;justify-content:center;">
+      <table class="ctable">
+        <thead>
+          <tr>
+            <th>Protocolo</th>
+            <th>Sub-colateralização</th>
+            <th>Reputação on-chain</th>
+            <th>NFT de posição</th>
+            <th>Yield sobre float</th>
+            <th>B2B API</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Aave / Marginfi</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+          <tr><td>Esusu (Web2)</td><td class="partial">~</td><td class="partial">~</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td></tr>
+          <tr><td>Kolektivo / outros</td><td class="partial">~</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+          <tr style="background:rgba(20,241,149,.03);"><td style="color:var(--green);font-weight:700;">RoundFi</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="9">
+    <div class="chip a"><div class="cdot"></div>2:35 – 2:50</div>
+    <div class="label a">Como Ganha Dinheiro</div>
+    <h2 class="t a">3 motores.<br/><em>Zero inflação de token.</em></h2>
+    <div class="g3 a" style="flex:1;align-items:center;">
+      <div class="rev rv1">
+        <div style="font-size:1.3vw;margin-bottom:1vw;">💰</div>
+        <div class="rtitle">Yield sobre o Float</div>
+        <div class="rdesc">20% de Taxa de Performance sobre os 5–8% APY gerados na Kamino Finance com o capital ocioso dos grupos.</div>
+        <div style="margin-top:1vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--green);">→ Receita passiva · imediata</div>
+      </div>
+      <div class="rev rv2">
+        <div style="font-size:1.3vw;margin-bottom:1vw;">📋</div>
+        <div class="rtitle">Taxas B2C</div>
+        <div class="rdesc">Taxa de entrada + taxa mensal sobre os grupos de varejo. Escala linear com número de cotistas ativos.</div>
+        <div style="margin-top:1vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--teal);">→ Receita recorrente</div>
+      </div>
+      <div class="rev rv3">
+        <div style="font-size:1.3vw;margin-bottom:1vw;">🔌</div>
+        <div class="rtitle">API SAS — B2B Endgame</div>
+        <div class="rdesc">Neobancos e protocolos DeFi pagam por chamadas de API para consultar o Score Comportamental. Alta margem, escala global.</div>
+        <div style="margin-top:1vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--purple);">→ A Chainlink da Reputação Humana</div>
+      </div>
+    </div>
+    <div class="a" style="margin-top:2%;font-size:.8vw;color:var(--muted);">Espelho da Esusu — unicórnio Web2 avaliado em <strong style="color:var(--text)">$1,2 bilhão</strong> com a mesma tese. Nós fazemos on-chain, com lógica determinística.</div>
+  </div>
+
+  <div class="slide" data-slide="10">
+    <div class="chip a"><div class="cdot"></div>2:50 – 2:55</div>
+    <div class="label a">Equipe</div>
+    <h2 class="t a">As pessoas <em>certas.</em></h2>
+    <div class="g4 a" style="flex:1;align-items:center;">
+      <div class="prof" style="border-color:rgba(20,241,149,.2);">
+        <div class="icon">👩‍💼</div>
+        <div class="ptag">CEO</div>
+        <div class="pname">Yvina</div>
+        <div class="pdesc">Liderança estratégica e visão de negócios para escalar a RoundFi globalmente.</div>
+      </div>
+      <div class="prof" style="border-color:rgba(153,69,255,.2);">
+        <div class="icon">👨‍💻</div>
+        <div class="ptag">Co-Founder / Product</div>
+        <div class="pname">Caio</div>
+        <div class="pdesc">Arquitetura Web3, design do Triplo Escudo e gestão do produto de ponta a ponta.</div>
+      </div>
+      <div class="prof" style="border-color:rgba(0,200,255,.2);">
+        <div class="icon">⚙️</div>
+        <div class="ptag">Dev</div>
+        <div class="pname">Alrimar</div>
+        <div class="pdesc">Engenharia de Smart Contracts (Rust/Anchor) e integrações on-chain nativas.</div>
+      </div>
+      <div class="prof" style="border-color:rgba(255,181,71,.2);">
+        <div class="icon">📱</div>
+        <div class="ptag">Dev</div>
+        <div class="pname">Diego</div>
+        <div class="pdesc">Desenvolvimento Mobile (Flutter) para garantir uma experiência "invisível" da Web3.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="11" style="justify-content:center;align-items:center;text-align:center;">
+    <div class="a" style="font-family:'JetBrains Mono',monospace;font-size:.75vw;letter-spacing:.2em;color:var(--green);text-transform:uppercase;margin-bottom:2%;display:flex;align-items:center;gap:1vw;justify-content:center;">
+      <span style="width:3vw;height:1px;background:var(--green);display:inline-block;"></span>
+      Visão de Futuro
+      <span style="width:3vw;height:1px;background:var(--green);display:inline-block;"></span>
+    </div>
+    <h2 class="t a" style="font-size:4.5vw;max-width:80%;margin:0 auto 2%;">O próximo bilhão de usuários<br/>DeFi já existe.<br/>Falta a <em>infraestrutura.</em></h2>
+    <p class="sub a" style="max-width:40%;margin:0 auto 3%;font-size:.95vw;">Go-to-market: líderes de consórcio da diáspora no Brasil, México e Nigéria. Pagamentos via Blinks diretamente no X/Twitter.</p>
+    <div class="a" style="display:flex;gap:1vw;justify-content:center;flex-wrap:wrap;margin-bottom:3%;">
+      <span class="pill g">roundfi.xyz</span>
+      <span class="pill n">Built on Solana</span>
+      <span class="pill n">SAS · Kamino · Civic Pass · Blinks</span>
+    </div>
+    <div class="a" style="font-family:'Syne',sans-serif;font-size:1.6vw;font-weight:700;color:var(--muted);">Comportamento é a nova garantia.</div>
+  </div>
+
+  <div class="nav" id="nav"></div>
+  <div class="hint">← → ou clique nos pontos</div>
+</div>
+
+<script>
+  const slides=document.querySelectorAll('.slide');
+  const navEl=document.getElementById('nav');
+  const pbar=document.getElementById('pbar');
+  const ctr=document.getElementById('ctr');
+  let cur=0;
+  slides.forEach((_,i)=>{
+    const b=document.createElement('button');
+    b.className='dot'+(i===0?' active':'');
+    b.onclick=()=>go(i);
+    navEl.appendChild(b);
+  });
+  function go(n){
+    slides[cur].classList.remove('active');
+    navEl.children[cur].classList.remove('active');
+    cur=(n+slides.length)%slides.length;
+    slides[cur].classList.add('active');
+    navEl.children[cur].classList.add('active');
+    pbar.style.width=(cur/(slides.length-1)*100)+'%';
+    ctr.textContent=String(cur+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();go(cur+1);}
+    if(e.key==='ArrowLeft'){e.preventDefault();go(cur-1);}
+  });
+  let tx=0;
+  document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;});
+  document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>40)dx<0?go(cur+1):go(cur-1);});
+</script>
+</body>
+</html>
