@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 import { runMockDemo, type MockHandle } from "@/lib/mockDemo";
 import { runRealDemo, type RealHandle } from "@/lib/realDemo";
@@ -34,6 +35,7 @@ export default function HomePage() {
   const { id: networkId, endpoint, setNetwork } = useNetwork();
   const [state, dispatch] = useLifecycleState();
   const handleRef = useRef<DemoHandle | null>(null);
+  const { connected: walletConnected, wallet } = useWallet();
 
   // Clean up any running demo on unmount.
   useEffect(() => {
@@ -69,6 +71,8 @@ export default function HomePage() {
           creditAmount: config.creditAmount,
           defaultScenario,
           endpoint,
+          walletConnected,
+          walletLabel: wallet?.adapter.name,
         },
         (event) => dispatch({ type: "event", event }),
       );

@@ -17,6 +17,16 @@ function fmtTs(at: number): string {
   return `${h}:${m}:${s}`;
 }
 
+/**
+ * Signatures come from the orchestrator as base58 strings — shorten to
+ * first-6/last-6 so the feed stays readable while still being uniquely
+ * identifiable for a quick Explorer lookup.
+ */
+function shortSig(sig: string): string {
+  if (sig.length <= 14) return sig;
+  return `${sig.slice(0, 6)}…${sig.slice(-6)}`;
+}
+
 function lineForEvent(e: LifecycleEvent): {
   line: string;
   tone: "phase" | "ok" | "skip" | "fail" | "member" | "payout" | "snapshot" | "summary";
@@ -31,8 +41,15 @@ function lineForEvent(e: LifecycleEvent): {
         tone: "phase",
         ts: e.at,
       };
-    case "action.ok":
-      return { line: e.detail, tone: "ok", ts: e.at };
+    case "action.ok": {
+      // Any action.ok that carries `signature` is a confirmed on-chain
+      // tx — surface it visibly so Real mode shows tx hashes without
+      // requiring a separate devtools panel.
+      const line = e.signature
+        ? `${e.detail}  🔗 ${shortSig(e.signature)} ✔`
+        : e.detail;
+      return { line, tone: "ok", ts: e.at };
+    }
     case "action.skip":
       return { line: `${e.action} skipped — ${e.reason}`, tone: "skip", ts: e.at };
     case "action.fail":

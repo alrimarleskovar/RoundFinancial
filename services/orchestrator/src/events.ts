@@ -1,6 +1,20 @@
 /**
  * Lifecycle events emitted by the orchestrator.
  *
+ * ─── STABILITY CONTRACT ──────────────────────────────────────────────
+ * `LifecycleEvent` is a stable interface between orchestrator and UI.
+ * Do not modify its shape (add/remove/rename fields, split/merge
+ * variants) without updating BOTH sides in the same change:
+ *   • consumers: app/src/lib/mockDemo.ts, app/src/lib/realDemo.ts,
+ *     app/src/hooks/useLifecycleState.ts, app/src/components/EventsFeed.tsx
+ *   • emitters:  services/orchestrator/src/{lifecycleDemo,runCycle,
+ *     simulateDefault,setup,indexer}.ts
+ * Additive changes (new discriminator variants) are safer than
+ * modifications — existing consumers then treat unknown variants as
+ * inert. When in doubt, prefer adding a new `kind` over extending an
+ * existing one.
+ * ─────────────────────────────────────────────────────────────────────
+ *
  * Design goals:
  *   - every on-chain effect corresponds to exactly one event,
  *   - events are a discriminated union so callers (console logger,
@@ -9,6 +23,10 @@
  *     orchestrator does, it reports.
  *
  * Amounts are in USDC base units (u64, 6 decimals) as bigint.
+ *
+ * Transaction visibility: every `action.ok` emitted from an on-chain
+ * call carries the confirmed tx `signature`. UI surfaces that field
+ * directly in the events feed — no side channel needed.
  */
 
 import type { PublicKey } from "@solana/web3.js";

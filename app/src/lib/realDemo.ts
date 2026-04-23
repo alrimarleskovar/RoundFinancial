@@ -58,6 +58,16 @@ export interface RealConfig {
   airdropLamports?: number;
   /** Cycle duration passed to createPool. Short for demo pacing. */
   cycleDurationSec?: number;
+  /**
+   * Wallet-adapter public key when a browser wallet is connected.
+   * Real mode currently uses an ephemeral authority Keypair for signing,
+   * so wallet connection is a UX gate rather than a signing requirement
+   * — preflight still rejects unconnected runs so the user can't trip
+   * into a run they didn't understand.
+   */
+  walletConnected: boolean;
+  /** Short label for the connected wallet, if any (e.g. "Phantom"). */
+  walletLabel?: string;
 }
 
 export interface RealHandle {
@@ -114,9 +124,57 @@ export function runRealDemo(
   };
 
   const run = async () => {
-    // Surface a clear "where am I pointing?" event before anything
-    // touches the network, so the feed shows context even if setup
-    // blows up immediately.
+    const startedAt = nowFn();
+
+    // ── Preflight gate ─────────────────────────────────────────────
+    // All preflight failures short-circuit into a single visible
+    // action.fail + summary so the user sees exactly which prerequisite
+    // is missing instead of cryptic "fetch /idls failed" or RPC timeout.
+    const abortWith = (
+      action: string,
+      error: string,
+      note: string,
+    ): void => {
+      emit({ kind: "action.fail", action, error, at: nowFn() });
+      emit({
+        kind: "summary",
+        totalEvents: 0,
+        okCount: 0,
+        skipCount: 0,
+        failCount: 1,
+        startedAt,
+        finishedAt: nowFn(),
+        elapsedMs: nowFn() - startedAt,
+        notes: [note],
+      });
+    };
+
+    emit({
+      kind: "phase.start",
+      phase: "setup",
+      label: "Preflight",
+      at: startedAt,
+    });
+
+    // 1. Wallet connected — UX gate, not a signing requirement yet.
+    if (!config.walletConnected) {
+      abortWith(
+        "preflight.wallet",
+        "No wallet connected",
+        "Connect a wallet (Phantom, Solflare, Backpack, …) before running real mode.",
+      );
+      return;
+    }
+    emit({
+      kind: "action.ok",
+      action: "preflight.wallet",
+      detail: config.walletLabel
+        ? `Wallet connected (${config.walletLabel})`
+        : "Wallet connected",
+      at: nowFn(),
+    });
+
+    // 2. Surface endpoint target before anything hits the network.
     emit({
       kind: "action.ok",
       action: "realDemo.connect",
@@ -125,6 +183,27 @@ export function runRealDemo(
     });
 
     const connection = new Connection(config.endpoint, "confirmed");
+
+    // 3. RPC reachability — catch dead validator / wrong URL before
+    //    the orchestrator's first tx, which would otherwise emit a
+    //    generic "fetch failed" deep inside airdrop.
+    try {
+      const version = await connection.getVersion();
+      emit({
+        kind: "action.ok",
+        action: "preflight.rpc",
+        detail: `RPC reachable (solana-core ${version["solana-core"] ?? "?"})`,
+        at: nowFn(),
+      });
+    } catch (err) {
+      abortWith(
+        "preflight.rpc",
+        (err as Error).message ?? String(err),
+        `RPC endpoint ${config.endpoint} is not reachable. ` +
+          "Is the validator running? Is the URL correct?",
+      );
+      return;
+    }
 
     // Throwaway authority funded by airdrop. Scoped to this run.
     const authority = Keypair.generate();
@@ -135,31 +214,33 @@ export function runRealDemo(
       at: nowFn(),
     });
 
+    // 4. IDLs — loadIdls throws when /idls/*.json are missing (i.e.
+    //    prepare-idls hasn't been run after anchor build).
     let idls;
     try {
       idls = await loadIdls();
-    } catch (err) {
       emit({
-        kind: "action.fail",
-        action: "loadIdls",
-        error: (err as Error).message,
+        kind: "action.ok",
+        action: "preflight.idls",
+        detail: "IDLs loaded (core + reputation + yield-mock)",
         at: nowFn(),
       });
-      emit({
-        kind: "summary",
-        totalEvents: 0,
-        okCount: 0,
-        skipCount: 0,
-        failCount: 1,
-        startedAt: nowFn(),
-        finishedAt: nowFn(),
-        elapsedMs: 0,
-        notes: [
-          "Real mode aborted — IDLs are missing. See app/public/idls/README.md.",
-        ],
-      });
+    } catch (err) {
+      abortWith(
+        "loadIdls",
+        (err as Error).message,
+        "Real mode aborted — IDLs are missing. See app/public/idls/README.md.",
+      );
       return;
     }
+
+    emit({
+      kind: "phase.end",
+      phase: "setup",
+      label: "Preflight",
+      at: nowFn(),
+      elapsedMs: nowFn() - startedAt,
+    });
 
     const wallet = makeWalletForKeypair(authority);
     const provider = new AnchorProvider(connection, wallet, {
