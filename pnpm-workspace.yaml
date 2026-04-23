@@ -1,4 +1,4 @@
 packages:
   - "sdk"
   - "services/*"
-  # - "app"                  # added in Step 7
+  - "app"

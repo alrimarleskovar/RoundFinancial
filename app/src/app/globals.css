@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0b0f19;
+  color: #e5e7eb;
+  font-family: ui-sans-serif, system-ui, -apple-system, Inter, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Thin scrollbars for the events feed */
+.scrollable::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollable::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 9999px;
+}
+.scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
