@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { runMockDemo, type MockHandle } from "@/lib/mockDemo";
-import { ActionsPanel, type DemoConfig } from "@/components/ActionsPanel";
+import { runRealDemo, type RealHandle } from "@/lib/realDemo";
+import {
+  ActionsPanel,
+  type DemoConfig,
+  type DemoMode,
+} from "@/components/ActionsPanel";
 import { PoolCard } from "@/components/PoolCard";
 import { MembersList } from "@/components/MembersList";
 import { EventsFeed } from "@/components/EventsFeed";
 import { useLifecycleState } from "@/hooks/useLifecycleState";
+import { useNetwork } from "@/lib/network";
 
 const DEFAULT_CONFIG: DemoConfig = {
   memberNames: ["Ana", "Bruno", "Clara", "David"],
@@ -20,10 +26,14 @@ const DEFAULT_CONFIG: DemoConfig = {
   stepDelayMs: 350,
 };
 
+type DemoHandle = MockHandle | RealHandle;
+
 export default function HomePage() {
   const [config, setConfig] = useState<DemoConfig>(DEFAULT_CONFIG);
+  const [mode, setMode] = useState<DemoMode>("mock");
+  const { id: networkId, endpoint, setNetwork } = useNetwork();
   const [state, dispatch] = useLifecycleState();
-  const handleRef = useRef<MockHandle | null>(null);
+  const handleRef = useRef<DemoHandle | null>(null);
 
   // Clean up any running demo on unmount.
   useEffect(() => {
@@ -43,23 +53,39 @@ export default function HomePage() {
     });
     dispatch({ type: "start" });
 
-    handleRef.current = runMockDemo(
-      {
-        memberNames: config.memberNames,
-        cyclesTotal: config.cyclesTotal,
-        installmentAmount: config.installmentAmount,
-        creditAmount: config.creditAmount,
-        defaultScenario: config.enableDefault
-          ? {
-              memberSlotIndex: config.defaultMemberSlot,
-              atCycle: config.defaultAtCycle,
-            }
-          : undefined,
-        stepDelayMs: config.stepDelayMs,
-      },
-      (event) => dispatch({ type: "event", event }),
-    );
-  }, [config, dispatch]);
+    const defaultScenario = config.enableDefault
+      ? {
+          memberSlotIndex: config.defaultMemberSlot,
+          atCycle: config.defaultAtCycle,
+        }
+      : undefined;
+
+    if (mode === "real") {
+      handleRef.current = runRealDemo(
+        {
+          memberNames: config.memberNames,
+          cyclesTotal: config.cyclesTotal,
+          installmentAmount: config.installmentAmount,
+          creditAmount: config.creditAmount,
+          defaultScenario,
+          endpoint,
+        },
+        (event) => dispatch({ type: "event", event }),
+      );
+    } else {
+      handleRef.current = runMockDemo(
+        {
+          memberNames: config.memberNames,
+          cyclesTotal: config.cyclesTotal,
+          installmentAmount: config.installmentAmount,
+          creditAmount: config.creditAmount,
+          defaultScenario,
+          stepDelayMs: config.stepDelayMs,
+        },
+        (event) => dispatch({ type: "event", event }),
+      );
+    }
+  }, [config, dispatch, mode, endpoint]);
 
   const stopDemo = useCallback(() => {
     handleRef.current?.cancel();
@@ -81,12 +107,21 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-[1400px] flex-col gap-6 px-6 py-8">
-      <Header phase={state.currentPhase?.label ?? null} running={state.running} />
+      <Header
+        phase={state.currentPhase?.label ?? null}
+        running={state.running}
+        mode={mode}
+        networkId={networkId}
+      />
 
       <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
         <ActionsPanel
           config={config}
           onConfigChange={setConfig}
+          mode={mode}
+          onModeChange={setMode}
+          networkId={networkId}
+          onNetworkChange={setNetwork}
           running={state.running}
           finished={state.finished}
           onStart={startDemo}
@@ -110,7 +145,17 @@ export default function HomePage() {
   );
 }
 
-function Header({ phase, running }: { phase: string | null; running: boolean }) {
+function Header({
+  phase,
+  running,
+  mode,
+  networkId,
+}: {
+  phase: string | null;
+  running: boolean;
+  mode: DemoMode;
+  networkId: string;
+}) {
   return (
     <header className="flex items-center justify-between border-b border-border pb-4">
       <div>
@@ -124,15 +169,20 @@ function Header({ phase, running }: { phase: string | null; running: boolean }) 
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span
-          className={`h-2 w-2 rounded-full ${
-            running ? "animate-pulse bg-accent" : "bg-slate-600"
-          }`}
-        />
-        <span className="text-xs text-slate-400">
-          {running ? phase ?? "Running…" : "Idle"}
+      <div className="flex items-center gap-3">
+        <span className="rounded-md border border-border bg-surface px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+          {mode === "real" ? `Real · ${networkId}` : "Mock"}
         </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`h-2 w-2 rounded-full ${
+              running ? "animate-pulse bg-accent" : "bg-slate-600"
+            }`}
+          />
+          <span className="text-xs text-slate-400">
+            {running ? phase ?? "Running…" : "Idle"}
+          </span>
+        </div>
       </div>
     </header>
   );

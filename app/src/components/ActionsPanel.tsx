@@ -1,8 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
 
 import { formatUsdc } from "@/lib/formatUsdc";
+import { NETWORK_OPTIONS, type NetworkId } from "@/lib/network";
+
+// wallet-adapter-react-ui's WalletMultiButton mounts a portal and
+// reads `document`, so SSR must be skipped.
+const WalletMultiButton = dynamic(
+  () =>
+    import("@solana/wallet-adapter-react-ui").then(
+      (mod) => mod.WalletMultiButton,
+    ),
+  { ssr: false },
+);
+
+export type DemoMode = "mock" | "real";
 
 export interface DemoConfig {
   memberNames: string[];
@@ -18,6 +32,10 @@ export interface DemoConfig {
 interface ActionsPanelProps {
   config: DemoConfig;
   onConfigChange: (c: DemoConfig) => void;
+  mode: DemoMode;
+  onModeChange: (m: DemoMode) => void;
+  networkId: NetworkId;
+  onNetworkChange: (id: NetworkId) => void;
   running: boolean;
   finished: boolean;
   onStart: () => void;
@@ -61,6 +79,10 @@ const PRESETS: Record<string, DemoConfig> = {
 export function ActionsPanel({
   config,
   onConfigChange,
+  mode,
+  onModeChange,
+  networkId,
+  onNetworkChange,
   running,
   finished,
   onStart,
@@ -85,6 +107,8 @@ export function ActionsPanel({
     [config.cyclesTotal],
   );
 
+  const network = NETWORK_OPTIONS[networkId];
+
   return (
     <aside className="flex h-full flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-card">
       <div>
@@ -97,12 +121,35 @@ export function ActionsPanel({
       </div>
 
       <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <ModeButton
+            label="Mock"
+            hint="instant, in-browser"
+            active={mode === "mock"}
+            disabled={running}
+            onClick={() => onModeChange("mock")}
+          />
+          <ModeButton
+            label="Real"
+            hint="on-chain via orchestrator"
+            active={mode === "real"}
+            disabled={running}
+            onClick={() => onModeChange("real")}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
         <button
           onClick={onStart}
           disabled={running}
           className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
         >
-          {running ? "Running…" : finished ? "Run Demo again" : "Run Demo"}
+          {running
+            ? "Running…"
+            : finished
+              ? `Run ${mode === "real" ? "Real" : "Mock"} Demo again`
+              : `Run ${mode === "real" ? "Real" : "Mock"} Demo`}
         </button>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -121,6 +168,39 @@ export function ActionsPanel({
           </button>
         </div>
       </div>
+
+      {mode === "real" ? (
+        <div className="space-y-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[11px] font-medium uppercase tracking-wider text-accent/90">
+              Real mode
+            </h3>
+            <div className="scale-90">
+              <WalletMultiButton />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-slate-500">
+              Network
+            </label>
+            <select
+              className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-slate-200"
+              value={networkId}
+              disabled={running}
+              onChange={(e) => onNetworkChange(e.target.value as NetworkId)}
+            >
+              {Object.values(NETWORK_OPTIONS).map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label} · {o.endpoint.replace(/^https?:\/\//, "")}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+              {network.notes}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
@@ -228,19 +308,66 @@ export function ActionsPanel({
           <span className="text-right font-mono text-slate-200">
             {formatUsdc(config.creditAmount)}
           </span>
-          <span>Step delay</span>
-          <span className="text-right font-mono text-slate-200">
-            {config.stepDelayMs} ms
-          </span>
+          {mode === "mock" ? (
+            <>
+              <span>Step delay</span>
+              <span className="text-right font-mono text-slate-200">
+                {config.stepDelayMs} ms
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-auto rounded-lg border border-border bg-background/50 p-3 text-[11px] leading-relaxed text-slate-500">
-        This first frontend version drives a local simulation of the
-        lifecycle. The event shapes match{" "}
-        <span className="font-mono text-slate-300">@roundfi/orchestrator</span>{" "}
-        1:1, so Step 8 swaps in live on-chain events without touching the UI.
+        {mode === "real" ? (
+          <>
+            Real mode drives the full orchestrator end-to-end over{" "}
+            <span className="font-mono text-slate-300">{networkId}</span>.
+            Requires a running validator with the three programs deployed
+            and IDLs populated under{" "}
+            <span className="font-mono text-slate-300">app/public/idls/</span>{" "}
+            (see the README there).
+          </>
+        ) : (
+          <>
+            Mock mode emits the exact same{" "}
+            <span className="font-mono text-slate-300">LifecycleEvent</span>{" "}
+            shapes as the orchestrator — no validator, no wallet, instant.
+            Toggle to Real above to drive the actual on-chain flow.
+          </>
+        )}
       </div>
     </aside>
+  );
+}
+
+function ModeButton({
+  label,
+  hint,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        "flex flex-col items-start rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40 " +
+        (active
+          ? "border-accent bg-accent/10 text-accent"
+          : "border-border bg-background text-slate-300 hover:border-slate-500")
+      }
+    >
+      <span className="text-xs font-semibold">{label}</span>
+      <span className="text-[10px] text-slate-500">{hint}</span>
+    </button>
   );
 }
