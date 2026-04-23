@@ -9,7 +9,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./constants": "./src/constants.ts",
-    "./pda": "./src/pda.ts"
+    "./pda": "./src/pda.ts",
+    "./client": "./src/client.ts",
+    "./actions": "./src/actions.ts",
+    "./reads": "./src/reads.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
