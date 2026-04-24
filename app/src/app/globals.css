@@ -29,3 +29,10 @@ body {
 .scrollable::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Generic spinner used by WalletChip + Faucet button */
+@keyframes rfi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
