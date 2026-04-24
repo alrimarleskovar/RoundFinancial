@@ -7,6 +7,8 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { Adapter } from "@solana/wallet-adapter-base";
 
 import { NetworkContextProvider, useNetwork } from "@/lib/network";
+import { ThemeProvider } from "@/lib/theme";
+import { I18nProvider } from "@/lib/i18n";
 
 function InnerProviders({ children }: { children: ReactNode }) {
   const { endpoint } = useNetwork();
@@ -16,7 +18,7 @@ function InnerProviders({ children }: { children: ReactNode }) {
   const wallets = useMemo<Adapter[]>(() => [], []);
   return (
     <ConnectionProvider endpoint={endpoint} config={{ commitment: "confirmed" }}>
-      <WalletProvider wallets={wallets} autoConnect={false}>
+      <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
@@ -25,8 +27,12 @@ function InnerProviders({ children }: { children: ReactNode }) {
 
 export function ClientProviders({ children }: { children: ReactNode }) {
   return (
-    <NetworkContextProvider>
-      <InnerProviders>{children}</InnerProviders>
-    </NetworkContextProvider>
+    <ThemeProvider initial="soft">
+      <I18nProvider initialLang="pt" initialCurrency="BRL">
+        <NetworkContextProvider>
+          <InnerProviders>{children}</InnerProviders>
+        </NetworkContextProvider>
+      </I18nProvider>
+    </ThemeProvider>
   );
 }
