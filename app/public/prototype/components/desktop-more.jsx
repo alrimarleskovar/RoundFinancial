@@ -705,15 +705,27 @@ function DeskInsights({ go }) {
 // CONNECTIONS — integrations tab
 // ─────────────────────────────────────────────────────────────
 // Static spec (non-reactive bits). Runtime status comes from APP_STATE.connections.
-function getConnectionsSpec(t) {
+// The phantom card also takes live wallet state so its meta row reflects the
+// real publicKey / network / balance instead of static placeholders.
+function getConnectionsSpec(t, wallet) {
+  const solFmt = (n) => `${n.toLocaleString(APP_STATE.lang === 'pt' ? 'pt-BR' : 'en-US',
+    { minimumFractionDigits: 2, maximumFractionDigits: 4 })} SOL`;
+  const phantomAddr = wallet?.publicKey
+    ? shortAddr(wallet.publicKey, 6, 6)
+    : '—';
+  const phantomBalance = wallet?.balanceSol != null
+    ? solFmt(wallet.balanceSol)
+    : '—';
   return [
     {
       id: 'phantom', name: 'Phantom',
       tone: 'p', tagline: t('conn.phantom.tag'),
+      live: true,
       meta: [
-        { l: t('conn.phantom.addr'), v: '7xG3kPQT7aFN1Fb8mJ…k9Fn', mono: true },
-        { l: t('conn.phantom.net'),  v: t('conn.phantom.mainnet') },
-        { l: t('conn.phantom.sigs'), v: t('conn.phantom.sigsV', { n: 14 }) },
+        { l: t('conn.phantom.addr'),    v: phantomAddr, mono: true,
+          link: wallet?.publicKey ? ADDR_EXPLORER(wallet.publicKey) : null },
+        { l: t('conn.phantom.net'),     v: t('conn.phantom.devnet') },
+        { l: t('conn.phantom.balance'), v: phantomBalance, mono: true },
       ],
       perms: [t('conn.phantom.p1'), t('conn.phantom.p2'), t('conn.phantom.p3')],
       glyph: 'phantom',
@@ -769,8 +781,9 @@ function getConnectionsSpec(t) {
 
 function WalletConnections() {
   const state = useAppState();
+  const wallet = useWallet();
   const t = useT();
-  const CONNS = getConnectionsSpec(t);
+  const CONNS = getConnectionsSpec(t, wallet);
   const connected = CONNS.filter(c => (state.connections[c.id]?.status) === 'connected').length;
   const [expanded, setExpanded] = React.useState('phantom');
 
@@ -790,6 +803,7 @@ function WalletConnections() {
           <ConnectionCard
             key={c.id} c={c}
             runtime={state.connections[c.id] || { status: 'disconnected' }}
+            wallet={c.id === 'phantom' ? wallet : null}
             open={expanded === c.id}
             onToggle={() => setExpanded(expanded === c.id ? null : c.id)}
           />
@@ -850,20 +864,153 @@ function WalletConnections() {
   );
 }
 
-function ConnectionCard({ c, runtime, open, onToggle }) {
+// Devnet SOL faucet + Circle USDC faucet link, rendered inside the
+// expanded Phantom card when the user is connected.
+function PhantomFaucet({ wallet, tc }) {
+  const t = useT();
+  const busy  = !!wallet.airdropping;
+  const err   = wallet.lastError;
+  const sig   = wallet.lastTxSig;
+  const rateLimited = err === 'rate_limited' || err === 'airdrop_limit';
+  const onClick = (e) => {
+    e.stopPropagation();
+    wallet.airdrop();
+  };
+  return (
+    <div style={{
+      marginTop: 16, padding: 14, borderRadius: 12,
+      background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <MonoLabel color={tc} size={9}>{t('wallet.faucet.title')}</MonoLabel>
+          <div style={{ fontSize: 11, color: RFI.text2, marginTop: 4, lineHeight: 1.5 }}>
+            {t('wallet.faucet.sub')}
+          </div>
+        </div>
+        <button onClick={onClick} disabled={busy} style={{
+          padding: '8px 14px', borderRadius: 9, cursor: busy ? 'default' : 'pointer',
+          border: 'none', background: `linear-gradient(135deg, ${tc}, ${RFI.teal})`,
+          color: '#fff', fontSize: 11, fontWeight: 700,
+          opacity: busy ? 0.7 : 1,
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+        }}>
+          {busy && (
+            <span style={{
+              width: 10, height: 10, borderRadius: '50%',
+              border: '2px solid rgba(255,255,255,0.3)',
+              borderTopColor: '#fff', animation: 'spin 0.7s linear infinite',
+              display: 'inline-block',
+            }}/>
+          )}
+          {busy ? t('wallet.faucet.busy') : t('wallet.faucet.btn')}
+        </button>
+      </div>
+
+      {/* Success: last airdrop signature (persistent) */}
+      {sig && !busy && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: `${RFI.green}1A`, border: `1px solid ${RFI.green}4D`,
+          fontSize: 11, color: RFI.green,
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        }}>
+          <Icons.check size={12} stroke={RFI.green} sw={2}/>
+          <span>{t('wallet.faucet.ok')}</span>
+          <a href={WALLET_EXPLORER(sig)} target="_blank" rel="noopener noreferrer"
+             style={{ color: RFI.green, fontWeight: 600, textDecoration: 'underline' }}>
+            {t('wallet.faucet.viewTx')}
+          </a>
+        </div>
+      )}
+
+      {/* Rate limit / hosted-faucet fallback */}
+      {rateLimited && !busy && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: `${RFI.amber}1A`, border: `1px solid ${RFI.amber}4D`,
+          fontSize: 11, color: RFI.amber,
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        }}>
+          <Icons.info size={12} stroke={RFI.amber}/>
+          <span>{t('wallet.faucet.rate')}</span>
+          <a href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer"
+             style={{ color: RFI.amber, fontWeight: 600, textDecoration: 'underline' }}>
+            {t('wallet.faucet.hostedCTA')} →
+          </a>
+        </div>
+      )}
+
+      {/* Generic airdrop failure */}
+      {err && !rateLimited && err !== 'user_rejected' && err !== 'phantom_not_installed' && !busy && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: `${RFI.red}1A`, border: `1px solid ${RFI.red}4D`,
+          fontSize: 11, color: RFI.red,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Icons.info size={12} stroke={RFI.red}/>
+          <span>{t('wallet.faucet.failed', { msg: err })}</span>
+        </div>
+      )}
+
+      {/* USDC devnet hint (always visible) */}
+      <div style={{
+        marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${RFI.border}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 10, flexWrap: 'wrap',
+      }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: RFI.text, fontWeight: 600 }}>
+            {t('wallet.faucet.usdcTitle')}
+          </div>
+          <div style={{ fontSize: 10, color: RFI.muted, marginTop: 2, lineHeight: 1.5 }}>
+            {t('wallet.faucet.usdcSub')}
+          </div>
+        </div>
+        <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer" style={{
+          padding: '7px 12px', borderRadius: 8,
+          background: 'transparent', border: `1px solid ${RFI.border}`,
+          color: RFI.text, fontSize: 11, fontWeight: 600, textDecoration: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          whiteSpace: 'nowrap',
+        }}>{t('wallet.faucet.usdcCTA')} →</a>
+      </div>
+    </div>
+  );
+}
+
+function ConnectionCard({ c, runtime, wallet, open, onToggle }) {
   const t = useT();
   const tc = { g: RFI.green, t: RFI.teal, p: RFI.purple, a: RFI.amber }[c.tone];
-  const status = runtime.status;
-  const isConnected = status === 'connected';
-  const isPending   = status === 'pending';
-  const [isConnecting, setConnecting] = React.useState(false);
+  const isPhantom = c.id === 'phantom' && wallet != null;
+  // For phantom: status derives from the real wallet hook. For mock cards:
+  // from runtime (driven by the legacy setConnection mock flow).
+  const status = isPhantom
+    ? (wallet.status === 'error' ? 'disconnected' : wallet.status)
+    : runtime.status;
+  const isConnected  = status === 'connected';
+  const isConnecting = isPhantom ? wallet.status === 'connecting' : false;
+  const isPending    = status === 'pending';
+  const notInstalled = isPhantom && !wallet.isInstalled;
+  // Local state kept only for mock cards; phantom uses the hook's status.
+  const [mockConnecting, setMockConnecting] = React.useState(false);
+  const busy = isPhantom ? isConnecting : mockConnecting;
 
   const doConnect = (e) => {
     e.stopPropagation();
-    setConnecting(true);
-    // Simulate wallet approval flow
+    if (isPhantom) {
+      if (notInstalled) {
+        window.open('https://phantom.app/', '_blank', 'noopener,noreferrer');
+        return;
+      }
+      wallet.connect();
+      return;
+    }
+    setMockConnecting(true);
     setTimeout(() => {
-      setConnecting(false);
+      setMockConnecting(false);
       const now = new Date();
       const month = now.toLocaleDateString(APP_STATE.lang === 'pt' ? 'pt-BR' : 'en-US',
                                           { month: 'short', year: 'numeric' });
@@ -873,6 +1020,10 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
 
   const doDisconnect = (e) => {
     e.stopPropagation();
+    if (isPhantom) {
+      wallet.disconnect();
+      return;
+    }
     setConnection(c.id, 'disconnected');
   };
 
@@ -929,13 +1080,17 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
         ) : isPending ? (
           <RFIPill tone="a">{t('conn.pending')}</RFIPill>
         ) : (
-          <button onClick={doConnect} disabled={isConnecting} style={{
+          <button onClick={doConnect} disabled={busy} style={{
             padding: '7px 13px', borderRadius: 9, cursor: 'pointer',
             border: 'none', background: `linear-gradient(135deg, ${tc}, ${RFI.teal})`,
             color: '#fff', fontSize: 11, fontWeight: 700,
-            opacity: isConnecting ? 0.7 : 1,
+            opacity: busy ? 0.7 : 1,
           }}>
-            {isConnecting ? t('conn.connecting') : t('conn.reconnect')}
+            {busy
+              ? t('conn.connecting')
+              : notInstalled
+                ? t('conn.phantom.installCTA')
+                : t('conn.reconnect')}
           </button>
         )}
         <span style={{ color: RFI.muted, fontSize: 12,
@@ -953,12 +1108,22 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
                   <div key={m.l} style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: 10, color: RFI.muted,
                                    fontFamily: 'JetBrains Mono, monospace' }}>{m.l}</span>
-                    <span style={{
-                      fontSize: m.mono ? 11 : 12,
-                      fontFamily: m.mono ? 'JetBrains Mono, monospace' : 'DM Sans, sans-serif',
-                      color: RFI.text, fontWeight: 500, marginTop: 2,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{m.v}</span>
+                    {m.link ? (
+                      <a href={m.link} target="_blank" rel="noopener noreferrer" style={{
+                        fontSize: m.mono ? 11 : 12,
+                        fontFamily: m.mono ? 'JetBrains Mono, monospace' : 'DM Sans, sans-serif',
+                        color: tc, fontWeight: 500, marginTop: 2,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        textDecoration: 'none',
+                      }}>{m.v}</a>
+                    ) : (
+                      <span style={{
+                        fontSize: m.mono ? 11 : 12,
+                        fontFamily: m.mono ? 'JetBrains Mono, monospace' : 'DM Sans, sans-serif',
+                        color: RFI.text, fontWeight: 500, marginTop: 2,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>{m.v}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -977,6 +1142,9 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
             </div>
           </div>
 
+          {/* Phantom: devnet faucet sub-section (only when connected) */}
+          {isPhantom && isConnected && <PhantomFaucet wallet={wallet} tc={tc} />}
+
           <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
             {isConnected ? (
               <>
@@ -992,14 +1160,14 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
                 }}>{t('conn.revoke')}</button>
               </>
             ) : (
-              <button onClick={doConnect} disabled={isConnecting} style={{
+              <button onClick={doConnect} disabled={busy} style={{
                 padding: '10px 18px', borderRadius: 10, cursor: 'pointer', border: 'none',
                 background: `linear-gradient(135deg, ${tc}, ${RFI.teal})`,
                 color: '#fff', fontSize: 12, fontWeight: 700,
-                opacity: isConnecting ? 0.7 : 1,
+                opacity: busy ? 0.7 : 1,
                 display: 'inline-flex', alignItems: 'center', gap: 8,
               }}>
-                {isConnecting && (
+                {busy && (
                   <span style={{
                     width: 10, height: 10, borderRadius: '50%',
                     border: '2px solid rgba(255,255,255,0.3)',
@@ -1007,10 +1175,31 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
                     display: 'inline-block',
                   }}/>
                 )}
-                {isConnecting ? t('conn.connecting') : t('conn.connect', { n: c.name })}
+                {busy
+                  ? t('conn.connecting')
+                  : notInstalled
+                    ? t('conn.phantom.installCTA')
+                    : t('conn.connect', { n: c.name })}
               </button>
             )}
           </div>
+          {/* Wallet errors (phantom only) */}
+          {isPhantom && wallet.lastError && !isConnected && !busy && (
+            <div style={{
+              marginTop: 10, padding: '8px 10px', borderRadius: 8,
+              background: notInstalled ? `${RFI.amber}1A` : `${RFI.red}1A`,
+              border: `1px solid ${notInstalled ? RFI.amber : RFI.red}4D`,
+              fontSize: 11, color: notInstalled ? RFI.amber : RFI.red,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Icons.info size={12} stroke={notInstalled ? RFI.amber : RFI.red}/>
+              {notInstalled
+                ? t('conn.phantom.install')
+                : wallet.lastError === 'user_rejected'
+                  ? t('conn.phantom.rejected')
+                  : t('conn.phantom.failed', { msg: wallet.lastError })}
+            </div>
+          )}
         </div>
       )}
     </div>
