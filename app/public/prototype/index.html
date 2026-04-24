@@ -212,8 +212,12 @@
 
     function DeskTopBar({ screen }) {
       const state = useAppState();
+      const wallet = useWallet();
       const tt = useT();
       const isDark = RFI.bg === '#06090F';
+      const connected = wallet.status === 'connected';
+      const netLabel = connected ? tt('top.network.devnet') : tt('top.network.offline');
+      const netDotColor = connected ? RFI.green : RFI.muted;
       return (
         <div style={{
           position: 'sticky', top: 0, zIndex: 10,
@@ -262,16 +266,19 @@
                 { v: 'USDC', l: '$' },
               ]}
             />
-            <button style={{
-              padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+            {/* Network status chip */}
+            <div style={{
+              padding: '8px 12px', borderRadius: 10,
               background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
               color: RFI.text2, fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
               display: 'flex', alignItems: 'center', gap: 6,
+              userSelect: 'none',
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%',
-                             background: RFI.green, boxShadow: `0 0 6px ${RFI.green}` }}/>
-              {tt('top.network')}
-            </button>
+                             background: netDotColor,
+                             boxShadow: connected ? `0 0 6px ${netDotColor}` : 'none' }}/>
+              {netLabel}
+            </div>
             <button style={{
               width: 36, height: 36, borderRadius: 10, cursor: 'pointer',
               background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
@@ -283,15 +290,218 @@
                              borderRadius: '50%', background: RFI.green,
                              border: `2px solid ${RFI.bg}` }}/>
             </button>
-            <button style={{
-              padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+            {/* Wallet connect / address chip */}
+            <WalletChip wallet={wallet} isDark={isDark}/>
+          </div>
+          {/* Floating error toast (top-right, auto-dismiss) */}
+          <WalletErrorToast wallet={wallet}/>
+        </div>
+      );
+    }
+
+    // ── Wallet chip (connect button + connected dropdown) ──────
+    function WalletChip({ wallet, isDark }) {
+      const tt = useT();
+      const [open, setOpen] = React.useState(false);
+      const [copied, setCopied] = React.useState(false);
+      const ref = React.useRef(null);
+
+      React.useEffect(() => {
+        if (!open) return;
+        const h = (e) => {
+          if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+      }, [open]);
+
+      const connected  = wallet.status === 'connected';
+      const connecting = wallet.status === 'connecting';
+
+      if (!connected) {
+        return (
+          <button
+            onClick={() => (wallet.isInstalled ? wallet.connect() :
+              window.open('https://phantom.app/', '_blank', 'noopener,noreferrer'))}
+            disabled={connecting}
+            style={{
+              padding: '8px 14px', borderRadius: 10, cursor: connecting ? 'default' : 'pointer',
               background: `linear-gradient(135deg, ${RFI.green}, ${RFI.teal})`,
               border: 'none',
               color: isDark ? RFI.bgDeep : '#FFFFFF',
-              fontSize: 12, fontWeight: 700,
+              fontSize: 12, fontWeight: 700, fontFamily: 'DM Sans, sans-serif',
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              opacity: connecting ? 0.75 : 1,
+            }}>
+            {connecting && (
+              <span style={{
+                width: 10, height: 10, borderRadius: '50%',
+                border: `2px solid ${isDark ? 'rgba(2,5,11,0.3)' : 'rgba(255,255,255,0.35)'}`,
+                borderTopColor: isDark ? RFI.bgDeep : '#FFFFFF',
+                animation: 'spin 0.7s linear infinite', display: 'inline-block',
+              }}/>
+            )}
+            {connecting ? tt('top.connecting')
+              : wallet.isInstalled ? tt('top.connect') : tt('conn.phantom.installCTA')}
+          </button>
+        );
+      }
+
+      const addr = wallet.publicKey || '';
+      const onCopy = () => {
+        navigator.clipboard?.writeText(addr).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1400);
+        });
+      };
+
+      return (
+        <div ref={ref} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{
+              padding: '6px 12px 6px 8px', borderRadius: 10, cursor: 'pointer',
+              background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+              color: RFI.text, fontSize: 12, fontWeight: 600,
+              display: 'inline-flex', alignItems: 'center', gap: 8,
               fontFamily: 'DM Sans, sans-serif',
-            }}>{tt('top.deposit')}</button>
+            }}>
+            <span style={{
+              width: 22, height: 22, borderRadius: 6,
+              background: `linear-gradient(135deg, ${RFI.purple}, ${RFI.teal})`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff',
+            }}>
+              <Icons.wallet size={13} stroke="#fff" sw={2}/>
+            </span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
+              {shortAddr(addr, 4, 4)}
+            </span>
+            <span style={{ color: RFI.muted, fontSize: 10,
+                           transform: open ? 'rotate(180deg)' : 'rotate(0)',
+                           transition: 'transform 180ms ease' }}>▾</span>
+          </button>
+          {open && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 20,
+              minWidth: 220, padding: 6, borderRadius: 12,
+              background: RFI.surface1, border: `1px solid ${RFI.borderStr}`,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+              display: 'flex', flexDirection: 'column', gap: 2,
+            }}>
+              <div style={{
+                padding: '8px 10px', borderRadius: 8,
+                background: RFI.fillSoft, marginBottom: 4,
+                display: 'flex', flexDirection: 'column', gap: 2,
+              }}>
+                <MonoLabel size={9}>{tt('conn.phantom.addr')}</MonoLabel>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace',
+                               fontSize: 11, color: RFI.text, wordBreak: 'break-all' }}>
+                  {addr}
+                </span>
+                {wallet.balanceSol != null && (
+                  <span style={{ fontSize: 10, color: RFI.muted, marginTop: 2 }}>
+                    {wallet.balanceSol.toLocaleString(
+                      APP_STATE.lang === 'pt' ? 'pt-BR' : 'en-US',
+                      { minimumFractionDigits: 2, maximumFractionDigits: 4 })} SOL · devnet
+                  </span>
+                )}
+              </div>
+              <MenuItem
+                icon={Icons.copy}
+                label={copied ? tt('wallet.menu.copied') : tt('wallet.menu.copy')}
+                onClick={onCopy}
+              />
+              <MenuItem
+                icon={Icons.spark}
+                label={tt('wallet.menu.airdrop')}
+                disabled={wallet.airdropping}
+                onClick={() => { wallet.airdrop(); setOpen(false); }}
+              />
+              <MenuItem
+                icon={Icons.arrow}
+                label={tt('wallet.menu.explorer')}
+                onClick={() => {
+                  window.open(ADDR_EXPLORER(addr), '_blank', 'noopener,noreferrer');
+                  setOpen(false);
+                }}
+              />
+              <div style={{ height: 1, background: RFI.border, margin: '4px 6px' }}/>
+              <MenuItem
+                icon={Icons.close}
+                label={tt('wallet.menu.disconnect')}
+                tone="danger"
+                onClick={() => { wallet.disconnect(); setOpen(false); }}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function MenuItem({ icon: Ic, label, onClick, disabled, tone }) {
+      const color = tone === 'danger' ? RFI.red : RFI.text;
+      return (
+        <button onClick={onClick} disabled={disabled} style={{
+          background: 'transparent', border: 'none', cursor: disabled ? 'default' : 'pointer',
+          padding: '8px 10px', borderRadius: 8, color,
+          fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
+          display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+          opacity: disabled ? 0.5 : 1,
+        }}
+          onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = RFI.fillSoft; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          <Ic size={14} stroke={color}/>
+          {label}
+        </button>
+      );
+    }
+
+    // ── Transient error toast (5s auto-dismiss) ────────────────
+    function WalletErrorToast({ wallet }) {
+      const tt = useT();
+      const [visible, setVisible] = React.useState(false);
+      const lastErrRef = React.useRef(null);
+
+      const err = wallet.lastError;
+      const shouldShow =
+        err && err !== 'user_rejected' && err !== 'phantom_not_installed' &&
+        wallet.status !== 'connecting';
+
+      React.useEffect(() => {
+        if (shouldShow && err !== lastErrRef.current) {
+          lastErrRef.current = err;
+          setVisible(true);
+          const id = setTimeout(() => setVisible(false), 5000);
+          return () => clearTimeout(id);
+        }
+      }, [err, shouldShow]);
+
+      if (!visible || !err) return null;
+      return (
+        <div style={{
+          position: 'fixed', top: 20, right: 20, zIndex: 50,
+          padding: '10px 14px', borderRadius: 10, maxWidth: 320,
+          background: RFI.surface1, border: `1px solid ${RFI.red}4D`,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+        }}>
+          <Icons.info size={14} stroke={RFI.red}/>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: RFI.red,
+                          fontFamily: 'JetBrains Mono, monospace',
+                          textTransform: 'uppercase', letterSpacing: '.08em' }}>
+              {tt('wallet.error.title')}
+            </div>
+            <div style={{ fontSize: 12, color: RFI.text, marginTop: 3, wordBreak: 'break-word' }}>
+              {err}
+            </div>
           </div>
+          <button onClick={() => setVisible(false)} style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: RFI.muted, padding: 0,
+          }}><Icons.close size={12} stroke={RFI.muted}/></button>
         </div>
       );
     }
