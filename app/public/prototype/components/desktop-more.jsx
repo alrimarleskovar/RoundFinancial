@@ -705,15 +705,27 @@ function DeskInsights({ go }) {
 // CONNECTIONS — integrations tab
 // ─────────────────────────────────────────────────────────────
 // Static spec (non-reactive bits). Runtime status comes from APP_STATE.connections.
-function getConnectionsSpec(t) {
+// The phantom card also takes live wallet state so its meta row reflects the
+// real publicKey / network / balance instead of static placeholders.
+function getConnectionsSpec(t, wallet) {
+  const solFmt = (n) => `${n.toLocaleString(APP_STATE.lang === 'pt' ? 'pt-BR' : 'en-US',
+    { minimumFractionDigits: 2, maximumFractionDigits: 4 })} SOL`;
+  const phantomAddr = wallet?.publicKey
+    ? shortAddr(wallet.publicKey, 6, 6)
+    : '—';
+  const phantomBalance = wallet?.balanceSol != null
+    ? solFmt(wallet.balanceSol)
+    : '—';
   return [
     {
       id: 'phantom', name: 'Phantom',
       tone: 'p', tagline: t('conn.phantom.tag'),
+      live: true,
       meta: [
-        { l: t('conn.phantom.addr'), v: '7xG3kPQT7aFN1Fb8mJ…k9Fn', mono: true },
-        { l: t('conn.phantom.net'),  v: t('conn.phantom.mainnet') },
-        { l: t('conn.phantom.sigs'), v: t('conn.phantom.sigsV', { n: 14 }) },
+        { l: t('conn.phantom.addr'),    v: phantomAddr, mono: true,
+          link: wallet?.publicKey ? ADDR_EXPLORER(wallet.publicKey) : null },
+        { l: t('conn.phantom.net'),     v: t('conn.phantom.devnet') },
+        { l: t('conn.phantom.balance'), v: phantomBalance, mono: true },
       ],
       perms: [t('conn.phantom.p1'), t('conn.phantom.p2'), t('conn.phantom.p3')],
       glyph: 'phantom',
@@ -769,8 +781,9 @@ function getConnectionsSpec(t) {
 
 function WalletConnections() {
   const state = useAppState();
+  const wallet = useWallet();
   const t = useT();
-  const CONNS = getConnectionsSpec(t);
+  const CONNS = getConnectionsSpec(t, wallet);
   const connected = CONNS.filter(c => (state.connections[c.id]?.status) === 'connected').length;
   const [expanded, setExpanded] = React.useState('phantom');
 
@@ -790,6 +803,7 @@ function WalletConnections() {
           <ConnectionCard
             key={c.id} c={c}
             runtime={state.connections[c.id] || { status: 'disconnected' }}
+            wallet={c.id === 'phantom' ? wallet : null}
             open={expanded === c.id}
             onToggle={() => setExpanded(expanded === c.id ? null : c.id)}
           />
@@ -850,20 +864,36 @@ function WalletConnections() {
   );
 }
 
-function ConnectionCard({ c, runtime, open, onToggle }) {
+function ConnectionCard({ c, runtime, wallet, open, onToggle }) {
   const t = useT();
   const tc = { g: RFI.green, t: RFI.teal, p: RFI.purple, a: RFI.amber }[c.tone];
-  const status = runtime.status;
-  const isConnected = status === 'connected';
-  const isPending   = status === 'pending';
-  const [isConnecting, setConnecting] = React.useState(false);
+  const isPhantom = c.id === 'phantom' && wallet != null;
+  // For phantom: status derives from the real wallet hook. For mock cards:
+  // from runtime (driven by the legacy setConnection mock flow).
+  const status = isPhantom
+    ? (wallet.status === 'error' ? 'disconnected' : wallet.status)
+    : runtime.status;
+  const isConnected  = status === 'connected';
+  const isConnecting = isPhantom ? wallet.status === 'connecting' : false;
+  const isPending    = status === 'pending';
+  const notInstalled = isPhantom && !wallet.isInstalled;
+  // Local state kept only for mock cards; phantom uses the hook's status.
+  const [mockConnecting, setMockConnecting] = React.useState(false);
+  const busy = isPhantom ? isConnecting : mockConnecting;
 
   const doConnect = (e) => {
     e.stopPropagation();
-    setConnecting(true);
-    // Simulate wallet approval flow
+    if (isPhantom) {
+      if (notInstalled) {
+        window.open('https://phantom.app/', '_blank', 'noopener,noreferrer');
+        return;
+      }
+      wallet.connect();
+      return;
+    }
+    setMockConnecting(true);
     setTimeout(() => {
-      setConnecting(false);
+      setMockConnecting(false);
       const now = new Date();
       const month = now.toLocaleDateString(APP_STATE.lang === 'pt' ? 'pt-BR' : 'en-US',
                                           { month: 'short', year: 'numeric' });
@@ -873,6 +903,10 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
 
   const doDisconnect = (e) => {
     e.stopPropagation();
+    if (isPhantom) {
+      wallet.disconnect();
+      return;
+    }
     setConnection(c.id, 'disconnected');
   };
 
@@ -929,13 +963,17 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
         ) : isPending ? (
           <RFIPill tone="a">{t('conn.pending')}</RFIPill>
         ) : (
-          <button onClick={doConnect} disabled={isConnecting} style={{
+          <button onClick={doConnect} disabled={busy} style={{
             padding: '7px 13px', borderRadius: 9, cursor: 'pointer',
             border: 'none', background: `linear-gradient(135deg, ${tc}, ${RFI.teal})`,
             color: '#fff', fontSize: 11, fontWeight: 700,
-            opacity: isConnecting ? 0.7 : 1,
+            opacity: busy ? 0.7 : 1,
           }}>
-            {isConnecting ? t('conn.connecting') : t('conn.reconnect')}
+            {busy
+              ? t('conn.connecting')
+              : notInstalled
+                ? t('conn.phantom.installCTA')
+                : t('conn.reconnect')}
           </button>
         )}
         <span style={{ color: RFI.muted, fontSize: 12,
@@ -953,12 +991,22 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
                   <div key={m.l} style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: 10, color: RFI.muted,
                                    fontFamily: 'JetBrains Mono, monospace' }}>{m.l}</span>
-                    <span style={{
-                      fontSize: m.mono ? 11 : 12,
-                      fontFamily: m.mono ? 'JetBrains Mono, monospace' : 'DM Sans, sans-serif',
-                      color: RFI.text, fontWeight: 500, marginTop: 2,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{m.v}</span>
+                    {m.link ? (
+                      <a href={m.link} target="_blank" rel="noopener noreferrer" style={{
+                        fontSize: m.mono ? 11 : 12,
+                        fontFamily: m.mono ? 'JetBrains Mono, monospace' : 'DM Sans, sans-serif',
+                        color: tc, fontWeight: 500, marginTop: 2,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        textDecoration: 'none',
+                      }}>{m.v}</a>
+                    ) : (
+                      <span style={{
+                        fontSize: m.mono ? 11 : 12,
+                        fontFamily: m.mono ? 'JetBrains Mono, monospace' : 'DM Sans, sans-serif',
+                        color: RFI.text, fontWeight: 500, marginTop: 2,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>{m.v}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -992,14 +1040,14 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
                 }}>{t('conn.revoke')}</button>
               </>
             ) : (
-              <button onClick={doConnect} disabled={isConnecting} style={{
+              <button onClick={doConnect} disabled={busy} style={{
                 padding: '10px 18px', borderRadius: 10, cursor: 'pointer', border: 'none',
                 background: `linear-gradient(135deg, ${tc}, ${RFI.teal})`,
                 color: '#fff', fontSize: 12, fontWeight: 700,
-                opacity: isConnecting ? 0.7 : 1,
+                opacity: busy ? 0.7 : 1,
                 display: 'inline-flex', alignItems: 'center', gap: 8,
               }}>
-                {isConnecting && (
+                {busy && (
                   <span style={{
                     width: 10, height: 10, borderRadius: '50%',
                     border: '2px solid rgba(255,255,255,0.3)',
@@ -1007,10 +1055,31 @@ function ConnectionCard({ c, runtime, open, onToggle }) {
                     display: 'inline-block',
                   }}/>
                 )}
-                {isConnecting ? t('conn.connecting') : t('conn.connect', { n: c.name })}
+                {busy
+                  ? t('conn.connecting')
+                  : notInstalled
+                    ? t('conn.phantom.installCTA')
+                    : t('conn.connect', { n: c.name })}
               </button>
             )}
           </div>
+          {/* Wallet errors (phantom only) */}
+          {isPhantom && wallet.lastError && !isConnected && !busy && (
+            <div style={{
+              marginTop: 10, padding: '8px 10px', borderRadius: 8,
+              background: notInstalled ? `${RFI.amber}1A` : `${RFI.red}1A`,
+              border: `1px solid ${notInstalled ? RFI.amber : RFI.red}4D`,
+              fontSize: 11, color: notInstalled ? RFI.amber : RFI.red,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Icons.info size={12} stroke={notInstalled ? RFI.amber : RFI.red}/>
+              {notInstalled
+                ? t('conn.phantom.install')
+                : wallet.lastError === 'user_rejected'
+                  ? t('conn.phantom.rejected')
+                  : t('conn.phantom.failed', { msg: wallet.lastError })}
+            </div>
+          )}
         </div>
       )}
     </div>
