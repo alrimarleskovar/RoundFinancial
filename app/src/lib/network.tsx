@@ -50,7 +50,7 @@ interface NetworkContextValue {
 const NetworkContext = createContext<NetworkContextValue | null>(null);
 
 export function NetworkContextProvider({ children }: { children: ReactNode }) {
-  const [id, setId] = useState<NetworkId>("localnet");
+  const [id, setId] = useState<NetworkId>("devnet");
   const setNetwork = useCallback((next: NetworkId) => setId(next), []);
   const value = useMemo<NetworkContextValue>(() => {
     const option = NETWORK_OPTIONS[id];
