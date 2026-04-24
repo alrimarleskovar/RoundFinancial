@@ -2,6 +2,13 @@
 
 > **Cooperative credit, on-chain.** An on-chain ROSCA (Rotating Savings & Credit Association) protocol on Solana, bringing behavioral credit to the 1.4B unbanked adults and the $5.7T MSME finance gap that DeFi never served.
 
+<p>
+  <a href="docs/pitch/pitch-deck-en.html">📊 Pitch deck</a> ·
+  <a href="docs/pt/whitepaper.pdf">📄 Whitepaper (PT)</a> ·
+  <a href="docs/architecture.md">🧱 Architecture</a> ·
+  <a href="app/public/prototype/index.html">🖥️ Front-end preview</a>
+</p>
+
 Built for the **Colosseum Hackathon 2026**.
 
 ---
@@ -37,26 +44,55 @@ RoundFi is the only protocol that checks every box.
 
 ```
 RoundFinancial/
-├── programs/          # Anchor programs (Rust)
-│   ├── roundfi-core/          # Pool state machine + escrow + solidarity vault
-│   ├── roundfi-reputation/    # SAS-compatible attestation + reputation ladder
-│   ├── roundfi-yield-mock/    # Devnet yield adapter (simulated APY)
-│   └── roundfi-yield-kamino/  # Mainnet yield adapter (real Kamino CPI)
-├── sdk/               # TypeScript SDK generated from Anchor IDL
-├── backend/           # Indexer, B2B score API, crank service (Fastify + Prisma)
-├── app/               # Next.js 15 frontend (Wallet Adapter, Phantom/Solflare)
-├── scripts/           # Devnet deploy, airdrop, seed, mainnet migration
-├── config/            # Env, cluster configs, program-ID registry
-├── docs/              # Architecture, module specs, run/deploy/migrate guides
-└── tests/             # Cross-program integration tests (Anchor + bankrun)
+├── programs/              # Anchor programs (Rust)
+│   ├── roundfi-core/              # Pool state machine + escrow + solidarity vault
+│   ├── roundfi-reputation/        # SAS-compatible attestation + reputation ladder
+│   ├── roundfi-yield-mock/        # Devnet yield adapter (simulated APY)
+│   └── roundfi-yield-kamino/      # Mainnet yield adapter (real Kamino CPI)
+├── sdk/                   # TypeScript SDK generated from Anchor IDL
+├── services/              # Off-chain services
+│   └── orchestrator/              # Lifecycle orchestrator (mock + real driver)
+├── app/                   # Next.js 14 front-end (Wallet Adapter, Phantom/Solflare)
+│   ├── src/app/                   # / = design prototype  ·  /demo = lifecycle demo
+│   └── public/prototype/          # RoundFi Desktop design handoff bundle
+├── scripts/               # Devnet deploy, airdrop, seed, stress runners
+├── config/                # Cluster configs + program-ID registry
+├── tests/                 # Cross-program integration tests (Anchor + bankrun)
+└── docs/                  # Architecture, module specs, deploy guides
+    ├── pitch/                     # Pitch decks (EN)
+    └── pt/                        # Portuguese docs (whitepaper + planning)
 ```
 
 ## Documentation
 
+**Core**
 - [**Architecture Spec**](docs/architecture.md) — programs, accounts, instructions, PDAs, CPI graph, error taxonomy
-- [Pitch Deck](roundfi-pitch-en%20%284%29.html) (EN) — the 15-slide Colosseum deck
-- [Whitepaper](WHITEPAPER%20T%C3%89CNICO%20.pdf) (PT) — technical whitepaper
-- Per-module READMEs land alongside each module as it ships.
+- [Devnet Setup](docs/devnet-setup.md) — full prerequisites + deploy walkthrough
+- [Pitch Alignment](docs/pitch-alignment.md) — how the implementation maps to the deck
+- [Yield & Guarantee Fund](docs/yield-and-guarantee-fund.md) — waterfall math + adapters
+
+**Pitch**
+- [Pitch Deck · EN](docs/pitch/pitch-deck-en.html) — 15-slide Colosseum deck
+- [3-min Pitch](docs/pitch/pitch-3min.html) — short-form pitch
+
+**Portuguese (strategy + research)**
+- [Whitepaper Técnico](docs/pt/whitepaper.pdf)
+- [Guia do Usuário](docs/pt/guia-usuario.pdf)
+- [Viabilidade Técnica](docs/pt/viabilidade-tecnica.pdf)
+- [Escada de Reputação](docs/pt/escada-reputacao.pdf)
+- [Válvula de Escape](docs/pt/valvula-escape.pdf)
+- [Plano Estratégico B2B](docs/pt/plano-b2b.pdf)
+- [Plano de Expansão](docs/pt/plano-expansao.pdf)
+
+Per-module READMEs land alongside each module as it ships.
+
+## Front-end
+
+The product-facing UI is a **desktop dashboard** (see [`app/public/prototype/`](app/public/prototype/)) with a cream/sage *Soft* palette and a dark *Neon* palette, PT/EN i18n, BRL↔USDC switch, and a live Phantom wallet connection flow. It renders at `/` in the Next.js app; the lifecycle demo (orchestrator + wallet adapter) lives at `/demo`.
+
+```bash
+pnpm --filter @roundfi/app dev     # http://localhost:3000/
+```
 
 ## Development Status
 
@@ -68,7 +104,7 @@ RoundFinancial/
 | 4. Smart contracts (core) | ⏳ Next |
 | 5. Contract tests | ⏳ |
 | 6. Backend services | ⏳ |
-| 7. Frontend | ⏳ |
+| 7. Frontend | 🎨 Design locked · wiring |
 | 8. Integration | ⏳ |
 | 9. Security audit | ⏳ |
 | 10. Devnet testing | ⏳ |
@@ -86,7 +122,7 @@ RoundFinancial/
 | Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet) |
 | Stablecoin | USDC |
 | Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL + Helius webhooks |
-| Frontend | Next.js 15 + React 19 + @solana/wallet-adapter + @coral-xyz/anchor |
+| Frontend | Next.js 14 + React 18 + @solana/wallet-adapter + @coral-xyz/anchor |
 | Cluster | Devnet → Mainnet (env-driven) |
 
 ## Quick Start
