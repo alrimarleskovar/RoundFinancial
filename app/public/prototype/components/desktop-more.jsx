@@ -864,6 +864,123 @@ function WalletConnections() {
   );
 }
 
+// Devnet SOL faucet + Circle USDC faucet link, rendered inside the
+// expanded Phantom card when the user is connected.
+function PhantomFaucet({ wallet, tc }) {
+  const t = useT();
+  const busy  = !!wallet.airdropping;
+  const err   = wallet.lastError;
+  const sig   = wallet.lastTxSig;
+  const rateLimited = err === 'rate_limited' || err === 'airdrop_limit';
+  const onClick = (e) => {
+    e.stopPropagation();
+    wallet.airdrop();
+  };
+  return (
+    <div style={{
+      marginTop: 16, padding: 14, borderRadius: 12,
+      background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <MonoLabel color={tc} size={9}>{t('wallet.faucet.title')}</MonoLabel>
+          <div style={{ fontSize: 11, color: RFI.text2, marginTop: 4, lineHeight: 1.5 }}>
+            {t('wallet.faucet.sub')}
+          </div>
+        </div>
+        <button onClick={onClick} disabled={busy} style={{
+          padding: '8px 14px', borderRadius: 9, cursor: busy ? 'default' : 'pointer',
+          border: 'none', background: `linear-gradient(135deg, ${tc}, ${RFI.teal})`,
+          color: '#fff', fontSize: 11, fontWeight: 700,
+          opacity: busy ? 0.7 : 1,
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+        }}>
+          {busy && (
+            <span style={{
+              width: 10, height: 10, borderRadius: '50%',
+              border: '2px solid rgba(255,255,255,0.3)',
+              borderTopColor: '#fff', animation: 'spin 0.7s linear infinite',
+              display: 'inline-block',
+            }}/>
+          )}
+          {busy ? t('wallet.faucet.busy') : t('wallet.faucet.btn')}
+        </button>
+      </div>
+
+      {/* Success: last airdrop signature (persistent) */}
+      {sig && !busy && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: `${RFI.green}1A`, border: `1px solid ${RFI.green}4D`,
+          fontSize: 11, color: RFI.green,
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        }}>
+          <Icons.check size={12} stroke={RFI.green} sw={2}/>
+          <span>{t('wallet.faucet.ok')}</span>
+          <a href={WALLET_EXPLORER(sig)} target="_blank" rel="noopener noreferrer"
+             style={{ color: RFI.green, fontWeight: 600, textDecoration: 'underline' }}>
+            {t('wallet.faucet.viewTx')}
+          </a>
+        </div>
+      )}
+
+      {/* Rate limit / hosted-faucet fallback */}
+      {rateLimited && !busy && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: `${RFI.amber}1A`, border: `1px solid ${RFI.amber}4D`,
+          fontSize: 11, color: RFI.amber,
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        }}>
+          <Icons.info size={12} stroke={RFI.amber}/>
+          <span>{t('wallet.faucet.rate')}</span>
+          <a href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer"
+             style={{ color: RFI.amber, fontWeight: 600, textDecoration: 'underline' }}>
+            {t('wallet.faucet.hostedCTA')} →
+          </a>
+        </div>
+      )}
+
+      {/* Generic airdrop failure */}
+      {err && !rateLimited && err !== 'user_rejected' && err !== 'phantom_not_installed' && !busy && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: `${RFI.red}1A`, border: `1px solid ${RFI.red}4D`,
+          fontSize: 11, color: RFI.red,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Icons.info size={12} stroke={RFI.red}/>
+          <span>{t('wallet.faucet.failed', { msg: err })}</span>
+        </div>
+      )}
+
+      {/* USDC devnet hint (always visible) */}
+      <div style={{
+        marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${RFI.border}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 10, flexWrap: 'wrap',
+      }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: RFI.text, fontWeight: 600 }}>
+            {t('wallet.faucet.usdcTitle')}
+          </div>
+          <div style={{ fontSize: 10, color: RFI.muted, marginTop: 2, lineHeight: 1.5 }}>
+            {t('wallet.faucet.usdcSub')}
+          </div>
+        </div>
+        <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer" style={{
+          padding: '7px 12px', borderRadius: 8,
+          background: 'transparent', border: `1px solid ${RFI.border}`,
+          color: RFI.text, fontSize: 11, fontWeight: 600, textDecoration: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          whiteSpace: 'nowrap',
+        }}>{t('wallet.faucet.usdcCTA')} →</a>
+      </div>
+    </div>
+  );
+}
+
 function ConnectionCard({ c, runtime, wallet, open, onToggle }) {
   const t = useT();
   const tc = { g: RFI.green, t: RFI.teal, p: RFI.purple, a: RFI.amber }[c.tone];
@@ -1024,6 +1141,9 @@ function ConnectionCard({ c, runtime, wallet, open, onToggle }) {
               </div>
             </div>
           </div>
+
+          {/* Phantom: devnet faucet sub-section (only when connected) */}
+          {isPhantom && isConnected && <PhantomFaucet wallet={wallet} tc={tc} />}
 
           <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
             {isConnected ? (
