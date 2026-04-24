@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RoundFi — App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  html, body {
+    margin: 0; padding: 0; background: #0A0D14; color: #EEF0F8;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(60% 40% at 20% 0%, rgba(0, 200, 255, 0.06), transparent 60%),
+      radial-gradient(50% 40% at 80% 100%, rgba(20, 241, 149, 0.06), transparent 60%),
+      linear-gradient(180deg, #0A0D14, #05070C);
+  }
+  input[type=range] { appearance: none; background: rgba(255,255,255,0.08); height: 4px; border-radius: 999px; }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; width: 18px; height: 18px; border-radius: 999px;
+    background: #14F195; border: 2px solid #06090F;
+    box-shadow: 0 0 0 4px rgba(20,241,149,0.15);
+  }
+  button:active { transform: scale(0.97); }
+  button { transition: transform 0.1s; }
+  *::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+</style>
+</head>
+<body>
+  <div id="stage"><div id="root"></div></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="components/ios-frame.jsx"></script>
+  <script type="text/babel" src="components/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="components/brand.jsx"></script>
+  <script type="text/babel" src="components/screens-home.jsx"></script>
+  <script type="text/babel" src="components/screens-rest.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "hero": "vault",
+      "startScreen": "home",
+      "palette": "soft"
+    }/*EDITMODE-END*/;
+
+    // ── Palettes ─────────────────────────────────────────────
+    const PALETTES = {
+      // Original pitch — dark + neon
+      neon: {
+        bg:        '#06090F',
+        bgDeep:    '#02050B',
+        surface1:  '#0C1018',
+        surface2:  '#111828',
+        surface3:  '#18202F',
+        fillSoft:  'rgba(255,255,255,0.02)',
+        fillMed:   'rgba(255,255,255,0.06)',
+        green:     '#14F195',
+        teal:      '#00C8FF',
+        purple:    '#9945FF',
+        amber:     '#FFB547',
+        red:       '#FF5656',
+        navy:      '#0A2748',
+        navyDeep:  '#071A32',
+        text:      '#EEF0F8',
+        text2:     'rgba(238,240,248,0.65)',
+        muted:     '#4E5870',
+        border:    'rgba(255,255,255,0.08)',
+        borderStr: 'rgba(255,255,255,0.14)',
+        stageBg: `radial-gradient(60% 40% at 20% 0%, rgba(0, 200, 255, 0.06), transparent 60%),
+                  radial-gradient(50% 40% at 80% 100%, rgba(20, 241, 149, 0.06), transparent 60%),
+                  linear-gradient(180deg, #0A0D14, #05070C)`,
+      },
+      // Soft — warm cream base, muted sage/sky/lilac accents
+      soft: {
+        bg:        '#F5F1EA',
+        bgDeep:    '#EDE7DC',
+        surface1:  '#FFFFFF',
+        surface2:  '#FAF6EF',
+        surface3:  '#F0EAE0',
+        fillSoft:  'rgba(42,46,56,0.025)',
+        fillMed:   'rgba(42,46,56,0.06)',
+        green:     '#6FB39A',  // muted sage
+        teal:      '#7BA7C4',  // soft sky
+        purple:    '#A898D4',  // gentle lilac
+        amber:     '#E5B472',  // warm honey
+        red:       '#D48A82',  // dusty rose
+        navy:      '#D9E4EC',  // pale blue (hero bg)
+        navyDeep:  '#C7D5E0',
+        text:      '#2A2E38',
+        text2:     'rgba(42,46,56,0.65)',
+        muted:     '#8A8578',
+        border:    'rgba(42,46,56,0.08)',
+        borderStr: 'rgba(42,46,56,0.14)',
+        stageBg: `radial-gradient(60% 40% at 20% 0%, rgba(123, 167, 196, 0.15), transparent 60%),
+                  radial-gradient(50% 40% at 80% 100%, rgba(111, 179, 154, 0.15), transparent 60%),
+                  linear-gradient(180deg, #F5F1EA, #EDE7DC)`,
+      },
+    };
+
+    function applyPalette(name) {
+      const p = PALETTES[name] || PALETTES.neon;
+      Object.assign(RFI, p);
+      document.getElementById('stage').style.background = p.stageBg;
+    }
+
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [screen, setScreen] = React.useState('home');
+      const [, force] = React.useReducer(x => x + 1, 0);
+
+      React.useLayoutEffect(() => {
+        applyPalette(tweaks.palette);
+        force();
+      }, [tweaks.palette]);
+
+      const go = (s) => setScreen(s);
+      const tab = ['home','groups','score','wallet'].includes(screen) ? screen : 'home';
+      const setTab = (t) => setScreen(t === 'pay' ? 'pay' : t);
+
+      const renderScreen = () => {
+        switch (screen) {
+          case 'home':    return <ScreenHome go={go} hero={tweaks.hero}/>;
+          case 'groups':  return <ScreenGroups go={go}/>;
+          case 'group':   return <ScreenGroup go={go}/>;
+          case 'join':    return <ScreenGroup go={go}/>;
+          case 'pay':     return <ScreenPay go={go}/>;
+          case 'score':   return <ScreenScore go={go}/>;
+          case 'sell':    return <ScreenSell go={go}/>;
+          case 'wallet':  return <ScreenWallet go={go}/>;
+          default:        return <ScreenHome go={go} hero={tweaks.hero}/>;
+        }
+      };
+
+      const hideTabBar = screen === 'pay' || screen === 'sell' || screen === 'group';
+
+      const isDark = tweaks.palette === 'neon';
+
+      return (
+        <>
+          <IOSDevice width={402} height={874} dark={isDark}>
+            <div data-screen-label={`01 ${screen}`} style={{
+              width: '100%', height: '100%', position: 'relative',
+              background: RFI.bg, color: RFI.text,
+              fontFamily: 'DM Sans, system-ui, sans-serif',
+              paddingTop: 54,  /* below status bar */
+              overflow: 'hidden',
+            }}>
+              <RFIBackdrop/>
+              <div style={{ position: 'relative', height: '100%', overflowY: 'auto',
+                            overflowX: 'hidden' }}>
+                {!hideTabBar && <RFITopBar onProfile={() => go('score')} onBell={() => go('groups')}/>}
+                {renderScreen()}
+              </div>
+              {!hideTabBar && <RFITabBar tab={tab} setTab={setTab}/>}
+            </div>
+          </IOSDevice>
+
+          <TweaksPanel title="RoundFi Tweaks">
+            <TweakSection title="Paleta">
+              <TweakRadio
+                value={tweaks.palette}
+                onChange={(v) => setTweak('palette', v)}
+                options={[
+                  { value: 'soft',  label: 'Soft · creme & sage' },
+                  { value: 'neon',  label: 'Neon · pitch deck' },
+                ]}
+              />
+            </TweakSection>
+            <TweakSection title="Home hero">
+              <TweakRadio
+                value={tweaks.hero}
+                onChange={(v) => setTweak('hero', v)}
+                options={[
+                  { value: 'round',  label: 'Rodada (dial)' },
+                  { value: 'ladder', label: 'Jornada (níveis)' },
+                  { value: 'vault',  label: 'Cofre (saldo)' },
+                ]}
+              />
+            </TweakSection>
+            <TweakSection title="Tela inicial">
+              <TweakSelect
+                value={screen}
+                onChange={setScreen}
+                options={[
+                  { value: 'home',   label: 'Início' },
+                  { value: 'groups', label: 'Grupos' },
+                  { value: 'group',  label: 'Detalhe · Renovação MEI' },
+                  { value: 'pay',    label: 'Pagar parcela' },
+                  { value: 'score',  label: 'Score · Passaporte SAS' },
+                  { value: 'sell',   label: 'Vender cota (válvula)' },
+                  { value: 'wallet', label: 'Carteira' },
+                ]}
+              />
+            </TweakSection>
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
