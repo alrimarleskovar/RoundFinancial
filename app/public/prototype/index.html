@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RoundFi — Desktop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body {
+    padding: 32px 24px;
+    transition: background 0.4s ease;
+  }
+  body[data-palette="neon"] {
+    background:
+      radial-gradient(ellipse 80% 60% at 80% 0%, rgba(0,200,255,0.08), transparent 70%),
+      radial-gradient(ellipse 80% 60% at 20% 100%, rgba(20,241,149,0.06), transparent 70%),
+      #0a0e17;
+    color: #EEF0F8;
+  }
+  body[data-palette="soft"] {
+    background:
+      radial-gradient(ellipse 80% 60% at 80% 0%, rgba(123,167,196,0.16), transparent 70%),
+      radial-gradient(ellipse 80% 60% at 20% 100%, rgba(111,179,154,0.14), transparent 70%),
+      #E8E2D6;
+    color: #2A2E38;
+  }
+  .rfi-stage {
+    max-width: 1400px; margin: 0 auto;
+  }
+  /* scrollbars */
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 4px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.35); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body data-palette="soft">
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="components/browser-window.jsx"></script>
+  <script type="text/babel" src="components/brand.jsx"></script>
+  <script type="text/babel" src="components/i18n.jsx"></script>
+  <script type="text/babel" src="components/screens-home.jsx"></script>
+  <script type="text/babel" src="components/screens-rest.jsx"></script>
+  <script type="text/babel" src="components/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="components/desktop.jsx"></script>
+  <script type="text/babel" src="components/desktop-more.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": "soft",
+      "startScreen": "home"
+    }/*EDITMODE-END*/;
+
+    // Palettes — mirror the mobile definitions
+    const PALETTES = {
+      neon: {
+        bg:        '#06090F',
+        bgDeep:    '#02050B',
+        surface1:  '#0C1018',
+        surface2:  '#111828',
+        surface3:  '#18202F',
+        fillSoft:  'rgba(255,255,255,0.03)',
+        fillMed:   'rgba(255,255,255,0.08)',
+        green:     '#14F195',
+        teal:      '#00C8FF',
+        purple:    '#9945FF',
+        amber:     '#FFB547',
+        red:       '#FF5656',
+        navy:      '#0A2748',
+        navyDeep:  '#071A32',
+        text:      '#EEF0F8',
+        text2:     'rgba(238,240,248,0.65)',
+        muted:     '#4E5870',
+        border:    'rgba(255,255,255,0.08)',
+        borderStr: 'rgba(255,255,255,0.14)',
+      },
+      soft: {
+        bg:        '#F5F1EA',
+        bgDeep:    '#EDE7DC',
+        surface1:  '#FFFFFF',
+        surface2:  '#FAF6EF',
+        surface3:  '#F0EAE0',
+        fillSoft:  'rgba(42,46,56,0.025)',
+        fillMed:   'rgba(42,46,56,0.06)',
+        green:     '#6FB39A',
+        teal:      '#7BA7C4',
+        purple:    '#A898D4',
+        amber:     '#E5B472',
+        red:       '#D48A82',
+        navy:      '#D9E4EC',
+        navyDeep:  '#C7D5E0',
+        text:      '#2A2E38',
+        text2:     'rgba(42,46,56,0.65)',
+        muted:     '#8A8578',
+        border:    'rgba(42,46,56,0.08)',
+        borderStr: 'rgba(42,46,56,0.14)',
+      },
+    };
+
+    function applyPalette(name) {
+      const p = PALETTES[name] || PALETTES.soft;
+      Object.assign(RFI, p);
+      document.body.setAttribute('data-palette', name);
+    }
+
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [screen, setScreen] = React.useState(tweaks.startScreen || 'home');
+      const [, force] = React.useReducer(x => x + 1, 0);
+
+      React.useLayoutEffect(() => {
+        applyPalette(tweaks.palette);
+        force();
+      }, [tweaks.palette]);
+
+      const go = setScreen;
+
+      const tabs = [
+        { title: 'RoundFi · Dashboard' },
+        { title: 'Kamino' },
+        { title: 'Civic' },
+      ];
+      const urlMap = {
+        home:     'app.roundfi.xyz/dashboard',
+        groups:   'app.roundfi.xyz/grupos',
+        score:    'app.roundfi.xyz/reputacao',
+        wallet:   'app.roundfi.xyz/carteira',
+        market:   'app.roundfi.xyz/mercado',
+        insights: 'app.roundfi.xyz/insights',
+      };
+
+      const renderScreen = () => {
+        switch (screen) {
+          case 'home':     return <DeskHome go={go}/>;
+          case 'groups':   return <DeskGroups go={go}/>;
+          case 'score':    return <DeskScore go={go}/>;
+          case 'wallet':   return <DeskWallet go={go}/>;
+          case 'market':   return <DeskMarket go={go}/>;
+          case 'insights': return <DeskInsights go={go}/>;
+          default:         return <DeskHome go={go}/>;
+        }
+      };
+
+      return (
+        <>
+          <div className="rfi-stage">
+            <ChromeWindow
+              tabs={tabs} activeIndex={0}
+              url={urlMap[screen] || 'app.roundfi.xyz'}
+              width={1360} height={900}
+            >
+              <div style={{
+                display: 'flex', height: '100%',
+                background: RFI.bg, color: RFI.text,
+                fontFamily: 'DM Sans, system-ui, sans-serif',
+              }}>
+                <RFISideNav screen={screen} setScreen={setScreen} user={USER}/>
+                <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+                  <DeskTopBar screen={screen}/>
+                  {renderScreen()}
+                </div>
+              </div>
+            </ChromeWindow>
+          </div>
+
+          <TweaksPanel title="RoundFi Desktop">
+            <TweakSection title="Paleta">
+              <TweakRadio
+                value={tweaks.palette}
+                onChange={(v) => setTweak('palette', v)}
+                options={[
+                  { value: 'soft', label: 'Soft · creme & sage' },
+                  { value: 'neon', label: 'Neon · pitch deck' },
+                ]}
+              />
+            </TweakSection>
+            <TweakSection title="Tela inicial">
+              <TweakSelect
+                value={screen}
+                onChange={setScreen}
+                options={[
+                  { value: 'home', label: 'Início' },
+                  { value: 'groups', label: 'Grupos' },
+                  { value: 'score', label: 'Reputação' },
+                  { value: 'wallet', label: 'Carteira' },
+                  { value: 'market', label: 'Mercado' },
+                  { value: 'insights', label: 'Insights' },
+                ]}
+              />
+            </TweakSection>
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    function DeskTopBar({ screen }) {
+      const state = useAppState();
+      const tt = useT();
+      const isDark = RFI.bg === '#06090F';
+      return (
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 10,
+          background: isDark ? 'rgba(6,9,15,0.85)' : 'rgba(245,241,234,0.85)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: `1px solid ${RFI.border}`,
+          padding: '14px 32px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 14px', borderRadius: 10,
+              background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+              width: 320,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke={RFI.muted} strokeWidth="2">
+                <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input placeholder={tt('top.search')} style={{
+                flex: 1, background: 'none', border: 'none', outline: 'none',
+                color: RFI.text, fontSize: 12, fontFamily: 'DM Sans, sans-serif',
+              }}/>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10,
+                             color: RFI.muted, padding: '2px 6px', borderRadius: 4,
+                             background: RFI.fillMed }}>⌘K</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Language toggle */}
+            <SegToggle
+              value={state.lang}
+              onChange={setLang}
+              options={[
+                { v: 'pt', l: 'PT' },
+                { v: 'en', l: 'EN' },
+              ]}
+            />
+            {/* Currency toggle */}
+            <SegToggle
+              value={state.currency}
+              onChange={setCurrency}
+              options={[
+                { v: 'BRL',  l: 'R$' },
+                { v: 'USDC', l: '$' },
+              ]}
+            />
+            <button style={{
+              padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+              background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+              color: RFI.text2, fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%',
+                             background: RFI.green, boxShadow: `0 0 6px ${RFI.green}` }}/>
+              {tt('top.network')}
+            </button>
+            <button style={{
+              width: 36, height: 36, borderRadius: 10, cursor: 'pointer',
+              background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+              color: RFI.text2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              position: 'relative',
+            }}>
+              <Icons.bell size={16} stroke={RFI.text2}/>
+              <span style={{ position: 'absolute', top: 8, right: 8, width: 6, height: 6,
+                             borderRadius: '50%', background: RFI.green,
+                             border: `2px solid ${RFI.bg}` }}/>
+            </button>
+            <button style={{
+              padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+              background: `linear-gradient(135deg, ${RFI.green}, ${RFI.teal})`,
+              border: 'none',
+              color: isDark ? RFI.bgDeep : '#FFFFFF',
+              fontSize: 12, fontWeight: 700,
+              fontFamily: 'DM Sans, sans-serif',
+            }}>{tt('top.deposit')}</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Segmented toggle for lang / currency
+    function SegToggle({ value, onChange, options }) {
+      return (
+        <div style={{
+          display: 'inline-flex',
+          padding: 3, borderRadius: 9,
+          background: RFI.fillSoft, border: `1px solid ${RFI.border}`,
+        }}>
+          {options.map(o => {
+            const active = o.v === value;
+            return (
+              <button key={o.v} onClick={() => onChange(o.v)} style={{
+                padding: '5px 10px', borderRadius: 7, cursor: 'pointer',
+                background: active ? (RFI.bg === '#06090F' ? RFI.surface2 : RFI.surface1) : 'transparent',
+                border: 'none',
+                color: active ? RFI.text : RFI.muted,
+                fontSize: 11, fontWeight: active ? 700 : 500,
+                fontFamily: 'JetBrains Mono, monospace',
+                boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 150ms ease',
+                minWidth: 34,
+              }}>{o.l}</button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
