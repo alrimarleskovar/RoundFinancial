@@ -54,33 +54,35 @@ export default function LandingPage() {
         <div className="absolute bottom-[20%] right-[-20%] w-[250px] md:w-[500px] h-[250px] md:h-[500px] bg-[#00FFA3] opacity-10 blur-[80px] md:blur-[120px]" />
       </div>
 
-      {/* Header */}
-      <header className="flex justify-between items-center p-4 md:p-8 max-w-7xl w-full mx-auto z-50 gap-2">
-        <div className="cursor-pointer transition-transform hover:scale-105 shrink-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="RoundFi Logo"
-            className="h-12 md:h-16 w-auto object-contain"
-          />
-        </div>
-        <nav className="hidden lg:flex gap-10 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-          <a href="#simulator" className="hover:text-white transition-colors">Simulador</a>
-          <a href="#compare" className="hover:text-white transition-colors">Vantagens</a>
-          <a href="#" className="hover:text-white transition-colors">Docs</a>
-          <a href="#" className="hover:text-white transition-colors">Auditoria</a>
-        </nav>
-        <div className="scale-75 md:scale-100 origin-right">
-          <WalletMultiButton
-            style={{
-              backgroundColor: "#00FFA3",
-              color: "#0B132B",
-              borderRadius: "12px",
-              fontWeight: "bold",
-            }}
-          />
-        </div>
-      </header>
+      {/* Header (sticky, full-width tinted bar with blurred backdrop) */}
+      <div className="sticky top-0 z-50 bg-[#0B132B]/80 backdrop-blur-md border-b border-white/5">
+        <header className="flex justify-between items-center p-4 md:p-6 max-w-7xl w-full mx-auto gap-2">
+          <div className="cursor-pointer transition-transform hover:scale-105 shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="RoundFi Logo"
+              className="h-12 md:h-16 w-auto object-contain"
+            />
+          </div>
+          <nav className="hidden lg:flex gap-10 text-sm font-semibold text-gray-400 uppercase tracking-widest">
+            <a href="#simulator" className="hover:text-white transition-colors">Simulador</a>
+            <a href="#compare" className="hover:text-white transition-colors">Vantagens</a>
+            <a href="#" className="hover:text-white transition-colors">Docs</a>
+            <a href="#" className="hover:text-white transition-colors">Auditoria</a>
+          </nav>
+          <div className="scale-75 md:scale-100 origin-right">
+            <WalletMultiButton
+              style={{
+                backgroundColor: "#00FFA3",
+                color: "#0B132B",
+                borderRadius: "12px",
+                fontWeight: "bold",
+              }}
+            />
+          </div>
+        </header>
+      </div>
 
       {/* Hero */}
       <section className="flex flex-col items-center justify-center pt-10 md:pt-20 pb-20 md:pb-32 px-4 md:px-6 text-center z-10 w-full">
