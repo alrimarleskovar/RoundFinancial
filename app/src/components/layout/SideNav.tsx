@@ -41,7 +41,7 @@ export function SideNav({
     { id: "groups",   label: t("nav.groups"),   href: "/grupos",   icon: Icons.groups, matchPrefix: "/grupos" },
     { id: "score",    label: t("nav.score"),    href: "/reputacao",icon: Icons.shield, matchPrefix: "/reputacao" },
     { id: "wallet",   label: t("nav.wallet"),   href: "/carteira", icon: Icons.wallet, matchPrefix: "/carteira" },
-    { id: "market",   label: t("nav.market"),   href: "/",         icon: Icons.ticket, matchPrefix: "/mercado" },
+    { id: "market",   label: t("nav.market"),   href: "/mercado",  icon: Icons.ticket, matchPrefix: "/mercado" },
     { id: "insights", label: t("nav.insights"), href: "/",         icon: Icons.chart,  matchPrefix: "/insights" },
   ];
 
