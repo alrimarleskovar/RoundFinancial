@@ -4,6 +4,8 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Suspense, useMemo } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
+import { PositionsList } from "@/components/carteira/PositionsList";
+import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { WalletOverview } from "@/components/carteira/WalletOverview";
 import { DeskShell } from "@/components/layout/DeskShell";
 import { useI18n } from "@/lib/i18n";
@@ -164,16 +166,24 @@ function CarteiraContent() {
       </div>
 
       {tab === "overview" && <WalletOverview />}
-      {tab !== "overview" && <TabPlaceholder tab={tab} />}
+      {tab === "positions" && (
+        <div style={{ marginTop: 20 }}>
+          <PositionsList />
+        </div>
+      )}
+      {tab === "transactions" && (
+        <div style={{ marginTop: 20 }}>
+          <TransactionsList />
+        </div>
+      )}
+      {tab === "connections" && <TabPlaceholder tab="connections" />}
     </div>
   );
 }
 
-function TabPlaceholder({ tab }: { tab: Exclude<Tab, "overview"> }) {
+function TabPlaceholder({ tab }: { tab: "connections" }) {
   const { tokens } = useTheme();
-  const labels: Record<Exclude<Tab, "overview">, string> = {
-    positions: "B.2.b",
-    transactions: "B.2.c",
+  const labels: Record<typeof tab, string> = {
     connections: "B.2.d",
   };
   return (
