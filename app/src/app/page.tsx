@@ -47,7 +47,7 @@ export default function LandingPage() {
   const yieldEarned = simAmount * apy * (simMonths / 12);
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#0B132B] text-white font-sans relative overflow-x-hidden">
+    <main className="flex min-h-screen flex-col bg-[#0B132B] text-white font-sans relative">
       {/* Background glows */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-20%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-[#8A2BE2] opacity-10 blur-[80px] md:blur-[120px]" />
