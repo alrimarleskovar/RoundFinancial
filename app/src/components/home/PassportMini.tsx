@@ -17,7 +17,7 @@ export function PassportMini() {
 
   return (
     <Link
-      href="/"
+      href="/reputacao"
       style={{
         display: "block",
         textDecoration: "none",
