@@ -6,8 +6,10 @@ import { Suspense, useMemo } from "react";
 import { MonoLabel } from "@/components/brand/brand";
 import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
+import { WalletConnections } from "@/components/carteira/WalletConnections";
 import { WalletOverview } from "@/components/carteira/WalletOverview";
 import { DeskShell } from "@/components/layout/DeskShell";
+import { useConnections } from "@/lib/connections";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { useWallet } from "@/lib/wallet";
@@ -26,6 +28,7 @@ function CarteiraContent() {
   const pathname = usePathname();
   const params = useSearchParams();
   const wallet = useWallet();
+  const conns = useConnections();
 
   const raw = params.get("tab");
   const tab: Tab = isTab(raw) ? raw : "overview";
@@ -36,10 +39,11 @@ function CarteiraContent() {
     router.replace(`${pathname}?${p.toString()}`, { scroll: false });
   };
 
-  // Connections badge count: only Phantom is real for now. B.2.d wires
-  // the mock integrations (Civic, Kamino, Solflare, Pix) similarly.
+  // Connections badge: 1 (Phantom real) + N mocks marked 'connected'.
   const totalConns = 5;
-  const connectedConns = wallet.status === "connected" ? 1 : 0;
+  const connectedConns =
+    (wallet.status === "connected" ? 1 : 0) +
+    Object.values(conns.state).filter((r) => r.status === "connected").length;
 
   const btnSoft = useMemo(
     () => ({
@@ -176,50 +180,7 @@ function CarteiraContent() {
           <TransactionsList />
         </div>
       )}
-      {tab === "connections" && <TabPlaceholder tab="connections" />}
-    </div>
-  );
-}
-
-function TabPlaceholder({ tab }: { tab: "connections" }) {
-  const { tokens } = useTheme();
-  const labels: Record<typeof tab, string> = {
-    connections: "B.2.d",
-  };
-  return (
-    <div
-      style={{
-        marginTop: 40,
-        padding: 32,
-        borderRadius: 18,
-        background: tokens.surface1,
-        border: `1px dashed ${tokens.borderStr}`,
-        color: tokens.text2,
-        textAlign: "center",
-        fontSize: 13,
-      }}
-    >
-      <div
-        style={{
-          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-          fontSize: 10,
-          letterSpacing: ".12em",
-          textTransform: "uppercase",
-          color: tokens.muted,
-          marginBottom: 6,
-        }}
-      >
-        Em migração · {labels[tab]}
-      </div>
-      Esta tab é portada nativamente em um PR seguinte.<br />
-      Enquanto isso, use a versão do protótipo em{" "}
-      <a
-        href="/"
-        style={{ color: tokens.teal, textDecoration: "underline" }}
-      >
-        /
-      </a>
-      .
+      {tab === "connections" && <WalletConnections />}
     </div>
   );
 }
