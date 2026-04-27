@@ -42,7 +42,7 @@ export function SideNav({
     { id: "score",    label: t("nav.score"),    href: "/reputacao",icon: Icons.shield, matchPrefix: "/reputacao" },
     { id: "wallet",   label: t("nav.wallet"),   href: "/carteira", icon: Icons.wallet, matchPrefix: "/carteira" },
     { id: "market",   label: t("nav.market"),   href: "/mercado",  icon: Icons.ticket, matchPrefix: "/mercado" },
-    { id: "insights", label: t("nav.insights"), href: "/",         icon: Icons.chart,  matchPrefix: "/insights" },
+    { id: "insights", label: t("nav.insights"), href: "/insights", icon: Icons.chart,  matchPrefix: "/insights" },
   ];
 
   const levelCopy = {
