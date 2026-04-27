@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { SideNav } from "@/components/layout/SideNav";
 import { TopBar } from "@/components/layout/TopBar";
+import { useRedirectOnDisconnect } from "@/lib/useRedirectOnDisconnect";
 import { useTheme } from "@/lib/theme";
 
 // Wraps every Next-native RoundFi screen. SideNav on the left,
@@ -11,6 +12,9 @@ import { useTheme } from "@/lib/theme";
 
 export function DeskShell({ children }: { children: ReactNode }) {
   const { tokens } = useTheme();
+  // Disconnecting the wallet from the chip dropdown sends the user
+  // back to the public landing.
+  useRedirectOnDisconnect("/");
   return (
     <div
       style={{
