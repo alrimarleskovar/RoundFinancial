@@ -7,6 +7,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { Adapter } from "@solana/wallet-adapter-base";
 
 import { ConnectionsProvider } from "@/lib/connections";
+import { MotionProvider } from "@/lib/motion";
 import { NetworkContextProvider, useNetwork } from "@/lib/network";
 import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
@@ -29,13 +30,15 @@ function InnerProviders({ children }: { children: ReactNode }) {
 export function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider initial="soft">
-      <I18nProvider initialLang="pt" initialCurrency="BRL">
-        <ConnectionsProvider>
-          <NetworkContextProvider>
-            <InnerProviders>{children}</InnerProviders>
-          </NetworkContextProvider>
-        </ConnectionsProvider>
-      </I18nProvider>
+      <MotionProvider initial="fade">
+        <I18nProvider initialLang="pt" initialCurrency="BRL">
+          <ConnectionsProvider>
+            <NetworkContextProvider>
+              <InnerProviders>{children}</InnerProviders>
+            </NetworkContextProvider>
+          </ConnectionsProvider>
+        </I18nProvider>
+      </MotionProvider>
     </ThemeProvider>
   );
 }

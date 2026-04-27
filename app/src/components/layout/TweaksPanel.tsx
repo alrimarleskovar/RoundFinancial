@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { Icons } from "@/components/brand/icons";
 import { MonoLabel } from "@/components/brand/brand";
+import { useMotion, type MotionMode } from "@/lib/motion";
 import { useTheme, type Palette } from "@/lib/theme";
 
 // Floating dev-only panel that swaps palette + jumps to any route.
@@ -28,8 +29,15 @@ const PALETTES: ReadonlyArray<readonly [Palette, string]> = [
   ["neon", "Neon · pitch deck"],
 ];
 
+const MOTIONS: ReadonlyArray<readonly [MotionMode, string]> = [
+  ["off",   "Off · sem animação"],
+  ["fade",  "Fade · sutil 220ms"],
+  ["slide", "Slide · horizontal 260ms"],
+];
+
 export function TweaksPanel() {
   const { tokens, palette, setPalette } = useTheme();
+  const { mode: motionMode, setMode: setMotionMode } = useMotion();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -137,6 +145,58 @@ export function TweaksPanel() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Animação */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <MonoLabel size={9}>Animação entre rotas</MonoLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {MOTIONS.map(([key, label]) => {
+                const active = motionMode === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMotionMode(key)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      background: active ? `${tokens.teal}1A` : tokens.fillSoft,
+                      border: `1px solid ${active ? `${tokens.teal}4D` : tokens.border}`,
+                      color: active ? tokens.teal : tokens.text,
+                      fontSize: 11,
+                      fontWeight: active ? 600 : 500,
+                      textAlign: "left",
+                      fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: active ? tokens.teal : tokens.muted,
+                      }}
+                    />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              style={{
+                fontSize: 9,
+                color: tokens.muted,
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                lineHeight: 1.4,
+              }}
+            >
+              Navegue para outra tela pra ver
             </div>
           </div>
 

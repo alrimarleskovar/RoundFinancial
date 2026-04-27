@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { PageTransition } from "@/components/layout/PageTransition";
 import { SideNav } from "@/components/layout/SideNav";
 import { TopBar } from "@/components/layout/TopBar";
 import { TweaksPanel } from "@/components/layout/TweaksPanel";
@@ -30,7 +31,7 @@ export function DeskShell({ children }: { children: ReactNode }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <TopBar />
         <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
-          {children}
+          <PageTransition>{children}</PageTransition>
         </div>
       </div>
       <TweaksPanel />
