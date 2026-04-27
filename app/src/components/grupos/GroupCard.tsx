@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
+import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -11,6 +14,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
+  const [joinOpen, setJoinOpen] = useState(false);
 
   const tc = ((): string => {
     switch (g.tone) {
@@ -155,6 +159,9 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
       </div>
       <button
         type="button"
+        onClick={() => {
+          if (!g.joined) setJoinOpen(true);
+        }}
         style={{
           padding: "10px 14px",
           borderRadius: 11,
@@ -175,6 +182,11 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
       >
         {g.joined ? t("groups.card.cta.view") : t("groups.card.cta.join")}
       </button>
+      <JoinGroupModal
+        group={g}
+        open={joinOpen}
+        onClose={() => setJoinOpen(false)}
+      />
     </div>
   );
 }

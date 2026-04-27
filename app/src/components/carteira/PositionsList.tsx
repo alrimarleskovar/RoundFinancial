@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { MonoLabel } from "@/components/brand/brand";
+import { SellShareModal } from "@/components/modals/SellShareModal";
 import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -12,6 +15,7 @@ import { useTheme } from "@/lib/theme";
 export function PositionsList({ limit }: { limit?: number }) {
   const { tokens } = useTheme();
   const { t, fmtMoney } = useI18n();
+  const [selling, setSelling] = useState<NftPosition | null>(null);
   const rows: NftPosition[] = limit ? NFT_POSITIONS.slice(0, limit) : NFT_POSITIONS;
   const toneColor = (tone: Tone): string => {
     switch (tone) {
@@ -148,6 +152,7 @@ export function PositionsList({ limit }: { limit?: number }) {
               {!limit && (
                 <button
                   type="button"
+                  onClick={() => setSelling(n)}
                   style={{
                     padding: "7px 12px",
                     borderRadius: 8,
@@ -157,6 +162,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                     color: tokens.text,
                     fontSize: 11,
                     fontWeight: 600,
+                    fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                   }}
                 >
                   {t("wallet.sell")}
@@ -166,6 +172,11 @@ export function PositionsList({ limit }: { limit?: number }) {
           );
         })}
       </div>
+      <SellShareModal
+        position={selling}
+        open={selling != null}
+        onClose={() => setSelling(null)}
+      />
     </div>
   );
 }
