@@ -87,7 +87,13 @@ export function useWallet(): WalletView {
       const lamports = await connection.getBalance(new PublicKey(pk), "confirmed");
       setBalance(lamports);
     } catch (err: unknown) {
-      setLastError(`balance_fetch_failed: ${(err as Error)?.message ?? err}`);
+      // Balance polling failures (rate-limited RPC, extension hijacks
+      // the fetch, transient network blips) shouldn't surface as a
+      // wallet-error toast — they're not actionable and the airdrop
+      // / wallet UI works fine without a balance number.
+      // eslint-disable-next-line no-console
+      console.warn("[RoundFi] balance fetch failed:", err);
+      setBalance(null);
     }
   }, [connection]);
 
