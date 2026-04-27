@@ -37,12 +37,12 @@ export function SideNav({
   const pathname = usePathname();
 
   const items: NavItem[] = [
-    { id: "home",     label: t("nav.home"),     href: "/",          icon: Icons.home,   matchPrefix: null },
-    { id: "groups",   label: t("nav.groups"),   href: "/",          icon: Icons.groups, matchPrefix: "/grupos" },
-    { id: "score",    label: t("nav.score"),    href: "/",          icon: Icons.shield, matchPrefix: "/reputacao" },
-    { id: "wallet",   label: t("nav.wallet"),   href: "/carteira",  icon: Icons.wallet, matchPrefix: "/carteira" },
-    { id: "market",   label: t("nav.market"),   href: "/",          icon: Icons.ticket, matchPrefix: "/mercado" },
-    { id: "insights", label: t("nav.insights"), href: "/",          icon: Icons.chart,  matchPrefix: "/insights" },
+    { id: "home",     label: t("nav.home"),     href: "/home",     icon: Icons.home,   matchPrefix: "/home" },
+    { id: "groups",   label: t("nav.groups"),   href: "/",         icon: Icons.groups, matchPrefix: "/grupos" },
+    { id: "score",    label: t("nav.score"),    href: "/",         icon: Icons.shield, matchPrefix: "/reputacao" },
+    { id: "wallet",   label: t("nav.wallet"),   href: "/carteira", icon: Icons.wallet, matchPrefix: "/carteira" },
+    { id: "market",   label: t("nav.market"),   href: "/",         icon: Icons.ticket, matchPrefix: "/mercado" },
+    { id: "insights", label: t("nav.insights"), href: "/",         icon: Icons.chart,  matchPrefix: "/insights" },
   ];
 
   const levelCopy = {
