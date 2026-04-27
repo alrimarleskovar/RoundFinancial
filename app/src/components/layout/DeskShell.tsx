@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { SideNav } from "@/components/layout/SideNav";
 import { TopBar } from "@/components/layout/TopBar";
+import { TweaksPanel } from "@/components/layout/TweaksPanel";
 import { useRedirectOnDisconnect } from "@/lib/useRedirectOnDisconnect";
 import { useTheme } from "@/lib/theme";
 
@@ -32,6 +33,7 @@ export function DeskShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+      <TweaksPanel />
     </div>
   );
 }
