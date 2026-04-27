@@ -6,7 +6,7 @@
   <a href="docs/pitch/pitch-deck-en.html">📊 Pitch deck</a> ·
   <a href="docs/pt/whitepaper.pdf">📄 Whitepaper (PT)</a> ·
   <a href="docs/architecture.md">🧱 Architecture</a> ·
-  <a href="app/public/prototype/index.html">🖥️ Front-end preview</a>
+  <a href="#front-end">🖥️ Live front-end</a>
 </p>
 
 Built for the **Colosseum Hackathon 2026**.
@@ -44,23 +44,32 @@ RoundFi is the only protocol that checks every box.
 
 ```
 RoundFinancial/
-├── programs/              # Anchor programs (Rust)
-│   ├── roundfi-core/              # Pool state machine + escrow + solidarity vault
-│   ├── roundfi-reputation/        # SAS-compatible attestation + reputation ladder
-│   ├── roundfi-yield-mock/        # Devnet yield adapter (simulated APY)
-│   └── roundfi-yield-kamino/      # Mainnet yield adapter (real Kamino CPI)
-├── sdk/                   # TypeScript SDK generated from Anchor IDL
-├── services/              # Off-chain services
-│   └── orchestrator/              # Lifecycle orchestrator (mock + real driver)
-├── app/                   # Next.js 14 front-end (Wallet Adapter, Phantom/Solflare)
-│   ├── src/app/                   # / = design prototype  ·  /demo = lifecycle demo
-│   └── public/prototype/          # RoundFi Desktop design handoff bundle
-├── scripts/               # Devnet deploy, airdrop, seed, stress runners
-├── config/                # Cluster configs + program-ID registry
-├── tests/                 # Cross-program integration tests (Anchor + bankrun)
-└── docs/                  # Architecture, module specs, deploy guides
-    ├── pitch/                     # Pitch decks (EN)
-    └── pt/                        # Portuguese docs (whitepaper + planning)
+├── programs/                           # Anchor programs (Rust)
+│   ├── roundfi-core/                           # Pool state machine + escrow + solidarity vault
+│   ├── roundfi-reputation/                     # SAS-compatible attestation + reputation ladder
+│   ├── roundfi-yield-mock/                     # Devnet yield adapter (simulated APY)
+│   └── roundfi-yield-kamino/                   # Mainnet yield adapter (real Kamino CPI)
+├── sdk/                                # TypeScript SDK generated from Anchor IDL
+├── services/orchestrator/              # Lifecycle orchestrator (mock + real driver)
+├── app/                                # Next.js 14 front-end (Wallet Adapter, Phantom/Solflare/Backpack)
+│   ├── src/app/                                # Routes
+│   │   ├── page.tsx                            # / public landing (CoFi pitch + simulator)
+│   │   ├── home/                               # /home dashboard (gated by wallet connect)
+│   │   ├── carteira/                           # /carteira (4 tabs: overview / positions / tx / connections)
+│   │   ├── grupos/                             # /grupos catalog with filters
+│   │   ├── reputacao/                          # /reputacao SAS passport + 50/30/10 ladder
+│   │   ├── mercado/                            # /mercado secondary order book
+│   │   └── demo/                               # /demo lifecycle demo (orchestrator + wallet adapter)
+│   ├── src/components/                         # By feature: brand · layout · home · carteira · grupos · score · mercado
+│   ├── src/lib/                                # Theme · i18n · wallet · network · groups helpers
+│   ├── src/data/                               # Typed mock fixtures (USER, NFT_POSITIONS, ACTIVE_GROUPS, …)
+│   └── public/prototype/                       # Original design handoff bundle (legacy preview)
+├── scripts/                            # Devnet deploy, airdrop, seed, stress runners
+├── config/                             # Cluster configs + program-ID registry
+├── tests/                              # Cross-program integration tests (Anchor + bankrun)
+└── docs/                               # Architecture, module specs, deploy guides
+    ├── pitch/                                  # Pitch decks (EN)
+    └── pt/                                     # Portuguese docs (whitepaper + planning)
 ```
 
 ## Documentation
@@ -88,11 +97,35 @@ Per-module READMEs land alongside each module as it ships.
 
 ## Front-end
 
-The product-facing UI is a **desktop dashboard** (see [`app/public/prototype/`](app/public/prototype/)) with a cream/sage *Soft* palette and a dark *Neon* palette, PT/EN i18n, BRL↔USDC switch, and a live Phantom wallet connection flow. It renders at `/` in the Next.js app; the lifecycle demo (orchestrator + wallet adapter) lives at `/demo`.
+A complete Next.js + TypeScript app with **6 native screens**, a public landing, real Solana wallet integration (devnet), and a soft / neon palette toggle.
 
 ```bash
-pnpm --filter @roundfi/app dev     # http://localhost:3000/
+pnpm install
+pnpm --filter @roundfi/app dev
+# -> http://localhost:3000/
 ```
+
+### Routes
+
+| Route | What's there |
+|---|---|
+| **`/`** | Public landing — hero + interactive APY simulator + comparison vs traditional consórcio + sticky header. Connecting any wallet (`WalletMultiButton`) redirects to `/home`. |
+| **`/home`** | Dashboard — saudação + 4 KPIs + featured round (circular dial) + your groups + SAS Passport mini + Triplo Escudo + recent activity. |
+| **`/carteira`** | Wallet — 4 tabs (`?tab=overview|positions|transactions|connections`). Connections tab has a **live Phantom flow + 1-SOL devnet airdrop button** + Civic / Kamino / Solflare / Pix mocks. |
+| **`/grupos`** | ROSCA catalog — search + sort + 5 multi-facet filters (level, category, prize, duration, only-with-spots). 7 fixtures in a 3-column grid + empty state. |
+| **`/reputacao`** | SAS passport — 96pt Syne score + 300/850 progress + 50/30/10 ladder + 4 SAS bonds (active / closed). |
+| **`/mercado`** | Secondary market — Buy/Sell tab pill + 4 mini-stats + order book (6 offers) + featured-of-the-day card + how-it-works steps. |
+| `/demo` | Orchestrator lifecycle demo (developer-facing). |
+
+### Key features
+
+- **Real wallet flow** — Standard-wallet discovery via `@solana/wallet-adapter-react` picks up Phantom / Solflare / Backpack automatically. Connect from the landing → bounces to `/home`. Disconnect from the wallet chip dropdown → bounces back to `/`.
+- **Devnet faucet** — One-click 1-SOL airdrop inside the Phantom card on `/carteira`. Falls back to https://faucet.solana.com when the public RPC rate-limits, plus a link to https://faucet.circle.com for devnet USDC.
+- **i18n PT/EN** — Every label, button, and message switchable from the top bar (`SegToggle`). 380+ keys in `lib/i18n.tsx`.
+- **BRL ↔ USDC currency toggle** — Source data is BRL; `fmtMoney(brl)` converts to USDC at runtime (`USDC_RATE = 5.5`).
+- **Soft + Neon palettes** — Tokens live in `lib/theme.tsx`. Inline-styled components (no Tailwind in dashboard) so the theme tokens drive every color.
+- **Brand primitives** — `RFILogoMark`, `RFIPill`, `RFICard`, `MonoLabel`, 23 stroke-based SVG icons in `components/brand/`.
+- **Typed mock data** — `data/{carteira,groups,score,market}.ts` with full types so screens are self-contained until the on-chain indexer ships.
 
 ## Development Status
 
@@ -101,10 +134,10 @@ pnpm --filter @roundfi/app dev     # http://localhost:3000/
 | 1. Project analysis | ✅ Done |
 | 2. Architecture spec | ✅ Done |
 | 3. Devnet environment | ✅ Done |
-| 4. Smart contracts (core) | ⏳ Next |
+| 4. Smart contracts (core) | ⏳ In progress |
 | 5. Contract tests | ⏳ |
 | 6. Backend services | ⏳ |
-| 7. Frontend | 🎨 Design locked · wiring |
+| 7. Frontend | ✅ 6 native screens + landing + Phantom devnet flow |
 | 8. Integration | ⏳ |
 | 9. Security audit | ⏳ |
 | 10. Devnet testing | ⏳ |
@@ -122,19 +155,29 @@ pnpm --filter @roundfi/app dev     # http://localhost:3000/
 | Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet) |
 | Stablecoin | USDC |
 | Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL + Helius webhooks |
-| Frontend | Next.js 14 + React 18 + @solana/wallet-adapter + @coral-xyz/anchor |
+| Frontend | Next.js 14 + React 18 + Tailwind 3 + @solana/wallet-adapter + @coral-xyz/anchor |
 | Cluster | Devnet → Mainnet (env-driven) |
 
 ## Quick Start
 
-See [`docs/devnet-setup.md`](docs/devnet-setup.md) for the full prerequisites and deploy walkthrough. Short version (WSL2 / Linux / macOS):
+### Run the front-end (no on-chain deploy needed)
 
 ```bash
 git clone https://github.com/alrimarleskovar/RoundFinancial.git
 cd RoundFinancial
 pnpm install
-cp .env.example .env
+pnpm --filter @roundfi/app dev
+# -> http://localhost:3000/
+```
 
+To use the live wallet flow on devnet, install Phantom and switch its network to Devnet before clicking "Connect Wallet".
+
+### Deploy programs to devnet
+
+See [`docs/devnet-setup.md`](docs/devnet-setup.md) for the full walkthrough. Short version (WSL2 / Linux / macOS):
+
+```bash
+cp .env.example .env
 solana config set --url https://api.devnet.solana.com
 mkdir -p keypairs && solana-keygen new -o keypairs/deployer.json
 export ANCHOR_WALLET=$(pwd)/keypairs/deployer.json
