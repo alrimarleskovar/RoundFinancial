@@ -149,10 +149,15 @@ export function useWallet(): WalletView {
         refresh();
         return { ok: true as const, signature: sig };
       } catch (err: unknown) {
+        // Surface the raw error to DevTools so users can copy the
+        // exact reason (devnet airdrops fail for a dozen reasons —
+        // the categorized banner can't cover them all).
+        // eslint-disable-next-line no-console
+        console.error("[RoundFi] airdrop failed:", err);
         const msg = (err as Error)?.message ?? String(err);
         const reason = /429|rate.?limit|too many/i.test(msg)
           ? "rate_limited"
-          : /airdrop.*limit/i.test(msg)
+          : /airdrop.*limit|faucet.*has.*run.*dry/i.test(msg)
           ? "airdrop_limit"
           : msg;
         setLastError(reason);
