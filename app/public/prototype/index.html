@@ -16,7 +16,7 @@
     overflow-x: hidden;
   }
   body {
-    padding: 32px 24px;
+    padding: 0;
     transition: background 0.4s ease;
   }
   body[data-palette="neon"] {
@@ -34,7 +34,8 @@
     color: #2A2E38;
   }
   .rfi-stage {
-    max-width: 1400px; margin: 0 auto;
+    width: 100%;
+    min-height: 100vh;
   }
   /* scrollbars */
   *::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -132,20 +133,6 @@
 
       const go = setScreen;
 
-      const tabs = [
-        { title: 'RoundFi · Dashboard' },
-        { title: 'Kamino' },
-        { title: 'Civic' },
-      ];
-      const urlMap = {
-        home:     'app.roundfi.xyz/dashboard',
-        groups:   'app.roundfi.xyz/grupos',
-        score:    'app.roundfi.xyz/reputacao',
-        wallet:   'app.roundfi.xyz/carteira',
-        market:   'app.roundfi.xyz/mercado',
-        insights: 'app.roundfi.xyz/insights',
-      };
-
       const renderScreen = () => {
         switch (screen) {
           case 'home':     return <DeskHome go={go}/>;
@@ -161,23 +148,17 @@
       return (
         <>
           <div className="rfi-stage">
-            <ChromeWindow
-              tabs={tabs} activeIndex={0}
-              url={urlMap[screen] || 'app.roundfi.xyz'}
-              width={1360} height={900}
-            >
-              <div style={{
-                display: 'flex', height: '100%',
-                background: RFI.bg, color: RFI.text,
-                fontFamily: 'DM Sans, system-ui, sans-serif',
-              }}>
-                <RFISideNav screen={screen} setScreen={setScreen} user={USER}/>
-                <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-                  <DeskTopBar screen={screen}/>
-                  {renderScreen()}
-                </div>
+            <div style={{
+              display: 'flex', minHeight: '100vh',
+              background: RFI.bg, color: RFI.text,
+              fontFamily: 'DM Sans, system-ui, sans-serif',
+            }}>
+              <RFISideNav screen={screen} setScreen={setScreen} user={USER}/>
+              <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+                <DeskTopBar screen={screen}/>
+                {renderScreen()}
               </div>
-            </ChromeWindow>
+            </div>
           </div>
 
           <TweaksPanel title="RoundFi Desktop">
