@@ -1,13 +1,15 @@
+import { Activity } from "@/components/home/Activity";
 import { FeaturedGroup } from "@/components/home/FeaturedGroup";
 import { HomeHero } from "@/components/home/HomeHero";
 import { HomeKpis } from "@/components/home/HomeKpis";
+import { PassportMini } from "@/components/home/PassportMini";
+import { TripleShield } from "@/components/home/TripleShield";
 import { YourGroups } from "@/components/home/YourGroups";
 import { DeskShell } from "@/components/layout/DeskShell";
 
-// /home — native dashboard. B.3.a stacks Hero + KPIs + FeaturedGroup
-// + YourGroups in a single column. B.3.b will refactor into a
-// 1.5fr / 1fr two-column with the right side hosting Passport mini,
-// Triplo Escudo, and Activity feed.
+// /home — native dashboard. Hero + 4 KPIs span the full width;
+// below them a 1.5fr / 1fr grid splits the active groups column
+// (left) from the passport / shield / activity column (right).
 
 export default function HomePage() {
   return (
@@ -22,8 +24,23 @@ export default function HomePage() {
       >
         <HomeHero />
         <HomeKpis />
-        <FeaturedGroup />
-        <YourGroups />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.5fr 1fr",
+            gap: 16,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <FeaturedGroup />
+            <YourGroups />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <PassportMini />
+            <TripleShield />
+            <Activity />
+          </div>
+        </div>
       </div>
     </DeskShell>
   );
