@@ -11,6 +11,11 @@ body {
   background: #0b0f19;
   color: #e5e7eb;
   font-family: ui-sans-serif, system-ui, -apple-system, Inter, sans-serif;
+  /* Kept on the root so the landing's negative-positioned glow blurs
+     don't cause a horizontal scrollbar. Doing it here (vs on <main>)
+     keeps `position: sticky` working — overflow-x on a sticky element's
+     ancestor breaks sticky in every browser. */
+  overflow-x: hidden;
 }
 
 * {
