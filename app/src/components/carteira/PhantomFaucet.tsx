@@ -58,43 +58,70 @@ export function PhantomFaucet({
             {t("wallet.faucet.sub")}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            wallet.airdrop();
-          }}
-          disabled={busy}
-          style={{
-            padding: "8px 14px",
-            borderRadius: 9,
-            cursor: busy ? "default" : "pointer",
-            border: "none",
-            background: `linear-gradient(135deg, ${tc}, ${tokens.teal})`,
-            color: "#fff",
-            fontSize: 11,
-            fontWeight: 700,
-            opacity: busy ? 0.7 : 1,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          {busy && (
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                border: "2px solid rgba(255,255,255,0.3)",
-                borderTopColor: "#fff",
-                animation: "rfi-spin 0.7s linear infinite",
-                display: "inline-block",
-              }}
-            />
-          )}
-          {busy ? t("wallet.faucet.busy") : t("wallet.faucet.btn")}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              wallet.airdrop();
+            }}
+            disabled={busy}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 9,
+              cursor: busy ? "default" : "pointer",
+              border: "none",
+              background: `linear-gradient(135deg, ${tc}, ${tokens.teal})`,
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 700,
+              opacity: busy ? 0.7 : 1,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            {busy && (
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  borderTopColor: "#fff",
+                  animation: "rfi-spin 0.7s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+            )}
+            {busy ? t("wallet.faucet.busy") : t("wallet.faucet.btn")}
+          </button>
+          {/* Always-visible hosted faucet fallback. The public devnet
+              RPC is heavily rate-limited; this is the reliable path. */}
+          <a
+            href={`https://faucet.solana.com/?address=${wallet.publicKey ?? ""}&cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 9,
+              background: "transparent",
+              border: `1px solid ${tokens.border}`,
+              color: tokens.text2,
+              fontSize: 11,
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
+              fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+            }}
+          >
+            {t("wallet.faucet.hostedCTA")} ↗
+          </a>
+        </div>
       </div>
 
       {/* Success: last airdrop signature */}
