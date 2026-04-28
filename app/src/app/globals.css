@@ -112,3 +112,31 @@ body {
 .rfi-gradient-flow {
   animation: rfi-gradient-flow 6s ease-in-out infinite;
 }
+
+/* Wrapper-based glow for the WalletMultiButton instances on the
+   landing. The lib's CSS resets sometimes drop animation set on
+   the button itself, so we drive the halo from a wrapping div
+   that we own. The wrapper is inline-flex so it sizes to the
+   button and the glow extends naturally around it. */
+.rfi-btn-glow-wrap {
+  display: inline-flex;
+  position: relative;
+  border-radius: 16px;
+}
+.rfi-btn-glow-wrap.green {
+  animation: rfi-btn-glow-green 2.6s ease-in-out infinite;
+}
+.rfi-btn-glow-wrap.purple {
+  animation: rfi-btn-glow-purple 2.6s ease-in-out infinite;
+}
+
+/* Data stream — slow vertical scroll for the hero background.
+   Pair with `mask-image` on the parent for the soft top/bottom
+   fade, and with content duplicated 2x for a seamless loop. */
+@keyframes rfi-stream {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+.rfi-stream {
+  animation: rfi-stream 60s linear infinite;
+}

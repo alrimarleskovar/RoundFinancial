@@ -7,6 +7,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import { SegToggle } from "@/components/layout/SegToggle";
 import { RFILogoMark } from "@/components/brand/brand";
+import { DataStream } from "@/components/landing/DataStream";
 import { useI18n, useT } from "@/lib/i18n";
 
 // Marketing landing for RoundFi. Renders before the user connects a
@@ -97,22 +98,25 @@ export default function LandingPage() {
               ]}
             />
             <div className="scale-75 md:scale-100 origin-right">
-              <WalletMultiButton
-                className="rfi-btn-glow-green"
-                style={{
-                  backgroundColor: "#14F195",
-                  color: "#06090F",
-                  borderRadius: "12px",
-                  fontWeight: "bold",
-                }}
-              />
+              <span className="rfi-btn-glow-wrap green" style={{ borderRadius: 12 }}>
+                <WalletMultiButton
+                  style={{
+                    backgroundColor: "#14F195",
+                    color: "#06090F",
+                    borderRadius: "12px",
+                    fontWeight: "bold",
+                  }}
+                />
+              </span>
             </div>
           </div>
         </header>
       </div>
 
       {/* Hero */}
-      <section className="flex flex-col items-center justify-center pt-10 md:pt-20 pb-20 md:pb-32 px-4 md:px-6 text-center z-10 w-full">
+      <section className="relative flex flex-col items-center justify-center pt-10 md:pt-20 pb-20 md:pb-32 px-4 md:px-6 text-center w-full">
+        <DataStream />
+        <div className="relative z-10 w-full flex flex-col items-center">
         <div className="inline-flex items-center gap-2 bg-[#14F195]/10 border border-[#14F195]/20 text-[#14F195] px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-bold mb-6 md:mb-8">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
@@ -136,17 +140,18 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
           <div className="w-full sm:w-auto flex justify-center">
-            <WalletMultiButton
-              className="rfi-btn-glow-purple"
-              style={{
-                height: "50px",
-                padding: "0 30px",
-                fontSize: "1rem",
-                borderRadius: "16px",
-                backgroundColor: "#9945FF",
-                color: "#fff",
-              }}
-            />
+            <span className="rfi-btn-glow-wrap purple" style={{ borderRadius: 16 }}>
+              <WalletMultiButton
+                style={{
+                  height: "50px",
+                  padding: "0 30px",
+                  fontSize: "1rem",
+                  borderRadius: "16px",
+                  backgroundColor: "#9945FF",
+                  color: "#fff",
+                }}
+              />
+            </span>
           </div>
           <a
             href="https://x.com/roundfinancesol"
@@ -187,6 +192,7 @@ export default function LandingPage() {
             </p>
             <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
           </div>
+        </div>
         </div>
       </section>
 
@@ -275,18 +281,22 @@ export default function LandingPage() {
               </div>
 
               <div className="w-full flex justify-center">
-                <WalletMultiButton
-                  className="rfi-btn-glow-green"
-                  style={{
-                    backgroundColor: "#14F195",
-                    color: "#06090F",
-                    width: "100%",
-                    justifyContent: "center",
-                    fontWeight: "bold",
-                    borderRadius: "16px",
-                    height: "54px",
-                  }}
-                />
+                <span
+                  className="rfi-btn-glow-wrap green"
+                  style={{ borderRadius: 16, width: "100%" }}
+                >
+                  <WalletMultiButton
+                    style={{
+                      backgroundColor: "#14F195",
+                      color: "#06090F",
+                      width: "100%",
+                      justifyContent: "center",
+                      fontWeight: "bold",
+                      borderRadius: "16px",
+                      height: "54px",
+                    }}
+                  />
+                </span>
               </div>
             </div>
           </div>
