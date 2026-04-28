@@ -98,7 +98,10 @@ export default function LandingPage() {
               ]}
             />
             <div className="scale-75 md:scale-100 origin-right">
-              <span className="rfi-btn-glow-wrap green" style={{ borderRadius: 12 }}>
+              <span
+                className="rfi-btn-glow-wrap green inline-flex"
+                style={{ borderRadius: 12 }}
+              >
                 <WalletMultiButton
                   style={{
                     backgroundColor: "#14F195",
@@ -140,7 +143,10 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
           <div className="w-full sm:w-auto flex justify-center">
-            <span className="rfi-btn-glow-wrap purple" style={{ borderRadius: 16 }}>
+            <span
+              className="rfi-btn-glow-wrap purple inline-flex"
+              style={{ borderRadius: 16 }}
+            >
               <WalletMultiButton
                 style={{
                   height: "50px",
@@ -280,23 +286,21 @@ export default function LandingPage() {
                 <div className="w-8 md:w-12 bg-[#14F195] rounded-t-lg h-[100%] shadow-[0_0_20px_rgba(20,241,149,0.5)]" />
               </div>
 
-              <div className="w-full flex justify-center">
-                <span
-                  className="rfi-btn-glow-wrap green"
-                  style={{ borderRadius: 16, width: "100%" }}
-                >
-                  <WalletMultiButton
-                    style={{
-                      backgroundColor: "#14F195",
-                      color: "#06090F",
-                      width: "100%",
-                      justifyContent: "center",
-                      fontWeight: "bold",
-                      borderRadius: "16px",
-                      height: "54px",
-                    }}
-                  />
-                </span>
+              <div
+                className="rfi-btn-glow-wrap green w-full"
+                style={{ borderRadius: 16 }}
+              >
+                <WalletMultiButton
+                  style={{
+                    backgroundColor: "#14F195",
+                    color: "#06090F",
+                    width: "100%",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    borderRadius: "16px",
+                    height: "54px",
+                  }}
+                />
               </div>
             </div>
           </div>
