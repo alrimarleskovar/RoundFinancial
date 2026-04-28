@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { NftPosition, Tone } from "@/data/carteira";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // Sell-share modal. Uses a discount slider (0-30%) to set ask price;
@@ -28,6 +29,7 @@ export function SellShareModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { sellShare } = useSession();
   const router = useRouter();
   const [discount, setDiscount] = useState(8);
   const [submitting, setSubmitting] = useState(false);
@@ -55,8 +57,10 @@ export function SellShareModal({
   };
 
   const handleConfirm = () => {
+    if (!position) return;
     setSubmitting(true);
     setTimeout(() => {
+      sellShare(position, askPrice, discount);
       setSubmitting(false);
       setDone(true);
     }, 1200);

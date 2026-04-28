@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // Confirmation modal for joining a ROSCA group. Mock submit (1.2s
@@ -25,6 +26,7 @@ export function JoinGroupModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { joinGroup } = useSession();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -39,6 +41,7 @@ export function JoinGroupModal({
     if (!group) return;
     setSubmitting(true);
     setTimeout(() => {
+      joinGroup(group);
       setSubmitting(false);
       setDone(true);
     }, 1200);

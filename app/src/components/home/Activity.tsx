@@ -2,70 +2,54 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession, type SessionEventKind } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// Activity reformatted as a terminal log. Mono font everywhere,
-// fixed-width columns aligned grid-style, color-coded per row
-// type (in / out / attestation), tx-id prefix per entry.
+// Live activity feed driven by the session orchestrator. New events
+// hit the top of the list as the user pays installments / sells
+// shares / receives ambient yield. Limited to the last 6 entries
+// to keep the card compact.
 
-type RowKind = "in" | "out" | "attestation";
+const MAX_ROWS = 6;
 
-interface Row {
-  kind: RowKind;
-  ts: string;        // "12 ABR 14:32"
-  txid: string;      // truncated tx pubkey
-  op: string;        // "payment.send"
-  amountBrl: number; // 0 for non-money rows
-  target: string;    // "escrow.usdc"
-  attestPts?: number;
-}
-
-const ROWS: Row[] = [
-  {
-    kind: "out",
-    ts: "12 ABR 14:32",
-    txid: "tx_4xR9…k9Fn",
-    op: "payment.send",
-    amountBrl: -892.4,
-    target: "escrow.usdc",
-  },
-  {
-    kind: "in",
-    ts: "10 ABR 09:15",
-    txid: "tx_8mP2…aQ7L",
-    op: "yield.claim",
-    amountBrl: +52.3,
-    target: "kamino.vault",
-  },
-  {
-    kind: "in",
-    ts: "05 ABR 18:42",
-    txid: "tx_2vK7…hN4T",
-    op: "secondary.market",
-    amountBrl: +1890,
-    target: "@petrus",
-  },
-  {
-    kind: "attestation",
-    ts: "04 ABR 22:01",
-    txid: "tx_6wB3…pX1Z",
-    op: "sas.attestation",
-    amountBrl: 0,
-    target: "civic.pass",
-    attestPts: 18,
-  },
+const RELATIVE_TIME_THRESHOLDS_PT: Array<[number, (n: number) => string]> = [
+  [60_000, () => "agora"],
+  [3_600_000, (s) => `há ${Math.floor(s / 60_000)} min`],
+  [86_400_000, (s) => `há ${Math.floor(s / 3_600_000)} h`],
+  [Infinity, (s) => `há ${Math.floor(s / 86_400_000)} d`],
 ];
+const RELATIVE_TIME_THRESHOLDS_EN: Array<[number, (n: number) => string]> = [
+  [60_000, () => "now"],
+  [3_600_000, (s) => `${Math.floor(s / 60_000)}m ago`],
+  [86_400_000, (s) => `${Math.floor(s / 3_600_000)}h ago`],
+  [Infinity, (s) => `${Math.floor(s / 86_400_000)}d ago`],
+];
+
+function formatRelative(ts: number, lang: string): string {
+  const delta = Date.now() - ts;
+  const table = lang === "pt"
+    ? RELATIVE_TIME_THRESHOLDS_PT
+    : RELATIVE_TIME_THRESHOLDS_EN;
+  for (const [bound, fmt] of table) {
+    if (delta < bound) return fmt(delta);
+  }
+  return ts.toString();
+}
 
 export function Activity() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
-  const { fmtMoney } = useI18n();
+  const { fmtMoney, lang } = useI18n();
+  const { events } = useSession();
 
-  const colorFor = (kind: RowKind): string => {
-    if (kind === "in") return tokens.green;
+  const rows = events.slice(0, MAX_ROWS);
+
+  const colorFor = (kind: SessionEventKind): string => {
+    if (kind === "yield" || kind === "sale") return tokens.green;
     if (kind === "attestation") return tokens.purple;
-    return tokens.amber;
+    if (kind === "join") return tokens.teal;
+    return tokens.amber; // payment
   };
 
   return (
@@ -119,7 +103,7 @@ export function Activity() {
           color: tokens.text2,
         }}
       >
-        {ROWS.map((r, i) => {
+        {rows.map((r, i) => {
           const c = colorFor(r.kind);
           const amount = r.attestPts != null
             ? `+${r.attestPts} pts`
@@ -128,7 +112,7 @@ export function Activity() {
             : "—";
           return (
             <div
-              key={i}
+              key={r.id}
               style={{
                 display: "grid",
                 gridTemplateColumns: "auto auto 1fr auto auto",
@@ -136,7 +120,7 @@ export function Activity() {
                 alignItems: "center",
                 padding: "4px 0",
                 borderBottom:
-                  i < ROWS.length - 1
+                  i < rows.length - 1
                     ? `1px dashed ${tokens.border}`
                     : "none",
               }}
@@ -145,9 +129,9 @@ export function Activity() {
               <span style={{ color: c, fontWeight: 700 }}>{">"}</span>
               {/* timestamp */}
               <span style={{ color: tokens.muted, fontSize: 10 }}>
-                [{r.ts}]
+                [{formatRelative(r.ts, lang)}]
               </span>
-              {/* op + tx + target */}
+              {/* op + target */}
               <span
                 style={{
                   color: tokens.text,

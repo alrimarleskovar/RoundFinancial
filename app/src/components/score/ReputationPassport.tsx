@@ -2,8 +2,8 @@
 
 import { MonoLabel, RFILogoMark, RFIPill } from "@/components/brand/brand";
 import { CountUp } from "@/components/ui/CountUp";
-import { USER } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // Big SAS passport card on /reputacao. Same data as the home
@@ -13,7 +13,8 @@ import { useTheme } from "@/lib/theme";
 export function ReputationPassport() {
   const { tokens } = useTheme();
   const t = useT();
-  const pct = (USER.score / 850) * 100;
+  const { user } = useSession();
+  const pct = (user.score / 850) * 100;
 
   return (
     <div
@@ -63,7 +64,7 @@ export function ReputationPassport() {
                 marginTop: 4,
               }}
             >
-              {USER.walletShort}
+              {user.walletShort}
             </div>
           </div>
         </div>
@@ -89,7 +90,7 @@ export function ReputationPassport() {
               }}
             >
               <CountUp
-                value={USER.score}
+                value={user.score}
                 format={(n) => Math.round(n).toString()}
                 damping={26}
                 stiffness={120}
@@ -104,7 +105,7 @@ export function ReputationPassport() {
                   "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
-              +{USER.scoreDelta}
+              +{user.scoreDelta}
             </span>
           </div>
         </div>
@@ -150,7 +151,7 @@ export function ReputationPassport() {
           }}
         >
           <div>
-            <div style={{ fontSize: 13, color: tokens.text }}>{USER.name}</div>
+            <div style={{ fontSize: 13, color: tokens.text }}>{user.name}</div>
             <div
               style={{
                 fontFamily:
@@ -160,11 +161,11 @@ export function ReputationPassport() {
                 marginTop: 2,
               }}
             >
-              {USER.handle}
+              {user.handle}
             </div>
           </div>
           <RFIPill tone="g">
-            {t("score.lvPill", { n: USER.level, name: USER.levelLabel })}
+            {t("score.lvPill", { n: user.level, name: user.levelLabel })}
           </RFIPill>
         </div>
       </div>

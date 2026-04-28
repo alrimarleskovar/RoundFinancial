@@ -8,8 +8,8 @@ import { PassportMini } from "@/components/home/PassportMini";
 import { TripleShield } from "@/components/home/TripleShield";
 import { YourGroups } from "@/components/home/YourGroups";
 import { DeskShell } from "@/components/layout/DeskShell";
-import { USER } from "@/data/carteira";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 
 // /home — Bento dashboard. Hero on top, then a 4-col asymmetric
 // grid: 3 KPIs + tall radial Score on the right; FeaturedGroup
@@ -25,6 +25,7 @@ import { useI18n, useT } from "@/lib/i18n";
 export default function HomePage() {
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { user } = useSession();
   return (
     <DeskShell>
       <div
@@ -54,8 +55,8 @@ export default function HomePage() {
           <div style={{ gridArea: "saldo" }}>
             <DeskKpi
               label={t("home.kpi.balance")}
-              value={fmtMoney(USER.balance)}
-              numericValue={USER.balance}
+              value={fmtMoney(user.balance)}
+              numericValue={user.balance}
               format={(n) => fmtMoney(n)}
               delta={t("home.kpi.delta.balance")}
               tone="g"
@@ -64,8 +65,8 @@ export default function HomePage() {
           <div style={{ gridArea: "yield" }}>
             <DeskKpi
               label={t("home.kpi.yield")}
-              value={fmtMoney(USER.yield)}
-              numericValue={USER.yield}
+              value={fmtMoney(user.yield)}
+              numericValue={user.yield}
               format={(n) => fmtMoney(n)}
               delta={t("home.kpi.delta.yield")}
               tone="p"
@@ -74,10 +75,10 @@ export default function HomePage() {
           <div style={{ gridArea: "colat" }}>
             <DeskKpi
               label={t("home.kpi.colat")}
-              value={`${USER.colateralPct}%`}
-              numericValue={USER.colateralPct}
+              value={`${user.colateralPct}%`}
+              numericValue={user.colateralPct}
               format={(n) => `${Math.round(n)}%`}
-              delta={t("home.kpi.delta.lev", { x: USER.leverageX })}
+              delta={t("home.kpi.delta.lev", { x: user.leverageX })}
               tone="a"
             />
           </div>

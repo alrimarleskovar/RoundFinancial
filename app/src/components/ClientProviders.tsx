@@ -9,6 +9,7 @@ import type { Adapter } from "@solana/wallet-adapter-base";
 import { ConnectionsProvider } from "@/lib/connections";
 import { MotionProvider } from "@/lib/motion";
 import { NetworkContextProvider, useNetwork } from "@/lib/network";
+import { SessionProvider } from "@/lib/session";
 import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
 
@@ -33,9 +34,11 @@ export function ClientProviders({ children }: { children: ReactNode }) {
       <MotionProvider initial="fade">
         <I18nProvider initialLang="pt" initialCurrency="BRL">
           <ConnectionsProvider>
-            <NetworkContextProvider>
-              <InnerProviders>{children}</InnerProviders>
-            </NetworkContextProvider>
+            <SessionProvider>
+              <NetworkContextProvider>
+                <InnerProviders>{children}</InnerProviders>
+              </NetworkContextProvider>
+            </SessionProvider>
           </ConnectionsProvider>
         </I18nProvider>
       </MotionProvider>
