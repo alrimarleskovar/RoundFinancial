@@ -5,13 +5,14 @@ import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { USER } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Visão geral — balance hero + composition bar + Kamino vault card
 // + preview rows. Ported from prototype's WalletOverview.
 
 export function WalletOverview() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney } = useI18n();
 
   const composition = [
@@ -40,12 +41,12 @@ export function WalletOverview() {
         {/* Balance hero */}
         <div
           style={{
+            ...glass,
             padding: 28,
             borderRadius: 20,
             position: "relative",
             overflow: "hidden",
-            background: `linear-gradient(145deg, ${tokens.navy} 0%, ${tokens.surface1} 80%)`,
-            border: `1px solid ${tokens.border}`,
+            background: `linear-gradient(145deg, ${tokens.navy}AA 0%, rgba(255,255,255,0.04) 80%)`,
           }}
         >
           <div
@@ -175,12 +176,11 @@ export function WalletOverview() {
         {/* Kamino Vault card */}
         <div
           style={{
+            ...glass,
             padding: 22,
             borderRadius: 20,
             position: "relative",
             overflow: "hidden",
-            background: tokens.surface1,
-            border: `1px solid ${tokens.border}`,
             display: "flex",
             flexDirection: "column",
           }}

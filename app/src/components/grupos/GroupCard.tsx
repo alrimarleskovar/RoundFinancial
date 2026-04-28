@@ -6,12 +6,13 @@ import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Single card in the Grupos catalog grid.
 
 export function GroupCard({ g }: { g: CatalogGroup }) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
   const [joinOpen, setJoinOpen] = useState(false);
@@ -31,8 +32,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
   return (
     <div
       style={{
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
+        ...glass,
         borderRadius: 18,
         padding: 18,
         position: "relative",

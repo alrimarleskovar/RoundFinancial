@@ -9,12 +9,13 @@ import {
 } from "@/data/score";
 import type { Tone } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Two-column grid of emitted SAS bonds (active or completed).
 
 export function BondsList() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
 
   const toneColor = (tone: Tone): string => {
@@ -64,10 +65,9 @@ export function BondsList() {
             <div
               key={b.id}
               style={{
+                ...glass,
                 padding: 14,
                 borderRadius: 14,
-                background: tokens.surface1,
-                border: `1px solid ${tokens.border}`,
                 display: "flex",
                 alignItems: "center",
                 gap: 14,

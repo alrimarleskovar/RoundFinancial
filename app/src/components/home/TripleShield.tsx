@@ -3,12 +3,13 @@
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Triplo Escudo card — 3 protection mechanisms shown as numbered tiles.
 
 export function TripleShield() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
 
   // Bilingual copy lives inline (the prototype kept these PT-only;
@@ -37,8 +38,7 @@ export function TripleShield() {
   return (
     <div
       style={{
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
+        ...glass,
         borderRadius: 18,
         padding: 18,
       }}

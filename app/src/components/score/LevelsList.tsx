@@ -4,12 +4,13 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { LEVELS } from "@/data/score";
 import { useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // 50/30/10 ladder column. Current level highlighted with the teal tint.
 
 export function LevelsList() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
 
   const colorFor = (lv: 1 | 2 | 3): string =>
@@ -30,14 +31,15 @@ export function LevelsList() {
           <div
             key={l.lv}
             style={{
+              ...glass,
               padding: 16,
               borderRadius: 14,
-              background: l.current
-                ? `${tokens.teal}0D`
-                : tokens.surface1,
-              border: `1px solid ${
-                l.current ? `${tokens.teal}4D` : tokens.border
-              }`,
+              ...(l.current
+                ? {
+                    background: `${tokens.teal}1A`,
+                    border: `1px solid ${tokens.teal}4D`,
+                  }
+                : null),
               display: "flex",
               alignItems: "center",
               gap: 14,

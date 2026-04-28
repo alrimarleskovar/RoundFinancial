@@ -3,12 +3,13 @@
 import { Icons } from "@/components/brand/icons";
 import type { ActiveGroup } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Compact row for the "Seus grupos" list under the FeaturedGroup card.
 
 export function GroupRow({ g }: { g: ActiveGroup }) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
 
@@ -25,14 +26,13 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
   return (
     <div
       style={{
+        ...glass,
         display: "grid",
         gridTemplateColumns: "40px 1fr auto auto auto",
         gap: 16,
         alignItems: "center",
         padding: 14,
         borderRadius: 14,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <div

@@ -4,13 +4,14 @@ import { MonoLabel } from "@/components/brand/brand";
 import type { Tone } from "@/data/carteira";
 import { FACTORS } from "@/data/insights";
 import { useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // 5-factor behavior breakdown column. Each row: label + numeric
 // value + tone-colored bar + caption.
 
 export function FactorsList() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
 
   const toneColor = (tone: Tone): string => {
@@ -26,10 +27,9 @@ export function FactorsList() {
   return (
     <div
       style={{
+        ...glass,
         padding: 22,
         borderRadius: 18,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <MonoLabel color={tokens.green}>{t("insights.factors.title")}</MonoLabel>

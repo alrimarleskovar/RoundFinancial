@@ -19,7 +19,7 @@ import {
   type CatalogGroup,
 } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 type LevelFilter = "all" | GroupLevel;
 type CategoryFilter = "all" | Category;
@@ -28,7 +28,8 @@ type Duration = "all" | "short" | "mid" | "long";
 type Sort = "relevant" | "prize-low" | "prize-high" | "spots";
 
 export function GruposClient() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoneyThreshold } = useI18n();
 
@@ -153,11 +154,10 @@ export function GruposClient() {
       {/* Filter panel */}
       <div
         style={{
+          ...glass,
           marginTop: 20,
           padding: 18,
           borderRadius: 16,
-          background: tokens.surface1,
-          border: `1px solid ${tokens.border}`,
         }}
       >
         {/* Search + sort */}
@@ -379,11 +379,11 @@ export function GruposClient() {
       {filtered.length === 0 ? (
         <div
           style={{
+            ...glass,
             marginTop: 24,
             padding: 40,
             borderRadius: 16,
             textAlign: "center",
-            background: tokens.surface1,
             border: `1px dashed ${tokens.borderStr}`,
           }}
         >

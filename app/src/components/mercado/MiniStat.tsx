@@ -1,7 +1,7 @@
 "use client";
 
 import { MonoLabel } from "@/components/brand/brand";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Compact stat card used in the Mercado top row. Color of the delta
 // line is provided by the consumer (typically a tone-mapped token).
@@ -17,14 +17,14 @@ export function MiniStat({
   delta: string;
   color: string;
 }) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   return (
     <div
       style={{
+        ...glass,
         padding: 14,
         borderRadius: 12,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <MonoLabel size={9}>{label}</MonoLabel>

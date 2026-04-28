@@ -2,7 +2,7 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import type { Tone } from "@/data/carteira";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // One KPI card used in the top row of the Home dashboard.
 
@@ -19,7 +19,8 @@ export function DeskKpi({
   tone: Tone;
   sub?: string;
 }) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const toneColor = ((): string => {
     switch (tone) {
       case "g": return tokens.green;
@@ -33,8 +34,7 @@ export function DeskKpi({
   return (
     <div
       style={{
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
+        ...glass,
         borderRadius: 16,
         padding: 18,
         position: "relative",

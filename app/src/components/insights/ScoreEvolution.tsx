@@ -13,7 +13,7 @@ import {
   type ScoreRange,
 } from "@/data/insights";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Big chart card on /insights. SVG curve + 2 dashed level
 // thresholds + 7-month axis + 1M/3M/6M/12M range pill.
@@ -21,7 +21,8 @@ import { useTheme } from "@/lib/theme";
 // matches the prototype's visual.
 
 export function ScoreEvolution() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { lang } = useI18n();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
@@ -37,10 +38,9 @@ export function ScoreEvolution() {
   return (
     <div
       style={{
+        ...glass,
         padding: 24,
         borderRadius: 18,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <div

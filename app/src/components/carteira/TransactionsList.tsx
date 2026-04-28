@@ -4,22 +4,22 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { TX_LIST } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Recent transactions list. Preview mode (`limit` set) shows "recent"
 // heading + "See all →" hint; full mode shows every row.
 
 export function TransactionsList({ limit }: { limit?: number }) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
   const rows = limit ? TX_LIST.slice(0, limit) : TX_LIST;
   return (
     <div
       style={{
+        ...glass,
         padding: 20,
         borderRadius: 18,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <div

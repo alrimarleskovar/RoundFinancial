@@ -10,7 +10,7 @@ import {
 } from "@/components/carteira/ConnectionGlyph";
 import { PhantomFaucet } from "@/components/carteira/PhantomFaucet";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import type { ConnId, ConnRuntime, ConnStatus } from "@/lib/connections";
 import type { Tone } from "@/data/carteira";
 import type { WalletView } from "@/lib/wallet";
@@ -57,7 +57,8 @@ export function ConnectionCard({
   onMockConnect,
   onMockDisconnect,
 }: Props) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { lang } = useI18n();
 
@@ -120,9 +121,9 @@ export function ConnectionCard({
   return (
     <div
       style={{
+        ...glass,
         borderRadius: 16,
-        background: tokens.surface1,
-        border: `1px solid ${open ? `${tc}4D` : tokens.border}`,
+        border: `1px solid ${open ? `${tc}4D` : (glass.border as string)}`,
         overflow: "hidden",
         transition: "all 180ms ease",
         opacity: !isConnected && !isPending ? 0.82 : 1,

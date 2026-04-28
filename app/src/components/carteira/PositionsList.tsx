@@ -6,14 +6,15 @@ import { MonoLabel } from "@/components/brand/brand";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // NFT positions list. When `limit` is set, renders a short preview
 // without the "Sell" action (used inside Visão geral); otherwise the
 // full list renders (used in the dedicated Positions tab — B.2.b).
 
 export function PositionsList({ limit }: { limit?: number }) {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
   const [selling, setSelling] = useState<NftPosition | null>(null);
   const rows: NftPosition[] = limit ? NFT_POSITIONS.slice(0, limit) : NFT_POSITIONS;
@@ -29,10 +30,9 @@ export function PositionsList({ limit }: { limit?: number }) {
   return (
     <div
       style={{
+        ...glass,
         padding: 20,
         borderRadius: 18,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <div

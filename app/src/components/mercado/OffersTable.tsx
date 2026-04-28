@@ -3,23 +3,23 @@
 import { MonoLabel } from "@/components/brand/brand";
 import { MARKET_OFFERS } from "@/data/market";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Order book table for the Buy tab. Each row = one NFT share resold
 // below face value.
 
 export function OffersTable() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
 
   return (
     <div
       style={{
+        ...glass,
         padding: 20,
         borderRadius: 18,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <div

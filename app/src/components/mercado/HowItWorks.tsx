@@ -2,12 +2,13 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import { useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // 4-step "como funciona" sidebar list.
 
 export function HowItWorks() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
 
   const steps: ReadonlyArray<readonly [string, string]> = [
@@ -20,10 +21,9 @@ export function HowItWorks() {
   return (
     <div
       style={{
+        ...glass,
         padding: 18,
         borderRadius: 16,
-        background: tokens.surface1,
-        border: `1px solid ${tokens.border}`,
       }}
     >
       <MonoLabel color={tokens.green}>{t("market.howWorks.title")}</MonoLabel>
