@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
-import { USER } from "@/data/carteira";
+import { useSession } from "@/lib/session";
 import {
   DEFAULT_RANGE,
   SCORE_CURVE,
@@ -25,6 +25,7 @@ export function ScoreEvolution() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { lang } = useI18n();
+  const { user } = useSession();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
 
   const linePath = SCORE_CURVE.map(
@@ -65,7 +66,7 @@ export function ScoreEvolution() {
               marginTop: 6,
             }}
           >
-            {USER.score}{" "}
+            {user.score}{" "}
             <span
               style={{
                 fontSize: 12,
@@ -74,7 +75,7 @@ export function ScoreEvolution() {
                   "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
-              {t("insights.evolution.delta", { n: USER.scoreDelta })}
+              {t("insights.evolution.delta", { n: user.scoreDelta })}
             </span>
           </div>
         </div>

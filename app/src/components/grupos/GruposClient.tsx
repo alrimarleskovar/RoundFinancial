@@ -9,7 +9,7 @@ import { FilterRow } from "@/components/grupos/FilterRow";
 import { FilterSelect } from "@/components/grupos/FilterSelect";
 import { GroupCard } from "@/components/grupos/GroupCard";
 import { DeskBtn } from "@/components/home/DeskBtn";
-import { USER } from "@/data/carteira";
+import { useSession } from "@/lib/session";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type GroupLevel } from "@/data/groups";
 import {
   CATEGORY_KEYS,
@@ -32,6 +32,7 @@ export function GruposClient() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoneyThreshold } = useI18n();
+  const { user } = useSession();
 
   const enriched: CatalogGroup[] = useMemo(
     () => [
@@ -83,7 +84,7 @@ export function GruposClient() {
   }, [enriched, level, category, budget, duration, onlyOpen, query, sort]);
 
   const totalOpen = enriched.filter((g) => g.filled < g.total).length;
-  const accessibleCount = enriched.filter((g) => g.level <= USER.level).length;
+  const accessibleCount = enriched.filter((g) => g.level <= user.level).length;
   const activeCount =
     [level, category, budget, duration].filter((x) => x !== "all").length +
     (onlyOpen ? 1 : 0) +

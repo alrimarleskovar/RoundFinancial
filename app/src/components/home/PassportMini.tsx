@@ -5,8 +5,8 @@ import Link from "next/link";
 
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { CountUp } from "@/components/ui/CountUp";
-import { USER } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // SAS Passport hero with a circular progress ring.
@@ -26,11 +26,12 @@ export function PassportMini() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
+  const { user } = useSession();
 
   // Animate the dashoffset from "empty" to the actual position
   // on first render. Subsequent score changes animate via CSS
   // transition.
-  const targetPct = (USER.score - MIN) / (MAX - MIN);
+  const targetPct = (user.score - MIN) / (MAX - MIN);
   const [drawn, setDrawn] = useState(false);
   const rafRef = useRef<number | null>(null);
 
@@ -83,7 +84,7 @@ export function PassportMini() {
           }}
         >
           <MonoLabel color={tokens.green}>{t("home.passport")}</MonoLabel>
-          <MonoLabel size={9}>{USER.walletShort}</MonoLabel>
+          <MonoLabel size={9}>{user.walletShort}</MonoLabel>
         </div>
 
         {/* Radial ring + centered score */}
@@ -159,7 +160,7 @@ export function PassportMini() {
               }}
             >
               <CountUp
-                value={USER.score}
+                value={user.score}
                 format={(n) => Math.round(n).toString()}
                 damping={26}
                 stiffness={120}
@@ -174,7 +175,7 @@ export function PassportMini() {
                 fontWeight: 600,
               }}
             >
-              +{USER.scoreDelta}
+              +{user.scoreDelta}
             </span>
           </div>
         </div>
@@ -208,7 +209,7 @@ export function PassportMini() {
               justifyContent: "center",
             }}
           >
-            <RFIPill tone="g">Nv. {USER.level} · {USER.levelLabel}</RFIPill>
+            <RFIPill tone="g">Nv. {user.level} · {user.levelLabel}</RFIPill>
           </div>
         </div>
       </div>

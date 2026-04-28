@@ -4,7 +4,7 @@ import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { CountUp } from "@/components/ui/CountUp";
-import { USER } from "@/data/carteira";
+import { useSession } from "@/lib/session";
 import { useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
@@ -15,6 +15,7 @@ export function WalletOverview() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney } = useI18n();
+  const { user } = useSession();
 
   const composition = [
     { c: tokens.green,  l: t("wallet.quota"),      brl: 4380, pct: "52%" },
@@ -81,7 +82,7 @@ export function WalletOverview() {
                   lineHeight: 1,
                 }}
               >
-                <CountUp value={USER.balance} format={(n) => fmtMoney(n)} />
+                <CountUp value={user.balance} format={(n) => fmtMoney(n)} />
               </span>
             </div>
             <div
@@ -200,7 +201,7 @@ export function WalletOverview() {
               marginTop: 14,
             }}
           >
-            <CountUp value={USER.yield} format={(n) => fmtMoney(n)} />
+            <CountUp value={user.yield} format={(n) => fmtMoney(n)} />
           </div>
           <div
             style={{

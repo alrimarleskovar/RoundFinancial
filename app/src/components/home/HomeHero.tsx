@@ -6,9 +6,9 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { DeskBtn } from "@/components/home/DeskBtn";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
-import { USER } from "@/data/carteira";
 import { ACTIVE_GROUPS } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // Top header strip on /home: "Bom dia, {first}" + summary line + 2 CTAs.
@@ -17,7 +17,8 @@ export function HomeHero() {
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const firstName = USER.name.split(" ")[0];
+  const { user } = useSession();
+  const firstName = user.name.split(" ")[0];
   const [payOpen, setPayOpen] = useState(false);
 
   // Featured installment defaults to the first ACTIVE_GROUPS entry —
@@ -62,7 +63,7 @@ export function HomeHero() {
             </span>{" "}
             {t("home.summary.c")}{" "}
             <span style={{ color: tokens.teal, fontWeight: 600 }}>
-              {t("home.yieldAmt", { v: fmtMoney(USER.yield, { noCents: true }) })}
+              {t("home.yieldAmt", { v: fmtMoney(user.yield, { noCents: true }) })}
             </span>
             .
           </div>

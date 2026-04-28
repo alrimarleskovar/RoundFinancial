@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { ActiveGroup } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // Pay-installment modal. Shows the active group + installment amount
@@ -31,6 +32,7 @@ export function PayInstallmentModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { payInstallment } = useSession();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -43,6 +45,7 @@ export function PayInstallmentModal({
   const handleConfirm = () => {
     setSubmitting(true);
     setTimeout(() => {
+      payInstallment(group);
       setSubmitting(false);
       setDone(true);
     }, 1500);

@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 
 import { MonoLabel, RFILogoMark } from "@/components/brand/brand";
 import { Icons, type IconProps } from "@/components/brand/icons";
-import { USER, type User } from "@/data/carteira";
+import type { User } from "@/data/carteira";
+import { useSession } from "@/lib/session";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -26,12 +27,14 @@ interface NavItem {
 }
 
 export function SideNav({
-  user = USER,
+  user: userProp,
   collapsed = false,
 }: {
   user?: User;
   collapsed?: boolean;
 }) {
+  const { user: sessionUser } = useSession();
+  const user = userProp ?? sessionUser;
   const { tokens } = useTheme();
   const t = useT();
   const pathname = usePathname();
