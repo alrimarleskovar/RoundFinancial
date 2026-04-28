@@ -97,7 +97,7 @@ Per-module READMEs land alongside each module as it ships.
 
 ## Front-end
 
-A complete Next.js + TypeScript app with **6 native screens**, a public landing, real Solana wallet integration (devnet), and a soft / neon palette toggle.
+A complete Next.js 14 + TypeScript app with **a public landing + 7 dashboard routes**, real Solana wallet integration (devnet), session-orchestrated state, and a Web3-native aesthetic system (Neon palette, glassmorphism, animated counters, terminal-style activity log).
 
 ```bash
 pnpm install
@@ -109,23 +109,50 @@ pnpm --filter @roundfi/app dev
 
 | Route | What's there |
 |---|---|
-| **`/`** | Public landing — hero + interactive APY simulator + comparison vs traditional consórcio + sticky header. Connecting any wallet (`WalletMultiButton`) redirects to `/home`. |
-| **`/home`** | Dashboard — saudação + 4 KPIs + featured round (circular dial) + your groups + SAS Passport mini + Triplo Escudo + recent activity. |
-| **`/carteira`** | Wallet — 4 tabs (`?tab=overview|positions|transactions|connections`). Connections tab has a **live Phantom flow + 1-SOL devnet airdrop button** + Civic / Kamino / Solflare / Pix mocks. |
-| **`/grupos`** | ROSCA catalog — search + sort + 5 multi-facet filters (level, category, prize, duration, only-with-spots). 7 fixtures in a 3-column grid + empty state. |
+| **`/`** | Public landing — animated gradient title, sticky header with PT/EN toggle, interactive APY simulator, comparison table, faint scrolling tx-id "data stream" behind the hero. Pulsing **Connect Phantom** CTAs (`WalletMultiButton`) redirect to `/home` on connect. |
+| **`/home`** | Bento dashboard — hero greeting + 4 KPIs + featured round with circular dial + your groups + radial **SAS Passport ring** (gradient stroke, draws in on mount) + Triplo Escudo + live terminal-style **Activity feed**. |
+| **`/carteira`** | Wallet — 4 tabs (`?tab=overview\|positions\|transactions\|connections`). Connections tab has a **live Phantom flow + 1-SOL devnet airdrop** + always-visible hosted-faucet fallback + Civic / Kamino / Solflare / Pix mocks. |
+| **`/grupos`** | ROSCA catalog — search + sort + 5 multi-facet filters (level, category, prize, duration, only-with-spots). 3-column glass-card grid + empty state. |
 | **`/reputacao`** | SAS passport — 96pt Syne score + 300/850 progress + 50/30/10 ladder + 4 SAS bonds (active / closed). |
-| **`/mercado`** | Secondary market — Buy/Sell tab pill + 4 mini-stats + order book (6 offers) + featured-of-the-day card + how-it-works steps. |
+| **`/mercado`** | Secondary market — Buy/Sell tab pill + 4 mini-stats + order book + featured-of-the-day card + how-it-works steps. |
+| **`/insights`** | Score evolution — 13-point SVG curve with Lv.2/Lv.3 thresholds + 5-factor behavioral breakdown + 3 "next steps to Lv.3" recommendation cards. |
+| `/demo` | Lifecycle orchestrator demo (developer-facing). |
 | `/demo` | Orchestrator lifecycle demo (developer-facing). |
 
-### Key features
+### Aesthetic system
+
+Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live system, not a banking statement.
+
+- **Neon palette by default** — `#06090F` ground, `#14F195` Solana green, `#9945FF` purple, `#00C8FF` teal accent. Soft (cream + sage) palette stays available via the dev Tweaks panel.
+- **Glassmorphism on every primary card** — `backdrop-filter: blur(12px) saturate(140%)` over a translucent base + 1px hairline border. One helper (`glassSurfaceStyle(palette)`) drives every screen.
+- **Terminal sidebar** — uppercase JetBrains Mono labels with 0.12em tracking, glowing green active rail.
+- **SOLANA_DEVNET pulse** — network status chip in the top bar pulses a green dot when connected; `PHANTOM_OFFLINE` greys out otherwise.
+- **Wallet glow** — connected wallet chip runs a subtle `rfi-glow` halo loop; landing CTAs run bigger `rfi-btn-glow-green/purple` halos so every Connect button reads as the primary action immediately.
+- **Animated CountUp** — every hero number (saldo, yield, score, KPIs) spring-animates between values when currency / language / palette flips.
+- **Terminal Activity feed** — live event stream from the session orchestrator rendered with `>` prompt + `[timestamp]` + op tag + amount + tx id, color-coded per row kind (in / out / attestation / join / yield).
+- **Bento `/home`** — asymmetric grid: 3 KPIs + tall radial Score ring + 3-col Featured round + balanced YourGroups / TripleShield + full-width Activity log.
+- **Radial SAS Score ring** — 168px SVG arc with green→teal gradient, draws in over 1.6s on first paint.
+- **Page transitions** — selectable via Tweaks panel: off / fade (default) / horizontal slide. Driven by framer-motion + `usePathname`.
+
+### Live state & interactions
 
 - **Real wallet flow** — Standard-wallet discovery via `@solana/wallet-adapter-react` picks up Phantom / Solflare / Backpack automatically. Connect from the landing → bounces to `/home`. Disconnect from the wallet chip dropdown → bounces back to `/`.
-- **Devnet faucet** — One-click 1-SOL airdrop inside the Phantom card on `/carteira`. Falls back to https://faucet.solana.com when the public RPC rate-limits, plus a link to https://faucet.circle.com for devnet USDC.
-- **i18n PT/EN** — Every label, button, and message switchable from the top bar (`SegToggle`). 380+ keys in `lib/i18n.tsx`.
-- **BRL ↔ USDC currency toggle** — Source data is BRL; `fmtMoney(brl)` converts to USDC at runtime (`USDC_RATE = 5.5`).
-- **Soft + Neon palettes** — Tokens live in `lib/theme.tsx`. Inline-styled components (no Tailwind in dashboard) so the theme tokens drive every color.
-- **Brand primitives** — `RFILogoMark`, `RFIPill`, `RFICard`, `MonoLabel`, 23 stroke-based SVG icons in `components/brand/`.
-- **Typed mock data** — `data/{carteira,groups,score,market}.ts` with full types so screens are self-contained until the on-chain indexer ships.
+- **Devnet faucet** — One-click 1-SOL airdrop inside the Phantom card on `/carteira`. Falls back to https://faucet.solana.com when the public RPC rate-limits (always-visible secondary CTA), plus https://faucet.circle.com for devnet USDC.
+- **Functional modals** — _Pagar parcela_ (Triple Shield 65/30/5 breakdown), _Entrar no grupo_ (terms grid + 1.5% fee callout), _Vender cota_ (discount slider 0–30% with live ask-price + buyer-APY preview). All animated via framer-motion, body-scroll locked, Esc + click-outside close.
+- **Session orchestrator** — `lib/session.tsx` drives a typed reducer over `{ user, events[] }`. Submitting a modal really mutates balance / score / yield. An ambient yield ticker fires every 35s so the dashboard reads as alive even while idle.
+- **i18n PT/EN** — Every label, button, message, and the entire landing flip on a single toggle. 460+ keys in `lib/i18n.tsx`.
+- **BRL ↔ USDC currency toggle** — Source data is BRL; `fmtMoney(brl)` converts at runtime (`USDC_RATE = 5.5`).
+
+### Brand & primitives
+
+- **`RFILogoMark`** — pure SVG vector, gradient `#27D67B → #3BC6D9 → #1E90C9`. Same component drives the landing header, footer, and the `/icon.svg` favicon (both are vectorized — no raster fallbacks).
+- **Brand kit** — `RFIPill` × 6 tones, `RFICard` × 4 accents, `MonoLabel`, 23 stroke-based icons in `components/brand/`.
+- **Typography** — Syne (display, 400–800), DM Sans (body, 400–700), JetBrains Mono (numbers, 400–600). Loaded via `next/font/google` and exposed as CSS variables.
+
+### Dev affordances
+
+- **Tweaks panel** (bottom-right ✨ button, dev/preview only) — flip palette, page-transition mode, and quick-jump between routes. Hidden in production.
+- **Typed mock data** — `data/{carteira,groups,score,market,insights}.ts` with full types so screens are self-contained until the on-chain indexer ships.
 
 ## Development Status
 
@@ -137,7 +164,7 @@ pnpm --filter @roundfi/app dev
 | 4. Smart contracts (core) | ⏳ In progress |
 | 5. Contract tests | ⏳ |
 | 6. Backend services | ⏳ |
-| 7. Frontend | ✅ 6 native screens + landing + Phantom devnet flow |
+| 7. Frontend | ✅ Landing + 7 dashboard routes + Phantom devnet flow + session orchestrator + Web3 aesthetic system |
 | 8. Integration | ⏳ |
 | 9. Security audit | ⏳ |
 | 10. Devnet testing | ⏳ |
@@ -155,7 +182,7 @@ pnpm --filter @roundfi/app dev
 | Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet) |
 | Stablecoin | USDC |
 | Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL + Helius webhooks |
-| Frontend | Next.js 14 + React 18 + Tailwind 3 + @solana/wallet-adapter + @coral-xyz/anchor |
+| Frontend | Next.js 14 + React 18 + framer-motion 11 + Tailwind 3 (landing) + @solana/wallet-adapter + @coral-xyz/anchor |
 | Cluster | Devnet → Mainnet (env-driven) |
 
 ## Quick Start
