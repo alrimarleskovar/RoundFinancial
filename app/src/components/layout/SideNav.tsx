@@ -122,11 +122,24 @@ export function SideNav({
                     width: 3,
                     background: tokens.green,
                     borderRadius: 2,
+                    boxShadow: `0 0 8px ${tokens.green}`,
                   }}
                 />
               )}
               <it.icon size={18} sw={active ? 2 : 1.6} />
-              {!collapsed && <span>{it.label}</span>}
+              {!collapsed && (
+                <span
+                  style={{
+                    textTransform: "uppercase",
+                    letterSpacing: "0.12em",
+                    fontFamily:
+                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontSize: 11,
+                  }}
+                >
+                  {it.label}
+                </span>
+              )}
             </Link>
           );
         })}

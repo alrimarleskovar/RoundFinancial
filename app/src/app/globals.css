@@ -41,3 +41,26 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* Pulse used by the network status dot + connected wallet chip glow */
+@keyframes rfi-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes rfi-glow {
+  0%, 100% {
+    box-shadow: 0 0 18px rgba(20, 241, 149, 0.25),
+                0 0 4px rgba(20, 241, 149, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(20, 241, 149, 0.45),
+                0 0 6px rgba(20, 241, 149, 0.55);
+  }
+}
