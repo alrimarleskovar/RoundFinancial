@@ -5,17 +5,25 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
+import { SegToggle } from "@/components/layout/SegToggle";
+import { useI18n, useT } from "@/lib/i18n";
+
 // Marketing landing for RoundFi. Renders before the user connects a
 // wallet; once `connected` flips true (from Phantom/Solflare/Backpack
 // via wallet-adapter), redirects to /home.
 //
-// Visual identity is intentionally distinct from the dashboard
-// (dark navy + neon green + violet) — this is the public-facing page,
-// the dashboard uses the soft/neon palettes.
+// Visual identity: Neon palette (#06090F + #14F195 green + #9945FF
+// purple + #00C8FF teal accent) — matches the dashboard family.
+//
+// Text is fully i18n'd via the same context the dashboard uses; the
+// PT/EN segmented toggle in the sticky header flips both the landing
+// copy and the dashboard once the user connects.
 
 export default function LandingPage() {
   const { connected } = useWallet();
   const router = useRouter();
+  const t = useT();
+  const i18n = useI18n();
   const [mounted, setMounted] = useState(false);
 
   // Simulator state
@@ -37,7 +45,7 @@ export default function LandingPage() {
     return (
       <div className="min-h-screen bg-[#06090F] flex items-center justify-center">
         <div className="text-[#14F195] animate-pulse font-bold tracking-widest uppercase">
-          Carregando RoundFi Dashboard...
+          {t("landing.loading")}
         </div>
       </div>
     );
@@ -65,21 +73,39 @@ export default function LandingPage() {
               className="h-12 md:h-16 w-auto object-contain"
             />
           </div>
-          <nav className="hidden lg:flex gap-10 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            <a href="#simulator" className="hover:text-white transition-colors">Simulador</a>
-            <a href="#compare" className="hover:text-white transition-colors">Vantagens</a>
-            <a href="#" className="hover:text-white transition-colors">Docs</a>
-            <a href="#" className="hover:text-white transition-colors">Auditoria</a>
+          <nav className="hidden lg:flex gap-8 text-sm font-semibold text-gray-400 uppercase tracking-widest">
+            <a href="#simulator" className="hover:text-white transition-colors">
+              {t("landing.nav.simulator")}
+            </a>
+            <a href="#compare" className="hover:text-white transition-colors">
+              {t("landing.nav.advantages")}
+            </a>
+            <a href="#" className="hover:text-white transition-colors">
+              {t("landing.nav.docs")}
+            </a>
+            <a href="#" className="hover:text-white transition-colors">
+              {t("landing.nav.audit")}
+            </a>
           </nav>
-          <div className="scale-75 md:scale-100 origin-right">
-            <WalletMultiButton
-              style={{
-                backgroundColor: "#14F195",
-                color: "#06090F",
-                borderRadius: "12px",
-                fontWeight: "bold",
-              }}
+          <div className="flex items-center gap-2 md:gap-3">
+            <SegToggle
+              value={i18n.lang}
+              onChange={i18n.setLang}
+              options={[
+                { v: "pt", l: "PT" },
+                { v: "en", l: "EN" },
+              ]}
             />
+            <div className="scale-75 md:scale-100 origin-right">
+              <WalletMultiButton
+                style={{
+                  backgroundColor: "#14F195",
+                  color: "#06090F",
+                  borderRadius: "12px",
+                  fontWeight: "bold",
+                }}
+              />
+            </div>
           </div>
         </header>
       </div>
@@ -91,20 +117,20 @@ export default function LandingPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
           </span>
-          Protocolo CoFi Live na Solana Devnet
+          {t("landing.hero.live")}
         </div>
 
         <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
-          Colateral que rende. <br />
+          {t("landing.hero.title1")} <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)]">
-            Crédito que expande.
+            {t("landing.hero.title2")}
           </span>
         </h1>
 
         <p className="text-sm md:text-xl text-gray-400 max-w-3xl mb-8 md:mb-12 font-light leading-relaxed px-2">
-          O primeiro protocolo de{" "}
-          <span className="text-white font-bold">Collaborative Finance (CoFi)</span> da Solana.
-          Elimine as taxas de administração e veja seu dinheiro crescer enquanto aguarda sua contemplação.
+          {t("landing.hero.body").split(t("landing.hero.cofi"))[0]}
+          <span className="text-white font-bold">{t("landing.hero.cofi")}</span>
+          {t("landing.hero.body").split(t("landing.hero.cofi"))[1]}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
@@ -129,7 +155,7 @@ export default function LandingPage() {
             <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
             </svg>
-            <span>@roundfinancesol</span>
+            {t("landing.hero.x")}
           </a>
         </div>
 
@@ -137,25 +163,25 @@ export default function LandingPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20">
           <div>
             <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              Total Value Locked
+              {t("landing.metric.tvl")}
             </p>
             <p className="text-xl md:text-4xl font-bold">$1,245,800</p>
           </div>
           <div>
             <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              Pooled Capital Groups
+              {t("landing.metric.pools")}
             </p>
             <p className="text-xl md:text-4xl font-bold">14</p>
           </div>
           <div>
             <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              Base APY Estimado
+              {t("landing.metric.apy")}
             </p>
             <p className="text-xl md:text-4xl font-bold text-[#14F195]">~ 6.5%</p>
           </div>
           <div>
             <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              Taxa do Protocolo
+              {t("landing.metric.fee")}
             </p>
             <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
           </div>
@@ -170,18 +196,19 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-20 items-center">
           <div className="text-center lg:text-left">
             <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
-              Simule seu <br />
-              <span className="text-[#14F195]">Saldo Futuro</span>
+              {t("landing.sim.title1")} <br />
+              <span className="text-[#14F195]">{t("landing.sim.title2")}</span>
             </h2>
             <p className="text-gray-400 text-sm md:text-lg mb-8 md:mb-10">
-              Diferente de um consórcio comum onde seu dinheiro é corroído pela inflação, no modelo{" "}
-              <span className="text-white font-bold">CoFi</span> seu colateral cresce enquanto você espera.
+              {t("landing.sim.body").split(t("landing.sim.cofi"))[0]}
+              <span className="text-white font-bold">{t("landing.sim.cofi")}</span>
+              {t("landing.sim.body").split(t("landing.sim.cofi"))[1]}
             </p>
 
             <div className="space-y-6 md:space-y-8 bg-white/[0.03] backdrop-blur-xl p-6 md:p-10 rounded-[24px] md:rounded-3xl border border-white/[0.08]">
               <div>
                 <label className="text-[10px] md:text-sm text-gray-500 uppercase font-bold mb-3 md:mb-4 block text-left">
-                  Valor da Carta de Crédito (USDC)
+                  {t("landing.sim.amount")}
                 </label>
                 <input
                   type="range"
@@ -197,14 +224,14 @@ export default function LandingPage() {
                     ${simAmount.toLocaleString()}
                   </span>
                   <span className="text-xs md:text-sm text-gray-500 flex items-end">
-                    Máx: $100k
+                    {t("landing.sim.amountMax")}
                   </span>
                 </div>
               </div>
 
               <div>
                 <label className="text-[10px] md:text-sm text-gray-500 uppercase font-bold mb-3 md:mb-4 block text-left">
-                  Prazo do Grupo (Meses)
+                  {t("landing.sim.months")}
                 </label>
                 <input
                   type="range"
@@ -216,7 +243,9 @@ export default function LandingPage() {
                   className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#9945FF]"
                 />
                 <div className="flex justify-between mt-2 md:mt-4">
-                  <span className="text-xl md:text-2xl font-bold">{simMonths} Meses</span>
+                  <span className="text-xl md:text-2xl font-bold">
+                    {simMonths} {t("landing.sim.monthsLabel")}
+                  </span>
                 </div>
               </div>
             </div>
@@ -226,20 +255,21 @@ export default function LandingPage() {
           <div className="bg-gradient-to-br from-[#14F195]/30 via-white/[0.06] to-[#9945FF]/30 p-0.5 md:p-1 rounded-[32px] md:rounded-[40px] shadow-2xl shadow-[#14F195]/15">
             <div className="bg-[#06090F]/85 backdrop-blur-xl rounded-[30px] md:rounded-[38px] p-8 md:p-12 text-center border border-white/[0.06]">
               <p className="text-gray-500 uppercase tracking-widest text-[10px] md:text-xs font-bold mb-2 md:mb-4">
-                Saldo Final Estimado
+                {t("landing.sim.result")}
               </p>
               <h3 className="text-4xl md:text-6xl font-black text-white mb-2 truncate">
                 ${finalBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </h3>
               <p className="text-[#14F195] font-bold text-base md:text-xl mb-8 md:mb-10">
-                + ${yieldEarned.toLocaleString(undefined, { maximumFractionDigits: 0 })} em Yield
+                + ${yieldEarned.toLocaleString(undefined, { maximumFractionDigits: 0 })}{" "}
+                {t("landing.sim.yieldSuffix")}
               </p>
 
               <div className="flex items-end justify-center gap-2 md:gap-3 h-24 md:h-32 mb-8 md:mb-10">
                 <div className="w-8 md:w-12 bg-gray-800 rounded-t-lg h-[40%]" />
                 <div className="w-8 md:w-12 bg-gray-700 rounded-t-lg h-[50%]" />
                 <div className="w-8 md:w-12 bg-gray-600 rounded-t-lg h-[65%]" />
-                <div className="w-8 md:w-12 bg-[#14F195] rounded-t-lg h-[100%] shadow-[0_0_20px_rgba(0,255,163,0.5)]" />
+                <div className="w-8 md:w-12 bg-[#14F195] rounded-t-lg h-[100%] shadow-[0_0_20px_rgba(20,241,149,0.5)]" />
               </div>
 
               <div className="w-full flex justify-center">
@@ -266,60 +296,62 @@ export default function LandingPage() {
         className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 max-w-6xl z-10"
       >
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-          A Evolução do <span className="text-[#9945FF]">Crédito Comunitário</span>
+          {t("landing.cmp.title1")}{" "}
+          <span className="text-[#9945FF]">{t("landing.cmp.title2")}</span>
         </h2>
         <p className="text-gray-400 text-center max-w-2xl mx-auto mb-10 md:mb-16 text-sm md:text-base">
-          Substituímos administradoras burocráticas por Smart Contracts e algoritmos de reputação comportamental.
+          {t("landing.cmp.body")}
         </p>
 
         <div className="flex flex-col md:flex-row gap-0 border border-white/[0.08] rounded-[24px] md:rounded-[32px] overflow-hidden bg-white/[0.03] backdrop-blur-xl w-full">
           <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] flex-1">
             <p className="text-gray-500 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
-              Comparativo
+              {t("landing.cmp.compare")}
             </p>
             <ul className="space-y-4 md:space-y-8 text-gray-400 font-medium text-xs md:text-sm">
-              <li className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1">
-                <span className="md:hidden font-bold">Taxa ADM:</span>
-                <span className="md:block hidden">Taxa de Administração</span>
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1">
-                <span className="md:hidden font-bold">Rendimento:</span>
-                <span className="md:block hidden">Rendimento do Fundo</span>
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1">
-                <span className="md:hidden font-bold">Análise:</span>
-                <span className="md:block hidden">Análise de Crédito</span>
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1">
-                <span className="md:hidden font-bold">Liquidez:</span>
-                <span className="md:block hidden">Velocidade de Liquidez</span>
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1">
-                <span className="md:hidden font-bold">Custódia:</span>
-                <span className="md:block hidden">Estrutura e Custódia</span>
-              </li>
+              {(
+                [
+                  ["fee", "fee"],
+                  ["yield", "yield"],
+                  ["scoring", "scoring"],
+                  ["liquidity", "liquidity"],
+                  ["custody", "custody"],
+                ] as const
+              ).map(([key]) => (
+                <li
+                  key={key}
+                  className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1"
+                >
+                  <span className="md:hidden font-bold">
+                    {t(`landing.cmp.row.${key}.short`)}
+                  </span>
+                  <span className="md:block hidden">
+                    {t(`landing.cmp.row.${key}.label`)}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] bg-white/[0.02] flex-1">
             <p className="text-gray-400 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
-              Consórcio Tradicional
+              {t("landing.cmp.legacy")}
             </p>
             <ul className="space-y-4 md:space-y-8 text-gray-300 font-medium text-xs md:text-sm text-center md:text-left">
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start text-red-400">
-                15% a 25% (Embutida)
+                {t("landing.cmp.row.fee.legacy")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start text-red-400">
-                0% (Corroído)
+                {t("landing.cmp.row.yield.legacy")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                Serasa / Burocracia
+                {t("landing.cmp.row.scoring.legacy")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                30 a 60 dias
+                {t("landing.cmp.row.liquidity.legacy")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                Centralizada (Banco)
+                {t("landing.cmp.row.custody.legacy")}
               </li>
             </ul>
           </div>
@@ -329,23 +361,23 @@ export default function LandingPage() {
               COFI
             </div>
             <p className="text-[#14F195] font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
-              RoundFi Protocol
+              {t("landing.cmp.cofi")}
             </p>
             <ul className="space-y-4 md:space-y-8 text-white font-bold text-xs md:text-sm text-center md:text-left">
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                1.5% (Taxa Justa)
+                {t("landing.cmp.row.fee.cofi")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start text-[#14F195]">
-                ~6.5% APY Base
+                {t("landing.cmp.row.yield.cofi")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                RoundFi Score
+                {t("landing.cmp.row.scoring.cofi")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                Instantânea (On-chain)
+                {t("landing.cmp.row.liquidity.cofi")}
               </li>
               <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                Decentralized Pool
+                {t("landing.cmp.row.custody.cofi")}
               </li>
             </ul>
           </div>
@@ -365,21 +397,25 @@ export default function LandingPage() {
               />
             </div>
             <p className="text-gray-500 max-w-sm leading-relaxed text-xs md:text-sm">
-              O RoundFi é um protocolo de{" "}
-              <span className="text-gray-400">Collaborative Finance (CoFi)</span> construído na Solana
-              para redefinir a formação de capital.
+              {t("landing.footer.tagline").split(t("landing.footer.tagline.cofi"))[0]}
+              <span className="text-gray-400">{t("landing.footer.tagline.cofi")}</span>
+              {t("landing.footer.tagline").split(t("landing.footer.tagline.cofi"))[1]}
             </p>
           </div>
           <div>
-            <h4 className="text-white font-bold mb-4 md:mb-6 text-sm md:text-base">Protocolo</h4>
+            <h4 className="text-white font-bold mb-4 md:mb-6 text-sm md:text-base">
+              {t("landing.footer.protocol")}
+            </h4>
             <ul className="text-gray-500 space-y-3 md:space-y-4 text-xs md:text-sm">
-              <li><a href="#" className="hover:text-white transition-colors">Group Savings</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Reputation Score</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Segurança & Auditoria</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.savings")}</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.score")}</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.audit")}</a></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-white font-bold mb-4 md:mb-6 text-sm md:text-base">Comunidade</h4>
+            <h4 className="text-white font-bold mb-4 md:mb-6 text-sm md:text-base">
+              {t("landing.footer.community")}
+            </h4>
             <ul className="text-gray-500 space-y-3 md:space-y-4 text-xs md:text-sm">
               <li>
                 <a
@@ -391,16 +427,16 @@ export default function LandingPage() {
                   <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                   </svg>
-                  @roundfinancesol
+                  {t("landing.footer.link.twitter")}
                 </a>
               </li>
-              <li><a href="#" className="hover:text-white transition-colors">Discord</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">GitHub</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.discord")}</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.github")}</a></li>
             </ul>
           </div>
         </div>
         <div className="text-center text-gray-600 text-[8px] md:text-xs tracking-widest border-t border-white/[0.06] pt-6 md:pt-10 uppercase px-4">
-          © 2026 ROUNDFI PROTOCOL. DECENTRALIZED POOLED CAPITAL. SOLANA DEVNET.
+          {t("landing.footer.copyright")}
         </div>
       </footer>
     </main>
