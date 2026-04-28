@@ -259,3 +259,77 @@ export function emptyFrame(): StressLabFrame {
     ledgerSnapshot: [],
   };
 }
+
+// ── Scenario presets ───────────────────────────────────────
+// Canonical fixtures the /lab UI exposes as one-click scenarios.
+// Same fixtures will drive the parity tests against roundfi-core
+// in M1 — running each preset through runSimulation() and through
+// the Anchor program must produce identical FrameMetrics.
+
+export type PresetId = "healthy" | "preDefault" | "postDefault" | "cascade";
+
+export interface ScenarioPreset {
+  id: PresetId;
+  config: Omit<StressLabConfig, "memberNames">;
+  matrix: MatrixCell[][];
+}
+
+// Helper: starts from a default-diagonal matrix and applies X bursts.
+// Each burst: row defaults from `cycle` onward (1-indexed cycle).
+function withDefaults(
+  N: number,
+  defaults: Array<{ row: number; cycle: number }>,
+): MatrixCell[][] {
+  const m = defaultMatrix(N);
+  for (const { row, cycle } of defaults) {
+    for (let j = cycle - 1; j < N; j++) m[row][j] = "X";
+  }
+  return m;
+}
+
+const BASE_CONFIG = {
+  level: "Veterano" as GroupLevel,
+  members: 12,
+  installmentUsdc: 1000,
+  kaminoApy: 6.5,
+  yieldFeePct: 20,
+};
+
+export const PRESETS: Record<PresetId, ScenarioPreset> = {
+  healthy: {
+    id: "healthy",
+    config: BASE_CONFIG,
+    matrix: defaultMatrix(12),
+  },
+  // Member 4 (Elena, would be C at cycle 5) drops out at cycle 3.
+  // Pre-contemplation default → protocol retains stake + paid installments.
+  preDefault: {
+    id: "preDefault",
+    config: BASE_CONFIG,
+    matrix: withDefaults(12, [{ row: 4, cycle: 3 }]),
+  },
+  // Member 1 (Bruno, contemplated at cycle 2) defaults at cycle 5
+  // after receiving the upfront. Protocol takes a real loss.
+  postDefault: {
+    id: "postDefault",
+    config: BASE_CONFIG,
+    matrix: withDefaults(12, [{ row: 1, cycle: 5 }]),
+  },
+  // Three rolling defaults — pre-contemplation cluster.
+  cascade: {
+    id: "cascade",
+    config: BASE_CONFIG,
+    matrix: withDefaults(12, [
+      { row: 5, cycle: 4 },
+      { row: 7, cycle: 5 },
+      { row: 9, cycle: 6 },
+    ]),
+  },
+};
+
+export const PRESET_ORDER: PresetId[] = [
+  "healthy",
+  "preDefault",
+  "postDefault",
+  "cascade",
+];

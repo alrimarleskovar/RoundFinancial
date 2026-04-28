@@ -10,11 +10,14 @@ import {
   defaultMatrix,
   emptyFrame,
   LEVEL_PARAMS,
+  PRESETS,
+  PRESET_ORDER,
   runSimulation,
   toggleCell,
   type GroupLevel,
   type MatrixCell,
   type MemberLedger,
+  type PresetId,
   type StressLabFrame,
 } from "@/lib/stressLab";
 import { useT } from "@/lib/i18n";
@@ -48,31 +51,60 @@ export function StressLabClient() {
   // ── Matrix state ─────────────────────────────────────────
   const [matrix, setMatrix] = useState<MatrixCell[][]>(() => defaultMatrix(members));
 
-  useEffect(() => {
-    setMatrix(defaultMatrix(members));
-  }, [members]);
+  // Track which preset (if any) is currently loaded so the selector can
+  // highlight it. Toggling any cell or moving the members slider clears it.
+  const [activePreset, setActivePreset] = useState<PresetId | null>(null);
 
   // ── Simulation runner ────────────────────────────────────
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [currentCycle, setCurrentCycle] = useState(0);
-  const [frames, setFrames] = useState<StressLabFrame[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const memberNames = useMemo(() => ALL_NAMES.slice(0, members), [members]);
 
+  // Frames are derived — recomputed whenever config or matrix changes.
+  // The sparkline can read the full trajectory before the user clicks Run;
+  // Run just animates currentCycle through the precomputed frames.
+  const frames = useMemo<StressLabFrame[]>(
+    () =>
+      runSimulation(
+        { level, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames },
+        matrix,
+      ),
+    [level, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames, matrix],
+  );
+
+  const handleMembersChange = (n: number) => {
+    setMembers(n);
+    setMatrix(defaultMatrix(n));
+    setActivePreset(null);
+  };
+
   const handleToggle = (row: number, col: number) => {
     if (running || finished) return;
     setMatrix((prev) => toggleCell(prev, row, col));
+    setActivePreset(null);
+  };
+
+  const handleLoadPreset = (id: PresetId) => {
+    if (running) return;
+    const preset = PRESETS[id];
+    setLevel(preset.config.level);
+    setMembers(preset.config.members);
+    setInstallmentUsdc(preset.config.installmentUsdc);
+    setKaminoApy(preset.config.kaminoApy);
+    setYieldFeePct(preset.config.yieldFeePct);
+    setMatrix(preset.matrix.map((r) => [...r]));
+    setActivePreset(id);
+    if (finished) {
+      setFinished(false);
+      setCurrentCycle(0);
+    }
   };
 
   const handleRun = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    const calc = runSimulation(
-      { level, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames },
-      matrix,
-    );
-    setFrames(calc);
     setRunning(true);
     setFinished(false);
     setCurrentCycle(1);
@@ -95,7 +127,6 @@ export function StressLabClient() {
     setRunning(false);
     setFinished(false);
     setCurrentCycle(0);
-    setFrames([]);
   };
 
   useEffect(() => () => {
@@ -146,6 +177,69 @@ export function StressLabClient() {
             <MonoLabel size={9}>{t("lab.controls.title")}</MonoLabel>
 
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Presets */}
+              <div>
+                <label
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: tokens.text2,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    display: "block",
+                    marginBottom: 8,
+                  }}
+                >
+                  {t("lab.presets.title")}
+                </label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 6,
+                  }}
+                >
+                  {PRESET_ORDER.map((id) => {
+                    const active = activePreset === id;
+                    const accent =
+                      id === "healthy"
+                        ? tokens.green
+                        : id === "preDefault"
+                        ? tokens.amber
+                        : id === "postDefault"
+                        ? tokens.red
+                        : tokens.purple;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={running}
+                        onClick={() => handleLoadPreset(id)}
+                        title={t(`lab.presets.${id}Hint`)}
+                        style={{
+                          padding: "8px 0",
+                          fontSize: 9,
+                          fontWeight: 700,
+                          borderRadius: 8,
+                          border: `1px solid ${active ? accent : tokens.border}`,
+                          background: active ? `${accent}22` : tokens.fillSoft,
+                          color: active ? accent : tokens.text2,
+                          cursor: running ? "not-allowed" : "pointer",
+                          opacity: running ? 0.6 : 1,
+                          fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                          transition: "all 200ms ease",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          boxShadow: active ? `0 0 10px ${accent}33` : "none",
+                        }}
+                      >
+                        {t(`lab.presets.${id}`)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Level */}
               <div>
                 <label
@@ -278,7 +372,7 @@ export function StressLabClient() {
                   max={24}
                   value={members}
                   disabled={running || finished}
-                  onChange={(e) => setMembers(Number(e.target.value))}
+                  onChange={(e) => handleMembersChange(Number(e.target.value))}
                   style={{
                     width: "100%",
                     accentColor: tokens.green,
@@ -566,6 +660,13 @@ export function StressLabClient() {
                 </tbody>
               </table>
             </div>
+
+            <PoolBalanceSparkline
+              frames={frames}
+              currentCycle={currentCycle}
+              tokens={tokens}
+              t={t}
+            />
           </div>
 
           {/* Audit + KPIs + Ledger */}
@@ -883,6 +984,135 @@ function KpiCard({
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+// Inline SVG sparkline of pool balance per cycle. Pre-run shows the
+// full predicted trajectory (frames are recomputed on every config /
+// matrix change). During run, the cycles up to currentCycle render
+// solid; the rest of the curve stays dimmed.
+function PoolBalanceSparkline({
+  frames,
+  currentCycle,
+  tokens,
+  t,
+}: {
+  frames: StressLabFrame[];
+  currentCycle: number;
+  tokens: ReturnType<typeof useTheme>["tokens"];
+  t: (k: string) => string;
+}) {
+  if (frames.length === 0) return null;
+
+  const W = 100;
+  const H = 28;
+  const pad = 2;
+
+  const balances = frames.map((f) => f.metrics.poolBalance);
+  const minBal = Math.min(0, ...balances);
+  const maxBal = Math.max(0, ...balances);
+  const span = Math.max(1, maxBal - minBal);
+
+  const N = frames.length;
+  const xAt = (i: number) => pad + (i / Math.max(1, N - 1)) * (W - pad * 2);
+  const yAt = (v: number) =>
+    H - pad - ((v - minBal) / span) * (H - pad * 2);
+
+  const points = frames.map((f, i) => `${xAt(i)},${yAt(f.metrics.poolBalance)}`);
+  const path = `M ${points.join(" L ")}`;
+  const zeroY = yAt(0);
+
+  // Solid path up to currentCycle, dim path thereafter.
+  const cutoff = currentCycle > 0 ? currentCycle : N;
+  const solidPath =
+    cutoff >= 2
+      ? `M ${points.slice(0, cutoff).join(" L ")}`
+      : "";
+  const dimPath =
+    cutoff < N
+      ? `M ${points.slice(Math.max(0, cutoff - 1)).join(" L ")}`
+      : "";
+
+  const lastBalance = frames[frames.length - 1].metrics.poolBalance;
+  const isHealthy = lastBalance >= 0;
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: 9,
+          color: tokens.muted,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+          marginBottom: 6,
+        }}
+      >
+        <span>{t("lab.chart.poolBalance")}</span>
+        <span style={{ color: isHealthy ? tokens.green : tokens.red }}>
+          ${lastBalance.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{
+          width: "100%",
+          height: 64,
+          background: tokens.fillSoft,
+          borderRadius: 6,
+          border: `1px solid ${tokens.border}`,
+          display: "block",
+        }}
+      >
+        {/* Zero baseline */}
+        <line
+          x1={pad}
+          y1={zeroY}
+          x2={W - pad}
+          y2={zeroY}
+          stroke={tokens.border}
+          strokeWidth={0.3}
+          strokeDasharray="1 1"
+        />
+        {/* Predicted (dim) curve */}
+        {dimPath && (
+          <path
+            d={dimPath}
+            fill="none"
+            stroke={tokens.muted}
+            strokeWidth={0.6}
+            strokeDasharray="1 1"
+            opacity={0.7}
+          />
+        )}
+        {/* Realised (solid) curve */}
+        {solidPath && (
+          <path
+            d={solidPath}
+            fill="none"
+            stroke={isHealthy ? tokens.green : tokens.red}
+            strokeWidth={0.9}
+            strokeLinejoin="round"
+          />
+        )}
+        {/* Cycle marker */}
+        {currentCycle > 0 && currentCycle <= N && (
+          <line
+            x1={xAt(currentCycle - 1)}
+            y1={pad}
+            x2={xAt(currentCycle - 1)}
+            y2={H - pad}
+            stroke={tokens.green}
+            strokeWidth={0.4}
+            opacity={0.6}
+          />
+        )}
+      </svg>
     </div>
   );
 }
