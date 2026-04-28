@@ -2,7 +2,7 @@
 
 > If you only read one file, read this one. The rest of the bundle gives context; this one is the meta-evidence the grant is asking for.
 
-This file documents the **discipline, tools, and division of labor** that produced 37 merged PRs in `alrimarleskovar/RoundFinancial`. Every claim below is verifiable from the public repo — PR bodies, commit messages, file diffs.
+This file documents the **discipline, tools, and division of labor** that produced 42 merged PRs in `alrimarleskovar/RoundFinancial`. Every claim below is verifiable from the public repo — PR bodies, commit messages, file diffs.
 
 ---
 
@@ -70,7 +70,7 @@ These aren't pasted from a tutorial. They're the kind of subtle, high-context fi
 
 ## 6. Branch hygiene — disciplined even at velocity
 
-37 PRs, 37 branches, all named `claude/<scope>` (e.g. `claude/b5b-mercado`, `claude/landing-table-life`, `claude/round4-session-orchestrator`). One branch per PR. Branches deleted after merge. Main never had a force-push. Local main always synced before starting a new branch.
+42 PRs, 42 branches, all named `claude/<scope>` (e.g. `claude/b5b-mercado`, `claude/landing-table-life`, `claude/round4-session-orchestrator`). One branch per PR. Branches deleted after merge. Main never had a force-push. Local main always synced before starting a new branch.
 
 The builder didn't have to enforce any of this — the agent's default workflow does it. That's the value: not "AI writes code", but "AI runs the engineering process so the human only has to make decisions".
 
@@ -85,7 +85,7 @@ The builder didn't have to enforce any of this — the agent's default workflow 
 **The agent did:**
 - Translated direction into concrete plans (the letter-options pattern).
 - Wrote every line of code, every PR body, every commit message.
-- Held all the context across 37 PRs — file paths, what-was-changed-where, naming conventions.
+- Held all the context across 42 PRs — file paths, what-was-changed-where, naming conventions.
 - Caught technical traps before they landed (typecheck loops, sticky/overflow conflict, inline-flex pitfall).
 - Maintained README sync with reality (PR #16, PR #35).
 

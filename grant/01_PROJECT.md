@@ -33,7 +33,7 @@ DeFi solved trading, liquidity, and yield farming. It never solved **credit for 
 
 ```
 RoundFinancial/                       ← github.com/alrimarleskovar/RoundFinancial
-├── programs/                         # 4 Anchor programs scaffolded
+├── programs/                         # 4 Anchor programs (Rust)
 │   ├── roundfi-core/                       # pool state machine + escrow + solidarity vault
 │   ├── roundfi-reputation/                 # SAS-compatible attestation + reputation ladder
 │   ├── roundfi-yield-mock/                 # devnet yield adapter (simulated APY)
@@ -85,12 +85,15 @@ RoundFinancial/                       ← github.com/alrimarleskovar/RoundFinanc
 - Vectorized brand mark drives header, footer, and `/icon.svg` favicon — no rasters.
 - 460+ i18n keys (PT + EN), BRL ↔ USDC live converter.
 
-### Programs / on-chain (in progress — what the grant accelerates)
+### Programs / on-chain (drafted — what the grant **validates and ships**)
 
-- 4 Anchor programs scaffolded with declared accounts and instructions.
-- Currently expose only a `ping` smoke instruction.
-- Test harness ready (`anchor test` + `solana-bankrun`, 14 specs already written for lifecycle / parity / edge cases / security).
-- Mock orchestrator at `services/orchestrator/` produces lifecycle events the front-end already consumes — this is the bridge that swaps to real CPI calls when programs land.
+- 4 Anchor programs with substantial Rust drafts:
+  - `roundfi-core` — 14 instructions implemented (`initialize_protocol`, `create_pool`, `join_pool`, `contribute`, `claim_payout`, `release_escrow`, `deposit_idle_to_yield`, `harvest_yield`, `settle_default`, `escape_valve_list`, `escape_valve_buy`, `close_pool`, `update_protocol_config`, `pause`) plus full math modules (`bps`, `cascade`, `dc`, `escrow_vesting`, `seed_draw`, `waterfall`) and state types — ~4,300 LoC.
+  - `roundfi-reputation`, `roundfi-yield-kamino`, `roundfi-yield-mock` — also drafted.
+- `tests/parity.spec.ts` runs today and asserts **constants/seeds parity** between Rust and the `@roundfi/sdk` TypeScript SDK (zero Solana infra needed).
+- Drafted but not yet green: 13 specs covering lifecycle / edge cases / security / yield / reputation under `solana-bankrun`.
+- **What the grant validates:** running those drafts green, plus the new economic parity test that ties L2 (`roundfi-core`) to L1 (`runSimulation()` / Stress Lab presets) on FrameMetrics — that's the load-bearing claim of the protocol's correctness.
+- Mock orchestrator at `services/orchestrator/` produces lifecycle events the front-end already consumes — this is the bridge that swaps to real CPI calls when programs land on devnet.
 
 ## Foundational stack — aligned with `solana.new`
 
