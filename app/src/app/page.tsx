@@ -70,18 +70,22 @@ export default function LandingPage() {
             <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
           </div>
           <nav className="hidden lg:flex gap-8 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            <a href="#simulator" className="hover:text-white transition-colors">
-              {t("landing.nav.simulator")}
-            </a>
-            <a href="#compare" className="hover:text-white transition-colors">
-              {t("landing.nav.advantages")}
-            </a>
-            <a href="#" className="hover:text-white transition-colors">
-              {t("landing.nav.docs")}
-            </a>
-            <a href="#" className="hover:text-white transition-colors">
-              {t("landing.nav.audit")}
-            </a>
+            {(
+              [
+                ["#simulator", t("landing.nav.simulator")],
+                ["#compare",   t("landing.nav.advantages")],
+                ["#",          t("landing.nav.docs")],
+                ["#",          t("landing.nav.audit")],
+              ] as const
+            ).map(([href, label]) => (
+              <a
+                key={label}
+                href={href}
+                className="relative hover:text-white transition-colors after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:w-0 after:bg-gradient-to-r after:from-[#14F195] after:to-[#00C8FF] after:transition-all after:duration-300 hover:after:w-full"
+              >
+                {label}
+              </a>
+            ))}
           </nav>
           <div className="flex items-center gap-2 md:gap-3">
             <SegToggle
@@ -94,6 +98,7 @@ export default function LandingPage() {
             />
             <div className="scale-75 md:scale-100 origin-right">
               <WalletMultiButton
+                className="rfi-btn-glow-green"
                 style={{
                   backgroundColor: "#14F195",
                   color: "#06090F",
@@ -118,7 +123,7 @@ export default function LandingPage() {
 
         <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
           {t("landing.hero.title1")} <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)]">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)] rfi-gradient-flow">
             {t("landing.hero.title2")}
           </span>
         </h1>
@@ -132,6 +137,7 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
           <div className="w-full sm:w-auto flex justify-center">
             <WalletMultiButton
+              className="rfi-btn-glow-purple"
               style={{
                 height: "50px",
                 padding: "0 30px",
@@ -146,7 +152,7 @@ export default function LandingPage() {
             href="https://x.com/roundfinancesol"
             target="_blank"
             rel="noopener noreferrer"
-            className="h-[50px] px-8 rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-md font-bold flex items-center justify-center hover:bg-white/[0.1] hover:border-[#14F195]/40 transition-all gap-2 text-sm w-full sm:w-auto tracking-wide"
+            className="h-[50px] px-8 rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-md font-bold flex items-center justify-center hover:bg-white/[0.08] hover:border-[#14F195]/60 hover:shadow-[0_0_24px_rgba(20,241,149,0.25)] hover:scale-[1.03] transition-all duration-300 gap-2 text-sm w-full sm:w-auto tracking-wide"
           >
             <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -270,6 +276,7 @@ export default function LandingPage() {
 
               <div className="w-full flex justify-center">
                 <WalletMultiButton
+                  className="rfi-btn-glow-green"
                   style={{
                     backgroundColor: "#14F195",
                     color: "#06090F",
