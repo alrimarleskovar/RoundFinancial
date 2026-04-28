@@ -286,21 +286,23 @@ export default function LandingPage() {
                 <div className="w-8 md:w-12 bg-[#14F195] rounded-t-lg h-[100%] shadow-[0_0_20px_rgba(20,241,149,0.5)]" />
               </div>
 
-              <div
-                className="rfi-btn-glow-wrap green w-full"
-                style={{ borderRadius: 16 }}
-              >
-                <WalletMultiButton
-                  style={{
-                    backgroundColor: "#14F195",
-                    color: "#06090F",
-                    width: "100%",
-                    justifyContent: "center",
-                    fontWeight: "bold",
-                    borderRadius: "16px",
-                    height: "54px",
-                  }}
-                />
+              <div className="flex justify-center">
+                <span
+                  className="rfi-btn-glow-wrap green inline-flex"
+                  style={{ borderRadius: 16 }}
+                >
+                  <WalletMultiButton
+                    style={{
+                      backgroundColor: "#14F195",
+                      color: "#06090F",
+                      padding: "0 32px",
+                      fontWeight: "bold",
+                      borderRadius: "16px",
+                      height: "54px",
+                      fontSize: "1rem",
+                    }}
+                  />
+                </span>
               </div>
             </div>
           </div>
@@ -354,48 +356,75 @@ export default function LandingPage() {
             <p className="text-gray-400 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
               {t("landing.cmp.legacy")}
             </p>
-            <ul className="space-y-4 md:space-y-8 text-gray-300 font-medium text-xs md:text-sm text-center md:text-left">
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start text-red-400">
-                {t("landing.cmp.row.fee.legacy")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start text-red-400">
-                {t("landing.cmp.row.yield.legacy")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.scoring.legacy")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.liquidity.legacy")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.custody.legacy")}
-              </li>
+            <ul className="space-y-2 md:space-y-4 text-gray-300 font-medium text-xs md:text-sm text-center md:text-left">
+              {(
+                [
+                  ["fee.legacy", true],
+                  ["yield.legacy", true],
+                  ["scoring.legacy", false],
+                  ["liquidity.legacy", false],
+                  ["custody.legacy", false],
+                ] as const
+              ).map(([key, redText]) => (
+                <li
+                  key={key}
+                  className={`h-auto md:h-9 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-white/[0.04] ${
+                    redText ? "text-red-400" : ""
+                  }`}
+                >
+                  <svg
+                    className="w-3.5 h-3.5 shrink-0 text-red-400/70"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                  >
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                  <span>{t(`landing.cmp.row.${key}`)}</span>
+                </li>
+              ))}
             </ul>
           </div>
 
-          <div className="p-6 md:p-10 bg-gradient-to-b from-[#14F195]/10 to-transparent relative border-t-4 md:border-t-0 md:border-l-4 border-[#14F195] flex-1">
-            <div className="absolute top-2 right-2 md:top-4 md:right-6 bg-[#14F195] text-[#06090F] text-[8px] md:text-[10px] font-black px-2 py-1 rounded tracking-widest">
+          <div className="p-6 md:p-10 bg-gradient-to-b from-[#14F195]/10 to-transparent relative border-t-4 md:border-t-0 md:border-l-4 border-[#14F195] flex-1 shadow-[inset_0_0_60px_rgba(20,241,149,0.08)]">
+            <div className="absolute top-2 right-2 md:top-4 md:right-6 bg-[#14F195] text-[#06090F] text-[8px] md:text-[10px] font-black px-2 py-1 rounded tracking-widest animate-pulse shadow-[0_0_16px_rgba(20,241,149,0.5)]">
               COFI
             </div>
             <p className="text-[#14F195] font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
               {t("landing.cmp.cofi")}
             </p>
-            <ul className="space-y-4 md:space-y-8 text-white font-bold text-xs md:text-sm text-center md:text-left">
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.fee.cofi")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start text-[#14F195]">
-                {t("landing.cmp.row.yield.cofi")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.scoring.cofi")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.liquidity.cofi")}
-              </li>
-              <li className="h-auto md:h-8 flex items-center justify-center md:justify-start">
-                {t("landing.cmp.row.custody.cofi")}
-              </li>
+            <ul className="space-y-2 md:space-y-4 text-white font-bold text-xs md:text-sm text-center md:text-left">
+              {(
+                [
+                  ["fee.cofi", false],
+                  ["yield.cofi", true],
+                  ["scoring.cofi", false],
+                  ["liquidity.cofi", false],
+                  ["custody.cofi", false],
+                ] as const
+              ).map(([key, greenText]) => (
+                <li
+                  key={key}
+                  className={`h-auto md:h-9 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-[#14F195]/[0.06] ${
+                    greenText ? "text-[#14F195]" : ""
+                  }`}
+                >
+                  <svg
+                    className="w-3.5 h-3.5 shrink-0 text-[#14F195]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 12l5 5L20 6" />
+                  </svg>
+                  <span>{t(`landing.cmp.row.${key}`)}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
