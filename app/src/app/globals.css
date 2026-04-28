@@ -114,12 +114,14 @@ body {
 }
 
 /* Wrapper-based glow for the WalletMultiButton instances on the
-   landing. The lib's CSS resets sometimes drop animation set on
-   the button itself, so we drive the halo from a wrapping div
-   that we own. The wrapper is inline-flex so it sizes to the
-   button and the glow extends naturally around it. */
+   landing. The lib's CSS resets sometimes drop animations set on
+   the button itself, so the halo is driven from a wrapper element
+   we own. We deliberately don't force a `display` value here — the
+   call site picks <span> for sized-to-content (header / hero) or
+   <div> for full-width (simulator card). Forcing inline-flex here
+   broke the full-width case in some engines (renders as a long
+   baseline-aligned strip). */
 .rfi-btn-glow-wrap {
-  display: inline-flex;
   position: relative;
   border-radius: 16px;
 }
