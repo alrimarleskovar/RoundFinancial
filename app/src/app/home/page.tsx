@@ -1,17 +1,30 @@
+"use client";
+
 import { Activity } from "@/components/home/Activity";
+import { DeskKpi } from "@/components/home/DeskKpi";
 import { FeaturedGroup } from "@/components/home/FeaturedGroup";
 import { HomeHero } from "@/components/home/HomeHero";
-import { HomeKpis } from "@/components/home/HomeKpis";
 import { PassportMini } from "@/components/home/PassportMini";
 import { TripleShield } from "@/components/home/TripleShield";
 import { YourGroups } from "@/components/home/YourGroups";
 import { DeskShell } from "@/components/layout/DeskShell";
+import { USER } from "@/data/carteira";
+import { useI18n, useT } from "@/lib/i18n";
 
-// /home — native dashboard. Hero + 4 KPIs span the full width;
-// below them a 1.5fr / 1fr grid splits the active groups column
-// (left) from the passport / shield / activity column (right).
+// /home — Bento dashboard. Hero on top, then a 4-col asymmetric
+// grid: 3 KPIs + tall radial Score on the right; FeaturedGroup
+// spans 3 cols below; YourGroups + TripleShield split the next
+// row; Activity terminal log spans the full width at the bottom.
+//
+//   row 1:  [ hero  hero  hero  hero ]
+//   row 2:  [ saldo  yield  colat  score ]
+//   row 3:  [ feat   feat   feat   score ]
+//   row 4:  [ groups groups triplo triplo ]
+//   row 5:  [ act    act    act    act   ]
 
 export default function HomePage() {
+  const t = useT();
+  const { fmtMoney } = useI18n();
   return (
     <DeskShell>
       <div
@@ -19,25 +32,71 @@ export default function HomePage() {
           padding: 32,
           display: "flex",
           flexDirection: "column",
-          gap: 20,
+          gap: 16,
         }}
       >
         <HomeHero />
-        <HomeKpis />
+
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.5fr 1fr",
+            gridTemplateColumns: "1fr 1fr 1fr 1fr",
+            gridAutoRows: "auto",
+            gridTemplateAreas: `
+              "saldo yield colat score"
+              "feat  feat  feat  score"
+              "groups groups triplo triplo"
+              "act    act    act    act"
+            `,
             gap: 16,
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ gridArea: "saldo" }}>
+            <DeskKpi
+              label={t("home.kpi.balance")}
+              value={fmtMoney(USER.balance)}
+              numericValue={USER.balance}
+              format={(n) => fmtMoney(n)}
+              delta={t("home.kpi.delta.balance")}
+              tone="g"
+            />
+          </div>
+          <div style={{ gridArea: "yield" }}>
+            <DeskKpi
+              label={t("home.kpi.yield")}
+              value={fmtMoney(USER.yield)}
+              numericValue={USER.yield}
+              format={(n) => fmtMoney(n)}
+              delta={t("home.kpi.delta.yield")}
+              tone="p"
+            />
+          </div>
+          <div style={{ gridArea: "colat" }}>
+            <DeskKpi
+              label={t("home.kpi.colat")}
+              value={`${USER.colateralPct}%`}
+              numericValue={USER.colateralPct}
+              format={(n) => `${Math.round(n)}%`}
+              delta={t("home.kpi.delta.lev", { x: USER.leverageX })}
+              tone="a"
+            />
+          </div>
+          <div style={{ gridArea: "score", display: "flex" }}>
+            <PassportMini />
+          </div>
+
+          <div style={{ gridArea: "feat" }}>
             <FeaturedGroup />
+          </div>
+
+          <div style={{ gridArea: "groups" }}>
             <YourGroups />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <PassportMini />
+          <div style={{ gridArea: "triplo" }}>
             <TripleShield />
+          </div>
+
+          <div style={{ gridArea: "act" }}>
             <Activity />
           </div>
         </div>
