@@ -12,7 +12,8 @@
     "./pda": "./src/pda.ts",
     "./client": "./src/client.ts",
     "./actions": "./src/actions.ts",
-    "./reads": "./src/reads.ts"
+    "./reads": "./src/reads.ts",
+    "./stressLab": "./src/stressLab.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
