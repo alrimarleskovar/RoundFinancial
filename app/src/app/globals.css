@@ -64,3 +64,51 @@ body {
                 0 0 6px rgba(20, 241, 149, 0.55);
   }
 }
+
+/* Landing CTA glows — bigger halos than the WalletChip's rfi-glow
+   since the landing buttons are the primary call to action. */
+@keyframes rfi-btn-glow-green {
+  0%, 100% {
+    box-shadow: 0 0 24px rgba(20, 241, 149, 0.4),
+                0 4px 18px rgba(0, 200, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 36px rgba(20, 241, 149, 0.6),
+                0 6px 22px rgba(0, 200, 255, 0.3);
+  }
+}
+
+@keyframes rfi-btn-glow-purple {
+  0%, 100% {
+    box-shadow: 0 0 24px rgba(153, 69, 255, 0.45),
+                0 4px 18px rgba(20, 241, 149, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 38px rgba(153, 69, 255, 0.65),
+                0 6px 22px rgba(20, 241, 149, 0.28);
+  }
+}
+
+.rfi-btn-glow-green {
+  animation: rfi-btn-glow-green 2.6s ease-in-out infinite !important;
+}
+
+.rfi-btn-glow-purple {
+  animation: rfi-btn-glow-purple 2.6s ease-in-out infinite !important;
+}
+
+/* Slow horizontal sweep across a gradient — used by the hero
+   title so the green -> teal -> purple band feels alive. The
+   element itself must set background-size: 200% auto. */
+@keyframes rfi-gradient-flow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.rfi-gradient-flow {
+  animation: rfi-gradient-flow 6s ease-in-out infinite;
+}
