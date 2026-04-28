@@ -4,13 +4,14 @@ import { MonoLabel } from "@/components/brand/brand";
 import { DeskMeta } from "@/components/home/DeskMeta";
 import { ACTIVE_GROUPS } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Big featured-round card on Home: circular dial showing month
 // progress + group meta + member avatars.
 
 export function FeaturedGroup() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
   const g = ACTIVE_GROUPS[0];
@@ -21,8 +22,8 @@ export function FeaturedGroup() {
   return (
     <div
       style={{
-        background: `linear-gradient(135deg, ${tokens.navyDeep} 0%, ${tokens.surface1} 70%)`,
-        border: `1px solid ${tokens.border}`,
+        ...glass,
+        background: `linear-gradient(135deg, ${tokens.navyDeep}99 0%, rgba(255,255,255,0.04) 70%)`,
         borderRadius: 20,
         padding: 24,
         position: "relative",

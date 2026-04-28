@@ -126,3 +126,32 @@ export function useTheme(): ThemeContextValue {
   if (!v) throw new Error("useTheme() must be used within <ThemeProvider>");
   return v;
 }
+
+// ── Glassmorphism helper ───────────────────────────────────
+// Returns the canonical card surface for the active palette:
+// translucent base + 12px backdrop blur + subtle hairline border.
+// Spec ref: rgba(255,255,255,0.03) + blur(12px) + 1px solid
+// rgba(255,255,255,0.08).
+//
+// Components spread the result into their style object:
+//   <div style={{ ...glassSurfaceStyle(palette), padding: 18 }} />
+//
+// Saturate(140%) keeps the green glows behind glass cards crisp
+// instead of muddy.
+export function glassSurfaceStyle(palette: Palette): React.CSSProperties {
+  if (palette === "soft") {
+    return {
+      background: "rgba(255, 255, 255, 0.62)",
+      backdropFilter: "blur(12px) saturate(140%)",
+      WebkitBackdropFilter: "blur(12px) saturate(140%)",
+      border: "1px solid rgba(42, 46, 56, 0.08)",
+    };
+  }
+  // neon
+  return {
+    background: "rgba(255, 255, 255, 0.03)",
+    backdropFilter: "blur(12px) saturate(140%)",
+    WebkitBackdropFilter: "blur(12px) saturate(140%)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+  };
+}
