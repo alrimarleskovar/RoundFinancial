@@ -4,12 +4,13 @@ import { MonoLabel } from "@/components/brand/brand";
 import type { Tone } from "@/data/carteira";
 import { RECOMMENDATIONS } from "@/data/insights";
 import { useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // 3-column grid of "next steps" cards under the chart + factors row.
 
 export function Recommendations() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
 
   const toneColor = (tone: Tone): string => {
@@ -39,10 +40,9 @@ export function Recommendations() {
             <div
               key={r.key}
               style={{
+                ...glass,
                 padding: 18,
                 borderRadius: 14,
-                background: tokens.surface1,
-                border: `1px solid ${tokens.border}`,
                 position: "relative",
                 overflow: "hidden",
               }}
