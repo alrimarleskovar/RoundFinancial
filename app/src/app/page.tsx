@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import { SegToggle } from "@/components/layout/SegToggle";
+import { RFILogoMark } from "@/components/brand/brand";
 import { useI18n, useT } from "@/lib/i18n";
 
 // Marketing landing for RoundFi. Renders before the user connects a
@@ -65,13 +66,8 @@ export default function LandingPage() {
       {/* Header (sticky, full-width tinted bar with blurred backdrop) */}
       <div className="sticky top-0 z-50 bg-[#06090F]/80 backdrop-blur-md border-b border-white/5">
         <header className="flex justify-between items-center p-4 md:p-6 max-w-7xl w-full mx-auto gap-2">
-          <div className="cursor-pointer transition-transform hover:scale-105 shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="RoundFi Logo"
-              className="h-12 md:h-16 w-auto object-contain"
-            />
+          <div className="cursor-pointer transition-transform hover:scale-105 shrink-0 flex items-center h-12 md:h-16">
+            <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
           </div>
           <nav className="hidden lg:flex gap-8 text-sm font-semibold text-gray-400 uppercase tracking-widest">
             <a href="#simulator" className="hover:text-white transition-colors">
@@ -388,13 +384,8 @@ export default function LandingPage() {
       <footer className="mt-auto border-t border-white/[0.06] pt-16 md:pt-20 pb-8 md:pb-10 bg-black/20">
         <div className="max-w-7xl w-full mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-10 md:mb-20 text-center md:text-left">
           <div className="col-span-1 md:col-span-2 flex flex-col items-center md:items-start">
-            <div className="mb-4 md:mb-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.png"
-                alt="RoundFi Logo"
-                className="h-16 w-auto object-contain grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all"
-              />
+            <div className="mb-4 md:mb-6 h-16 flex items-center grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">
+              <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
             </div>
             <p className="text-gray-500 max-w-sm leading-relaxed text-xs md:text-sm">
               {t("landing.footer.tagline").split(t("landing.footer.tagline.cofi"))[0]}
