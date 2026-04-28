@@ -24,8 +24,9 @@ So the response **is** the application. These five files are what my Claude Code
 | 01 | [`01_PROJECT.md`](./01_PROJECT.md) | What RoundFi is, who it's for, where it stands today. |
 | 02 | [`02_AGENTIC_PROCESS.md`](./02_AGENTIC_PROCESS.md) | **The core deliverable.** How this codebase was built using Claude Code + GitHub MCP + the disciplined plan/slice/commit loop we've established over 37 PRs. |
 | 03 | [`03_PR_LOG.md`](./03_PR_LOG.md) | Concrete velocity evidence — every shipped PR with what it added, in order. |
-| 04 | [`04_ROADMAP_GRANT_USE.md`](./04_ROADMAP_GRANT_USE.md) | Where the grant goes — phased upscale plan from "front-end + mock orchestrator" to "live mainnet protocol with multi-agent dev workflow". |
+| 04 | [`04_GRANT_USE.md`](./04_GRANT_USE.md) | Honest accounting — what $200 of AI subsidy buys (~6 weeks runway). |
 | 05 | [`05_BUILDER_NOTE.md`](./05_BUILDER_NOTE.md) | Short narrative from the builder + ask. |
+| 06 | [`06_MILESTONES.md`](./06_MILESTONES.md) | 3 milestones over 6 weeks: live `roundfi-core` → SAS reputation CPI → frontend bridge + demo. |
 
 ## How to evaluate
 
