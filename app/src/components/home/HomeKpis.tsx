@@ -21,12 +21,16 @@ export function HomeKpis() {
       <DeskKpi
         label={t("home.kpi.balance")}
         value={fmtMoney(USER.balance)}
+        numericValue={USER.balance}
+        format={(n) => fmtMoney(n)}
         delta={t("home.kpi.delta.balance")}
         tone="g"
       />
       <DeskKpi
         label={t("home.kpi.score")}
         value={USER.score}
+        numericValue={USER.score}
+        format={(n) => Math.round(n).toString()}
         delta={t("home.kpi.delta.score", { d: USER.scoreDelta })}
         tone="t"
         sub="/ 850"
@@ -34,12 +38,16 @@ export function HomeKpis() {
       <DeskKpi
         label={t("home.kpi.yield")}
         value={fmtMoney(USER.yield)}
+        numericValue={USER.yield}
+        format={(n) => fmtMoney(n)}
         delta={t("home.kpi.delta.yield")}
         tone="p"
       />
       <DeskKpi
         label={t("home.kpi.colat")}
         value={`${USER.colateralPct}%`}
+        numericValue={USER.colateralPct}
+        format={(n) => `${Math.round(n)}%`}
         delta={t("home.kpi.delta.lev", { x: USER.leverageX })}
         tone="a"
       />

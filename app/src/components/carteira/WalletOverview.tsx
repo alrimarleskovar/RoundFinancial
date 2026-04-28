@@ -3,6 +3,7 @@
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
+import { CountUp } from "@/components/ui/CountUp";
 import { USER } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -80,7 +81,7 @@ export function WalletOverview() {
                   lineHeight: 1,
                 }}
               >
-                {fmtMoney(USER.balance)}
+                <CountUp value={USER.balance} format={(n) => fmtMoney(n)} />
               </span>
             </div>
             <div
@@ -199,7 +200,7 @@ export function WalletOverview() {
               marginTop: 14,
             }}
           >
-            {fmtMoney(USER.yield)}
+            <CountUp value={USER.yield} format={(n) => fmtMoney(n)} />
           </div>
           <div
             style={{

@@ -1,6 +1,7 @@
 "use client";
 
 import { MonoLabel, RFILogoMark, RFIPill } from "@/components/brand/brand";
+import { CountUp } from "@/components/ui/CountUp";
 import { USER } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -87,7 +88,12 @@ export function ReputationPassport() {
                 lineHeight: 1,
               }}
             >
-              {USER.score}
+              <CountUp
+                value={USER.score}
+                format={(n) => Math.round(n).toString()}
+                damping={26}
+                stiffness={120}
+              />
             </span>
             <span
               style={{
