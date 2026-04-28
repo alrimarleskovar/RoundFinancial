@@ -10,7 +10,7 @@ import {
 } from "@/components/carteira/ConnectionCard";
 import { useConnections, type ConnId } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Conexões tab content. Composes the 5 ConnectionCards (Phantom real
@@ -19,7 +19,8 @@ import { shortAddr, useWallet } from "@/lib/wallet";
 // prototype/components/desktop-more.jsx.
 
 export function WalletConnections() {
-  const { tokens } = useTheme();
+  const { tokens, palette } = useTheme();
+  const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { lang, fmtMoney } = useI18n();
   const wallet = useWallet();
@@ -189,12 +190,12 @@ export function WalletConnections() {
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div
           style={{
+            ...glass,
             padding: 22,
             borderRadius: 18,
             position: "relative",
             overflow: "hidden",
-            background: `linear-gradient(145deg, ${tokens.navy}, ${tokens.surface1} 80%)`,
-            border: `1px solid ${tokens.border}`,
+            background: `linear-gradient(145deg, ${tokens.navy}AA, rgba(255,255,255,0.04) 80%)`,
           }}
         >
           <div
@@ -237,10 +238,9 @@ export function WalletConnections() {
 
         <div
           style={{
+            ...glass,
             padding: 18,
             borderRadius: 14,
-            background: tokens.surface1,
-            border: `1px solid ${tokens.border}`,
           }}
         >
           <MonoLabel color={tokens.teal}>{t("conn.soon")}</MonoLabel>
