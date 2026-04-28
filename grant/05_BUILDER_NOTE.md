@@ -6,7 +6,7 @@ Short version, builder's voice.
 
 I'm Alrimar Sobrinho, building RoundFi solo. The protocol idea — on-chain ROSCA with behavioral credit, designed for the unbanked and small businesses in emerging markets — is the kind of thing that traditionally takes a small team a year to ship to a credible state. I'm doing it with `solana.new` + Claude Code + the discipline of treating every PR like it has to ship.
 
-The repo speaks for itself: 37 merged PRs, every one structured, every one signed with the Claude session URL that produced it. The front-end is feature-complete. The Anchor programs are scaffolded with the test harness ready. The next push is the bridge from mock orchestrator to live on-chain CPI — that's the 6 weeks the $200 helps cover.
+The repo speaks for itself: 42 merged PRs, every one structured, every one signed with the Claude session URL that produced it. The front-end is feature-complete. The Anchor programs are drafted (~4,300 LoC across 14 `roundfi-core` instructions plus math modules) and the test harness has 13 specs in draft form. What's missing is the validation: economic parity against L1 (the Stress Lab simulator at `/lab`, shipped in PR #40), green bankrun runs of those specs, and a devnet deploy with a reproducible demo loop. That's the 6 weeks the $200 helps cover.
 
 What I get out of this grant is not the money per se — it's the signal that agentic engineering is something Superteam is actively investing in. That's the ecosystem I want to keep building inside.
 

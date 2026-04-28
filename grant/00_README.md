@@ -15,14 +15,14 @@ The Superteam form for the Agentic Engineering grant says:
 
 > *"You should be already using solana.new via claude/codex and this grant helps you upscale your agentic engineering. Just enter this prompt 'help me apply for the agentic engineering grant by Superteam' in your claude/codex sesh of solana new and upload your response files in drive link. We'll evaluate your application based on this."*
 
-So the response **is** the application. These five files are what my Claude Code session produced, end to end, inside the same project tree where I've spent 37 PRs building RoundFi over the last weeks. The same agent, the same workspace, the same toolchain you'd expect from someone who already lives on `solana.new`.
+So the response **is** the application. These five files are what my Claude Code session produced, end to end, inside the same project tree where I've spent 42 PRs building RoundFi over the last weeks. The same agent, the same workspace, the same toolchain you'd expect from someone who already lives on `solana.new`.
 
 ## Files in this bundle
 
 | # | File | What it covers |
 |---|---|---|
 | 01 | [`01_PROJECT.md`](./01_PROJECT.md) | What RoundFi is, who it's for, where it stands today. |
-| 02 | [`02_AGENTIC_PROCESS.md`](./02_AGENTIC_PROCESS.md) | **The core deliverable.** How this codebase was built using Claude Code + GitHub MCP + the disciplined plan/slice/commit loop we've established over 37 PRs. |
+| 02 | [`02_AGENTIC_PROCESS.md`](./02_AGENTIC_PROCESS.md) | **The core deliverable.** How this codebase was built using Claude Code + GitHub MCP + the disciplined plan/slice/commit loop we've established over 42 PRs. |
 | 03 | [`03_PR_LOG.md`](./03_PR_LOG.md) | Concrete velocity evidence — every shipped PR with what it added, in order. |
 | 04 | [`04_GRANT_USE.md`](./04_GRANT_USE.md) | Honest accounting — what $200 of AI subsidy buys (~6 weeks runway). |
 | 05 | [`05_BUILDER_NOTE.md`](./05_BUILDER_NOTE.md) | Short narrative from the builder + ask. |
@@ -32,7 +32,7 @@ So the response **is** the application. These five files are what my Claude Code
 
 Open the files in order. Or, if you only have time for one, read [`02_AGENTIC_PROCESS.md`](./02_AGENTIC_PROCESS.md) — it's the meta-evidence the grant is asking for.
 
-The companion repo (linked above) is where every claim in these files can be verified: 37 merged PRs, every one with a structured body I wrote, signed `https://claude.ai/code/session_…`. The PR list itself is the receipt.
+The companion repo (linked above) is where every claim in these files can be verified: 42 merged PRs, every one with a structured body I wrote, signed `https://claude.ai/code/session_…`. The PR list itself is the receipt.
 
 ## TL;DR for the grant amount
 

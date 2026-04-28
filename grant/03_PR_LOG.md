@@ -1,6 +1,6 @@
 # 03 · PR Log — every shipped change in order
 
-Concrete velocity evidence. 37 PRs merged into `main`, every one through the same Claude Code session running on top of `solana.new`. Listed in chronological order with the actual title (verifiable on GitHub).
+Concrete velocity evidence. 42 PRs merged into `main`, every one through the same Claude Code session running on top of `solana.new`. Listed in chronological order with the actual title (verifiable on GitHub).
 
 | # | Title | Theme |
 |---|---|---|
@@ -41,8 +41,11 @@ Concrete velocity evidence. 37 PRs merged into `main`, every one through the sam
 | 35 | docs: refresh README with the post-B aesthetic + interactive layer | Docs sync |
 | 36 | fix(landing): simulator Select Wallet renders as a long bar | CSS bug fix |
 | 37 | feat(landing): center simulator CTA + life on the comparison table | Landing polish |
-
-**38 (this bundle)** — `docs(grant): Superteam Agentic Engineering response files` — the deliverable you're reading.
+| 38 | docs(grant): Superteam Agentic Engineering bundle | Grant prep |
+| 39 | docs(grant): goals + milestones | Grant prep |
+| 40 | feat(lab): Stress Lab — actuarial simulator at /lab | L1 reference impl |
+| 41 | docs(grant): rewrite milestones around L1/L2/L3 architecture | Grant recalibration |
+| 42 | feat(lab): scenario presets + pool-balance sparkline | L1 fixtures for M1 |
 
 ## How to read this list
 
@@ -52,7 +55,7 @@ Concrete velocity evidence. 37 PRs merged into `main`, every one through the sam
 
 ## A note on cadence
 
-37 PRs over the course of the project's active lifetime. Not every day, not every week — bursts of agentic sessions where the loop runs cleanly. The point isn't "37 in a fixed time window"; it's that **every single one is shippable**, scoped, and reviewable.
+42 PRs over the course of the project's active lifetime. Not every day, not every week — bursts of agentic sessions where the loop runs cleanly. The point isn't "42 in a fixed time window"; it's that **every single one is shippable**, scoped, and reviewable.
 
 For comparison: traditional solo dev cadence on a side project often has either (a) one giant PR every two weeks that nobody can review, or (b) 200 messy commits to main. This is neither.
 

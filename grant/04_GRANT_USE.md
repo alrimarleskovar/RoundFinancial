@@ -8,7 +8,7 @@ Approximate, monthly, all paid by the builder personally:
 
 | Tool | Monthly | Notes |
 |---|---|---|
-| Claude Code Pro+ | ~$100 | Primary engineering driver — produced 37 PRs in this repo. |
+| Claude Code Pro+ | ~$100 | Primary engineering driver — produced 42 PRs in this repo. |
 | OpenAI API (occasional Codex / GPT review) | ~$20–30 | Cross-checks on Anchor program logic and TypeScript edge cases. |
 | Misc (embeddings / small models) | ~$10 | RAG over docs, occasional jq/sed assistance. |
 | **Total** | **~$130–140 / month** | |
@@ -17,19 +17,20 @@ Approximate, monthly, all paid by the builder personally:
 
 At my current burn rate, $200 = **~6 weeks of runway**. That maps cleanly to a defined push:
 
-### Goal for the 6 weeks: bridge the mock orchestrator to live on-chain Anchor programs
+### Goal for the 6 weeks: validate the Anchor draft against L1, ship the demo loop on devnet
 
-The front-end is feature-complete and reads from a typed in-memory `SessionProvider` that emits lifecycle events (PR #28). The Anchor programs are scaffolded but only expose `ping`. The bridge between them is the next milestone.
+The front-end is feature-complete and reads from a typed in-memory `SessionProvider` that emits lifecycle events (PR #28). The Anchor programs are drafted in Rust (~4,300 LoC across 14 `roundfi-core` instructions plus full math modules) but lack the validation gates that turn drafts into shippable software: economic parity against L1, green bankrun lifecycle/edge specs, and a reproducible devnet deploy.
 
 Concretely, a single Claude Code session at the current cadence can plausibly land:
 
-- **2–3 PRs** wiring `roundfi-core` instructions (initialize_pool, join, pay_installment, draw, conclude) — each follows the same plan/slice/commit pattern this repo already runs on.
-- **1 PR** wrapping those calls in the existing `lib/session.tsx` so dashboard UI doesn't have to change — the reducer just dispatches against real CPI calls instead of in-memory mutations.
+- **2–3 PRs** for the **economic parity** test — running each `/lab` preset (Healthy / Pre-default / Post-default / Cascade) through `runSimulation()` AND through `roundfi-core` under `solana-bankrun`, asserting identical `FrameMetrics`. Surfaces every divergence between the L1 spec and the L2 implementation.
+- **2–3 PRs** turning the 13 drafted specs (`tests/lifecycle.spec.ts`, `edge_*`, `security_*`, `reputation_*`, `yield_integration`) green under bankrun. Cross-program CPI between `roundfi-core` and `roundfi-reputation` covered here.
+- **1 PR** for `scripts/devnet/deploy.ts` actually deploying both programs and a `pnpm run demo:devnet` that initializes a sample pool from a fresh wallet.
+- **1 PR** wrapping the live CPI calls in the existing `lib/session.tsx` so dashboard UI doesn't have to change — the reducer just dispatches against real CPI calls instead of in-memory mutations.
 - **1 PR** for an indexer thin-shim so account fetches feed back into the dashboard read path.
-- **2–3 PRs** for the test harness — driving `tests/lifecycle.spec.ts` against the live programs in devnet.
-- **1 PR** for a README pass + a runnable demo script.
+- **1 PR** for a README pass + the post-mortem doc.
 
-That's **~8–10 PRs** of focused agentic work. At the historical rate (37 PRs over the lifetime so far), 6 weeks of subsidized AI usage is plausibly enough to land it.
+That's **~8–10 PRs** of focused agentic work. At the historical rate (42 PRs over the project lifetime so far), 6 weeks of subsidized AI usage is plausibly enough to land it.
 
 ## Why this matters more than dollar value
 
