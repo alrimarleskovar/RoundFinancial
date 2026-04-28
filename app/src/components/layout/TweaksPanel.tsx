@@ -21,6 +21,7 @@ const SCREENS: ReadonlyArray<readonly [string, string]> = [
   ["/reputacao", "Reputação"],
   ["/mercado",   "Mercado"],
   ["/insights",  "Insights"],
+  ["/lab",       "Stress Lab"],
   ["/",          "Landing"],
 ];
 
