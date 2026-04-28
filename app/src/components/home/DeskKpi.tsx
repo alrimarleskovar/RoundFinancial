@@ -1,6 +1,7 @@
 "use client";
 
 import { MonoLabel } from "@/components/brand/brand";
+import { CountUp } from "@/components/ui/CountUp";
 import type { Tone } from "@/data/carteira";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
@@ -9,12 +10,19 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 export function DeskKpi({
   label,
   value,
+  numericValue,
+  format,
   delta,
   tone,
   sub,
 }: {
   label: string;
   value: string | number;
+  // When provided, renders an animated CountUp with format(numericValue)
+  // instead of the static `value` string. Currency / palette flips
+  // animate between values.
+  numericValue?: number;
+  format?: (n: number) => string;
   delta: string;
   tone: Tone;
   sub?: string;
@@ -70,7 +78,11 @@ export function DeskKpi({
             lineHeight: 1,
           }}
         >
-          {value}
+          {numericValue != null && format ? (
+            <CountUp value={numericValue} format={format} />
+          ) : (
+            value
+          )}
         </span>
         {sub && (
           <span
