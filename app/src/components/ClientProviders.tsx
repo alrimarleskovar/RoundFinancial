@@ -29,7 +29,7 @@ function InnerProviders({ children }: { children: ReactNode }) {
 
 export function ClientProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider initial="soft">
+    <ThemeProvider initial="neon">
       <MotionProvider initial="fade">
         <I18nProvider initialLang="pt" initialCurrency="BRL">
           <ConnectionsProvider>

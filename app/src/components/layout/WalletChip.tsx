@@ -58,6 +58,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
           alignItems: "center",
           gap: 8,
           opacity: connecting ? 0.75 : 1,
+          boxShadow: `0 0 20px ${tokens.green}55, 0 4px 14px ${tokens.teal}33`,
         }}
       >
         {connecting && (
@@ -102,7 +103,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
           borderRadius: 10,
           cursor: "pointer",
           background: tokens.fillSoft,
-          border: `1px solid ${tokens.border}`,
+          border: `1px solid ${tokens.green}33`,
           color: tokens.text,
           fontSize: 12,
           fontWeight: 600,
@@ -110,6 +111,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
           alignItems: "center",
           gap: 8,
           fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+          animation: "rfi-glow 2.4s ease-in-out infinite",
         }}
       >
         <span
