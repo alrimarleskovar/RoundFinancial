@@ -32,3 +32,7 @@ So the response **is** the application. These five files are what my Claude Code
 Open the files in order. Or, if you only have time for one, read [`02_AGENTIC_PROCESS.md`](./02_AGENTIC_PROCESS.md) — it's the meta-evidence the grant is asking for.
 
 The companion repo (linked above) is where every claim in these files can be verified: 37 merged PRs, every one with a structured body I wrote, signed `https://claude.ai/code/session_…`. The PR list itself is the receipt.
+
+## TL;DR for the grant amount
+
+The $200 covers ~6 weeks of the AI subscriptions (Claude Code Pro+ + a bit of OpenAI for cross-checks) at the builder's current burn. That maps to ~8–10 more PRs of focused work bridging the mock orchestrator to live on-chain Anchor programs. Honest accounting in [`04_GRANT_USE.md`](./04_GRANT_USE.md).
