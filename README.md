@@ -250,6 +250,24 @@ pnpm run devnet:deploy            # build → keys sync → build → deploy
 
 Business logic lands in Step 4 — until then, deployed programs only expose a `ping` smoke instruction.
 
+### Deploy the front-end (Vercel)
+
+The repo ships a `vercel.json` at the root so the deploy works with zero manual config:
+
+1. Sign in at [vercel.com](https://vercel.com) → **Add New** → **Project** → import `alrimarleskovar/RoundFinancial`.
+2. Leave **Root Directory** at the repo root (`.`). Vercel reads `vercel.json` and:
+   - Runs `pnpm install --frozen-lockfile` at the root (pnpm workspace resolves).
+   - Builds only the app: `pnpm --filter @roundfi/app build`.
+   - Reads the build output from `app/.next`.
+3. Click **Deploy**. ~2 minutes.
+
+No env vars required for the public landing — wallet adapter handles its own RPC defaults (devnet). After M3 of the grant ships, the deploy will need:
+- `NEXT_PUBLIC_SOLANA_RPC_URL` (Helius / public devnet)
+- `NEXT_PUBLIC_ROUNDFI_CORE_PROGRAM_ID`
+- `NEXT_PUBLIC_ROUNDFI_REPUTATION_PROGRAM_ID`
+
+The `ignoreCommand` in `vercel.json` skips rebuilds when only docs/grant/programs/tests change — saves build minutes on doc-only PRs.
+
 ## License
 
 TBD (recommend Apache-2.0 for the core + BUSL-1.1 for the commercial score API).
