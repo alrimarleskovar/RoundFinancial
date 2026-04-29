@@ -384,6 +384,29 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.success.body":
       "Sua cota foi mintada como NFT. O escrow começa no próximo ciclo.",
     "modal.join.success.cta": "Ver no painel",
+    "modal.join.locked.title": "Grupo requer Lv.{lv}",
+    "modal.join.locked.subtitle":
+      "Seu nível atual ainda não desbloqueia este grupo.",
+    "modal.join.locked.gapBadge": "VOCÊ Nv.{cur} → REQUER Nv.{req}",
+    "modal.join.locked.body":
+      "Este grupo é Lv.{req} (10% de stake). Você precisa de mais {pts} pontos no SAS pra atingir o limiar de {target}.",
+    "modal.join.locked.scoreLabel": "Score",
+    "modal.join.locked.cta": "Como subir →",
+    // new cycle modal (groups header)
+    "modal.newCycle.title": "Criar novo ciclo",
+    "modal.newCycle.subtitle":
+      "Veteranos podem orquestrar novos grupos no protocolo.",
+    "modal.newCycle.lockedSubtitle":
+      "Criação de ciclos é uma capacidade Lv.3.",
+    "modal.newCycle.demoBadge": "MODO DEMO",
+    "modal.newCycle.demoBody":
+      "Criar grupos via roundfi-core::create_pool entra em devnet no M3 do roadmap. A regra de Lv.3 será enforced on-chain.",
+    "modal.newCycle.learnMore": "Ver roadmap →",
+    "modal.newCycle.gapBadge": "VOCÊ Nv.{cur} → REQUER Nv.3",
+    "modal.newCycle.lockedBody":
+      "Apenas Veteranos (Nv.3) podem criar novos ciclos. Você precisa de mais {pts} pontos pra alcançar o limiar de {target}.",
+    "modal.newCycle.scoreLabel": "Score",
+    "modal.newCycle.cta": "Como subir →",
     // pay installment
     "modal.pay.title": "Pagar parcela",
     "modal.pay.subtitle": "Distribuição automática via Triplo Escudo.",
@@ -431,6 +454,7 @@ export const DICT: Record<Lang, Dict> = {
     "groups.chip.all": "Todos",
     "groups.chip.any": "Qualquer",
     "groups.chip.onlyOpen": "Apenas com vagas",
+    "groups.chip.onlyAccessible": "No meu nível (Lv.{lv})",
     "groups.chip.lt6": "≤ 6 meses",
     "groups.chip.7to12": "7–12 meses",
     "groups.chip.gt12": "> 12 meses",
@@ -449,6 +473,8 @@ export const DICT: Record<Lang, Dict> = {
     "groups.card.nv1": "Nv.1+",
     "groups.card.cta.view": "Ver detalhes",
     "groups.card.cta.join": "Entrar no grupo",
+    "groups.card.cta.locked": "Requer Lv.{lv}",
+    "groups.card.requiresLevel": "Requer Lv.{lv}",
     "groups.card.spots": "{f}/{t} cotas",
     // categories
     "cat.pme": "PME",
@@ -927,6 +953,29 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.success.body":
       "Your share was minted as an NFT. Escrow starts next cycle.",
     "modal.join.success.cta": "Go to dashboard",
+    "modal.join.locked.title": "Group requires Lv.{lv}",
+    "modal.join.locked.subtitle":
+      "Your current tier doesn't unlock this group yet.",
+    "modal.join.locked.gapBadge": "YOU Lv.{cur} → NEEDS Lv.{req}",
+    "modal.join.locked.body":
+      "This group is Lv.{req} (10% stake). You need {pts} more SAS points to reach the {target} threshold.",
+    "modal.join.locked.scoreLabel": "Score",
+    "modal.join.locked.cta": "How to level up →",
+    // new cycle modal (groups header)
+    "modal.newCycle.title": "Create new cycle",
+    "modal.newCycle.subtitle":
+      "Veterans can orchestrate new groups on the protocol.",
+    "modal.newCycle.lockedSubtitle":
+      "Creating cycles is a Lv.3 capability.",
+    "modal.newCycle.demoBadge": "DEMO MODE",
+    "modal.newCycle.demoBody":
+      "Group creation via roundfi-core::create_pool ships on devnet at M3 of the roadmap. The Lv.3 rule is enforced on-chain.",
+    "modal.newCycle.learnMore": "View roadmap →",
+    "modal.newCycle.gapBadge": "YOU Lv.{cur} → NEEDS Lv.3",
+    "modal.newCycle.lockedBody":
+      "Only Veterans (Lv.3) can create new cycles. You need {pts} more points to reach the {target} threshold.",
+    "modal.newCycle.scoreLabel": "Score",
+    "modal.newCycle.cta": "How to level up →",
     // pay installment
     "modal.pay.title": "Pay installment",
     "modal.pay.subtitle": "Automatic distribution via Triple Shield.",
@@ -973,6 +1022,7 @@ export const DICT: Record<Lang, Dict> = {
     "groups.chip.all": "All",
     "groups.chip.any": "Any",
     "groups.chip.onlyOpen": "Only with spots",
+    "groups.chip.onlyAccessible": "My tier (Lv.{lv})",
     "groups.chip.lt6": "≤ 6 months",
     "groups.chip.7to12": "7–12 months",
     "groups.chip.gt12": "> 12 months",
@@ -991,6 +1041,8 @@ export const DICT: Record<Lang, Dict> = {
     "groups.card.nv1": "Lv.1+",
     "groups.card.cta.view": "View details",
     "groups.card.cta.join": "Join group",
+    "groups.card.cta.locked": "Requires Lv.{lv}",
+    "groups.card.requiresLevel": "Requires Lv.{lv}",
     "groups.card.spots": "{f}/{t} shares",
     "cat.pme": "SMB",
     "cat.vip": "✦ VIP",

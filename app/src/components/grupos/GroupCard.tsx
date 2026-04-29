@@ -3,19 +3,31 @@
 import { useState } from "react";
 
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
+import { Icons } from "@/components/brand/icons";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// Single card in the Grupos catalog grid.
+// Single card in the Grupos catalog grid. Renders a locked state
+// when `g.level > user.level` so a Lv2 user can't accidentally
+// open the join flow on a Lv3 group. The modal still opens but
+// shows the locked state — explaining the gap and pointing at
+// `/insights` for the path to the next tier.
 
 export function GroupCard({ g }: { g: CatalogGroup }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { user } = useSession();
   const [joinOpen, setJoinOpen] = useState(false);
+
+  // Level gate: protocol enforces tier eligibility on-chain via
+  // `roundfi-core::join_pool` (M2 of the grant roadmap). UI mirrors
+  // the rule so users see the block before paying gas.
+  const locked = !g.joined && g.level > user.level;
 
   const tc = ((): string => {
     switch (g.tone) {
@@ -40,6 +52,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         display: "flex",
         flexDirection: "column",
         gap: 14,
+        opacity: locked ? 0.72 : 1,
       }}
     >
       <div
@@ -49,7 +62,9 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
           left: 0,
           right: 0,
           height: 2,
-          background: `linear-gradient(90deg, ${tc}, transparent)`,
+          background: locked
+            ? `linear-gradient(90deg, ${tokens.muted}, transparent)`
+            : `linear-gradient(90deg, ${tc}, transparent)`,
         }}
       />
       <div
@@ -70,12 +85,37 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
             alignItems: "center",
             justifyContent: "center",
             fontSize: 22,
+            position: "relative",
           }}
         >
           {g.emoji}
+          {locked && (
+            <div
+              style={{
+                position: "absolute",
+                top: -6,
+                right: -6,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: tokens.surface1,
+                border: `1px solid ${tokens.borderStr}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: tokens.muted,
+              }}
+            >
+              <Icons.lock size={11} stroke={tokens.muted} />
+            </div>
+          )}
         </div>
         {g.joined ? (
           <RFIPill tone="g">{t("groups.card.joined")}</RFIPill>
+        ) : locked ? (
+          <RFIPill tone="n">
+            {t("groups.card.requiresLevel", { lv: g.level })}
+          </RFIPill>
         ) : g.level === 3 ? (
           <RFIPill tone="p">{t("groups.card.vip")}</RFIPill>
         ) : (
@@ -165,11 +205,19 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         style={{
           padding: "10px 14px",
           borderRadius: 11,
-          border: `1px solid ${tokens.borderStr}`,
+          border: locked
+            ? `1px solid ${tokens.borderStr}`
+            : `1px solid ${tokens.borderStr}`,
           background: g.joined
             ? tokens.fillSoft
+            : locked
+            ? tokens.fillMed
             : `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
-          color: g.joined ? tokens.text : tokens.bgDeep,
+          color: g.joined
+            ? tokens.text
+            : locked
+            ? tokens.text2
+            : tokens.bgDeep,
           fontSize: 12,
           fontWeight: 600,
           cursor: "pointer",
@@ -180,7 +228,12 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
           fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
         }}
       >
-        {g.joined ? t("groups.card.cta.view") : t("groups.card.cta.join")}
+        {locked && <Icons.lock size={13} stroke="currentColor" />}
+        {g.joined
+          ? t("groups.card.cta.view")
+          : locked
+          ? t("groups.card.cta.locked", { lv: g.level })
+          : t("groups.card.cta.join")}
       </button>
       <JoinGroupModal
         group={g}

@@ -8,6 +8,7 @@ import { Chip } from "@/components/grupos/Chip";
 import { FilterRow } from "@/components/grupos/FilterRow";
 import { FilterSelect } from "@/components/grupos/FilterSelect";
 import { GroupCard } from "@/components/grupos/GroupCard";
+import { NewCycleModal } from "@/components/grupos/NewCycleModal";
 import { DeskBtn } from "@/components/home/DeskBtn";
 import { useSession } from "@/lib/session";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type GroupLevel } from "@/data/groups";
@@ -48,7 +49,9 @@ export function GruposClient() {
   const [duration, setDuration] = useState<Duration>("all");
   const [sort, setSort] = useState<Sort>("relevant");
   const [onlyOpen, setOnlyOpen] = useState(false);
+  const [onlyAccessible, setOnlyAccessible] = useState(false);
   const [query, setQuery] = useState("");
+  const [newCycleOpen, setNewCycleOpen] = useState(false);
 
   const filtered = useMemo(() => {
     let rows = enriched;
@@ -69,6 +72,7 @@ export function GruposClient() {
       });
     }
     if (onlyOpen) rows = rows.filter((g) => g.filled < g.total);
+    if (onlyAccessible) rows = rows.filter((g) => g.level <= user.level);
     if (query) {
       const q = query.toLowerCase();
       rows = rows.filter((g) => g.name.toLowerCase().includes(q));
@@ -81,13 +85,14 @@ export function GruposClient() {
         (a, b) => a.total - a.filled - (b.total - b.filled),
       );
     return rows;
-  }, [enriched, level, category, budget, duration, onlyOpen, query, sort]);
+  }, [enriched, level, category, budget, duration, onlyOpen, onlyAccessible, query, sort, user.level]);
 
   const totalOpen = enriched.filter((g) => g.filled < g.total).length;
   const accessibleCount = enriched.filter((g) => g.level <= user.level).length;
   const activeCount =
     [level, category, budget, duration].filter((x) => x !== "all").length +
     (onlyOpen ? 1 : 0) +
+    (onlyAccessible ? 1 : 0) +
     (query ? 1 : 0);
 
   const clearAll = () => {
@@ -96,6 +101,7 @@ export function GruposClient() {
     setBudget("all");
     setDuration("all");
     setOnlyOpen(false);
+    setOnlyAccessible(false);
     setQuery("");
   };
 
@@ -147,7 +153,11 @@ export function GruposClient() {
             })}
           </div>
         </div>
-        <DeskBtn tone="primary" icon={Icons.plus}>
+        <DeskBtn
+          tone="primary"
+          icon={Icons.plus}
+          onClick={() => setNewCycleOpen(true)}
+        >
           {t("groups.newCycle")}
         </DeskBtn>
       </div>
@@ -321,6 +331,13 @@ export function GruposClient() {
               {onlyOpen ? "✓ " : ""}
               {t("groups.chip.onlyOpen")}
             </Chip>
+            <Chip
+              active={onlyAccessible}
+              onClick={() => setOnlyAccessible(!onlyAccessible)}
+            >
+              {onlyAccessible ? "✓ " : ""}
+              {t("groups.chip.onlyAccessible", { lv: user.level })}
+            </Chip>
           </FilterRow>
         </div>
 
@@ -436,6 +453,11 @@ export function GruposClient() {
           ))}
         </div>
       )}
+
+      <NewCycleModal
+        open={newCycleOpen}
+        onClose={() => setNewCycleOpen(false)}
+      />
     </div>
   );
 }
