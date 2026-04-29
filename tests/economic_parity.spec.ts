@@ -58,6 +58,7 @@ import { expect } from "chai";
 // (which use `.js` suffixes for NodeNext compatibility).
 import {
   defaultMatrix,
+  LEVEL_PARAMS,
   PRESETS,
   PRESET_ORDER,
   runSimulation,
@@ -591,6 +592,97 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
         ).to.be.closeTo(expected, 1e-6);
       }
     }
+  });
+});
+
+// ─── Layer 1g — mature group acceleration ────────────────────────────
+// Whitepaper: in a mature group the escrow drip accelerates from
+// 5/4/3 months (immature) to 3/2/1 months (mature) across Lv1/Lv2/Lv3.
+// Mature members get their credit faster, so the refund window
+// (which opens after the drip ends) gets longer.
+
+describe("runSimulation — mature group acceleration", () => {
+  it("LEVEL_PARAMS exposes both immature and mature drip schedules", () => {
+    expect(LEVEL_PARAMS.Iniciante.releaseMonths).to.equal(5);
+    expect(LEVEL_PARAMS.Iniciante.releaseMonthsMature).to.equal(3);
+    expect(LEVEL_PARAMS.Comprovado.releaseMonths).to.equal(4);
+    expect(LEVEL_PARAMS.Comprovado.releaseMonthsMature).to.equal(2);
+    expect(LEVEL_PARAMS.Veterano.releaseMonths).to.equal(3);
+    expect(LEVEL_PARAMS.Veterano.releaseMonthsMature).to.equal(1);
+  });
+
+  it("default config (no maturity field) behaves as immature — preserves prior behavior", () => {
+    const config = {
+      level: "Comprovado" as const,
+      members: 12,
+      installmentUsdc: 1000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    const immature = runSimulation({ ...config, maturity: "immature" }, defaultMatrix(12));
+    const defaulted = runSimulation(config, defaultMatrix(12));
+    // Compare end-of-pool poolBalance — should be identical.
+    expect(defaulted.slice(-1)[0]!.metrics.poolBalance).to.be.closeTo(
+      immature.slice(-1)[0]!.metrics.poolBalance,
+      1e-6,
+    );
+  });
+
+  it("mature member contemplated at cycle 1 receives credit faster", () => {
+    // Iniciante (Lv1): drip over 5 cycles immature, 3 cycles mature.
+    // Member 0 contemplated at cycle 1: receives 2*inst upfront, then
+    // (credit - 2*inst) split over the drip window.
+    const N = 12;
+    const baseConfig = {
+      level: "Iniciante" as const,
+      members: N,
+      installmentUsdc: 1000,
+      kaminoApy: 0,
+      yieldFeePct: 0,
+    };
+    const immatureFrames = runSimulation({ ...baseConfig, maturity: "immature" }, defaultMatrix(N));
+    const matureFrames = runSimulation({ ...baseConfig, maturity: "mature" }, defaultMatrix(N));
+
+    // At cycle 4: immature has released upfront + 3 drips; mature has
+    // released upfront + all 3 drips and is into the refund phase.
+    const m0Immature = immatureFrames[3]!.ledgerSnapshot[0]!;
+    const m0Mature = matureFrames[3]!.ledgerSnapshot[0]!;
+
+    // Total received (credit + refund) should be higher in mature
+    // since the credit fully releases in 3 cycles instead of 5,
+    // freeing the refund phase to start sooner.
+    expect(
+      m0Mature.received,
+      "mature member receives more by cycle 4",
+    ).to.be.greaterThan(m0Immature.received);
+  });
+
+  it("mature group ends with smaller outstanding obligations", () => {
+    // Healthy run, Veterano (the level with biggest mature gap:
+    // 3 → 1 month). Mature should leave less owed at end of pool
+    // because more drips fit within N=12 cycles.
+    const baseConfig = {
+      level: "Veterano" as const,
+      members: 12,
+      installmentUsdc: 1000,
+      kaminoApy: 0,
+      yieldFeePct: 0,
+    };
+    const immatureEnd = runSimulation(
+      { ...baseConfig, maturity: "immature" },
+      defaultMatrix(12),
+    ).slice(-1)[0]!.metrics;
+    const matureEnd = runSimulation(
+      { ...baseConfig, maturity: "mature" },
+      defaultMatrix(12),
+    ).slice(-1)[0]!.metrics;
+
+    expect(
+      matureEnd.outstandingEscrow + matureEnd.outstandingStakeRefund,
+      "mature: less owed at end of pool",
+    ).to.be.lessThan(
+      immatureEnd.outstandingEscrow + immatureEnd.outstandingStakeRefund,
+    );
   });
 });
 

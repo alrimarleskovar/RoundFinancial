@@ -15,6 +15,7 @@ import {
   runSimulation,
   toggleCell,
   type GroupLevel,
+  type GroupMaturity,
   type MatrixCell,
   type MemberLedger,
   type PresetId,
@@ -39,6 +40,7 @@ export function StressLabClient() {
 
   // ── Config state ─────────────────────────────────────────
   const [level, setLevel] = useState<GroupLevel>("Comprovado");
+  const [maturity, setMaturity] = useState<GroupMaturity>("immature");
   const [members, setMembers] = useState(12);
   const [installmentUsdc, setInstallmentUsdc] = useState(1000);
   const [kaminoApy, setKaminoApy] = useState(6.5);
@@ -69,10 +71,10 @@ export function StressLabClient() {
   const frames = useMemo<StressLabFrame[]>(
     () =>
       runSimulation(
-        { level, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames },
+        { level, maturity, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames },
         matrix,
       ),
-    [level, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames, matrix],
+    [level, maturity, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames, matrix],
   );
 
   const handleMembersChange = (n: number) => {
@@ -91,6 +93,7 @@ export function StressLabClient() {
     if (running) return;
     const preset = PRESETS[id];
     setLevel(preset.config.level);
+    setMaturity(preset.config.maturity ?? "immature");
     setMembers(preset.config.members);
     setInstallmentUsdc(preset.config.installmentUsdc);
     setKaminoApy(preset.config.kaminoApy);
@@ -296,6 +299,59 @@ export function StressLabClient() {
                             ✦
                           </span>
                         )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Group maturity toggle */}
+              <div>
+                <label
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: tokens.text2,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span>{t("lab.controls.maturity")}</span>
+                  <span style={{ color: tokens.muted, fontWeight: 400 }}>
+                    {maturity === "mature"
+                      ? `${params.releaseMonthsMature} ${t("lab.controls.maturityMonths")}`
+                      : `${params.releaseMonths} ${t("lab.controls.maturityMonths")}`}
+                  </span>
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {(["immature", "mature"] as const).map((mat) => {
+                    const active = maturity === mat;
+                    const accent = mat === "mature" ? tokens.green : tokens.teal;
+                    return (
+                      <button
+                        key={mat}
+                        type="button"
+                        disabled={running || finished}
+                        onClick={() => setMaturity(mat)}
+                        style={{
+                          padding: "8px 0",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          borderRadius: 8,
+                          border: `1px solid ${active ? accent : tokens.border}`,
+                          background: active ? `${accent}22` : tokens.fillSoft,
+                          color: active ? accent : tokens.muted,
+                          cursor: running || finished ? "not-allowed" : "pointer",
+                          opacity: running || finished ? 0.6 : 1,
+                          fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                          transition: "all 200ms ease",
+                          boxShadow: active ? `0 0 12px ${accent}33` : "none",
+                        }}
+                      >
+                        {t(`lab.controls.maturity.${mat}`)}
                       </button>
                     );
                   })}
