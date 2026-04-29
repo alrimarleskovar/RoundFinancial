@@ -419,6 +419,87 @@ describe("runSimulation — stake cashback phase", () => {
   });
 });
 
+// ─── Layer 1e — net solvency vs gross cash ───────────────────────────
+// `poolBalance` (gross cash) was being read as a solvency signal, but
+// it includes member stakes (a *liability* — owed back to ok members)
+// and any escrow not yet released. The headline SOLVENT/INSOLVENT
+// verdict must derive from netSolvency = poolBalance −
+// outstandingEscrow − outstandingStakeRefund instead.
+
+describe("runSimulation — net solvency vs gross cash", () => {
+  it("netSolvency formula holds at every cycle: pool − escrow − stakeRefund", () => {
+    // Sanity: the FrameMetrics field is just the bookkeeping
+    // identity. Asserting it on every frame of every preset locks
+    // down the invariant against future regressions.
+    for (const id of PRESET_ORDER) {
+      const preset = PRESETS[id];
+      const frames = runSimulation(preset.config, preset.matrix);
+      for (const frame of frames) {
+        const m = frame.metrics;
+        expect(
+          m.netSolvency,
+          `preset=${id} cycle=${frame.cycle}`,
+        ).to.be.closeTo(
+          m.poolBalance - m.outstandingEscrow - m.outstandingStakeRefund,
+          1e-6,
+        );
+      }
+    }
+  });
+
+  it("netSolvency is strictly less than poolBalance while obligations exist", () => {
+    // Mid-run frame for the Healthy preset: ok members still hold
+    // stakes that haven't been refunded yet AND credit drips that
+    // haven't fully released. The gross poolBalance is high; the
+    // net solvency is much lower. Demonstrates why the old gross-
+    // cash verdict was misleading.
+    const preset = PRESETS.healthy;
+    const frames = runSimulation(preset.config, preset.matrix);
+    const midFrame = frames[Math.floor(frames.length / 2)]!;
+    const m = midFrame.metrics;
+
+    expect(m.poolBalance, "gross cash > 0 mid-run").to.be.greaterThan(0);
+    expect(
+      m.outstandingEscrow + m.outstandingStakeRefund,
+      "obligations > 0 mid-run",
+    ).to.be.greaterThan(0);
+    expect(
+      m.netSolvency,
+      "netSolvency < poolBalance while obligations exist",
+    ).to.be.lessThan(m.poolBalance);
+  });
+
+  it("a pre-contemplation defaulter is removed from outstanding obligations", () => {
+    // PreDefault drops member 4 (would have been contemplated at
+    // cycle 5) — they default at cycle 3 (calote_pre). Compared
+    // to Healthy:
+    //   - totalRetained rises (their paid-so-far is now retained).
+    //   - their refund obligation drops to 0 (they're no longer ok).
+    // Member 4 in Healthy is contemplated at cycle 5 with a full
+    // 3-cycle refund window (refundMonths = 12 − 5 − 4 = 3) → fully
+    // refunded → contributed 0 to outstanding anyway. So in this
+    // specific preset the difference is in totalRetained, not in
+    // outstanding numbers. Asserting the totalRetained delta keeps
+    // the test meaningful even when outstanding doesn't move.
+    const healthyEnd =
+      runSimulation(PRESETS.healthy.config, PRESETS.healthy.matrix).slice(-1)[0]!;
+    const preEnd =
+      runSimulation(PRESETS.preDefault.config, PRESETS.preDefault.matrix).slice(-1)[0]!;
+
+    expect(
+      preEnd.metrics.totalRetained,
+      "defaulter's paid-so-far retained by protocol",
+    ).to.be.greaterThan(healthyEnd.metrics.totalRetained);
+    // Both presets have the same late-contemplation truncation pattern,
+    // so outstandingStakeRefund is the same — the defaulter (member 4)
+    // would have been fully refunded in Healthy and is excluded as
+    // not-ok in PreDefault. Either way, contributes 0.
+    expect(preEnd.metrics.outstandingStakeRefund).to.equal(
+      healthyEnd.metrics.outstandingStakeRefund,
+    );
+  });
+});
+
 // ─── Layer 2 — L1 ↔ L2 parity (wired in subsequent PRs) ──────────────
 //
 // These suites are kept as `describe.skip` so the file doesn't fail

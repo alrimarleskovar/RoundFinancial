@@ -39,11 +39,37 @@ export interface FrameMetrics {
   collectedInstallments: number;
   kaminoNetYield: number;
   protocolFeeRevenue: number;
+  /**
+   * Gross cash sitting in the pool. Includes member stakes (which
+   * are a *liability* — the protocol owes them back to ok members)
+   * and any escrow that hasn't been released yet. By itself this
+   * is NOT a solvency signal — see `netSolvency` for that.
+   */
   poolBalance: number;
   paidOut: number;
   totalStake: number;
   totalRetained: number;
   totalLoss: number;
+  /**
+   * Sum of `(credit_owed − credit_received)` across all ok
+   * contemplated members at end of cycle. Money the protocol still
+   * owes as upfront/drips. At end of pool with healthy members
+   * fully drained, this is 0.
+   */
+  outstandingEscrow: number;
+  /**
+   * Sum of `(stake − stakeRefunded)` across all ok members. Money
+   * the protocol still owes as cashback. At end of pool with
+   * healthy refund windows fully covered, this is 0.
+   */
+  outstandingStakeRefund: number;
+  /**
+   * `poolBalance − outstandingEscrow − outstandingStakeRefund`.
+   * Net cash the protocol is sitting on after honoring every open
+   * obligation to ok members. The SOLVENT/INSOLVENT verdict
+   * derives from this — positive ≡ solvent.
+   */
+  netSolvency: number;
 }
 
 export interface StressLabFrame {
@@ -292,6 +318,31 @@ export function runSimulation(
       totalPoolBalance += cycleNetYield; // Only net yield reinforces the vault.
     }
 
+    // ── Outstanding obligations to ok members ──
+    // Stake refund pending: every ok member is owed `stake −
+    // stakeRefunded`. Escrow pending: every ok contemplated
+    // member is owed `credit − (received − stakeRefunded)`. The
+    // simulator's verdict (SOLVENT vs INSOLVENT) uses
+    // `poolBalance − these` so the headline doesn't hide a stake
+    // liability behind gross cash.
+    let outstandingStakeRefund = 0;
+    let outstandingEscrow = 0;
+    for (let m = 0; m < N; m++) {
+      if (ledger[m].status !== "ok") continue;
+      outstandingStakeRefund += stake - ledger[m].stakeRefunded;
+
+      let monthContemplated = -1;
+      for (let i = 0; i < N; i++) {
+        if (matrix[m][i] === "C") monthContemplated = i + 1;
+      }
+      if (monthContemplated > 0) {
+        const creditReceived = ledger[m].received - ledger[m].stakeRefunded;
+        outstandingEscrow += Math.max(0, credit - creditReceived);
+      }
+    }
+    const netSolvency =
+      totalPoolBalance - outstandingEscrow - outstandingStakeRefund;
+
     frames.push({
       cycle: c,
       metrics: {
@@ -303,6 +354,9 @@ export function runSimulation(
         totalStake: stake * N,
         totalRetained,
         totalLoss,
+        outstandingEscrow,
+        outstandingStakeRefund,
+        netSolvency,
       },
       // Deep clone so future cycles can't retroactively mutate snapshots.
       ledgerSnapshot: ledger.map((l) => ({ ...l })),
@@ -324,6 +378,9 @@ export function emptyFrame(): StressLabFrame {
       totalStake: 0,
       totalRetained: 0,
       totalLoss: 0,
+      outstandingEscrow: 0,
+      outstandingStakeRefund: 0,
+      netSolvency: 0,
     },
     ledgerSnapshot: [],
   };
