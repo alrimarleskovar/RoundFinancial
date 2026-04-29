@@ -9,8 +9,22 @@
 // Lv1 Iniciante (50% stake) → Lv2 Comprovado (30%) → Lv3 Veterano (10%, ✦ VIP).
 // "VIP" is a visual badge on Lv3, not a separate level.
 export type GroupLevel = "Iniciante" | "Comprovado" | "Veterano";
-export type MatrixCell = "P" | "C" | "X";
-export type MemberStatus = "ok" | "calote_pre" | "calote_pos";
+// Matrix cell semantics:
+//   P = installment paid that cycle
+//   C = contemplation (this row's contemplation cycle, exactly one per row)
+//   X = default (calote) — installment unpaid + member exits with penalty
+//   E = escape valve — member sells their NFT share on the secondary market.
+//       No installment paid this cycle, member exits without penalty,
+//       reputation preserved (whitepaper Slide 6 / Maria's case study).
+//       Phase 1 lands the type + simulation handler; phase 2 wires the
+//       buyer-takeover side and the toggleCell click flow.
+export type MatrixCell = "P" | "C" | "X" | "E";
+// Member final status:
+//   ok          = paid in full, contemplated normally
+//   calote_pre  = pre-contemplation default → protocol retains stake + paid installments
+//   calote_pos  = post-contemplation default → protocol takes a real loss
+//   exited      = sold the NFT share via Escape Valve → no penalty, no loss
+export type MemberStatus = "ok" | "calote_pre" | "calote_pos" | "exited";
 
 export interface MemberLedger {
   name: string;
@@ -82,12 +96,19 @@ export interface FrameMetrics {
    */
   guaranteeFundCap: number;
   /**
-   * Yield distributed to liquidity providers / participants — the
-   * residual of the waterfall after admin fee + guarantee fund
-   * fill-up. Already left the protocol's books; counted toward
-   * "what the model produced" but not toward solvency.
+   * Yield distributed to LPs (Anjos de Liquidez) — the bigger
+   * slice of the residual after admin fee + guarantee fund fill-up.
+   * Already left the protocol's books.
    */
   lpDistribution: number;
+  /**
+   * Yield distributed to pool participants ("prêmio de paciência")
+   * — the smaller slice of the residual. Pure upside for ok members
+   * who completed cycles without drama. Already left the protocol's
+   * books; counted toward "what the model produced" but not toward
+   * solvency.
+   */
+  participantsDistribution: number;
   /**
    * `poolBalance − outstandingEscrow − outstandingStakeRefund`.
    * Net cash the protocol is sitting on after honoring every open
@@ -141,7 +162,14 @@ export const ALL_NAMES = [
 export interface StressLabConfig {
   level: GroupLevel;
   members: number;
-  installmentUsdc: number;
+  /**
+   * Total credit (carta) the contemplated member is entitled to,
+   * in USDC. This is the primary input the lab UI exposes — the
+   * monthly installment is *derived* as `creditAmountUsdc / members`
+   * and the cycle count is locked at `members` (one cycle per
+   * member, one contemplation per cycle).
+   */
+  creditAmountUsdc: number;
   kaminoApy: number;    // % annual
   yieldFeePct: number;  // % of yield kept by the protocol as admin fee
   memberNames?: string[];
@@ -227,8 +255,12 @@ export function runSimulation(
   matrix: MatrixCell[][],
 ): StressLabFrame[] {
   const N = config.members;
-  const inst = config.installmentUsdc;
-  const credit = inst * N;
+  // Credit (carta) is the primary input. Monthly installment is
+  // derived: each of the N members contributes 1/N of the credit
+  // per cycle, and there are exactly N cycles (one contemplation
+  // per cycle per member).
+  const credit = config.creditAmountUsdc;
+  const inst = credit / N;
   const params = LEVEL_PARAMS[config.level];
   const stake = credit * (params.stakePct / 100);
   // Mature groups get the accelerated drip schedule (3/2/1 across
@@ -264,11 +296,17 @@ export function runSimulation(
   // lpDistribution is already paid out and doesn't count.
   const SOLIDARITY_FEE_PCT = 0.01;
   const GUARANTEE_FUND_CAP = 1.5 * credit;
+  // Yield-waterfall residual split: 65% LPs / 35% participants.
+  // LPs (Anjos de Liquidez) provide external capital and earn the
+  // bulk of the upside; participants get a "patience prize" carve-out.
+  // Whitepaper-aligned ratio; would be a governance parameter on-chain.
+  const LP_RESIDUAL_SHARE = 0.65;
 
   let totalPoolBalance = stake * N;
   let solidarityVault = 0;
   let guaranteeFund = 0;
   let lpDistribution = 0;
+  let participantsDistribution = 0;
   let totalNetYield = 0;
   let totalProtocolFeeRevenue = 0;
   let totalInstallments = 0;
@@ -300,7 +338,8 @@ export function runSimulation(
         monthContemplated > 0 &&
         monthContemplated <= c &&
         ledger[m].status === "ok" &&
-        action !== "X"
+        action !== "X" &&
+        action !== "E"
       ) {
         // Whitepaper rule: the installment first unlocks that
         // month's escrow drip; once the escrow is fully drained,
@@ -367,6 +406,16 @@ export function runSimulation(
           }
         }
       }
+
+      if (action === "E" && ledger[m].status === "ok") {
+        // Escape Valve: member sells the NFT share. They exit without
+        // penalty; the protocol does NOT register a loss (a buyer
+        // assumes the position in production). Phase 1 just locks the
+        // member in `exited` state so their future installments and
+        // escrow drips are skipped. Phase 2 wires the buyer-takeover
+        // continuation into the same row's downstream cycles.
+        ledger[m].status = "exited";
+      }
     }
 
     totalInstallments += cycleInstallments;
@@ -393,8 +442,11 @@ export function runSimulation(
       const gfGap = Math.max(0, GUARANTEE_FUND_CAP - guaranteeFund);
       const toGuaranteeFund = Math.min(cycleNetYield, gfGap);
       guaranteeFund += toGuaranteeFund;
-      const toLp = cycleNetYield - toGuaranteeFund;
+      const residual = cycleNetYield - toGuaranteeFund;
+      const toLp = residual * LP_RESIDUAL_SHARE;
+      const toParticipants = residual - toLp;
       lpDistribution += toLp;
+      participantsDistribution += toParticipants;
     }
 
     // ── Outstanding obligations to ok members ──
@@ -447,6 +499,7 @@ export function runSimulation(
         guaranteeFund,
         guaranteeFundCap: GUARANTEE_FUND_CAP,
         lpDistribution,
+        participantsDistribution,
         netSolvency,
       },
       // Deep clone so future cycles can't retroactively mutate snapshots.
@@ -475,6 +528,7 @@ export function emptyFrame(): StressLabFrame {
       guaranteeFund: 0,
       guaranteeFundCap: 0,
       lpDistribution: 0,
+      participantsDistribution: 0,
       netSolvency: 0,
     },
     ledgerSnapshot: [],
@@ -511,10 +565,11 @@ function withDefaults(
 const BASE_CONFIG = {
   // Lv2 Comprovado (30% stake) is the canonical mid-ladder default —
   // demonstrates the protocol's middle of the leverage curve without
-  // committing to either extreme.
+  // committing to either extreme. Credit (carta) of 12,000 USDC over
+  // 12 members → derived installment of 1,000 USDC/cycle.
   level: "Comprovado" as GroupLevel,
   members: 12,
-  installmentUsdc: 1000,
+  creditAmountUsdc: 12000,
   kaminoApy: 6.5,
   yieldFeePct: 20,
 };

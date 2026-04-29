@@ -42,12 +42,13 @@ export function StressLabClient() {
   const [level, setLevel] = useState<GroupLevel>("Comprovado");
   const [maturity, setMaturity] = useState<GroupMaturity>("immature");
   const [members, setMembers] = useState(12);
-  const [installmentUsdc, setInstallmentUsdc] = useState(1000);
+  const [creditAmountUsdc, setCreditAmountUsdc] = useState(12000);
   const [kaminoApy, setKaminoApy] = useState(6.5);
   const [yieldFeePct, setYieldFeePct] = useState(20);
 
   const params = LEVEL_PARAMS[level];
-  const credit = installmentUsdc * members;
+  const credit = creditAmountUsdc;
+  const installmentUsdc = members > 0 ? credit / members : 0;
   const stakePerPerson = credit * (params.stakePct / 100);
 
   // ── Matrix state ─────────────────────────────────────────
@@ -71,10 +72,10 @@ export function StressLabClient() {
   const frames = useMemo<StressLabFrame[]>(
     () =>
       runSimulation(
-        { level, maturity, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames },
+        { level, maturity, members, creditAmountUsdc, kaminoApy, yieldFeePct, memberNames },
         matrix,
       ),
-    [level, maturity, members, installmentUsdc, kaminoApy, yieldFeePct, memberNames, matrix],
+    [level, maturity, members, creditAmountUsdc, kaminoApy, yieldFeePct, memberNames, matrix],
   );
 
   const handleMembersChange = (n: number) => {
@@ -95,7 +96,7 @@ export function StressLabClient() {
     setLevel(preset.config.level);
     setMaturity(preset.config.maturity ?? "immature");
     setMembers(preset.config.members);
-    setInstallmentUsdc(preset.config.installmentUsdc);
+    setCreditAmountUsdc(preset.config.creditAmountUsdc);
     setKaminoApy(preset.config.kaminoApy);
     setYieldFeePct(preset.config.yieldFeePct);
     setMatrix(preset.matrix.map((r) => [...r]));
@@ -466,14 +467,16 @@ export function StressLabClient() {
                     marginBottom: 8,
                   }}
                 >
-                  {t("lab.controls.installment")}
+                  {t("lab.controls.creditAmount")}
                 </label>
                 <input
                   type="number"
-                  step={100}
-                  value={installmentUsdc}
+                  step={500}
+                  value={creditAmountUsdc}
                   disabled={running || finished}
-                  onChange={(e) => setInstallmentUsdc(Number(e.target.value))}
+                  onChange={(e) =>
+                    setCreditAmountUsdc(Number(e.target.value))
+                  }
                   style={{
                     width: "100%",
                     background: tokens.fillSoft,
@@ -486,6 +489,23 @@ export function StressLabClient() {
                     outline: "none",
                   }}
                 />
+                <div
+                  style={{
+                    marginTop: 6,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontFamily:
+                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontSize: 10,
+                    color: tokens.muted,
+                  }}
+                >
+                  <span>{t("lab.controls.derivedInstallment")}</span>
+                  <span style={{ color: tokens.text2 }}>
+                    ${fmtUsdc(installmentUsdc)} ×{" "}
+                    {t("lab.controls.derivedCycles", { n: members })}
+                  </span>
+                </div>
               </div>
 
               {/* APY */}
@@ -915,6 +935,12 @@ export function StressLabClient() {
                         {t("lab.audit.lpDistribution")}
                       </span>
                       <span>+${fmtUsdc(m.lpDistribution)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ textTransform: "uppercase" }}>
+                        {t("lab.audit.participantsDistribution")}
+                      </span>
+                      <span>+${fmtUsdc(m.participantsDistribution)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ textTransform: "uppercase" }}>

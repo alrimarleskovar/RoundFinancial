@@ -200,7 +200,7 @@ describe("toggleCell — post-contemplation default is composable", () => {
       {
         level: "Comprovado",
         members: 8,
-        installmentUsdc: 1000,
+        creditAmountUsdc: 8 * 1000,
         kaminoApy: 6.5,
         yieldFeePct: 20,
       },
@@ -276,7 +276,7 @@ describe("runSimulation — no escrow release at the default month", () => {
       {
         level: "Iniciante",
         members: N,
-        installmentUsdc: 1000,
+        creditAmountUsdc: N * 1000,
         kaminoApy: 0,    // turn yield off so we count cents, not bps
         yieldFeePct: 0,
         memberNames: ["A", "B", "C", "D", "E", "F"],
@@ -311,7 +311,7 @@ describe("runSimulation — no escrow release at the default month", () => {
       {
         level: "Iniciante",
         members: N,
-        installmentUsdc: 1000,
+        creditAmountUsdc: N * 1000,
         kaminoApy: 0,
         yieldFeePct: 0,
       },
@@ -343,7 +343,7 @@ describe("runSimulation — stake cashback phase", () => {
       {
         level: "Iniciante",
         members: N,
-        installmentUsdc: inst,
+        creditAmountUsdc: N * inst,
         kaminoApy: 0,
         yieldFeePct: 0,
       },
@@ -375,7 +375,7 @@ describe("runSimulation — stake cashback phase", () => {
       {
         level: "Iniciante",
         members: N,
-        installmentUsdc: inst,
+        creditAmountUsdc: N * inst,
         kaminoApy: 0,
         yieldFeePct: 0,
       },
@@ -408,7 +408,7 @@ describe("runSimulation — stake cashback phase", () => {
       {
         level: "Iniciante",
         members: N,
-        installmentUsdc: inst,
+        creditAmountUsdc: N * inst,
         kaminoApy: 0,
         yieldFeePct: 0,
       },
@@ -511,7 +511,7 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
   it("Guarantee Fund cap is 150% of credit", () => {
     for (const id of PRESET_ORDER) {
       const preset = PRESETS[id];
-      const credit = preset.config.installmentUsdc * preset.config.members;
+      const credit = preset.config.creditAmountUsdc;
       const final =
         runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
       expect(final.guaranteeFundCap, `preset=${id}`).to.equal(1.5 * credit);
@@ -558,7 +558,7 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
       {
         level: "Iniciante", // 50% stake → biggest float → fastest accrual
         members: 24,
-        installmentUsdc: 1000,
+        creditAmountUsdc: 24 * 1000,
         kaminoApy: 15,
         yieldFeePct: 0,
         memberNames: undefined,
@@ -615,7 +615,7 @@ describe("runSimulation — mature group acceleration", () => {
     const config = {
       level: "Comprovado" as const,
       members: 12,
-      installmentUsdc: 1000,
+      creditAmountUsdc: 12 * 1000,
       kaminoApy: 6.5,
       yieldFeePct: 20,
     };
@@ -636,7 +636,7 @@ describe("runSimulation — mature group acceleration", () => {
     const baseConfig = {
       level: "Iniciante" as const,
       members: N,
-      installmentUsdc: 1000,
+      creditAmountUsdc: N * 1000,
       kaminoApy: 0,
       yieldFeePct: 0,
     };
@@ -664,7 +664,7 @@ describe("runSimulation — mature group acceleration", () => {
     const baseConfig = {
       level: "Veterano" as const,
       members: 12,
-      installmentUsdc: 1000,
+      creditAmountUsdc: 12 * 1000,
       kaminoApy: 0,
       yieldFeePct: 0,
     };
@@ -683,6 +683,197 @@ describe("runSimulation — mature group acceleration", () => {
     ).to.be.lessThan(
       immatureEnd.outstandingEscrow + immatureEnd.outstandingStakeRefund,
     );
+  });
+});
+
+// ─── Layer 1h — credit-amount primary input + Escape Valve ────────────
+// Whitepaper: the user picks the credit (carta) value as the primary
+// input. Installment is derived (credit / members) and cycles equal
+// members. Plus the new Escape Valve cell ("E"): a member sells
+// their NFT share and exits without penalty.
+
+describe("runSimulation — credit-amount input + Escape Valve", () => {
+  it("installment is derived as credit / members at every cycle", () => {
+    // For Healthy (carta 12_000, 12 members), each member's
+    // installmentsPaid at end of cycle 1 should equal credit/N = 1000.
+    const preset = PRESETS.healthy;
+    const frames = runSimulation(preset.config, preset.matrix);
+    const cycle1 = frames[0]!;
+    const expectedInst =
+      preset.config.creditAmountUsdc / preset.config.members;
+    for (const ledger of cycle1.ledgerSnapshot) {
+      expect(
+        ledger.installmentsPaid,
+        `member=${ledger.name} cycle=1 installment derived from credit`,
+      ).to.be.closeTo(expectedInst, 1e-6);
+    }
+  });
+
+  it("changing creditAmountUsdc scales every member's installment proportionally", () => {
+    const baseConfig = {
+      level: "Comprovado" as const,
+      members: 12,
+      creditAmountUsdc: 12000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    const baseFrames = runSimulation(baseConfig, defaultMatrix(12));
+    const doubled = runSimulation(
+      { ...baseConfig, creditAmountUsdc: 24000 },
+      defaultMatrix(12),
+    );
+
+    // Doubling the carta should double every member's installmentsPaid
+    // at end of pool — direct proportionality.
+    const baseFinal = baseFrames[baseFrames.length - 1]!;
+    const dblFinal = doubled[doubled.length - 1]!;
+    for (let i = 0; i < 12; i++) {
+      expect(
+        dblFinal.ledgerSnapshot[i]!.installmentsPaid,
+        `member ${i}: doubled installment`,
+      ).to.be.closeTo(
+        2 * baseFinal.ledgerSnapshot[i]!.installmentsPaid,
+        1e-6,
+      );
+    }
+  });
+
+  it("E cell marks the member as 'exited' with no retention or loss", () => {
+    // Member 4 contemplated at cycle 5 (default diagonal) takes the
+    // Escape Valve at cycle 3 — sells the NFT before being contemplated.
+    const N = 12;
+    const m: ReturnType<typeof defaultMatrix> = defaultMatrix(N);
+    for (let j = 2; j < N; j++) m[4]![j] = "E"; // E cascade from cycle 3
+
+    const frames = runSimulation(
+      {
+        level: "Comprovado",
+        members: N,
+        creditAmountUsdc: 12000,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      m,
+    );
+    const final = frames[frames.length - 1]!;
+    const exited = final.ledgerSnapshot[4]!;
+
+    expect(exited.status, "exited status").to.equal("exited");
+    expect(exited.retained, "no retention against exiter").to.equal(0);
+    expect(exited.lossCaused, "no loss caused by exiter").to.equal(0);
+
+    // Pool-level: no totalRetained / totalLoss attributable to the
+    // exiter. (Other ok members may have contributed to retained/loss
+    // in other scenarios, but here the diagonal is otherwise clean.)
+    expect(
+      final.metrics.totalRetained,
+      "totalRetained unaffected by Escape Valve",
+    ).to.equal(0);
+    expect(
+      final.metrics.totalLoss,
+      "totalLoss unaffected by Escape Valve",
+    ).to.equal(0);
+  });
+
+  it("E behaves differently from X: no penalty, status preserved as 'exited'", () => {
+    const N = 8;
+    const baseMatrix = defaultMatrix(N);
+    const exitMatrix = defaultMatrix(N);
+    for (let j = 2; j < N; j++) {
+      baseMatrix[4]![j] = "X"; // default
+      exitMatrix[4]![j] = "E"; // escape
+    }
+
+    const baseFinal = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        creditAmountUsdc: 8000,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      baseMatrix,
+    ).slice(-1)[0]!;
+    const exitFinal = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        creditAmountUsdc: 8000,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      exitMatrix,
+    ).slice(-1)[0]!;
+
+    // X member should be flagged calote_pre with paid-so-far retained.
+    expect(baseFinal.ledgerSnapshot[4]!.status).to.equal("calote_pre");
+    expect(baseFinal.ledgerSnapshot[4]!.retained).to.be.greaterThan(0);
+
+    // E member should be exited with zero retention.
+    expect(exitFinal.ledgerSnapshot[4]!.status).to.equal("exited");
+    expect(exitFinal.ledgerSnapshot[4]!.retained).to.equal(0);
+  });
+});
+
+// ─── Layer 1i — yield waterfall: full 4-tier split ────────────────────
+// Whitepaper waterfall: protocol fee → guarantee fund (cap 150%
+// credit) → LPs (Anjos de Liquidez, 65% of residual) → participants
+// (prêmio de paciência, 35%). Layer 1f tested the GF cap; this layer
+// locks the LP/participants split.
+
+describe("runSimulation — yield waterfall (4 tiers)", () => {
+  it("LP and participant distributions partition the residual exactly", () => {
+    // High-yield run, fee=0, GF starts empty: every yield cycle
+    // initially fills GF. After GF caps, residual splits 65/35.
+    const frames = runSimulation(
+      {
+        level: "Iniciante",
+        members: 24,
+        creditAmountUsdc: 24000,
+        kaminoApy: 15,
+        yieldFeePct: 0,
+      },
+      defaultMatrix(24),
+    );
+    const final = frames[frames.length - 1]!.metrics;
+
+    // GF should be at cap (1.5 × credit = 36000 for credit=24000).
+    expect(final.guaranteeFund).to.be.closeTo(final.guaranteeFundCap, 0.5);
+
+    // Total yield distributed = GF + LP + participants.
+    const total =
+      final.guaranteeFund + final.lpDistribution + final.participantsDistribution;
+    expect(total, "GF + LP + Participants ≡ total net yield").to.be.closeTo(
+      final.kaminoNetYield,
+      1e-6,
+    );
+
+    // Of the residual after GF, LP gets 65%, participants 35%.
+    const residual = final.lpDistribution + final.participantsDistribution;
+    if (residual > 0) {
+      expect(
+        final.lpDistribution / residual,
+        "LP share of residual ≈ 65%",
+      ).to.be.closeTo(0.65, 0.01);
+      expect(
+        final.participantsDistribution / residual,
+        "Participants share of residual ≈ 35%",
+      ).to.be.closeTo(0.35, 0.01);
+    }
+  });
+
+  it("low-yield run: GF below cap → LP and participants both zero", () => {
+    // Healthy preset, default APY. Yield is small relative to GF cap
+    // (1.5 × 12000 = 18000). After all 12 cycles, GF should still be
+    // below cap → residual = 0 → no LP / participants.
+    const frames = runSimulation(
+      PRESETS.healthy.config,
+      PRESETS.healthy.matrix,
+    );
+    const final = frames[frames.length - 1]!.metrics;
+    expect(final.guaranteeFund).to.be.lessThan(final.guaranteeFundCap);
+    expect(final.lpDistribution).to.equal(0);
+    expect(final.participantsDistribution).to.equal(0);
   });
 });
 
