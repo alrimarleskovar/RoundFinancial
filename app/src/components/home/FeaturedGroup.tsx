@@ -1,13 +1,19 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+
 import { MonoLabel } from "@/components/brand/brand";
+import { Icons } from "@/components/brand/icons";
 import { DeskMeta } from "@/components/home/DeskMeta";
+import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { ACTIVE_GROUPS } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Big featured-round card on Home: circular dial showing month
-// progress + group meta + member avatars.
+// progress + group meta + member avatars + CTAs (pay this round's
+// installment, or jump to the catalog page).
 
 export function FeaturedGroup() {
   const { tokens, palette } = useTheme();
@@ -15,6 +21,7 @@ export function FeaturedGroup() {
   const t = useT();
   const { fmtMoney } = useI18n();
   const g = ACTIVE_GROUPS[0];
+  const [payOpen, setPayOpen] = useState(false);
 
   const dialPct = g.month / g.total;
   const ticks = Array.from({ length: 12 });
@@ -210,8 +217,60 @@ export function FeaturedGroup() {
               {t("home.drawn")}
             </span>
           </div>
+
+          {/* CTA row */}
+          <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setPayOpen(true)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 11,
+                border: "none",
+                cursor: "pointer",
+                background: `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
+                color: tokens.bgDeep,
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                boxShadow: `0 6px 18px ${tokens.green}33`,
+              }}
+            >
+              <Icons.send size={14} stroke={tokens.bgDeep} sw={2} />
+              {t("home.payInstallment")}
+            </button>
+            <Link
+              href="/grupos"
+              style={{
+                padding: "10px 16px",
+                borderRadius: 11,
+                background: tokens.fillSoft,
+                border: `1px solid ${tokens.borderStr}`,
+                color: tokens.text,
+                fontSize: 12,
+                fontWeight: 600,
+                fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+              }}
+            >
+              {t("home.featured.viewCatalog")}
+              <Icons.arrow size={13} stroke={tokens.text} sw={2} />
+            </Link>
+          </div>
         </div>
       </div>
+
+      <PayInstallmentModal
+        group={g}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+      />
     </div>
   );
 }
