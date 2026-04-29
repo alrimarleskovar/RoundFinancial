@@ -20,7 +20,32 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
   const { lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Track when *this* chip kicked off an airdrop so we surface
+  // feedback inline. The hook also tracks airdropping/lastError/
+  // lastTxSig but those are global to the wallet — without scoping,
+  // the chip would flicker on faucet activity from PhantomFaucet too.
+  const [airdropPing, setAirdropPing] = useState(false);
+  const [airdropResult, setAirdropResult] = useState<
+    { kind: "ok"; sig: string } | { kind: "err"; reason: string } | null
+  >(null);
   const ref = useRef<HTMLDivElement | null>(null);
+
+  // When the hook reports completion (success or error) AFTER we've
+  // pinged it from this chip, capture the outcome and auto-clear
+  // after 4 seconds.
+  useEffect(() => {
+    if (!airdropPing) return;
+    if (wallet.airdropping) return;
+    // Hook is idle — read whichever side moved
+    if (wallet.lastTxSig) {
+      setAirdropResult({ kind: "ok", sig: wallet.lastTxSig });
+    } else if (wallet.lastError) {
+      setAirdropResult({ kind: "err", reason: wallet.lastError });
+    }
+    setAirdropPing(false);
+    const id = setTimeout(() => setAirdropResult(null), 4000);
+    return () => clearTimeout(id);
+  }, [airdropPing, wallet.airdropping, wallet.lastTxSig, wallet.lastError]);
 
   useEffect(() => {
     if (!open) return;
@@ -211,9 +236,15 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
           />
           <MenuItem
             icon={Icons.spark}
-            label={t("wallet.menu.airdrop")}
+            label={
+              wallet.airdropping
+                ? t("wallet.menu.airdropBusy")
+                : t("wallet.menu.airdrop")
+            }
             disabled={wallet.airdropping}
             onClick={() => {
+              setAirdropResult(null);
+              setAirdropPing(true);
               wallet.airdrop();
               setOpen(false);
             }}
@@ -246,6 +277,90 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
               setOpen(false);
             }}
           />
+        </div>
+      )}
+
+      {/* Airdrop feedback pill — appears below the chip when an
+          airdrop kicked off from THIS chip's menu is in flight or
+          just completed. Auto-dismisses after 4s. */}
+      {(airdropPing || wallet.airdropping || airdropResult) && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 19,
+            padding: "6px 10px",
+            borderRadius: 10,
+            background:
+              airdropResult?.kind === "ok"
+                ? `${tokens.green}1A`
+                : airdropResult?.kind === "err"
+                ? `${tokens.amber}1A`
+                : tokens.fillMed,
+            border: `1px solid ${
+              airdropResult?.kind === "ok"
+                ? `${tokens.green}55`
+                : airdropResult?.kind === "err"
+                ? `${tokens.amber}55`
+                : tokens.borderStr
+            }`,
+            color:
+              airdropResult?.kind === "ok"
+                ? tokens.green
+                : airdropResult?.kind === "err"
+                ? tokens.amber
+                : tokens.text2,
+            fontSize: 11,
+            fontWeight: 600,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            whiteSpace: "nowrap",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+          }}
+        >
+          {airdropResult == null ? (
+            <>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  border: `2px solid ${tokens.muted}`,
+                  borderTopColor: tokens.green,
+                  animation: "rfi-spin 0.7s linear infinite",
+                  display: "inline-block",
+                }}
+              />
+              {t("wallet.chip.airdropPending")}
+            </>
+          ) : airdropResult.kind === "ok" ? (
+            <>
+              <Icons.check size={12} stroke={tokens.green} sw={2.4} />
+              {t("wallet.chip.airdropOk")}
+              <a
+                href={wallet.explorerTx(airdropResult.sig)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: tokens.green,
+                  textDecoration: "underline",
+                  fontWeight: 700,
+                }}
+              >
+                {t("wallet.chip.viewTx")}
+              </a>
+            </>
+          ) : (
+            <>
+              <Icons.info size={12} stroke={tokens.amber} />
+              {/rate.?limit/i.test(airdropResult.reason)
+                ? t("wallet.chip.airdropRate")
+                : t("wallet.chip.airdropFailed")}
+            </>
+          )}
         </div>
       )}
     </div>

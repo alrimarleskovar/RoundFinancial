@@ -175,6 +175,25 @@ export function ConnectionCard({
             }}
           >
             {c.name}
+            {!c.live && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  color: tokens.amber,
+                  background: `${tokens.amber}1A`,
+                  border: `1px solid ${tokens.amber}33`,
+                  padding: "2px 6px",
+                  borderRadius: 999,
+                  fontFamily:
+                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                }}
+                title={t("conn.demoTitle")}
+              >
+                {t("conn.demoBadge")}
+              </span>
+            )}
             {isConnected && (
               <span
                 style={{
