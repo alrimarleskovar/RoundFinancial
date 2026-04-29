@@ -33,6 +33,11 @@ export default function LandingPage() {
   const [simMonths, setSimMonths] = useState(24);
   const apy = 0.065;
 
+  // FAQ accordion + waitlist state
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -75,6 +80,8 @@ export default function LandingPage() {
               [
                 ["#simulator", t("landing.nav.simulator")],
                 ["#compare",   t("landing.nav.advantages")],
+                ["#cofi",      t("landing.nav.cofi")],
+                ["#security",  t("landing.nav.security")],
                 ["#",          t("landing.nav.docs")],
                 ["#",          t("landing.nav.audit")],
               ] as const
@@ -199,6 +206,127 @@ export default function LandingPage() {
             <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
           </div>
         </div>
+        </div>
+      </section>
+
+      {/* CoFi · Next Paradigm */}
+      <section
+        id="cofi"
+        className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-7xl z-10 text-center relative"
+      >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#14F195] opacity-5 blur-[150px] pointer-events-none" />
+        <div className="inline-block bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-mono text-gray-400 mb-6 uppercase tracking-widest">
+          {t("landing.cofi.eyebrow")}
+        </div>
+        <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
+          {t("landing.cofi.title1")} <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF]">
+            {t("landing.cofi.title2")}
+          </span>
+        </h2>
+        <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-12">
+          {t("landing.cofi.body")}
+        </p>
+
+        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-16 relative z-10">
+          <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 16 }}>
+            <WalletMultiButton
+              style={{
+                backgroundColor: "#14F195",
+                color: "#06090F",
+                borderRadius: "16px",
+                fontWeight: 900,
+                padding: "0 32px",
+                height: "50px",
+              }}
+            >
+              {t("landing.cofi.cta1")}
+            </WalletMultiButton>
+          </span>
+          <a
+            href="https://github.com/alrimarleskovar/RoundFinancial/tree/main/grant"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-[50px] px-8 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors font-bold text-sm flex items-center justify-center"
+          >
+            {t("landing.cofi.cta2")}
+          </a>
+        </div>
+
+        {/* Dashboard mockup (CSS-only, no external image) */}
+        <div className="relative mx-auto w-full max-w-5xl h-[300px] md:h-[450px] bg-gradient-to-b from-[#0C1018] to-transparent border-t border-x border-white/10 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(20,241,149,0.05)] overflow-hidden">
+          {/* Subtle dotted-grid pattern via radial gradient */}
+          <div
+            className="absolute inset-0 opacity-[0.06]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle, rgba(255,255,255,0.6) 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+          <div className="absolute top-0 left-0 w-full h-12 bg-white/[0.02] border-b border-white/5 flex items-center px-6 gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500/50" />
+            <div className="w-3 h-3 rounded-full bg-amber-500/50" />
+            <div className="w-3 h-3 rounded-full bg-green-500/50" />
+            <div className="mx-auto w-48 h-6 bg-black/40 rounded-full border border-white/5" />
+          </div>
+          <div className="p-8 mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-80">
+            <div className="h-32 bg-white/5 rounded-2xl border border-white/10" />
+            <div className="h-32 bg-white/5 rounded-2xl border border-white/10" />
+            <div className="h-32 bg-white/5 rounded-2xl border border-white/10" />
+            <div className="h-48 md:col-span-2 bg-[#14F195]/5 border border-[#14F195]/20 rounded-2xl" />
+            <div className="h-48 bg-[#9945FF]/5 border border-[#9945FF]/20 rounded-2xl" />
+          </div>
+        </div>
+      </section>
+
+      {/* Security · Solvent by Construction */}
+      <section
+        id="security"
+        className="w-full mx-auto px-4 md:px-6 py-20 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
+      >
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
+            {t("landing.security.title1")}{" "}
+            <span className="text-[#14F195]">{t("landing.security.title2")}</span>
+          </h2>
+          <p className="text-gray-400 max-w-2xl mx-auto text-base">
+            {t("landing.security.body")}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(
+            [
+              { key: "lev",    icon: "📈", color: "#14F195" },
+              { key: "shield", icon: "🛡️", color: "#9945FF" },
+              { key: "valve",  icon: "🎫", color: "#00C8FF" },
+              { key: "yield",  icon: "💰", color: "#14F195" },
+              { key: "sas",    icon: "⭐", color: "#FFFFFF" },
+              { key: "b2b",    icon: "🔌", color: "#9945FF" },
+            ] as const
+          ).map((c) => (
+            <div
+              key={c.key}
+              className="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:bg-white/[0.08] transition-colors"
+            >
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-6"
+                style={{
+                  background: `${c.color}1A`,
+                  color: c.color,
+                }}
+              >
+                {c.icon}
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {t(`landing.security.card.${c.key}.title`)}
+              </h3>
+              <p className="text-gray-400 text-sm">
+                {t(`landing.security.card.${c.key}.desc`)}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -427,6 +555,100 @@ export default function LandingPage() {
               ))}
             </ul>
           </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-4xl border-t border-white/[0.06] z-10">
+        <h2 className="text-3xl md:text-5xl font-black text-center mb-12">
+          {t("landing.faq.title1")}{" "}
+          <span className="text-[#9945FF]">{t("landing.faq.title2")}</span>
+        </h2>
+
+        <div className="space-y-4">
+          {([1, 2, 3, 4, 5] as const).map((n, index) => (
+            <div key={n} className="border-b border-white/10 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                className="w-full flex justify-between items-center py-6 text-left hover:text-[#14F195] transition-colors"
+              >
+                <span className="text-base md:text-lg font-bold">
+                  {t(`landing.faq.q${n}`)}
+                </span>
+                <span className="text-2xl text-gray-500 font-light shrink-0 ml-4">
+                  {openFaq === index ? "−" : "+"}
+                </span>
+              </button>
+              <div
+                className={`transition-all duration-300 ease-in-out ${
+                  openFaq === index
+                    ? "max-h-96 opacity-100 mb-6"
+                    : "max-h-0 opacity-0"
+                }`}
+              >
+                <p className="text-gray-400 text-sm md:text-base leading-relaxed pr-4 md:pr-8">
+                  {t(`landing.faq.a${n}`)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 text-center">
+          <a
+            href="https://github.com/alrimarleskovar/RoundFinancial/tree/main/grant"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#14F195] font-bold hover:underline transition-all"
+          >
+            {t("landing.faq.docsLink")}
+          </a>
+        </div>
+      </section>
+
+      {/* Waitlist */}
+      <section className="w-full mx-auto px-4 md:px-6 py-12 md:py-16 max-w-6xl z-10">
+        <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="text-center md:text-left">
+            <h3 className="text-2xl md:text-3xl font-bold mb-2">
+              {t("landing.waitlist.title")}
+            </h3>
+            <p className="text-gray-400">{t("landing.waitlist.body")}</p>
+          </div>
+          {waitlistSubmitted ? (
+            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-[#14F195]/10 border border-[#14F195]/30 text-[#14F195] font-bold">
+              <span className="text-xl">✓</span>
+              {t("landing.waitlist.success")}
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (waitlistEmail.trim().length > 3) {
+                  // Demo-only: no backend wiring yet. Stores nothing,
+                  // shows confirmation feedback. Real waitlist hooks in
+                  // post-M3 (devnet launch).
+                  setWaitlistSubmitted(true);
+                }
+              }}
+              className="flex w-full md:w-auto bg-black/50 rounded-2xl p-2 border border-white/10 focus-within:border-[#14F195] transition-colors"
+            >
+              <input
+                type="email"
+                required
+                value={waitlistEmail}
+                onChange={(e) => setWaitlistEmail(e.target.value)}
+                placeholder={t("landing.waitlist.placeholder")}
+                className="bg-transparent border-none outline-none text-white px-4 py-3 w-full md:w-64"
+              />
+              <button
+                type="submit"
+                className="bg-[#14F195] text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform whitespace-nowrap"
+              >
+                {t("landing.waitlist.cta")} →
+              </button>
+            </form>
+          )}
         </div>
       </section>
 
