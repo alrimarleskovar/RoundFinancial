@@ -3,9 +3,11 @@
 > **Cooperative credit, on-chain.** An on-chain ROSCA (Rotating Savings & Credit Association) protocol on Solana, bringing behavioral credit to the 1.4B unbanked adults and the $5.7T MSME finance gap that DeFi never served.
 
 <p>
-  <a href="docs/pitch/pitch-deck-en.html">📊 Pitch deck</a> ·
-  <a href="docs/pt/whitepaper.pdf">📄 Whitepaper (PT)</a> ·
+  <a href="docs/pitch/pitch-3min-en.html">📊 3-min Pitch (EN)</a> ·
+  <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
+  <a href="docs/pitch/pitch-deck-en.html">📊 Long-form Deck (EN)</a> ·
   <a href="docs/architecture.md">🧱 Architecture</a> ·
+  <a href="grant/">📦 Grant bundle</a> ·
   <a href="#front-end">🖥️ Live front-end</a>
 </p>
 
@@ -40,6 +42,16 @@ RoundFi is the only protocol that checks every box.
 - **Escape Valve:** positions are dynamic NFTs. Distressed users sell instead of defaulting.
 - **Behavioral oracle:** every payment is an on-chain attestation (SAS-compatible) — a portable credit identity, the *"Serasa of Web3"*.
 
+## Stress Lab (L1 reference impl)
+
+The protocol's economic spec is encoded in a **pure-TypeScript actuarial simulator** that runs every Triple-Shield rule end-to-end. Lives in [`sdk/src/stressLab.ts`](sdk/src/stressLab.ts) and ships the [`/lab`](app/src/app/lab/page.tsx) interactive route. Used as:
+
+- **Reference implementation** for the on-chain Anchor programs (M2 of the grant roadmap parity-tests against `runSimulation()` outputs).
+- **Whitepaper-faithful playground** — pick credit/members/tier/maturity/APY and watch the matrix unfold. 4 canonical presets (Healthy / Pre-default / Post-default / Cascade) load with one click.
+- **Audit panel** with full capital-structure breakdown: float + Solidarity Vault + Guarantee Fund (capped at 150% of credit) − outstanding escrow − outstanding stake refund = **Net Solvency**. Plus the 4-tier yield waterfall (admin fee → GF → 65% LPs → 35% participants).
+
+**33 L1 tests green** under `pnpm run test:economic-parity-l1` covering: input refactor (credit-amount as primary), toggleCell click semantics, escrow gating on default month, stake cashback phase, net-solvency identity, capital structure invariants, mature-group acceleration (5/4/3 → 3/2/1), Escape Valve `"E"` cell architecture, and the 4-tier waterfall split.
+
 ## Repository Layout
 
 ```
@@ -53,23 +65,29 @@ RoundFinancial/
 ├── services/orchestrator/              # Lifecycle orchestrator (mock + real driver)
 ├── app/                                # Next.js 14 front-end (Wallet Adapter, Phantom/Solflare/Backpack)
 │   ├── src/app/                                # Routes
-│   │   ├── page.tsx                            # / public landing (CoFi pitch + simulator)
-│   │   ├── home/                               # /home dashboard (gated by wallet connect)
-│   │   ├── carteira/                           # /carteira (4 tabs: overview / positions / tx / connections)
-│   │   ├── grupos/                             # /grupos catalog with filters
-│   │   ├── reputacao/                          # /reputacao SAS passport + 50/30/10 ladder
-│   │   ├── mercado/                            # /mercado secondary order book
+│   │   ├── page.tsx                            # / public landing (CoFi paradigm + Security grid + FAQ + Waitlist)
+│   │   ├── home/                               # /home Bento dashboard (gated by wallet connect)
+│   │   ├── carteira/                           # /carteira (4 tabs · Receive/Send/Withdraw modals · DEMO badges)
+│   │   ├── grupos/                             # /grupos catalog (level gating · Novo ciclo modal)
+│   │   ├── reputacao/                          # /reputacao SAS passport (copyable · Bond detail modal · level-up bridge)
+│   │   ├── mercado/                            # /mercado Buy + Sell tabs (Escape Valve flow)
+│   │   ├── insights/                           # /insights score curve (zooming range · Recommendation modals)
+│   │   ├── lab/                                # /lab Stress Lab (L1 actuarial simulator · 4 preset scenarios)
 │   │   └── demo/                               # /demo lifecycle demo (orchestrator + wallet adapter)
-│   ├── src/components/                         # By feature: brand · layout · home · carteira · grupos · score · mercado
-│   ├── src/lib/                                # Theme · i18n · wallet · network · groups helpers
+│   ├── src/components/                         # By feature: brand · layout · home · carteira · grupos · score · mercado · lab · insights · modals
+│   ├── src/lib/                                # Theme · i18n (510+ keys PT/EN) · wallet · network · session · groups helpers
 │   ├── src/data/                               # Typed mock fixtures (USER, NFT_POSITIONS, ACTIVE_GROUPS, …)
 │   └── public/prototype/                       # Original design handoff bundle (legacy preview)
 ├── scripts/                            # Devnet deploy, airdrop, seed, stress runners
 ├── config/                             # Cluster configs + program-ID registry
 ├── tests/                              # Cross-program integration tests (Anchor + bankrun)
+│   ├── parity.spec.ts                          # Rust ↔ TS constants/seeds parity (zero infra)
+│   ├── economic_parity.spec.ts                 # L1 ↔ L2 economic parity (33 tests passing)
+│   └── *.spec.ts                               # 14 lifecycle / edge / security drafts (M1 of grant)
+├── grant/                              # Superteam Agentic Engineering grant bundle (7 docs)
 └── docs/                               # Architecture, module specs, deploy guides
-    ├── pitch/                                  # Pitch decks (EN)
-    └── pt/                                     # Portuguese docs (whitepaper + planning)
+    ├── pitch/                                  # 3-min decks (PT + EN) + long-form deck
+    └── pt/                                     # Portuguese strategy docs (whitepaper + planning)
 ```
 
 ## Documentation
@@ -81,8 +99,14 @@ RoundFinancial/
 - [Yield & Guarantee Fund](docs/yield-and-guarantee-fund.md) — waterfall math + adapters
 
 **Pitch**
-- [Pitch Deck · EN](docs/pitch/pitch-deck-en.html) — 15-slide Colosseum deck
-- [3-min Pitch](docs/pitch/pitch-3min.html) — short-form pitch
+- [3-min Pitch · EN](docs/pitch/pitch-3min-en.html) — 12-slide short-form deck (English)
+- [3-min Pitch · PT](docs/pitch/pitch-3min.html) — 12-slide short-form deck (Portuguese)
+- [Long-form Deck · EN](docs/pitch/pitch-deck-en.html) — 15-slide Colosseum deck
+
+**Grant bundle (Superteam · Agentic Engineering)**
+- [Grant index](grant/00_README.md) — 7-file response bundle
+- [Project overview](grant/01_PROJECT.md) · [Agentic process](grant/02_AGENTIC_PROCESS.md) · [PR log](grant/03_PR_LOG.md)
+- [Grant use](grant/04_GRANT_USE.md) · [Builder note](grant/05_BUILDER_NOTE.md) · [Milestones](grant/06_MILESTONES.md)
 
 **Portuguese (strategy + research)**
 - [Whitepaper Técnico](docs/pt/whitepaper.pdf)
@@ -109,15 +133,15 @@ pnpm --filter @roundfi/app dev
 
 | Route | What's there |
 |---|---|
-| **`/`** | Public landing — animated gradient title, sticky header with PT/EN toggle, interactive APY simulator, comparison table, faint scrolling tx-id "data stream" behind the hero. Pulsing **Connect Phantom** CTAs (`WalletMultiButton`) redirect to `/home` on connect. |
-| **`/home`** | Bento dashboard — hero greeting + 4 KPIs + featured round with circular dial + your groups + radial **SAS Passport ring** (gradient stroke, draws in on mount) + Triplo Escudo + live terminal-style **Activity feed**. |
-| **`/carteira`** | Wallet — 4 tabs (`?tab=overview\|positions\|transactions\|connections`). Connections tab has a **live Phantom flow + 1-SOL devnet airdrop** + always-visible hosted-faucet fallback + Civic / Kamino / Solflare / Pix mocks. |
-| **`/grupos`** | ROSCA catalog — search + sort + 5 multi-facet filters (level, category, prize, duration, only-with-spots). 3-column glass-card grid + empty state. |
-| **`/reputacao`** | SAS passport — 96pt Syne score + 300/850 progress + 50/30/10 ladder + 4 SAS bonds (active / closed). |
-| **`/mercado`** | Secondary market — Buy/Sell tab pill + 4 mini-stats + order book + featured-of-the-day card + how-it-works steps. |
-| **`/insights`** | Score evolution — 13-point SVG curve with Lv.2/Lv.3 thresholds + 5-factor behavioral breakdown + 3 "next steps to Lv.3" recommendation cards. |
-| `/demo` | Lifecycle orchestrator demo (developer-facing). |
-| `/demo` | Orchestrator lifecycle demo (developer-facing). |
+| **`/`** | Public landing — animated gradient title + PT/EN toggle + interactive simulator + comparison table + **CoFi paradigm** + **6-card Security grid** + 5-Q **FAQ accordion** + **Waitlist form** + scrolling tx-id "data stream" behind the hero. Connect Phantom CTAs redirect to `/home`. |
+| **`/home`** | Bento dashboard — clickable KPI cards (Saldo/Yield → `/carteira`, Colateral → `/insights`) + featured round with **CTAs** (Pagar parcela / Ver no catálogo) + clickable group rows (open `PayInstallmentModal`) + radial **SAS Passport ring** + Triplo Escudo + live **Activity feed**. |
+| **`/carteira`** | 4 tabs · **5 wired modals**: Receber (QR + copy address), Enviar (base58 validation + MAX), Sacar (Kamino yield withdraw), Gerenciar (per-connection inspector). PhantomFaucet (1-SOL airdrop + hosted fallback + Circle USDC). DEMO badges on Civic/Kamino/Solflare/PIX mocks. WalletChip airdrop has inline pill feedback. |
+| **`/grupos`** | ROSCA catalog with search + 5 multi-facet filters + **level gating in 3 layers** (locked card visual + locked-state modal + defensive `joinGroup()` guard). `+ Novo ciclo` opens `NewCycleModal` (eligible if Lv.3, locked otherwise). |
+| **`/reputacao`** | SAS passport — **click-to-copy wallet** + radial score + 50/30/10 ladder with **level-up bridge** to `/insights` + 4 SAS bonds opening `BondDetailModal` (attestation count, on-chain path, demo callout). |
+| **`/mercado`** | Buy + Sell tabs · **Buy modal** (offer summary + savings + demo callout for `escape_valve_buy`) · **Sell modal** (price slider 50–100% of face + 7-day slashing window + Whitepaper protections panel). |
+| **`/insights`** | Score evolution — **range pill (1M/3M/6M/12M)** that actually reshapes the curve + 5-factor breakdown + 3 **clickable recommendation cards** opening detail modals (GANHO ESTIMADO / POR QUE / SINAL ON-CHAIN). |
+| **`/lab`** | **Stress Lab** — L1 actuarial simulator. Inputs: tier · maturity · members · credit value · APY · admin fee. 4 one-click preset scenarios. Matrix editor (P/C/X/E cells with position-aware toggle). Pool-balance sparkline. Audit panel: Caixa Bruto + Cofre Solidário + Fundo Garantido − obrigações pendentes = **Solvência Líquida**. |
+| `/demo` | Lifecycle orchestrator demo (developer-facing, not in user nav). |
 
 ### Aesthetic system
 
@@ -138,7 +162,15 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 
 - **Real wallet flow** — Standard-wallet discovery via `@solana/wallet-adapter-react` picks up Phantom / Solflare / Backpack automatically. Connect from the landing → bounces to `/home`. Disconnect from the wallet chip dropdown → bounces back to `/`.
 - **Devnet faucet** — One-click 1-SOL airdrop inside the Phantom card on `/carteira`. Falls back to https://faucet.solana.com when the public RPC rate-limits (always-visible secondary CTA), plus https://faucet.circle.com for devnet USDC.
-- **Functional modals** — _Pagar parcela_ (Triple Shield 65/30/5 breakdown), _Entrar no grupo_ (terms grid + 1.5% fee callout), _Vender cota_ (discount slider 0–30% with live ask-price + buyer-APY preview). All animated via framer-motion, body-scroll locked, Esc + click-outside close.
+- **Functional modals (12+)** — every actionable surface across the app routes to an honest demo modal:
+  - **`/home`**: PayInstallmentModal (Triple Shield breakdown), JoinGroupModal (locked branch when Lv > user.level)
+  - **`/grupos`**: JoinGroupModal, NewCycleModal (eligible vs locked)
+  - **`/mercado`**: BuyOfferModal (offer summary + savings), SellPositionModal (slider + Escape Valve panel), SellShareModal (legacy)
+  - **`/carteira`**: ReceiveModal, SendModal (address validation + MAX), WithdrawYieldModal, ManageConnectionModal
+  - **`/reputacao`**: BondDetailModal (attestation count + on-chain path)
+  - **`/insights`**: RecommendationModal (3 detail variants)
+  - **`/lab`**: MemberInfoModal (per-member ledger drilldown)
+  - All animated via framer-motion, body-scroll locked, Esc + click-outside close. Each one names the M3 Anchor instruction it'll wire to in production via a yellow `MODO DEMO` callout.
 - **Session orchestrator** — `lib/session.tsx` drives a typed reducer over `{ user, events[] }`. Submitting a modal really mutates balance / score / yield. An ambient yield ticker fires every 35s so the dashboard reads as alive even while idle.
 - **i18n PT/EN** — Every label, button, message, and the entire landing flip on a single toggle. 460+ keys in `lib/i18n.tsx`.
 - **BRL ↔ USDC currency toggle** — Source data is BRL; `fmtMoney(brl)` converts at runtime (`USDC_RATE = 5.5`).
@@ -156,18 +188,20 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 
 ## Development Status
 
+**62 PRs merged on `main` · all squash-merged via `claude/<scope>` branches with structured bodies + Claude session links.**
+
 | Step | Status |
 |---|---|
 | 1. Project analysis | ✅ Done |
 | 2. Architecture spec | ✅ Done |
 | 3. Devnet environment | ✅ Done |
-| 4. Smart contracts (core) | ⏳ In progress |
-| 5. Contract tests | ⏳ |
-| 6. Backend services | ⏳ |
-| 7. Frontend | ✅ Landing + 7 dashboard routes + Phantom devnet flow + session orchestrator + Web3 aesthetic system |
-| 8. Integration | ⏳ |
+| 4. Smart contracts drafted | ✅ ~4,300 LoC across 14 `roundfi-core` instructions + math modules + state types. Validation pending in M1 of grant. |
+| 5. Contract tests | 🟢 L1↔L2 economic-parity scaffold + 33 tests passing. 13 lifecycle/edge/security drafts ready to wire under bankrun. |
+| 6. Backend services | ⏳ Indexer + SDK round-trips (M3) |
+| 7. Frontend | ✅ Landing + 8 dashboard routes (`/home`, `/carteira`, `/grupos`, `/reputacao`, `/mercado`, `/insights`, `/lab`, `/demo`) + Phantom devnet flow + 12 functional modals + Stress Lab L1 reference + Web3 aesthetic system |
+| 8. Integration | ⏳ M3 of grant |
 | 9. Security audit | ⏳ |
-| 10. Devnet testing | ⏳ |
+| 10. Devnet testing | ⏳ M3 of grant |
 | 11. Mainnet migration | ⏳ |
 
 ## Stack
