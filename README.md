@@ -252,21 +252,22 @@ Business logic lands in Step 4 — until then, deployed programs only expose a `
 
 ### Deploy the front-end (Vercel)
 
-The repo ships a `vercel.json` at the root so the deploy works with zero manual config:
+The repo ships an `app/vercel.json` so the deploy works with one tweak in the dashboard:
 
 1. Sign in at [vercel.com](https://vercel.com) → **Add New** → **Project** → import `alrimarleskovar/RoundFinancial`.
-2. Leave **Root Directory** at the repo root (`.`). Vercel reads `vercel.json` and:
-   - Runs `pnpm install --frozen-lockfile` at the root (pnpm workspace resolves).
-   - Builds only the app: `pnpm --filter @roundfi/app build`.
-   - Reads the build output from `app/.next`.
-3. Click **Deploy**. ~2 minutes.
+2. **Set Root Directory to `app`** (this is the only manual step — Vercel needs to find `next` in `app/package.json`, not the workspace root).
+3. Leave everything else at the default. Vercel reads `app/vercel.json` and:
+   - Runs `cd .. && pnpm install --frozen-lockfile` so the **pnpm workspace resolves** (`@roundfi/sdk`, `@roundfi/orchestrator`).
+   - Builds the app: `pnpm build` inside `app/`.
+   - Auto-detects Next.js inside `app/` and applies all framework optimizations.
+4. Click **Deploy**. ~2 minutes.
 
 No env vars required for the public landing — wallet adapter handles its own RPC defaults (devnet). After M3 of the grant ships, the deploy will need:
 - `NEXT_PUBLIC_SOLANA_RPC_URL` (Helius / public devnet)
 - `NEXT_PUBLIC_ROUNDFI_CORE_PROGRAM_ID`
 - `NEXT_PUBLIC_ROUNDFI_REPUTATION_PROGRAM_ID`
 
-The `ignoreCommand` in `vercel.json` skips rebuilds when only docs/grant/programs/tests change — saves build minutes on doc-only PRs.
+The `ignoreCommand` in `app/vercel.json` skips rebuilds when only docs/grant/programs/tests change — saves build minutes on doc-only PRs.
 
 ## License
 
