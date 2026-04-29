@@ -5,7 +5,10 @@
 // uses this module as the reference implementation; M2's Anchor
 // programs will run parity tests against runSimulation() outputs.
 
-export type GroupLevel = "Iniciante" | "Veterano" | "VIP";
+// Canonical 3-tier ladder per data/score.ts and docs:
+// Lv1 Iniciante (50% stake) → Lv2 Comprovado (30%) → Lv3 Veterano (10%, ✦ VIP).
+// "VIP" is a visual badge on Lv3, not a separate level.
+export type GroupLevel = "Iniciante" | "Comprovado" | "Veterano";
 export type MatrixCell = "P" | "C" | "X";
 export type MemberStatus = "ok" | "calote_pre" | "calote_pos";
 
@@ -46,9 +49,9 @@ export interface LevelParams {
 // Spec: 50/30/10 stake rule + adaptive escrow per level. Veterans
 // graduate from heavier upfront releases to longer escrow drips.
 export const LEVEL_PARAMS: Record<GroupLevel, LevelParams> = {
-  Iniciante: { stakePct: 50, upfrontPct: 0.5,  escrowPct: 0.5,  releaseMonths: 5 },
-  Veterano:  { stakePct: 30, upfrontPct: 0.45, escrowPct: 0.55, releaseMonths: 4 },
-  VIP:       { stakePct: 10, upfrontPct: 0.35, escrowPct: 0.65, releaseMonths: 3 },
+  Iniciante:  { stakePct: 50, upfrontPct: 0.5,  escrowPct: 0.5,  releaseMonths: 5 },
+  Comprovado: { stakePct: 30, upfrontPct: 0.45, escrowPct: 0.55, releaseMonths: 4 },
+  Veterano:   { stakePct: 10, upfrontPct: 0.35, escrowPct: 0.65, releaseMonths: 3 },
 };
 
 export const ALL_NAMES = [
@@ -288,7 +291,10 @@ function withDefaults(
 }
 
 const BASE_CONFIG = {
-  level: "Veterano" as GroupLevel,
+  // Lv2 Comprovado (30% stake) is the canonical mid-ladder default —
+  // demonstrates the protocol's middle of the leverage curve without
+  // committing to either extreme.
+  level: "Comprovado" as GroupLevel,
   members: 12,
   installmentUsdc: 1000,
   kaminoApy: 6.5,

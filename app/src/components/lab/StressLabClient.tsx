@@ -38,7 +38,7 @@ export function StressLabClient() {
   const t = useT();
 
   // ── Config state ─────────────────────────────────────────
-  const [level, setLevel] = useState<GroupLevel>("Veterano");
+  const [level, setLevel] = useState<GroupLevel>("Comprovado");
   const [members, setMembers] = useState(12);
   const [installmentUsdc, setInstallmentUsdc] = useState(1000);
   const [kaminoApy, setKaminoApy] = useState(6.5);
@@ -256,8 +256,9 @@ export function StressLabClient() {
                   {t("lab.controls.level")}
                 </label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                  {(["Iniciante", "Veterano", "VIP"] as const).map((lvl) => {
+                  {(["Iniciante", "Comprovado", "Veterano"] as const).map((lvl) => {
                     const active = level === lvl;
+                    const isTopTier = lvl === "Veterano";
                     return (
                       <button
                         key={lvl}
@@ -277,9 +278,24 @@ export function StressLabClient() {
                           fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                           transition: "all 200ms ease",
                           boxShadow: active ? `0 0 12px ${tokens.purple}33` : "none",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
                         }}
                       >
                         {t(`lab.level.${lvl.toLowerCase()}`)}
+                        {isTopTier && (
+                          <span
+                            style={{
+                              fontSize: 8,
+                              color: tokens.green,
+                              letterSpacing: "0.04em",
+                            }}
+                          >
+                            ✦
+                          </span>
+                        )}
                       </button>
                     );
                   })}
