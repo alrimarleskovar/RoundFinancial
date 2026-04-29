@@ -184,7 +184,7 @@ export const DICT: Record<Lang, Dict> = {
     "insights.evolution.title": "◆ Evolução do score",
     "insights.evolution.delta": "+{n} mês",
     "insights.threshold.lv2": "Nv.2 · 500",
-    "insights.threshold.lv3": "Nv.3 VIP · 750",
+    "insights.threshold.lv3": "Nv.3 Veterano · 750",
     "insights.factors.title": "◆ Fatores",
     "insights.factor.punctuality.label": "Pontualidade",
     "insights.factor.punctuality.detail": "17/17 parcelas",
@@ -204,6 +204,23 @@ export const DICT: Record<Lang, Dict> = {
     "insights.next.complete.label": "Complete Renovação MEI sem atraso",
     "insights.next.complete.sub": "8 parcelas restam",
     "insights.next.pts": "+{n} pts",
+    "insights.next.viewDetails": "Ver detalhes",
+    "insights.modal.bumpLabel": "GANHO ESTIMADO",
+    "insights.modal.whyTitle": "POR QUE ISSO VALE PONTOS",
+    "insights.modal.onchainTitle": "SINAL ON-CHAIN",
+    "insights.modal.close": "Fechar",
+    "insights.modal.anticipate.why":
+      "Antecipar parcelas é o sinal mais limpo de disciplina financeira. O contrato registra o timestamp do pagamento, e qualquer parcela paga antes da janela de vencimento gera um atestado SAS adicional. O score acelera proporcionalmente.",
+    "insights.modal.anticipate.onchain":
+      "roundfi-core::contribute → roundfi-reputation::mint_attestation com kind=Anticipated. Um atestado por parcela antecipada.",
+    "insights.modal.diversify.why":
+      "Cohorts de PME têm dinâmica de payouts diferente das de retail (ciclos mais curtos, valores maiores). Um histórico em mais de um vertical mostra perfil multi-categoria, o que reduz o risco-percebido pelo protocolo.",
+    "insights.modal.diversify.onchain":
+      "join_pool em group_kind != atual → mint_attestation com kind=Diversity. Bônus único por vertical novo.",
+    "insights.modal.complete.why":
+      "Completar um ciclo inteiro sem atraso é a maior fonte de pontos no SAS. O atestado CycleComplete é o único que carrega peso 5x — é o que separa Comprovado de Veterano na ladder.",
+    "insights.modal.complete.onchain":
+      "Ao final do ciclo, claim_payout do último mês emite um CycleComplete attestation. Esse é o gatilho da transição de nível.",
     // stress lab (M1 of grant roadmap)
     "lab.title": "Stress Lab",
     "lab.subtitle": "Simulador de Solvência",
@@ -710,7 +727,7 @@ export const DICT: Record<Lang, Dict> = {
     "insights.evolution.title": "◆ Score evolution",
     "insights.evolution.delta": "+{n} this month",
     "insights.threshold.lv2": "Lv.2 · 500",
-    "insights.threshold.lv3": "Lv.3 VIP · 750",
+    "insights.threshold.lv3": "Lv.3 Veteran · 750",
     "insights.factors.title": "◆ Factors",
     "insights.factor.punctuality.label": "Punctuality",
     "insights.factor.punctuality.detail": "17/17 installments",
@@ -730,6 +747,23 @@ export const DICT: Record<Lang, Dict> = {
     "insights.next.complete.label": "Finish Renovação MEI without delays",
     "insights.next.complete.sub": "8 installments remaining",
     "insights.next.pts": "+{n} pts",
+    "insights.next.viewDetails": "View details",
+    "insights.modal.bumpLabel": "ESTIMATED BUMP",
+    "insights.modal.whyTitle": "WHY THIS EARNS POINTS",
+    "insights.modal.onchainTitle": "ON-CHAIN SIGNAL",
+    "insights.modal.close": "Close",
+    "insights.modal.anticipate.why":
+      "Anticipating installments is the cleanest signal of financial discipline. The contract logs the payment timestamp, and any installment paid before its due window mints an extra SAS attestation. Score accelerates proportionally.",
+    "insights.modal.anticipate.onchain":
+      "roundfi-core::contribute → roundfi-reputation::mint_attestation with kind=Anticipated. One attestation per anticipated installment.",
+    "insights.modal.diversify.why":
+      "SME cohorts have different payout dynamics than retail (shorter cycles, larger amounts). A track record across multiple verticals signals a multi-category profile, which lowers protocol-perceived risk.",
+    "insights.modal.diversify.onchain":
+      "join_pool with group_kind != current → mint_attestation with kind=Diversity. One-time bonus per new vertical.",
+    "insights.modal.complete.why":
+      "Completing a full cycle without delay is the largest single point source in SAS. The CycleComplete attestation is the only one with 5x weight — it's what separates Proven from Veteran on the ladder.",
+    "insights.modal.complete.onchain":
+      "At cycle end, the final claim_payout emits a CycleComplete attestation. That's the level-transition trigger.",
     // stress lab
     "lab.title": "Stress Lab",
     "lab.subtitle": "Solvency simulator",

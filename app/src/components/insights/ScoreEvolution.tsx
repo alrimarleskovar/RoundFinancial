@@ -6,19 +6,20 @@ import { MonoLabel } from "@/components/brand/brand";
 import { useSession } from "@/lib/session";
 import {
   DEFAULT_RANGE,
-  SCORE_CURVE,
   SCORE_MONTHS_EN,
   SCORE_MONTHS_PT,
   SCORE_RANGES,
+  curveForRange,
+  monthsForRange,
   type ScoreRange,
 } from "@/data/insights";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Big chart card on /insights. SVG curve + 2 dashed level
-// thresholds + 7-month axis + 1M/3M/6M/12M range pill.
-// The curve doesn't actually re-shape per range yet — this
-// matches the prototype's visual.
+// thresholds + month axis + 1M/3M/6M/12M range pill. Pill drives
+// `curveForRange()` which slices and rescales the synthetic curve
+// so shorter ranges actually zoom into the most recent points.
 
 export function ScoreEvolution() {
   const { tokens, palette } = useTheme();
@@ -28,13 +29,15 @@ export function ScoreEvolution() {
   const { user } = useSession();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
 
-  const linePath = SCORE_CURVE.map(
-    ([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`,
-  ).join(" ");
+  const curve = curveForRange(range);
+  const linePath = curve
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`)
+    .join(" ");
   const areaPath = `${linePath} L600,220 L0,220 Z`;
 
-  const months = lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN;
-  const last = SCORE_CURVE[SCORE_CURVE.length - 1];
+  const allMonths = lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN;
+  const months = monthsForRange(range, allMonths);
+  const last = curve[curve.length - 1]!;
 
   return (
     <div

@@ -1,17 +1,27 @@
 "use client";
 
+import { useState } from "react";
+
 import { MonoLabel } from "@/components/brand/brand";
+import {
+  RecommendationModal,
+  type RecommendationDetail,
+} from "@/components/insights/RecommendationModal";
 import type { Tone } from "@/data/carteira";
 import { RECOMMENDATIONS } from "@/data/insights";
 import { useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // 3-column grid of "next steps" cards under the chart + factors row.
+// Each card opens RecommendationModal with a longer-form
+// explanation: why this action bumps the score, what the on-chain
+// signal looks like, and the Anchor instruction path.
 
 export function Recommendations() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
+  const [opened, setOpened] = useState<RecommendationDetail | null>(null);
 
   const toneColor = (tone: Tone): string => {
     switch (tone) {
@@ -37,14 +47,31 @@ export function Recommendations() {
         {RECOMMENDATIONS.map((r) => {
           const c = toneColor(r.tone);
           return (
-            <div
+            <button
               key={r.key}
+              type="button"
+              onClick={() =>
+                setOpened({ key: r.key, pts: r.pts, accent: c })
+              }
               style={{
                 ...glass,
                 padding: 18,
                 borderRadius: 14,
                 position: "relative",
                 overflow: "hidden",
+                textAlign: "left",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: "inherit",
+                transition: "transform 180ms ease, border-color 180ms ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.borderColor = `${c}55`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.borderColor = "";
               }}
             >
               <div
@@ -80,19 +107,44 @@ export function Recommendations() {
               </div>
               <div
                 style={{
-                  fontSize: 11,
-                  color: tokens.muted,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
                   marginTop: 4,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
-                {t(`insights.next.${r.key}.sub`)}
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: tokens.muted,
+                    fontFamily:
+                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  }}
+                >
+                  {t(`insights.next.${r.key}.sub`)}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: c,
+                    fontFamily:
+                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontWeight: 700,
+                  }}
+                >
+                  {t("insights.next.viewDetails")} →
+                </span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
+
+      <RecommendationModal
+        detail={opened}
+        open={opened !== null}
+        onClose={() => setOpened(null)}
+      />
     </div>
   );
 }
