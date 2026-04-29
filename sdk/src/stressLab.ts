@@ -77,10 +77,25 @@ export function defaultMatrix(N: number): MatrixCell[][] {
   );
 }
 
-// Row m, col c. Cycles through P -> C -> X -> P with side-effects:
-// - Setting C clears any other C in the same row/col + sets P up to that cycle.
-// - Setting X turns everything from that cycle forward into X (defaulted from there on).
-// - Setting back to P from X resets the row from that cycle forward.
+// Row m, col c. Position-aware click semantics so the UI can
+// reproduce every scenario the whitepaper describes — including the
+// load-bearing one: a member contemplated at cycle c₀ who then
+// defaults at cycle c₁ > c₀ (post-contemplation default, the case
+// `runSimulation` flags as `calote_pos`).
+//
+// - P  before the row's existing C  →  promote to C (move the
+//   contemplation here; clear the previous C in this row + any
+//   conflicting C in the same column).
+// - P  after the row's existing C   →  X (post-contemplation default
+//   starting at this cycle; the C at c₀ is preserved). This is the
+//   key fix: previously this path had to go through C, which
+//   overwrote the existing contemplation.
+// - P  with no C in this row        →  promote to C (first
+//   contemplation; clear conflicting C in this column).
+// - C                                →  P (cancel the row's
+//   contemplation entirely; everything stays as P).
+// - X                                →  P (revert from this cycle
+//   onward, recovering the row's existing C if it sat before col).
 export function toggleCell(
   matrix: MatrixCell[][],
   row: number,
@@ -89,19 +104,33 @@ export function toggleCell(
   const N = matrix.length;
   const next = matrix.map((r) => [...r]);
   const current = next[row][col];
+  const existingContemplationCol = next[row].findIndex((c) => c === "C");
 
-  if (current === "P") {
-    // Promote to C: clear conflicting Cs, set prior cells in this row to P.
+  if (current === "X") {
+    // Revert this cycle and everything after it back to P. Any C
+    // sitting before `col` is preserved (X can't appear before its
+    // own row's C — that's enforced by the other branches).
+    for (let j = col; j < N; j++) next[row][j] = "P";
+  } else if (current === "C") {
+    // Cancel contemplation. Just turn the cell into P.
+    next[row][col] = "P";
+  } else if (
+    existingContemplationCol >= 0 &&
+    col > existingContemplationCol
+  ) {
+    // P after the existing C → cascade X from `col` onward.
+    // Preserves the contemplation at existingContemplationCol so
+    // `runSimulation` sees `monthContemplated > 0` and flags this
+    // member as `calote_pos`.
+    for (let j = col; j < N; j++) next[row][j] = "X";
+  } else {
+    // P before the row's C (or no C in this row): promote to C.
+    // Clear any conflicting C in this column + any earlier C in
+    // this row, then mark prior cells as P.
     for (let i = 0; i < N; i++) if (next[i][col] === "C") next[i][col] = "P";
     for (let j = 0; j < N; j++) if (next[row][j] === "C") next[row][j] = "P";
     next[row][col] = "C";
     for (let j = 0; j < col; j++) next[row][j] = "P";
-  } else if (current === "C") {
-    // C -> X: this member defaults from this cycle onward.
-    for (let j = col; j < N; j++) next[row][j] = "X";
-  } else {
-    // X -> P: revert from this cycle onward.
-    for (let j = col; j < N; j++) next[row][j] = "P";
   }
 
   return next;
