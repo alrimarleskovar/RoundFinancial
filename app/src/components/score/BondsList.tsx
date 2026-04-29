@@ -1,22 +1,29 @@
 "use client";
 
+import { useState } from "react";
+
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
+import { BondDetailModal } from "@/components/score/BondDetailModal";
 import {
   SAS_BONDS,
   SAS_TOTAL_CYCLES,
   SAS_TOTAL_INSTALLMENTS,
+  type SasBond,
 } from "@/data/score";
 import type { Tone } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// Two-column grid of emitted SAS bonds (active or completed).
+// Two-column grid of emitted SAS bonds (active or completed). Each
+// row is a button that opens BondDetailModal — exposes the
+// roundfi-reputation::mint_attestation path that backs the bond.
 
 export function BondsList() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
+  const [opened, setOpened] = useState<SasBond | null>(null);
 
   const toneColor = (tone: Tone): string => {
     switch (tone) {
@@ -62,8 +69,10 @@ export function BondsList() {
         {SAS_BONDS.map((b) => {
           const c = toneColor(b.tone);
           return (
-            <div
+            <button
               key={b.id}
+              type="button"
+              onClick={() => setOpened(b)}
               style={{
                 ...glass,
                 padding: 14,
@@ -71,6 +80,19 @@ export function BondsList() {
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
+                cursor: "pointer",
+                textAlign: "left",
+                fontFamily: "inherit",
+                color: "inherit",
+                transition: "transform 180ms ease, border-color 180ms ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.borderColor = `${c}55`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.borderColor = "";
               }}
             >
               <div
@@ -83,6 +105,7 @@ export function BondsList() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
                 <Icons.shield size={20} stroke={c} />
@@ -115,10 +138,16 @@ export function BondsList() {
               ) : (
                 <RFIPill tone="n">{t("score.bondClosed")}</RFIPill>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
+
+      <BondDetailModal
+        bond={opened}
+        open={opened !== null}
+        onClose={() => setOpened(null)}
+      />
     </div>
   );
 }
