@@ -36,13 +36,17 @@ export function MemberInfoModal({
       ? "lab.member.statusOk"
       : member.status === "calote_pre"
       ? "lab.member.statusPre"
-      : "lab.member.statusPos";
+      : member.status === "calote_pos"
+      ? "lab.member.statusPos"
+      : "lab.member.statusExited";
   const statusColor =
     member.status === "ok"
       ? tokens.green
       : member.status === "calote_pre"
       ? tokens.amber
-      : tokens.red;
+      : member.status === "calote_pos"
+      ? tokens.red
+      : tokens.teal;
 
   return (
     <Modal open={open} onClose={onClose} title={t("lab.member.title")} width={460}>
