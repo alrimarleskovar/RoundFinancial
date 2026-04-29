@@ -220,8 +220,8 @@ export const DICT: Record<Lang, Dict> = {
     "lab.member.retainedByProtocol": "Retido pelo Protocolo (Lucro)",
     "lab.member.lossCaused": "Rombo Causado ao Fundo",
     "lab.level.iniciante": "Iniciante",
+    "lab.level.comprovado": "Comprovado",
     "lab.level.veterano": "Veterano",
-    "lab.level.vip": "VIP",
     // landing
     "landing.loading": "Carregando RoundFi Dashboard…",
     "landing.nav.simulator": "Simulador",
@@ -688,8 +688,8 @@ export const DICT: Record<Lang, Dict> = {
     "lab.member.retainedByProtocol": "Retained by protocol (profit)",
     "lab.member.lossCaused": "Damage caused to fund",
     "lab.level.iniciante": "Beginner",
-    "lab.level.veterano": "Proven",
-    "lab.level.vip": "VIP",
+    "lab.level.comprovado": "Proven",
+    "lab.level.veterano": "Veteran",
     // landing
     "landing.loading": "Loading RoundFi Dashboard…",
     "landing.nav.simulator": "Simulator",
