@@ -3,12 +3,17 @@
 > **Cooperative credit, on-chain.** An on-chain ROSCA (Rotating Savings & Credit Association) protocol on Solana, bringing behavioral credit to the 1.4B unbanked adults and the $5.7T MSME finance gap that DeFi never served.
 
 <p>
+  <a href="https://round-financial.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/Live_demo-round--financial.vercel.app-14F195?style=for-the-badge&logo=vercel&logoColor=06090F"/></a>
+  <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-65+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
+</p>
+
+<p>
+  <a href="https://round-financial.vercel.app">🚀 Live demo</a> ·
   <a href="docs/pitch/pitch-3min-en.html">📊 3-min Pitch (EN)</a> ·
   <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
   <a href="docs/pitch/pitch-deck-en.html">📊 Long-form Deck (EN)</a> ·
   <a href="docs/architecture.md">🧱 Architecture</a> ·
-  <a href="grant/">📦 Grant bundle</a> ·
-  <a href="#front-end">🖥️ Live front-end</a>
+  <a href="grant/">📦 Grant bundle</a>
 </p>
 
 Built for the **Colosseum Hackathon 2026**.
@@ -121,7 +126,11 @@ Per-module READMEs land alongside each module as it ships.
 
 ## Front-end
 
-A complete Next.js 14 + TypeScript app with **a public landing + 7 dashboard routes**, real Solana wallet integration (devnet), session-orchestrated state, and a Web3-native aesthetic system (Neon palette, glassmorphism, animated counters, terminal-style activity log).
+A complete Next.js 14 + TypeScript app with **a public landing + 8 dashboard routes** (`/home`, `/carteira`, `/grupos`, `/reputacao`, `/mercado`, `/insights`, `/lab`, `/demo`), real Solana wallet integration (devnet), session-orchestrated state, and a Web3-native aesthetic system (Neon palette, glassmorphism, animated counters, terminal-style activity log).
+
+> **🚀 Try it now:** [round-financial.vercel.app](https://round-financial.vercel.app) — every push to `main` auto-deploys; PRs get preview URLs.
+
+Run locally:
 
 ```bash
 pnpm install
