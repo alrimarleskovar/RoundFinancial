@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RoundFi — 3min Pitch</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#06090F; --s1:#0C1018; --s2:#111828;
+  --green:#14F195; --teal:#00C8FF; --purple:#9945FF;
+  --amber:#FFB547; --red:#FF5656;
+  --text:#EEF0F8; --muted:#4E5870; --border:rgba(255,255,255,0.07);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  width:100%;height:100%;background:#000;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;font-family:'DM Sans',sans-serif;
+  color:var(--text);
+}
+
+/* ── STAGE 16:9 ── */
+.stage{position:relative;width:100vw;aspect-ratio:16/9;max-height:100vh;max-width:calc(100vh*16/9);overflow:hidden;background:var(--bg);}
+
+/* ── BG ── */
+.bg-grid{position:absolute;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(20,241,149,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,241,149,.025) 1px,transparent 1px);
+  background-size:4% 4%;}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);z-index:0;pointer-events:none;}
+.o1{width:50%;height:70%;background:rgba(153,69,255,.08);top:-20%;left:-10%;}
+.o2{width:40%;height:55%;background:rgba(20,241,149,.06);bottom:-15%;right:-5%;}
+.o3{width:25%;height:35%;background:rgba(0,200,255,.05);top:15%;right:20%;}
+
+/* ── SLIDES ── */
+.slide{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;padding:5% 7%;opacity:0;pointer-events:none;transition:opacity .55s cubic-bezier(.4,0,.2,1);}
+.slide.active{opacity:1;pointer-events:all;}
+
+/* ── PROGRESS ── */
+.prog{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(255,255,255,.05);z-index:100;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--teal));transition:width .5s ease;}
+.ctr{position:absolute;top:3.5%;right:5%;font-family:'JetBrains Mono',monospace;font-size:.8vw;color:var(--muted);z-index:50;letter-spacing:.1em;}
+
+/* ── TIME CHIP ── */
+.chip{display:inline-flex;align-items:center;gap:.5vw;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:100px;padding:.3vw .9vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--muted);letter-spacing:.08em;margin-bottom:2.5%;align-self:flex-start;}
+.cdot{width:.45vw;height:.45vw;border-radius:50%;background:var(--green);}
+
+/* ── TYPE ── */
+.label{font-family:'JetBrains Mono',monospace;font-size:.7vw;letter-spacing:.2em;color:var(--green);text-transform:uppercase;margin-bottom:1%;}
+h1.hero{font-family:'Syne',sans-serif;font-weight:800;font-size:9vw;line-height:.9;letter-spacing:-.04em;color:var(--text);}
+h1.hero span{background:linear-gradient(90deg,var(--green),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+h2.t{font-family:'Syne',sans-serif;font-weight:800;font-size:4vw;line-height:1.0;letter-spacing:-.03em;color:var(--text);margin-bottom:3%;}
+h2.t em{font-style:normal;color:var(--green);}
+.sub{font-size:1.05vw;color:rgba(238,240,248,.55);line-height:1.7;max-width:50%;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* ── CARDS ── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:1.2vw;padding:4% 5%;}
+.card.g-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--green),transparent);margin-bottom:5%;}
+.card.p-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--purple),transparent);margin-bottom:5%;}
+.card.t-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--teal),transparent);margin-bottom:5%;}
+.card.a-line::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--amber),transparent);margin-bottom:5%;}
+.bignum{font-family:'Syne',sans-serif;font-weight:800;font-size:3.5vw;line-height:1;letter-spacing:-.03em;}
+.bignum.g{color:var(--green);}
+.bignum.p{color:var(--purple);}
+.bignum.t{color:var(--teal);}
+.bignum.a{color:var(--amber);}
+.bignum.r{color:var(--red);}
+.cardlabel{font-size:.75vw;color:rgba(238,240,248,.55);line-height:1.5;margin-top:.5%;}
+.cardsrc{font-family:'JetBrains Mono',monospace;font-size:.58vw;color:var(--muted);margin-top:.6%;}
+
+/* ── GRIDS ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:2%;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:2%;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5%;}
+.g22{display:grid;grid-template-columns:1fr 1fr;gap:2%;flex:1;align-items:center;}
+
+/* ── ANIMATIONS ── */
+@keyframes up{from{opacity:0;transform:translateY(1.2vw);}to{opacity:1;transform:translateY(0);}}
+.slide.active .a{animation:up .5s cubic-bezier(.4,0,.2,1) forwards;opacity:0;}
+.slide.active .a:nth-child(1){animation-delay:.04s;}
+.slide.active .a:nth-child(2){animation-delay:.11s;}
+.slide.active .a:nth-child(3){animation-delay:.18s;}
+.slide.active .a:nth-child(4){animation-delay:.25s;}
+.slide.active .a:nth-child(5){animation-delay:.32s;}
+.slide.active .a:nth-child(6){animation-delay:.39s;}
+.slide.active .a:nth-child(7){animation-delay:.46s;}
+
+/* ── NAV ── */
+.nav{position:absolute;bottom:2%;left:50%;transform:translateX(-50%);display:flex;gap:.6vw;z-index:100;}
+.dot{width:.5vw;height:.5vw;border-radius:50%;background:var(--muted);cursor:pointer;border:none;transition:all .3s;}
+.dot.active{background:var(--green);width:1.8vw;border-radius:.3vw;}
+.hint{position:absolute;bottom:2.2%;left:4%;font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--muted);z-index:100;}
+
+/* ── LEDGER ── */
+.ledger{display:flex;flex-direction:column;gap:1%;}
+.lrow{display:flex;justify-content:space-between;align-items:center;font-size:.82vw;color:rgba(238,240,248,.55);padding:.6% 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.lrow:last-child{border:none;}
+.lrow.tot{border-top:1px solid rgba(255,255,255,.12);border-bottom:none;padding-top:1.5%;margin-top:.5%;color:var(--text);font-weight:600;}
+.lval{font-family:'JetBrains Mono',monospace;font-size:.78vw;}
+.lval.r{color:var(--red);}
+.lval.g{color:var(--green);}
+
+/* ── SURPLUS BOX ── */
+.surplus{background:rgba(20,241,149,.05);border:1px solid rgba(20,241,149,.18);border-radius:.8vw;padding:3% 4%;text-align:center;}
+.surplus .n{font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:var(--green);line-height:1;}
+.surplus .s{font-size:.7vw;color:var(--muted);margin-top:.4%;}
+
+/* ── PILL ── */
+.pill{display:inline-flex;align-items:center;gap:.4vw;padding:.3vw .9vw;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:.62vw;letter-spacing:.06em;}
+.pill.g{border:1px solid rgba(20,241,149,.3);color:var(--green);background:rgba(20,241,149,.06);}
+.pill.p{border:1px solid rgba(153,69,255,.3);color:var(--purple);background:rgba(153,69,255,.06);}
+.pill.n{border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.02);}
+
+/* ── CHECK / CROSS TABLE ── */
+.ctable{width:100%;border-collapse:collapse;}
+.ctable th{font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.6vw 1vw;text-align:left;border-bottom:1px solid var(--border);}
+.ctable td{font-size:.82vw;padding:.7vw 1vw;border-bottom:1px solid rgba(255,255,255,.03);color:rgba(238,240,248,.7);}
+.ctable td:first-child{color:var(--text);font-weight:500;}
+.ctable .yes{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.9vw;}
+.ctable .no{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.9vw;}
+.ctable .partial{color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:.9vw;}
+
+/* ── PHASE ITEM ── */
+.phase{display:flex;gap:2%;align-items:flex-start;padding:2% 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.phase:last-child{border:none;}
+.pnum{width:1.8vw;height:1.8vw;border-radius:50%;background:rgba(20,241,149,.1);border:1px solid rgba(20,241,149,.25);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.62vw;color:var(--green);flex-shrink:0;margin-top:.1vw;}
+.ptitle{font-size:.9vw;font-weight:600;margin-bottom:.25vw;}
+.pdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+
+/* ── PROFILE CARD ── */
+.prof{background:var(--s1);border:1px solid var(--border);border-radius:1.2vw;padding:5% 5%;display:flex;flex-direction:column;gap:.8vw;}
+.prof .icon{font-size:2vw;}
+.prof .ptag{font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.prof .pname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.3vw;margin:.2vw 0;}
+.prof .pdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+
+/* ── SHIELD ITEM ── */
+.shi{background:var(--s1);border:1px solid var(--border);border-radius:1vw;padding:4% 4.5%;}
+.shi .snum{font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5vw;}
+.shi .stitle{font-size:.95vw;font-weight:600;margin-bottom:.4vw;}
+.shi .sdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+.shi .smetric{font-family:'JetBrains Mono',monospace;font-size:.7vw;color:var(--green);margin-top:.6vw;}
+
+/* ── REVENUE CARD ── */
+.rev{background:var(--s1);border:1px solid var(--border);border-radius:1vw;padding:3.5% 4.5%;position:relative;overflow:hidden;}
+.rev::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;}
+.rev.rv1::before{background:var(--green);}
+.rev.rv2::before{background:var(--teal);}
+.rev.rv3::before{background:var(--purple);}
+.rev .rtitle{font-size:.9vw;font-weight:600;margin-bottom:.3vw;}
+.rev .rdesc{font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="bg-grid"></div>
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <div class="prog"><div class="prog-fill" id="pbar" style="width:0%"></div></div>
+  <div class="ctr" id="ctr">01 / 12</div>
+
+  <div class="slide active" data-slide="0">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+      <div class="label a">Credit beyond Capital</div>
+      <h1 class="hero a">Round<span>Fi</span></h1>
+      <p class="sub a" style="margin-top:2%">The ROSCA on Solana.<br/>Your behavior is your collateral.</p>
+      <div class="a" style="display:flex;gap:.8vw;margin-top:3%;flex-wrap:wrap;">
+        <span class="pill g">Solana · SAS</span>
+        <span class="pill p">Kamino Finance</span>
+        <span class="pill n">Micro-Leverage</span>
+        <span class="pill n">B2B SaaS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="1">
+    <div class="chip a"><div class="cdot"></div>0:00 – 0:30</div>
+    <div class="label a">Global Market</div>
+    <h2 class="t a">The money already exists.<br/><em>The infrastructure doesn't.</em></h2>
+    <div class="g4 a" style="flex:1;align-items:center;">
+      <div class="card g-line">
+        <div class="bignum g">$5.7T</div>
+        <div class="cardlabel">Global SME credit gap</div>
+        <div class="cardsrc">→ IFC / World Bank</div>
+      </div>
+      <div class="card p-line">
+        <div class="bignum p">1.4B</div>
+        <div class="cardlabel">Unbanked adults worldwide</div>
+        <div class="cardsrc">→ World Bank Findex, 2021</div>
+      </div>
+      <div class="card t-line">
+        <div class="bignum t">R$300B</div>
+        <div class="cardlabel">Active ROSCAs in Brazil alone</div>
+        <div class="cardsrc">→ ABAC, 2023</div>
+      </div>
+      <div class="card a-line">
+        <div class="bignum a">45M</div>
+        <div class="cardlabel">Credit-invisible Brazilians</div>
+        <div class="cardsrc">→ Serasa / IBGE</div>
+      </div>
+    </div>
+    <div class="a" style="margin-top:2%;font-size:.85vw;color:var(--muted);">DeFi requires 150% collateral to release credit. <strong style="color:var(--text)">RoundFi only needs 10%.</strong></div>
+  </div>
+
+  <div class="slide" data-slide="2">
+    <div class="chip a"><div class="cdot"></div>0:30 – 0:50</div>
+    <div class="label a">The Solution</div>
+    <h2 class="t a">Behavioral Credit.<br/><em>Behavior is collateral.</em></h2>
+    <div class="g22 a">
+      <div>
+        <div style="display:flex;flex-direction:column;gap:1.5%;">
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:1vw;padding:3.5% 4%;display:flex;align-items:center;gap:3%;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:rgba(238,240,248,.3);flex-shrink:0;">50%</div>
+            <div>
+              <div style="font-size:.8vw;font-weight:600;">Tier 1 · Beginner</div>
+              <div style="font-size:.75vw;color:var(--muted);">2x leverage</div>
+            </div>
+          </div>
+          <div style="background:var(--s1);border:1px solid rgba(0,200,255,.2);border-radius:1vw;padding:3.5% 4%;display:flex;align-items:center;gap:3%;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:var(--teal);flex-shrink:0;">30%</div>
+            <div>
+              <div style="font-size:.8vw;font-weight:600;">Tier 2 · Proven</div>
+              <div style="font-size:.75vw;color:var(--muted);">3.3x leverage</div>
+            </div>
+          </div>
+          <div style="background:rgba(20,241,149,.04);border:1px solid rgba(20,241,149,.3);border-radius:1vw;padding:3.5% 4%;display:flex;align-items:center;gap:3%;position:relative;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.8vw;color:var(--green);flex-shrink:0;">10%</div>
+            <div>
+              <div style="font-size:.8vw;font-weight:600;">Tier 3 · Veteran <span style="font-family:'JetBrains Mono',monospace;font-size:.6vw;color:var(--green);border:1px solid rgba(20,241,149,.3);padding:.2vw .5vw;border-radius:100px;margin-left:.4vw;">✦ VIP</span></div>
+              <div style="font-size:.75vw;color:var(--muted);">10x max leverage</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1.5%;">
+        <div class="card">
+          <div class="label" style="font-size:.6vw;margin-bottom:1%;">Why park money here?</div>
+          <div style="font-size:.9vw;font-weight:500;margin-bottom:.5vw;">Deposit $1,000 → withdraw $3,500</div>
+          <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">Veterans inject real liquidity with just 10% collateral. 5–8% APY on the float via Kamino. Fee-exempt. Express micro-cycles.</div>
+        </div>
+        <div class="card" style="background:rgba(153,69,255,.04);border-color:rgba(153,69,255,.2);">
+          <div class="label" style="font-size:.6vw;color:var(--purple);margin-bottom:1%;">The real asset</div>
+          <div style="font-size:.82vw;color:rgba(238,240,248,.7);line-height:1.5;">Every payment mints a <strong style="color:var(--text)">Reputation Bond</strong> on the Solana Attestation Service — a portable financial passport readable by every protocol on the network.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="3">
+    <div class="chip a"><div class="cdot"></div>0:50 – 1:10</div>
+    <div class="label a">Target Audience</div>
+    <h2 class="t a">High income. <em>Low assets.</em></h2>
+    <div class="a" style="margin-bottom:2%;font-size:.95vw;color:var(--muted);max-width:60%;">We're not chasing the informal market alone. We target any user with steady cash flow but who refuses to lock 150% capital in legacy DeFi.</div>
+    <div class="g3 a" style="flex:1;align-items:center;">
+      <div class="prof">
+        <div class="icon">💻</div>
+        <div class="ptag">Borrower</div>
+        <div class="pname">The "Asset-Poor" with Income</div>
+        <div class="pdesc">Web3 freelancers, SMEs, and DeFi users with monthly cash flow but no idle capital to lock as collateral. Looking for 10x leverage.</div>
+        <span class="pill g" style="align-self:flex-start;margin-top:.5vw;">Real Demand</span>
+      </div>
+      <div class="prof">
+        <div class="icon">📊</div>
+        <div class="ptag">Liquidity Provider</div>
+        <div class="pname">The Alpha Hunter</div>
+        <div class="pdesc">Doesn't want a loan, wants yield. Buys share NFTs at a discount on the secondary market to inherit the group's reputation and liquidity.</div>
+        <span class="pill p" style="align-self:flex-start;margin-top:.5vw;">Arbitrageur</span>
+      </div>
+      <div class="prof">
+        <div class="icon">🏛️</div>
+        <div class="ptag">End Customer (B2B)</div>
+        <div class="pname">The Solana Ecosystem</div>
+        <div class="pdesc">Marginfi, Kamino, neobanks. They don't join the pool — they pay for the RoundFi API to know who's trustworthy before lending.</div>
+        <span class="pill n" style="align-self:flex-start;margin-top:.5vw;border-color:rgba(0,200,255,.3);color:var(--teal);">Score Consumer</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="4">
+    <div class="chip a"><div class="cdot"></div>1:10 – 1:30</div>
+    <div class="label a">The Score Journey</div>
+    <h2 class="t a">Credit is the bait.<br/><em>The Score is the product.</em></h2>
+    <div class="a" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:2%;">
+      <div class="phase" style="align-items:center;padding:3% 0;">
+        <div class="pnum" style="width:3vw;height:3vw;font-size:1.2vw;">1</div>
+        <div style="flex:1;margin-left:2%;">
+          <div class="ptitle" style="font-size:1.1vw;color:var(--text);">Skin in the Game (The Stake)</div>
+          <div class="pdesc" style="font-size:.85vw;">User locks a small initial collateral (10% to 50%) in a group of people with the same goal. Zero need to be "crypto-rich".</div>
+        </div>
+      </div>
+      <div class="phase" style="align-items:center;padding:3% 0;">
+        <div class="pnum" style="width:3vw;height:3vw;font-size:1.2vw;color:var(--purple);border-color:rgba(153,69,255,.3);background:rgba(153,69,255,.1);">2</div>
+        <div style="flex:1;margin-left:2%;">
+          <div class="ptitle" style="font-size:1.1vw;color:var(--text);">Micro-Leverage (Funding & Escrow)</div>
+          <div class="pdesc" style="font-size:.85vw;">The pool funds the user up to 10x the deposit. The credit is protected by the <strong style="color:var(--purple);">Escrow Matrix</strong> — capital stays locked and only releases against monthly payments. The protocol is never exposed.</div>
+        </div>
+      </div>
+      <div class="phase" style="align-items:center;padding:3% 0;border:none;">
+        <div class="pnum" style="width:3vw;height:3vw;font-size:1.2vw;color:var(--teal);border-color:rgba(0,200,255,.3);background:rgba(0,200,255,.1);">3</div>
+        <div style="flex:1;margin-left:2%;">
+          <div class="ptitle" style="font-size:1.1vw;color:var(--teal);">SAS Attestation (Score Minting)</div>
+          <div class="pdesc" style="font-size:.85vw;">Each paid installment doesn't just unlock the escrow — it mints a <strong style="color:var(--text)">Reputation Bond</strong> on the Solana Attestation Service. The user finishes the cycle with capital in hand and an immutable FICO Score on-chain.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="5">
+    <div class="chip a"><div class="cdot"></div>1:30 – 1:55</div>
+    <div class="label a">Why it doesn't break</div>
+    <h2 class="t a">The Triple Shield.<br/><em>Solvent by Construction.</em></h2>
+    <div class="g22 a">
+      <div style="display:flex;flex-direction:column;gap:1.2%;">
+        <div class="shi">
+          <div class="snum">Shield 01</div>
+          <div class="stitle">🌱 Seed Draw</div>
+          <div class="sdesc">Month 1 retains 91.6% — the protocol is never exposed on Day 0.</div>
+          <div class="smetric">→ $9,152 armored before the 1st payout</div>
+        </div>
+        <div class="shi">
+          <div class="snum">Shield 02</div>
+          <div class="stitle">🔒 Adaptive Escrow</div>
+          <div class="sdesc">65% of the credit never leaves the contract. The money simply wasn't in their hands.</div>
+          <div class="smetric">→ Default = mathematically illogical</div>
+        </div>
+        <div class="shi">
+          <div class="snum">Shield 03</div>
+          <div class="stitle">🛡️ Solidarity Vault + Yield</div>
+          <div class="sdesc">1% of every installment to an independent fund + 5–8% APY on Kamino Finance.</div>
+          <div class="smetric">→ 0% yield = still solvent</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1.5%;">
+        <div class="card" style="background:var(--s1);">
+          <div class="label" style="font-size:.6vw;margin-bottom:1.5%;">Worst case — Triple default at Tier 3</div>
+          <div class="ledger">
+            <div class="lrow"><span>Gross liability (3 letters)</span><span class="lval r">−$30,000</span></div>
+            <div class="lrow"><span>Escrow retained 65%</span><span class="lval g">+$19,500</span></div>
+            <div class="lrow"><span>Stake slashed</span><span class="lval g">+$3,000</span></div>
+            <div class="lrow"><span>Month-1 cushion</span><span class="lval g">+$9,152</span></div>
+            <div class="lrow"><span>Vault + Yield</span><span class="lval g">+$2,500</span></div>
+            <div class="lrow tot"><span>Net balance</span><span class="lval g">+$4,152</span></div>
+          </div>
+        </div>
+        <div class="surplus">
+          <div class="n" style="font-size:.68vw;color:var(--muted);margin-bottom:.4%;">Surplus — even with 0% yield</div>
+          <div class="n">+$4,152</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="6">
+    <div class="chip a"><div class="cdot"></div>1:55 – 2:10</div>
+    <div class="label a">User-side risk</div>
+    <h2 class="t a">What if life <em>goes wrong?</em></h2>
+    <div class="g22 a">
+      <div style="display:flex;flex-direction:column;gap:1.5%;">
+        <div class="card" style="border-color:rgba(255,86,86,.2);">
+          <div style="font-size:.75vw;font-family:'JetBrains Mono',monospace;color:var(--red);margin-bottom:1%;">❌ Legacy DeFi</div>
+          <div style="font-size:.9vw;font-weight:600;margin-bottom:.5vw;">Hard Default</div>
+          <div style="font-size:.8vw;color:rgba(238,240,248,.5);line-height:1.6;">Protocol seizes everything. Reputation destroyed. Past payments: gone.</div>
+        </div>
+        <div class="card" style="border-color:rgba(20,241,149,.25);background:rgba(20,241,149,.03);">
+          <div style="font-size:.75vw;font-family:'JetBrains Mono',monospace;color:var(--green);margin-bottom:1%;">✓ RoundFi — Escape Valve</div>
+          <div style="font-size:.9vw;font-weight:600;margin-bottom:.5vw;">Three exits before default</div>
+          <div style="font-size:.8vw;color:rgba(238,240,248,.5);line-height:1.6;">
+            <strong style="color:var(--text)">1. Escape Valve</strong> — sell the NFT on the open market<br/>
+            <strong style="color:var(--text)">2. Clean Exit</strong> — recover liquidity, keep SAS reputation intact<br/>
+            <strong style="color:var(--text)">3. Slashing</strong> — automatic collateral seizure as a last resort
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label" style="font-size:.6vw;margin-bottom:2%;">Maria's case — 6 months of discipline</div>
+        <div style="display:flex;flex-direction:column;gap:1.2%;">
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted)">Capital injected</span><span class="mono" style="color:var(--text);">$7,496</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted)">NFT sold for</span><span class="mono" style="color:var(--green);">$6,000</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted)">Debt cleared</span><span class="mono" style="color:var(--green);">✓</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82vw;padding:.6% 0;"><span style="color:var(--muted)">SAS reputation</span><span class="mono" style="color:var(--green);">Intact</span></div>
+        </div>
+        <div style="margin-top:2%;font-size:.72vw;color:var(--muted);border-top:1px solid var(--border);padding-top:1.5%;">Pedro buys at a discount and gets <strong style="color:var(--green)">+34%</strong> draw probability.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="7">
+    <div class="chip a"><div class="cdot"></div>2:10 – 2:20</div>
+    <div class="label a">Common Questions</div>
+    <h2 class="t a">Direct <em>answers.</em></h2>
+    <div class="g3 a" style="flex:1;align-items:center;">
+      <div class="card" style="background:var(--s1);">
+        <div class="label" style="font-size:.6vw;margin-bottom:1%;">Who can join the pool?</div>
+        <div style="font-size:.85vw;font-weight:600;margin-bottom:.5vw;">Civic Pass + SAS Score</div>
+        <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">Proof of Personhood via Civic Pass eliminates bot armies farming reputation. SAS records the immutable history.</div>
+      </div>
+      <div class="card" style="background:var(--s1);">
+        <div class="label" style="font-size:.6vw;margin-bottom:1%;">What if no one buys the NFT?</div>
+        <div style="font-size:.85vw;font-weight:600;margin-bottom:.5vw;">Open sale → Clean exit → Slashing</div>
+        <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">Three layers before default. And even if it happens: the Shields cover the loss with a guaranteed surplus.</div>
+      </div>
+      <div class="card" style="background:var(--s1);">
+        <div class="label" style="font-size:.6vw;margin-bottom:1%;">Why Solana?</div>
+        <div style="font-size:.85vw;font-weight:600;margin-bottom:.5vw;">SAS · Kamino · Blinks</div>
+        <div style="font-size:.78vw;color:rgba(238,240,248,.5);line-height:1.5;">SAS for immutable attestations. Kamino for float yield. Blinks for direct payment in the X feed — zero friction.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="8">
+    <div class="chip a"><div class="cdot"></div>2:20 – 2:35</div>
+    <div class="label a">Competitors</div>
+    <h2 class="t a">What others <em>don't do.</em></h2>
+    <div class="a" style="flex:1;align-items:center;display:flex;flex-direction:column;justify-content:center;">
+      <table class="ctable">
+        <thead>
+          <tr>
+            <th>Protocol</th>
+            <th>Sub-collateralization</th>
+            <th>On-chain reputation</th>
+            <th>Position NFT</th>
+            <th>Float yield</th>
+            <th>B2B API</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Aave / Marginfi</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+          <tr><td>Esusu (Web2)</td><td class="partial">~</td><td class="partial">~</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td></tr>
+          <tr><td>Kolektivo / others</td><td class="partial">~</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+          <tr style="background:rgba(20,241,149,.03);"><td style="color:var(--green);font-weight:700;">RoundFi</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="9">
+    <div class="chip a"><div class="cdot"></div>2:35 – 2:50</div>
+    <div class="label a">How it Makes Money</div>
+    <h2 class="t a">3 engines.<br/><em>Zero token inflation.</em></h2>
+    <div class="g3 a" style="flex:1;align-items:center;">
+      <div class="rev rv1">
+        <div style="font-size:1.3vw;margin-bottom:1vw;">💰</div>
+        <div class="rtitle">Float Yield</div>
+        <div class="rdesc">20% Performance Fee on the 5–8% APY generated on Kamino Finance from each pool's idle capital.</div>
+        <div style="margin-top:1vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--green);">→ Passive · immediate revenue</div>
+      </div>
+      <div class="rev rv2">
+        <div style="font-size:1.3vw;margin-bottom:1vw;">📋</div>
+        <div class="rtitle">B2C Fees</div>
+        <div class="rdesc">Entry fee + monthly fee on retail pools. Linear scale with active pool members.</div>
+        <div style="margin-top:1vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--teal);">→ Recurring revenue</div>
+      </div>
+      <div class="rev rv3">
+        <div style="font-size:1.3vw;margin-bottom:1vw;">🔌</div>
+        <div class="rtitle">SAS API — B2B Endgame</div>
+        <div class="rdesc">Neobanks and DeFi protocols pay per API call to query the Behavioral Score. High margin, global scale.</div>
+        <div style="margin-top:1vw;font-family:'JetBrains Mono',monospace;font-size:.65vw;color:var(--purple);">→ The Chainlink of human reputation</div>
+      </div>
+    </div>
+    <div class="a" style="margin-top:2%;font-size:.8vw;color:var(--muted);">Esusu's mirror — Web2 unicorn valued at <strong style="color:var(--text)">$1.2 billion</strong> with the same thesis. We do it on-chain, with deterministic logic.</div>
+  </div>
+
+  <div class="slide" data-slide="10">
+    <div class="chip a"><div class="cdot"></div>2:50 – 2:55</div>
+    <div class="label a">Team</div>
+    <h2 class="t a">The right <em>people.</em></h2>
+    <div class="g4 a" style="flex:1;align-items:center;">
+      <div class="prof" style="border-color:rgba(20,241,149,.2);">
+        <div class="icon">👩‍💼</div>
+        <div class="ptag">CEO</div>
+        <div class="pname">Yvina</div>
+        <div class="pdesc">Strategic leadership and business vision to scale RoundFi globally.</div>
+      </div>
+      <div class="prof" style="border-color:rgba(153,69,255,.2);">
+        <div class="icon">👨‍💻</div>
+        <div class="ptag">Co-Founder / Product</div>
+        <div class="pname">Caio</div>
+        <div class="pdesc">Web3 architecture, Triple Shield design, and end-to-end product management.</div>
+      </div>
+      <div class="prof" style="border-color:rgba(0,200,255,.2);">
+        <div class="icon">⚙️</div>
+        <div class="ptag">Dev</div>
+        <div class="pname">Alrimar</div>
+        <div class="pdesc">Smart-contract engineering (Rust/Anchor) and native on-chain integrations.</div>
+      </div>
+      <div class="prof" style="border-color:rgba(255,181,71,.2);">
+        <div class="icon">📱</div>
+        <div class="ptag">Dev</div>
+        <div class="pname">Diego</div>
+        <div class="pdesc">Mobile development (Flutter) ensuring an "invisible" Web3 experience.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="11" style="justify-content:center;align-items:center;text-align:center;">
+    <div class="a" style="font-family:'JetBrains Mono',monospace;font-size:.75vw;letter-spacing:.2em;color:var(--green);text-transform:uppercase;margin-bottom:2%;display:flex;align-items:center;gap:1vw;justify-content:center;">
+      <span style="width:3vw;height:1px;background:var(--green);display:inline-block;"></span>
+      Vision Forward
+      <span style="width:3vw;height:1px;background:var(--green);display:inline-block;"></span>
+    </div>
+    <h2 class="t a" style="font-size:4.5vw;max-width:80%;margin:0 auto 2%;">The next billion DeFi users<br/>already exists.<br/>The <em>infrastructure</em> doesn't.</h2>
+    <p class="sub a" style="max-width:40%;margin:0 auto 3%;font-size:.95vw;">Go-to-market: ROSCA leaders from diaspora communities in Brazil, Mexico, and Nigeria. Payments via Blinks directly inside X/Twitter.</p>
+    <div class="a" style="display:flex;gap:1vw;justify-content:center;flex-wrap:wrap;margin-bottom:3%;">
+      <span class="pill g">roundfi.xyz</span>
+      <span class="pill n">Built on Solana</span>
+      <span class="pill n">SAS · Kamino · Civic Pass · Blinks</span>
+    </div>
+    <div class="a" style="font-family:'Syne',sans-serif;font-size:1.6vw;font-weight:700;color:var(--muted);">Behavior is the new collateral.</div>
+  </div>
+
+
+  <div class="nav" id="nav"></div>
+  <div class="hint">← → or click the dots</div>
+</div>
+
+<script>
+  const slides=document.querySelectorAll('.slide');
+  const navEl=document.getElementById('nav');
+  const pbar=document.getElementById('pbar');
+  const ctr=document.getElementById('ctr');
+  let cur=0;
+  slides.forEach((_,i)=>{
+    const b=document.createElement('button');
+    b.className='dot'+(i===0?' active':'');
+    b.onclick=()=>go(i);
+    navEl.appendChild(b);
+  });
+  function go(n){
+    slides[cur].classList.remove('active');
+    navEl.children[cur].classList.remove('active');
+    cur=(n+slides.length)%slides.length;
+    slides[cur].classList.add('active');
+    navEl.children[cur].classList.add('active');
+    pbar.style.width=(cur/(slides.length-1)*100)+'%';
+    ctr.textContent=String(cur+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();go(cur+1);}
+    if(e.key==='ArrowLeft'){e.preventDefault();go(cur-1);}
+  });
+  let tx=0;
+  document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;});
+  document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>40)dx<0?go(cur+1):go(cur-1);});
+</script>
+</body>
+</html>
