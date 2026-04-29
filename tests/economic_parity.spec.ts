@@ -254,6 +254,75 @@ describe("toggleCell — post-contemplation default is composable", () => {
   });
 });
 
+// ─── Layer 1c — escrow gating on default month ───────────────────────
+// Whitepaper: "as parcelas primeiro destravam o depósito, e só depois
+// destravam a aposta". If the member doesn't pay the installment in
+// month c (action = X), the escrow drip for month c MUST NOT release.
+// This is the protocol's first-line solvency guarantee — without it
+// a member could default-and-still-collect the next drip.
+
+describe("runSimulation — no escrow release at the default month", () => {
+  it("post-contemplation default skips the drip at the cycle of X", () => {
+    // Hand-built scenario: 6 members, member 0 contemplated at cycle 1,
+    // defaults at cycle 4. Veterano (10% stake, 5 months drip).
+    const N = 6;
+    const m: ReturnType<typeof defaultMatrix> = defaultMatrix(N);
+    // Default member 0 starting cycle 4 (col=3) — preserves the C
+    // at col=0 thanks to the toggleCell fix shipped previously.
+    for (let j = 3; j < N; j++) m[0]![j] = "X";
+
+    const frames = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        installmentUsdc: 1000,
+        kaminoApy: 0,    // turn yield off so we count cents, not bps
+        yieldFeePct: 0,
+        memberNames: ["A", "B", "C", "D", "E", "F"],
+      },
+      m,
+    );
+
+    // Member 0 received: upfront at cycle 1 + 2 drips (cycles 2, 3).
+    // The drip at cycle 4 must NOT release, since action=X there.
+    const ledger0 = frames[frames.length - 1]!.ledgerSnapshot[0]!;
+    const credit = 1000 * N;
+    const upfront = 2 * 1000; // monthContemplated === 1 → 2 * inst
+    const escrowTotal = credit - upfront;
+    const escrowPerMonth = escrowTotal / 5; // releaseMonths for Iniciante
+    const expectedReceived = upfront + 2 * escrowPerMonth;
+
+    expect(
+      ledger0.received,
+      "received excludes the drip on the default month",
+    ).to.equal(expectedReceived);
+    expect(ledger0.status, "post-contemplation default").to.equal("calote_pos");
+  });
+
+  it("a member who defaults at the first drip month receives only the upfront", () => {
+    // Edge case: contemplated at cycle 1, defaults at cycle 2.
+    // Should keep ONLY the upfront (no drips ever released).
+    const N = 6;
+    const m: ReturnType<typeof defaultMatrix> = defaultMatrix(N);
+    for (let j = 1; j < N; j++) m[0]![j] = "X";
+
+    const frames = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        installmentUsdc: 1000,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      m,
+    );
+
+    const ledger0 = frames[frames.length - 1]!.ledgerSnapshot[0]!;
+    const upfront = 2 * 1000;
+    expect(ledger0.received, "only upfront released").to.equal(upfront);
+  });
+});
+
 // ─── Layer 2 — L1 ↔ L2 parity (wired in subsequent PRs) ──────────────
 //
 // These suites are kept as `describe.skip` so the file doesn't fail

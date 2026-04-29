@@ -194,8 +194,14 @@ export function runSimulation(
       if (
         monthContemplated > 0 &&
         monthContemplated <= c &&
-        ledger[m].status === "ok"
+        ledger[m].status === "ok" &&
+        action !== "X"
       ) {
+        // Whitepaper rule: the installment unlocks that month's
+        // escrow drip. If the member defaults at cycle c (action=X),
+        // they don't pay the installment that month — so no drip is
+        // released. The status check below this block (the X branch)
+        // then marks them calote_pos so future cycles also skip.
         let payoutThisMonth = 0;
         const upfrontTotal =
           monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
