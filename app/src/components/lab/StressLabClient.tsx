@@ -712,6 +712,8 @@ export function StressLabClient() {
                   }}
                 >
                   <MonoLabel size={9}>{t("lab.audit.title")}</MonoLabel>
+
+                  {/* Assets — float + segregated buckets */}
                   <div
                     style={{
                       marginTop: 12,
@@ -732,6 +734,54 @@ export function StressLabClient() {
                   <div
                     style={{
                       marginTop: 6,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 11,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
+                    <span style={{ color: tokens.green, textTransform: "uppercase" }}>
+                      {t("lab.audit.solidarityVault")}
+                    </span>
+                    <span style={{ color: tokens.green, fontWeight: 700 }}>
+                      +${fmtUsdc(m.solidarityVault)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      paddingBottom: 14,
+                      borderBottom: `1px solid ${tokens.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 11,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
+                    <span style={{ color: tokens.green, textTransform: "uppercase" }}>
+                      {t("lab.audit.guaranteeFund")}
+                    </span>
+                    <span style={{ color: tokens.green, fontWeight: 700 }}>
+                      +${fmtUsdc(m.guaranteeFund)}
+                      <span
+                        style={{
+                          color: tokens.muted,
+                          fontWeight: 400,
+                          marginLeft: 4,
+                          fontSize: 10,
+                        }}
+                      >
+                        / ${fmtUsdc(m.guaranteeFundCap)}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Liabilities — what's still owed */}
+                  <div
+                    style={{
+                      marginTop: 8,
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
@@ -782,24 +832,40 @@ export function StressLabClient() {
                       −${fmtUsdc(m.totalLoss)}
                     </span>
                   </div>
+                  {/* Side metrics — already accounted for elsewhere or
+                      paid out, shown as informational rows */}
                   <div
                     style={{
                       marginTop: 8,
                       paddingBottom: 14,
                       borderBottom: `1px solid ${tokens.border}`,
                       display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: 11,
+                      flexDirection: "column",
+                      gap: 4,
+                      fontSize: 10,
                       fontFamily:
                         "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      color: tokens.muted,
                     }}
                   >
-                    <span style={{ color: tokens.green, textTransform: "uppercase" }}>
-                      {t("lab.audit.shield")}
-                    </span>
-                    <span style={{ color: tokens.green, fontWeight: 700 }}>
-                      +${fmtUsdc(m.totalRetained + m.kaminoNetYield)}
-                    </span>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ textTransform: "uppercase" }}>
+                        {t("lab.audit.retained")}
+                      </span>
+                      <span>+${fmtUsdc(m.totalRetained)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ textTransform: "uppercase" }}>
+                        {t("lab.audit.lpDistribution")}
+                      </span>
+                      <span>+${fmtUsdc(m.lpDistribution)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ textTransform: "uppercase" }}>
+                        {t("lab.audit.protocolFee")}
+                      </span>
+                      <span>+${fmtUsdc(m.protocolFeeRevenue)}</span>
+                    </div>
                   </div>
                   <div
                     style={{
