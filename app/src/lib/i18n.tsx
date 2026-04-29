@@ -325,6 +325,8 @@ export const DICT: Record<Lang, Dict> = {
     "landing.loading": "Carregando RoundFi Dashboard…",
     "landing.nav.simulator": "Simulador",
     "landing.nav.advantages": "Vantagens",
+    "landing.nav.cofi": "Poder do CoFi",
+    "landing.nav.security": "Segurança",
     "landing.nav.docs": "Docs",
     "landing.nav.audit": "Auditoria",
     "landing.hero.live": "Protocolo CoFi Live na Solana Devnet",
@@ -387,8 +389,65 @@ export const DICT: Record<Lang, Dict> = {
     "landing.footer.link.twitter": "Twitter / X",
     "landing.footer.link.discord": "Discord",
     "landing.footer.link.github": "GitHub",
+    // CoFi · next-paradigm section
+    "landing.cofi.eyebrow": "O Próximo Paradigma da Solana",
+    "landing.cofi.title1": "O Completo Poder das",
+    "landing.cofi.title2": "Finanças Colaborativas.",
+    "landing.cofi.body":
+      "Construa a sua Escada de Reputação, financie seus objetivos com micro-alavancagem e ganhe rendimento automático via Kamino. Tudo em um único ecossistema transparente.",
+    "landing.cofi.cta1": "Comece a Construir",
+    "landing.cofi.cta2": "Ler Whitepaper",
+    // Security · solvent-by-construction grid
+    "landing.security.title1": "Solvente por",
+    "landing.security.title2": "Construção",
+    "landing.security.body":
+      "Uma arquitetura determinística que elimina o risco humano. O protocolo é matematicamente blindado, garantindo que o caixa sempre exceda os passivos.",
+    "landing.security.card.lev.title": "10x Micro-Alavancagem",
+    "landing.security.card.lev.desc":
+      "Acesse uma carta de crédito inteira provendo apenas 10% do valor como garantia através da Escada de Reputação.",
+    "landing.security.card.shield.title": "Triplo Escudo Matemático",
+    "landing.security.card.shield.desc":
+      "O prêmio fracionado (Escrow Adaptativo) e o Sorteio Semente blindam o protocolo contra calotes no Dia 0.",
+    "landing.security.card.valve.title": "Válvula de Escape (NFT)",
+    "landing.security.card.valve.desc":
+      "Diferente do DeFi legado, você não é liquidado. Em uma crise, venda sua posição como NFT no mercado secundário e saia limpo.",
+    "landing.security.card.yield.title": "Yield Cascata (5–8% APY)",
+    "landing.security.card.yield.desc":
+      "Seu dinheiro não fica parado. Todo o capital ocioso do grupo gera rendimentos passivos automáticos via Kamino Finance.",
+    "landing.security.card.sas.title": "Solana SAS Identity",
+    "landing.security.card.sas.desc":
+      "Cada parcela paga constrói o seu Score Web3, emitindo um Atestado Imutável de bom pagador lido por toda a rede.",
+    "landing.security.card.b2b.title": "Endgame B2B / Oráculo",
+    "landing.security.card.b2b.desc":
+      "No futuro, neobancos e protocolos gigantes assinarão nossa API para validar a reputação dos clientes antes do empréstimo.",
+    // FAQ
+    "landing.faq.title1": "Perguntas",
+    "landing.faq.title2": "frequentes",
+    "landing.faq.q1": "O que é a RoundFi?",
+    "landing.faq.a1":
+      "A RoundFi é a primeira primitiva de Finanças Colaborativas (CoFi) na Solana. Nós digitalizamos o modelo milenar de consórcios (ROSCAs), permitindo que você construa um histórico on-chain e acesse crédito sem precisar travar criptomoedas como garantia.",
+    "landing.faq.q2": "Como funciona a Micro-Alavancagem?",
+    "landing.faq.a2":
+      "No DeFi tradicional, você precisa ter $1.500 para pegar $1.000 emprestado. Na RoundFi, você usa a sua disciplina. Ao construir sua reputação, você pode garantir uma carta de crédito inteira usando apenas 10% do valor como 'Stake', alcançando 10x de alavancagem de forma sustentável.",
+    "landing.faq.q3": "E se eu perder a renda e não conseguir pagar?",
+    "landing.faq.a3":
+      "Você não sofrerá uma liquidação brutal. A sua posição no grupo é um NFT Dinâmico. Usando a nossa 'Válvula de Escape', você pode vender a sua cota no mercado secundário para um investidor. Você recupera seu dinheiro, limpa sua dívida e sua reputação permanece intacta.",
+    "landing.faq.q4": "Como o protocolo se protege contra calotes?",
+    "landing.faq.a4":
+      "Através do Triplo Escudo Matemático. O sistema é Solvente por Construção. O prêmio é liberado de forma fracionada (Escrow Adaptativo) garantindo que a sua dívida sempre caia mais rápido que a devolução da sua garantia inicial. Além disso, o capital do cofre gera rendimentos passivos na Kamino Finance.",
+    "landing.faq.q5": "O que é o Solana Attestation Service (SAS)?",
+    "landing.faq.a5":
+      "É a tecnologia que usamos para registrar o seu histórico de bom pagador na blockchain de forma imutável. A cada ciclo pago, você sobe na nossa 'Escada de Reputação', gerando um Score de Crédito Web3 que poderá ser usado em diversos outros protocolos.",
+    "landing.faq.docsLink": "Veja a documentação completa →",
+    // Waitlist / newsletter
+    "landing.waitlist.title": "Seja o primeiro a testar.",
+    "landing.waitlist.body":
+      "Entre na waitlist e receba atualizações exclusivas do protocolo.",
+    "landing.waitlist.placeholder": "seu@email.com",
+    "landing.waitlist.cta": "Inscrever-se",
+    "landing.waitlist.success": "Inscrito (demo)",
     "landing.footer.copyright":
-      "© 2026 ROUNDFI PROTOCOL. DECENTRALIZED POOLED CAPITAL. SOLANA DEVNET.",
+      "© 2026 ROUNDFI PROTOCOL. CAPITAL DESCENTRALIZADO POOLED. SOLANA DEVNET.",
     // modals — common
     "modal.cancel": "Cancelar",
     "modal.confirm": "Confirmar",
@@ -972,6 +1031,8 @@ export const DICT: Record<Lang, Dict> = {
     "landing.loading": "Loading RoundFi Dashboard…",
     "landing.nav.simulator": "Simulator",
     "landing.nav.advantages": "Advantages",
+    "landing.nav.cofi": "CoFi Power",
+    "landing.nav.security": "Security",
     "landing.nav.docs": "Docs",
     "landing.nav.audit": "Audit",
     "landing.hero.live": "CoFi Protocol live on Solana Devnet",
@@ -1034,6 +1095,63 @@ export const DICT: Record<Lang, Dict> = {
     "landing.footer.link.twitter": "Twitter / X",
     "landing.footer.link.discord": "Discord",
     "landing.footer.link.github": "GitHub",
+    // CoFi · next-paradigm section
+    "landing.cofi.eyebrow": "Solana's next paradigm",
+    "landing.cofi.title1": "The full power of",
+    "landing.cofi.title2": "Collaborative Finance.",
+    "landing.cofi.body":
+      "Build your Reputation Ladder, fund your goals with micro-leverage, and earn automatic yield via Kamino. All in a single transparent ecosystem.",
+    "landing.cofi.cta1": "Start Building",
+    "landing.cofi.cta2": "Read Whitepaper",
+    // Security · solvent-by-construction grid
+    "landing.security.title1": "Solvent by",
+    "landing.security.title2": "Construction",
+    "landing.security.body":
+      "A deterministic architecture that eliminates human risk. The protocol is mathematically armored — cash always exceeds liabilities.",
+    "landing.security.card.lev.title": "10x Micro-Leverage",
+    "landing.security.card.lev.desc":
+      "Access a full credit letter by providing only 10% of the value as collateral, via the Reputation Ladder.",
+    "landing.security.card.shield.title": "Triple Mathematical Shield",
+    "landing.security.card.shield.desc":
+      "The fractioned upfront (Adaptive Escrow) and the Seed Draw armor the protocol against day-zero defaults.",
+    "landing.security.card.valve.title": "Escape Valve (NFT)",
+    "landing.security.card.valve.desc":
+      "Unlike legacy DeFi, you don't get liquidated. In a crisis, sell your position as an NFT on the secondary market and exit clean.",
+    "landing.security.card.yield.title": "Yield Cascade (5–8% APY)",
+    "landing.security.card.yield.desc":
+      "Your capital doesn't sit idle. The pool's float earns automatic passive yield via Kamino Finance.",
+    "landing.security.card.sas.title": "Solana SAS Identity",
+    "landing.security.card.sas.desc":
+      "Every paid installment builds your Web3 score, minting an immutable on-time-payer attestation readable by every protocol on the network.",
+    "landing.security.card.b2b.title": "B2B Endgame / Oracle",
+    "landing.security.card.b2b.desc":
+      "Down the road, neobanks and major DeFi protocols will subscribe to our API to validate user reputation before lending.",
+    // FAQ
+    "landing.faq.title1": "Frequently asked",
+    "landing.faq.title2": "questions",
+    "landing.faq.q1": "What is RoundFi?",
+    "landing.faq.a1":
+      "RoundFi is the first Collaborative Finance (CoFi) primitive on Solana. We digitize the millennial ROSCA model so you can build an on-chain history and access credit without locking crypto as collateral.",
+    "landing.faq.q2": "How does Micro-Leverage work?",
+    "landing.faq.a2":
+      "On traditional DeFi you need $1,500 to borrow $1,000. On RoundFi you use your discipline. As you build reputation, you can secure a full credit letter providing only 10% as 'Stake' — sustainable 10x leverage.",
+    "landing.faq.q3": "What if I lose my income and can't pay?",
+    "landing.faq.a3":
+      "You won't get brutally liquidated. Your group position is a Dynamic NFT. Using our 'Escape Valve', you can sell your share on the secondary market to an investor — recover your money, clear the debt, and keep your reputation intact.",
+    "landing.faq.q4": "How does the protocol protect against defaults?",
+    "landing.faq.a4":
+      "Through the Triple Mathematical Shield. The system is Solvent by Construction: the upfront is released fractionally (Adaptive Escrow), guaranteeing your debt drops faster than your initial collateral comes back. Plus the float earns yield on Kamino Finance.",
+    "landing.faq.q5": "What is the Solana Attestation Service (SAS)?",
+    "landing.faq.a5":
+      "It's the technology we use to record your on-time-payer history immutably on-chain. Every paid cycle moves you up our 'Reputation Ladder', generating a Web3 credit score that other protocols can read.",
+    "landing.faq.docsLink": "View the full documentation →",
+    // Waitlist / newsletter
+    "landing.waitlist.title": "Be first in line.",
+    "landing.waitlist.body":
+      "Join the waitlist and get exclusive protocol updates.",
+    "landing.waitlist.placeholder": "you@email.com",
+    "landing.waitlist.cta": "Subscribe",
+    "landing.waitlist.success": "Subscribed (demo)",
     "landing.footer.copyright":
       "© 2026 ROUNDFI PROTOCOL. DECENTRALIZED POOLED CAPITAL. SOLANA DEVNET.",
     // modals — common
