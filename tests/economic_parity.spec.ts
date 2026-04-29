@@ -57,9 +57,11 @@ import { expect } from "chai";
 // ts-node ESM resolution issue that affects the barrel re-exports
 // (which use `.js` suffixes for NodeNext compatibility).
 import {
+  defaultMatrix,
   PRESETS,
   PRESET_ORDER,
   runSimulation,
+  toggleCell,
   type FrameMetrics,
   type PresetId,
   type StressLabFrame,
@@ -170,6 +172,85 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
         `preset=${id} paidOut non-negative`,
       ).to.be.gte(0);
     }
+  });
+});
+
+// ─── Layer 1b — toggleCell click semantics ───────────────────────────
+// The lab UI's matrix editor has to be able to compose every scenario
+// the whitepaper describes — including the load-bearing one: a member
+// contemplated at cycle c₀ who then defaults at cycle c₁ > c₀
+// (calote_pos). These tests lock the position-aware click semantics
+// `toggleCell` must guarantee.
+
+describe("toggleCell — post-contemplation default is composable", () => {
+  it("clicking P after the row's existing C cascades X without erasing the C", () => {
+    // Member 1 has C at cycle 2 (col=1) by default. User wants to
+    // mark them as defaulting from cycle 5 (col=4) onward.
+    const m0 = defaultMatrix(8);
+    const m1 = toggleCell(m0, 1, 4);
+
+    expect(m1[1]![1], "C at cycle 2 must be preserved").to.equal("C");
+    expect(m1[1]![4], "X cascades from cycle 5").to.equal("X");
+    expect(m1[1]![5], "X cascades through end").to.equal("X");
+    expect(m1[1]![7], "X cascades through end").to.equal("X");
+
+    // runSimulation on this row must produce calote_pos, not calote_pre.
+    const frames = runSimulation(
+      {
+        level: "Comprovado",
+        members: 8,
+        installmentUsdc: 1000,
+        kaminoApy: 6.5,
+        yieldFeePct: 20,
+      },
+      m1,
+    );
+    const finalLedger = frames[frames.length - 1]!.ledgerSnapshot;
+    expect(finalLedger[1]!.status, "post-contemplation default").to.equal(
+      "calote_pos",
+    );
+  });
+
+  it("clicking C cancels the row's contemplation entirely", () => {
+    // Member 0 has C at cycle 1 by default. Clicking it should turn
+    // it into P, leaving the row with no C at all (so the row is
+    // simply "everyone-paying").
+    const m0 = defaultMatrix(8);
+    const m1 = toggleCell(m0, 0, 0);
+
+    expect(m1[0]![0], "C cancelled to P").to.equal("P");
+    expect(
+      m1[0]!.every((c) => c === "P"),
+      "row 0 has no C anywhere",
+    ).to.equal(true);
+  });
+
+  it("clicking P before the row's existing C moves the contemplation", () => {
+    // Member 4 has C at cycle 5 (col=4). User clicks col=2 (cycle 3)
+    // — the contemplation should move there, original C cleared.
+    const m0 = defaultMatrix(8);
+    const m1 = toggleCell(m0, 4, 2);
+
+    expect(m1[4]![2], "new C at cycle 3").to.equal("C");
+    expect(m1[4]![4], "previous C cleared").to.equal("P");
+  });
+
+  it("clicking X reverts only this cycle and forward, keeping the C", () => {
+    // Set up: member 2 has C at col=1, X cascading from col=4.
+    const m0 = defaultMatrix(8);
+    let m: ReturnType<typeof toggleCell> = m0;
+    // Move contemplation to col=1 for member 2.
+    m = toggleCell(m, 2, 1);
+    // Cascade X from col=4.
+    m = toggleCell(m, 2, 4);
+    expect(m[2]![1], "C set up").to.equal("C");
+    expect(m[2]![4], "X set up").to.equal("X");
+
+    // Now click the X at col=4 to revert.
+    const reverted = toggleCell(m, 2, 4);
+    expect(reverted[2]![1], "C still preserved").to.equal("C");
+    expect(reverted[2]![4], "X reverted to P").to.equal("P");
+    expect(reverted[2]![7], "X cascade fully reverted").to.equal("P");
   });
 });
 
