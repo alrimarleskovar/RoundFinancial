@@ -119,6 +119,14 @@ export function MemberInfoModal({
           bold
           tokens={tokens}
         />
+        {member.stakeRefunded > 0 && (
+          <Row
+            label={t("lab.member.stakeRefunded")}
+            value={`$${fmtUsdc(member.stakeRefunded)}`}
+            color={tokens.teal}
+            tokens={tokens}
+          />
+        )}
         {member.retained > 0 && (
           <Row
             label={t("lab.member.retainedByProtocol")}

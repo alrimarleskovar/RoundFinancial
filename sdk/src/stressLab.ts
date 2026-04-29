@@ -16,7 +16,20 @@ export interface MemberLedger {
   name: string;
   stakePaid: number;
   installmentsPaid: number;
+  /**
+   * Cumulative cash sent back to this member by the protocol —
+   * upfront payout + escrow drips + stake refund cashback. Same
+   * units as `installmentsPaid` so `received - stakePaid -
+   * installmentsPaid` is the net position.
+   */
   received: number;
+  /**
+   * Of `received`, how much is stake-refund cashback. Tracked
+   * separately so the UI can render "credit released" vs "stake
+   * coming back" as distinct rows in the per-member modal. Drip +
+   * upfront amounts go to `received - stakeRefunded`.
+   */
+  stakeRefunded: number;
   status: MemberStatus;
   retained: number;     // protocol-favorable retention (drop-out / negative-loss)
   lossCaused: number;   // damage to the fund (calote pos-contemplação)
@@ -158,6 +171,7 @@ export function runSimulation(
     stakePaid: stake,
     installmentsPaid: 0,
     received: 0,
+    stakeRefunded: 0,
     status: "ok",
     retained: 0,
     lossCaused: 0,
@@ -197,17 +211,27 @@ export function runSimulation(
         ledger[m].status === "ok" &&
         action !== "X"
       ) {
-        // Whitepaper rule: the installment unlocks that month's
-        // escrow drip. If the member defaults at cycle c (action=X),
-        // they don't pay the installment that month — so no drip is
-        // released. The status check below this block (the X branch)
-        // then marks them calote_pos so future cycles also skip.
+        // Whitepaper rule: the installment first unlocks that
+        // month's escrow drip; once the escrow is fully drained,
+        // the next installments unlock the stake refund (cashback).
+        // Default at cycle c (action=X) skips the entire payout —
+        // the X branch below then marks calote_pos so future cycles
+        // also skip.
         let payoutThisMonth = 0;
+        let refundThisMonth = 0;
         const upfrontTotal =
           monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
         const escrowTotal =
           monthContemplated === 1 ? credit - upfrontTotal : credit * params.escrowPct;
         const escrowPerMonth = escrowTotal / params.releaseMonths;
+        // Stake-refund window opens the cycle AFTER the escrow drip
+        // ends, runs through cycle N. If contemplation is too late
+        // for any refund window to fit, refundMonths <= 0 and the
+        // stake stays retained by the protocol (same way the tail
+        // of the escrow drip stays retained when contemplation is
+        // late — modelled as protocol-favourable carry).
+        const refundMonths = N - monthContemplated - params.releaseMonths;
+        const refundPerMonth = refundMonths > 0 ? stake / refundMonths : 0;
 
         if (c === monthContemplated) {
           payoutThisMonth = upfrontTotal;
@@ -216,11 +240,18 @@ export function runSimulation(
           c - monthContemplated <= params.releaseMonths
         ) {
           payoutThisMonth = escrowPerMonth;
+        } else if (
+          c > monthContemplated + params.releaseMonths &&
+          refundPerMonth > 0
+        ) {
+          refundThisMonth = refundPerMonth;
         }
 
-        if (payoutThisMonth > 0) {
-          cyclePaidOut += payoutThisMonth;
-          ledger[m].received += payoutThisMonth;
+        if (payoutThisMonth > 0 || refundThisMonth > 0) {
+          const total = payoutThisMonth + refundThisMonth;
+          cyclePaidOut += total;
+          ledger[m].received += total;
+          ledger[m].stakeRefunded += refundThisMonth;
         }
       }
 

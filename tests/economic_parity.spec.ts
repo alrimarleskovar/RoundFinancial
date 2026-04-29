@@ -323,6 +323,102 @@ describe("runSimulation — no escrow release at the default month", () => {
   });
 });
 
+// ─── Layer 1d — stake-refund cashback phase ──────────────────────────
+// Whitepaper: after the escrow drips fully, installments start
+// releasing the stake (cashback). For a healthy contemplated member
+// the math must close: paid (stake + N×installment) ≡ received
+// (upfront + drips + refund) → net position 0. If the cashback
+// phase isn't modelled, every healthy member appears to overpay.
+
+describe("runSimulation — stake cashback phase", () => {
+  it("healthy member contemplated at cycle 1 nets to zero", () => {
+    // Iniciante: 50% stake, 5-month escrow drip, N=8. Contemplated
+    // at cycle 1 (special case: upfront = 2*inst, escrow = credit -
+    // upfront). Refund window = 8 - 1 - 5 = 2 cycles (7 and 8).
+    const N = 8;
+    const inst = 1000;
+    const m: ReturnType<typeof defaultMatrix> = defaultMatrix(N);
+    const frames = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        installmentUsdc: inst,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      m,
+    );
+
+    const ledger0 = frames[frames.length - 1]!.ledgerSnapshot[0]!;
+    const credit = inst * N;
+    const stake = credit * 0.5;
+    const paid = stake + N * inst;
+    expect(
+      ledger0.received,
+      "received closes the books — paid ≡ received for healthy",
+    ).to.equal(paid);
+    expect(ledger0.stakeRefunded, "stake fully refunded").to.equal(stake);
+  });
+
+  it("default during refund phase retains the unpaid refund", () => {
+    // Iniciante N=8, member 0 contemplated at cycle 1 (drips end
+    // at cycle 6, refund cycles are 7 and 8). Member defaults at
+    // cycle 8 (col=7) — they got 1 of the 2 refund tranches and
+    // skip the second.
+    const N = 8;
+    const inst = 1000;
+    const m: ReturnType<typeof defaultMatrix> = defaultMatrix(N);
+    m[0]![7] = "X"; // default exactly at the last cycle (refund #2)
+
+    const frames = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        installmentUsdc: inst,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      m,
+    );
+
+    const ledger0 = frames[frames.length - 1]!.ledgerSnapshot[0]!;
+    const credit = inst * N;
+    const stake = credit * 0.5;
+    const refundPerMonth = stake / 2; // refundMonths = 2
+
+    // Got: upfront + 5 drips + 1 refund tranche.
+    expect(
+      ledger0.stakeRefunded,
+      "exactly one refund tranche before default",
+    ).to.equal(refundPerMonth);
+    expect(ledger0.status).to.equal("calote_pos");
+  });
+
+  it("late contemplation with no refund window retains the stake", () => {
+    // Iniciante N=6, member 5 contemplated at cycle 6 (last cycle).
+    // refundMonths = 6 - 6 - 5 = -5 → no refund. Stake stays in
+    // protocol (legacy edge-case behaviour, also true for the
+    // pre-existing escrow truncation when contemplation is late).
+    const N = 6;
+    const inst = 1000;
+    const m: ReturnType<typeof defaultMatrix> = defaultMatrix(N);
+
+    const frames = runSimulation(
+      {
+        level: "Iniciante",
+        members: N,
+        installmentUsdc: inst,
+        kaminoApy: 0,
+        yieldFeePct: 0,
+      },
+      m,
+    );
+
+    const last = frames[frames.length - 1]!.ledgerSnapshot[N - 1]!;
+    expect(last.stakeRefunded, "no refund for last contemplation").to.equal(0);
+  });
+});
+
 // ─── Layer 2 — L1 ↔ L2 parity (wired in subsequent PRs) ──────────────
 //
 // These suites are kept as `describe.skip` so the file doesn't fail
