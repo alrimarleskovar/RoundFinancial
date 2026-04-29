@@ -103,19 +103,32 @@ export interface StressLabFrame {
   ledgerSnapshot: MemberLedger[];
 }
 
+export type GroupMaturity = "immature" | "mature";
+
 export interface LevelParams {
   stakePct: number;     // % of credit locked as initial stake
   upfrontPct: number;   // 0..1, share of credit released at contemplation
   escrowPct: number;    // 0..1, share retained in escrow
-  releaseMonths: number; // how long the escrow drips out
+  /**
+   * Months over which the escrow drips out in an *immature* group.
+   * Default schedule before the protocol has trust-history with the
+   * member's cohort.
+   */
+  releaseMonths: number;
+  /**
+   * Months over which the escrow drips out in a *mature* group.
+   * Whitepaper-defined acceleration once the protocol can confirm
+   * the cohort's reliability — 3/2/1 across Lv1/Lv2/Lv3.
+   */
+  releaseMonthsMature: number;
 }
 
-// Spec: 50/30/10 stake rule + adaptive escrow per level. Veterans
-// graduate from heavier upfront releases to longer escrow drips.
+// Spec: 50/30/10 stake rule + adaptive escrow per level. Mature groups
+// drip faster (3/2/1 vs 5/4/3) — selected via StressLabConfig.maturity.
 export const LEVEL_PARAMS: Record<GroupLevel, LevelParams> = {
-  Iniciante:  { stakePct: 50, upfrontPct: 0.5,  escrowPct: 0.5,  releaseMonths: 5 },
-  Comprovado: { stakePct: 30, upfrontPct: 0.45, escrowPct: 0.55, releaseMonths: 4 },
-  Veterano:   { stakePct: 10, upfrontPct: 0.35, escrowPct: 0.65, releaseMonths: 3 },
+  Iniciante:  { stakePct: 50, upfrontPct: 0.5,  escrowPct: 0.5,  releaseMonths: 5, releaseMonthsMature: 3 },
+  Comprovado: { stakePct: 30, upfrontPct: 0.45, escrowPct: 0.55, releaseMonths: 4, releaseMonthsMature: 2 },
+  Veterano:   { stakePct: 10, upfrontPct: 0.35, escrowPct: 0.65, releaseMonths: 3, releaseMonthsMature: 1 },
 };
 
 export const ALL_NAMES = [
@@ -132,6 +145,12 @@ export interface StressLabConfig {
   kaminoApy: number;    // % annual
   yieldFeePct: number;  // % of yield kept by the protocol as admin fee
   memberNames?: string[];
+  /**
+   * Group maturity. Drives the escrow release schedule per
+   * `LEVEL_PARAMS[level].releaseMonths` (immature) or
+   * `releaseMonthsMature` (mature). Defaults to "immature".
+   */
+  maturity?: GroupMaturity;
 }
 
 // ── Matrix helpers ────────────────────────────────────────
@@ -212,6 +231,12 @@ export function runSimulation(
   const credit = inst * N;
   const params = LEVEL_PARAMS[config.level];
   const stake = credit * (params.stakePct / 100);
+  // Mature groups get the accelerated drip schedule (3/2/1 across
+  // Lv1/Lv2/Lv3). Default is the immature schedule (5/4/3).
+  const releaseMonths =
+    config.maturity === "mature"
+      ? params.releaseMonthsMature
+      : params.releaseMonths;
   const apy = config.kaminoApy;
   const adminFee = config.yieldFeePct;
 
@@ -289,25 +314,25 @@ export function runSimulation(
           monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
         const escrowTotal =
           monthContemplated === 1 ? credit - upfrontTotal : credit * params.escrowPct;
-        const escrowPerMonth = escrowTotal / params.releaseMonths;
+        const escrowPerMonth = escrowTotal / releaseMonths;
         // Stake-refund window opens the cycle AFTER the escrow drip
         // ends, runs through cycle N. If contemplation is too late
         // for any refund window to fit, refundMonths <= 0 and the
         // stake stays retained by the protocol (same way the tail
         // of the escrow drip stays retained when contemplation is
         // late — modelled as protocol-favourable carry).
-        const refundMonths = N - monthContemplated - params.releaseMonths;
+        const refundMonths = N - monthContemplated - releaseMonths;
         const refundPerMonth = refundMonths > 0 ? stake / refundMonths : 0;
 
         if (c === monthContemplated) {
           payoutThisMonth = upfrontTotal;
         } else if (
           c > monthContemplated &&
-          c - monthContemplated <= params.releaseMonths
+          c - monthContemplated <= releaseMonths
         ) {
           payoutThisMonth = escrowPerMonth;
         } else if (
-          c > monthContemplated + params.releaseMonths &&
+          c > monthContemplated + releaseMonths &&
           refundPerMonth > 0
         ) {
           refundThisMonth = refundPerMonth;

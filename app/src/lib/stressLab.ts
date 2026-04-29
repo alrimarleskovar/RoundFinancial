@@ -15,6 +15,7 @@ export {
   toggleCell,
   type FrameMetrics,
   type GroupLevel,
+  type GroupMaturity,
   type LevelParams,
   type MatrixCell,
   type MemberLedger,
