@@ -1,10 +1,12 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { PositionsList } from "@/components/carteira/PositionsList";
+import { ReceiveModal } from "@/components/carteira/ReceiveModal";
+import { SendModal } from "@/components/carteira/SendModal";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { WalletConnections } from "@/components/carteira/WalletConnections";
 import { WalletOverview } from "@/components/carteira/WalletOverview";
@@ -29,6 +31,8 @@ function CarteiraContent() {
   const params = useSearchParams();
   const wallet = useWallet();
   const conns = useConnections();
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   const raw = params.get("tab");
   const tab: Tab = isTab(raw) ? raw : "overview";
@@ -104,8 +108,20 @@ function CarteiraContent() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" style={btnSoft}>{t("wallet.receive")}</button>
-          <button type="button" style={btnPrimary}>{t("wallet.send")}</button>
+          <button
+            type="button"
+            style={btnSoft}
+            onClick={() => setReceiveOpen(true)}
+          >
+            {t("wallet.receive")}
+          </button>
+          <button
+            type="button"
+            style={btnPrimary}
+            onClick={() => setSendOpen(true)}
+          >
+            {t("wallet.send")}
+          </button>
         </div>
       </div>
 
@@ -169,7 +185,9 @@ function CarteiraContent() {
         })}
       </div>
 
-      {tab === "overview" && <WalletOverview />}
+      {tab === "overview" && (
+        <WalletOverview onSeeAllTx={() => setTab("transactions")} />
+      )}
       {tab === "positions" && (
         <div style={{ marginTop: 20 }}>
           <PositionsList />
@@ -181,6 +199,12 @@ function CarteiraContent() {
         </div>
       )}
       {tab === "connections" && <WalletConnections />}
+
+      <ReceiveModal
+        open={receiveOpen}
+        onClose={() => setReceiveOpen(false)}
+      />
+      <SendModal open={sendOpen} onClose={() => setSendOpen(false)} />
     </div>
   );
 }

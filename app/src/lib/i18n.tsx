@@ -388,6 +388,60 @@ export const DICT: Record<Lang, Dict> = {
     "modal.cancel": "Cancelar",
     "modal.confirm": "Confirmar",
     "modal.close": "Fechar",
+    // receive (carteira)
+    "modal.receive.title": "Receber USDC",
+    "modal.receive.subtitle": "Compartilhe seu endereço Solana pra receber transferências.",
+    "modal.receive.copied": "ENDEREÇO COPIADO",
+    "modal.receive.demoBadge": "MODO DEMO",
+    "modal.receive.demoBody":
+      "QR-code real é gerado quando o adapter Phantom estiver hooked (M3). O endereço acima é o pubkey ativo da sessão.",
+    "modal.receive.close": "Fechar",
+    // send (carteira)
+    "modal.send.title": "Enviar USDC",
+    "modal.send.subtitle": "Transferência direta para outro endereço Solana.",
+    "modal.send.balance": "SALDO DISPONÍVEL",
+    "modal.send.toLabel": "PARA (ENDEREÇO)",
+    "modal.send.toPlaceholder": "Cole o pubkey Solana (base58, 32–44 chars)",
+    "modal.send.invalidAddress": "Endereço Solana inválido.",
+    "modal.send.amountLabel": "VALOR",
+    "modal.send.max": "MAX",
+    "modal.send.invalidAmount": "Valor deve ser maior que zero.",
+    "modal.send.insufficientFunds": "Saldo insuficiente.",
+    "modal.send.demoBadge": "MODO DEMO",
+    "modal.send.demoBody":
+      "Operação simulada. A assinatura via Phantom + spl-token::transfer entra em devnet no M3 do roadmap.",
+    "modal.send.confirm": "Enviar (demo)",
+    "modal.send.successTitle": "Transferência simulada",
+    "modal.send.successHeadline": "USDC enviado (demo)",
+    "modal.send.successBody":
+      "Em produção, {amount} teriam sido transferidos para {to} via SPL Token CPI.",
+    "modal.send.close": "Fechar",
+    // withdraw yield (carteira)
+    "modal.withdraw.title": "Sacar yield",
+    "modal.withdraw.subtitle":
+      "O yield acumulado na Kamino vault pode ser sacado a qualquer momento.",
+    "modal.withdraw.available": "DISPONÍVEL",
+    "modal.withdraw.cycles": "Acumulado em {n} ciclos",
+    "modal.withdraw.allocated": "Alocado",
+    "modal.withdraw.youReceive": "Você recebe",
+    "modal.withdraw.demoBadge": "MODO DEMO",
+    "modal.withdraw.demoBody":
+      "Operação simulada. Saque on-chain via roundfi-core::harvest_yield entra em devnet no M3 do roadmap.",
+    "modal.withdraw.confirm": "Sacar (demo)",
+    "modal.withdraw.successTitle": "Saque simulado",
+    "modal.withdraw.successHeadline": "Yield sacado (demo)",
+    "modal.withdraw.successBody":
+      "Em produção, {amount} teriam sido transferidos da Kamino vault pra sua wallet.",
+    "modal.withdraw.close": "Fechar",
+    // manage connection (carteira)
+    "modal.manage.title": "Gerenciar · {name}",
+    "modal.manage.connected": "CONECTADO",
+    "modal.manage.metaTitle": "DETALHES",
+    "modal.manage.permsTitle": "PERMISSÕES",
+    "modal.manage.demoBadge": "MODO DEMO",
+    "modal.manage.demoBody":
+      "Configurações granulares (auto-renew, escopo de permissão, alertas) entram quando o indexer ficar online no M3.",
+    "modal.manage.close": "Fechar",
     "modal.processing": "Processando…",
     // join group
     "modal.join.title": "Entrar no grupo",
@@ -975,6 +1029,60 @@ export const DICT: Record<Lang, Dict> = {
     // modals — common
     "modal.cancel": "Cancel",
     "modal.confirm": "Confirm",
+    // receive (carteira)
+    "modal.receive.title": "Receive USDC",
+    "modal.receive.subtitle": "Share your Solana address to receive transfers.",
+    "modal.receive.copied": "ADDRESS COPIED",
+    "modal.receive.demoBadge": "DEMO MODE",
+    "modal.receive.demoBody":
+      "Real QR code is generated when the Phantom adapter ships (M3). The address above is the session's active pubkey.",
+    "modal.receive.close": "Close",
+    // send (carteira)
+    "modal.send.title": "Send USDC",
+    "modal.send.subtitle": "Direct transfer to another Solana address.",
+    "modal.send.balance": "AVAILABLE BALANCE",
+    "modal.send.toLabel": "TO (ADDRESS)",
+    "modal.send.toPlaceholder": "Paste a Solana pubkey (base58, 32–44 chars)",
+    "modal.send.invalidAddress": "Invalid Solana address.",
+    "modal.send.amountLabel": "AMOUNT",
+    "modal.send.max": "MAX",
+    "modal.send.invalidAmount": "Amount must be greater than zero.",
+    "modal.send.insufficientFunds": "Insufficient balance.",
+    "modal.send.demoBadge": "DEMO MODE",
+    "modal.send.demoBody":
+      "Simulated action. Phantom signing + spl-token::transfer ships on devnet at M3 of the roadmap.",
+    "modal.send.confirm": "Send (demo)",
+    "modal.send.successTitle": "Simulated transfer",
+    "modal.send.successHeadline": "USDC sent (demo)",
+    "modal.send.successBody":
+      "In production, {amount} would have been transferred to {to} via SPL Token CPI.",
+    "modal.send.close": "Close",
+    // withdraw yield (carteira)
+    "modal.withdraw.title": "Withdraw yield",
+    "modal.withdraw.subtitle":
+      "Yield accrued in the Kamino vault can be withdrawn anytime.",
+    "modal.withdraw.available": "AVAILABLE",
+    "modal.withdraw.cycles": "Accrued over {n} cycles",
+    "modal.withdraw.allocated": "Allocated",
+    "modal.withdraw.youReceive": "You receive",
+    "modal.withdraw.demoBadge": "DEMO MODE",
+    "modal.withdraw.demoBody":
+      "Simulated action. On-chain withdraw via roundfi-core::harvest_yield ships on devnet at M3 of the roadmap.",
+    "modal.withdraw.confirm": "Withdraw (demo)",
+    "modal.withdraw.successTitle": "Simulated withdraw",
+    "modal.withdraw.successHeadline": "Yield withdrawn (demo)",
+    "modal.withdraw.successBody":
+      "In production, {amount} would have been transferred from the Kamino vault to your wallet.",
+    "modal.withdraw.close": "Close",
+    // manage connection (carteira)
+    "modal.manage.title": "Manage · {name}",
+    "modal.manage.connected": "CONNECTED",
+    "modal.manage.metaTitle": "DETAILS",
+    "modal.manage.permsTitle": "PERMISSIONS",
+    "modal.manage.demoBadge": "DEMO MODE",
+    "modal.manage.demoBody":
+      "Granular settings (auto-renew, permission scope, alerts) ship when the indexer comes online at M3.",
+    "modal.manage.close": "Close",
     "modal.close": "Close",
     "modal.processing": "Processing…",
     // join group

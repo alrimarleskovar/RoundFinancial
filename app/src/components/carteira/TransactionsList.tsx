@@ -7,9 +7,16 @@ import { useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Recent transactions list. Preview mode (`limit` set) shows "recent"
-// heading + "See all →" hint; full mode shows every row.
+// heading + "See all →" hint that routes back to the parent's
+// transactions tab via `onSeeAll`; full mode shows every row.
 
-export function TransactionsList({ limit }: { limit?: number }) {
+export function TransactionsList({
+  limit,
+  onSeeAll,
+}: {
+  limit?: number;
+  onSeeAll?: () => void;
+}) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
@@ -32,17 +39,23 @@ export function TransactionsList({ limit }: { limit?: number }) {
         <MonoLabel color={tokens.green}>
           {limit ? t("wallet.tx.recent") : t("wallet.tx.all")}
         </MonoLabel>
-        {limit && (
-          <span
+        {limit && onSeeAll && (
+          <button
+            type="button"
+            onClick={onSeeAll}
             style={{
               fontSize: 11,
-              color: tokens.muted,
+              color: tokens.teal,
               cursor: "pointer",
               fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              fontWeight: 600,
             }}
           >
             {t("wallet.tx.seeAll")}
-          </span>
+          </button>
         )}
       </div>
       <div style={{ marginTop: 12 }}>

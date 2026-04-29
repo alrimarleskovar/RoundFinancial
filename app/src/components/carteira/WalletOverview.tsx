@@ -1,17 +1,28 @@
 "use client";
 
+import { useState } from "react";
+
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
+import { WithdrawYieldModal } from "@/components/carteira/WithdrawYieldModal";
 import { CountUp } from "@/components/ui/CountUp";
 import { useSession } from "@/lib/session";
 import { useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Visão geral — balance hero + composition bar + Kamino vault card
-// + preview rows. Ported from prototype's WalletOverview.
+// + preview rows. The "Sacar" CTA opens WithdrawYieldModal; the
+// "Ver todas →" hint on the tx preview routes back to the parent
+// carteira page via the `onSeeAllTx` callback so the page can swap
+// to the transactions tab without a full route change.
 
-export function WalletOverview() {
+export function WalletOverview({
+  onSeeAllTx,
+}: {
+  onSeeAllTx?: () => void;
+}) {
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney } = useI18n();
@@ -237,6 +248,7 @@ export function WalletOverview() {
           </div>
           <button
             type="button"
+            onClick={() => setWithdrawOpen(true)}
             style={{
               marginTop: 8,
               width: "100%",
@@ -258,8 +270,13 @@ export function WalletOverview() {
       {/* Preview rows: 2 positions + 3 recent txs */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <PositionsList limit={2} />
-        <TransactionsList limit={3} />
+        <TransactionsList limit={3} onSeeAll={onSeeAllTx} />
       </div>
+
+      <WithdrawYieldModal
+        open={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+      />
     </div>
   );
 }
