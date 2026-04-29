@@ -8,6 +8,7 @@ import {
   ConnectionGlyph,
   type GlyphKind,
 } from "@/components/carteira/ConnectionGlyph";
+import { ManageConnectionModal } from "@/components/carteira/ManageConnectionModal";
 import { PhantomFaucet } from "@/components/carteira/PhantomFaucet";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -84,6 +85,7 @@ export function ConnectionCard({
   const notInstalled = isPhantom && !wallet?.isInstalled;
 
   const [mockConnecting, setMockConnecting] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const busy = isPhantom ? !!isConnecting : mockConnecting;
 
   const doConnect = (e: MouseEvent) => {
@@ -401,6 +403,10 @@ export function ConnectionCard({
               <>
                 <button
                   type="button"
+                  onClick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    setManageOpen(true);
+                  }}
                   style={{
                     padding: "8px 14px",
                     borderRadius: 9,
@@ -509,6 +515,14 @@ export function ConnectionCard({
             )}
         </div>
       )}
+
+      <ManageConnectionModal
+        conn={c}
+        meta={c.meta}
+        permissions={c.perms}
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+      />
     </div>
   );
 }
