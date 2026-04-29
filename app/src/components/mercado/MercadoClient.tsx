@@ -11,6 +11,9 @@ import { FeaturedOffer } from "@/components/mercado/FeaturedOffer";
 import { HowItWorks } from "@/components/mercado/HowItWorks";
 import { MiniStat } from "@/components/mercado/MiniStat";
 import { OffersTable } from "@/components/mercado/OffersTable";
+import { SellPositionModal } from "@/components/mercado/SellPositionModal";
+import { SellPositionsList } from "@/components/mercado/SellPositionsList";
+import type { NftPosition } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -21,6 +24,7 @@ export function MercadoClient() {
   const t = useT();
   const [tab, setTab] = useState<Tab>("buy");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
+  const [selling, setSelling] = useState<NftPosition | null>(null);
 
   return (
     <div style={{ padding: 32 }}>
@@ -141,39 +145,8 @@ export function MercadoClient() {
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            marginTop: 24,
-            padding: 40,
-            borderRadius: 18,
-            textAlign: "center",
-            background: tokens.surface1,
-            border: `1px dashed ${tokens.borderStr}`,
-          }}
-        >
-          <MonoLabel color={tokens.amber}>{t("market.sell.badge")}</MonoLabel>
-          <div
-            style={{
-              fontFamily: "var(--font-syne), Syne",
-              fontSize: 20,
-              fontWeight: 700,
-              color: tokens.text,
-              marginTop: 8,
-            }}
-          >
-            {t("market.sell.title")}
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: tokens.text2,
-              marginTop: 6,
-              maxWidth: 420,
-              margin: "6px auto 0",
-            }}
-          >
-            {t("market.sell.body")}
-          </div>
+        <div style={{ marginTop: 24 }}>
+          <SellPositionsList onSell={(position) => setSelling(position)} />
         </div>
       )}
 
@@ -181,6 +154,11 @@ export function MercadoClient() {
         target={buying}
         open={buying !== null}
         onClose={() => setBuying(null)}
+      />
+      <SellPositionModal
+        position={selling}
+        open={selling !== null}
+        onClose={() => setSelling(null)}
       />
     </div>
   );

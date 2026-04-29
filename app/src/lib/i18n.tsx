@@ -147,6 +147,36 @@ export const DICT: Record<Lang, Dict> = {
     "market.sell.title": "Listar uma posição NFT no mercado",
     "market.sell.body":
       'Disponível direto do fluxo "Vender cota" no app mobile. Selecione a posição e defina desconto.',
+    "market.sellList.title": "◆ Suas posições",
+    "market.sellList.count": "{n} cotas no portfólio",
+    "market.sellList.cta": "Listar",
+    "market.sellList.escapeValveTitle": "Válvula de Escape ativa.",
+    "market.sellList.escapeValveBody":
+      "Vender preserva sua reputação SAS. A dívida da cota é quitada na transação. Slashing só ocorre se nenhum comprador aparecer em 7 dias.",
+    "market.sellModal.title": "Listar cota no mercado",
+    "market.sellModal.subtitle":
+      "Defina o preço de venda. Quanto maior o desconto, maior a chance de venda rápida.",
+    "market.sellModal.expiry": "Expira em",
+    "market.sellModal.askPrice": "PREÇO DE VENDA",
+    "market.sellModal.face": "Valor de face",
+    "market.sellModal.discount": "Desconto",
+    "market.sellModal.youReceive": "Você recebe",
+    "market.sellModal.protectionDebt":
+      "Sua dívida com o fundo é quitada automaticamente na liquidação.",
+    "market.sellModal.protectionSas":
+      "Reputação SAS preservada — saída limpa, sem flag de calote.",
+    "market.sellModal.protectionSlashing":
+      "Sem comprador em {days} dias, slashing automático da garantia entra em cena.",
+    "market.sellModal.demoBadge": "MODO DEMO",
+    "market.sellModal.demoBody":
+      "Listagem simulada. A liquidação on-chain via roundfi-core::escape_valve_list entra em devnet no M3 do roadmap.",
+    "market.sellModal.cancel": "Cancelar",
+    "market.sellModal.confirm": "Listar cota (demo)",
+    "market.sellModal.successTitle": "Cota listada",
+    "market.sellModal.successHeadline": "Posição no mercado (demo)",
+    "market.sellModal.successBody":
+      "Em produção, sua cota {group} estaria listada por {price} (−{discount}%). Você tem {days} dias até o slashing automático caso não apareça comprador.",
+    "market.sellModal.close": "Fechar",
     // insights screen
     "insights.badge": "◆ Insights",
     "insights.title": "Seu comportamento financeiro",
@@ -643,6 +673,36 @@ export const DICT: Record<Lang, Dict> = {
     "market.sell.title": "List an NFT position on the market",
     "market.sell.body":
       'Available straight from the "Sell share" flow on the mobile app. Pick the position and set a discount.',
+    "market.sellList.title": "◆ Your positions",
+    "market.sellList.count": "{n} shares in portfolio",
+    "market.sellList.cta": "List",
+    "market.sellList.escapeValveTitle": "Escape Valve active.",
+    "market.sellList.escapeValveBody":
+      "Selling preserves your SAS reputation. The position's debt is settled in the same tx. Slashing only kicks in if no buyer is found in 7 days.",
+    "market.sellModal.title": "List share on the market",
+    "market.sellModal.subtitle":
+      "Set your ask. Bigger discount = faster sale.",
+    "market.sellModal.expiry": "Expires",
+    "market.sellModal.askPrice": "ASK PRICE",
+    "market.sellModal.face": "Face value",
+    "market.sellModal.discount": "Discount",
+    "market.sellModal.youReceive": "You receive",
+    "market.sellModal.protectionDebt":
+      "Your debt to the pool is settled automatically on closing.",
+    "market.sellModal.protectionSas":
+      "SAS reputation preserved — clean exit, no default flag.",
+    "market.sellModal.protectionSlashing":
+      "No buyer in {days} days → automatic slashing of the collateral.",
+    "market.sellModal.demoBadge": "DEMO MODE",
+    "market.sellModal.demoBody":
+      "Simulated listing. On-chain settlement via roundfi-core::escape_valve_list ships on devnet at M3 of the roadmap.",
+    "market.sellModal.cancel": "Cancel",
+    "market.sellModal.confirm": "List share (demo)",
+    "market.sellModal.successTitle": "Share listed",
+    "market.sellModal.successHeadline": "Position on the market (demo)",
+    "market.sellModal.successBody":
+      "In production, your {group} share would be listed at {price} (−{discount}%). You have {days} days until automatic slashing if no buyer appears.",
+    "market.sellModal.close": "Close",
     // insights screen
     "insights.badge": "◆ Insights",
     "insights.title": "Your financial behavior",
