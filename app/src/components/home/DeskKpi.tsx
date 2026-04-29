@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { CountUp } from "@/components/ui/CountUp";
 import type { Tone } from "@/data/carteira";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// One KPI card used in the top row of the Home dashboard.
+// One KPI card used in the top row of the Home dashboard. When an
+// `href` prop is passed, the whole card becomes an internal link
+// — used to bridge the home dashboard to the page where the metric
+// can actually be inspected (Saldo → /carteira, Score → /reputacao).
 
 export function DeskKpi({
   label,
@@ -15,6 +20,7 @@ export function DeskKpi({
   delta,
   tone,
   sub,
+  href,
 }: {
   label: string;
   value: string | number;
@@ -26,6 +32,7 @@ export function DeskKpi({
   delta: string;
   tone: Tone;
   sub?: string;
+  href?: string;
 }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -39,7 +46,23 @@ export function DeskKpi({
     }
   })();
 
+  const Wrapper = href
+    ? ({ children }: { children: React.ReactNode }) => (
+        <Link
+          href={href}
+          style={{
+            display: "block",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          {children}
+        </Link>
+      )
+    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   return (
+    <Wrapper>
     <div
       style={{
         ...glass,
@@ -47,7 +70,25 @@ export function DeskKpi({
         padding: 18,
         position: "relative",
         overflow: "hidden",
+        cursor: href ? "pointer" : "default",
+        transition: "transform 180ms ease, border-color 180ms ease",
       }}
+      onMouseEnter={
+        href
+          ? (e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.borderColor = `${toneColor}55`;
+            }
+          : undefined
+      }
+      onMouseLeave={
+        href
+          ? (e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.borderColor = "";
+            }
+          : undefined
+      }
     >
       <div
         style={{
@@ -107,5 +148,6 @@ export function DeskKpi({
         {delta}
       </div>
     </div>
+    </Wrapper>
   );
 }

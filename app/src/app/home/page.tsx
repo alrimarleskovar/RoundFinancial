@@ -60,6 +60,7 @@ export default function HomePage() {
               format={(n) => fmtMoney(n)}
               delta={t("home.kpi.delta.balance")}
               tone="g"
+              href="/carteira"
             />
           </div>
           <div style={{ gridArea: "yield" }}>
@@ -70,6 +71,7 @@ export default function HomePage() {
               format={(n) => fmtMoney(n)}
               delta={t("home.kpi.delta.yield")}
               tone="p"
+              href="/carteira"
             />
           </div>
           <div style={{ gridArea: "colat" }}>
@@ -80,6 +82,7 @@ export default function HomePage() {
               format={(n) => `${Math.round(n)}%`}
               delta={t("home.kpi.delta.lev", { x: user.leverageX })}
               tone="a"
+              href="/insights"
             />
           </div>
           <div style={{ gridArea: "score", display: "flex" }}>

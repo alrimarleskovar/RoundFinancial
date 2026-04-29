@@ -1,17 +1,24 @@
 "use client";
 
+import { useState } from "react";
+
 import { Icons } from "@/components/brand/icons";
+import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import type { ActiveGroup } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Compact row for the "Seus grupos" list under the FeaturedGroup card.
+// Whole row is clickable — opens PayInstallmentModal for this
+// group's next installment. The trailing → icon previously sat
+// orphan; now it has a real action behind it.
 
 export function GroupRow({ g }: { g: ActiveGroup }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
+  const [payOpen, setPayOpen] = useState(false);
 
   const tc = ((): string => {
     switch (g.tone) {
@@ -24,7 +31,9 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
   })();
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => setPayOpen(true)}
       style={{
         ...glass,
         display: "grid",
@@ -33,6 +42,20 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
         alignItems: "center",
         padding: 14,
         borderRadius: 14,
+        textAlign: "left",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        color: "inherit",
+        width: "100%",
+        transition: "transform 180ms ease, border-color 180ms ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateX(2px)";
+        e.currentTarget.style.borderColor = `${tc}55`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateX(0)";
+        e.currentTarget.style.borderColor = "";
       }}
     >
       <div
@@ -109,6 +132,12 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
         </div>
       </div>
       <Icons.arrow size={16} stroke={tokens.muted} />
-    </div>
+
+      <PayInstallmentModal
+        group={g}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+      />
+    </button>
   );
 }
