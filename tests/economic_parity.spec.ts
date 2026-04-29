@@ -427,25 +427,11 @@ describe("runSimulation — stake cashback phase", () => {
 // outstandingEscrow − outstandingStakeRefund instead.
 
 describe("runSimulation — net solvency vs gross cash", () => {
-  it("netSolvency formula holds at every cycle: pool − escrow − stakeRefund", () => {
-    // Sanity: the FrameMetrics field is just the bookkeeping
-    // identity. Asserting it on every frame of every preset locks
-    // down the invariant against future regressions.
-    for (const id of PRESET_ORDER) {
-      const preset = PRESETS[id];
-      const frames = runSimulation(preset.config, preset.matrix);
-      for (const frame of frames) {
-        const m = frame.metrics;
-        expect(
-          m.netSolvency,
-          `preset=${id} cycle=${frame.cycle}`,
-        ).to.be.closeTo(
-          m.poolBalance - m.outstandingEscrow - m.outstandingStakeRefund,
-          1e-6,
-        );
-      }
-    }
-  });
+  // The old single-bucket netSolvency identity (pool − escrow −
+  // stakeRefund) was superseded by Layer 1f when the solidarity
+  // vault and guarantee fund became separate buckets. The bookkeeping
+  // identity is now `pool + solidarity + GF − escrow − stakeRefund`,
+  // verified there.
 
   it("netSolvency is strictly less than poolBalance while obligations exist", () => {
     // Mid-run frame for the Healthy preset: ok members still hold
@@ -497,6 +483,114 @@ describe("runSimulation — net solvency vs gross cash", () => {
     expect(preEnd.metrics.outstandingStakeRefund).to.equal(
       healthyEnd.metrics.outstandingStakeRefund,
     );
+  });
+});
+
+// ─── Layer 1f — capital structure (Escudo 3) ─────────────────────────
+// Whitepaper splits Escudo 3 into three protocol-controlled buckets
+// plus a residual LP distribution:
+//   - Cofre Solidário: 1% of every paid installment.
+//   - Fundo Garantido: yield waterfall, capped at 150% of credit.
+//   - LP distribution: residual yield after the GF cap is hit.
+// These tests lock the structural invariants the whitepaper asserts.
+
+describe("runSimulation — capital structure (Escudo 3)", () => {
+  it("Cofre Solidário accrues exactly 1% of collected installments", () => {
+    for (const id of PRESET_ORDER) {
+      const preset = PRESETS[id];
+      const final =
+        runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
+      expect(
+        final.solidarityVault,
+        `preset=${id}: solidarityVault === 1% × collectedInstallments`,
+      ).to.be.closeTo(final.collectedInstallments * 0.01, 1e-6);
+    }
+  });
+
+  it("Guarantee Fund cap is 150% of credit", () => {
+    for (const id of PRESET_ORDER) {
+      const preset = PRESETS[id];
+      const credit = preset.config.installmentUsdc * preset.config.members;
+      const final =
+        runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
+      expect(final.guaranteeFundCap, `preset=${id}`).to.equal(1.5 * credit);
+      expect(
+        final.guaranteeFund,
+        `preset=${id}: never exceeds cap`,
+      ).to.be.at.most(final.guaranteeFundCap + 1e-6);
+    }
+  });
+
+  it("yield waterfall: GF fills first, residual goes to LPs", () => {
+    // Healthy preset has steady yield over 12 cycles. With cap at
+    // 1.5×credit = 18000 and typical net yield ~ small fraction of
+    // float, the GF fills gradually. As long as cumulative net yield
+    // is below the cap, lpDistribution stays at 0.
+    const preset = PRESETS.healthy;
+    const frames = runSimulation(preset.config, preset.matrix);
+
+    for (const frame of frames) {
+      const m = frame.metrics;
+      const totalYieldDistributed = m.guaranteeFund + m.lpDistribution;
+      expect(
+        totalYieldDistributed,
+        `cycle=${frame.cycle}: GF + LP equals net yield`,
+      ).to.be.closeTo(m.kaminoNetYield, 1e-6);
+
+      // Either the GF is below cap and LP is 0, OR GF is at cap and
+      // LP holds the overflow.
+      if (m.guaranteeFund < m.guaranteeFundCap - 1e-6) {
+        expect(
+          m.lpDistribution,
+          `cycle=${frame.cycle}: no LP distribution while GF below cap`,
+        ).to.be.closeTo(0, 1e-6);
+      }
+    }
+  });
+
+  it("a high-yield run eventually fills the GF and overflows to LPs", () => {
+    // Crank APY to the max the slider allows (15%) and keep the
+    // protocol fee at 0 so all yield reaches the waterfall. Across
+    // 24 cycles (max members slider), the GF should fill and LPs
+    // should see distribution.
+    const frames = runSimulation(
+      {
+        level: "Iniciante", // 50% stake → biggest float → fastest accrual
+        members: 24,
+        installmentUsdc: 1000,
+        kaminoApy: 15,
+        yieldFeePct: 0,
+        memberNames: undefined,
+      },
+      defaultMatrix(24),
+    );
+    const final = frames[frames.length - 1]!.metrics;
+
+    expect(final.guaranteeFund, "GF fully filled").to.be.closeTo(
+      final.guaranteeFundCap,
+      0.5, // allow tiny rounding
+    );
+    expect(final.lpDistribution, "LPs received residual").to.be.greaterThan(0);
+  });
+
+  it("netSolvency now sums float + solidarity + GF, minus obligations", () => {
+    for (const id of PRESET_ORDER) {
+      const preset = PRESETS[id];
+      const frames = runSimulation(preset.config, preset.matrix);
+      for (const frame of frames) {
+        const m = frame.metrics;
+        const expected =
+          m.poolBalance +
+          m.solidarityVault +
+          m.guaranteeFund -
+          m.outstandingEscrow -
+          m.outstandingStakeRefund;
+        expect(
+          m.netSolvency,
+          `preset=${id} cycle=${frame.cycle}: net solvency identity`,
+        ).to.be.closeTo(expected, 1e-6);
+      }
+    }
   });
 });
 

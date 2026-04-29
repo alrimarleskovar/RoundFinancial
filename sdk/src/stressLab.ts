@@ -64,6 +64,31 @@ export interface FrameMetrics {
    */
   outstandingStakeRefund: number;
   /**
+   * Cofre Solidário — independent capital bucket fed by 1% of every
+   * paid installment. Whitepaper-defined as the first line of
+   * Escudo 3 protection. Earns no yield (segregated).
+   */
+  solidarityVault: number;
+  /**
+   * Fundo Garantido — independent capital bucket fed by the yield
+   * waterfall after the protocol takes its admin fee. Capped at
+   * 150% of one credit notional. Whitepaper-defined as the second
+   * line of Escudo 3 protection. Earns no yield (segregated).
+   */
+  guaranteeFund: number;
+  /**
+   * 150% of credit. The cap on `guaranteeFund`. Surfaced as a metric
+   * so the UI can render a fill bar.
+   */
+  guaranteeFundCap: number;
+  /**
+   * Yield distributed to liquidity providers / participants — the
+   * residual of the waterfall after admin fee + guarantee fund
+   * fill-up. Already left the protocol's books; counted toward
+   * "what the model produced" but not toward solvency.
+   */
+  lpDistribution: number;
+  /**
    * `poolBalance − outstandingEscrow − outstandingStakeRefund`.
    * Net cash the protocol is sitting on after honoring every open
    * obligation to ok members. The SOLVENT/INSOLVENT verdict
@@ -203,7 +228,22 @@ export function runSimulation(
     lossCaused: 0,
   }));
 
+  // Capital structure (Escudo 3, per whitepaper):
+  //   - main float (totalPoolBalance): stake + 99% of installments −
+  //     payouts. The deployable bag of cash that earns Kamino yield.
+  //   - solidarity vault: 1% of every installment, segregated.
+  //   - guarantee fund: filled by the yield waterfall, capped at
+  //     150% of credit. Segregated.
+  //   - lpDistribution: residual yield after the GF cap is hit.
+  // Solvency adds the three protocol-controlled buckets together;
+  // lpDistribution is already paid out and doesn't count.
+  const SOLIDARITY_FEE_PCT = 0.01;
+  const GUARANTEE_FUND_CAP = 1.5 * credit;
+
   let totalPoolBalance = stake * N;
+  let solidarityVault = 0;
+  let guaranteeFund = 0;
+  let lpDistribution = 0;
   let totalNetYield = 0;
   let totalProtocolFeeRevenue = 0;
   let totalInstallments = 0;
@@ -306,7 +346,11 @@ export function runSimulation(
 
     totalInstallments += cycleInstallments;
     totalPaidOut += cyclePaidOut;
-    totalPoolBalance += cycleInstallments - cyclePaidOut;
+    // Installments split 99/1: 1% to Cofre Solidário, 99% stays in
+    // the float to fund payouts and earn yield.
+    const cycleSolidarityFeed = cycleInstallments * SOLIDARITY_FEE_PCT;
+    solidarityVault += cycleSolidarityFeed;
+    totalPoolBalance += cycleInstallments - cycleSolidarityFeed - cyclePaidOut;
 
     if (totalPoolBalance > 0) {
       const cycleGrossYield = (totalPoolBalance * (apy / 100)) / 12;
@@ -315,7 +359,17 @@ export function runSimulation(
 
       totalProtocolFeeRevenue += cycleProtocolFee;
       totalNetYield += cycleNetYield;
-      totalPoolBalance += cycleNetYield; // Only net yield reinforces the vault.
+
+      // Yield waterfall (Escudo 3, second tier): fill the Guarantee
+      // Fund up to its 150%-of-credit cap, then route the residual
+      // to LPs/participants. The yield no longer reinforces the
+      // float — it's diverted to segregated buckets so the
+      // protocol's solvency math doesn't compound on user stakes.
+      const gfGap = Math.max(0, GUARANTEE_FUND_CAP - guaranteeFund);
+      const toGuaranteeFund = Math.min(cycleNetYield, gfGap);
+      guaranteeFund += toGuaranteeFund;
+      const toLp = cycleNetYield - toGuaranteeFund;
+      lpDistribution += toLp;
     }
 
     // ── Outstanding obligations to ok members ──
@@ -340,8 +394,16 @@ export function runSimulation(
         outstandingEscrow += Math.max(0, credit - creditReceived);
       }
     }
+    // Net solvency now sums *all* protocol-controlled assets
+    // (float + solidarity + guarantee fund) and subtracts the
+    // outstanding obligations to ok members. lpDistribution is
+    // already paid out and doesn't count.
     const netSolvency =
-      totalPoolBalance - outstandingEscrow - outstandingStakeRefund;
+      totalPoolBalance +
+      solidarityVault +
+      guaranteeFund -
+      outstandingEscrow -
+      outstandingStakeRefund;
 
     frames.push({
       cycle: c,
@@ -356,6 +418,10 @@ export function runSimulation(
         totalLoss,
         outstandingEscrow,
         outstandingStakeRefund,
+        solidarityVault,
+        guaranteeFund,
+        guaranteeFundCap: GUARANTEE_FUND_CAP,
+        lpDistribution,
         netSolvency,
       },
       // Deep clone so future cycles can't retroactively mutate snapshots.
@@ -380,6 +446,10 @@ export function emptyFrame(): StressLabFrame {
       totalLoss: 0,
       outstandingEscrow: 0,
       outstandingStakeRefund: 0,
+      solidarityVault: 0,
+      guaranteeFund: 0,
+      guaranteeFundCap: 0,
+      lpDistribution: 0,
       netSolvency: 0,
     },
     ledgerSnapshot: [],
