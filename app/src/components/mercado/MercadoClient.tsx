@@ -3,6 +3,10 @@
 import { useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
+import {
+  BuyOfferModal,
+  type BuyOfferTarget,
+} from "@/components/mercado/BuyOfferModal";
 import { FeaturedOffer } from "@/components/mercado/FeaturedOffer";
 import { HowItWorks } from "@/components/mercado/HowItWorks";
 import { MiniStat } from "@/components/mercado/MiniStat";
@@ -16,6 +20,7 @@ export function MercadoClient() {
   const { tokens } = useTheme();
   const t = useT();
   const [tab, setTab] = useState<Tab>("buy");
+  const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
 
   return (
     <div style={{ padding: 32 }}>
@@ -129,9 +134,9 @@ export function MercadoClient() {
             gap: 16,
           }}
         >
-          <OffersTable />
+          <OffersTable onBuy={(target) => setBuying(target)} />
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <FeaturedOffer />
+            <FeaturedOffer onBuy={(target) => setBuying(target)} />
             <HowItWorks />
           </div>
         </div>
@@ -171,6 +176,12 @@ export function MercadoClient() {
           </div>
         </div>
       )}
+
+      <BuyOfferModal
+        target={buying}
+        open={buying !== null}
+        onClose={() => setBuying(null)}
+      />
     </div>
   );
 }

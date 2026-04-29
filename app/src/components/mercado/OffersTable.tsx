@@ -1,5 +1,6 @@
 "use client";
 
+import type { BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { MonoLabel } from "@/components/brand/brand";
 import { MARKET_OFFERS } from "@/data/market";
 import { useI18n, useT } from "@/lib/i18n";
@@ -8,7 +9,11 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 // Order book table for the Buy tab. Each row = one NFT share resold
 // below face value.
 
-export function OffersTable() {
+export function OffersTable({
+  onBuy,
+}: {
+  onBuy: (target: BuyOfferTarget) => void;
+}) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
@@ -158,6 +163,15 @@ export function OffersTable() {
           </div>
           <button
             type="button"
+            onClick={() =>
+              onBuy({
+                group: o.group,
+                detail: `#${o.num} · ${t("home.month")} ${o.month}/${o.total}`,
+                face: o.face,
+                price: o.price,
+                discount: o.disc,
+              })
+            }
             style={{
               padding: "7px 12px",
               borderRadius: 8,

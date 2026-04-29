@@ -1,5 +1,6 @@
 "use client";
 
+import type { BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { MonoLabel } from "@/components/brand/brand";
 import { FEATURED_OFFER } from "@/data/market";
 import { useI18n, useT } from "@/lib/i18n";
@@ -8,7 +9,11 @@ import { useTheme } from "@/lib/theme";
 // Sidebar "destaque do dia" card. Highlights one offer with a
 // purple-tinted gradient + face/price progress + buy CTA.
 
-export function FeaturedOffer() {
+export function FeaturedOffer({
+  onBuy,
+}: {
+  onBuy: (target: BuyOfferTarget) => void;
+}) {
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
@@ -132,6 +137,18 @@ export function FeaturedOffer() {
 
       <button
         type="button"
+        onClick={() =>
+          onBuy({
+            group: f.group,
+            detail: t("market.featured.subtitle", {
+              m: f.monthsLeft,
+              s: f.sellerScore,
+            }),
+            face: f.face,
+            price: f.price,
+            discount: f.effectiveDiscount,
+          })
+        }
         style={{
           marginTop: 12,
           width: "100%",
