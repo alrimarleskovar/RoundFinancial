@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { MonoLabel, RFILogoMark, RFIPill } from "@/components/brand/brand";
+import { Icons } from "@/components/brand/icons";
 import { CountUp } from "@/components/ui/CountUp";
 import { useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -8,13 +11,31 @@ import { useTheme } from "@/lib/theme";
 
 // Big SAS passport card on /reputacao. Same data as the home
 // PassportMini but blown up: 96pt Syne score + scale legend +
-// user name + level pill.
+// user name + level pill. Wallet handle is click-to-copy — in
+// production this would copy the real Solana pubkey, here it
+// copies whatever's exposed via session.
 
 export function ReputationPassport() {
   const { tokens } = useTheme();
   const t = useT();
   const { user } = useSession();
   const pct = (user.score / 850) * 100;
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const id = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(id);
+  }, [copied]);
+
+  const copyWallet = async () => {
+    try {
+      await navigator.clipboard.writeText(user.walletShort);
+      setCopied(true);
+    } catch {
+      // Older browsers / missing permissions — silently no-op.
+    }
+  };
 
   return (
     <div
@@ -55,17 +76,47 @@ export function ReputationPassport() {
           <RFILogoMark size={36} />
           <div style={{ textAlign: "right" }}>
             <MonoLabel>{t("score.cardChain")}</MonoLabel>
-            <div
+            <button
+              type="button"
+              onClick={copyWallet}
+              title={t("score.walletCopy")}
               style={{
+                marginTop: 4,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
                 fontFamily:
                   "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 10,
-                color: tokens.text2,
-                marginTop: 4,
+                color: copied ? tokens.green : tokens.text2,
+                transition: "color 180ms ease",
               }}
             >
               {user.walletShort}
-            </div>
+              {copied ? (
+                <Icons.check size={11} stroke={tokens.green} sw={2.4} />
+              ) : (
+                <Icons.copy size={11} stroke={tokens.muted} />
+              )}
+            </button>
+            {copied && (
+              <div
+                style={{
+                  marginTop: 2,
+                  fontFamily:
+                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontSize: 9,
+                  color: tokens.green,
+                  letterSpacing: "0.08em",
+                }}
+              >
+                {t("score.walletCopied")}
+              </div>
+            )}
           </div>
         </div>
 

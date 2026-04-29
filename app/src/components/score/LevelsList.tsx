@@ -1,17 +1,26 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { LEVELS } from "@/data/score";
 import { useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// 50/30/10 ladder column. Current level highlighted with the teal tint.
+// 50/30/10 ladder column. Current level highlighted with the teal
+// tint. Bottom CTA bridges to /insights for the score-up path —
+// matches the locked-modal patterns on /grupos.
 
 export function LevelsList() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
+  const { user } = useSession();
+  const router = useRouter();
+  const pointsToNext = Math.max(0, user.nextLevel - user.score);
+  const atTopTier = user.level >= 3;
 
   const colorFor = (lv: 1 | 2 | 3): string =>
     lv === 1 ? tokens.amber : lv === 2 ? tokens.teal : tokens.green;
@@ -117,6 +126,54 @@ export function LevelsList() {
           </div>
         );
       })}
+
+      {!atTopTier && (
+        <button
+          type="button"
+          onClick={() => router.push("/insights")}
+          style={{
+            ...glass,
+            marginTop: 4,
+            padding: 14,
+            borderRadius: 14,
+            cursor: "pointer",
+            border: `1px solid ${tokens.teal}33`,
+            background: `${tokens.teal}0D`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+            color: tokens.text,
+            transition: "border-color 180ms ease, background 180ms ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = `${tokens.teal}66`;
+            e.currentTarget.style.background = `${tokens.teal}1A`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = `${tokens.teal}33`;
+            e.currentTarget.style.background = `${tokens.teal}0D`;
+          }}
+        >
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>
+              {t("score.levelUp.title")}
+            </div>
+            <div
+              style={{
+                marginTop: 3,
+                fontSize: 10,
+                color: tokens.muted,
+                fontFamily:
+                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              }}
+            >
+              {t("score.levelUp.gap", { pts: pointsToNext })}
+            </div>
+          </div>
+          <Icons.arrow size={16} stroke={tokens.teal} sw={2} />
+        </button>
+      )}
     </div>
   );
 }

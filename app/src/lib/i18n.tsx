@@ -93,6 +93,25 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondAttest": "{n} atestados",
     "score.bondActive": "Ativo",
     "score.bondClosed": "✓ Fechado",
+    "score.walletCopy": "Copiar endereço da carteira",
+    "score.walletCopied": "COPIADO",
+    "score.levelUp.title": "Como subir de nível →",
+    "score.levelUp.gap": "Faltam {pts} pts pra próximo tier",
+    "score.bondModal.subtitle":
+      "Cada parcela paga é um atestado SAS individual. Esta cota agrega o conjunto.",
+    "score.bondModal.statusActive": "Ciclo em andamento",
+    "score.bondModal.statusCompleted": "Ciclo encerrado · 100% adimplente",
+    "score.bondModal.attestationCount": "Atestados emitidos",
+    "score.bondModal.weight": "Peso no SAS",
+    "score.bondModal.weightActive": "1× por parcela",
+    "score.bondModal.weightCompleted": "5× (CycleComplete)",
+    "score.bondModal.onchainTitle": "PATH ON-CHAIN",
+    "score.bondModal.onchainBody":
+      "{n}× roundfi-core::contribute → roundfi-reputation::mint_attestation. Cada chamada cria uma conta SAS-compatible cuja PDA deriva de (pool, member, schema, nonce).",
+    "score.bondModal.demoBadge": "MODO DEMO",
+    "score.bondModal.demoBody":
+      "Hash da transação Solana ficará disponível quando o indexer entrar (M3 do roadmap).",
+    "score.bondModal.close": "Fechar",
     // mercado / secondary market
     "market.badge": "◆ Mercado secundário",
     "market.title": "Compre posições com desconto",
@@ -662,6 +681,25 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondAttest": "{n} attestations",
     "score.bondActive": "Active",
     "score.bondClosed": "✓ Closed",
+    "score.walletCopy": "Copy wallet address",
+    "score.walletCopied": "COPIED",
+    "score.levelUp.title": "How to level up →",
+    "score.levelUp.gap": "{pts} pts to next tier",
+    "score.bondModal.subtitle":
+      "Each paid installment is an individual SAS attestation. This bond aggregates the set.",
+    "score.bondModal.statusActive": "Cycle in progress",
+    "score.bondModal.statusCompleted": "Cycle closed · 100% on time",
+    "score.bondModal.attestationCount": "Attestations minted",
+    "score.bondModal.weight": "SAS weight",
+    "score.bondModal.weightActive": "1× per installment",
+    "score.bondModal.weightCompleted": "5× (CycleComplete)",
+    "score.bondModal.onchainTitle": "ON-CHAIN PATH",
+    "score.bondModal.onchainBody":
+      "{n}× roundfi-core::contribute → roundfi-reputation::mint_attestation. Each call creates an SAS-compatible account whose PDA derives from (pool, member, schema, nonce).",
+    "score.bondModal.demoBadge": "DEMO MODE",
+    "score.bondModal.demoBody":
+      "Solana transaction hash will be available once the indexer ships (M3 of the roadmap).",
+    "score.bondModal.close": "Close",
     // mercado / secondary market
     "market.badge": "◆ Secondary market",
     "market.title": "Buy positions at a discount",
