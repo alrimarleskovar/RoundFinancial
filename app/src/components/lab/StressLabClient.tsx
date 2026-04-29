@@ -703,11 +703,11 @@ export function StressLabClient() {
                     padding: 22,
                     borderRadius: 22,
                     background:
-                      m.poolBalance >= 0
+                      m.netSolvency >= 0
                         ? `${tokens.green}0D`
                         : `${tokens.red}1A`,
                     border: `1px solid ${
-                      m.poolBalance >= 0 ? `${tokens.green}55` : `${tokens.red}55`
+                      m.netSolvency >= 0 ? `${tokens.green}55` : `${tokens.red}55`
                     }`,
                   }}
                 >
@@ -722,11 +722,64 @@ export function StressLabClient() {
                         "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
+                    <span style={{ color: tokens.text2, textTransform: "uppercase" }}>
+                      {t("lab.audit.grossCash")}
+                    </span>
+                    <span style={{ color: tokens.text, fontWeight: 700 }}>
+                      ${fmtUsdc(m.poolBalance)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 11,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
+                    <span style={{ color: tokens.amber, textTransform: "uppercase" }}>
+                      {t("lab.audit.outstandingEscrow")}
+                    </span>
+                    <span style={{ color: tokens.amber, fontWeight: 700 }}>
+                      −${fmtUsdc(m.outstandingEscrow)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 11,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
+                    <span style={{ color: tokens.amber, textTransform: "uppercase" }}>
+                      {t("lab.audit.outstandingStake")}
+                    </span>
+                    <span style={{ color: tokens.amber, fontWeight: 700 }}>
+                      −${fmtUsdc(m.outstandingStakeRefund)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      paddingBottom: 14,
+                      borderBottom: `1px solid ${tokens.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 11,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
                     <span style={{ color: tokens.red, textTransform: "uppercase" }}>
                       {t("lab.audit.totalLoss")}
                     </span>
                     <span style={{ color: tokens.red, fontWeight: 700 }}>
-                      -${fmtUsdc(m.totalLoss)}
+                      −${fmtUsdc(m.totalLoss)}
                     </span>
                   </div>
                   <div
@@ -764,7 +817,7 @@ export function StressLabClient() {
                         textTransform: "uppercase",
                       }}
                     >
-                      {t("lab.audit.netBalance")}
+                      {t("lab.audit.netSolvency")}
                     </span>
                     <span
                       style={{
@@ -772,13 +825,25 @@ export function StressLabClient() {
                           "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                         fontWeight: 800,
                         fontSize: 18,
-                        color: m.poolBalance >= 0 ? tokens.green : tokens.red,
+                        color: m.netSolvency >= 0 ? tokens.green : tokens.red,
                       }}
                     >
-                      {m.poolBalance >= 0
+                      {m.netSolvency >= 0
                         ? t("lab.audit.solvent")
                         : t("lab.audit.insolvent")}
                     </span>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 10,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      color: tokens.muted,
+                      textAlign: "right",
+                    }}
+                  >
+                    {m.netSolvency >= 0 ? "+" : ""}${fmtUsdc(m.netSolvency)}
                   </div>
                 </div>
               )}
@@ -1051,7 +1116,11 @@ function PoolBalanceSparkline({
       : "";
 
   const lastBalance = frames[frames.length - 1].metrics.poolBalance;
-  const isHealthy = lastBalance >= 0;
+  // Color signal driven by net solvency (gross cash − outstanding
+  // obligations) rather than gross cash alone — matches the audit
+  // panel verdict so the two surfaces always agree.
+  const lastNetSolvency = frames[frames.length - 1].metrics.netSolvency;
+  const isHealthy = lastNetSolvency >= 0;
 
   return (
     <div style={{ marginTop: 14 }}>
