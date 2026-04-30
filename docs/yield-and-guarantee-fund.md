@@ -1,7 +1,9 @@
 # RoundFi — Yield Waterfall & Guarantee Fund
 
-**Version:** 1.0 (2026-04-22 — Step 4f)
+**Version:** 1.1 (2026-04-30 — re-aligned to canonical PDFs)
 **Scope:** Explains the role of the yield adapter, the harvest waterfall, and the Guarantee Fund. Intended as reading material for judges, partners, and auditors.
+
+> **v1.1 changelog.** v1.0 documented the on-chain Rust order (GF top-up first, then protocol fee). The canonical PDFs ([whitepaper](pt/whitepaper.pdf) + [Viabilidade Técnica](pt/viabilidade-tecnica.pdf)) define a different waterfall: **protocol fee first, then GF, then LPs, then participants**. The Stress Lab L1 simulator ([sdk/src/stressLab.ts](../sdk/src/stressLab.ts)) implements the PDF order. v1.1 of this doc re-aligns to the PDFs and flags the on-chain `harvest_yield.rs` as M1/M2 contract-validation work — the L1↔L2 parity test ([tests/economic_parity.spec.ts](../tests/economic_parity.spec.ts)) is what will catch the divergence and force the Rust side to match.
 
 ---
 
@@ -28,53 +30,52 @@ From [math/waterfall.rs](../programs/roundfi-core/src/math/waterfall.rs) and [ha
          ┌───────────────────┼───────────────────┐
          ▼                   ▼                   ▼
 ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
-│ (1) Guarantee  │  │ (2) Protocol   │  │ (3) Good-faith │
-│     Fund top-  │  │     fee (20%)  │  │     bonus      │
-│     up         │  │                │  │                │
+│ (1) Protocol   │  │ (2) Guarantee  │  │ (3) LPs /      │
+│     fee (20%)  │  │     Fund top-  │  │     Liquidity  │
+│                │  │     up         │  │     Angels     │
+│                │  │   (cap 150%)   │  │     (~65% of   │
+│                │  │                │  │      residual) │
 └────────────────┘  └────────────────┘  └────────────────┘
-         │                   │                   │
-         │                   ▼                   │
-         │           ┌────────────────┐          │
-         │           │ treasury ATA   │          │
-         │           └────────────────┘          │
-         │                                       ▼
-         │                              ┌────────────────┐
-         │                              │ solidarity_    │
-         │                              │ vault (future  │
-         │                              │ on-time bonus) │
-         │                              └────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────┐
-│ (4) Participants — residual credited to         │
-│     pool_usdc_vault (reduces future installment │
-│     burden or tops up payouts)                  │
-└─────────────────────────────────────────────────┘
+         │                                       │
+         ▼                                       │
+ ┌────────────────┐                              │
+ │ treasury ATA   │                              │
+ └────────────────┘                              │
+                                                 ▼
+                                        ┌────────────────┐
+                                        │ (4) Participants│
+                                        │     — residual  │
+                                        │     "patience   │
+                                        │     prize"      │
+                                        │     (~35%)      │
+                                        └────────────────┘
 ```
 
-### 2.1 Step 1 — Guarantee Fund top-up (FIRST)
+### 2.1 Step 1 — Protocol fee (20% performance fee)
 
-The Guarantee Fund is topped up **before any fee is skimmed**. This is the core economic-security decision of Step 4c: the shock absorber is funded before the protocol takes revenue. Sizing follows `config.guarantee_fund_bps` (default 15000 bps = 150% of cumulative protocol fees).
+The protocol's **20% performance fee** is taken first, on the gross harvested yield. Transferred to `treasury` (on devnet `treasury` is the authority's USDC ATA; on mainnet it is a Squads V4 multisig). This is the primary revenue stream from Phase 1 in the [B2B plan](pt/plano-b2b.pdf) — it covers operational costs while Phase 3 (the B2B oracle API) ramps up to become the high-margin endgame.
 
-### 2.2 Step 2 — Protocol fee (20% of remaining)
+### 2.2 Step 2 — Guarantee Fund top-up (cap 150%)
 
-After GF top-up, 20% of the *remaining* yield is transferred to `treasury`. On devnet `treasury` is the authority's USDC ATA; on mainnet it is a Squads V4 multisig.
+After the protocol fee, the Guarantee Fund is topped up from the *remaining* yield. Sizing follows `config.guarantee_fund_bps` (default 15000 bps = **150% of credit**) — the cap that keeps the GF a defensive reserve, not a yield magnet. Once the cap is hit, this step is skipped on subsequent harvests and 100% of the residual flows to step 3.
 
-### 2.3 Step 3 — Good-faith bonus
+### 2.3 Step 3 — LPs (Anjos de Liquidez · ~65% of residual)
 
-A configurable share of the remaining yield flows back to the `solidarity_vault` where it is distributed to on-time members via `distribute_good_faith_bonus`. This is the positive-signal side of the reputation system: good behavior is *paid*, not only unpunished.
+Of whatever remains after the GF cap is filled, **~65%** is paid to **LPs / Liquidity Angels** — external capital providers who fund the pool's float beyond what members deposit. This is the upside slice that makes RoundFi competitive against single-asset DeFi vaults: LPs get behavioral-credit-backed yield instead of just lending into a generic pool. Configurable via `LP_RESIDUAL_SHARE` in [stressLab.ts](../sdk/src/stressLab.ts) — would be a governance parameter on-chain.
 
-### 2.4 Step 4 — Participants (residual)
+### 2.4 Step 4 — Participants ("prêmio de paciência" · ~35% of residual)
 
-Everything left goes to `pool_usdc_vault`. Because payouts are fixed at `pool.credit_amount`, this residual effectively reduces the member-installment burden in later cycles, or tops up the float so the Seed-Draw invariant holds with a comfortable margin.
+The final ~35% of the residual flows back to pool members who completed their cycle on time — the **patience prize**. Credited to `pool_usdc_vault` on-chain (effectively reducing future installment burden) or distributed pro-rata at pool close.
 
 **Handler-enforced invariant.** The handler asserts:
 
 ```
-gf_topup + protocol_fee + good_faith_bonus + participants_residual == harvested_delta
+protocol_fee + gf_topup + lp_share + participants_share == harvested_delta
 ```
 
 Any reordering or skipping is rejected with `WaterfallNotConserved`. Computations use bps math with floor, and residuals accumulate in `solidarity_balance` so **no rounding lamports are lost**.
+
+> **On-chain alignment note (M1/M2 work).** As of v0.5 of the on-chain code, [harvest_yield.rs](../programs/roundfi-core/src/instructions/harvest_yield.rs) implements a *different* order — GF top-up first, fee second, "good-faith bonus" third, residual fourth. The PDFs and the [Stress Lab L1 simulator](../sdk/src/stressLab.ts) define the canonical order shown above. The L1↔L2 economic-parity test in [tests/economic_parity.spec.ts](../tests/economic_parity.spec.ts) will fail on this divergence in M1/M2 contract validation, forcing the Rust side to match. The doc is now the canonical spec; Rust will catch up.
 
 ---
 
@@ -83,12 +84,12 @@ Any reordering or skipping is rejected with `WaterfallNotConserved`. Computation
 ### 3.1 Role today (v1 — shipped)
 
 1. **Payout-drain protection.** Before transferring `credit_amount` to a member, [claim_payout.rs:119](../programs/roundfi-core/src/instructions/claim_payout.rs:119) computes `spendable = pool_usdc_vault.amount - pool.guarantee_fund_balance` and requires `spendable >= credit_amount`. The Guarantee Fund is **earmarked**: the pool can never pay out if doing so would eat into the reserve.
-2. **Growth path.** Topped up every harvest (Step 1 of the waterfall).
+2. **Growth path.** Topped up every harvest (Step 2 of the waterfall, after the protocol fee). Caps at 150% of credit and then stops accruing.
 
 ### 3.2 What the v1 Guarantee Fund does NOT do
 
 - **It does not cover defaults.** `settle_default` never draws from `guarantee_fund_balance`. The default-cascade is per-member-local: Solidarity → Member escrow → Member stake. The Guarantee Fund sits untouched during settlement.
-- **It does not pay yields to members.** Members receive yield via the good-faith bonus and the participants residual, not via the Guarantee Fund.
+- **It does not pay yields to members.** Members (and LPs) receive yield via the LP / participants slices of the waterfall (steps 3 + 4 above), not via the Guarantee Fund.
 
 This is an intentional simplification for v1. The Guarantee Fund acts as a **future crash reserve** — accumulated across the lifetime of the pool so that v2 can introduce a catastrophic-loss draw path (e.g., a pool-wide black-swan event) with rate-limiting and governance oversight.
 
