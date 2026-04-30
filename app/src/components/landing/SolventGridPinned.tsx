@@ -10,20 +10,27 @@ import {
 import { useRef, type ComponentType } from "react";
 
 import { Icons, type IconProps } from "@/components/brand/icons";
+import { Reveal } from "@/components/landing/Reveal";
 import { useT } from "@/lib/i18n";
 import { useMotion } from "@/lib/motion";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 
 // Layer-B scrollytelling for the "Solvente por Construção" section.
 //
-// Desktop: the section grows to ~260vh, an inner sticky pane locks
-// to the viewport for ~160vh of scroll, and the 6 cards reveal in
-// a staggered choreography driven by scrollYProgress (Framer Motion
-// useScroll/useTransform).
+// Desktop (lg and up): the section grows to ~260vh, an inner sticky
+// pane locks to the viewport for ~160vh of scroll, and the 6 cards
+// reveal in a staggered choreography driven by scrollYProgress
+// (Framer Motion useScroll/useTransform).
 //
-// Mobile / reduced-motion: skips the scroll choreography entirely
-// and renders a normal grid where each card uses CSS opacity 1 from
-// the start. Sticky/tall-section is gated behind `md:` breakpoints
-// so layout doesn't get weird on narrow viewports.
+// Mobile / tablet: bypasses the pin entirely — falls back to a
+// natural-flow grid where each card animates in via Reveal
+// (whileInView) when it enters the viewport. This keeps the section
+// visible and responsive on narrow screens, where the pin would
+// otherwise either fail or compress the scroll range so much that
+// useTransform never reaches the cards' reveal windows.
+//
+// Reduced-motion / MotionProvider "off": renders the same static
+// grid with no animation at all.
 
 type CardConfig = {
   key: string;
@@ -43,26 +50,35 @@ const CARDS: readonly CardConfig[] = [
 export function SolventGridPinned() {
   const { mode } = useMotion();
   const reducedMotion = useReducedMotion();
-  const skipScroll = mode === "off" || reducedMotion;
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const skipPin = mode === "off" || reducedMotion || !isDesktop;
+
+  if (skipPin) {
+    return <SolventGridFlow animated={mode !== "off" && !reducedMotion} />;
+  }
+
+  return <SolventGridDesktopPinned />;
+}
+
+// Desktop-only pinned scrollytelling version. Uses useScroll with
+// the section as the target — the pin is enforced via CSS sticky
+// inside the tall section.
+function SolventGridDesktopPinned() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start start", "end end"],
   });
 
-  if (skipScroll) {
-    return <SolventGridStatic />;
-  }
-
   return (
     <section
       ref={ref}
       id="security"
-      className="relative w-full md:h-[260vh] border-t border-white/[0.06] z-10"
+      className="relative w-full h-[260vh] border-t border-white/[0.06] z-10"
     >
-      <div className="md:sticky md:top-0 md:h-screen flex flex-col items-center justify-center px-4 md:px-6 max-w-6xl mx-auto py-20 md:py-0">
+      <div className="sticky top-0 h-screen flex flex-col items-center justify-center px-6 max-w-6xl mx-auto">
         <PinnedHeader scrollYProgress={scrollYProgress} />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+        <div className="grid grid-cols-3 gap-6 w-full">
           {CARDS.map((c, i) => (
             <PinnedCard
               key={c.key}
@@ -157,16 +173,18 @@ function PinnedCard({
   );
 }
 
-// Fallback for reduced-motion / motion-off: identical to the
-// previous static grid (PR #76 + #77 styling), no scroll coupling.
-function SolventGridStatic() {
+// Fallback for mobile, tablet, reduced-motion, or motion=off.
+// Identical layout to PR #76 + #77 styling. When `animated` is true
+// the cards still get a soft fade-slide-in via <Reveal> as they
+// enter the viewport — the only thing missing is the desktop pin.
+function SolventGridFlow({ animated }: { animated: boolean }) {
   const t = useT();
   return (
     <section
       id="security"
       className="w-full mx-auto px-4 md:px-6 py-20 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
     >
-      <div className="text-center mb-16">
+      <Wrap animated={animated} className="text-center mb-16">
         <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
           {t("landing.security.title1")}{" "}
           <span className="text-[#14F195]">{t("landing.security.title2")}</span>
@@ -174,38 +192,64 @@ function SolventGridStatic() {
         <p className="text-gray-400 max-w-2xl mx-auto text-base">
           {t("landing.security.body")}
         </p>
-      </div>
+      </Wrap>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {CARDS.map((c) => (
-          <div
+        {CARDS.map((c, i) => (
+          <Wrap
             key={c.key}
-            className="p-8 rounded-[2rem]"
-            style={{
-              background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
-              border: `1px solid ${c.color}40`,
-              boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
-            }}
+            animated={animated}
+            delay={(i % 3) * 0.08}
           >
             <div
-              className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+              className="p-8 rounded-[2rem]"
               style={{
-                background: `${c.color}1F`,
-                border: `1px solid ${c.color}55`,
-                color: c.color,
-                boxShadow: `0 0 28px ${c.color}33`,
+                background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
+                border: `1px solid ${c.color}40`,
+                boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
               }}
             >
-              <c.Icon size={26} stroke={c.color} sw={1.8} />
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                style={{
+                  background: `${c.color}1F`,
+                  border: `1px solid ${c.color}55`,
+                  color: c.color,
+                  boxShadow: `0 0 28px ${c.color}33`,
+                }}
+              >
+                <c.Icon size={26} stroke={c.color} sw={1.8} />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {t(`landing.security.card.${c.key}.title`)}
+              </h3>
+              <p className="text-gray-400 text-sm">
+                {t(`landing.security.card.${c.key}.desc`)}
+              </p>
             </div>
-            <h3 className="text-xl font-bold mb-2">
-              {t(`landing.security.card.${c.key}.title`)}
-            </h3>
-            <p className="text-gray-400 text-sm">
-              {t(`landing.security.card.${c.key}.desc`)}
-            </p>
-          </div>
+          </Wrap>
         ))}
       </div>
     </section>
+  );
+}
+
+function Wrap({
+  children,
+  animated,
+  delay,
+  className,
+}: {
+  children: React.ReactNode;
+  animated: boolean;
+  delay?: number;
+  className?: string;
+}) {
+  if (!animated) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <Reveal delay={delay} className={className}>
+      {children}
+    </Reveal>
   );
 }
