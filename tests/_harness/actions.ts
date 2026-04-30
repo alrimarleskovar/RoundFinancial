@@ -205,7 +205,9 @@ export async function depositIdleToYield(
 export interface HarvestYieldOpts {
   pool: PoolHandle;
   treasuryUsdc: PublicKey;
-  goodFaithShareBps?: number;     // defaults to 5_000 (50%)
+  /** Defaults to 6_500 (65%) — share of post-fee-and-GF residual that
+   *  routes to LPs / Anjos de Liquidez (PDF-canonical waterfall v1.1). */
+  lpShareBps?: number;
   caller?: Keypair;
 }
 
@@ -218,15 +220,16 @@ export async function harvestYield(
   const mockVault = yieldMockVault(env, opts.pool.pool, opts.pool.usdcMint);
 
   return env.programs.core.methods
-    .harvestYield({ goodFaithShareBps: opts.goodFaithShareBps ?? 5_000 })
+    .harvestYield({ lpShareBps: opts.lpShareBps ?? 6_500 })
     .accounts({
       caller: caller.publicKey,
       config: configPda(env),
       pool: opts.pool.pool,
       usdcMint: opts.pool.usdcMint,
       poolUsdcVault: opts.pool.poolUsdcVault,
-      solidarityVaultAuthority: opts.pool.solidarityVaultAuthority,
-      solidarityVault: opts.pool.solidarityVault,
+      // solidarity_vault accounts removed in v1.1 — harvest_yield no
+      // longer credits the Cofre Solidário (it's funded only from the
+      // 1% das parcelas in `contribute()`).
       treasuryUsdc: opts.treasuryUsdc,
       yieldVault: mockVault,
       yieldAdapterProgram: env.ids.yieldMock,

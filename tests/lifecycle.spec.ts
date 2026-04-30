@@ -11,7 +11,7 @@
  *         contribute × 4
  *         claimPayout by slot == c
  *     → Around cycle 1: deposit_idle_to_yield + prefund + harvest_yield
- *       (exercises the full GF→Fee→GoodFaith→Participants waterfall)
+ *       (exercises the full Fee→GF→LP→Participants waterfall, v1.1)
  *     → release_escrow × 4  (checkpoint = cycles_total)
  *     → close_pool
  *
@@ -367,7 +367,7 @@ describe("lifecycle — full happy path", function () {
         await harvestYield(env, {
           pool,
           treasuryUsdc: treasury,
-          goodFaithShareBps: 5_000,
+          lpShareBps: 6_500,
         });
 
         const poolAfterHar = await balanceOf(env, pool.poolUsdcVault);
@@ -376,18 +376,22 @@ describe("lifecycle — full happy path", function () {
         const mockAfterHar = await balanceOf(env, mockVault);
 
         // Realized yield = prefund (mock returns exactly the surplus).
-        // Waterfall with gf_room = 0 (no fees accrued yet):
-        //   gf=0, fee = 100 * 20% = 20, good_faith = 80 * 50% = 40, participants = 40.
+        // PDF-canonical waterfall (v1.1) with gf_room = 0:
+        //   fee = 100 * 20% = 20; afterFee = 80
+        //   gf  = min(80, 0) = 0; afterGf = 80
+        //   lp  = 80 * 65% = 52; participants = 28
         const expectedRealized = YIELD_PREFUND_BASE;
         const expectedFee      = (expectedRealized * BigInt(FEES.yieldFeeBps)) / 10_000n;
         const afterFee         = expectedRealized - expectedFee;
-        const expectedGoodFaith = (afterFee * 5_000n) / 10_000n;
-        const expectedParts    = afterFee - expectedGoodFaith;
+        const expectedLpShare  = (afterFee * 6_500n) / 10_000n;
+        const expectedParts    = afterFee - expectedLpShare;
 
-        // Pool nets +participants (gained realized, lost fee+good_faith).
-        expect(poolAfterHar - poolBeforeHar).to.equal(expectedParts);
+        // Pool gains realized − fee_out (LP slice and participants both
+        // stay logically inside pool_usdc_vault).
+        expect(poolAfterHar - poolBeforeHar).to.equal(expectedRealized - expectedFee);
         expect(treasuryAfter - treasuryBefore).to.equal(expectedFee);
-        expect(solAfterHar - solBeforeHar).to.equal(expectedGoodFaith);
+        // Solidarity vault is no longer credited from yield (v1.1).
+        expect(solAfterHar).to.equal(solBeforeHar);
         // Mock vault drops by realized; tracked principal unchanged.
         expect(mockAfterHar).to.equal(YIELD_DEPOSIT_BASE);
 
@@ -396,6 +400,8 @@ describe("lifecycle — full happy path", function () {
         expect(bn(p.totalProtocolFeeAccrued)).to.equal(expectedFee);
         // GF room was 0 so GF balance stays 0.
         expect(bn(p.guaranteeFundBalance)).to.equal(0n);
+        // LP slice tracked on the new lp_distribution_balance earmark.
+        expect(bn(p.lpDistributionBalance)).to.equal(expectedLpShare);
         // yield_principal_deposited: deposit increased by YIELD_DEPOSIT_BASE
         // and harvest only reduces it if yield_vault dropped *more* than
         // realized (it didn't — it dropped by exactly realized), so it
@@ -480,27 +486,33 @@ describe("lifecycle — full happy path", function () {
     //   escrow_vault: +4 × 312.5 per cycle
     //   solidarity:   +4 × 12.5 per cycle
     //
-    // Plus the cycle-1 yield splice:
-    //   pool_vault   -= YIELD_DEPOSIT_BASE, then += participants.
+    // Plus the cycle-1 yield splice (v1.1 PDF order: fee → GF → LP → parts):
+    //   pool_vault   -= YIELD_DEPOSIT_BASE, then += (lp_share + participants).
+    //                  GF=0 here (gf_room=0 cold-start), LP slice stays
+    //                  earmarked inside pool_vault, participants too.
     //   treasury     += fee.
-    //   solidarity   += good_faith.
+    //   solidarity   UNCHANGED (no longer credited from yield in v1.1).
     //
     // Plus the final escrow release (×4 × STAKE_BASE → members).
     const perCyclePool =
       BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST - CREDIT_BASE;
     const expectedFee      = (YIELD_PREFUND_BASE * BigInt(FEES.yieldFeeBps)) / 10_000n;
-    const expectedGoodFaith =
-      ((YIELD_PREFUND_BASE - expectedFee) * 5_000n) / 10_000n;
-    const expectedParts    = YIELD_PREFUND_BASE - expectedFee - expectedGoodFaith;
+    const expectedLpShare =
+      ((YIELD_PREFUND_BASE - expectedFee) * 6_500n) / 10_000n;
+    const expectedParts    = YIELD_PREFUND_BASE - expectedFee - expectedLpShare;
 
+    // LP slice + participants both stay logically inside pool_usdc_vault
+    // (LP via pool.lp_distribution_balance earmark, parts via residual).
     const expectedPoolVault =
-      BigInt(CYCLES_TOTAL) * perCyclePool - YIELD_DEPOSIT_BASE + expectedParts;
+      BigInt(CYCLES_TOTAL) * perCyclePool - YIELD_DEPOSIT_BASE
+        + expectedLpShare + expectedParts;
     const expectedEscrow =
       BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * ESCROW_PER_INST;
       // stakes all released → removed from escrow above.
+    // Solidarity vault is NOT credited from yield (v1.1) — only from
+    // the 1% das parcelas in `contribute()`.
     const expectedSolidarity =
-      BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST
-      + expectedGoodFaith;
+      BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST;
     const expectedTreasury = expectedFee;
     const expectedMockVault = YIELD_DEPOSIT_BASE;   // tracked principal, stays
 
