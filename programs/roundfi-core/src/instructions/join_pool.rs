@@ -4,7 +4,10 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use mpl_core::{
     instructions::CreateV2CpiBuilder,
-    types::{DataState, FreezeDelegate, Plugin, PluginAuthority, PluginAuthorityPair},
+    types::{
+        DataState, FreezeDelegate, Plugin, PluginAuthority, PluginAuthorityPair,
+        TransferDelegate,
+    },
 };
 
 use crate::constants::*;
@@ -157,12 +160,29 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
         .data_state(DataState::AccountState)
         .name(format!("RoundFi Position #{}", args.slot_index))
         .uri(args.metadata_uri.clone())
-        .plugins(vec![PluginAuthorityPair {
-            plugin: Plugin::FreezeDelegate(FreezeDelegate { frozen: true }),
-            authority: Some(PluginAuthority::Address {
-                address: position_authority_key,
-            }),
-        }])
+        .plugins(vec![
+            // FreezeDelegate keeps the asset locked under the slot's
+            // position_authority PDA. Members can hold the NFT in their
+            // wallet but can't transfer it directly — only protocol
+            // instructions can move it.
+            PluginAuthorityPair {
+                plugin: Plugin::FreezeDelegate(FreezeDelegate { frozen: true }),
+                authority: Some(PluginAuthority::Address {
+                    address: position_authority_key,
+                }),
+            },
+            // TransferDelegate grants the same position_authority PDA the
+            // right to move the asset between owners. Required for the
+            // Escape Valve flow (`escape_valve_buy.rs`) where the seller
+            // doesn't sign the buy tx — the protocol PDA executes the
+            // transfer on the seller's behalf after USDC settles.
+            PluginAuthorityPair {
+                plugin: Plugin::TransferDelegate(TransferDelegate {}),
+                authority: Some(PluginAuthority::Address {
+                    address: position_authority_key,
+                }),
+            },
+        ])
         .invoke()?;
 
     // ─── Initialize Member ──────────────────────────────────────────────
