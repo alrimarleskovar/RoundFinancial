@@ -720,12 +720,13 @@ export default function LandingPage() {
       <section className="w-full mx-auto px-4 md:px-6 py-12 md:py-16 max-w-6xl z-10">
         <Reveal>
           <div className="relative rounded-[2rem] group">
-            {/* Slow rotating chromatic halo behind the card */}
+            {/* Fixed chromatic halo that pulses opacity on the
+                card's edges — no rotation. */}
             <div
-              className="absolute -inset-px rounded-[2rem] opacity-30 group-hover:opacity-60 blur-2xl transition-opacity duration-500 pointer-events-none rfi-rotate-halo"
+              className="absolute -inset-px rounded-[2rem] blur-2xl pointer-events-none rfi-pulse-halo"
               style={{
                 background:
-                  "conic-gradient(from 0deg, #14F195, #00C8FF, #9945FF, #14F195)",
+                  "linear-gradient(120deg, #14F195, #00C8FF, #9945FF, #14F195)",
               }}
               aria-hidden
             />

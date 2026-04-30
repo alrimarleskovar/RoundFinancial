@@ -132,15 +132,16 @@ body {
   animation: rfi-btn-glow-purple 2.6s ease-in-out infinite;
 }
 
-/* Slow conic-gradient rotation for hero/CTA halos.
-   Pair with blur and a clipped overlay so the spinning gradient
-   reads as a slow chromatic glow rather than a literal rotor. */
-@keyframes rfi-rotate-halo {
-  to { transform: rotate(360deg); }
+/* Static chromatic halo that breathes — opacity pulses without
+   rotation, so the gradient sits fixed on the edges of the
+   parent and the "life" comes from the in-out fade. */
+@keyframes rfi-pulse-halo {
+  0%, 100% { opacity: 0.28; }
+  50%      { opacity: 0.65; }
 }
-.rfi-rotate-halo {
-  animation: rfi-rotate-halo 14s linear infinite;
-  will-change: transform;
+.rfi-pulse-halo {
+  animation: rfi-pulse-halo 2.8s ease-in-out infinite;
+  will-change: opacity;
 }
 
 /* Data stream — slow vertical scroll for the hero background.
