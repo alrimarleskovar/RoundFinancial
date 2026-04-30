@@ -859,8 +859,14 @@ export default function LandingPage() {
             </ul>
           </div>
         </div>
-        <div className="text-center text-gray-600 text-[8px] md:text-xs tracking-widest border-t border-white/[0.06] pt-6 md:pt-10 uppercase px-4">
-          {t("landing.footer.copyright")}
+        <div className="text-center text-gray-600 text-[8px] md:text-xs tracking-widest border-t border-white/[0.06] pt-6 md:pt-10 uppercase px-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+          <span>{t("landing.footer.copyright")}</span>
+          <a
+            href="/admin"
+            className="text-gray-700 hover:text-[#FFD23F] transition-colors no-underline"
+          >
+            ◆ {t("landing.footer.admin")}
+          </a>
         </div>
       </footer>
     </main>
