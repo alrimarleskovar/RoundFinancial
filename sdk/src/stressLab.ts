@@ -541,7 +541,12 @@ export function emptyFrame(): StressLabFrame {
 // in M1 — running each preset through runSimulation() and through
 // the Anchor program must produce identical FrameMetrics.
 
-export type PresetId = "healthy" | "preDefault" | "postDefault" | "cascade";
+export type PresetId =
+  | "healthy"
+  | "preDefault"
+  | "postDefault"
+  | "cascade"
+  | "tripleVeteranDefault";
 
 export interface ScenarioPreset {
   id: PresetId;
@@ -604,6 +609,36 @@ export const PRESETS: Record<PresetId, ScenarioPreset> = {
       { row: 9, cycle: 6 },
     ]),
   },
+  // Canonical whitepaper stress test: 24-member Veteran pool, $10k carta,
+  // three contemplated members (cycles 2/3/4) default *after* receiving
+  // their upfront. This is the scenario the pitch deck quotes:
+  //   passivo bruto = 3 × $10,000 = -$30,000
+  //   ↓ recovery via:
+  //     escrow retained (65% × 3 × credit) = +$19,500
+  //     stake slashed   (3 × 10% × credit) =  +$3,000
+  //     cycle-1 cushion (Sorteio Semente)  =  +$9,152
+  //     solidarity vault + yield           =  +$2,500
+  //     net = +$4,152 (solvent by construction)
+  // Used to verify the L1 simulator produces the canonical outcome.
+  tripleVeteranDefault: {
+    id: "tripleVeteranDefault",
+    config: {
+      level: "Veterano",
+      members: 24,
+      creditAmountUsdc: 10_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
+    // Members 1, 2, 3 are contemplated at cycles 2, 3, 4 respectively
+    // (default diagonal: row m → C at column m). They default at the
+    // cycle right after their upfront — the canonical "post-
+    // contemplation default after receiving payout" scenario.
+    matrix: withDefaults(24, [
+      { row: 1, cycle: 3 },
+      { row: 2, cycle: 4 },
+      { row: 3, cycle: 5 },
+    ]),
+  },
 };
 
 export const PRESET_ORDER: PresetId[] = [
@@ -611,4 +646,5 @@ export const PRESET_ORDER: PresetId[] = [
   "preDefault",
   "postDefault",
   "cascade",
+  "tripleVeteranDefault",
 ];
