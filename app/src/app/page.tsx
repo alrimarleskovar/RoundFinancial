@@ -455,10 +455,33 @@ export default function LandingPage() {
               </p>
 
               <div className="flex items-end justify-center gap-2 md:gap-3 h-24 md:h-32 mb-8 md:mb-10">
-                <div className="w-8 md:w-12 bg-gray-800 rounded-t-lg h-[40%]" />
-                <div className="w-8 md:w-12 bg-gray-700 rounded-t-lg h-[50%]" />
-                <div className="w-8 md:w-12 bg-gray-600 rounded-t-lg h-[65%]" />
-                <div className="w-8 md:w-12 bg-[#14F195] rounded-t-lg h-[100%] shadow-[0_0_20px_rgba(20,241,149,0.5)]" />
+                {[40, 55, 75, 100].map((maxH, i) => {
+                  const segSize = 25000;
+                  const segStart = i * segSize;
+                  const progress = Math.max(
+                    0,
+                    Math.min(1, (simAmount - segStart) / segSize),
+                  );
+                  const baseH = 15;
+                  const height = baseH + (maxH - baseH) * progress;
+                  const r = Math.round(75 - 55 * progress);
+                  const g = Math.round(85 + 156 * progress);
+                  const b = Math.round(99 + 50 * progress);
+                  return (
+                    <div
+                      key={i}
+                      className="w-8 md:w-12 rounded-t-lg transition-all duration-200 ease-out"
+                      style={{
+                        height: `${height}%`,
+                        background: `rgb(${r}, ${g}, ${b})`,
+                        boxShadow:
+                          progress > 0.05
+                            ? `0 0 ${8 + 16 * progress}px rgba(20,241,149,${0.4 * progress})`
+                            : "none",
+                      }}
+                    />
+                  );
+                })}
               </div>
 
               <div className="flex justify-center">
