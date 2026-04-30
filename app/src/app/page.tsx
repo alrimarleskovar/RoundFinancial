@@ -329,7 +329,7 @@ export default function LandingPage() {
         id="security"
         className="w-full mx-auto px-4 md:px-6 py-20 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
       >
-        <Reveal className="text-center mb-16">
+        <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
             {t("landing.security.title1")}{" "}
             <span className="text-[#14F195]">{t("landing.security.title2")}</span>
@@ -337,7 +337,7 @@ export default function LandingPage() {
           <p className="text-gray-400 max-w-2xl mx-auto text-base">
             {t("landing.security.body")}
           </p>
-        </Reveal>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(
@@ -349,35 +349,34 @@ export default function LandingPage() {
               { key: "triplo",  Icon: Icons.shield,  color: "#9945FF" },
               { key: "silos",   Icon: Icons.cubes,   color: "#E0E0E0" },
             ] as const
-          ).map((c, i) => (
-            <Reveal key={c.key} delay={(i % 3) * 0.08}>
+          ).map((c) => (
+            <div
+              key={c.key}
+              className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
+              style={{
+                background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
+                border: `1px solid ${c.color}40`,
+                boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
+              }}
+            >
               <div
-                className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
                 style={{
-                  background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
-                  border: `1px solid ${c.color}40`,
-                  boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
+                  background: `${c.color}1F`,
+                  border: `1px solid ${c.color}55`,
+                  color: c.color,
+                  boxShadow: `0 0 28px ${c.color}33`,
                 }}
               >
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
-                  style={{
-                    background: `${c.color}1F`,
-                    border: `1px solid ${c.color}55`,
-                    color: c.color,
-                    boxShadow: `0 0 28px ${c.color}33`,
-                  }}
-                >
-                  <c.Icon size={26} stroke={c.color} sw={1.8} />
-                </div>
-                <h3 className="text-xl font-bold mb-2">
-                  {t(`landing.security.card.${c.key}.title`)}
-                </h3>
-                <p className="text-gray-400 text-sm">
-                  {t(`landing.security.card.${c.key}.desc`)}
-                </p>
+                <c.Icon size={26} stroke={c.color} sw={1.8} />
               </div>
-            </Reveal>
+              <h3 className="text-xl font-bold mb-2">
+                {t(`landing.security.card.${c.key}.title`)}
+              </h3>
+              <p className="text-gray-400 text-sm">
+                {t(`landing.security.card.${c.key}.desc`)}
+              </p>
+            </div>
           ))}
         </div>
       </section>
