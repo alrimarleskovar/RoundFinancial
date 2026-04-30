@@ -388,6 +388,84 @@ export function StressLabClient() {
                     );
                   })}
                 </div>
+
+                {/* Explanation: what maturity means + acceleration ladder */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: tokens.fillSoft,
+                    border: `1px solid ${tokens.border}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: tokens.text2,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {t(
+                      maturity === "mature"
+                        ? "lab.controls.maturity.matureDesc"
+                        : "lab.controls.maturity.immatureDesc",
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      paddingTop: 8,
+                      borderTop: `1px solid ${tokens.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 6,
+                      fontFamily:
+                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontSize: 10,
+                    }}
+                  >
+                    {(["Iniciante", "Comprovado", "Veterano"] as const).map(
+                      (lvl) => {
+                        const lvlParams = LEVEL_PARAMS[lvl];
+                        const months =
+                          maturity === "mature"
+                            ? lvlParams.releaseMonthsMature
+                            : lvlParams.releaseMonths;
+                        const isCurrent = level === lvl;
+                        return (
+                          <div
+                            key={lvl}
+                            style={{
+                              flex: 1,
+                              textAlign: "center",
+                              color: isCurrent ? tokens.text : tokens.muted,
+                              fontWeight: isCurrent ? 700 : 400,
+                            }}
+                          >
+                            <div style={{ fontSize: 8, letterSpacing: "0.08em" }}>
+                              {t(`lab.level.${lvl.toLowerCase()}`)
+                                .slice(0, 3)
+                                .toUpperCase()}
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 2,
+                                color: isCurrent
+                                  ? maturity === "mature"
+                                    ? tokens.green
+                                    : tokens.teal
+                                  : tokens.muted,
+                              }}
+                            >
+                              {months}m
+                            </div>
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Stake info card */}
