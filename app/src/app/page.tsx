@@ -448,7 +448,7 @@ export default function LandingPage() {
       {/* Comparison table */}
       <section
         id="compare"
-        className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 max-w-6xl z-10"
+        className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
       >
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
           {t("landing.cmp.title1")}{" "}
@@ -462,10 +462,10 @@ export default function LandingPage() {
           className="flex flex-col md:flex-row gap-0 rounded-[24px] md:rounded-[32px] overflow-hidden backdrop-blur-xl w-full"
           style={{
             background:
-              "linear-gradient(180deg, rgba(153,69,255,0.06) 0%, rgba(255,255,255,0.02) 60%)",
-            border: "1px solid rgba(153,69,255,0.30)",
+              "linear-gradient(180deg, rgba(153,69,255,0.04) 0%, rgba(255,255,255,0.02) 60%)",
+            border: "1px solid rgba(153,69,255,0.18)",
             boxShadow:
-              "0 0 0 1px rgba(153,69,255,0.10), 0 24px 80px rgba(153,69,255,0.18), inset 0 1px 0 rgba(153,69,255,0.20)",
+              "0 12px 40px rgba(153,69,255,0.08), inset 0 1px 0 rgba(153,69,255,0.10)",
           }}
         >
           <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] flex-1">
