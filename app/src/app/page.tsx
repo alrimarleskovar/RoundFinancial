@@ -230,7 +230,7 @@ export default function LandingPage() {
           </div>
           <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
             {t("landing.cofi.title1")} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF]">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">
               {t("landing.cofi.title2")}
             </span>
           </h2>
@@ -340,7 +340,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
               {t("landing.security.title1")}{" "}
-              <span className="text-[#14F195]">{t("landing.security.title2")}</span>
+              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">{t("landing.security.title2")}</span>
             </h2>
             <p className="text-gray-400 max-w-2xl mx-auto text-base">
               {t("landing.security.body")}
@@ -399,7 +399,7 @@ export default function LandingPage() {
           <Reveal className="text-center lg:text-left">
             <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
               {t("landing.sim.title1")} <br />
-              <span className="text-[#14F195]">{t("landing.sim.title2")}</span>
+              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">{t("landing.sim.title2")}</span>
             </h2>
             <p className="text-gray-400 text-sm md:text-lg mb-8 md:mb-10">
               {t("landing.sim.body").split(t("landing.sim.cofi"))[0]}
@@ -539,7 +539,7 @@ export default function LandingPage() {
         <Reveal>
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
             {t("landing.cmp.title1")}{" "}
-            <span className="text-[#9945FF]">{t("landing.cmp.title2")}</span>
+            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">{t("landing.cmp.title2")}</span>
           </h2>
           <p className="text-gray-400 text-center max-w-2xl mx-auto mb-10 md:mb-16 text-sm md:text-base">
             {t("landing.cmp.body")}
@@ -669,7 +669,7 @@ export default function LandingPage() {
         <Reveal>
           <h2 className="text-3xl md:text-5xl font-black text-center mb-12">
             {t("landing.faq.title1")}{" "}
-            <span className="text-[#9945FF]">{t("landing.faq.title2")}</span>
+            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">{t("landing.faq.title2")}</span>
           </h2>
         </Reveal>
 
