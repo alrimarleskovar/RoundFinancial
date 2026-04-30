@@ -287,6 +287,26 @@ export function StressLabClient() {
                     );
                   })}
                 </div>
+                {/* Whitepaper-rounding disclosure: the preset hint
+                    text and the docs round to whole-USDC values; the
+                    underlying simulator computes proportional math
+                    exactly. Keeps the values reconcilable. */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "7px 10px",
+                    borderRadius: 6,
+                    fontSize: 9,
+                    lineHeight: 1.5,
+                    color: tokens.text2,
+                    background: `${tokens.amber}0F`,
+                    border: `1px solid ${tokens.amber}33`,
+                    fontFamily:
+                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  }}
+                >
+                  ◆ {t("lab.presets.roundingNotice")}
+                </div>
               </div>
 
               {/* Level */}

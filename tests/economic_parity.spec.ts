@@ -154,6 +154,58 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
     expect(finalMetrics.totalRetained, "cascade retains > 0").to.be.greaterThan(0);
   });
 
+  // ── tripleVeteranDefault: the canonical whitepaper scenario ────────
+  // 24-member Veterano pool with $10k credit. Members 1, 2, 3 are
+  // contemplated at cycles 2/3/4 (default-diagonal) and then default
+  // at cycle right after their upfront. The whitepaper argues that
+  // even with three sequential post-contemplation defaults the
+  // cascade of guarantees keeps the pool solvent.
+  //
+  // This test pins the L1 simulator's outcome to that claim.
+  it("Triple Veteran Default produces 3 post-contemplation defaults + positive solvency", () => {
+    const { frames, finalMetrics } = metricsOf("tripleVeteranDefault");
+    const final = lastFrame(frames);
+
+    // (a) Exactly three calote_pos members.
+    const postDefaults = final.ledgerSnapshot.filter(
+      (l) => l.status === "calote_pos",
+    );
+    expect(postDefaults.length, "exactly 3 calote_pos members").to.equal(3);
+
+    // (b) Each defaulter received the upfront (passed contemplation).
+    for (const m of postDefaults) {
+      expect(m.received, `${m.name} received upfront`).to.be.greaterThan(0);
+      expect(m.lossCaused, `${m.name} caused loss`).to.be.greaterThan(0);
+    }
+
+    // (c) No pre-contemplation defaults — these are POST-contemplation
+    // calotes specifically (the harder, "received the bag" case).
+    const preDefaults = final.ledgerSnapshot.filter(
+      (l) => l.status === "calote_pre",
+    );
+    expect(preDefaults.length, "zero calote_pre members").to.equal(0);
+
+    // (d) Pool solvent by construction — the whitepaper headline claim.
+    // `poolBalance` is the running cash balance after every cycle.
+    // After three sequential post-contemplation calotes the cascade of
+    // recoveries (escrow retained + stake slashed + cycle-1 cushion +
+    // solidarity vault + yield) must still leave the pool > 0.
+    expect(
+      finalMetrics.poolBalance,
+      "pool ends solvent (cash balance > 0 after 3 calotes)",
+    ).to.be.greaterThan(0);
+
+    // (e) Recovery ≥ losses — protocol absorbed the calotes without
+    // touching the LP/participants pool. `totalRetained` covers seized
+    // stake + retained escrow + solidarity contributions; it must be
+    // at least as large as the total loss the defaulters caused.
+    const totalLoss = postDefaults.reduce((acc, m) => acc + m.lossCaused, 0);
+    expect(
+      finalMetrics.totalRetained,
+      "retained ≥ caused losses (cascade absorbed the hit)",
+    ).to.be.gte(totalLoss);
+  });
+
   it("collected installments + total stake never exceed inflow accounting", () => {
     // Sanity: for every preset, the FrameMetrics maintain
     //   poolBalance = totalStake + collectedInstallments - paidOut
