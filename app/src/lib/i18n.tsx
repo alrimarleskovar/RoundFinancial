@@ -564,6 +564,28 @@ export const DICT: Record<Lang, Dict> = {
     "admin.preview.activity.title": "◆ Log de atividade",
     "admin.preview.activity.empty":
       "Sem eventos ainda. Avance os meses ou dispare uma ação pra ver o log preencher.",
+    // /admin presets
+    "admin.preset.title": "◆ Cenários prontos",
+    "admin.preset.hint": "Clique pra carregar tudo de uma vez",
+    "admin.preset.active": "Ativo",
+    "admin.preset.default.label": "Maria · Início do ciclo",
+    "admin.preset.default.desc":
+      "Cenário base — mês 0, nada feito ainda. Use como ponto de partida pra demonstrar o fluxo do zero.",
+    "admin.preset.mariaContemplated.label": "Maria · Contemplada (mês 4)",
+    "admin.preset.mariaContemplated.desc":
+      "Acabou de receber 35% upfront. Score já com bônus de 4 parcelas pagas. Perfeito pra mostrar a contemplação acontecendo.",
+    "admin.preset.mariaMidCycle.label": "Maria · Meio do ciclo (mês 8)",
+    "admin.preset.mariaMidCycle.desc":
+      "8 parcelas pagas, escrow majoritariamente liberado, yield acumulando. Bom pra mostrar a dinâmica pós-contemplação.",
+    "admin.preset.tripleDefault.label": "Pedro · Cenário Triplo Calote",
+    "admin.preset.tripleDefault.desc":
+      "Veterano L3, carta R$ 30k em grupo de 24. Cenário alinhado com o whitepaper: dispare 3 calotes seguidos pra mostrar a cascata de garantias.",
+    "admin.preset.escapeValve.label": "João · Saída via Válvula",
+    "admin.preset.escapeValve.desc":
+      "Contemplado mas precisa sair antes do ciclo terminar. Clique em \"Vender cota\" pra demonstrar a Válvula de Escape (88% da face, sem slashing).",
+    "admin.preset.veteranBig.label": "Carlos · Veterano L3",
+    "admin.preset.veteranBig.desc":
+      "Carta R$ 50k, 36 meses, score 850. Mostra o tier máximo de alavancagem (10x) e capacidade de cartas grandes.",
     // modals — common
     "modal.cancel": "Cancelar",
     "modal.confirm": "Confirmar",
@@ -1409,6 +1431,28 @@ export const DICT: Record<Lang, Dict> = {
     "admin.preview.activity.title": "◆ Activity log",
     "admin.preview.activity.empty":
       "No events yet. Advance the months or trigger an action to see the log fill up.",
+    // /admin presets
+    "admin.preset.title": "◆ Pre-built scenarios",
+    "admin.preset.hint": "Click to load everything at once",
+    "admin.preset.active": "Active",
+    "admin.preset.default.label": "Maria · Cycle start",
+    "admin.preset.default.desc":
+      "Baseline scenario — month 0, nothing done yet. Use as the starting point to demo the flow from scratch.",
+    "admin.preset.mariaContemplated.label": "Maria · Contemplated (month 4)",
+    "admin.preset.mariaContemplated.desc":
+      "Just received 35% upfront. Score already bonused from 4 paid installments. Perfect for demoing the contemplation moment.",
+    "admin.preset.mariaMidCycle.label": "Maria · Mid-cycle (month 8)",
+    "admin.preset.mariaMidCycle.desc":
+      "8 installments paid, escrow mostly released, yield accruing. Good for showing the post-contemplation dynamic.",
+    "admin.preset.tripleDefault.label": "Pedro · Triple Default scenario",
+    "admin.preset.tripleDefault.desc":
+      "Veteran L3, R$ 30k credit letter in a 24-member pool. Whitepaper-aligned: trigger 3 sequential defaults to show the guarantee cascade.",
+    "admin.preset.escapeValve.label": "João · Exit via Escape Valve",
+    "admin.preset.escapeValve.desc":
+      "Contemplated but needs to exit before the cycle ends. Click \"Sell share\" to demo the Escape Valve (88% of face, no slashing).",
+    "admin.preset.veteranBig.label": "Carlos · Veteran L3",
+    "admin.preset.veteranBig.desc":
+      "R$ 50k credit letter, 36 months, score 850. Demonstrates the max leverage tier (10x) and capacity for large credit letters.",
     // modals — common
     "modal.cancel": "Cancel",
     "modal.confirm": "Confirm",

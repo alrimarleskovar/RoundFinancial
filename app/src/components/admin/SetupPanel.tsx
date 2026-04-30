@@ -115,13 +115,13 @@ export function SetupPanel({
                 onClick={() => setUser({ level: lv })}
                 style={{
                   flex: 1,
-                  padding: "8px 0",
+                  padding: "10px 0",
                   borderRadius: 8,
                   cursor: "pointer",
                   background: active ? `${tokens.green}1F` : tokens.fillSoft,
                   border: `1px solid ${active ? `${tokens.green}55` : tokens.border}`,
                   color: active ? tokens.green : tokens.text2,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 700,
                   fontFamily:
                     "var(--font-jetbrains-mono), JetBrains Mono, monospace",
@@ -201,13 +201,14 @@ export function SetupPanel({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   const { tokens } = useTheme();
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
       <span
         style={{
-          fontSize: 9,
-          color: tokens.muted,
+          fontSize: 11,
+          color: tokens.text2,
           textTransform: "uppercase",
-          letterSpacing: "0.1em",
+          letterSpacing: "0.08em",
+          fontWeight: 600,
           fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
         }}
       >
@@ -222,12 +223,12 @@ function inputStyle(
   tokens: ReturnType<typeof useTheme>["tokens"],
 ): React.CSSProperties {
   return {
-    padding: "8px 10px",
+    padding: "10px 12px",
     borderRadius: 8,
     background: tokens.fillSoft,
     border: `1px solid ${tokens.border}`,
     color: tokens.text,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
     width: "100%",
