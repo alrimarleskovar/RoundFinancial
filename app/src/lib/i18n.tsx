@@ -261,6 +261,10 @@ export const DICT: Record<Lang, Dict> = {
     "lab.controls.maturityMonths": "meses de drip",
     "lab.controls.maturity.immature": "Imaturo",
     "lab.controls.maturity.mature": "Maduro",
+    "lab.controls.maturity.immatureDesc":
+      "Coorte nova ou sem histórico de pagamento confirmado. Cronograma padrão de liberação do escrow — o protocolo prefere drips mais longos enquanto a confiança é construída.",
+    "lab.controls.maturity.matureDesc":
+      "Coorte com histórico de pagamento confirmado. Liberação acelerada — a confiança histórica do grupo destrava drips mais curtos sem aumentar risco do protocolo.",
     "lab.controls.stakeRequired": "Stake Exigido",
     "lab.controls.guarantee": "Garantia por Membro",
     "lab.controls.members": "Membros",
@@ -977,6 +981,10 @@ export const DICT: Record<Lang, Dict> = {
     "lab.controls.maturityMonths": "drip months",
     "lab.controls.maturity.immature": "Immature",
     "lab.controls.maturity.mature": "Mature",
+    "lab.controls.maturity.immatureDesc":
+      "New cohort or no confirmed payment history yet. Default release schedule — the protocol prefers longer drips while trust is being built.",
+    "lab.controls.maturity.matureDesc":
+      "Cohort with confirmed payment history. Accelerated release — the group's track record unlocks shorter drips without raising protocol risk.",
     "lab.controls.stakeRequired": "Stake required",
     "lab.controls.guarantee": "Stake per member",
     "lab.controls.members": "Members",
