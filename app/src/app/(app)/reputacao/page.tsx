@@ -1,7 +1,6 @@
 "use client";
 
 import { MonoLabel } from "@/components/brand/brand";
-import { DeskShell } from "@/components/layout/DeskShell";
 import { BondsList } from "@/components/score/BondsList";
 import { LevelsList } from "@/components/score/LevelsList";
 import { ReputationPassport } from "@/components/score/ReputationPassport";
@@ -13,11 +12,7 @@ import { useTheme } from "@/lib/theme";
 // below.
 
 export default function ReputacaoPage() {
-  return (
-    <DeskShell>
-      <ScoreContent />
-    </DeskShell>
-  );
+  return <ScoreContent />;
 }
 
 function ScoreContent() {
