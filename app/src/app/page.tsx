@@ -213,7 +213,7 @@ export default function LandingPage() {
       {/* CoFi · Next Paradigm */}
       <section
         id="cofi"
-        className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-7xl z-10 text-center relative"
+        className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-7xl border-t border-white/[0.06] z-10 text-center relative"
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#14F195] opacity-5 blur-[150px] pointer-events-none" />
         <div className="inline-block bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-mono text-gray-400 mb-6 uppercase tracking-widest">
@@ -260,19 +260,16 @@ export default function LandingPage() {
             [
               {
                 key: "leverage",
-                emoji: "🚀",
                 color: "#14F195",
                 src: "/illustrations/cofi-leverage.png",
               },
               {
                 key: "yield",
-                emoji: "💧",
                 color: "#9945FF",
                 src: "/illustrations/cofi-yield.png",
               },
               {
                 key: "reputation",
-                emoji: "⭐",
                 color: "#14F195",
                 src: "/illustrations/cofi-reputation.png",
               },
@@ -286,7 +283,7 @@ export default function LandingPage() {
                 key={c.key}
                 className="rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
                 style={{
-                  background: `linear-gradient(180deg, ${c.color}0F 0%, rgba(255,255,255,0.02) 60%)`,
+                  background: `linear-gradient(180deg, ${c.color}14 0%, rgba(8,10,16,0.92) 55%)`,
                   border: `1px solid ${c.color}40`,
                   boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
                 }}
@@ -304,9 +301,8 @@ export default function LandingPage() {
                   />
                 </div>
                 <div className="p-6 md:p-7">
-                  <h3 className="text-xl md:text-2xl font-bold mb-3 flex items-center gap-2">
-                    <span style={{ color: c.color }}>{c.emoji}</span>
-                    <span>{t(`landing.cofi.card.${c.key}.title`)}</span>
+                  <h3 className="text-xl md:text-2xl font-bold mb-3">
+                    {t(`landing.cofi.card.${c.key}.title`)}
                   </h3>
                   <p className="text-gray-400 text-sm md:text-base leading-relaxed">
                     {pre}
