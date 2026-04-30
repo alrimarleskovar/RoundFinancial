@@ -172,4 +172,21 @@ export const Icons: Record<string, IconFn> = {
       <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />
     </Icon>
   ),
+  scales: (p = {}) => (
+    <Icon {...p}>
+      <path d="M12 4v16M5 20h14M7 8l-4 7a4 4 0 0 0 8 0L7 8zM17 8l-4 7a4 4 0 0 0 8 0l-4-7zM7 8l5-2 5 2" />
+    </Icon>
+  ),
+  bolt: (p = {}) => (
+    <Icon {...p}>
+      <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
+    </Icon>
+  ),
+  cubes: (p = {}) => (
+    <Icon {...p}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="8.5" y="13" width="7" height="7" rx="1" />
+    </Icon>
+  ),
 };

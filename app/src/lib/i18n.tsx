@@ -410,24 +410,24 @@ export const DICT: Record<Lang, Dict> = {
     "landing.security.title2": "Construção",
     "landing.security.body":
       "Uma arquitetura determinística que elimina o risco humano. O protocolo é matematicamente blindado, garantindo que o caixa sempre exceda os passivos.",
-    "landing.security.card.lev.title": "10x Micro-Alavancagem",
-    "landing.security.card.lev.desc":
-      "Acesse uma carta de crédito inteira provendo apenas 10% do valor como garantia através da Escada de Reputação.",
-    "landing.security.card.shield.title": "Triplo Escudo Matemático",
-    "landing.security.card.shield.desc":
-      "O prêmio fracionado (Escrow Adaptativo) e o Sorteio Semente blindam o protocolo contra calotes no Dia 0.",
-    "landing.security.card.valve.title": "Válvula de Escape (NFT)",
+    "landing.security.card.semente.title": "Sorteio Semente (Dia 0)",
+    "landing.security.card.semente.desc":
+      "Retemos estrategicamente a maior parte do capital no Mês 1. Isso cria um colchão de liquidez de 91%, eliminando o risco matemático de insolvência no início do ciclo.",
+    "landing.security.card.escrow.title": "Escrow Adaptativo",
+    "landing.security.card.escrow.desc":
+      "O crédito não é liberado de uma vez. O capital é destravado em frações atreladas aos pagamentos futuros, garantindo que a dívida caia mais rápido que a devolução da garantia.",
+    "landing.security.card.valve.title": "Válvula de Escape",
     "landing.security.card.valve.desc":
-      "Diferente do DeFi legado, você não é liquidado. Em uma crise, venda sua posição como NFT no mercado secundário e saia limpo.",
-    "landing.security.card.yield.title": "Yield Cascata (5–8% APY)",
-    "landing.security.card.yield.desc":
-      "Seu dinheiro não fica parado. Todo o capital ocioso do grupo gera rendimentos passivos automáticos via Kamino Finance.",
-    "landing.security.card.sas.title": "Solana SAS Identity",
-    "landing.security.card.sas.desc":
-      "Cada parcela paga constrói o seu Score Web3, emitindo um Atestado Imutável de bom pagador lido por toda a rede.",
-    "landing.security.card.b2b.title": "Endgame B2B / Oráculo",
-    "landing.security.card.b2b.desc":
-      "No futuro, neobancos e protocolos gigantes assinarão nossa API para validar a reputação dos clientes antes do empréstimo.",
+      "Usuários em crise não dão calote, ativam a Válvula. A cota (NFT) é vendida com desconto no mercado secundário para arbitradores, limpando o risco do cofre.",
+    "landing.security.card.slashing.title": "Slashing Determinístico",
+    "landing.security.card.slashing.desc":
+      "Se a inadimplência ocorrer, não há rombo. O colateral (Stake) do mau pagador é confiscado instantaneamente via Smart Contract e protege os usuários honestos.",
+    "landing.security.card.triplo.title": "Resiliência ao Triplo Calote",
+    "landing.security.card.triplo.desc":
+      "Nossa arquitetura foi forjada no Laboratório de Estresse contra o cenário apocalíptico: 3 calotes simultâneos. O resultado? O protocolo manteve superávit de caixa.",
+    "landing.security.card.silos.title": "Cofres Isolados (Silos)",
+    "landing.security.card.silos.desc":
+      "Risco zero de contágio sistêmico. Cada ciclo de crédito roda em um cofre independente. A falha teórica de um grupo não afeta a liquidez do ecossistema global.",
     // FAQ
     "landing.faq.title1": "Perguntas",
     "landing.faq.title2": "frequentes",
@@ -1133,24 +1133,24 @@ export const DICT: Record<Lang, Dict> = {
     "landing.security.title2": "Construction",
     "landing.security.body":
       "A deterministic architecture that eliminates human risk. The protocol is mathematically armored — cash always exceeds liabilities.",
-    "landing.security.card.lev.title": "10x Micro-Leverage",
-    "landing.security.card.lev.desc":
-      "Access a full credit letter by providing only 10% of the value as collateral, via the Reputation Ladder.",
-    "landing.security.card.shield.title": "Triple Mathematical Shield",
-    "landing.security.card.shield.desc":
-      "The fractioned upfront (Adaptive Escrow) and the Seed Draw armor the protocol against day-zero defaults.",
-    "landing.security.card.valve.title": "Escape Valve (NFT)",
+    "landing.security.card.semente.title": "Seed Draw (Day 0)",
+    "landing.security.card.semente.desc":
+      "We strategically retain most of the capital in Month 1. This builds a 91% liquidity cushion, mathematically eliminating insolvency risk at the start of the cycle.",
+    "landing.security.card.escrow.title": "Adaptive Escrow",
+    "landing.security.card.escrow.desc":
+      "Credit isn't released all at once. Capital unlocks in fractions tied to future installments, ensuring debt falls faster than collateral is returned.",
+    "landing.security.card.valve.title": "Escape Valve",
     "landing.security.card.valve.desc":
-      "Unlike legacy DeFi, you don't get liquidated. In a crisis, sell your position as an NFT on the secondary market and exit clean.",
-    "landing.security.card.yield.title": "Yield Cascade (5–8% APY)",
-    "landing.security.card.yield.desc":
-      "Your capital doesn't sit idle. The pool's float earns automatic passive yield via Kamino Finance.",
-    "landing.security.card.sas.title": "Solana SAS Identity",
-    "landing.security.card.sas.desc":
-      "Every paid installment builds your Web3 score, minting an immutable on-time-payer attestation readable by every protocol on the network.",
-    "landing.security.card.b2b.title": "B2B Endgame / Oracle",
-    "landing.security.card.b2b.desc":
-      "Down the road, neobanks and major DeFi protocols will subscribe to our API to validate user reputation before lending.",
+      "Users in crisis don't default — they trigger the Valve. The position (NFT) is sold at a discount on the secondary market to arbitrageurs, clearing risk from the vault.",
+    "landing.security.card.slashing.title": "Deterministic Slashing",
+    "landing.security.card.slashing.desc":
+      "If default happens, there's no hole. The bad actor's collateral (Stake) is instantly seized via Smart Contract, protecting honest users.",
+    "landing.security.card.triplo.title": "Triple-Default Resilience",
+    "landing.security.card.triplo.desc":
+      "Our architecture was forged in the Stress Lab against the apocalyptic scenario: 3 simultaneous defaults. The result? The protocol kept a cash surplus.",
+    "landing.security.card.silos.title": "Isolated Vaults (Silos)",
+    "landing.security.card.silos.desc":
+      "Zero systemic-contagion risk. Every credit cycle runs in an independent vault. A theoretical group failure cannot affect the global ecosystem's liquidity.",
     // FAQ
     "landing.faq.title1": "Frequently asked",
     "landing.faq.title2": "questions",
