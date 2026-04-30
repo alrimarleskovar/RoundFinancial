@@ -9,6 +9,7 @@ import { SegToggle } from "@/components/layout/SegToggle";
 import { RFILogoMark } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { DataStream } from "@/components/landing/DataStream";
+import { Reveal } from "@/components/landing/Reveal";
 import { useI18n, useT } from "@/lib/i18n";
 
 // Marketing landing for RoundFi. Renders before the user connects a
@@ -216,20 +217,22 @@ export default function LandingPage() {
         className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-7xl border-t border-white/[0.06] z-10 text-center relative"
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#14F195] opacity-5 blur-[150px] pointer-events-none" />
-        <div className="inline-block bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-mono text-gray-400 mb-6 uppercase tracking-widest">
-          {t("landing.cofi.eyebrow")}
-        </div>
-        <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
-          {t("landing.cofi.title1")} <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF]">
-            {t("landing.cofi.title2")}
-          </span>
-        </h2>
-        <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-12">
-          {t("landing.cofi.body")}
-        </p>
+        <Reveal>
+          <div className="inline-block bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-mono text-gray-400 mb-6 uppercase tracking-widest">
+            {t("landing.cofi.eyebrow")}
+          </div>
+          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
+            {t("landing.cofi.title1")} <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF]">
+              {t("landing.cofi.title2")}
+            </span>
+          </h2>
+          <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-12">
+            {t("landing.cofi.body")}
+          </p>
+        </Reveal>
 
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-16 relative z-10">
+        <Reveal delay={0.08} className="flex flex-col sm:flex-row justify-center gap-4 mb-16 relative z-10">
           <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 16 }}>
             <WalletMultiButton
               style={{
@@ -252,7 +255,7 @@ export default function LandingPage() {
           >
             {t("landing.cofi.cta2")}
           </a>
-        </div>
+        </Reveal>
 
         {/* Three illustrated CoFi cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto text-left">
@@ -274,47 +277,48 @@ export default function LandingPage() {
                 src: "/illustrations/cofi-reputation.png",
               },
             ] as const
-          ).map((c) => {
+          ).map((c, i) => {
             const desc = t(`landing.cofi.card.${c.key}.desc`);
             const accent = t(`landing.cofi.card.${c.key}.accent`);
             const [pre, post] = desc.split(accent);
             return (
-              <div
-                key={c.key}
-                className="rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
-                style={{
-                  background: `linear-gradient(180deg, ${c.color}14 0%, #000000 40%)`,
-                  border: `1px solid ${c.color}40`,
-                  boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
-                }}
-              >
-                <div className="aspect-square w-full relative overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={c.src}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display =
-                        "none";
-                    }}
-                  />
+              <Reveal key={c.key} delay={i * 0.1}>
+                <div
+                  className="rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
+                  style={{
+                    background: `linear-gradient(180deg, ${c.color}14 0%, #000000 40%)`,
+                    border: `1px solid ${c.color}40`,
+                    boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
+                  }}
+                >
+                  <div className="aspect-square w-full relative overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={c.src}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display =
+                          "none";
+                      }}
+                    />
+                  </div>
+                  <div className="p-6 md:p-7">
+                    <h3 className="text-xl md:text-2xl font-bold mb-3">
+                      {t(`landing.cofi.card.${c.key}.title`)}
+                    </h3>
+                    <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                      {pre}
+                      {accent && (
+                        <span style={{ color: c.color, fontWeight: 700 }}>
+                          {accent}
+                        </span>
+                      )}
+                      {post}
+                    </p>
+                  </div>
                 </div>
-                <div className="p-6 md:p-7">
-                  <h3 className="text-xl md:text-2xl font-bold mb-3">
-                    {t(`landing.cofi.card.${c.key}.title`)}
-                  </h3>
-                  <p className="text-gray-400 text-sm md:text-base leading-relaxed">
-                    {pre}
-                    {accent && (
-                      <span style={{ color: c.color, fontWeight: 700 }}>
-                        {accent}
-                      </span>
-                    )}
-                    {post}
-                  </p>
-                </div>
-              </div>
+              </Reveal>
             );
           })}
         </div>
@@ -325,7 +329,7 @@ export default function LandingPage() {
         id="security"
         className="w-full mx-auto px-4 md:px-6 py-20 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
       >
-        <div className="text-center mb-16">
+        <Reveal className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
             {t("landing.security.title1")}{" "}
             <span className="text-[#14F195]">{t("landing.security.title2")}</span>
@@ -333,7 +337,7 @@ export default function LandingPage() {
           <p className="text-gray-400 max-w-2xl mx-auto text-base">
             {t("landing.security.body")}
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(
@@ -345,34 +349,35 @@ export default function LandingPage() {
               { key: "triplo",  Icon: Icons.shield,  color: "#9945FF" },
               { key: "silos",   Icon: Icons.cubes,   color: "#E0E0E0" },
             ] as const
-          ).map((c) => (
-            <div
-              key={c.key}
-              className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
-              style={{
-                background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
-                border: `1px solid ${c.color}40`,
-                boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
-              }}
-            >
+          ).map((c, i) => (
+            <Reveal key={c.key} delay={(i % 3) * 0.08}>
               <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
                 style={{
-                  background: `${c.color}1F`,
-                  border: `1px solid ${c.color}55`,
-                  color: c.color,
-                  boxShadow: `0 0 28px ${c.color}33`,
+                  background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
+                  border: `1px solid ${c.color}40`,
+                  boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
                 }}
               >
-                <c.Icon size={26} stroke={c.color} sw={1.8} />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                  style={{
+                    background: `${c.color}1F`,
+                    border: `1px solid ${c.color}55`,
+                    color: c.color,
+                    boxShadow: `0 0 28px ${c.color}33`,
+                  }}
+                >
+                  <c.Icon size={26} stroke={c.color} sw={1.8} />
+                </div>
+                <h3 className="text-xl font-bold mb-2">
+                  {t(`landing.security.card.${c.key}.title`)}
+                </h3>
+                <p className="text-gray-400 text-sm">
+                  {t(`landing.security.card.${c.key}.desc`)}
+                </p>
               </div>
-              <h3 className="text-xl font-bold mb-2">
-                {t(`landing.security.card.${c.key}.title`)}
-              </h3>
-              <p className="text-gray-400 text-sm">
-                {t(`landing.security.card.${c.key}.desc`)}
-              </p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -383,7 +388,7 @@ export default function LandingPage() {
         className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 border-t border-white/[0.06] z-10 max-w-6xl"
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-20 items-center">
-          <div className="text-center lg:text-left">
+          <Reveal className="text-center lg:text-left">
             <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
               {t("landing.sim.title1")} <br />
               <span className="text-[#14F195]">{t("landing.sim.title2")}</span>
@@ -438,10 +443,10 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </Reveal>
 
           {/* Simulator chart */}
-          <div className="bg-gradient-to-br from-[#14F195]/30 via-white/[0.06] to-[#9945FF]/30 p-0.5 md:p-1 rounded-[32px] md:rounded-[40px] shadow-2xl shadow-[#14F195]/15">
+          <Reveal delay={0.12} className="bg-gradient-to-br from-[#14F195]/30 via-white/[0.06] to-[#9945FF]/30 p-0.5 md:p-1 rounded-[32px] md:rounded-[40px] shadow-2xl shadow-[#14F195]/15">
             <div className="bg-[#06090F]/85 backdrop-blur-xl rounded-[30px] md:rounded-[38px] p-8 md:p-12 text-center border border-white/[0.06]">
               <p className="text-gray-500 uppercase tracking-widest text-[10px] md:text-xs font-bold mb-2 md:mb-4">
                 {t("landing.sim.result")}
@@ -514,7 +519,7 @@ export default function LandingPage() {
                 </span>
               </div>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
@@ -523,15 +528,18 @@ export default function LandingPage() {
         id="compare"
         className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
       >
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-          {t("landing.cmp.title1")}{" "}
-          <span className="text-[#9945FF]">{t("landing.cmp.title2")}</span>
-        </h2>
-        <p className="text-gray-400 text-center max-w-2xl mx-auto mb-10 md:mb-16 text-sm md:text-base">
-          {t("landing.cmp.body")}
-        </p>
+        <Reveal>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+            {t("landing.cmp.title1")}{" "}
+            <span className="text-[#9945FF]">{t("landing.cmp.title2")}</span>
+          </h2>
+          <p className="text-gray-400 text-center max-w-2xl mx-auto mb-10 md:mb-16 text-sm md:text-base">
+            {t("landing.cmp.body")}
+          </p>
+        </Reveal>
 
-        <div
+        <Reveal
+          delay={0.1}
           className="flex flex-col md:flex-row gap-0 rounded-[24px] md:rounded-[32px] overflow-hidden backdrop-blur-xl w-full"
           style={{
             background:
@@ -645,43 +653,47 @@ export default function LandingPage() {
               ))}
             </ul>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* FAQ */}
       <section className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-4xl border-t border-white/[0.06] z-10">
-        <h2 className="text-3xl md:text-5xl font-black text-center mb-12">
-          {t("landing.faq.title1")}{" "}
-          <span className="text-[#9945FF]">{t("landing.faq.title2")}</span>
-        </h2>
+        <Reveal>
+          <h2 className="text-3xl md:text-5xl font-black text-center mb-12">
+            {t("landing.faq.title1")}{" "}
+            <span className="text-[#9945FF]">{t("landing.faq.title2")}</span>
+          </h2>
+        </Reveal>
 
         <div className="space-y-4">
           {([1, 2, 3, 4, 5] as const).map((n, index) => (
-            <div key={n} className="border-b border-white/10 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                className="w-full flex justify-between items-center py-6 text-left hover:text-[#14F195] transition-colors"
-              >
-                <span className="text-base md:text-lg font-bold">
-                  {t(`landing.faq.q${n}`)}
-                </span>
-                <span className="text-2xl text-gray-500 font-light shrink-0 ml-4">
-                  {openFaq === index ? "−" : "+"}
-                </span>
-              </button>
-              <div
-                className={`transition-all duration-300 ease-in-out ${
-                  openFaq === index
-                    ? "max-h-96 opacity-100 mb-6"
-                    : "max-h-0 opacity-0"
-                }`}
-              >
-                <p className="text-gray-400 text-sm md:text-base leading-relaxed pr-4 md:pr-8">
-                  {t(`landing.faq.a${n}`)}
-                </p>
+            <Reveal key={n} delay={index * 0.06}>
+              <div className="border-b border-white/10 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full flex justify-between items-center py-6 text-left hover:text-[#14F195] transition-colors"
+                >
+                  <span className="text-base md:text-lg font-bold">
+                    {t(`landing.faq.q${n}`)}
+                  </span>
+                  <span className="text-2xl text-gray-500 font-light shrink-0 ml-4">
+                    {openFaq === index ? "−" : "+"}
+                  </span>
+                </button>
+                <div
+                  className={`transition-all duration-300 ease-in-out ${
+                    openFaq === index
+                      ? "max-h-96 opacity-100 mb-6"
+                      : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <p className="text-gray-400 text-sm md:text-base leading-relaxed pr-4 md:pr-8">
+                    {t(`landing.faq.a${n}`)}
+                  </p>
+                </div>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
         <div className="mt-8 text-center">
