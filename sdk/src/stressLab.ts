@@ -247,6 +247,42 @@ export function toggleCell(
   return next;
 }
 
+// Mark a single cell as `E` (Escape Valve) or revert it back to `P`.
+//
+// Unlike toggleCell(), which is context-aware (P → C, C → P, etc.),
+// the escape-valve toggle is intentional and explicit: the user is
+// flagging "this member sells their position at this cycle". The
+// simulator (`runSimulation`) flips the row's status to `exited` and
+// skips downstream installments / escrow drips — no penalty, no loss.
+//
+// UX hookup: the StressLabClient binds this to Shift+click on a cell
+// so power users can mark Escape Valve scenarios without breaking the
+// regular toggle flow. Toggle semantics:
+//
+// - P → E   (mark this cycle as the escape moment)
+// - C → E   (member was contemplated then sold the share — valid case)
+// - X → E   (revert default and convert to clean exit)
+// - E → P   (cancel the escape; row reverts to P from this cycle on)
+export function toggleCellEscape(
+  matrix: MatrixCell[][],
+  row: number,
+  col: number,
+): MatrixCell[][] {
+  const N = matrix.length;
+  const next = matrix.map((r) => [...r]);
+  const current = next[row][col];
+
+  if (current === "E") {
+    // Cancel escape. Revert this cell + downstream cycles to P, but
+    // preserve any C that sits before col in the same row.
+    for (let j = col; j < N; j++) next[row][j] = "P";
+  } else {
+    next[row][col] = "E";
+  }
+
+  return next;
+}
+
 // ── Simulation ─────────────────────────────────────────────
 // Pre-calculates every cycle's frame so the UI can step through them
 // without any further math (or animate at any speed).
