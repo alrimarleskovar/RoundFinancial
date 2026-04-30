@@ -464,11 +464,13 @@ export default function LandingPage() {
                     0,
                     Math.min(1, finalBalance / maxBalance),
                   );
-                  return [40, 55, 75, 100].map((maxH, i) => {
-                    const segStart = i * 0.25;
+                  const heights = [30, 42, 55, 68, 82, 100];
+                  const segSize = 1 / heights.length;
+                  return heights.map((maxH, i) => {
+                    const segStart = i * segSize;
                     const progress = Math.max(
                       0,
-                      Math.min(1, (fill - segStart) / 0.25),
+                      Math.min(1, (fill - segStart) / segSize),
                     );
                     const baseH = 15;
                     const height = baseH + (maxH - baseH) * progress;
@@ -478,7 +480,7 @@ export default function LandingPage() {
                     return (
                       <div
                         key={i}
-                        className="w-8 md:w-12 rounded-t-lg transition-all duration-200 ease-out"
+                        className="w-5 md:w-9 rounded-t-lg transition-all duration-200 ease-out"
                         style={{
                           height: `${height}%`,
                           background: `rgb(${r}, ${g}, ${b})`,
