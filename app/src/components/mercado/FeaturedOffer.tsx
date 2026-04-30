@@ -139,6 +139,7 @@ export function FeaturedOffer({
         type="button"
         onClick={() =>
           onBuy({
+            id: f.id,
             group: f.group,
             detail: t("market.featured.subtitle", {
               m: f.monthsLeft,

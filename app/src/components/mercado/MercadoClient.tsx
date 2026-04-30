@@ -14,11 +14,13 @@ import {
   type ActiveListing,
 } from "@/components/mercado/ListingDetailsModal";
 import { MiniStat } from "@/components/mercado/MiniStat";
+import { MyPurchases } from "@/components/mercado/MyPurchases";
 import { OffersTable } from "@/components/mercado/OffersTable";
 import { SellPositionModal } from "@/components/mercado/SellPositionModal";
 import { SellPositionsList } from "@/components/mercado/SellPositionsList";
 import type { NftPosition } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 type Tab = "buy" | "sell";
@@ -26,6 +28,7 @@ type Tab = "buy" | "sell";
 export function MercadoClient() {
   const { tokens } = useTheme();
   const t = useT();
+  const { buyShare, sellShare } = useSession();
   const [tab, setTab] = useState<Tab>("buy");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
   const [selling, setSelling] = useState<NftPosition | null>(null);
@@ -138,20 +141,23 @@ export function MercadoClient() {
       </div>
 
       {tab === "buy" ? (
-        <div
-          style={{
-            marginTop: 24,
-            display: "grid",
-            gridTemplateColumns: "1.3fr 1fr",
-            gap: 16,
-          }}
-        >
-          <OffersTable onBuy={(target) => setBuying(target)} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <FeaturedOffer onBuy={(target) => setBuying(target)} />
-            <HowItWorks />
+        <>
+          <MyPurchases />
+          <div
+            style={{
+              marginTop: 16,
+              display: "grid",
+              gridTemplateColumns: "1.3fr 1fr",
+              gap: 16,
+            }}
+          >
+            <OffersTable onBuy={(target) => setBuying(target)} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <FeaturedOffer onBuy={(target) => setBuying(target)} />
+              <HowItWorks />
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         <div style={{ marginTop: 24 }}>
           <SellPositionsList
@@ -166,6 +172,9 @@ export function MercadoClient() {
         target={buying}
         open={buying !== null}
         onClose={() => setBuying(null)}
+        onPurchased={(target) => {
+          buyShare(target.id, target.group, target.price, target.face);
+        }}
       />
       <SellPositionModal
         position={selling}
@@ -184,6 +193,9 @@ export function MercadoClient() {
               expiresAt: now + SLASHING_DAYS_MS,
             },
           ]);
+          // Also fire the session reducer so /carteira/transactions
+          // picks up the listing as a sale event with the ask price.
+          sellShare(position, askPrice, discountPct);
         }}
       />
       <ListingDetailsModal

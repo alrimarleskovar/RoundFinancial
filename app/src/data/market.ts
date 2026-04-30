@@ -24,6 +24,7 @@ export const MARKET_OFFERS: MarketOffer[] = [
 
 // Featured offer of the day (sidebar card on the Buy tab).
 export const FEATURED_OFFER = {
+  id: "featured-1",
   group: "Dev Setup · cota #04",
   monthsLeft: 4,
   sellerScore: 712,
