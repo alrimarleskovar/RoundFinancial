@@ -101,18 +101,15 @@ These are called out as roadmap in all narrative material; the v1 demo does **no
 
 ---
 
-## 4. Why the pitch calls it "Shield 3"
+## 4. Where the Guarantee Fund sits inside Shield 3
 
-In the canonical pitch mapping (see [pitch-alignment.md](./pitch-alignment.md)):
+In the canonical pitch mapping (see [pitch-alignment.md](./pitch-alignment.md) §3, v1.1+):
 
-- **Shield 1 = Solidarity Vault** (first line of defense; always-on, first-seized on default)
-- **Shield 2 = Member stake + escrow** (collateral layer; D/C-invariant-bounded)
-- **Shield 3 = Guarantee Fund** (yield-funded; payout-drain-protected in v1; catastrophic-draw-capable in v2)
+- **Shield 1 = Sorteio Semente** *(Seed Draw / Bootstrap Mês 1)* — cycle-1 retention of 91.6% before any payout-drain risk exists
+- **Shield 2 = Escrow Adaptativo + Stake** — reputation-tier-driven payout/escrow split, gated by paid installments
+- **Shield 3 = Cofre Solidário + Cascata de Yield** — 1% of every installment routes to a segregated **Solidarity Vault**, plus the Kamino yield runs a 4-tier waterfall (admin fee → **Guarantee Fund** capped at 150% × credit → 65% LPs → 35% participants)
 
-Shield 3 is **last** because it is:
-- The most conservative (built from yield over time, never from stress seizure)
-- The only shield protecting against events the first two cannot absorb
-- The shield whose v2 upgrades unlock the "solvent by construction" claim under increasingly adversarial scenarios
+The **Guarantee Fund is one of two sub-components of Shield 3** (the other is the Solidarity Vault). It's funded by the yield waterfall — *not* by an initial deposit and *not* by stress seizure. v1 uses it as a payout-drain guard; v2 will add a catastrophic-loss draw path.
 
 ---
 

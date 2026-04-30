@@ -1,9 +1,9 @@
 # RoundFi — Pitch ↔ Implementation Alignment
 
-**Version:** 1.0 (2026-04-22 — Step 4f: narrative alignment)
-**Status:** Authoritative mapping between the product narrative and the on-chain behavior.
+**Version:** 1.1 (2026-04-30 — re-aligned to canonical PDFs)
+**Status:** Reflects the canonical Triple Shield narrative as defined in [whitepaper](pt/whitepaper.pdf), [B2B plan](pt/plano-b2b.pdf), and [Expansion plan](pt/plano-expansao.pdf).
 
-This document is the single source of truth for how the pitch narrative maps onto the shipping protocol. If the pitch and this document disagree, this document wins until a new version is cut.
+> **v1.1 changelog.** v1.0 reordered the Triple Shield to match the on-chain *seizure order* in `settle_default.rs` (solidarity → escrow → stake). v1.1 reverts that reordering — the PDFs are the canonical narrative source, and the Triple Shield is a **structural protection narrative** (prevention layers, ordered by build sequence), not a recovery sequence. The seizure-order observation is preserved in §3.2 as an implementation detail.
 
 ---
 
@@ -32,24 +32,28 @@ This is **not** leveraged lending in the DeFi margin/liquidation sense: the memb
 
 ---
 
-## 3. Triple Shield — canonical mapping (v1.0 revision)
+## 3. Triple Shield — canonical (PDF-aligned)
 
-**Important:** The previous pitch ordering (*"Shield 2 fundo de segurança first, then 10%, then Shield 1 reserva inicial, then Shield 3 solidarity"*) did not match the shipping code. The canonical mapping below matches [settle_default.rs:152-271](../programs/roundfi-core/src/instructions/settle_default.rs) and is the version to use in all future narrative.
+The Triple Shield is a **structural protection narrative**: three independent capital primitives that the protocol builds during normal operation to keep itself solvent under stress. Ordered by their build sequence in the protocol's lifecycle (cycle 1 first, then per-payout escrow, then ongoing 1%/yield accrual).
 
-| # | Canonical name | Code primitive | Role on default | Source of funds |
-|---|----------------|-----------------|-----------------|------------------|
-| **Shield 1** | **Solidarity Vault** (first line of defense) | `solidarity_vault` PDA | **Seized first** to cover the missed installment of a defaulting member | 1% of every contribution (`solidarity_bps = 100`) |
-| **Shield 2** | **Member Stake + Escrow** (collateral layer) | `member.escrow_balance` + `member.stake_deposited` | Seized second and third, in that order. Bounded by the **D/C invariant**: the seizure is capped so `D_rem × C_init ≤ C_after × D_init` | The defaulting member's own collateral |
-| **Shield 3** | **Guarantee Fund** (yield-funded reserve) | `pool.guarantee_fund_balance` (earmark inside `pool_usdc_vault`) | **Not used in v1 defaults.** Earmarked to block payout drain (see `claim_payout.rs:119`); intended as a v2 catastrophic-loss reserve | Top-up from yield harvest (step 1 of the yield waterfall) |
-
-**Why Shield 3 is inert on defaults in v1.** The Guarantee Fund is topped up by the yield waterfall but never drawn during `settle_default`. It acts as a payout-float guarantee (the pool is prevented from paying out if doing so would drop `pool_usdc_vault.amount` below `guarantee_fund_balance`). v2 will introduce a catastrophic draw path with rate limits.
+| # | Canonical name | What it does | Funding source | On-chain primitive |
+|---|----------------|--------------|----------------|---------------------|
+| **Shield 1** | **Sorteio Semente** *(Seed Draw / Bootstrap Mês 1)* | Cycle 1 caps the contemplated member's payout at `2 × installment` (≈ $832 for a $5,000-installment scenario). The remaining ~91.6% of cycle-1 capital stays in the vault as a structural cushion. The protocol is overcapitalized from Day 0. | The asymmetric upfront formula in `claim_payout.rs` (cycle 1 special case) | Payout cap at cycle = 1 |
+| **Shield 2** | **Escrow Adaptativo + Stake** | Reputation-tier-driven payout/escrow split + stake floor. The contemplated member receives only `payoutPct%` upfront; the remaining `escrowPct%` drips out over `releaseMonths` cycles, gated by paid installments. Stake is the fallback collateral. | Member's posted stake + the protocol's locked escrow per cycle | `LEVEL_PARAMS` table (50/30/10 stake; 50/45/35% payout; 50/55/65% escrow; 5/4/3-month release) |
+| **Shield 3** | **Cofre Solidário + Cascata de Yield** | 1% of every paid installment routes to a segregated **Solidarity Vault** (independent of the float). The Kamino yield on the float runs a **waterfall**: protocol fee → Guarantee Fund (capped at 150% × credit) → 65% LPs → 35% participants. | 1% of installments (Solidarity Vault) + Kamino yield (Cascade) | `solidarity_vault` PDA + yield waterfall in `harvest_yield.rs` |
 
 ### 3.1 What to say in the pitch (script)
 
-> "Our security architecture has three shields.
-> **Shield 1, the Solidarity Vault**, is funded by 1% of every contribution and is the first line of defense — it covers the missed installment of anyone who falls behind.
-> **Shield 2 is the member's own collateral** — stake plus escrow, seized under a debt-versus-collateral invariant that guarantees no member is ever over-seized.
-> **Shield 3 is the Guarantee Fund**, a yield-funded reserve that is topped up on every harvest and earmarked inside the pool's vault. It protects payouts from being drained by future stress events."
+> "Our protection architecture has three shields, built in order during the pool's lifetime.
+> **Shield 1 is the Seed Draw** — at cycle 1, the contemplated member receives only twice their installment, not the full credit. The other 91.6% of the capital stays in the vault as a structural cushion. The protocol is overcapitalized from Day 0.
+> **Shield 2 is the Adaptive Escrow + Stake** — reputation drives the upfront/escrow split. A Veteran gets only 35% of the credit upfront; the remaining 65% drips back to them only as they pay their installments. The escrow is the gating mechanic; the stake is the fallback collateral. Default becomes mathematically illogical.
+> **Shield 3 is the Solidarity Vault + Yield Cascade** — 1% of every installment goes to an independent fund that is never the protocol's working capital. Plus the Kamino yield runs a waterfall — admin fee, then a 150%-of-credit Guarantee Fund, then LPs and participants. Even with 0% yield, the protocol stays solvent."
+
+### 3.2 Implementation note — on-chain seizure order
+
+When a default occurs and `settle_default.rs` executes, the Rust code seizes capital in a different order than the Triple Shield's *build* order: **solidarity vault first → escrow second → stake third**, capped by the D/C invariant (`D_rem × C_init ≤ C_after × D_init`). This is a **recovery sequence** — orthogonal to the Shield narrative above. Pitch-narrative usage should always use the Shield 1 → 2 → 3 build order; only technical / due-diligence audiences need the seizure-order detail.
+
+The Guarantee Fund (a sub-component of Shield 3, alongside the Solidarity Vault) is **topped up by the yield waterfall but not drawn during v1 defaults**. It earmarks pool funds against payout drain (`claim_payout.rs` will refuse to pay out below the guarantee-fund balance). v2 will introduce a catastrophic-loss draw path.
 
 ---
 
@@ -98,16 +102,18 @@ The pitch does not mention identity explicitly, which is **correct** — identit
 
 ---
 
-## 8. Summary of pitch revisions
+## 8. Summary of pitch revisions (v1.1 PDF-aligned)
 
-| Original phrasing | Revised phrasing | Reason |
-|-------------------|-------------------|--------|
-| "Shield 1 = reserva inicial" | "Shield 3 = Guarantee Fund (yield-funded reserve)" | GF is topped up by yield, not an initial deposit |
-| "Shield 2 = fundo de segurança, entra primeiro" | "Shield 1 = Solidarity Vault, entra primeiro" | Code's first seizure is solidarity, not GF |
-| "Shield 3 = cofre solidário (último)" | "Shield 1 = Solidarity Vault (primeiro)" | Same reorder as above |
+| Original phrasing | Canonical phrasing (v1.1) | Reason |
+|-------------------|----------------------------|--------|
+| "Shield 1 = Solidarity Vault" *(v1.0 reorder)* | **"Shield 1 = Sorteio Semente / Bootstrap Mês 1"** | PDFs canonical; cycle-1 retention is the structural Day-0 protection |
+| "Shield 2 = Member Stake + Escrow" *(v1.0 reorder)* | **"Shield 2 = Escrow Adaptativo + Stake"** *(unchanged in name; restored to position 2)* | PDFs canonical |
+| "Shield 3 = Guarantee Fund" *(v1.0 reorder)* | **"Shield 3 = Cofre Solidário + Cascata de Yield"** | PDFs canonical; Guarantee Fund is a sub-component of Shield 3, not the whole shield |
 | "O protocolo ainda sai no lucro" | "O protocolo permanece solvente por construção" | Removes unsupported profit claim |
 | "10× de alavancagem" | "10× de adiantamento sobre o depósito" | Distinguishes from DeFi margin-leverage |
-| "Serasa da Web3 (hoje)" | "Serasa da Web3 (visão — hoje: atestações SAS-compatíveis + `get_profile`)" | Honest roadmap framing |
+| "Serasa da Web3 (visão futura)" | "Serasa da Web3 (tese central, com SAS attestations + `get_profile` já no foundation layer)" | PDFs frame Phase 3 B2B oracle as the central thesis, not a side roadmap item |
+
+**Why v1.1 reverses v1.0's Shield order.** v1.0 reordered the Triple Shield to match the on-chain seizure sequence in `settle_default.rs` (solidarity → escrow → stake). The PDFs ([whitepaper](pt/whitepaper.pdf) + [B2B plan](pt/plano-b2b.pdf)) use a different framing — the structural build order of protection layers — and the PDFs are the canonical source. The on-chain seizure order is preserved as an implementation note in §3.2.
 
 ---
 
