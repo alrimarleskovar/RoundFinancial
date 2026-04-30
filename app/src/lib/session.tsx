@@ -64,7 +64,8 @@ type Action =
   | { type: "BUY_SHARE"; offerId: string; group: string; price: number; face: number }
   | { type: "YIELD_TICK"; amount: number; source: string }
   | { type: "HARVEST_YIELD" }
-  | { type: "PUSH_EVENT"; event: SessionEvent };
+  | { type: "PUSH_EVENT"; event: SessionEvent }
+  | { type: "LOAD_FROM_DEMO"; userPatch: Partial<User>; groupName?: string; tag: string };
 
 // ── Helpers ────────────────────────────────────────────────
 function makeTxid(): string {
@@ -213,6 +214,32 @@ function reducer(state: SessionState, action: Action): SessionState {
     }
     case "PUSH_EVENT":
       return { ...state, events: [action.event, ...state.events] };
+    case "LOAD_FROM_DEMO": {
+      // Demo Studio → real session bridge. Overlays user fields the
+      // boss configured in /admin onto the production session and
+      // (optionally) marks a group as joined so /grupos reflects it.
+      // Pushes a single "synced from demo" event so the activity log
+      // shows the boundary.
+      const ev: SessionEvent = {
+        id: makeId(),
+        kind: "join",
+        ts: Date.now(),
+        txid: makeTxid(),
+        op: "demo.sync",
+        amountBrl: 0,
+        target: action.tag,
+      };
+      const joinedAdd =
+        action.groupName && !state.joinedGroupNames.includes(action.groupName)
+          ? [...state.joinedGroupNames, action.groupName]
+          : state.joinedGroupNames;
+      return {
+        ...state,
+        user: { ...state.user, ...action.userPatch },
+        events: [ev, ...state.events],
+        joinedGroupNames: joinedAdd,
+      };
+    }
     case "HARVEST_YIELD": {
       // Claim accrued Kamino yield: balance += yield, yield → 0,
       // ledger picks up a positive yield-claim event. Side-effect
@@ -259,6 +286,7 @@ interface SessionContextValue {
   buyShare: (offerId: string, group: string, price: number, face: number) => void;
   pushYield: (amount: number, source?: string) => void;
   harvestYield: () => void;
+  loadFromDemo: (userPatch: Partial<User>, groupName: string | undefined, tag: string) => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -314,6 +342,11 @@ export function SessionProvider({
     () => dispatch({ type: "HARVEST_YIELD" }),
     [],
   );
+  const loadFromDemo = useCallback(
+    (userPatch: Partial<User>, groupName: string | undefined, tag: string) =>
+      dispatch({ type: "LOAD_FROM_DEMO", userPatch, groupName, tag }),
+    [],
+  );
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -327,8 +360,18 @@ export function SessionProvider({
       buyShare,
       pushYield,
       harvestYield,
+      loadFromDemo,
     }),
-    [state, payInstallment, joinGroup, sellShare, buyShare, pushYield, harvestYield],
+    [
+      state,
+      payInstallment,
+      joinGroup,
+      sellShare,
+      buyShare,
+      pushYield,
+      harvestYield,
+      loadFromDemo,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
