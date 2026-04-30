@@ -455,33 +455,42 @@ export default function LandingPage() {
               </p>
 
               <div className="flex items-end justify-center gap-2 md:gap-3 h-24 md:h-32 mb-8 md:mb-10">
-                {[40, 55, 75, 100].map((maxH, i) => {
-                  const segSize = 25000;
-                  const segStart = i * segSize;
-                  const progress = Math.max(
+                {(() => {
+                  // Both sliders feed the bars: bigger credit AND longer term
+                  // both grow finalBalance, so we drive bars off normalized
+                  // finalBalance / maxFinalBalance (=$100k @ 60mo).
+                  const maxBalance = 100000 * (1 + apy * 5);
+                  const fill = Math.max(
                     0,
-                    Math.min(1, (simAmount - segStart) / segSize),
+                    Math.min(1, finalBalance / maxBalance),
                   );
-                  const baseH = 15;
-                  const height = baseH + (maxH - baseH) * progress;
-                  const r = Math.round(75 - 55 * progress);
-                  const g = Math.round(85 + 156 * progress);
-                  const b = Math.round(99 + 50 * progress);
-                  return (
-                    <div
-                      key={i}
-                      className="w-8 md:w-12 rounded-t-lg transition-all duration-200 ease-out"
-                      style={{
-                        height: `${height}%`,
-                        background: `rgb(${r}, ${g}, ${b})`,
-                        boxShadow:
-                          progress > 0.05
-                            ? `0 0 ${8 + 16 * progress}px rgba(20,241,149,${0.4 * progress})`
-                            : "none",
-                      }}
-                    />
-                  );
-                })}
+                  return [40, 55, 75, 100].map((maxH, i) => {
+                    const segStart = i * 0.25;
+                    const progress = Math.max(
+                      0,
+                      Math.min(1, (fill - segStart) / 0.25),
+                    );
+                    const baseH = 15;
+                    const height = baseH + (maxH - baseH) * progress;
+                    const r = Math.round(75 - 55 * progress);
+                    const g = Math.round(85 + 156 * progress);
+                    const b = Math.round(99 + 50 * progress);
+                    return (
+                      <div
+                        key={i}
+                        className="w-8 md:w-12 rounded-t-lg transition-all duration-200 ease-out"
+                        style={{
+                          height: `${height}%`,
+                          background: `rgb(${r}, ${g}, ${b})`,
+                          boxShadow:
+                            progress > 0.05
+                              ? `0 0 ${8 + 16 * progress}px rgba(20,241,149,${0.4 * progress})`
+                              : "none",
+                        }}
+                      />
+                    );
+                  });
+                })()}
               </div>
 
               <div className="flex justify-center">
