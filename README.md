@@ -3,12 +3,12 @@
 > **Behavioral-credit infrastructure for Solana.** RoundFi runs on-chain ROSCAs as a **data-acquisition engine**: every paid installment mints an on-chain attestation that builds a portable credit identity. The ROSCA is the bait; the **behavioral score** is the product. Endgame: a high-margin B2B oracle that neobanks and DeFi protocols subscribe to before lending — *the Serasa of Web3*.
 
 <p>
-  <a href="https://round-financial.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/Live_demo-round--financial.vercel.app-14F195?style=for-the-badge&logo=vercel&logoColor=06090F"/></a>
-  <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-65+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
+  <a href="https://roundfinancial.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/Live_demo-roundfinancial.vercel.app-14F195?style=for-the-badge&logo=vercel&logoColor=06090F"/></a>
+  <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-100+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
 
 <p>
-  <a href="https://round-financial.vercel.app">🚀 Live demo</a> ·
+  <a href="https://roundfinancial.vercel.app">🚀 Live demo</a> ·
   <a href="docs/pitch/pitch-3min-en.html">📊 3-min Pitch (EN)</a> ·
   <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
   <a href="docs/pitch/pitch-deck-en.html">📊 Long-form Deck (EN)</a> ·
@@ -140,7 +140,7 @@ Per-module READMEs land alongside each module as it ships.
 
 A complete Next.js 14 + TypeScript app with **a public landing + 8 dashboard routes** (`/home`, `/carteira`, `/grupos`, `/reputacao`, `/mercado`, `/insights`, `/lab`, `/demo`), real Solana wallet integration (devnet), session-orchestrated state, and a Web3-native aesthetic system (Neon palette, glassmorphism, animated counters, terminal-style activity log).
 
-> **🚀 Try it now:** [round-financial.vercel.app](https://round-financial.vercel.app) — every push to `main` auto-deploys; PRs get preview URLs.
+> **🚀 Try it now:** [roundfinancial.vercel.app](https://roundfinancial.vercel.app) — every push to `main` auto-deploys; PRs get preview URLs.
 
 Run locally:
 
