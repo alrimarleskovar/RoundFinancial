@@ -7,9 +7,11 @@ import { useMotion } from "@/lib/motion";
 
 // Lightweight scroll-reveal wrapper for the landing page.
 //
-// Each <Reveal> fades + slides its children up by `y` pixels when
-// the element first crosses into the viewport. Driven by Framer
-// Motion's `whileInView` so it stays GPU-friendly.
+// Each <Reveal> fades + slides its children up by `y` pixels every
+// time the element crosses into the viewport — and reverses (fades
+// + slides back down) when it leaves. So scrolling back up replays
+// the reveal in reverse, creating a "breathing" scrollytelling
+// feel. Driven by Framer Motion's `whileInView` (GPU-friendly).
 //
 // Falls back to no-op (immediate render) when:
 //   - the user's MotionProvider mode is "off"
@@ -17,17 +19,21 @@ import { useMotion } from "@/lib/motion";
 //
 // `delay` enables stagger when wrapping cards in a grid: pass
 // `0`, `0.08`, `0.16`... to ripple them in sequence.
+// `once` (default false) makes the reveal one-shot if you want a
+// section that doesn't replay on scroll-up.
 
 export function Reveal({
   children,
   delay = 0,
   y = 24,
+  once = false,
   className,
   style,
 }: {
   children: ReactNode;
   delay?: number;
   y?: number;
+  once?: boolean;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -47,7 +53,7 @@ export function Reveal({
     <motion.div
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
+      viewport={{ once, amount: 0.15 }}
       transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1], delay }}
       className={className}
       style={style}
