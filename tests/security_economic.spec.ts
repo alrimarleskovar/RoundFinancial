@@ -26,8 +26,8 @@
  *         (positive-path conservation)
  *
  *   C. Harvest waterfall + idempotency
- *     C.1 Realized yield → conservation holds:
- *         gf + fee + good_faith + participants == realized,
+ *     C.1 Realized yield → conservation holds (PDF order v1.1):
+ *         fee + gf + lp_share + participants == realized,
  *         and post-tx bucket balances equal pre-tx + computed deltas.
  *     C.2 Second harvest immediately after C.1, no new prefund
  *         → realized=0, every bucket bit-identical (idempotent no-op).
@@ -53,7 +53,7 @@
  *   - "Harvest same surplus twice" is the realized=0 branch proven in
  *     C.2 and also in `security_cpi.spec.ts` B.1 (different setup).
  *   - "Rounding dust" lives entirely inside `apply_bps`; any non-zero
- *     harvest with default fee_bps_yield=2000 / good_faith=5000 tests
+ *     harvest with default fee_bps_yield=2000 / lp_share_bps=6500 tests
  *     the rounding path as a side-effect of C.1 (a 100-unit harvest
  *     leaves no residue, but the code path is identical).
  */
@@ -140,6 +140,8 @@ interface PoolSnapshot {
   mockVault:          bigint;
   gfBalance:          bigint;
   solidarityBalance:  bigint;
+  /** v1.1: yield-waterfall LP slice earmarked on Pool. */
+  lpDistribution:     bigint;
   yieldAccrued:       bigint;
   feeAccrued:         bigint;
   principalDeposited: bigint;
@@ -168,6 +170,7 @@ async function snapshotPool(
     currentCycle: number;
     guaranteeFundBalance:    { toString(): string };
     solidarityBalance:       { toString(): string };
+    lpDistributionBalance:   { toString(): string };
     yieldAccrued:            { toString(): string };
     totalProtocolFeeAccrued: { toString(): string };
     yieldPrincipalDeposited: { toString(): string };
@@ -181,6 +184,7 @@ async function snapshotPool(
     mockVault:          mockBal,
     gfBalance:          bn(p.guaranteeFundBalance),
     solidarityBalance:  bn(p.solidarityBalance),
+    lpDistribution:     bn(p.lpDistributionBalance),
     yieldAccrued:       bn(p.yieldAccrued),
     feeAccrued:         bn(p.totalProtocolFeeAccrued),
     principalDeposited: bn(p.yieldPrincipalDeposited),
@@ -210,29 +214,29 @@ async function expectRejected(thunk: () => Promise<unknown>): Promise<string> {
 // Re-implementation of `math::waterfall` at the TS layer so tests can
 // check the on-chain buckets exactly, not just within tolerance.
 //
-// Matches waterfall.rs line-for-line at default config:
-//   step 1 gf         = min(yield, gf_room)
-//   step 2 fee        = (yield − gf) × fee_bps / 10_000    (floor)
-//   step 3 good_faith = (yield − gf − fee) × gf_share / 10_000  (floor)
-//   step 4 participants = yield − gf − fee − good_faith
+// Matches waterfall.rs line-for-line at default config (v1.1 PDF order):
+//   step 1 fee          = yield × fee_bps / 10_000    (floor; on GROSS)
+//   step 2 gf           = min(yield − fee, gf_room)
+//   step 3 lp_share     = (yield − fee − gf) × lp_bps / 10_000  (floor)
+//   step 4 participants = yield − fee − gf − lp_share
 function computeWaterfall(
   realized: bigint,
   gfRoom: bigint,
   feeBps: bigint,
-  goodFaithShareBps: bigint,
+  lpShareBps: bigint,
 ): {
-  gf: bigint;
   fee: bigint;
-  goodFaith: bigint;
+  gf: bigint;
+  lpShare: bigint;
   participants: bigint;
 } {
-  const gf = realized < gfRoom ? realized : gfRoom;
-  const afterGf = realized - gf;
-  const fee = (afterGf * feeBps) / 10_000n;
-  const afterFee = afterGf - fee;
-  const goodFaith = (afterFee * goodFaithShareBps) / 10_000n;
-  const participants = afterFee - goodFaith;
-  return { gf, fee, goodFaith, participants };
+  const fee = (realized * feeBps) / 10_000n;
+  const afterFee = realized - fee;
+  const gf = afterFee < gfRoom ? afterFee : gfRoom;
+  const afterGf = afterFee - gf;
+  const lpShare = (afterGf * lpShareBps) / 10_000n;
+  const participants = afterGf - lpShare;
+  return { fee, gf, lpShare, participants };
 }
 
 function computeGfRoom(
@@ -470,7 +474,8 @@ describe("security — economic exploits + waterfall", function () {
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
 
     // GF room at cold start: fee_accrued = 0 ⇒ cap = 0 ⇒ gf = 0.
-    // So the entire realized amount flows to fee + good_faith + participants.
+    // So the entire realized amount flows fee → LP → participants
+    // (GF skipped, fee runs first on gross per PDF v1.1).
     const gfRoom = computeGfRoom(
       before.feeAccrued,
       before.gfBalance,
@@ -482,10 +487,10 @@ describe("security — economic exploits + waterfall", function () {
       realized,
       gfRoom,
       BigInt(FEES.yieldFeeBps),
-      5_000n,   // default good_faith_share_bps in harvestYield helper
+      6_500n,   // default lp_share_bps in harvestYield helper
     );
     // Conservation check at the TS level — mirrors `waterfall()` require.
-    expect(w.gf + w.fee + w.goodFaith + w.participants, "C.1: bucket sum == realized").to.equal(realized);
+    expect(w.fee + w.gf + w.lpShare + w.participants, "C.1: bucket sum == realized").to.equal(realized);
 
     await harvestYield(env, {
       pool:         poolY,
@@ -495,13 +500,17 @@ describe("security — economic exploits + waterfall", function () {
     const after = await snapshotPool(env, poolY, treasury, mockVaultY);
 
     // On-chain bucket deltas must match the TS-computed waterfall exactly.
-    expect(after.gfBalance,   "C.1: gf delta")          .to.equal(before.gfBalance + w.gf);
-    expect(after.feeAccrued,  "C.1: fee delta")         .to.equal(before.feeAccrued + w.fee);
-    expect(after.treasury,    "C.1: treasury delta")    .to.equal(before.treasury + w.fee);
-    expect(after.solidarity,  "C.1: solidarity delta")  .to.equal(before.solidarity + w.goodFaith);
-    expect(after.solidarityBalance, "C.1: solidarity_balance book").to.equal(before.solidarityBalance + w.goodFaith);
-    // Participants bucket stays in pool_usdc_vault.
-    expect(after.poolVault,   "C.1: pool vault delta")  .to.equal(before.poolVault + w.participants);
+    expect(after.gfBalance,        "C.1: gf delta")     .to.equal(before.gfBalance + w.gf);
+    expect(after.feeAccrued,       "C.1: fee delta")    .to.equal(before.feeAccrued + w.fee);
+    expect(after.treasury,         "C.1: treasury delta").to.equal(before.treasury + w.fee);
+    // Solidarity vault is no longer credited from yield (v1.1) — Cofre
+    // Solidário is funded only from the 1% das parcelas in `contribute()`.
+    expect(after.solidarity,       "C.1: solidarity unchanged").to.equal(before.solidarity);
+    expect(after.solidarityBalance, "C.1: solidarity_balance unchanged").to.equal(before.solidarityBalance);
+    // LP slice is now earmarked on pool.lp_distribution_balance.
+    expect(after.lpDistribution,   "C.1: lp_distribution delta").to.equal(before.lpDistribution + w.lpShare);
+    // Pool vault gains everything except what was transferred to treasury.
+    expect(after.poolVault,        "C.1: pool vault delta").to.equal(before.poolVault + w.gf + w.lpShare + w.participants);
     expect(after.yieldAccrued,"C.1: yield_accrued += realized").to.equal(before.yieldAccrued + realized);
 
     // Mock vault drained to tracked_principal — realized portion left.

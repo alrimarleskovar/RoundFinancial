@@ -8,10 +8,11 @@
  *   A. zero-yield harvest is a no-op (early return, no state change)
  *   B. first harvest with an empty GF cap
  *      (total_protocol_fee_accrued == 0 → gf_room == 0)
- *      → yield flows straight to Fee → GoodFaith → Participants
+ *      → yield flows Fee → GF (skipped) → LP → Participants
  *   C. second harvest with fees now accrued
- *      → GF absorbs up to its 150%-of-fees cap, rest continues downstream
- *   D. small harvest entirely absorbed by the GF
+ *      → fee runs first; GF absorbs up to its 150%-of-fees cap; rest
+ *        continues to LP and Participants
+ *   D. small harvest — fee runs first, GF takes the remainder
  *      (amount ≤ remaining GF room)
  *
  * Plus the two guards on `deposit_idle_to_yield`:
@@ -81,9 +82,9 @@ const YIELD_C_BASE         = usdc(200n);   // "partial GF fill" harvest
 const YIELD_D_BASE         = usdc(20n);    // "fully absorbed by GF" harvest
 
 // Protocol defaults (mirrors DEFAULT_* in roundfi-core::constants):
-const FEE_BPS_YIELD        = 2_000;   // 20 %
-const GUARANTEE_FUND_BPS   = 15_000;  // 150 % of fees
-const GOOD_FAITH_SHARE_BPS = 5_000;   // 50 %
+const FEE_BPS_YIELD      = 2_000;   // 20 % protocol fee on gross
+const GUARANTEE_FUND_BPS = 15_000;  // 150 % of fees
+const LP_SHARE_BPS       = 6_500;   // 65 % LPs / Anjos de Liquidez
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -112,18 +113,19 @@ function gfCap(feesAccrued: bigint): bigint {
   return (feesAccrued * BigInt(GUARANTEE_FUND_BPS)) / 10_000n;
 }
 
-/** Waterfall expected split — pure TS mirror of math::waterfall. */
+/** Waterfall expected split — pure TS mirror of math::waterfall (v1.1
+ *  PDF-canonical order: fee → GF → LP → participants). */
 function expectedSplit(
   yieldAmount: bigint,
   gfRoom: bigint,
-): { gf: bigint; fee: bigint; goodFaith: bigint; participants: bigint } {
-  const gf = yieldAmount < gfRoom ? yieldAmount : gfRoom;
-  const afterGf = yieldAmount - gf;
-  const fee = applyBps(afterGf, FEE_BPS_YIELD);
-  const afterFee = afterGf - fee;
-  const goodFaith = applyBps(afterFee, GOOD_FAITH_SHARE_BPS);
-  const participants = afterFee - goodFaith;
-  return { gf, fee, goodFaith, participants };
+): { fee: bigint; gf: bigint; lpShare: bigint; participants: bigint } {
+  const fee = applyBps(yieldAmount, FEE_BPS_YIELD);
+  const afterFee = yieldAmount - fee;
+  const gf = afterFee < gfRoom ? afterFee : gfRoom;
+  const afterGf = afterFee - gf;
+  const lpShare = applyBps(afterGf, LP_SHARE_BPS);
+  const participants = afterGf - lpShare;
+  return { fee, gf, lpShare, participants };
 }
 
 /**
@@ -160,6 +162,7 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
   // scenario can derive its expected gf_room / fee calculations.
   let gfBalance = 0n;
   let feesAccrued = 0n;
+  let lpDistribution = 0n;
   let yieldAccrued = 0n;
 
   before(async function () {
@@ -279,7 +282,7 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     await harvestYield(env, {
       pool,
       treasuryUsdc: treasury,
-      goodFaithShareBps: GOOD_FAITH_SHARE_BPS,
+      lpShareBps: LP_SHARE_BPS,
     });
 
     expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(before.pool);
@@ -298,7 +301,7 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
 
   // ─── Scenario B: first harvest — GF room = 0 ───────────────────────
 
-  it("first harvest flows to Fee → GoodFaith → Participants when GF cap is 0 (B)", async function () {
+  it("first harvest flows Fee → GF → LP → Participants when GF cap is 0 (B)", async function () {
     // Pre-conditions: feesAccrued==0 → gfCap==0 → gfRoom==0.
     // Prefund 100 USDC into the mock vault above its tracked principal.
     // The mock will sweep exactly that amount into pool_usdc_vault on harvest.
@@ -311,27 +314,31 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
       mock:       await balanceOf(env, mockVault),
     };
 
-    // Expected: gf=0, fee=100*20%=20, gf_bonus=(100-20)*50%=40, participants=40.
+    // PDF-canonical (v1.1): fee 20% of 100 = 20; afterFee=80;
+    // gf=min(80, 0)=0; afterGf=80; lp 65% of 80 = 52; participants = 28.
     const exp = expectedSplit(YIELD_B_BASE, 0n);
     expect(exp).to.deep.equal({
-      gf:           0n,
       fee:          usdc(20n),
-      goodFaith:    usdc(40n),
-      participants: usdc(40n),
+      gf:           0n,
+      lpShare:      usdc(52n),
+      participants: usdc(28n),
     });
 
     await harvestYield(env, {
       pool,
       treasuryUsdc: treasury,
-      goodFaithShareBps: GOOD_FAITH_SHARE_BPS,
+      lpShareBps: LP_SHARE_BPS,
     });
 
-    // Pool vault = before + realized - fee_out - good_faith_out
-    // (GF is a logical earmark that STAYS inside pool_usdc_vault.)
+    // Pool vault = before + realized − fee_out
+    // (Only fee is transferred OUT. GF and LP slices are logical
+    //  earmarks that STAY inside pool_usdc_vault.)
     expect(await balanceOf(env, pool.poolUsdcVault))
-      .to.equal(before.pool + YIELD_B_BASE - exp.fee - exp.goodFaith);
+      .to.equal(before.pool + YIELD_B_BASE - exp.fee);
+    // Solidarity vault is no longer credited from yield (v1.1 — Cofre
+    // Solidário is funded only from the 1% das parcelas).
     expect(await balanceOf(env, pool.solidarityVault))
-      .to.equal(before.solidarity + exp.goodFaith);
+      .to.equal(before.solidarity);
     expect(await balanceOf(env, treasury))
       .to.equal(before.treasury + exp.fee);
     expect(await balanceOf(env, mockVault))
@@ -339,23 +346,26 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
 
     const p = await poolState(env, pool.pool);
     expect(bn(p.guaranteeFundBalance)).to.equal(exp.gf);
+    expect(bn(p.lpDistributionBalance)).to.equal(exp.lpShare);
     expect(bn(p.totalProtocolFeeAccrued)).to.equal(exp.fee);
     expect(bn(p.yieldAccrued)).to.equal(YIELD_B_BASE);
 
     // Bookkeep for the next scenarios.
-    gfBalance    = exp.gf;
-    feesAccrued  = exp.fee;
-    yieldAccrued = YIELD_B_BASE;
+    gfBalance      = exp.gf;
+    feesAccrued    = exp.fee;
+    lpDistribution = exp.lpShare;
+    yieldAccrued   = YIELD_B_BASE;
   });
 
   // ─── Scenario C: second harvest — GF now has room ──────────────────
 
-  it("second harvest partially fills the GF up to its cap (C)", async function () {
-    // feesAccrued=20 → gfCap = 20 * 1.5 = 30. gfBalance=0 → gfRoom=30.
-    // Prefund 200 → yield=200. Expected:
-    //   gf=min(200, 30)=30; after_gf=170
-    //   fee=170*20%=34; after_fee=136
-    //   gf_bonus=136*50%=68; participants=68
+  it("second harvest takes fee, fills GF to cap, then routes LP / participants (C)", async function () {
+    // After Scenario B: feesAccrued=20 → gfCap = 20 * 1.5 = 30.
+    // gfBalance=0 → gfRoom=30. Prefund 200 → yield=200.
+    // PDF-canonical:
+    //   fee = 200 * 20% = 40; afterFee = 160
+    //   gf  = min(160, 30) = 30; afterGf = 130
+    //   lp  = 130 * 65% = 84.5 USDC; participants = 45.5 USDC
     await prefundMockYield(env, pool.pool, usdcMint, YIELD_C_BASE);
 
     const before = {
@@ -369,40 +379,52 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     expect(room).to.equal(usdc(30n));
     const exp = expectedSplit(YIELD_C_BASE, room);
     expect(exp).to.deep.equal({
+      fee:          usdc(40n),
       gf:           usdc(30n),
-      fee:          usdc(34n),
-      goodFaith:    usdc(68n),
-      participants: usdc(68n),
+      lpShare:      84_500_000n,    // 84.5 USDC in base units
+      participants: 45_500_000n,    // 45.5 USDC in base units
     });
 
     await harvestYield(env, {
       pool,
       treasuryUsdc: treasury,
-      goodFaithShareBps: GOOD_FAITH_SHARE_BPS,
+      lpShareBps: LP_SHARE_BPS,
     });
 
+    // Only fee is transferred out. GF + LP slices stay earmarked
+    // inside pool_usdc_vault (logical bookkeeping).
     expect(await balanceOf(env, pool.poolUsdcVault))
-      .to.equal(before.pool + YIELD_C_BASE - exp.fee - exp.goodFaith);
+      .to.equal(before.pool + YIELD_C_BASE - exp.fee);
     expect(await balanceOf(env, pool.solidarityVault))
-      .to.equal(before.solidarity + exp.goodFaith);
+      .to.equal(before.solidarity); // no longer credited from yield
     expect(await balanceOf(env, treasury))
       .to.equal(before.treasury + exp.fee);
 
     const p = await poolState(env, pool.pool);
-    gfBalance   = gfBalance   + exp.gf;
-    feesAccrued = feesAccrued + exp.fee;
-    yieldAccrued = yieldAccrued + YIELD_C_BASE;
+    gfBalance       = gfBalance       + exp.gf;
+    feesAccrued     = feesAccrued     + exp.fee;
+    lpDistribution  = lpDistribution  + exp.lpShare;
+    yieldAccrued    = yieldAccrued    + YIELD_C_BASE;
 
     expect(bn(p.guaranteeFundBalance)).to.equal(gfBalance);
+    expect(bn(p.lpDistributionBalance)).to.equal(lpDistribution);
     expect(bn(p.totalProtocolFeeAccrued)).to.equal(feesAccrued);
     expect(bn(p.yieldAccrued)).to.equal(yieldAccrued);
   });
 
-  // ─── Scenario D: small harvest entirely absorbed by GF ─────────────
+  // ─── Scenario D: small harvest — fee first, GF takes the rest ─────
 
-  it("small harvest entirely absorbed by GF when within remaining room (D)", async function () {
-    // feesAccrued=54 → gfCap=81. gfBalance=30 → gfRoom=51.
-    // Prefund 20 → yield=20 ≤ 51 → GF absorbs all; everything else=0.
+  it("small harvest still pays fee first; GF takes the remainder (D)", async function () {
+    // After Scenarios B + C: feesAccrued = 20 + 40 = 60.
+    // gfCap = 60 * 1.5 = 90. gfBalance = 30 → gfRoom = 60.
+    // Prefund 20 → yield=20.
+    // PDF-canonical:
+    //   fee = 20 * 20% = 4; afterFee = 16
+    //   gf  = min(16, 60) = 16; afterGf = 0
+    //   lp  = 0; participants = 0
+    // Old (GF-first) test expected GF to swallow the entire 20 with
+    // zero fee — the v1.1 reorder makes the fee step fire first even
+    // for small yields.
     await prefundMockYield(env, pool.pool, usdcMint, YIELD_D_BASE);
 
     const before = {
@@ -412,31 +434,36 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     };
 
     const room = gfCap(feesAccrued) - gfBalance;
-    expect(room).to.equal(usdc(51n));
+    expect(room).to.equal(usdc(60n));
     const exp = expectedSplit(YIELD_D_BASE, room);
     expect(exp).to.deep.equal({
-      gf:           YIELD_D_BASE,
-      fee:          0n,
-      goodFaith:    0n,
+      fee:          usdc(4n),
+      gf:           usdc(16n),
+      lpShare:      0n,
       participants: 0n,
     });
 
     await harvestYield(env, {
       pool,
       treasuryUsdc: treasury,
-      goodFaithShareBps: GOOD_FAITH_SHARE_BPS,
+      lpShareBps: LP_SHARE_BPS,
     });
 
-    // Everything is a logical earmark inside pool_vault — no outbound transfers.
+    // Fee is transferred out (4 USDC); GF stays earmarked inside vault.
     expect(await balanceOf(env, pool.poolUsdcVault))
-      .to.equal(before.pool + YIELD_D_BASE);
-    expect(await balanceOf(env, pool.solidarityVault)).to.equal(before.solidarity);
-    expect(await balanceOf(env, treasury)).to.equal(before.treasury);
+      .to.equal(before.pool + YIELD_D_BASE - exp.fee);
+    expect(await balanceOf(env, pool.solidarityVault))
+      .to.equal(before.solidarity);
+    expect(await balanceOf(env, treasury))
+      .to.equal(before.treasury + exp.fee);
 
     const p = await poolState(env, pool.pool);
-    gfBalance    = gfBalance + exp.gf;
-    yieldAccrued = yieldAccrued + YIELD_D_BASE;
+    gfBalance      = gfBalance      + exp.gf;
+    feesAccrued    = feesAccrued    + exp.fee;
+    lpDistribution = lpDistribution + exp.lpShare;
+    yieldAccrued   = yieldAccrued   + YIELD_D_BASE;
     expect(bn(p.guaranteeFundBalance)).to.equal(gfBalance);
+    expect(bn(p.lpDistributionBalance)).to.equal(lpDistribution);
     expect(bn(p.totalProtocolFeeAccrued)).to.equal(feesAccrued);
     expect(bn(p.yieldAccrued)).to.equal(yieldAccrued);
   });

@@ -361,7 +361,7 @@ describe("security — CPI + adapter abuse", function () {
 
     const msg = await expectRejected(() =>
       env.programs.core.methods
-        .harvestYield({ goodFaithShareBps: 5_000 })
+        .harvestYield({ lpShareBps: 6_500 })
         .accounts({
           caller:              env.payer.publicKey,
           config:              configPda(env),
@@ -391,11 +391,11 @@ describe("security — CPI + adapter abuse", function () {
     // mockVaultA holds exactly DEPOSIT_BASE (tracked_principal). Mock's
     // harvest computes `source.amount - tracked = 0` and short-circuits
     // with Ok(()). Core sees realized = 0 and ALSO short-circuits before
-    // touching gf/fee/good-faith/participants — no phantom accrual.
+    // touching gf/fee/LP-share/participants — no phantom accrual.
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
     await env.programs.core.methods
-      .harvestYield({ goodFaithShareBps: 5_000 })
+      .harvestYield({ lpShareBps: 6_500 })
       .accounts({
         caller:              env.payer.publicKey,
         config:              configPda(env),
@@ -456,7 +456,7 @@ describe("security — CPI + adapter abuse", function () {
 
     const msg = await expectRejected(() =>
       env.programs.core.methods
-        .harvestYield({ goodFaithShareBps: 5_000 })
+        .harvestYield({ lpShareBps: 6_500 })
         .accounts({
           caller:              env.payer.publicKey,
           config:              configPda(env),
