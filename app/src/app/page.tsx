@@ -9,6 +9,7 @@ import { SegToggle } from "@/components/layout/SegToggle";
 import { RFILogoMark } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { DataStream } from "@/components/landing/DataStream";
+import { MountReveal } from "@/components/landing/MountReveal";
 import { Reveal } from "@/components/landing/Reveal";
 import { useI18n, useT } from "@/lib/i18n";
 
@@ -129,28 +130,34 @@ export default function LandingPage() {
       <section className="relative flex flex-col items-center justify-center pt-10 md:pt-20 pb-20 md:pb-32 px-4 md:px-6 text-center w-full">
         <DataStream />
         <div className="relative z-10 w-full flex flex-col items-center">
-        <div className="inline-flex items-center gap-2 bg-[#14F195]/10 border border-[#14F195]/20 text-[#14F195] px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-bold mb-6 md:mb-8">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
-          </span>
-          {t("landing.hero.live")}
-        </div>
+        <MountReveal>
+          <div className="inline-flex items-center gap-2 bg-[#14F195]/10 border border-[#14F195]/20 text-[#14F195] px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-bold mb-6 md:mb-8">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
+            </span>
+            {t("landing.hero.live")}
+          </div>
+        </MountReveal>
 
-        <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
-          {t("landing.hero.title1")} <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)] rfi-gradient-flow">
-            {t("landing.hero.title2")}
-          </span>
-        </h1>
+        <MountReveal delay={0.08}>
+          <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
+            {t("landing.hero.title1")} <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)] rfi-gradient-flow">
+              {t("landing.hero.title2")}
+            </span>
+          </h1>
+        </MountReveal>
 
-        <p className="text-sm md:text-xl text-gray-400 max-w-3xl mb-8 md:mb-12 font-light leading-relaxed px-2">
-          {t("landing.hero.body").split(t("landing.hero.cofi"))[0]}
-          <span className="text-white font-bold">{t("landing.hero.cofi")}</span>
-          {t("landing.hero.body").split(t("landing.hero.cofi"))[1]}
-        </p>
+        <MountReveal delay={0.16}>
+          <p className="text-sm md:text-xl text-gray-400 max-w-3xl mb-8 md:mb-12 font-light leading-relaxed px-2">
+            {t("landing.hero.body").split(t("landing.hero.cofi"))[0]}
+            <span className="text-white font-bold">{t("landing.hero.cofi")}</span>
+            {t("landing.hero.body").split(t("landing.hero.cofi"))[1]}
+          </p>
+        </MountReveal>
 
-        <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
+        <MountReveal delay={0.24} className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
           <div className="w-full sm:w-auto flex justify-center">
             <span
               className="rfi-btn-glow-wrap purple inline-flex"
@@ -179,10 +186,10 @@ export default function LandingPage() {
             </svg>
             {t("landing.hero.x")}
           </a>
-        </div>
+        </MountReveal>
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20">
+        <MountReveal delay={0.32} className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20">
           <div>
             <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
               {t("landing.metric.tvl")}
@@ -207,7 +214,7 @@ export default function LandingPage() {
             </p>
             <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
           </div>
-        </div>
+        </MountReveal>
         </div>
       </section>
 
