@@ -9,7 +9,7 @@
 //! `release_escrow` + pure-math `math::bps` and `math::escrow_vesting`
 //! modules.
 //! Step 4c scope: `deposit_idle_to_yield`, `harvest_yield` (strict
-//! GF→Fee→GoodFaith→Participants waterfall), `settle_default`
+//! Fee→GF→LP→Participants waterfall, PDF-canonical v1.1), `settle_default`
 //! (7-day grace + D/C invariant), `escape_valve_list` /
 //! `escape_valve_buy` (close-old / create-new Member), `close_pool`,
 //! `update_protocol_config`, `pause` + `cpi::yield_adapter` safe
