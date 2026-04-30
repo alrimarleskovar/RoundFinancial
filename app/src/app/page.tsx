@@ -291,12 +291,7 @@ export default function LandingPage() {
                   boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
                 }}
               >
-                <div
-                  className="aspect-square w-full flex items-center justify-center relative overflow-hidden"
-                  style={{
-                    background: `radial-gradient(circle at 50% 50%, ${c.color}26 0%, transparent 70%)`,
-                  }}
-                >
+                <div className="aspect-square w-full relative overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={c.src}
