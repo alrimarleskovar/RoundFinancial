@@ -458,12 +458,21 @@ export default function LandingPage() {
           {t("landing.cmp.body")}
         </p>
 
-        <div className="flex flex-col md:flex-row gap-0 border border-white/[0.08] rounded-[24px] md:rounded-[32px] overflow-hidden bg-white/[0.03] backdrop-blur-xl w-full">
+        <div
+          className="flex flex-col md:flex-row gap-0 rounded-[24px] md:rounded-[32px] overflow-hidden backdrop-blur-xl w-full"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(153,69,255,0.06) 0%, rgba(255,255,255,0.02) 60%)",
+            border: "1px solid rgba(153,69,255,0.30)",
+            boxShadow:
+              "0 0 0 1px rgba(153,69,255,0.10), 0 24px 80px rgba(153,69,255,0.18), inset 0 1px 0 rgba(153,69,255,0.20)",
+          }}
+        >
           <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] flex-1">
             <p className="text-gray-500 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
               {t("landing.cmp.compare")}
             </p>
-            <ul className="space-y-4 md:space-y-8 text-gray-400 font-medium text-xs md:text-sm">
+            <ul className="space-y-3 md:space-y-5 text-gray-400 font-medium text-xs md:text-sm">
               {(
                 [
                   ["fee", "fee"],
@@ -475,7 +484,7 @@ export default function LandingPage() {
               ).map(([key]) => (
                 <li
                   key={key}
-                  className="h-auto md:h-8 flex items-center justify-between md:justify-start gap-1"
+                  className="h-auto md:h-10 flex items-center justify-between md:justify-start gap-1 px-2 -mx-2 py-1.5"
                 >
                   <span className="md:hidden font-bold">
                     {t(`landing.cmp.row.${key}.short`)}
@@ -492,7 +501,7 @@ export default function LandingPage() {
             <p className="text-gray-400 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
               {t("landing.cmp.legacy")}
             </p>
-            <ul className="space-y-2 md:space-y-4 text-gray-300 font-medium text-xs md:text-sm text-center md:text-left">
+            <ul className="space-y-3 md:space-y-5 text-gray-300 font-medium text-xs md:text-sm text-center md:text-left">
               {(
                 [
                   ["fee.legacy", true],
@@ -504,7 +513,7 @@ export default function LandingPage() {
               ).map(([key, redText]) => (
                 <li
                   key={key}
-                  className={`h-auto md:h-9 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-white/[0.04] ${
+                  className={`h-auto md:h-10 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-white/[0.04] ${
                     redText ? "text-red-400" : ""
                   }`}
                 >
@@ -531,7 +540,7 @@ export default function LandingPage() {
             <p className="text-[#14F195] font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
               {t("landing.cmp.cofi")}
             </p>
-            <ul className="space-y-2 md:space-y-4 text-white font-bold text-xs md:text-sm text-center md:text-left">
+            <ul className="space-y-3 md:space-y-5 text-white font-bold text-xs md:text-sm text-center md:text-left">
               {(
                 [
                   ["fee.cofi", false],
@@ -543,7 +552,7 @@ export default function LandingPage() {
               ).map(([key, greenText]) => (
                 <li
                   key={key}
-                  className={`h-auto md:h-9 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-[#14F195]/[0.06] ${
+                  className={`h-auto md:h-10 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-[#14F195]/[0.06] ${
                     greenText ? "text-[#14F195]" : ""
                   }`}
                 >
