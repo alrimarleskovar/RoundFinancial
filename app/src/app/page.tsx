@@ -283,7 +283,7 @@ export default function LandingPage() {
                 key={c.key}
                 className="rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
                 style={{
-                  background: `linear-gradient(180deg, ${c.color}14 0%, #06090F 45%)`,
+                  background: `linear-gradient(180deg, ${c.color}14 0%, #000000 40%)`,
                   border: `1px solid ${c.color}40`,
                   boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
                 }}
