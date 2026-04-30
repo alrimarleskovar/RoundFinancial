@@ -586,7 +586,7 @@ export default function LandingPage() {
             </ul>
           </div>
 
-          <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] bg-white/[0.02] flex-1">
+          <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] bg-gradient-to-b from-[#FF4D4F]/[0.08] to-transparent shadow-[inset_0_0_60px_rgba(255,77,79,0.06)] flex-1 transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110">
             <p className="text-gray-400 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
               {t("landing.cmp.legacy")}
             </p>
@@ -622,7 +622,7 @@ export default function LandingPage() {
             </ul>
           </div>
 
-          <div className="p-6 md:p-10 bg-gradient-to-b from-[#14F195]/10 to-transparent relative border-t-4 md:border-t-0 md:border-l-4 border-[#14F195] flex-1 shadow-[inset_0_0_60px_rgba(20,241,149,0.08)]">
+          <div className="p-6 md:p-10 bg-gradient-to-b from-[#14F195]/10 to-transparent relative border-t-4 md:border-t-0 md:border-l-4 border-[#14F195] flex-1 shadow-[inset_0_0_60px_rgba(20,241,149,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110">
             <div className="absolute top-2 right-2 md:top-4 md:right-6 bg-[#14F195] text-[#06090F] text-[8px] md:text-[10px] font-black px-2 py-1 rounded tracking-widest animate-pulse shadow-[0_0_16px_rgba(20,241,149,0.5)]">
               COFI
             </div>
