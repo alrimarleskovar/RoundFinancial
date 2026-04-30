@@ -29,6 +29,7 @@ export type SessionEventKind =
   | "payment"
   | "yield"
   | "sale"
+  | "purchase"
   | "attestation"
   | "join";
 
@@ -46,12 +47,16 @@ export interface SessionEvent {
 export interface SessionState {
   user: User;
   events: SessionEvent[];
+  /** Offer ids the user has bought on the secondary market in this
+   *  session. OffersTable filters by this to mark rows as purchased. */
+  purchasedOfferIds: string[];
 }
 
 type Action =
   | { type: "PAY_INSTALLMENT"; group: ActiveGroup }
   | { type: "JOIN_GROUP"; group: CatalogGroup }
   | { type: "SELL_SHARE"; position: NftPosition; askPrice: number; discountPct: number }
+  | { type: "BUY_SHARE"; offerId: string; group: string; price: number; face: number }
   | { type: "YIELD_TICK"; amount: number; source: string }
   | { type: "PUSH_EVENT"; event: SessionEvent };
 
@@ -78,6 +83,7 @@ const INITIAL_EVENTS: SessionEvent[] = [
 const INITIAL_STATE: SessionState = {
   user: { ...USER_INITIAL },
   events: INITIAL_EVENTS,
+  purchasedOfferIds: [],
 };
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -105,6 +111,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         attestPts: 6,
       };
       return {
+        ...state,
         user: {
           ...state.user,
           balance: state.user.balance - amount,
@@ -127,6 +134,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         target: action.group.name,
       };
       return {
+        ...state,
         user: { ...state.user, balance: state.user.balance - fee },
         events: [ev, ...state.events],
       };
@@ -142,8 +150,29 @@ function reducer(state: SessionState, action: Action): SessionState {
         target: `share_${action.position.num}`,
       };
       return {
+        ...state,
         user: { ...state.user, balance: state.user.balance + action.askPrice },
         events: [ev, ...state.events],
+      };
+    }
+    case "BUY_SHARE": {
+      // Buying a quota on the secondary market: balance drops by
+      // ask price, an event hits the ledger, and the offer id is
+      // tracked so the OffersTable can mark the row as purchased.
+      const ev: SessionEvent = {
+        id: makeId(),
+        kind: "purchase",
+        ts: Date.now(),
+        txid: makeTxid(),
+        op: "secondary.market",
+        amountBrl: -action.price,
+        target: action.group,
+      };
+      return {
+        ...state,
+        user: { ...state.user, balance: state.user.balance - action.price },
+        events: [ev, ...state.events],
+        purchasedOfferIds: [...state.purchasedOfferIds, action.offerId],
       };
     }
     case "YIELD_TICK": {
@@ -157,6 +186,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         target: action.source,
       };
       return {
+        ...state,
         user: {
           ...state.user,
           balance: state.user.balance + action.amount,
@@ -176,6 +206,7 @@ function reducer(state: SessionState, action: Action): SessionState {
 interface SessionContextValue {
   user: User;
   events: SessionEvent[];
+  purchasedOfferIds: string[];
   payInstallment: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
   sellShare: (
@@ -183,6 +214,7 @@ interface SessionContextValue {
     askPrice: number,
     discountPct: number,
   ) => void;
+  buyShare: (offerId: string, group: string, price: number, face: number) => void;
   pushYield: (amount: number, source?: string) => void;
 }
 
@@ -225,6 +257,11 @@ export function SessionProvider({
       dispatch({ type: "SELL_SHARE", position, askPrice, discountPct }),
     [],
   );
+  const buyShare = useCallback(
+    (offerId: string, group: string, price: number, face: number) =>
+      dispatch({ type: "BUY_SHARE", offerId, group, price, face }),
+    [],
+  );
   const pushYield = useCallback(
     (amount: number, source: string = "kamino.vault") =>
       dispatch({ type: "YIELD_TICK", amount, source }),
@@ -235,12 +272,14 @@ export function SessionProvider({
     () => ({
       user: state.user,
       events: state.events,
+      purchasedOfferIds: state.purchasedOfferIds,
       payInstallment,
       joinGroup,
       sellShare,
+      buyShare,
       pushYield,
     }),
-    [state, payInstallment, joinGroup, sellShare, pushYield],
+    [state, payInstallment, joinGroup, sellShare, buyShare, pushYield],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

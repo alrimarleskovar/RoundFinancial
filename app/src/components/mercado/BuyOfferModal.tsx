@@ -19,6 +19,9 @@ import { useTheme } from "@/lib/theme";
 // acknowledges the click without lying about what it does.
 
 export interface BuyOfferTarget {
+  /** Marketplace offer id — fed back to session.buyShare so the
+   *  OffersTable can mark the row as purchased. */
+  id: string;
   /** Pool / ROSCA group label. */
   group: string;
   /** Optional second-line detail (e.g. "Cota #02 · Mês 2/12"). */
@@ -37,10 +40,12 @@ export function BuyOfferModal({
   target,
   open,
   onClose,
+  onPurchased,
 }: {
   target: BuyOfferTarget | null;
   open: boolean;
   onClose: () => void;
+  onPurchased?: (target: BuyOfferTarget) => void;
 }) {
   const { tokens } = useTheme();
   const { fmtMoney } = useI18n();
@@ -193,7 +198,10 @@ export function BuyOfferModal({
             </button>
             <button
               type="button"
-              onClick={() => setPhase("success")}
+              onClick={() => {
+                onPurchased?.(target);
+                setPhase("success");
+              }}
               style={{
                 flex: 1.4,
                 padding: 11,
