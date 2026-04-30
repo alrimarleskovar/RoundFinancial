@@ -13,6 +13,7 @@ export {
   ALL_NAMES,
   runSimulation,
   toggleCell,
+  toggleCellEscape,
   type FrameMetrics,
   type GroupLevel,
   type GroupMaturity,

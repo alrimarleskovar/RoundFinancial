@@ -15,6 +15,7 @@ import {
   PRESET_ORDER,
   runSimulation,
   toggleCell,
+  toggleCellEscape,
   type GroupLevel,
   type GroupMaturity,
   type MatrixCell,
@@ -85,9 +86,13 @@ export function StressLabClient() {
     setActivePreset(null);
   };
 
-  const handleToggle = (row: number, col: number) => {
+  const handleToggle = (row: number, col: number, shiftKey = false) => {
     if (running || finished) return;
-    setMatrix((prev) => toggleCell(prev, row, col));
+    setMatrix((prev) =>
+      shiftKey
+        ? toggleCellEscape(prev, row, col)
+        : toggleCell(prev, row, col),
+    );
     setActivePreset(null);
   };
 
@@ -763,6 +768,7 @@ export function StressLabClient() {
                 <span style={{ color: tokens.green }}>{t("lab.matrix.legend.pay")}</span>
                 <span style={{ color: tokens.purple }}>{t("lab.matrix.legend.contemplate")}</span>
                 <span style={{ color: tokens.red }}>{t("lab.matrix.legend.default")}</span>
+                <span style={{ color: tokens.amber }}>{t("lab.matrix.legend.escape")}</span>
               </div>
             </div>
 
@@ -835,6 +841,10 @@ export function StressLabClient() {
                           bg = `${tokens.red}1F`;
                           color = tokens.red;
                           border = `1px solid ${tokens.red}55`;
+                        } else if (action === "E") {
+                          bg = `${tokens.amber}22`;
+                          color = tokens.amber;
+                          border = `1px solid ${tokens.amber}55`;
                         }
 
                         return (
@@ -842,7 +852,8 @@ export function StressLabClient() {
                             <button
                               type="button"
                               disabled={running || finished}
-                              onClick={() => handleToggle(mIdx, cIdx)}
+                              onClick={(e) => handleToggle(mIdx, cIdx, e.shiftKey)}
+                              title={t("lab.matrix.cellHint")}
                               style={{
                                 width: "100%",
                                 height: "100%",
