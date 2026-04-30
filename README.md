@@ -90,7 +90,7 @@ RoundFinancial/
 │   │   ├── reputacao/                          # /reputacao SAS passport (copyable · Bond detail modal · level-up bridge)
 │   │   ├── mercado/                            # /mercado Buy + Sell tabs (Escape Valve flow)
 │   │   ├── insights/                           # /insights score curve (zooming range · Recommendation modals)
-│   │   ├── lab/                                # /lab Stress Lab (L1 actuarial simulator · 4 preset scenarios)
+│   │   ├── lab/                                # /lab Stress Lab (L1 actuarial simulator · 5 preset scenarios)
 │   │   └── demo/                               # /demo lifecycle demo (orchestrator + wallet adapter)
 │   ├── src/components/                         # By feature: brand · layout · home · carteira · grupos · score · mercado · lab · insights · modals
 │   ├── src/lib/                                # Theme · i18n (510+ keys PT/EN) · wallet · network · session · groups helpers

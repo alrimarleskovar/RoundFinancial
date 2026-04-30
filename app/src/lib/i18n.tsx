@@ -271,6 +271,8 @@ export const DICT: Record<Lang, Dict> = {
     "lab.title": "Stress Lab",
     "lab.subtitle": "Simulador de Solvência",
     "lab.presets.title": "Cenários",
+    "lab.presets.roundingNotice":
+      "Valores do whitepaper são arredondados para apresentação. O Stress Lab usa matemática proporcional exata.",
     "lab.presets.healthy": "Saudável",
     "lab.presets.healthyHint": "Todos pagam, ninguém desiste — saldo positivo no fim.",
     "lab.presets.preDefault": "Calote pré",
@@ -1141,6 +1143,8 @@ export const DICT: Record<Lang, Dict> = {
     "lab.title": "Stress Lab",
     "lab.subtitle": "Solvency simulator",
     "lab.presets.title": "Scenarios",
+    "lab.presets.roundingNotice":
+      "Whitepaper values are rounded for presentation. Stress Lab uses exact proportional math.",
     "lab.presets.healthy": "Healthy",
     "lab.presets.healthyHint": "Everyone pays, nobody drops out — pool closes positive.",
     "lab.presets.preDefault": "Pre-default",
