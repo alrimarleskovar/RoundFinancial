@@ -151,6 +151,7 @@ export function StressLabClient() {
       <div>
         <Link
           href="/home"
+          className="lab-back-btn"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -165,15 +166,21 @@ export function StressLabClient() {
             fontWeight: 600,
             textDecoration: "none",
             marginBottom: 12,
-            transition: "all 180ms ease",
+            transition: "all 220ms cubic-bezier(0.4, 0, 0.2, 1)",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = `${tokens.green}55`;
             e.currentTarget.style.color = tokens.text;
+            e.currentTarget.style.background = `${tokens.green}10`;
+            e.currentTarget.style.transform = "translateX(-3px)";
+            e.currentTarget.style.boxShadow = `0 4px 16px ${tokens.green}1F`;
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = tokens.border;
             e.currentTarget.style.color = tokens.text2;
+            e.currentTarget.style.background = tokens.fillSoft;
+            e.currentTarget.style.transform = "translateX(0)";
+            e.currentTarget.style.boxShadow = "none";
           }}
         >
           <Icons.back size={12} stroke="currentColor" sw={2} />
