@@ -311,21 +311,21 @@ export default function LandingPage() {
               key={c.key}
               className="p-8 rounded-[2rem] transition-colors"
               style={{
-                background: `linear-gradient(180deg, ${c.color}1F 0%, ${c.color}08 55%, rgba(255,255,255,0.02) 100%)`,
-                border: `1.5px solid ${c.color}80`,
-                boxShadow: `inset 0 1px 0 ${c.color}40, 0 0 0 1px ${c.color}26, 0 8px 32px ${c.color}1F`,
+                background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
+                border: `1px solid ${c.color}40`,
+                boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
               }}
             >
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
                 style={{
-                  background: `${c.color}33`,
-                  border: `1.5px solid ${c.color}99`,
+                  background: `${c.color}1F`,
+                  border: `1px solid ${c.color}55`,
                   color: c.color,
-                  boxShadow: `0 0 32px ${c.color}66, inset 0 0 12px ${c.color}1F`,
+                  boxShadow: `0 0 28px ${c.color}33`,
                 }}
               >
-                <c.Icon size={26} stroke={c.color} sw={2} />
+                <c.Icon size={26} stroke={c.color} sw={1.8} />
               </div>
               <h3 className="text-xl font-bold mb-2">
                 {t(`landing.security.card.${c.key}.title`)}
