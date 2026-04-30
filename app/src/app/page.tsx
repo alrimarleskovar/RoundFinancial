@@ -766,8 +766,37 @@ export default function LandingPage() {
       <footer className="mt-auto border-t border-white/[0.06] pt-16 md:pt-20 pb-8 md:pb-10 bg-black/20">
         <div className="max-w-7xl w-full mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-10 md:mb-20 text-center md:text-left">
           <div className="col-span-1 md:col-span-2 flex flex-col items-center md:items-start">
-            <div className="mb-4 md:mb-6 h-16 flex items-center grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">
-              <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
+            <div className="mb-4 md:mb-6 h-16 flex items-center gap-5 md:gap-6 flex-wrap justify-center md:justify-start">
+              <div className="grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all h-full flex items-center">
+                <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
+              </div>
+              <div className="h-8 w-px bg-white/10 hidden md:block" aria-hidden />
+              {(
+                [
+                  { src: "/partners/solana.svg",    alt: "Solana",    href: "https://solana.com" },
+                  { src: "/partners/colosseum.svg", alt: "Colosseum", href: "https://www.colosseum.com" },
+                  { src: "/partners/kamino.svg",    alt: "Kamino",    href: "https://app.kamino.finance" },
+                ] as const
+              ).map((p) => (
+                <a
+                  key={p.alt}
+                  href={p.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all flex items-center"
+                  title={p.alt}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.src}
+                    alt={p.alt}
+                    className="h-5 md:h-7 w-auto"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </a>
+              ))}
             </div>
             <p className="text-gray-500 max-w-sm leading-relaxed text-xs md:text-sm">
               {t("landing.footer.tagline").split(t("landing.footer.tagline.cofi"))[0]}
