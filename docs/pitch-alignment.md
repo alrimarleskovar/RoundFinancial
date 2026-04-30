@@ -18,17 +18,19 @@ This thesis is directly backed by the `stake_bps_for_level()` function in [const
 
 ## 2. The Reputation Ladder
 
-| Level | Label (pitch) | Stake required | Capital advancement vs. stake |
-|-------|---------------|----------------|-------------------------------|
-| 1 | Newcomer | 50% of `credit_amount` | Up to 2× |
-| 2 | Trusted | 30% of `credit_amount` | Up to ~3.3× |
-| 3 | **Veteran** | 10% of `credit_amount` | **Up to 10×** |
+| Level | Label (canonical) | Stake required | Leverage over stake |
+|-------|-------------------|----------------|----------------------|
+| 1 | Iniciante (Beginner) | 50% of `credit_amount` | **2×** (100/50) |
+| 2 | Comprovado (Proven) | 30% of `credit_amount` | **3.3×** (100/30) |
+| 3 | **Veterano (Veteran)** | 10% of `credit_amount` | **10×** (100/10) |
 
-**Framing rule (v1.0 revision).** The pitch uses "10× leverage" as a conversational shorthand. The canonical framing in docs and demos is:
+**Canonical leverage framing (v1.1 — PDF-aligned).** The whitepaper math is direct:
 
-> "Up to **10× capital advancement** based on reputation tier — a Veteran locks 10% of the credit amount as stake, and the pool advances the full credit upfront."
+> "Veteran deposits 10% of the credit and accesses 100% of it — **10× leverage over the stake**."
 
-This is **not** leveraged lending in the DeFi margin/liquidation sense: the member also commits to paying N-1 future installments. The "advancement" is the ROSCA rotation mechanic, priced by reputation.
+i.e. `MAX_BPS / STAKE_BPS_LEVEL_3 = 10_000 / 1_000 = 10`. Guarded as a unit test in [constants.rs::veteran_leverage_is_ten_times_per_whitepaper](../programs/roundfi-core/src/constants.rs).
+
+This is **not** leveraged lending in the DeFi margin/liquidation sense — the member also commits to paying N-1 future installments. But the comparison the pitch invokes is intentional: where DeFi typically demands 150% collateral to extend $1,000 of credit, RoundFi extends $10,000 of credit against $1,000 of stake at the Veteran tier. That ratio is the headline product claim.
 
 ---
 
@@ -110,7 +112,7 @@ The pitch does not mention identity explicitly, which is **correct** — identit
 | "Shield 2 = Member Stake + Escrow" *(v1.0 reorder)* | **"Shield 2 = Escrow Adaptativo + Stake"** *(unchanged in name; restored to position 2)* | PDFs canonical |
 | "Shield 3 = Guarantee Fund" *(v1.0 reorder)* | **"Shield 3 = Cofre Solidário + Cascata de Yield"** | PDFs canonical; Guarantee Fund is a sub-component of Shield 3, not the whole shield |
 | "O protocolo ainda sai no lucro" | "O protocolo permanece solvente por construção" | Removes unsupported profit claim |
-| "10× de alavancagem" | "10× de adiantamento sobre o depósito" | Distinguishes from DeFi margin-leverage |
+| "10× de adiantamento sobre o depósito" *(v1.0 rephrase)* | **"10× de alavancagem sobre o stake"** *(v1.1 — PDF canonical)* | PDFs use "10× leverage / 10× sobre o stake" directly. v1.0 invented "advancement" to distinguish from DeFi margin; v1.1 trusts the reader to understand the difference and uses the PDF wording. |
 | "Serasa da Web3 (visão futura)" | "Serasa da Web3 (tese central, com SAS attestations + `get_profile` já no foundation layer)" | PDFs frame Phase 3 B2B oracle as the central thesis, not a side roadmap item |
 
 **Why v1.1 reverses v1.0's Shield order.** v1.0 reordered the Triple Shield to match the on-chain seizure sequence in `settle_default.rs` (solidarity → escrow → stake). The PDFs ([whitepaper](pt/whitepaper.pdf) + [B2B plan](pt/plano-b2b.pdf)) use a different framing — the structural build order of protection layers — and the PDFs are the canonical source. The on-chain seizure order is preserved as an implementation note in §3.2.

@@ -116,14 +116,23 @@ mod tests {
     }
 
     #[test]
-    fn tier_advancement_multiplier_matches_whitepaper() {
-        // Veteran stakes 10% of principal vs newcomer's 50% → 5×
-        // advancement (not 10×). The "10× advancement" wording in the
-        // pitch refers to reduced lockup relative to principal, computed
-        // as L1 / L3 → 5_000 / 1_000 = 5. Guard this here so a future
-        // tweak of the bps table doesn't silently break the marketing
-        // claim.
-        assert_eq!(STAKE_BPS_LEVEL_1 / STAKE_BPS_LEVEL_3, 5);
+    fn veteran_leverage_is_ten_times_per_whitepaper() {
+        // Canonical leverage framing per the whitepaper + pitch:
+        //   "Veteran deposits 10% of the credit (carta) and accesses
+        //    100% of it → 10× leverage over the stake."
+        // i.e. credit / stake = 10_000 / 1_000 = 10.
+        // Same pattern for the other tiers:
+        //   L1 (Iniciante):  10_000 / 5_000 = 2×
+        //   L2 (Comprovado): 10_000 / 3_000 ≈ 3.33×
+        //   L3 (Veterano):   10_000 / 1_000 = 10×
+        // Guard the headline claim so a future bps tweak doesn't
+        // silently break the pitch number.
+        assert_eq!(MAX_BPS / STAKE_BPS_LEVEL_3, 10);
+        assert_eq!(MAX_BPS / STAKE_BPS_LEVEL_1, 2);
+        // L2 is 3.33×; integer division gives 3, just sanity-check
+        // the ladder is monotone: higher tier → bigger leverage.
+        assert!(MAX_BPS / STAKE_BPS_LEVEL_3 > MAX_BPS / STAKE_BPS_LEVEL_2);
+        assert!(MAX_BPS / STAKE_BPS_LEVEL_2 > MAX_BPS / STAKE_BPS_LEVEL_1);
     }
 
     // ─── Fee schedule sanity ────────────────────────────────────────────
