@@ -309,7 +309,7 @@ export default function LandingPage() {
           ).map((c) => (
             <div
               key={c.key}
-              className="p-8 rounded-[2rem] transition-colors"
+              className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
               style={{
                 background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
                 border: `1px solid ${c.color}40`,
