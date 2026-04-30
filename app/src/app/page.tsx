@@ -329,17 +329,18 @@ export default function LandingPage() {
         id="security"
         className="w-full mx-auto px-4 md:px-6 py-20 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
       >
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
-            {t("landing.security.title1")}{" "}
-            <span className="text-[#14F195]">{t("landing.security.title2")}</span>
-          </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto text-base">
-            {t("landing.security.body")}
-          </p>
-        </div>
+        <Reveal y={16}>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
+              {t("landing.security.title1")}{" "}
+              <span className="text-[#14F195]">{t("landing.security.title2")}</span>
+            </h2>
+            <p className="text-gray-400 max-w-2xl mx-auto text-base">
+              {t("landing.security.body")}
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(
             [
               { key: "semente",  Icon: Icons.lock,   color: "#14F195" },
@@ -378,7 +379,8 @@ export default function LandingPage() {
               </p>
             </div>
           ))}
-        </div>
+          </div>
+        </Reveal>
       </section>
 
       {/* Simulator */}
