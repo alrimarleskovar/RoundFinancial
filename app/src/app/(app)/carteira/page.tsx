@@ -10,7 +10,6 @@ import { SendModal } from "@/components/carteira/SendModal";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { WalletConnections } from "@/components/carteira/WalletConnections";
 import { WalletOverview } from "@/components/carteira/WalletOverview";
-import { DeskShell } from "@/components/layout/DeskShell";
 import { useConnections } from "@/lib/connections";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -211,10 +210,8 @@ function CarteiraContent() {
 
 export default function CarteiraPage() {
   return (
-    <DeskShell>
-      <Suspense fallback={null}>
-        <CarteiraContent />
-      </Suspense>
-    </DeskShell>
+    <Suspense fallback={null}>
+      <CarteiraContent />
+    </Suspense>
   );
 }

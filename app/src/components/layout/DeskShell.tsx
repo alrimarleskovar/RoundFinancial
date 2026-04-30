@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 import { PageTransition } from "@/components/layout/PageTransition";
@@ -10,13 +10,19 @@ import { TweaksPanel } from "@/components/layout/TweaksPanel";
 import { useRedirectOnDisconnect } from "@/lib/useRedirectOnDisconnect";
 import { useTheme } from "@/lib/theme";
 
-// Wraps every Next-native RoundFi screen. SideNav on the left,
-// sticky TopBar at the top of the content column, children below.
+// Wraps every authenticated dashboard route. Mounted once by
+// (app)/layout.tsx so the SideNav persists across navigations and
+// can animate enter/exit smoothly when `hideSideNav` flips.
 //
-// Pass `hideSideNav` to render a focus-mode layout (used by /lab):
-// no sidebar, full-width content, TopBar stays so the wallet chip
-// is reachable. Children are responsible for offering a way back
-// (e.g. a "← Voltar" link in their own header).
+// The SideNav itself measures 240px / 72px wide. We wrap it in a
+// motion.div with `width` + `x` keyframes inside an AnimatePresence
+// so going to /lab slides it OUT to the left, and coming back
+// slides it back IN — bidirectional, frame-by-frame.
+
+const SLIDE_TRANSITION = {
+  duration: 0.32,
+  ease: [0.4, 0, 0.2, 1] as const,
+};
 
 export function DeskShell({
   children,
@@ -39,16 +45,20 @@ export function DeskShell({
         fontFamily: "var(--font-dm-sans), DM Sans, system-ui, sans-serif",
       }}
     >
-      {!hideSideNav && (
-        <motion.div
-          initial={{ x: -32, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1], delay: 0.04 }}
-          style={{ display: "flex" }}
-        >
-          <SideNav />
-        </motion.div>
-      )}
+      <AnimatePresence initial={false} mode="sync">
+        {!hideSideNav && (
+          <motion.div
+            key="sidenav"
+            initial={{ width: 0, x: -240, opacity: 0 }}
+            animate={{ width: "auto", x: 0, opacity: 1 }}
+            exit={{ width: 0, x: -240, opacity: 0 }}
+            transition={SLIDE_TRANSITION}
+            style={{ overflow: "hidden", display: "flex", flexShrink: 0 }}
+          >
+            <SideNav />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <TopBar />
         <div style={{ flex: 1, overflow: "auto", position: "relative" }}>

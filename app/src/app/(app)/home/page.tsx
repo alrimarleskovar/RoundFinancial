@@ -7,7 +7,6 @@ import { HomeHero } from "@/components/home/HomeHero";
 import { PassportMini } from "@/components/home/PassportMini";
 import { TripleShield } from "@/components/home/TripleShield";
 import { YourGroups } from "@/components/home/YourGroups";
-import { DeskShell } from "@/components/layout/DeskShell";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 
@@ -27,15 +26,14 @@ export default function HomePage() {
   const { fmtMoney } = useI18n();
   const { user } = useSession();
   return (
-    <DeskShell>
-      <div
-        style={{
-          padding: 32,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
+    <div
+      style={{
+        padding: 32,
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
         <HomeHero />
 
         <div
@@ -104,7 +102,6 @@ export default function HomePage() {
             <Activity />
           </div>
         </div>
-      </div>
-    </DeskShell>
+    </div>
   );
 }
