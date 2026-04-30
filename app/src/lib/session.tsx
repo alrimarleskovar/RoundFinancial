@@ -50,6 +50,11 @@ export interface SessionState {
   /** Offer ids the user has bought on the secondary market in this
    *  session. OffersTable filters by this to mark rows as purchased. */
   purchasedOfferIds: string[];
+  /** Group names the user has joined (via either the join flow OR a
+   *  secondary-market purchase in /mercado). GroupCard overlays this
+   *  onto its static `g.joined` flag so the catalog reflects state
+   *  across tabs. Indexed by name since both flows share that key. */
+  joinedGroupNames: string[];
 }
 
 type Action =
@@ -84,6 +89,7 @@ const INITIAL_STATE: SessionState = {
   user: { ...USER_INITIAL },
   events: INITIAL_EVENTS,
   purchasedOfferIds: [],
+  joinedGroupNames: [],
 };
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -137,6 +143,9 @@ function reducer(state: SessionState, action: Action): SessionState {
         ...state,
         user: { ...state.user, balance: state.user.balance - fee },
         events: [ev, ...state.events],
+        joinedGroupNames: state.joinedGroupNames.includes(action.group.name)
+          ? state.joinedGroupNames
+          : [...state.joinedGroupNames, action.group.name],
       };
     }
     case "SELL_SHARE": {
@@ -168,11 +177,17 @@ function reducer(state: SessionState, action: Action): SessionState {
         amountBrl: -action.price,
         target: action.group,
       };
+      // Buying a share on the mercado also enrols the user in the
+      // origin group — match by name so the catalog reflects it.
+      const groupName = action.group.split(" · ")[0] ?? action.group;
       return {
         ...state,
         user: { ...state.user, balance: state.user.balance - action.price },
         events: [ev, ...state.events],
         purchasedOfferIds: [...state.purchasedOfferIds, action.offerId],
+        joinedGroupNames: state.joinedGroupNames.includes(groupName)
+          ? state.joinedGroupNames
+          : [...state.joinedGroupNames, groupName],
       };
     }
     case "YIELD_TICK": {
@@ -207,6 +222,7 @@ interface SessionContextValue {
   user: User;
   events: SessionEvent[];
   purchasedOfferIds: string[];
+  joinedGroupNames: string[];
   payInstallment: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
   sellShare: (
@@ -273,6 +289,7 @@ export function SessionProvider({
       user: state.user,
       events: state.events,
       purchasedOfferIds: state.purchasedOfferIds,
+      joinedGroupNames: state.joinedGroupNames,
       payInstallment,
       joinGroup,
       sellShare,

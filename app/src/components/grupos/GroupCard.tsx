@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
+import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
@@ -21,13 +22,17 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { user } = useSession();
+  const { user, joinedGroupNames } = useSession();
   const [joinOpen, setJoinOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // Joined state overlays: static `g.joined` OR runtime session
+  // membership (set by JOIN_GROUP and BUY_SHARE actions).
+  const isJoined = g.joined || joinedGroupNames.includes(g.name);
   // Level gate: protocol enforces tier eligibility on-chain via
   // `roundfi-core::join_pool` (M2 of the grant roadmap). UI mirrors
   // the rule so users see the block before paying gas.
-  const locked = !g.joined && g.level > user.level;
+  const locked = !isJoined && g.level > user.level;
 
   const tc = ((): string => {
     switch (g.tone) {
@@ -110,7 +115,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
             </div>
           )}
         </div>
-        {g.joined ? (
+        {isJoined ? (
           <RFIPill tone="g">{t("groups.card.joined")}</RFIPill>
         ) : locked ? (
           <RFIPill tone="n">
@@ -200,7 +205,8 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
       <button
         type="button"
         onClick={() => {
-          if (!g.joined) setJoinOpen(true);
+          if (isJoined) setDetailsOpen(true);
+          else setJoinOpen(true); // join modal handles its own locked-state explainer
         }}
         style={{
           padding: "10px 14px",
@@ -208,12 +214,12 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
           border: locked
             ? `1px solid ${tokens.borderStr}`
             : `1px solid ${tokens.borderStr}`,
-          background: g.joined
+          background: isJoined
             ? tokens.fillSoft
             : locked
             ? tokens.fillMed
             : `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
-          color: g.joined
+          color: isJoined
             ? tokens.text
             : locked
             ? tokens.text2
@@ -229,7 +235,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         }}
       >
         {locked && <Icons.lock size={13} stroke="currentColor" />}
-        {g.joined
+        {isJoined
           ? t("groups.card.cta.view")
           : locked
           ? t("groups.card.cta.locked", { lv: g.level })
@@ -239,6 +245,11 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         group={g}
         open={joinOpen}
         onClose={() => setJoinOpen(false)}
+      />
+      <GroupDetailsModal
+        group={g}
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
       />
     </div>
   );
