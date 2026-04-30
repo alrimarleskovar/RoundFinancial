@@ -309,21 +309,23 @@ export default function LandingPage() {
           ).map((c) => (
             <div
               key={c.key}
-              className="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:bg-white/[0.08] transition-colors"
+              className="p-8 rounded-[2rem] transition-colors"
               style={{
-                boxShadow: `inset 0 0 0 1px ${c.color}10`,
+                background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
+                border: `1px solid ${c.color}40`,
+                boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
               }}
             >
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
                 style={{
-                  background: `${c.color}1A`,
-                  border: `1px solid ${c.color}33`,
+                  background: `${c.color}1F`,
+                  border: `1px solid ${c.color}55`,
                   color: c.color,
-                  boxShadow: `0 0 24px ${c.color}26`,
+                  boxShadow: `0 0 28px ${c.color}33`,
                 }}
               >
-                <c.Icon size={22} stroke={c.color} sw={1.8} />
+                <c.Icon size={26} stroke={c.color} sw={1.8} />
               </div>
               <h3 className="text-xl font-bold mb-2">
                 {t(`landing.security.card.${c.key}.title`)}
