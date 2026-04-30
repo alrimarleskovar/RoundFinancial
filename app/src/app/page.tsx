@@ -7,6 +7,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import { SegToggle } from "@/components/layout/SegToggle";
 import { RFILogoMark } from "@/components/brand/brand";
+import { Icons } from "@/components/brand/icons";
 import { DataStream } from "@/components/landing/DataStream";
 import { useI18n, useT } from "@/lib/i18n";
 
@@ -298,26 +299,31 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(
             [
-              { key: "lev",    icon: "📈", color: "#14F195" },
-              { key: "shield", icon: "🛡️", color: "#9945FF" },
-              { key: "valve",  icon: "🎫", color: "#00C8FF" },
-              { key: "yield",  icon: "💰", color: "#14F195" },
-              { key: "sas",    icon: "⭐", color: "#FFFFFF" },
-              { key: "b2b",    icon: "🔌", color: "#9945FF" },
+              { key: "semente",  Icon: Icons.lock,   color: "#14F195" },
+              { key: "escrow",   Icon: Icons.scales, color: "#4A9EFF" },
+              { key: "valve",    Icon: Icons.ticket, color: "#FFD23F" },
+              { key: "slashing", Icon: Icons.bolt,   color: "#FF4D4F" },
+              { key: "triplo",  Icon: Icons.shield,  color: "#9945FF" },
+              { key: "silos",   Icon: Icons.cubes,   color: "#E0E0E0" },
             ] as const
           ).map((c) => (
             <div
               key={c.key}
               className="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:bg-white/[0.08] transition-colors"
+              style={{
+                boxShadow: `inset 0 0 0 1px ${c.color}10`,
+              }}
             >
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-6"
+                className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
                 style={{
                   background: `${c.color}1A`,
+                  border: `1px solid ${c.color}33`,
                   color: c.color,
+                  boxShadow: `0 0 24px ${c.color}26`,
                 }}
               >
-                {c.icon}
+                <c.Icon size={22} stroke={c.color} sw={1.8} />
               </div>
               <h3 className="text-xl font-bold mb-2">
                 {t(`landing.security.card.${c.key}.title`)}
