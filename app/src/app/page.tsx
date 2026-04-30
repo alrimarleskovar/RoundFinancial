@@ -718,48 +718,69 @@ export default function LandingPage() {
 
       {/* Waitlist */}
       <section className="w-full mx-auto px-4 md:px-6 py-12 md:py-16 max-w-6xl z-10">
-        <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="text-center md:text-left">
-            <h3 className="text-2xl md:text-3xl font-bold mb-2">
-              {t("landing.waitlist.title")}
-            </h3>
-            <p className="text-gray-400">{t("landing.waitlist.body")}</p>
-          </div>
-          {waitlistSubmitted ? (
-            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-[#14F195]/10 border border-[#14F195]/30 text-[#14F195] font-bold">
-              <span className="text-xl">✓</span>
-              {t("landing.waitlist.success")}
-            </div>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (waitlistEmail.trim().length > 3) {
-                  // Demo-only: no backend wiring yet. Stores nothing,
-                  // shows confirmation feedback. Real waitlist hooks in
-                  // post-M3 (devnet launch).
-                  setWaitlistSubmitted(true);
-                }
+        <Reveal>
+          <div className="relative rounded-[2rem] group">
+            {/* Slow rotating chromatic halo behind the card */}
+            <div
+              className="absolute -inset-px rounded-[2rem] opacity-30 group-hover:opacity-60 blur-2xl transition-opacity duration-500 pointer-events-none rfi-rotate-halo"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, #14F195, #00C8FF, #9945FF, #14F195)",
               }}
-              className="flex w-full md:w-auto bg-black/50 rounded-2xl p-2 border border-white/10 focus-within:border-[#14F195] transition-colors"
-            >
-              <input
-                type="email"
-                required
-                value={waitlistEmail}
-                onChange={(e) => setWaitlistEmail(e.target.value)}
-                placeholder={t("landing.waitlist.placeholder")}
-                className="bg-transparent border-none outline-none text-white px-4 py-3 w-full md:w-64"
-              />
-              <button
-                type="submit"
-                className="bg-[#14F195] text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform whitespace-nowrap"
-              >
-                {t("landing.waitlist.cta")} →
-              </button>
-            </form>
-          )}
-        </div>
+              aria-hidden
+            />
+            {/* Inner card */}
+            <div className="relative bg-[#06090F]/85 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[#14F195]/30">
+              <div className="text-center md:text-left">
+                <div className="inline-flex items-center gap-2 mb-3 text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-[#14F195]">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
+                  </span>
+                  {t("landing.waitlist.eyebrow")}
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold mb-2">
+                  {t("landing.waitlist.title")}
+                </h3>
+                <p className="text-gray-400">{t("landing.waitlist.body")}</p>
+              </div>
+              {waitlistSubmitted ? (
+                <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-[#14F195]/10 border border-[#14F195]/30 text-[#14F195] font-bold">
+                  <span className="text-xl">✓</span>
+                  {t("landing.waitlist.success")}
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (waitlistEmail.trim().length > 3) {
+                      // Demo-only: no backend wiring yet. Stores nothing,
+                      // shows confirmation feedback. Real waitlist hooks in
+                      // post-M3 (devnet launch).
+                      setWaitlistSubmitted(true);
+                    }
+                  }}
+                  className="flex w-full md:w-auto bg-black/50 rounded-2xl p-2 border border-white/10 focus-within:border-[#14F195] focus-within:shadow-[0_0_24px_rgba(20,241,149,0.25)] transition-all"
+                >
+                  <input
+                    type="email"
+                    required
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    placeholder={t("landing.waitlist.placeholder")}
+                    className="bg-transparent border-none outline-none text-white px-4 py-3 w-full md:w-64"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-[#14F195] text-black font-bold px-6 py-3 rounded-xl hover:scale-105 hover:shadow-[0_0_24px_rgba(20,241,149,0.5)] transition-all whitespace-nowrap"
+                  >
+                    {t("landing.waitlist.cta")} →
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </Reveal>
       </section>
 
       {/* Footer */}

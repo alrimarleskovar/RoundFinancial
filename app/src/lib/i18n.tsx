@@ -460,6 +460,7 @@ export const DICT: Record<Lang, Dict> = {
       "É a tecnologia que usamos para registrar o seu histórico de bom pagador na blockchain de forma imutável. A cada ciclo pago, você sobe na nossa 'Escada de Reputação', gerando um Score de Crédito Web3 que poderá ser usado em diversos outros protocolos.",
     "landing.faq.docsLink": "Veja a documentação completa →",
     // Waitlist / newsletter
+    "landing.waitlist.eyebrow": "◆ Lista de espera ativa",
     "landing.waitlist.title": "Seja o primeiro a testar.",
     "landing.waitlist.body":
       "Entre na waitlist e receba atualizações exclusivas do protocolo.",
@@ -1195,6 +1196,7 @@ export const DICT: Record<Lang, Dict> = {
       "It's the technology we use to record your on-time-payer history immutably on-chain. Every paid cycle moves you up our 'Reputation Ladder', generating a Web3 credit score that other protocols can read.",
     "landing.faq.docsLink": "View the full documentation →",
     // Waitlist / newsletter
+    "landing.waitlist.eyebrow": "◆ Waitlist live",
     "landing.waitlist.title": "Be first in line.",
     "landing.waitlist.body":
       "Join the waitlist and get exclusive protocol updates.",
