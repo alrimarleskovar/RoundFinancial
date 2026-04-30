@@ -34,10 +34,16 @@ export function SellPositionModal({
   position,
   open,
   onClose,
+  onListed,
 }: {
   position: NftPosition | null;
   open: boolean;
   onClose: () => void;
+  onListed?: (listing: {
+    position: NftPosition;
+    askPrice: number;
+    discountPct: number;
+  }) => void;
 }) {
   const { tokens } = useTheme();
   const { fmtMoney } = useI18n();
@@ -282,7 +288,14 @@ export function SellPositionModal({
             </button>
             <button
               type="button"
-              onClick={() => setPhase("success")}
+              onClick={() => {
+                onListed?.({
+                  position,
+                  askPrice,
+                  discountPct: discount,
+                });
+                setPhase("success");
+              }}
               style={{
                 flex: 1.4,
                 padding: 11,

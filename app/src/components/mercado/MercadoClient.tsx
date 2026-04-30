@@ -9,6 +9,10 @@ import {
 } from "@/components/mercado/BuyOfferModal";
 import { FeaturedOffer } from "@/components/mercado/FeaturedOffer";
 import { HowItWorks } from "@/components/mercado/HowItWorks";
+import {
+  ListingDetailsModal,
+  type ActiveListing,
+} from "@/components/mercado/ListingDetailsModal";
 import { MiniStat } from "@/components/mercado/MiniStat";
 import { OffersTable } from "@/components/mercado/OffersTable";
 import { SellPositionModal } from "@/components/mercado/SellPositionModal";
@@ -25,6 +29,10 @@ export function MercadoClient() {
   const [tab, setTab] = useState<Tab>("buy");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
   const [selling, setSelling] = useState<NftPosition | null>(null);
+  const [listings, setListings] = useState<ActiveListing[]>([]);
+  const [openListing, setOpenListing] = useState<ActiveListing | null>(null);
+
+  const SLASHING_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
   return (
     <div style={{ padding: 32 }}>
@@ -146,7 +154,11 @@ export function MercadoClient() {
         </div>
       ) : (
         <div style={{ marginTop: 24 }}>
-          <SellPositionsList onSell={(position) => setSelling(position)} />
+          <SellPositionsList
+            listings={listings}
+            onSell={(position) => setSelling(position)}
+            onOpenListing={(l) => setOpenListing(l)}
+          />
         </div>
       )}
 
@@ -159,6 +171,28 @@ export function MercadoClient() {
         position={selling}
         open={selling !== null}
         onClose={() => setSelling(null)}
+        onListed={({ position, askPrice, discountPct }) => {
+          const now = Date.now();
+          setListings((prev) => [
+            ...prev,
+            {
+              id: `l-${now}-${position.id}`,
+              position,
+              askPrice,
+              discountPct,
+              listedAt: now,
+              expiresAt: now + SLASHING_DAYS_MS,
+            },
+          ]);
+        }}
+      />
+      <ListingDetailsModal
+        listing={openListing}
+        open={openListing !== null}
+        onClose={() => setOpenListing(null)}
+        onCancel={(listingId) => {
+          setListings((prev) => prev.filter((l) => l.id !== listingId));
+        }}
       />
     </div>
   );
