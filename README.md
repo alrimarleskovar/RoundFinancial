@@ -1,6 +1,6 @@
 # RoundFi
 
-> **Cooperative credit, on-chain.** An on-chain ROSCA (Rotating Savings & Credit Association) protocol on Solana, bringing behavioral credit to the 1.4B unbanked adults and the $5.7T MSME finance gap that DeFi never served.
+> **Behavioral-credit infrastructure for Solana.** RoundFi runs on-chain ROSCAs as a **data-acquisition engine**: every paid installment mints an on-chain attestation that builds a portable credit identity. The ROSCA is the bait; the **behavioral score** is the product. Endgame: a high-margin B2B oracle that neobanks and DeFi protocols subscribe to before lending — *the Serasa of Web3*.
 
 <p>
   <a href="https://round-financial.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/Live_demo-round--financial.vercel.app-14F195?style=for-the-badge&logo=vercel&logoColor=06090F"/></a>
@@ -34,6 +34,18 @@ DeFi solved trading. DeFi solved liquidity. DeFi never solved **credit**.
 | **RoundFi** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
 
 RoundFi is the only protocol that checks every box.
+
+## Thesis (per the whitepaper)
+
+RoundFi is a **behavioral-credit primitive disguised as a savings protocol**. The product evolves through three explicit phases — codified in the [B2B plan](docs/pt/plano-b2b.pdf) and [Expansion plan](docs/pt/plano-expansao.pdf):
+
+| Phase | Surface | What it does |
+|---|---|---|
+| **1 · Liquidity** | ROSCA pools on Solana | Bootstrap users with sub-collateralized credit. Stake ladder 50% → 30% → 10% as reputation graduates. |
+| **2 · Reputation** | SAS attestations + behavioral score | Every paid installment mints an immutable attestation; the score becomes a portable credit identity. |
+| **3 · B2B data** | Behavioral oracle API | Neobanks, DeFi protocols, and emerging-market lenders subscribe per-call to query the score before extending credit. **High-margin endgame.** |
+
+**Phase 1 is the acquisition engine. Phase 3 is the business model.** The Triple Shield + Yield Cascade exist to keep Phase 1 solvent while the on-chain dataset compounds. Esusu hit a $1.2B valuation building Phase 2 in Web2; RoundFi does it on-chain with deterministic logic, then sells the data layer.
 
 ## Core Mechanics
 
