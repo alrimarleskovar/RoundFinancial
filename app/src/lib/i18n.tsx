@@ -254,6 +254,9 @@ export const DICT: Record<Lang, Dict> = {
     "lab.presets.postDefaultHint": "Membro contemplado e depois desiste — rombo no fundo.",
     "lab.presets.cascade": "Cascata",
     "lab.presets.cascadeHint": "Três calotes pré-contemplação em ciclos próximos.",
+    "lab.presets.tripleVeteranDefault": "Triplo Calote L3",
+    "lab.presets.tripleVeteranDefaultHint":
+      "Cenário canônico do whitepaper · 24 membros · carta $10k · Veterano · 3 contemplados (ciclos 2/3/4) defaultam após receber upfront. Esperado: solvente por construção (~+$4k).",
     "lab.chart.poolBalance": "Saldo do Cofre por Ciclo",
     "lab.controls.title": "Variáveis do Fundo",
     "lab.controls.level": "Nível do Grupo (Muda o Stake)",
@@ -974,6 +977,9 @@ export const DICT: Record<Lang, Dict> = {
     "lab.presets.postDefaultHint": "Contemplated member then drops out — real loss to the pool.",
     "lab.presets.cascade": "Cascade",
     "lab.presets.cascadeHint": "Three pre-contemplation defaults in nearby cycles.",
+    "lab.presets.tripleVeteranDefault": "Triple L3 Default",
+    "lab.presets.tripleVeteranDefaultHint":
+      "Canonical whitepaper stress · 24 members · $10k carta · Veterano · 3 contemplated (cycles 2/3/4) default after receiving upfront. Expected: solvent by construction (~+$4k).",
     "lab.chart.poolBalance": "Vault balance by cycle",
     "lab.controls.title": "Fund variables",
     "lab.controls.level": "Group tier (drives the stake)",

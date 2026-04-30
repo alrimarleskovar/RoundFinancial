@@ -243,7 +243,9 @@ export function StressLabClient() {
                         ? tokens.amber
                         : id === "postDefault"
                         ? tokens.red
-                        : tokens.purple;
+                        : id === "cascade"
+                        ? tokens.purple
+                        : tokens.teal;
                     return (
                       <button
                         key={id}
