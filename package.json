@@ -26,6 +26,7 @@
     "devnet:init": "tsx scripts/devnet/init-protocol.ts",
     "devnet:seed": "tsx scripts/devnet/seed-pool.ts",
     "test:parity": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/parity.spec.ts'",
+    "test:events": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/events.spec.ts'",
     "test:economic-parity-l1": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",
     "test:economic-parity": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 120000 'tests/economic_parity.spec.ts'",
     "test:bankrun": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts'"

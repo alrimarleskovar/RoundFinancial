@@ -17,3 +17,4 @@ export * from "./client.js";
 export * from "./actions.js";
 export * from "./reads.js";
 export * from "./stressLab.js";
+export * from "./events.js";
