@@ -27,14 +27,16 @@ export function MiniStat({
         borderRadius: 12,
       }}
     >
-      <MonoLabel size={9}>{label}</MonoLabel>
+      <MonoLabel size={11} color={tokens.text2} style={{ letterSpacing: "0.12em" }}>
+        {label}
+      </MonoLabel>
       <div
         style={{
           fontFamily: "var(--font-syne), Syne",
           fontSize: 22,
           fontWeight: 700,
           color: tokens.text,
-          marginTop: 6,
+          marginTop: 8,
           letterSpacing: "-0.02em",
         }}
       >
@@ -42,9 +44,10 @@ export function MiniStat({
       </div>
       <div
         style={{
-          fontSize: 10,
+          fontSize: 11,
           color,
-          marginTop: 2,
+          marginTop: 4,
+          fontWeight: 600,
           fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
         }}
       >
