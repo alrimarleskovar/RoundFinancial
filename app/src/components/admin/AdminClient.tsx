@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { ActionsPanel } from "@/components/admin/ActionsPanel";
 import { DemoPreview } from "@/components/admin/DemoPreview";
+import { PresetSelector } from "@/components/admin/PresetSelector";
 import { SetupPanel } from "@/components/admin/SetupPanel";
 import { TimelinePanel } from "@/components/admin/TimelinePanel";
-import { useDemoState } from "@/lib/demoState";
+import { useDemoState, type DemoPresetId } from "@/lib/demoState";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -24,6 +26,7 @@ export function AdminClient() {
   const { tokens } = useTheme();
   const t = useT();
   const ctrl = useDemoState();
+  const [activePresetId, setActivePresetId] = useState<DemoPresetId | null>(null);
 
   return (
     <div
@@ -103,7 +106,10 @@ export function AdminClient() {
           </div>
           <button
             type="button"
-            onClick={ctrl.reset}
+            onClick={() => {
+              ctrl.reset();
+              setActivePresetId(null);
+            }}
             style={{
               padding: "10px 16px",
               borderRadius: 11,
@@ -124,10 +130,21 @@ export function AdminClient() {
           </button>
         </div>
 
+        {/* Preset selector */}
+        <div style={{ marginTop: 24 }}>
+          <PresetSelector
+            activeId={activePresetId}
+            onLoad={(id) => {
+              ctrl.loadPreset(id);
+              setActivePresetId(id);
+            }}
+          />
+        </div>
+
         {/* 3-column control row */}
         <div
           style={{
-            marginTop: 24,
+            marginTop: 16,
             display: "grid",
             gridTemplateColumns: "1fr 1fr 1fr",
             gap: 16,

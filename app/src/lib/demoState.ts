@@ -92,7 +92,188 @@ type Action =
   | { type: "DEFAULT" }
   | { type: "ESCAPE_VALVE" }
   | { type: "HARVEST_YIELD" }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "LOAD_PRESET"; presetId: DemoPresetId };
+
+// ── Presets ───────────────────────────────────────────────
+// Pre-configured scenarios the boss can drop into the studio
+// with one click. Each one sets up the user + group + cycle
+// state so the demo starts from a meaningful moment.
+
+export type DemoPresetId =
+  | "default"
+  | "mariaContemplated"
+  | "mariaMidCycle"
+  | "tripleDefault"
+  | "escapeValve"
+  | "veteranBig";
+
+export interface DemoPreset {
+  id: DemoPresetId;
+  /** i18n key for the visible label. */
+  labelKey: string;
+  /** i18n key for the one-line description. */
+  descriptionKey: string;
+  /** Tone for the chip (token name). */
+  tone: "green" | "teal" | "amber" | "red" | "purple";
+  /** Initial state — merged on top of DEFAULT_DEMO_STATE. */
+  state: Omit<DemoState, "events">;
+}
+
+export const DEMO_PRESETS: DemoPreset[] = [
+  {
+    id: "default",
+    labelKey: "admin.preset.default.label",
+    descriptionKey: "admin.preset.default.desc",
+    tone: "teal",
+    state: { ...DEFAULT_DEMO_STATE },
+  },
+  {
+    id: "mariaContemplated",
+    labelKey: "admin.preset.mariaContemplated.label",
+    descriptionKey: "admin.preset.mariaContemplated.desc",
+    tone: "green",
+    state: {
+      user: {
+        name: "Maria Luísa",
+        avatar: "ML",
+        level: 2,
+        score: 624,
+        balance: 8420 + Math.round(10000 * 0.35) - 833 * 4,
+        yield: 12.45,
+      },
+      group: {
+        carta: 10000,
+        months: 12,
+        installment: 833,
+        contemplationMonth: 4,
+        members: 12,
+        yieldApy: 6.8,
+      },
+      currentMonth: 4,
+      contemplated: true,
+      defaulted: false,
+      exitedViaValve: false,
+      monthsPaid: 4,
+    },
+  },
+  {
+    id: "mariaMidCycle",
+    labelKey: "admin.preset.mariaMidCycle.label",
+    descriptionKey: "admin.preset.mariaMidCycle.desc",
+    tone: "purple",
+    state: {
+      user: {
+        name: "Maria Luísa",
+        avatar: "ML",
+        level: 2,
+        score: 678,
+        balance: 8420 + Math.round(10000 * 0.35) - 833 * 8,
+        yield: 38.2,
+      },
+      group: {
+        carta: 10000,
+        months: 12,
+        installment: 833,
+        contemplationMonth: 4,
+        members: 12,
+        yieldApy: 6.8,
+      },
+      currentMonth: 8,
+      contemplated: true,
+      defaulted: false,
+      exitedViaValve: false,
+      monthsPaid: 8,
+    },
+  },
+  {
+    id: "tripleDefault",
+    labelKey: "admin.preset.tripleDefault.label",
+    descriptionKey: "admin.preset.tripleDefault.desc",
+    tone: "red",
+    state: {
+      user: {
+        name: "Pedro Souza",
+        avatar: "PS",
+        level: 3,
+        score: 720,
+        balance: 24000,
+        yield: 0,
+      },
+      group: {
+        carta: 30000,
+        months: 24,
+        installment: 1250,
+        contemplationMonth: 6,
+        members: 24,
+        yieldApy: 6.8,
+      },
+      currentMonth: 6,
+      contemplated: true,
+      defaulted: false,
+      exitedViaValve: false,
+      monthsPaid: 6,
+    },
+  },
+  {
+    id: "escapeValve",
+    labelKey: "admin.preset.escapeValve.label",
+    descriptionKey: "admin.preset.escapeValve.desc",
+    tone: "amber",
+    state: {
+      user: {
+        name: "João Andrade",
+        avatar: "JA",
+        level: 2,
+        score: 540,
+        balance: 4200,
+        yield: 0,
+      },
+      group: {
+        carta: 5000,
+        months: 12,
+        installment: 416,
+        contemplationMonth: 6,
+        members: 12,
+        yieldApy: 6.8,
+      },
+      currentMonth: 8,
+      contemplated: true,
+      defaulted: false,
+      exitedViaValve: false,
+      monthsPaid: 7,
+    },
+  },
+  {
+    id: "veteranBig",
+    labelKey: "admin.preset.veteranBig.label",
+    descriptionKey: "admin.preset.veteranBig.desc",
+    tone: "purple",
+    state: {
+      user: {
+        name: "Carlos Rocha",
+        avatar: "CR",
+        level: 3,
+        score: 850,
+        balance: 42000,
+        yield: 0,
+      },
+      group: {
+        carta: 50000,
+        months: 36,
+        installment: 1389,
+        contemplationMonth: 12,
+        members: 36,
+        yieldApy: 6.8,
+      },
+      currentMonth: 0,
+      contemplated: false,
+      defaulted: false,
+      exitedViaValve: false,
+      monthsPaid: 0,
+    },
+  },
+];
 
 function makeId(): string {
   return `de_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -281,6 +462,25 @@ function reducer(state: DemoState, action: Action): DemoState {
 
     case "RESET":
       return DEFAULT_DEMO_STATE;
+
+    case "LOAD_PRESET": {
+      const preset = DEMO_PRESETS.find((p) => p.id === action.presetId);
+      if (!preset) return state;
+      // Fresh events log on preset load — keeps the activity panel
+      // honest. The preset's starting label hits as the first row.
+      return {
+        ...preset.state,
+        events: [
+          {
+            id: makeId(),
+            kind: "setup",
+            ts: Date.now(),
+            label: `Preset carregado · ${preset.id}`,
+            amount: 0,
+          },
+        ],
+      };
+    }
   }
 }
 
@@ -298,6 +498,7 @@ export interface DemoController {
   escapeValve: () => void;
   harvestYield: () => void;
   reset: () => void;
+  loadPreset: (id: DemoPresetId) => void;
 }
 
 export function useDemoState(): DemoController {
@@ -319,5 +520,9 @@ export function useDemoState(): DemoController {
     escapeValve: useCallback(() => dispatch({ type: "ESCAPE_VALVE" }), []),
     harvestYield: useCallback(() => dispatch({ type: "HARVEST_YIELD" }), []),
     reset: useCallback(() => dispatch({ type: "RESET" }), []),
+    loadPreset: useCallback(
+      (id: DemoPresetId) => dispatch({ type: "LOAD_PRESET", presetId: id }),
+      [],
+    ),
   };
 }
