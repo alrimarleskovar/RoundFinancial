@@ -6,6 +6,8 @@
 This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
 
 > **Pitch alignment.** For the authoritative mapping between product-narrative claims and on-chain behavior (shield names, solvency framing, the "up to 10× capital advancement" wording, roadmap vs. shipped product), see [pitch-alignment.md](./pitch-alignment.md). For the yield waterfall + Guarantee Fund deep-dive, see [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md).
+>
+> **Project status.** For the authoritative shipped-vs-pending register (column 1: live on Vercel/devnet · column 2: code merged but `anchor test` verification in flight · column 3: roadmap / Phase 3), see [status.md](./status.md). Anything claimed elsewhere should reduce to one of those three columns.
 
 ---
 

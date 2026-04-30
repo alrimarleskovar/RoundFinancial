@@ -9,6 +9,7 @@
 
 <p>
   <a href="https://roundfinancial.vercel.app">🚀 Live demo</a> ·
+  <a href="docs/status.md">📋 Status (shipped vs roadmap)</a> ·
   <a href="docs/pitch/pitch-3min-en.html">📊 3-min Pitch (EN)</a> ·
   <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
   <a href="docs/pitch/pitch-deck-en.html">📊 Long-form Deck (EN)</a> ·
