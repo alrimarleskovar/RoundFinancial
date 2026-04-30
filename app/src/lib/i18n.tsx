@@ -402,9 +402,21 @@ export const DICT: Record<Lang, Dict> = {
     "landing.cofi.title1": "O Completo Poder das",
     "landing.cofi.title2": "Finanças Colaborativas.",
     "landing.cofi.body":
-      "Construa a sua Escada de Reputação, financie seus objetivos com micro-alavancagem e ganhe rendimento automático via Kamino. Tudo em um único ecossistema transparente.",
+      "O DeFi tradicional é solitário e ineficiente. O CoFi une a força do capital coletivo à sua disciplina individual.",
     "landing.cofi.cta1": "Comece a Construir",
     "landing.cofi.cta2": "Ler Whitepaper",
+    "landing.cofi.card.leverage.title": "Micro-Alavancagem de 10x",
+    "landing.cofi.card.leverage.desc":
+      "Esqueça os 150% de colateral. Prove sua disciplina e acesse uma carta de crédito inteira usando apenas 10% do valor como garantia.",
+    "landing.cofi.card.leverage.accent": "10%",
+    "landing.cofi.card.yield.title": "Yield em Cascata (Kamino)",
+    "landing.cofi.card.yield.desc":
+      "Seu dinheiro não fica parado esperando o sorteio. Todo o capital ocioso do cofre gera rendimento automático e passivo para você.",
+    "landing.cofi.card.yield.accent": "automático e passivo",
+    "landing.cofi.card.reputation.title": "Reputação Imutável (SAS)",
+    "landing.cofi.card.reputation.desc":
+      "Cada parcela paga é registrada na Solana. Você não está apenas pagando um crédito, está cunhando o seu Score Financeiro da Web3.",
+    "landing.cofi.card.reputation.accent": "Score Financeiro da Web3",
     // Security · solvent-by-construction grid
     "landing.security.title1": "Solvente por",
     "landing.security.title2": "Construção",
@@ -1125,9 +1137,21 @@ export const DICT: Record<Lang, Dict> = {
     "landing.cofi.title1": "The full power of",
     "landing.cofi.title2": "Collaborative Finance.",
     "landing.cofi.body":
-      "Build your Reputation Ladder, fund your goals with micro-leverage, and earn automatic yield via Kamino. All in a single transparent ecosystem.",
+      "Traditional DeFi is lonely and inefficient. CoFi blends the strength of collective capital with your individual discipline.",
     "landing.cofi.cta1": "Start Building",
     "landing.cofi.cta2": "Read Whitepaper",
+    "landing.cofi.card.leverage.title": "10x Micro-Leverage",
+    "landing.cofi.card.leverage.desc":
+      "Forget 150% collateral. Prove your discipline and access a full credit letter using only 10% of the value as collateral.",
+    "landing.cofi.card.leverage.accent": "10%",
+    "landing.cofi.card.yield.title": "Cascading Yield",
+    "landing.cofi.card.yield.desc":
+      "Idle capital never sits still. The pool's float generates automated and passive yield while protecting the system.",
+    "landing.cofi.card.yield.accent": "automated and passive",
+    "landing.cofi.card.reputation.title": "Immutable Reputation",
+    "landing.cofi.card.reputation.desc":
+      "Every payment is registered on Solana. You're not just paying a credit — you're minting your Web3 financial score.",
+    "landing.cofi.card.reputation.accent": "Web3 financial score",
     // Security · solvent-by-construction grid
     "landing.security.title1": "Solvent by",
     "landing.security.title2": "Construction",

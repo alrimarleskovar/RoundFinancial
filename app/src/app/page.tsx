@@ -254,30 +254,78 @@ export default function LandingPage() {
           </a>
         </div>
 
-        {/* Dashboard mockup (CSS-only, no external image) */}
-        <div className="relative mx-auto w-full max-w-5xl h-[300px] md:h-[450px] bg-gradient-to-b from-[#0C1018] to-transparent border-t border-x border-white/10 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(20,241,149,0.05)] overflow-hidden">
-          {/* Subtle dotted-grid pattern via radial gradient */}
-          <div
-            className="absolute inset-0 opacity-[0.06]"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle, rgba(255,255,255,0.6) 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-            }}
-          />
-          <div className="absolute top-0 left-0 w-full h-12 bg-white/[0.02] border-b border-white/5 flex items-center px-6 gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500/50" />
-            <div className="w-3 h-3 rounded-full bg-amber-500/50" />
-            <div className="w-3 h-3 rounded-full bg-green-500/50" />
-            <div className="mx-auto w-48 h-6 bg-black/40 rounded-full border border-white/5" />
-          </div>
-          <div className="p-8 mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-80">
-            <div className="h-32 bg-white/5 rounded-2xl border border-white/10" />
-            <div className="h-32 bg-white/5 rounded-2xl border border-white/10" />
-            <div className="h-32 bg-white/5 rounded-2xl border border-white/10" />
-            <div className="h-48 md:col-span-2 bg-[#14F195]/5 border border-[#14F195]/20 rounded-2xl" />
-            <div className="h-48 bg-[#9945FF]/5 border border-[#9945FF]/20 rounded-2xl" />
-          </div>
+        {/* Three illustrated CoFi cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto text-left">
+          {(
+            [
+              {
+                key: "leverage",
+                emoji: "🚀",
+                color: "#14F195",
+                src: "/illustrations/cofi-leverage.png",
+              },
+              {
+                key: "yield",
+                emoji: "💧",
+                color: "#9945FF",
+                src: "/illustrations/cofi-yield.png",
+              },
+              {
+                key: "reputation",
+                emoji: "⭐",
+                color: "#14F195",
+                src: "/illustrations/cofi-reputation.png",
+              },
+            ] as const
+          ).map((c) => {
+            const desc = t(`landing.cofi.card.${c.key}.desc`);
+            const accent = t(`landing.cofi.card.${c.key}.accent`);
+            const [pre, post] = desc.split(accent);
+            return (
+              <div
+                key={c.key}
+                className="rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
+                style={{
+                  background: `linear-gradient(180deg, ${c.color}0F 0%, rgba(255,255,255,0.02) 60%)`,
+                  border: `1px solid ${c.color}40`,
+                  boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
+                }}
+              >
+                <div
+                  className="aspect-square w-full flex items-center justify-center relative overflow-hidden"
+                  style={{
+                    background: `radial-gradient(circle at 50% 50%, ${c.color}26 0%, transparent 70%)`,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={c.src}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
+                    }}
+                  />
+                </div>
+                <div className="p-6 md:p-7">
+                  <h3 className="text-xl md:text-2xl font-bold mb-3 flex items-center gap-2">
+                    <span style={{ color: c.color }}>{c.emoji}</span>
+                    <span>{t(`landing.cofi.card.${c.key}.title`)}</span>
+                  </h3>
+                  <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                    {pre}
+                    {accent && (
+                      <span style={{ color: c.color, fontWeight: 700 }}>
+                        {accent}
+                      </span>
+                    )}
+                    {post}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
