@@ -2,28 +2,47 @@
 //!
 //! Atomic re-anchor pattern — because `Member` PDA seeds include
 //! `wallet`, transferring a position requires a close-old / create-new
-//! sequence in a single transaction:
+//! sequence in a single transaction, plus a real Metaplex Core asset
+//! transfer:
 //!
 //!   1. Validate listing (Active, price matches, same pool/slot).
 //!   2. Validate buyer has no existing Member for this pool.
-//!   3. Transfer `price_usdc` buyer → seller (protocol takes no fee in
-//!      Step 4c — reserved; easy to add later without breaking).
+//!   3. Transfer `price_usdc` buyer → seller.
 //!   4. Snapshot all the old Member's state fields.
 //!   5. Close the old Member PDA; rent returns to seller.
 //!   6. Initialize the new Member PDA (seeds include the buyer's
 //!      wallet) with the snapshotted state.
-//!   7. Close the listing; rent returns to seller.
+//!   7. Toggle FreezeDelegate.frozen=false → Transfer asset
+//!      seller_wallet → buyer_wallet → toggle FreezeDelegate.frozen=true.
+//!      All three CPIs signed by the slot's `position_authority` PDA
+//!      (which is FreezeDelegate AND TransferDelegate authority).
+//!   8. Close the listing; rent returns to seller.
 //!
 //! Pool-level aggregates (total_contributed, solidarity_balance,
-//! escrow_balance) are untouched — only the wallet pointer moves.
+//! escrow_balance) are untouched — only the wallet pointer moves and
+//! the NFT changes hands.
 //!
-//! NOTE: Metaplex Core NFT ownership transfer lives in a follow-up
-//! commit (4c-tail) once we've re-exercised the Core plugin permissions
-//! with FreezeDelegate; for now the asset stays frozen under the slot's
-//! `position_authority` PDA, which is pool-scoped, not wallet-scoped.
+//! Why this works:
+//!   - Position NFTs are minted in `join_pool.rs` with TWO plugins:
+//!     FreezeDelegate (frozen=true) AND TransferDelegate, both with
+//!     authority = position_authority PDA `[b"position", pool, slot]`.
+//!     The PDA is pool-scoped, not wallet-scoped, so it survives the
+//!     seller→buyer change.
+//!   - Frozen assets cannot be transferred even by a delegate; we
+//!     thaw → transfer → re-freeze in three CPIs to keep the post-
+//!     transfer asset locked under protocol control.
+//!   - Seller does NOT receive a default attestation — they exited
+//!     cleanly via the Escape Valve.
+//!   - Buyer assumes ALL future obligations: contributions_paid,
+//!     escrow_balance, on_time_count, etc. carry over verbatim.
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+
+use mpl_core::{
+    instructions::{TransferV1CpiBuilder, UpdatePluginV1CpiBuilder},
+    types::{FreezeDelegate, Plugin},
+};
 
 use crate::constants::*;
 use crate::error::RoundfiError;
@@ -113,6 +132,28 @@ pub struct EscapeValveBuy<'info> {
     )]
     pub seller_usdc: Account<'info, TokenAccount>,
 
+    /// CHECK: Metaplex Core asset for this slot. Pinned to
+    /// `old_member.nft_asset` so the buyer can't substitute someone
+    /// else's NFT mid-transfer.
+    #[account(
+        mut,
+        constraint = nft_asset.key() == old_member.nft_asset @ RoundfiError::InvalidNftAsset,
+    )]
+    pub nft_asset: UncheckedAccount<'info>,
+
+    /// CHECK: Position authority PDA — FreezeDelegate + TransferDelegate
+    /// of the position NFT (set in join_pool). Signs the asset transfer
+    /// CPIs via PDA seeds.
+    #[account(
+        seeds = [SEED_POSITION, pool.key().as_ref(), &[old_member.slot_index]],
+        bump,
+    )]
+    pub position_authority: UncheckedAccount<'info>,
+
+    /// CHECK: Metaplex Core program — pinned to config.metaplex_core.
+    #[account(address = config.metaplex_core @ RoundfiError::Unauthorized)]
+    pub metaplex_core: UncheckedAccount<'info>,
+
     pub token_program:  Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
@@ -188,12 +229,56 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
     new.last_transferred_at      = clock.unix_timestamp;
     new.bump                     = ctx.bumps.new_member;
 
+    // ─── NFT transfer: thaw → transfer → re-freeze ──────────────────────
+    // All three CPIs are signed by the slot's position_authority PDA,
+    // which holds both FreezeDelegate and TransferDelegate authority.
+    let pool_key = ctx.accounts.pool.key();
+    let slot_index_arr = [snapshot.slot_index];
+    let position_bump = ctx.bumps.position_authority;
+    let position_signer_seeds: &[&[u8]] = &[
+        SEED_POSITION,
+        pool_key.as_ref(),
+        &slot_index_arr,
+        std::slice::from_ref(&position_bump),
+    ];
+    let position_signer: &[&[&[u8]]] = &[position_signer_seeds];
+
+    // Step 1 — Unfreeze.
+    UpdatePluginV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.position_authority.to_account_info()))
+        .system_program(&ctx.accounts.system_program.to_account_info())
+        .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: false }))
+        .invoke_signed(position_signer)?;
+
+    // Step 2 — Transfer to buyer.
+    TransferV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.position_authority.to_account_info()))
+        .new_owner(&ctx.accounts.buyer_wallet.to_account_info())
+        .system_program(Some(&ctx.accounts.system_program.to_account_info()))
+        .invoke_signed(position_signer)?;
+
+    // Step 3 — Re-freeze under the same position_authority. The PDA
+    // is pool-scoped, so the buyer inherits the frozen state without
+    // any plugin reassignment.
+    UpdatePluginV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.position_authority.to_account_info()))
+        .system_program(&ctx.accounts.system_program.to_account_info())
+        .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: true }))
+        .invoke_signed(position_signer)?;
+
     msg!(
-        "roundfi-core: escape_valve_buy slot={} seller={} buyer={} price={}",
+        "roundfi-core: escape_valve_buy slot={} seller={} buyer={} price={} asset={}",
         snapshot.slot_index,
         ctx.accounts.seller_wallet.key(),
         ctx.accounts.buyer_wallet.key(),
         args.price_usdc,
+        snapshot.nft_asset,
     );
 
     Ok(())
