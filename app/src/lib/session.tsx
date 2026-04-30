@@ -63,6 +63,7 @@ type Action =
   | { type: "SELL_SHARE"; position: NftPosition; askPrice: number; discountPct: number }
   | { type: "BUY_SHARE"; offerId: string; group: string; price: number; face: number }
   | { type: "YIELD_TICK"; amount: number; source: string }
+  | { type: "HARVEST_YIELD" }
   | { type: "PUSH_EVENT"; event: SessionEvent };
 
 // ── Helpers ────────────────────────────────────────────────
@@ -212,6 +213,31 @@ function reducer(state: SessionState, action: Action): SessionState {
     }
     case "PUSH_EVENT":
       return { ...state, events: [action.event, ...state.events] };
+    case "HARVEST_YIELD": {
+      // Claim accrued Kamino yield: balance += yield, yield → 0,
+      // ledger picks up a positive yield-claim event. Side-effect
+      // free if user.yield is already 0 (still emits a 0 event so
+      // the UI shows the action ran).
+      const amount = state.user.yield;
+      const ev: SessionEvent = {
+        id: makeId(),
+        kind: "yield",
+        ts: Date.now(),
+        txid: makeTxid(),
+        op: "yield.harvest",
+        amountBrl: amount,
+        target: "kamino.vault",
+      };
+      return {
+        ...state,
+        user: {
+          ...state.user,
+          balance: state.user.balance + amount,
+          yield: 0,
+        },
+        events: [ev, ...state.events],
+      };
+    }
     default:
       return state;
   }
@@ -232,6 +258,7 @@ interface SessionContextValue {
   ) => void;
   buyShare: (offerId: string, group: string, price: number, face: number) => void;
   pushYield: (amount: number, source?: string) => void;
+  harvestYield: () => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -283,6 +310,10 @@ export function SessionProvider({
       dispatch({ type: "YIELD_TICK", amount, source }),
     [],
   );
+  const harvestYield = useCallback(
+    () => dispatch({ type: "HARVEST_YIELD" }),
+    [],
+  );
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -295,8 +326,9 @@ export function SessionProvider({
       sellShare,
       buyShare,
       pushYield,
+      harvestYield,
     }),
-    [state, payInstallment, joinGroup, sellShare, buyShare, pushYield],
+    [state, payInstallment, joinGroup, sellShare, buyShare, pushYield, harvestYield],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

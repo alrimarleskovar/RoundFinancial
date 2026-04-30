@@ -8,6 +8,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
 import { KAMINO_VAULT } from "@/data/carteira";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // Withdraw the accumulated Kamino yield. Two-state machine
@@ -26,10 +27,19 @@ export function WithdrawYieldModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { user, harvestYield } = useSession();
   const [phase, setPhase] = useState<Phase>("confirm");
+  // Snapshot the claim amount the moment confirm is pressed so the
+  // success screen keeps reading the right value after harvestYield()
+  // resets user.yield to 0.
+  const [claimedAmount, setClaimedAmount] = useState(0);
+  const accrued = user.yield;
 
   useEffect(() => {
-    if (open) setPhase("confirm");
+    if (open) {
+      setPhase("confirm");
+      setClaimedAmount(0);
+    }
   }, [open]);
 
   return (
@@ -88,7 +98,7 @@ export function WithdrawYieldModal({
                 letterSpacing: "-0.03em",
               }}
             >
-              {fmtMoney(KAMINO_VAULT.accrued, { noCents: false })}
+              {fmtMoney(accrued, { noCents: false })}
             </div>
             <div
               style={{
@@ -119,7 +129,7 @@ export function WithdrawYieldModal({
             />
             <Stat
               label={t("modal.withdraw.youReceive")}
-              value={fmtMoney(KAMINO_VAULT.accrued, { noCents: false })}
+              value={fmtMoney(accrued, { noCents: false })}
               color={tokens.green}
               emphasis
               tokens={tokens}
@@ -162,8 +172,17 @@ export function WithdrawYieldModal({
             </button>
             <button
               type="button"
-              onClick={() => setPhase("success")}
-              style={primaryBtn(tokens)}
+              onClick={() => {
+                setClaimedAmount(accrued);
+                harvestYield();
+                setPhase("success");
+              }}
+              disabled={accrued <= 0}
+              style={{
+                ...primaryBtn(tokens),
+                opacity: accrued <= 0 ? 0.5 : 1,
+                cursor: accrued <= 0 ? "not-allowed" : "pointer",
+              }}
             >
               {t("modal.withdraw.confirm")}
             </button>
@@ -173,7 +192,7 @@ export function WithdrawYieldModal({
         <ModalSuccess
           title={t("modal.withdraw.successHeadline")}
           body={t("modal.withdraw.successBody", {
-            amount: fmtMoney(KAMINO_VAULT.accrued, { noCents: false }),
+            amount: fmtMoney(claimedAmount, { noCents: false }),
           })}
           cta={
             <button
