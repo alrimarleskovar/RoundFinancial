@@ -242,6 +242,7 @@ export const DICT: Record<Lang, Dict> = {
     "insights.modal.complete.onchain":
       "Ao final do ciclo, claim_payout do último mês emite um CycleComplete attestation. Esse é o gatilho da transição de nível.",
     // stress lab (M1 of grant roadmap)
+    "lab.back": "Voltar ao painel",
     "lab.title": "Stress Lab",
     "lab.subtitle": "Simulador de Solvência",
     "lab.presets.title": "Cenários",
@@ -957,6 +958,7 @@ export const DICT: Record<Lang, Dict> = {
     "insights.modal.complete.onchain":
       "At cycle end, the final claim_payout emits a CycleComplete attestation. That's the level-transition trigger.",
     // stress lab
+    "lab.back": "Back to dashboard",
     "lab.title": "Stress Lab",
     "lab.subtitle": "Solvency simulator",
     "lab.presets.title": "Scenarios",
