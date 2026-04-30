@@ -36,7 +36,8 @@ pub struct Pool {
 
     // ─── Step 4c: yield waterfall + default tracking ────────────────────
     /// Running tally of USDC currently held in the Guarantee Fund.
-    /// Replenished in step 1 of the yield waterfall; debited on default shortfall.
+    /// Replenished in step 2 of the yield waterfall (after the protocol
+    /// fee is taken on gross). Debited on default shortfall (v2).
     pub guarantee_fund_balance:  u64,
     /// Cumulative protocol fee transferred to treasury over pool life.
     /// GF top-up cap = `guarantee_fund_bps * total_protocol_fee_accrued / 10_000`.
@@ -46,6 +47,12 @@ pub struct Pool {
     pub yield_principal_deposited: u64,
     /// Count of members that have been settled as defaulted.
     pub defaulted_members: u8,
+    /// Earmark of the LP / Anjos de Liquidez slice from step 3 of the
+    /// yield waterfall. Funds remain in `pool_usdc_vault` (logical
+    /// accounting like the Guarantee Fund) until LP withdrawal pathway
+    /// ships in M3. Don't conflate with `solidarity_balance`, which is
+    /// funded ONLY from the 1% das parcelas in `contribute()`.
+    pub lp_distribution_balance: u64,
 
     /// Bitmap over MAX_MEMBERS=64 slots. Bit set ⇒ slot taken.
     pub slots_bitmap:       [u8; 8],
@@ -75,9 +82,10 @@ impl Pool {
         + 1 + 1 + 8 + 1 + 8    // joined, status, started_at, current_cycle, next_cycle_at
         + 8 + 8 + 8 + 8 + 8    // contributed, paid_out, solidarity, escrow, yield
         + 8 + 8 + 8 + 1        // 4c: gf_balance, total_protocol_fee_accrued, yield_principal, defaulted_members
+        + 8                    // 4c v1.1: lp_distribution_balance (new)
         + 8                    // slots_bitmap (64 bits = 8 bytes)
         + 4                    // four bumps
-        + 7;                   // padding (was 32 in v0.1; 25 bytes consumed for Step 4c state)
+        + 7;                   // padding (carried from v0.1)
 
     #[inline]
     pub fn is_slot_taken(&self, slot: u8) -> bool {

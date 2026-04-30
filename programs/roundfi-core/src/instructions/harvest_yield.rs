@@ -1,9 +1,19 @@
 //! `harvest_yield()` — realizes accrued yield from the adapter and splits
-//! it through the strict waterfall:
-//!   1. Guarantee Fund top-up  (FIRST)
-//!   2. Protocol fee           (fee_bps_yield)
-//!   3. Good-faith bonus       (routed to solidarity vault)
-//!   4. Participants           (remains in pool_usdc_vault)
+//! it through the strict PDF-canonical waterfall (v1.1):
+//!   1. Protocol fee           (fee_bps_yield on gross — primary revenue)
+//!   2. Guarantee Fund top-up  (capped at 150% of credit)
+//!   3. LP / Anjos de Liquidez (lp_share_bps of post-fee-and-GF residual,
+//!                              earmarked on pool.lp_distribution_balance)
+//!   4. Participants           ("prêmio de paciência" — remains in
+//!                              pool_usdc_vault)
+//!
+//! Note on Cofre Solidário: the v1.0 of this file routed step 3 (then
+//! "good_faith") to `solidarity_vault`, but the canonical PDFs and the
+//! Stress Lab L1 simulator both place the solidarity bucket OUTSIDE the
+//! yield waterfall — it's funded only by the 1% das parcelas inside
+//! `contribute()`. v1.1 corrects that: the yield-waterfall LP slice is
+//! tracked logically on `pool.lp_distribution_balance`, the
+//! `solidarity_vault` ATA is no longer credited from harvests.
 //!
 //! Adapter-is-untrusted:
 //!   - Snapshot pool_usdc_vault before CPI; the adapter's `harvest()`
@@ -25,12 +35,12 @@ use crate::state::{Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct HarvestYieldArgs {
-    /// Share of the post-fee residual routed to the good-faith bonus
-    /// pool. Defaults to DEFAULT_GOOD_FAITH_SHARE_BPS (5_000 = 50%).
+    /// Share of the post-fee-and-GF residual routed to LPs / Anjos de
+    /// Liquidez. Defaults to DEFAULT_LP_SHARE_BPS (6_500 = 65%).
     /// Capped at 10_000 (100%). The caller (typically the pool creator
     /// or a protocol crank) provides this; the on-chain check rejects
     /// anything > 10_000.
-    pub good_faith_share_bps: u16,
+    pub lp_share_bps: u16,
 }
 
 #[derive(Accounts)]
@@ -65,19 +75,13 @@ pub struct HarvestYield<'info> {
     )]
     pub pool_usdc_vault: Account<'info, TokenAccount>,
 
-    /// CHECK: Solidarity vault authority PDA.
-    #[account(
-        seeds = [SEED_SOLIDARITY, pool.key().as_ref()],
-        bump = pool.solidarity_vault_bump,
-    )]
-    pub solidarity_vault_authority: UncheckedAccount<'info>,
-
-    #[account(
-        mut,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = solidarity_vault_authority,
-    )]
-    pub solidarity_vault: Account<'info, TokenAccount>,
+    // NOTE: pre-v1.1 this struct also pinned `solidarity_vault_authority`
+    // and `solidarity_vault` because harvest_yield used to transfer the
+    // (incorrectly named) "good_faith" slice into the Cofre Solidário.
+    // The PDF-canonical waterfall has the LP slice earmarked logically
+    // on `pool.lp_distribution_balance` instead, so those accounts are
+    // no longer needed here. The Cofre Solidário is now funded only
+    // from the 1% das parcelas inside `contribute()`.
 
     /// Protocol treasury — pinned to config.treasury.
     #[account(
@@ -102,7 +106,7 @@ pub fn handler<'info>(
     args: HarvestYieldArgs,
 ) -> Result<()> {
     require!(
-        args.good_faith_share_bps as u32 <= MAX_BPS as u32,
+        args.lp_share_bps as u32 <= MAX_BPS as u32,
         RoundfiError::InvalidBps,
     );
 
@@ -185,7 +189,7 @@ pub fn handler<'info>(
         return Ok(());
     }
 
-    // ─── Waterfall ──────────────────────────────────────────────────────
+    // ─── Waterfall (PDF-canonical: fee → GF → LP → participants) ──────
     let gf_room = guarantee_fund_room(
         pool.total_protocol_fee_accrued,
         pool.guarantee_fund_balance,
@@ -195,16 +199,10 @@ pub fn handler<'info>(
         realized,
         gf_room,
         ctx.accounts.config.fee_bps_yield,
-        args.good_faith_share_bps,
+        args.lp_share_bps,
     )?;
 
-    // ─── Step 1: GF — logical earmark inside pool_usdc_vault ────────────
-    pool.guarantee_fund_balance = pool
-        .guarantee_fund_balance
-        .checked_add(w.guarantee_fund)
-        .ok_or(error!(RoundfiError::MathOverflow))?;
-
-    // ─── Step 2: Protocol fee — transfer to treasury ────────────────────
+    // ─── Step 1: Protocol fee — transfer to treasury (FIRST on gross) ──
     if w.protocol_fee > 0 {
         token::transfer(
             CpiContext::new_with_signer(
@@ -224,25 +222,22 @@ pub fn handler<'info>(
             .ok_or(error!(RoundfiError::MathOverflow))?;
     }
 
-    // ─── Step 3: Good-faith bonus — transfer to solidarity vault ────────
-    if w.good_faith > 0 {
-        token::transfer(
-            CpiContext::new_with_signer(
-                token_program_info.clone(),
-                Transfer {
-                    from:      pool_vault_info.clone(),
-                    to:        ctx.accounts.solidarity_vault.to_account_info(),
-                    authority: pool.to_account_info(),
-                },
-                signer_seeds_arr,
-            ),
-            w.good_faith,
-        )?;
-        pool.solidarity_balance = pool
-            .solidarity_balance
-            .checked_add(w.good_faith)
-            .ok_or(error!(RoundfiError::MathOverflow))?;
-    }
+    // ─── Step 2: GF — logical earmark inside pool_usdc_vault ───────────
+    pool.guarantee_fund_balance = pool
+        .guarantee_fund_balance
+        .checked_add(w.guarantee_fund)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
+
+    // ─── Step 3: LP / Anjos de Liquidez — logical earmark ──────────────
+    // Funds remain in pool_usdc_vault; tracked on pool.lp_distribution_balance.
+    // The actual LP withdrawal pathway is M3 work — the vault holds the
+    // tokens until then. NOTE: pre-v1.1 this slice was routed (incorrectly)
+    // to the solidarity_vault ATA. The Cofre Solidário is funded only by
+    // the 1% das parcelas in `contribute()`.
+    pool.lp_distribution_balance = pool
+        .lp_distribution_balance
+        .checked_add(w.lp_share)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
 
     // ─── Step 4: Participants — remain in pool_usdc_vault ──────────────
     pool.yield_accrued = pool
@@ -259,13 +254,14 @@ pub fn handler<'info>(
         .saturating_sub(yield_vault_drop.saturating_sub(realized));
 
     msg!(
-        "roundfi-core: harvest realized={} gf+={} fee={} good_faith={} participants={} gf_balance={}",
+        "roundfi-core: harvest realized={} fee={} gf+={} lp_share={} participants={} gf_balance={} lp_distribution_balance={}",
         realized,
-        w.guarantee_fund,
         w.protocol_fee,
-        w.good_faith,
+        w.guarantee_fund,
+        w.lp_share,
         w.participants,
         pool.guarantee_fund_balance,
+        pool.lp_distribution_balance,
     );
 
     Ok(())

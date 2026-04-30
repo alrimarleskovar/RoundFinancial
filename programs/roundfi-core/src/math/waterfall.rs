@@ -1,16 +1,28 @@
-//! Yield-waterfall computation (Step 4c).
+//! Yield-waterfall computation (PDF-canonical order, v1.1 of the
+//! whitepaper / pitch deck / `docs/yield-and-guarantee-fund.md`).
 //!
-//! Strict payment order, locked by the user on 2026-04-22:
+//! Strict payment order locked by the canonical PDFs:
 //!
-//!   1. Guarantee Fund top-up  (FIRST — shock absorber funded before fees)
-//!   2. Protocol fee            (fee_bps_yield on remaining)
-//!   3. Good-faith bonus        (good_faith_share_bps on remaining)
-//!   4. Participants            (residual, pro-rata by `claim_payout`)
+//!   1. Protocol fee           (fee_bps_yield on gross — primary revenue
+//!                              from Phase 1 of the B2B plan)
+//!   2. Guarantee Fund top-up  (capped at 150% of credit; absorbs from
+//!                              the post-fee residual)
+//!   3. LP / Liquidity Angels  (lp_share_bps of the residual after fee+GF;
+//!                              the upside slice for external float
+//!                              providers — Anjos de Liquidez)
+//!   4. Participants           ("prêmio de paciência" — residual, pro-rata
+//!                              by `claim_payout`)
 //!
-//! Invariant: `gf + protocol_fee + good_faith + participants == yield_amount`.
+//! Invariant: `protocol_fee + gf + lp_share + participants == yield_amount`.
 //! Reordering or skipping any step is a critical bug. Reject any result
 //! that would leave a bucket mathematically negative (we saturate to
 //! zero and push the remainder down the waterfall).
+//!
+//! Note on Cofre Solidário: it is funded ONLY from the 1% das parcelas
+//! routing inside `contribute()` / `pay_installment()` — NOT from the
+//! yield waterfall. Don't conflate the two; the v1.0 Rust code did, and
+//! v1.1 (this file) corrects it by routing the `lp_share` slice to a
+//! dedicated `lp_distribution_balance` earmark on the Pool.
 
 use anchor_lang::prelude::*;
 
@@ -18,14 +30,16 @@ use crate::error::RoundfiError;
 use crate::math::apply_bps;
 
 /// Result of a waterfall split. Every field is in USDC base units.
+/// Field order matches the execution order so `cargo fmt` keeps the
+/// struct legible as documentation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Waterfall {
-    /// Step 1 — amount routed to the Guarantee Fund.
-    pub guarantee_fund: u64,
-    /// Step 2 — amount routed to `treasury`.
+    /// Step 1 — amount routed to `treasury` (protocol fee).
     pub protocol_fee:   u64,
-    /// Step 3 — amount routed to the solidarity vault for on-time bonuses.
-    pub good_faith:     u64,
+    /// Step 2 — amount routed to the Guarantee Fund.
+    pub guarantee_fund: u64,
+    /// Step 3 — amount earmarked for LPs / Anjos de Liquidez.
+    pub lp_share:       u64,
     /// Step 4 — amount left in `pool_usdc_vault` for participants.
     pub participants:   u64,
 }
@@ -33,9 +47,9 @@ pub struct Waterfall {
 impl Waterfall {
     /// Total distributed across all four buckets.
     pub fn total(&self) -> Option<u64> {
-        self.guarantee_fund
-            .checked_add(self.protocol_fee)?
-            .checked_add(self.good_faith)?
+        self.protocol_fee
+            .checked_add(self.guarantee_fund)?
+            .checked_add(self.lp_share)?
             .checked_add(self.participants)
     }
 }
@@ -47,36 +61,36 @@ impl Waterfall {
 ///                               it hits its cap. Caller computes
 ///                               `cap - current_balance` and clamps to 0.
 /// * `protocol_fee_bps`       – `config.fee_bps_yield` (default 2000).
-/// * `good_faith_share_bps`   – share of the post-fee residual that goes
-///                               to solidarity. Default 5000 (50%).
+/// * `lp_share_bps`           – share of the post-fee-and-GF residual
+///                               that goes to LPs. Default 6500 (65%).
 pub fn waterfall(
     yield_amount: u64,
     gf_target_remaining: u64,
     protocol_fee_bps: u16,
-    good_faith_share_bps: u16,
+    lp_share_bps: u16,
 ) -> Result<Waterfall> {
-    // ─── Step 1: Guarantee Fund top-up (FIRST) ──────────────────────────
-    let gf = yield_amount.min(gf_target_remaining);
-    let after_gf = yield_amount
-        .checked_sub(gf)
-        .ok_or(error!(RoundfiError::WaterfallUnderflow))?;
-
-    // ─── Step 2: Protocol fee (20% of remainder) ────────────────────────
-    let protocol_fee = apply_bps(after_gf, protocol_fee_bps)?;
-    let after_fee = after_gf
+    // ─── Step 1: Protocol fee (FIRST — on gross) ────────────────────────
+    let protocol_fee = apply_bps(yield_amount, protocol_fee_bps)?;
+    let after_fee = yield_amount
         .checked_sub(protocol_fee)
         .ok_or(error!(RoundfiError::WaterfallUnderflow))?;
 
-    // ─── Step 3: Good-faith bonus share ─────────────────────────────────
-    let good_faith = apply_bps(after_fee, good_faith_share_bps)?;
-    let participants = after_fee
-        .checked_sub(good_faith)
+    // ─── Step 2: Guarantee Fund top-up (cap-bound) ──────────────────────
+    let gf = after_fee.min(gf_target_remaining);
+    let after_gf = after_fee
+        .checked_sub(gf)
+        .ok_or(error!(RoundfiError::WaterfallUnderflow))?;
+
+    // ─── Step 3: LP / Liquidity Angels share ────────────────────────────
+    let lp_share = apply_bps(after_gf, lp_share_bps)?;
+    let participants = after_gf
+        .checked_sub(lp_share)
         .ok_or(error!(RoundfiError::WaterfallUnderflow))?;
 
     let result = Waterfall {
-        guarantee_fund: gf,
         protocol_fee,
-        good_faith,
+        guarantee_fund: gf,
+        lp_share,
         participants,
     };
 
@@ -119,112 +133,121 @@ pub fn guarantee_fund_room(
 mod tests {
     use super::*;
 
-    // Default protocol values locked in Step 4c.
-    const FEE_BPS:        u16 = 2_000;  // 20%
-    const GOOD_FAITH_BPS: u16 = 5_000;  // 50% of post-fee residual
+    // Default protocol values — PDF-canonical (v1.1).
+    const FEE_BPS:      u16 = 2_000;  // 20% protocol fee on gross
+    const LP_SHARE_BPS: u16 = 6_500;  // 65% of post-fee-and-GF residual
 
     // ─── Ordering invariant ─────────────────────────────────────────────
 
     #[test]
-    fn order_gf_first_swallows_small_yield() {
-        // Any yield below the GF's remaining room goes entirely to GF.
-        // If the fee step ever ran first, participants would receive a
-        // non-zero slice here.
-        let w = waterfall(1_000, 1_000, FEE_BPS, GOOD_FAITH_BPS).unwrap();
+    fn fee_runs_first_on_gross_amount() {
+        // 10_000 yield, 0 GF room, 65% LP share.
+        //   fee 20% of 10_000 = 2_000; after_fee = 8_000
+        //   gf = 0; after_gf = 8_000
+        //   lp = 65% of 8_000 = 5_200; participants = 2_800
+        let w = waterfall(10_000, 0, FEE_BPS, LP_SHARE_BPS).unwrap();
         assert_eq!(w, Waterfall {
-            guarantee_fund: 1_000, protocol_fee: 0, good_faith: 0, participants: 0,
-        });
-    }
-
-    #[test]
-    fn order_gf_partial_then_fee_then_good_faith_then_participants() {
-        // 10_000 yield, GF absorbs 2_000.
-        //   after_gf = 8_000
-        //   fee 20%     → 1_600; after_fee = 6_400
-        //   good_faith 50% of 6_400 → 3_200
-        //   participants = 3_200
-        let w = waterfall(10_000, 2_000, FEE_BPS, GOOD_FAITH_BPS).unwrap();
-        assert_eq!(w, Waterfall {
-            guarantee_fund: 2_000,
-            protocol_fee:   1_600,
-            good_faith:     3_200,
-            participants:   3_200,
+            protocol_fee:   2_000,
+            guarantee_fund: 0,
+            lp_share:       5_200,
+            participants:   2_800,
         });
         assert_eq!(w.total().unwrap(), 10_000);
     }
 
     #[test]
-    fn order_gf_empty_cap_skipped_to_fee_first() {
-        // GF already at cap → GF=0, fee takes from full yield.
-        let w = waterfall(5_000, 0, FEE_BPS, GOOD_FAITH_BPS).unwrap();
-        assert_eq!(w.guarantee_fund, 0);
-        assert_eq!(w.protocol_fee,   1_000);  // 20% of 5_000
-        assert_eq!(w.good_faith,     2_000);  // 50% of 4_000
-        assert_eq!(w.participants,   2_000);
-        assert_eq!(w.total().unwrap(), 5_000);
+    fn gf_takes_from_post_fee_residual() {
+        // 10_000 yield, GF can absorb 5_000.
+        //   fee 20% of 10_000 = 2_000; after_fee = 8_000
+        //   gf = min(5_000, 8_000) = 5_000; after_gf = 3_000
+        //   lp = 65% of 3_000 = 1_950; participants = 1_050
+        let w = waterfall(10_000, 5_000, FEE_BPS, LP_SHARE_BPS).unwrap();
+        assert_eq!(w, Waterfall {
+            protocol_fee:   2_000,
+            guarantee_fund: 5_000,
+            lp_share:       1_950,
+            participants:   1_050,
+        });
+        assert_eq!(w.total().unwrap(), 10_000);
+    }
+
+    #[test]
+    fn small_yield_under_gf_room_still_pays_fee_first() {
+        // 1_000 yield, GF room 5_000.
+        //   fee = 200; after_fee = 800
+        //   gf = min(5_000, 800) = 800; after_gf = 0
+        //   lp = 0; participants = 0
+        let w = waterfall(1_000, 5_000, FEE_BPS, LP_SHARE_BPS).unwrap();
+        assert_eq!(w, Waterfall {
+            protocol_fee:   200,
+            guarantee_fund: 800,
+            lp_share:       0,
+            participants:   0,
+        });
     }
 
     #[test]
     fn order_reordering_would_produce_different_splits() {
-        // This is the "ordering sentinel": the spec order GF→Fee→GoodFaith→
-        // Participants must produce the unique canonical split below.
-        // Any reordering (Fee first, GoodFaith first, etc.) would deliver
-        // materially different GF or participant amounts.
-        let w = waterfall(10_000, 2_000, FEE_BPS, GOOD_FAITH_BPS).unwrap();
+        // Ordering sentinel: spec says fee runs FIRST on the gross
+        // amount. If GF ran first (old v1.0 order), fee would be
+        // computed on a smaller base and the user would get different
+        // splits.
+        let w = waterfall(10_000, 2_000, FEE_BPS, LP_SHARE_BPS).unwrap();
 
-        // If fee ran first (on 10_000, not 8_000), fee would be 2_000 not 1_600.
-        let fee_if_ran_first = 10_000u64 * FEE_BPS as u64 / 10_000;
-        assert_eq!(fee_if_ran_first, 2_000);
-        assert_ne!(w.protocol_fee, fee_if_ran_first);
+        // PDF-canonical: fee runs first on full 10_000 → 2_000.
+        assert_eq!(w.protocol_fee, 2_000);
 
-        // If good_faith ran first (on 10_000, not 6_400), it'd be 5_000.
-        let gf_bonus_if_ran_first = 10_000u64 * GOOD_FAITH_BPS as u64 / 10_000;
-        assert_eq!(gf_bonus_if_ran_first, 5_000);
-        assert_ne!(w.good_faith, gf_bonus_if_ran_first);
+        // Old v1.0 (GF-first): fee would have run on 8_000 → 1_600.
+        let v1_fee_if_gf_first = (10_000u64 - 2_000u64) * FEE_BPS as u64 / 10_000;
+        assert_eq!(v1_fee_if_gf_first, 1_600);
+        assert_ne!(w.protocol_fee, v1_fee_if_gf_first);
     }
 
     // ─── Conservation invariant (total bucketed == yield) ───────────────
 
     #[test]
     fn conservation_zero_yield() {
-        let w = waterfall(0, 100, FEE_BPS, GOOD_FAITH_BPS).unwrap();
+        let w = waterfall(0, 100, FEE_BPS, LP_SHARE_BPS).unwrap();
         assert_eq!(w, Waterfall::default());
         assert_eq!(w.total().unwrap(), 0);
     }
 
     #[test]
     fn conservation_single_unit() {
-        // Smallest non-zero yield. GF room=0 → 1 unit flows to fee path.
-        // fee = floor(1 * 2_000 / 10_000) = 0; after_fee = 1.
-        // good_faith = floor(1 * 5_000 / 10_000) = 0; participants = 1.
-        let w = waterfall(1, 0, FEE_BPS, GOOD_FAITH_BPS).unwrap();
-        assert_eq!(w.guarantee_fund, 0);
+        // Smallest non-zero yield. fee = floor(1 * 2_000 / 10_000) = 0;
+        // after_fee = 1. gf room 0 → gf = 0; after_gf = 1.
+        // lp = floor(1 * 6_500 / 10_000) = 0; participants = 1.
+        let w = waterfall(1, 0, FEE_BPS, LP_SHARE_BPS).unwrap();
         assert_eq!(w.protocol_fee,   0);
-        assert_eq!(w.good_faith,     0);
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.lp_share,       0);
         assert_eq!(w.participants,   1);
         assert_eq!(w.total().unwrap(), 1);
     }
 
     #[test]
     fn conservation_holds_across_wide_input_grid() {
-        // Every combination: yield × gf_room × fee_bps × good_faith_bps.
-        let yields     = [0u64, 1, 7, 12_345, 999_999_999, u64::MAX / 4];
-        let gf_rooms   = [0u64, 1, 1_000, u64::MAX];
-        let fee_bpses  = [0u16, 1, 2_000, 10_000];
-        let good_bpses = [0u16, 1, 5_000, 10_000];
+        // Every combination: yield × gf_room × fee_bps × lp_share_bps.
+        let yields    = [0u64, 1, 7, 12_345, 999_999_999, u64::MAX / 4];
+        let gf_rooms  = [0u64, 1, 1_000, u64::MAX];
+        let fee_bpses = [0u16, 1, 2_000, 10_000];
+        let lp_bpses  = [0u16, 1, 6_500, 10_000];
         for y in yields {
             for gf in gf_rooms {
                 for fbps in fee_bpses {
-                    for gbps in good_bpses {
-                        let w = waterfall(y, gf, fbps, gbps).unwrap();
+                    for lbps in lp_bpses {
+                        let w = waterfall(y, gf, fbps, lbps).unwrap();
                         assert_eq!(
                             w.total().unwrap(), y,
-                            "conservation broken: y={y} gf={gf} fbps={fbps} gbps={gbps}",
+                            "conservation broken: y={y} gf={gf} fbps={fbps} lbps={lbps}",
                         );
-                        // Strict ordering consequence: GF can only absorb up to gf_room.
+                        // GF can only absorb up to gf_room or whatever
+                        // remains after fee, whichever is smaller.
                         assert!(w.guarantee_fund <= gf, "GF exceeded room");
                         // And never more than yield itself.
                         assert!(w.guarantee_fund <= y, "GF exceeded yield");
+                        // Fee runs on gross so it cannot exceed yield.
+                        assert!(w.protocol_fee <= y, "fee exceeded yield");
                     }
                 }
             }
@@ -234,37 +257,40 @@ mod tests {
     // ─── Extreme bps settings ───────────────────────────────────────────
 
     #[test]
-    fn fee_bps_zero_leaves_everything_for_good_faith_and_participants() {
-        let w = waterfall(1_000, 0, 0, GOOD_FAITH_BPS).unwrap();
-        assert_eq!(w.guarantee_fund, 0);
+    fn fee_bps_zero_routes_full_amount_through_gf_lp_participants() {
+        let w = waterfall(1_000, 0, 0, LP_SHARE_BPS).unwrap();
         assert_eq!(w.protocol_fee,   0);
-        assert_eq!(w.good_faith,     500);
-        assert_eq!(w.participants,   500);
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.lp_share,       650);
+        assert_eq!(w.participants,   350);
     }
 
     #[test]
     fn fee_bps_full_leaves_nothing_downstream() {
-        let w = waterfall(1_000, 0, 10_000, GOOD_FAITH_BPS).unwrap();
-        assert_eq!(w.protocol_fee, 1_000);
-        assert_eq!(w.good_faith,   0);
-        assert_eq!(w.participants, 0);
+        let w = waterfall(1_000, 500, 10_000, LP_SHARE_BPS).unwrap();
+        assert_eq!(w.protocol_fee,   1_000);
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.lp_share,       0);
+        assert_eq!(w.participants,   0);
         assert_eq!(w.total().unwrap(), 1_000);
     }
 
     #[test]
-    fn good_faith_bps_full_leaves_nothing_for_participants() {
+    fn lp_share_bps_full_leaves_nothing_for_participants() {
         let w = waterfall(1_000, 0, FEE_BPS, 10_000).unwrap();
-        assert_eq!(w.protocol_fee, 200);
-        assert_eq!(w.good_faith,   800);
-        assert_eq!(w.participants, 0);
+        assert_eq!(w.protocol_fee,   200);
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.lp_share,       800);
+        assert_eq!(w.participants,   0);
     }
 
     #[test]
-    fn good_faith_bps_zero_routes_full_residual_to_participants() {
+    fn lp_share_bps_zero_routes_full_residual_to_participants() {
         let w = waterfall(1_000, 0, FEE_BPS, 0).unwrap();
-        assert_eq!(w.protocol_fee, 200);
-        assert_eq!(w.good_faith,   0);
-        assert_eq!(w.participants, 800);
+        assert_eq!(w.protocol_fee,   200);
+        assert_eq!(w.guarantee_fund, 0);
+        assert_eq!(w.lp_share,       0);
+        assert_eq!(w.participants,   800);
     }
 
     // ─── GF cap helpers ─────────────────────────────────────────────────
@@ -302,9 +328,9 @@ mod tests {
         // Manually constructed bogus state that couldn't come from
         // waterfall() itself but guards against refactors.
         let w = Waterfall {
-            guarantee_fund: u64::MAX,
-            protocol_fee:   1,
-            good_faith:     0,
+            protocol_fee:   u64::MAX,
+            guarantee_fund: 1,
+            lp_share:       0,
             participants:   0,
         };
         assert_eq!(w.total(), None);
@@ -313,6 +339,6 @@ mod tests {
 
 impl Default for Waterfall {
     fn default() -> Self {
-        Self { guarantee_fund: 0, protocol_fee: 0, good_faith: 0, participants: 0 }
+        Self { protocol_fee: 0, guarantee_fund: 0, lp_share: 0, participants: 0 }
     }
 }
