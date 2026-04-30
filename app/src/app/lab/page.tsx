@@ -9,7 +9,7 @@ import { StressLabClient } from "@/components/lab/StressLabClient";
 
 export default function LabPage() {
   return (
-    <DeskShell>
+    <DeskShell hideSideNav>
       <StressLabClient />
     </DeskShell>
   );

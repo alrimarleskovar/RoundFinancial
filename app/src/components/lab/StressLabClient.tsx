@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { MemberInfoModal } from "@/components/lab/MemberInfoModal";
@@ -148,6 +149,36 @@ export function StressLabClient() {
     <div style={{ padding: 32, display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Header */}
       <div>
+        <Link
+          href="/home"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "5px 11px",
+            borderRadius: 999,
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+            color: tokens.text2,
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontSize: 11,
+            fontWeight: 600,
+            textDecoration: "none",
+            marginBottom: 12,
+            transition: "all 180ms ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = `${tokens.green}55`;
+            e.currentTarget.style.color = tokens.text;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = tokens.border;
+            e.currentTarget.style.color = tokens.text2;
+          }}
+        >
+          <Icons.back size={12} stroke="currentColor" sw={2} />
+          {t("lab.back")}
+        </Link>
         <MonoLabel color={tokens.green}>◆ Stress Lab · M1</MonoLabel>
         <div
           style={{
