@@ -322,19 +322,21 @@ pub struct IdentityRecord {
 
 ### 4.5 Step 4c mechanics — defaults, escape valve, yield (added v0.3 — 2026-04-22)
 
-#### 4.5.0 Triple Shield — canonical mapping (added v0.5 — 2026-04-22)
+#### 4.5.0 Triple Shield — canonical mapping (revised v0.6 — 2026-04-30, PDF-aligned)
 
-The product narrative refers to a "Triple Shield" security architecture. The canonical mapping below — authoritative from v0.5 forward — matches the shipping code in [settle_default.rs](../programs/roundfi-core/src/instructions/settle_default.rs). Any deck, demo, or copy that uses a different ordering is out of sync and must be corrected against this table.
+The product narrative refers to a "Triple Shield" security architecture. The canonical mapping below matches the [whitepaper](pt/whitepaper.pdf) and [B2B plan](pt/plano-b2b.pdf) — i.e. it presents the Shields in their **build order** during the pool's lifecycle, not in the on-chain seizure order of `settle_default.rs`. The seizure order is a separate implementation detail (see note below).
 
-| # | Name (pitch) | Code primitive | Role on default | Funded from |
-|---|--------------|------------------|------------------|--------------|
-| **Shield 1** | **Solidarity Vault** | `solidarity_vault` PDA | **Seized first**, up to the missed installment | 1% of every contribution (`solidarity_bps = 100`) |
-| **Shield 2** | **Member Stake + Escrow** | `member.escrow_balance` + `member.stake_deposited` | Seized second and third; capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`) | The defaulting member's own collateral |
-| **Shield 3** | **Guarantee Fund** | `pool.guarantee_fund_balance` (earmark inside `pool_usdc_vault`) | **Not drawn in v1** — earmarked to block payout drain. v2 adds a catastrophic-loss draw path. | Yield harvest (step 1 of the waterfall) |
+| # | Canonical name | Build trigger | Funding source | On-chain primitive |
+|---|----------------|---------------|----------------|---------------------|
+| **Shield 1** | **Sorteio Semente** *(Seed Draw / Bootstrap Mês 1)* | First cycle of every pool | Asymmetric upfront cap (cycle 1 contemplated member receives only `2 × installment`; ~91.6% of cycle-1 capital stays in the vault) | Cycle = 1 special case in `claim_payout.rs` |
+| **Shield 2** | **Escrow Adaptativo + Stake** | Activates at every contemplation from cycle 2 onward | Reputation-tier-driven payout/escrow split + stake floor (Lv1 50/50/50/5m, Lv2 30/45/55/4m, Lv3 10/35/65/3m for stake/payout/escrow/release) | `LEVEL_PARAMS` in stress-lab + `member.escrow_balance` / `member.stake_deposited` |
+| **Shield 3** | **Cofre Solidário + Cascata de Yield** | Accrues continuously across the pool's life | 1% of every paid installment → segregated **Solidarity Vault** + Kamino yield waterfall (admin fee → Guarantee Fund cap 150% × credit → 65% LPs → 35% participants) | `solidarity_vault` PDA + `harvest_yield.rs` waterfall |
 
-**Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The "10× leverage" slogan is to be phrased as "**up to 10× capital advancement based on reputation tier**" — this distinguishes the ROSCA rotation mechanic from DeFi margin-leverage. The "Serasa da Web3 / on-chain behavior oracle" pitch is roadmap, not shipped; the `get_profile` instruction (§4.2, added in Step 4f) is the foundation layer.
+**On-chain seizure order — implementation note.** When a default occurs, `settle_default.rs` draws capital in a *different* order than the Shield build sequence above: solidarity vault first → escrow second → stake third, capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`). This recovery sequence is orthogonal to the structural narrative; pitch / public-facing copy should always use the Shield 1 → 2 → 3 build order from the table above. The seizure order matters only for technical / due-diligence audiences.
 
-See [pitch-alignment.md](./pitch-alignment.md) for the full pitch ↔ code cross-reference and the per-phrase revision table, and [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md) for a detailed explainer of the yield waterfall and the Guarantee Fund's v1 vs. v2 roles.
+**Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The "10× leverage" slogan is phrased as "**up to 10× capital advancement based on reputation tier**" — distinguishing ROSCA rotation from DeFi margin-leverage. The "Serasa da Web3 / on-chain behavior oracle" framing is the central thesis (per the [B2B plan](pt/plano-b2b.pdf)), with the ROSCA acting as the data-acquisition engine.
+
+See [pitch-alignment.md](./pitch-alignment.md) §3 for the full Triple Shield narrative + script, and [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md) for the yield-waterfall explainer.
 
 This section freezes the behavior contracts for the Step 4c instructions. Any change here requires a new architecture version AND a migration plan for pools on Devnet.
 
