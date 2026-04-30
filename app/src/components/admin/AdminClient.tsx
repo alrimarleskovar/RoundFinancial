@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
@@ -10,8 +11,10 @@ import { DemoPreview } from "@/components/admin/DemoPreview";
 import { PresetSelector } from "@/components/admin/PresetSelector";
 import { SetupPanel } from "@/components/admin/SetupPanel";
 import { TimelinePanel } from "@/components/admin/TimelinePanel";
+import { SegToggle } from "@/components/layout/SegToggle";
 import { useDemoState, type DemoPresetId } from "@/lib/demoState";
-import { useT } from "@/lib/i18n";
+import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 // /admin · Demo Studio (Phase 1).
@@ -25,8 +28,41 @@ import { useTheme } from "@/lib/theme";
 export function AdminClient() {
   const { tokens } = useTheme();
   const t = useT();
+  const i18n = useI18n();
   const ctrl = useDemoState();
+  const { loadFromDemo } = useSession();
+  const router = useRouter();
   const [activePresetId, setActivePresetId] = useState<DemoPresetId | null>(null);
+
+  // Apply current demo state to the production session and route
+  // to /home so the boss can navigate the real dashboard during
+  // the video. Maps user fields (name, score, balance, yield,
+  // level/levelLabel, avatar) and stamps a synthetic group name
+  // that /grupos can pick up via joinedGroupNames overlay.
+  const applyToSession = () => {
+    const levelLabel = ((): string => {
+      switch (ctrl.state.user.level) {
+        case 1: return "Iniciante";
+        case 2: return "Comprovado";
+        case 3: return "Veterano";
+      }
+    })();
+    const groupName = `Cenário ${ctrl.state.user.name.split(" ")[0]}`;
+    loadFromDemo(
+      {
+        name: ctrl.state.user.name,
+        avatar: ctrl.state.user.avatar,
+        level: ctrl.state.user.level,
+        levelLabel,
+        score: ctrl.state.user.score,
+        balance: ctrl.state.user.balance,
+        yield: ctrl.state.user.yield,
+      },
+      groupName,
+      `Demo Studio · ${ctrl.state.user.name}`,
+    );
+    router.push("/home");
+  };
 
   return (
     <div
@@ -104,30 +140,71 @@ export function AdminClient() {
               {t("admin.subtitle")}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              ctrl.reset();
-              setActivePresetId(null);
-            }}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 11,
-              cursor: "pointer",
-              background: `${tokens.red}14`,
-              border: `1px solid ${tokens.red}55`,
-              color: tokens.red,
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <Icons.refresh size={13} stroke="currentColor" sw={2} />
-            {t("admin.reset")}
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <SegToggle
+              value={i18n.lang}
+              onChange={i18n.setLang}
+              options={[
+                { v: "pt", l: "PT" },
+                { v: "en", l: "EN" },
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                ctrl.reset();
+                setActivePresetId(null);
+              }}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 11,
+                cursor: "pointer",
+                background: `${tokens.red}14`,
+                border: `1px solid ${tokens.red}55`,
+                color: tokens.red,
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Icons.refresh size={13} stroke="currentColor" sw={2} />
+              {t("admin.reset")}
+            </button>
+            <button
+              type="button"
+              onClick={applyToSession}
+              style={{
+                padding: "10px 18px",
+                borderRadius: 11,
+                cursor: "pointer",
+                background: `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
+                border: "none",
+                color: tokens.bgDeep,
+                fontSize: 12,
+                fontWeight: 800,
+                fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                boxShadow: `0 8px 24px ${tokens.green}33`,
+                letterSpacing: "0.02em",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = `0 12px 32px ${tokens.green}55`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = `0 8px 24px ${tokens.green}33`;
+              }}
+            >
+              ▶ {t("admin.applyToSession")}
+              <Icons.arrow size={13} stroke="currentColor" sw={2.4} />
+            </button>
+          </div>
         </div>
 
         {/* Preset selector */}

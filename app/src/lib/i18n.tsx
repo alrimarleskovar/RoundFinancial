@@ -502,6 +502,7 @@ export const DICT: Record<Lang, Dict> = {
     "admin.subtitle":
       "Configure o cenário (Maria, carta R$ 10k, X meses, score X), avance pelos meses e dispare cada ação dramática (contemplação, calote, válvula de escape). Estado isolado da sessão real — não polui o /home dos usuários.",
     "admin.reset": "Resetar cenário",
+    "admin.applyToSession": "Aplicar à sessão real",
     "admin.setup.title": "◆ Setup",
     "admin.setup.hint": "Configurar",
     "admin.setup.name": "Nome",
@@ -1369,6 +1370,7 @@ export const DICT: Record<Lang, Dict> = {
     "admin.subtitle":
       "Configure the scenario (Maria, R$ 10k credit letter, X months, score X), step through months, and trigger every dramatic action (contemplation, default, escape valve). Fully isolated state — won't pollute the production /home flow.",
     "admin.reset": "Reset scenario",
+    "admin.applyToSession": "Apply to live session",
     "admin.setup.title": "◆ Setup",
     "admin.setup.hint": "Configure",
     "admin.setup.name": "Name",
