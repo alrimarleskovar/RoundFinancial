@@ -163,32 +163,56 @@ export function PhantomFaucet({
         <div
           style={{
             marginTop: 10,
-            padding: "8px 10px",
+            padding: "10px 12px",
             borderRadius: 8,
             background: `${tokens.amber}1A`,
             border: `1px solid ${tokens.amber}4D`,
             fontSize: 11,
             color: tokens.amber,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            flexWrap: "wrap",
+            lineHeight: 1.5,
           }}
         >
-          <Icons.info size={12} stroke={tokens.amber} />
-          <span>{t("wallet.faucet.rate")}</span>
-          <a
-            href="https://faucet.solana.com"
-            target="_blank"
-            rel="noopener noreferrer"
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Icons.info size={12} stroke={tokens.amber} />
+            <span style={{ flex: 1 }}>{t("wallet.faucet.rate")}</span>
+          </div>
+          <div
             style={{
-              color: tokens.amber,
-              fontWeight: 600,
-              textDecoration: "underline",
+              marginTop: 8,
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
-            {t("wallet.faucet.hostedCTA")} →
-          </a>
+            {(
+              [
+                { href: "https://faucet.solana.com",        l: "faucet.solana.com" },
+                { href: "https://www.helius.dev/faucet",    l: "helius.dev/faucet" },
+                { href: "https://faucet.quicknode.com/solana/devnet", l: "quicknode.com" },
+              ] as const
+            ).map((alt) => (
+              <a
+                key={alt.href}
+                href={alt.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  background: `${tokens.amber}1F`,
+                  border: `1px solid ${tokens.amber}55`,
+                  color: tokens.amber,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  fontFamily:
+                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontSize: 10,
+                }}
+              >
+                {alt.l} ↗
+              </a>
+            ))}
+          </div>
         </div>
       )}
 
