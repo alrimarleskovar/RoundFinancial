@@ -825,7 +825,7 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.faucet.ok": "Airdrop confirmado",
     "wallet.faucet.viewTx": "Ver tx no Explorer →",
     "wallet.faucet.rate":
-      "Limite do RPC público atingido. Use o faucet hospedado:",
+      "Limite diário de airdrop atingido (devnet libera ~2 SOL por carteira a cada 24h). Use uma das fontes alternativas abaixo:",
     "wallet.faucet.hostedCTA": "Abrir faucet Solana",
     "wallet.faucet.failed": "Airdrop falhou: {msg}",
     "wallet.faucet.usdcTitle": "Precisa de USDC devnet?",
@@ -1690,7 +1690,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.faucet.busy": "Requesting airdrop…",
     "wallet.faucet.ok": "Airdrop confirmed",
     "wallet.faucet.viewTx": "View tx on Explorer →",
-    "wallet.faucet.rate": "Public RPC rate limit hit. Use the hosted faucet:",
+    "wallet.faucet.rate":
+      "Daily airdrop limit hit (devnet allows ~2 SOL per wallet every 24h). Try one of the alternative faucets below:",
     "wallet.faucet.hostedCTA": "Open Solana faucet",
     "wallet.faucet.failed": "Airdrop failed: {msg}",
     "wallet.faucet.usdcTitle": "Need devnet USDC?",
