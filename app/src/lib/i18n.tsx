@@ -499,6 +499,7 @@ export const DICT: Record<Lang, Dict> = {
     "landing.footer.copyright":
       "© 2026 ROUNDFI PROTOCOL. CAPITAL DESCENTRALIZADO POOLED. SOLANA DEVNET.",
     "landing.footer.admin": "Admin · Demo Studio",
+    "landing.footer.lab": "Stress Lab",
     // /admin — Demo Studio (parallel dashboard for video recording)
     "admin.back": "Voltar",
     "admin.badge": "◆ Demo Studio · Apenas interno",
@@ -1371,6 +1372,7 @@ export const DICT: Record<Lang, Dict> = {
     "landing.footer.copyright":
       "© 2026 ROUNDFI PROTOCOL. DECENTRALIZED POOLED CAPITAL. SOLANA DEVNET.",
     "landing.footer.admin": "Admin · Demo Studio",
+    "landing.footer.lab": "Stress Lab",
     // /admin — Demo Studio (parallel dashboard for video recording)
     "admin.back": "Back",
     "admin.badge": "◆ Demo Studio · Internal only",

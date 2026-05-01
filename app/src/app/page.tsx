@@ -867,6 +867,12 @@ export default function LandingPage() {
           >
             ◆ {t("landing.footer.admin")}
           </a>
+          <a
+            href="/lab"
+            className="text-gray-700 hover:text-[#14F195] transition-colors no-underline"
+          >
+            ◆ {t("landing.footer.lab")}
+          </a>
         </div>
       </footer>
     </main>
