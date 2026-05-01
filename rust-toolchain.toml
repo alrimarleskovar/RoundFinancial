@@ -1,4 +1,9 @@
 [toolchain]
-channel = "1.79.0"
+# Bumped from 1.79.0 (legacy Solana 1.18 alignment) to "stable" so
+# transitive deps requiring edition2024 (block-buffer 0.12+,
+# hashbrown 0.17+, etc.) build cleanly. Solana Agave 2.x's
+# `cargo build-sbf` bundles its own SBF target compiler — host Rust
+# just needs to be recent enough for cargo metadata + dep resolution.
+channel = "stable"
 components = ["rustfmt", "clippy"]
 profile = "minimal"
