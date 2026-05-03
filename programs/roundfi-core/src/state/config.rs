@@ -17,9 +17,38 @@ pub struct ProtocolConfig {
     pub guarantee_fund_bps:    u16,      // 15000 = 150% of protocol yield
     pub paused:                bool,
     pub bump:                  u8,
+
+    // ─── Treasury rotation safety (audit hardening) ────────────────────
+    /// One-way kill switch. Once `true`, `treasury` is permanently
+    /// frozen — `propose_new_treasury` rejects further proposals.
+    /// Authority can call `lock_treasury()` after deployment when
+    /// confident the treasury wallet is final, getting full
+    /// immutability ON TOP of the time-lock.
+    pub treasury_locked:        bool,
+    /// Pending treasury rotation. `Pubkey::default()` (all-zero) when
+    /// no rotation is queued. Set by `propose_new_treasury`, cleared
+    /// by `cancel_new_treasury` or finalized by `commit_new_treasury`.
+    pub pending_treasury:       Pubkey,
+    /// Earliest unix-ts at which `commit_new_treasury` may execute.
+    /// `0` when no rotation is pending. Equals `now + TREASURY_TIMELOCK_SECS`
+    /// at the moment of proposal. Gives users a public window to
+    /// detect a malicious authority and migrate before the swap.
+    pub pending_treasury_eta:   i64,
 }
 
 impl ProtocolConfig {
-    // disc(8) + 6*Pubkey(32) + 5*u16(2) + bool(1) + u8(1) + 64 padding
-    pub const SIZE: usize = 8 + (32 * 6) + (2 * 5) + 1 + 1 + 64;
+    // disc(8) + 6*Pubkey(32) + 5*u16(2) + 2*bool(1) + u8(1)
+    //  + Pubkey(32) for pending_treasury + i64(8) for eta
+    //  + 64 byte tail-padding (was 64 in v0.1; pre-rotation fields
+    //    consume 41 bytes → leaves 23 bytes of forward-compat slack).
+    pub const SIZE: usize =
+        8                        // anchor disc
+        + (32 * 6)               // 6 base Pubkeys
+        + (2 * 5)                // 5 fee/bps u16s
+        + 1                      // paused
+        + 1                      // bump
+        + 1                      // treasury_locked
+        + 32                     // pending_treasury
+        + 8                      // pending_treasury_eta
+        + 64;                    // forward-compat padding
 }

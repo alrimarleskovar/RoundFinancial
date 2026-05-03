@@ -97,6 +97,14 @@ pub enum RoundfiError {
     PoolNotCompleted,
     #[msg("Protocol config field is immutable after initialization")]
     ImmutableConfigField,
+    #[msg("Treasury is permanently locked — `lock_treasury()` was called")]
+    TreasuryLocked,
+    #[msg("No pending treasury rotation to commit or cancel")]
+    NoPendingTreasuryChange,
+    #[msg("Treasury rotation timelock has not yet elapsed")]
+    TreasuryTimelockActive,
+    #[msg("A treasury rotation is already pending — cancel it first")]
+    TreasuryProposalAlreadyPending,
     #[msg("Pool has outstanding defaults — cannot close")]
     OutstandingDefaults,
     #[msg("Yield adapter not configured for this pool")]

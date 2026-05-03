@@ -19,6 +19,15 @@ pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
 /// 7 days = 604_800 seconds. Protocol constant — not per-pool overridable.
 pub const GRACE_PERIOD_SECS: i64 = 604_800;
 
+/// Time-lock on treasury rotation. Authority can `propose_new_treasury`
+/// any time, but `commit_new_treasury` only succeeds after this window
+/// has elapsed (`now >= pending_eta`). 7 days = 604_800 seconds. Gives
+/// users a public window to detect a malicious authority change and
+/// migrate funds before the swap takes effect. Combined with
+/// `lock_treasury()` (one-way kill switch on `config.treasury_locked`)
+/// for full post-deployment immutability when the team is confident.
+pub const TREASURY_TIMELOCK_SECS: i64 = 604_800;
+
 /// Share of the post-fee-and-GF residual that routes to LPs / Anjos de
 /// Liquidez (step 3 of the PDF-canonical yield waterfall). Default 65%
 /// — matches the whitepaper's §6 distribution table:
