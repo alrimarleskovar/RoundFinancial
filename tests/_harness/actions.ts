@@ -208,6 +208,11 @@ export interface HarvestYieldOpts {
   /** Defaults to 6_500 (65%) — share of post-fee-and-GF residual that
    *  routes to LPs / Anjos de Liquidez (PDF-canonical waterfall v1.1). */
   lpShareBps?: number;
+  /** Slippage guard (audit defence): minimum realized USDC the caller
+   *  accepts. Defaults to 0 = opt-out (back-compat for tests that
+   *  don't model adapter behaviour at all). Production cranks should
+   *  compute this off-chain from adapter APY × elapsed × tolerance. */
+  minRealizedUsdc?: bigint | number;
   caller?: Keypair;
 }
 
@@ -220,7 +225,10 @@ export async function harvestYield(
   const mockVault = yieldMockVault(env, opts.pool.pool, opts.pool.usdcMint);
 
   return env.programs.core.methods
-    .harvestYield({ lpShareBps: opts.lpShareBps ?? 6_500 })
+    .harvestYield({
+      lpShareBps: opts.lpShareBps ?? 6_500,
+      minRealizedUsdc: new BN((opts.minRealizedUsdc ?? 0).toString()),
+    })
     .accounts({
       caller: caller.publicKey,
       config: configPda(env),

@@ -109,6 +109,8 @@ pub enum RoundfiError {
     AssetTransferIncomplete,
     #[msg("Post-CPI verification: asset is not frozen after re-freeze step")]
     AssetNotRefrozen,
+    #[msg("Harvest realized yield is below the caller's slippage threshold")]
+    HarvestSlippageExceeded,
     #[msg("Pool has outstanding defaults — cannot close")]
     OutstandingDefaults,
     #[msg("Yield adapter not configured for this pool")]
