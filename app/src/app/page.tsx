@@ -302,7 +302,7 @@ export default function LandingPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={c.src}
-                      alt=""
+                      alt={t(`landing.cofi.card.${c.key}.title`)}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display =
