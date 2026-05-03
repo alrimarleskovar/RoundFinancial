@@ -24,3 +24,4 @@ export * from "./reputation.js";
 export * from "./events.js";
 export * from "./pool.js";
 export * from "./actions.js";
+export * from "./parityDriver.js";

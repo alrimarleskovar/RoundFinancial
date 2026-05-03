@@ -30,9 +30,12 @@ import {
   attestationFor,
   attestationNonce,
   configPda,
+  memberPda,
+  positionAuthorityPda,
   reputationConfigFor,
   reputationProfileFor,
 } from "./pda.js";
+import { METAPLEX_CORE_ID } from "./protocol.js";
 import { yieldMockStatePda, yieldMockVault } from "./yield.js";
 
 // ─── contribute ────────────────────────────────────────────────────────
@@ -271,6 +274,144 @@ export async function closePool(
       pool: opts.pool.pool,
     })
     .signers([authority])
+    .rpc();
+}
+
+// ─── settle_default ────────────────────────────────────────────────────
+// Permissionless settlement of a defaulted member. Anyone can crank;
+// caller pays the rent for the attestation PDA. The cycle parameter is
+// the cycle the member missed (typically pool.current_cycle - 1, but
+// callers can settle older skips too).
+export interface SettleDefaultOpts {
+  pool: PoolHandle;
+  defaulter: MemberHandle;
+  cycle: number;
+  caller?: Keypair;    // defaults to env.payer
+}
+
+export async function settleDefault(
+  env: Env,
+  opts: SettleDefaultOpts,
+): Promise<string> {
+  const caller = opts.caller ?? env.payer;
+  const nonce = attestationNonce(opts.cycle, opts.defaulter.slotIndex);
+  const attestation = attestationFor(
+    env,
+    opts.pool.pool,
+    opts.defaulter.wallet.publicKey,
+    ATTESTATION_SCHEMA.Default,
+    nonce,
+  );
+
+  return env.programs.core.methods
+    .settleDefault({ cycle: opts.cycle })
+    .accounts({
+      caller: caller.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      member: opts.defaulter.member,
+      defaultedMemberWallet: opts.defaulter.wallet.publicKey,
+      usdcMint: opts.pool.usdcMint,
+      poolUsdcVault: opts.pool.poolUsdcVault,
+      solidarityVaultAuthority: opts.pool.solidarityVaultAuthority,
+      solidarityVault: opts.pool.solidarityVault,
+      escrowVaultAuthority: opts.pool.escrowVaultAuthority,
+      escrowVault: opts.pool.escrowVault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      reputationProgram: env.ids.reputation,
+      reputationConfig: reputationConfigFor(env),
+      reputationProfile: reputationProfileFor(env, opts.defaulter.wallet.publicKey),
+      identityRecord: env.ids.reputation,
+      attestation,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([caller])
+    .rpc();
+}
+
+// ─── escape_valve_list ─────────────────────────────────────────────────
+// Active, current member lists their position for sale. Returns the
+// listing PDA so the matching buy call can reference it.
+export interface EscapeValveListOpts {
+  pool: PoolHandle;
+  seller: MemberHandle;
+  priceUsdc: bigint | number;
+}
+
+export async function escapeValveList(
+  env: Env,
+  opts: EscapeValveListOpts,
+): Promise<{ signature: string; listing: PublicKey }> {
+  const [listing] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("listing"),
+      opts.pool.pool.toBuffer(),
+      Uint8Array.of(opts.seller.slotIndex),
+    ],
+    env.ids.core,
+  );
+
+  const signature = await env.programs.core.methods
+    .escapeValveList({ priceUsdc: new BN(opts.priceUsdc.toString()) })
+    .accounts({
+      sellerWallet: opts.seller.wallet.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      member: opts.seller.member,
+      listing,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([opts.seller.wallet])
+    .rpc();
+
+  return { signature, listing };
+}
+
+// ─── escape_valve_buy ──────────────────────────────────────────────────
+// Buyer settles USDC to seller, position NFT transfers via the
+// position_authority PDA's TransferDelegate (set in join_pool), and a
+// fresh Member PDA is created for the buyer.
+export interface EscapeValveBuyOpts {
+  pool: PoolHandle;
+  seller: MemberHandle;
+  buyer: Keypair;
+  buyerUsdc: PublicKey;
+  sellerUsdc: PublicKey;
+  priceUsdc: bigint | number;
+  listing: PublicKey;
+}
+
+export async function escapeValveBuy(
+  env: Env,
+  opts: EscapeValveBuyOpts,
+): Promise<string> {
+  const [positionAuthority] = positionAuthorityPda(
+    env.ids.core,
+    opts.pool.pool,
+    opts.seller.slotIndex,
+  );
+  const [newMember] = memberPda(env.ids.core, opts.pool.pool, opts.buyer.publicKey);
+
+  return env.programs.core.methods
+    .escapeValveBuy({ priceUsdc: new BN(opts.priceUsdc.toString()) })
+    .accounts({
+      buyerWallet: opts.buyer.publicKey,
+      sellerWallet: opts.seller.wallet.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      listing: opts.listing,
+      oldMember: opts.seller.member,
+      newMember,
+      usdcMint: opts.pool.usdcMint,
+      buyerUsdc: opts.buyerUsdc,
+      sellerUsdc: opts.sellerUsdc,
+      nftAsset: opts.seller.nftAsset.publicKey,
+      positionAuthority,
+      metaplexCore: METAPLEX_CORE_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([opts.buyer])
     .rpc();
 }
 
