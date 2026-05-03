@@ -328,6 +328,15 @@ export async function joinPool(
     getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
   const escrowVault = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
 
+  // Step 4d audit close-out: trusted reputation level. Core reads the
+  // ReputationProfile PDA owned by config.reputation_program and rejects
+  // if `args.reputationLevel` doesn't match `profile.level`. A missing
+  // profile (fresh wallet) is canonical level 1.
+  const [reputationProfile] = reputationProfilePda(
+    client.ids.reputation,
+    args.memberWallet.publicKey,
+  );
+
   const metadataUri = args.metadataUri ?? `https://roundfi.app/position/${args.slotIndex}`;
   const bumpCu = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
 
@@ -355,6 +364,8 @@ export async function joinPool(
       positionAuthority,
       nftAsset: nftAsset.publicKey,
       metaplexCore: METAPLEX_CORE_ID,
+      reputationProgram: client.ids.reputation,
+      reputationProfile,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,

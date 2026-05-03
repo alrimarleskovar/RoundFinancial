@@ -10,6 +10,9 @@ use mpl_core::{
     },
 };
 
+use roundfi_reputation::constants::SEED_PROFILE;
+use roundfi_reputation::state::ReputationProfile;
+
 use crate::constants::*;
 use crate::error::RoundfiError;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -18,9 +21,14 @@ use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 pub struct JoinPoolArgs {
     /// Slot to occupy (0..members_target). Client picks the first free slot.
     pub slot_index:       u8,
-    /// Reputation level 1..=3. TODO(4d): derive from ReputationProfile CPI instead of trusting input.
+    /// Asserted reputation level 1..=3 — the caller's expectation. The
+    /// handler derives the trusted level from the on-chain
+    /// `ReputationProfile` PDA owned by `config.reputation_program` and
+    /// rejects with `ReputationLevelMismatch` if the assertion drifts.
+    /// Closes the Step-4d audit gap (was: trusted client input).
     pub reputation_level: u8,
-    /// Position NFT metadata URI (Arweave/Irys). Max MAX_URI_LEN chars.
+    /// Position NFT metadata URI. Max MAX_URI_LEN bytes; scheme must be
+    /// `https://`, `ipfs://`, or `ar://` (validated below).
     pub metadata_uri:     String,
 }
 
@@ -96,6 +104,19 @@ pub struct JoinPool<'info> {
     #[account(address = config.metaplex_core @ RoundfiError::Unauthorized)]
     pub metaplex_core: UncheckedAccount<'info>,
 
+    // ─── Step 4d audit close-out: trusted reputation level ──────────────
+    // The caller passes the reputation program plus the member's
+    // ReputationProfile PDA. The handler validates program-id against
+    // `config.reputation_program`, recomputes the canonical profile PDA
+    // from `[SEED_PROFILE, member_wallet]`, validates the account owner,
+    // deserializes, and uses `profile.level` as the trusted level. A
+    // missing profile (fresh wallet) is the canonical level-1 case.
+    //
+    /// CHECK: program-id guard against config.reputation_program in handler.
+    pub reputation_program: UncheckedAccount<'info>,
+    /// CHECK: PDA + owner validated in handler. May be uninitialized (fresh wallet).
+    pub reputation_profile: UncheckedAccount<'info>,
+
     pub token_program:            Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program:           Program<'info, System>,
@@ -133,7 +154,23 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
         RoundfiError::MetadataUriInvalidScheme,
     );
 
-    let stake_bps = stake_bps_for_level(args.reputation_level)
+    // ─── Step 4d audit close-out — trusted reputation level ─────────────
+    // The caller's `args.reputation_level` is now an *assertion* checked
+    // against the ReputationProfile PDA owned by `config.reputation_program`.
+    // Mismatch → reject. This closes the gap where a malicious client
+    // could pick whichever stake_bps tier they wanted.
+    let trusted_level = derive_trusted_reputation_level(
+        &ctx.accounts.config,
+        &ctx.accounts.reputation_program,
+        &ctx.accounts.reputation_profile,
+        ctx.accounts.member_wallet.key(),
+    )?;
+    require!(
+        args.reputation_level == trusted_level,
+        RoundfiError::ReputationLevelMismatch,
+    );
+
+    let stake_bps = stake_bps_for_level(trusted_level)
         .ok_or(error!(RoundfiError::InvalidReputationLevel))?;
 
     // ─── Slot reservation ───────────────────────────────────────────────
@@ -213,7 +250,7 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     member.wallet                    = ctx.accounts.member_wallet.key();
     member.nft_asset                 = ctx.accounts.nft_asset.key();
     member.slot_index                = args.slot_index;
-    member.reputation_level          = args.reputation_level;
+    member.reputation_level          = trusted_level;
     member.stake_bps                 = stake_bps;
     member.stake_deposited           = stake_amount;
     member.contributions_paid        = 0;
@@ -256,8 +293,84 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     msg!(
         "roundfi-core: member joined slot={} level={} stake={}",
         args.slot_index,
-        args.reputation_level,
+        trusted_level,
         stake_amount,
     );
     Ok(())
+}
+
+// ─── helper: derive_trusted_reputation_level ────────────────────────────
+//
+// Loads the on-chain ReputationProfile for `member_wallet` and returns
+// the canonical `level` field. Treated as untrusted at every step:
+//   1. `reputation_program` must equal `config.reputation_program` and
+//      be marked executable.
+//   2. `reputation_profile` must hash to the canonical PDA derived from
+//      `[SEED_PROFILE, member_wallet]` using the validated program id.
+//   3. If the account is empty (fresh wallet, never paid into a pool)
+//      we treat it as level 1 — matches the doc-string on
+//      `ReputationProfile`. The reputation program will init it on the
+//      first attestation in `contribute`.
+//   4. Otherwise the account owner must equal the reputation program,
+//      and the deserialized `profile.wallet` must match the joining
+//      wallet. Level is clamped to 1..=3 in case a future schema bump
+//      ever stores anything outside that band.
+//
+// Backwards compat: if `config.reputation_program == Pubkey::default()`
+// (legacy pre-Step-4e devnet fixtures), falls back to level 1 without
+// touching the passed-in accounts.
+fn derive_trusted_reputation_level(
+    config: &ProtocolConfig,
+    rep_program: &UncheckedAccount,
+    rep_profile: &UncheckedAccount,
+    member_wallet: Pubkey,
+) -> Result<u8> {
+    if config.reputation_program == Pubkey::default() {
+        msg!("roundfi-core: join_pool — reputation_program unset, defaulting to level 1");
+        return Ok(1);
+    }
+
+    require_keys_eq!(
+        rep_program.key(),
+        config.reputation_program,
+        RoundfiError::ReputationProgramMismatch,
+    );
+    require!(
+        rep_program.executable,
+        RoundfiError::ReputationProgramMismatch,
+    );
+
+    let rep_program_id = rep_program.key();
+    let (expected_profile, _bump) = Pubkey::find_program_address(
+        &[SEED_PROFILE, member_wallet.as_ref()],
+        &rep_program_id,
+    );
+    require_keys_eq!(
+        rep_profile.key(),
+        expected_profile,
+        RoundfiError::ReputationProgramMismatch,
+    );
+
+    if rep_profile.data_is_empty() {
+        msg!("roundfi-core: join_pool — no profile yet for {}, defaulting to level 1", member_wallet);
+        return Ok(1);
+    }
+
+    require_keys_eq!(
+        *rep_profile.owner,
+        rep_program_id,
+        RoundfiError::ReputationProgramMismatch,
+    );
+
+    let data = rep_profile.try_borrow_data()?;
+    let profile = ReputationProfile::try_deserialize(&mut &data[..])
+        .map_err(|_| error!(RoundfiError::ReputationCpiFailed))?;
+
+    require_keys_eq!(
+        profile.wallet,
+        member_wallet,
+        RoundfiError::ReputationProgramMismatch,
+    );
+
+    Ok(profile.level.clamp(1, 3))
 }
