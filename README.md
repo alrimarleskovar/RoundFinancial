@@ -23,18 +23,26 @@ Built for the **Colosseum Hackathon 2026**.
 
 ## Why RoundFi
 
-DeFi solved trading. DeFi solved liquidity. DeFi never solved **credit**.
+DeFi solved trading. DeFi solved liquidity. DeFi never solved **credit**. The two clearest attempts at on-chain ROSCAs / under-collateralized retail credit both shipped — and both went quiet:
 
-| Protocol | Sub-collateral | Behavior score | Retail user | Emerging markets | NFT position | No prior crypto |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Aave / Marginfi | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Goldfinch | ✓ | ✗ | ✗ | ~ | ✗ | ✗ |
-| Maple / TrueFi | ~ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Credix | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
-| RociFi | ✓ | ~ | ~ | ✗ | ✗ | ✗ |
-| **RoundFi** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+- **WeTrust** (Ethereum, 2017–2018) — first on-chain ROSCA, *Trusted Lending Circles*. Gas costs ate margins, retention collapsed when ETH stalled, and the protocol *was* the product — no data layer to monetize. Wound down quietly.
+- **RociFi** (Solana, 2021–2023) — under-collateralized lending with NFT credit scores. The score was program-internal (not portable, not SAS-compatible), B2B distribution never materialized, and liquidator economics broke under volatility. Project sunset.
 
-RoundFi is the only protocol that checks every box.
+| Protocol | Status | Sub-collateral | Behavior score | Retail user | Emerging markets | Position NFT | No prior crypto |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Aave / Marginfi  | live       | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Goldfinch        | live       | ✓ | ✗ | ✗ | ~ | ✗ | ✗ |
+| Maple / TrueFi   | live       | ~ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Credix           | live       | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| WeTrust          | **sunset** | ✓ | ✗ | ✓ | ~ | ✗ | ✗ |
+| RociFi           | **sunset** | ✓ | ~ | ~ | ✗ | ~ | ✗ |
+| **RoundFi**      | **devnet** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+
+The boxes alone don't make us right — Aave, Goldfinch, and Credix are real businesses with billions of TVL between them. **What separates RoundFi from the projects that sunset is structural, not feature-list:**
+
+- **Phase 3 is the revenue model from day 1, not an afterthought.** WeTrust's protocol *was* the product, so when retention slipped there was nothing left to sell. RociFi's NFT score didn't read outside their pools, so there was no B2B moat. RoundFi treats Phase 1 (ROSCAs) explicitly as the data-acquisition engine for Phase 3 (per-call B2B oracle subscriptions to neobanks + DeFi protocols). The Triple Shield + Yield Cascade exist to keep Phase 1 solvent **while** the on-chain dataset compounds.
+- **Score is SAS-compatible from the first attestation.** Every paid installment mints against the Solana Attestation Service schema, so the score reads from any wallet, any protocol — Web3-native portability instead of vendor lock-in. RociFi's score died with RociFi.
+- **Solvency is mathematical, not aspirational.** WeTrust's retention model was "members keep paying because trust." RoundFi's Triple Shield gives a **91.6% Month-1 retention floor** as a deterministic property of the contract — encoded in [`programs/roundfi-core/src/math/waterfall.rs`](programs/roundfi-core/src/math/waterfall.rs) and parity-tested against the [Stress Lab L1 simulator](sdk/src/stressLab.ts). Stake decays 50% → 30% → 10% but only after on-chain attestations confirm cycle completion — no honor system.
 
 ## Thesis (per the whitepaper)
 
