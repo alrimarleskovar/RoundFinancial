@@ -3,8 +3,9 @@
 > **Behavioral-credit infrastructure for Solana.** RoundFi runs on-chain ROSCAs as a **data-acquisition engine**: every paid installment mints an on-chain attestation that builds a portable credit identity. The ROSCA is the bait; the **behavioral score** is the product. Endgame: a high-margin B2B oracle that neobanks and DeFi protocols subscribe to before lending — *the Serasa of Web3*.
 
 <p>
+  <a href="https://github.com/alrimarleskovar/RoundFinancial/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alrimarleskovar/RoundFinancial/actions/workflows/ci.yml/badge.svg?branch=main"/></a>
   <a href="https://roundfinancial.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/Live_demo-roundfinancial.vercel.app-14F195?style=for-the-badge&logo=vercel&logoColor=06090F"/></a>
-  <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-100+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
+  <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-125+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
 
 <p>
