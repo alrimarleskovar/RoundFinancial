@@ -76,6 +76,8 @@ pub enum RoundfiError {
     InvalidPoolParams,
     #[msg("Metadata URI exceeds MAX_URI_LEN")]
     MetadataUriTooLong,
+    #[msg("Metadata URI scheme not allowed (must be https://, ipfs://, or ar://)")]
+    MetadataUriInvalidScheme,
     // ─── Step 4c ────────────────────────────────────────────────────────
     #[msg("Grace period not yet elapsed — default cannot be settled")]
     GracePeriodNotElapsed,

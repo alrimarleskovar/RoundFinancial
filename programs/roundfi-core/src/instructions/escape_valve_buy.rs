@@ -320,6 +320,38 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
         require!(freeze.frozen, RoundfiError::AssetNotRefrozen);
     }
 
+    // ─── Reinit defense (audit hardening) ─────────────────────────────
+    // Anchor 0.30 runs `close = seller_wallet` on `old_member` at the
+    // very end of the ix (post-handler). Solana atomicity guarantees
+    // that if anything between here and that finalization step fails,
+    // the close is also rolled back — so reinit at the same PDA seeds
+    // is impossible by tx semantics.
+    //
+    // Belt-and-suspenders nonetheless: explicitly zero out the
+    // discriminator-adjacent identity fields on `old_member` BEFORE
+    // returning Ok(()). Two payoffs:
+    //   (a) If a future Anchor refactor moves `close` semantics or
+    //       a hypothetical CPI re-enters between handler exit and
+    //       close finalization, the account is already structurally
+    //       invalid (wallet=zero, slot_index=u8::MAX) and cannot be
+    //       deserialized as a live Member.
+    //   (b) On-chain explorers reading the account between exit and
+    //       close show "exited" rather than the seller's stale state.
+    //
+    // The post-CPI verification block above guarantees the asset
+    // already moved to buyer + frozen, so seller no longer has any
+    // claim on the position — these zero-outs reinforce that on the
+    // Member side.
+    {
+        let old = &mut ctx.accounts.old_member;
+        old.wallet = Pubkey::default();
+        old.nft_asset = Pubkey::default();
+        old.slot_index = u8::MAX;
+        old.defaulted = true; // sentinel — also blocks any constraint
+                              // path that might check `!defaulted`
+                              // before the close finalizes.
+    }
+
     msg!(
         "roundfi-core: escape_valve_buy slot={} seller={} buyer={} price={} asset={}",
         snapshot.slot_index,
