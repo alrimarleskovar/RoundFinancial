@@ -20,8 +20,14 @@
 //!     transfers realized yield INTO pool_usdc_vault.
 //!   - Post-CPI delta on pool_usdc_vault is the authoritative yield amount,
 //!     regardless of what the adapter claims.
-//!   - If the adapter delivers zero (nothing accrued), we short-circuit
-//!     with an Ok(()) log — not an error.
+//!   - `yield_vault_drop <= realized + 1` invariant catches a malicious
+//!     adapter trying to OVER-withdraw (drain principal as if it were yield).
+//!   - `realized >= args.min_realized_usdc` slippage guard catches a
+//!     malicious adapter UNDER-withdrawing (returning dust + pocketing
+//!     the rest). Caller computes `min_realized_usdc` off-chain from
+//!     adapter APY × elapsed time × tolerance. Pass 0 to opt out.
+//!   - If the adapter delivers zero AND min_realized_usdc is zero, we
+//!     short-circuit with an Ok(()) log — not an error.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
@@ -41,6 +47,20 @@ pub struct HarvestYieldArgs {
     /// or a protocol crank) provides this; the on-chain check rejects
     /// anything > 10_000.
     pub lp_share_bps: u16,
+    /// Slippage guard: minimum realized USDC the caller is willing to
+    /// accept on this harvest. If the adapter returns less, the tx
+    /// reverts with `HarvestSlippageExceeded`. Pass `0` to disable
+    /// (back-compat default — caller takes whatever the adapter
+    /// delivers, including zero).
+    ///
+    /// The crank computes this off-chain as
+    ///   `expected_yield × (1 − tolerance_bps / 10_000)`
+    /// where `expected_yield = principal × adapter_apy × elapsed_secs / YEAR_SECS`.
+    /// Without this guard, a malicious or buggy adapter could return
+    /// e.g. 1 lamport when ~$50 USDC was due, the waterfall would
+    /// silently take a 20% fee on dust, and the residual yield
+    /// stays inside the adapter's own vault.
+    pub min_realized_usdc: u64,
 }
 
 #[derive(Accounts)]
@@ -184,7 +204,25 @@ pub fn handler<'info>(
         RoundfiError::YieldAdapterBalanceMismatch,
     );
 
+    // ─── Slippage guard (audit defence) ───────────────────────────────
+    // Caller computed `min_realized_usdc` off-chain from
+    // (principal × adapter_apy × elapsed_secs / YEAR_SECS) ×
+    // (1 − tolerance_bps / 10_000). If the adapter returns less, this
+    // tx reverts BEFORE the waterfall executes — protecting the pool
+    // from a malicious adapter that under-reports realized yield to
+    // pocket the difference (the existing `yield_vault_drop` check only
+    // catches OVER-withdraw; this catches UNDER-withdraw).
+    //
+    // Setting `min_realized_usdc = 0` opts out — back-compat default.
+    require!(
+        realized >= args.min_realized_usdc,
+        RoundfiError::HarvestSlippageExceeded,
+    );
+
     if realized == 0 {
+        // realized==0 + min==0 (the only path that reaches here, given
+        // the slippage check above) → adapter had nothing to harvest.
+        // Short-circuit cleanly without running the waterfall.
         msg!("roundfi-core: harvest_yield realized=0 — nothing to distribute");
         return Ok(());
     }

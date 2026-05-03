@@ -361,7 +361,7 @@ describe("security — CPI + adapter abuse", function () {
 
     const msg = await expectRejected(() =>
       env.programs.core.methods
-        .harvestYield({ lpShareBps: 6_500 })
+        .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
         .accounts({
           caller:              env.payer.publicKey,
           config:              configPda(env),
@@ -395,7 +395,7 @@ describe("security — CPI + adapter abuse", function () {
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
     await env.programs.core.methods
-      .harvestYield({ lpShareBps: 6_500 })
+      .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
       .accounts({
         caller:              env.payer.publicKey,
         config:              configPda(env),
@@ -456,7 +456,7 @@ describe("security — CPI + adapter abuse", function () {
 
     const msg = await expectRejected(() =>
       env.programs.core.methods
-        .harvestYield({ lpShareBps: 6_500 })
+        .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
         .accounts({
           caller:              env.payer.publicKey,
           config:              configPda(env),
