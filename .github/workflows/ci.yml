@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same PR — one push per PR keeps the queue
+# moving and stops Vercel from racing the GitHub merge button.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR:  always
+  CARGO_INCREMENTAL: 0  # CI cache hits matter more than incremental
+  RUST_BACKTRACE:    1
+
+jobs:
+  # ─── 1. JS / TS lane (required) ──────────────────────────────────────
+  # Lints + typecheck + the three pure-TS test suites that don't need a
+  # Solana validator: Stress Lab L1 economic-parity (33 tests),
+  # Rust↔TS constants/seeds parity, and the LifecycleEvent shape suite.
+  js:
+    name: js · lint + typecheck + parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prettier check
+        run: pnpm lint
+
+      - name: TypeScript typecheck (workspace)
+        run: pnpm typecheck
+
+      - name: Stress Lab L1 economic-parity (33 tests)
+        run: pnpm test:economic-parity-l1
+
+      - name: Rust ↔ TS constants/seeds parity
+        run: pnpm test:parity
+
+      - name: LifecycleEvent canonical-types contract
+        run: pnpm test:events
+
+  # ─── 2. Rust lane (required) ─────────────────────────────────────────
+  # fmt + clippy + cargo test on roundfi-core. The `no-entrypoint` feature
+  # disables the BPF entrypoint registration so the lib compiles cleanly
+  # on host. Covers the proptest invariants in math/waterfall.rs (PR #129)
+  # plus the existing unit suite.
+  rust:
+    name: rust · fmt + clippy + cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rust-host
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy (warnings only, host target)
+        run: cargo clippy --workspace --all-targets --features no-entrypoint
+        # Day-1 clippy: warn-only. Tighten to `-D warnings` in a follow-up
+        # PR once the existing codebase is clippy-clean.
+
+      - name: cargo test (waterfall proptest + unit)
+        run: cargo test --package roundfi-core --lib --features no-entrypoint
+
+  # ─── 3. Security audit (required) ────────────────────────────────────
+  # cargo-audit checks Cargo.lock against the RustSec advisory DB. Fails
+  # the build on any unaddressed vulnerability — explicit `--ignore` for
+  # known transient advisories from solana-program 1.x deps until the
+  # Anza Agave 2.x migration completes.
+  audit:
+    name: audit · cargo-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cargo-audit
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: cargo audit
+        run: cargo audit
+        # Note: if a known-unfixable advisory appears, allowlist it via
+        # `--ignore RUSTSEC-YYYY-NNNN` rather than dropping the check.
+
+  # ─── 4. Anchor lane (allowed-failure) ────────────────────────────────
+  # Full `anchor build` + bankrun integration suite. Currently allowed to
+  # fail because the WSL toolchain alignment is still in flight (PRs #121,
+  # #125, #127, #129). Flip `continue-on-error` to false once a green run
+  # confirms Agave 3.x + Anchor 0.30.1 are reproducibly building in CI.
+  anchor:
+    name: anchor · build + bankrun (allowed to fail)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Install Solana Agave (stable)
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Verify solana CLI
+        run: solana --version
+
+      - name: Install Anchor 0.30.1
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli --locked
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: anchor build
+        run: anchor build
+
+      - name: bankrun integration suite
+        run: pnpm test:bankrun
