@@ -399,7 +399,7 @@ This section freezes the behavior contracts for the Step 4c instructions. Any ch
 #### 4.5.4 Admin — `update_protocol_config` + `pause`
 
 - **`pause(paused: bool)`** — authority-only. When paused, all user-facing instructions short-circuit with `ProtocolPaused`. Read paths and `settle_default` remain available (pause must not trap funds).
-- **`update_protocol_config(patch)`** — authority-only. Only mutable fields: `fee_bps_yield`, `fee_bps_cycle_l*`, `guarantee_fund_bps`, `treasury`. Identity-critical fields (`usdc_mint`, `metaplex_core`, `authority`, `reputation_program`) are **frozen** post-initialization.
+- **`update_protocol_config(patch)`** — authority-only. Only mutable fields: `fee_bps_yield`, `fee_bps_cycle_l*`, `guarantee_fund_bps`. Identity-critical fields (`usdc_mint`, `metaplex_core`, `authority`, `reputation_program`) are **frozen** post-initialization. **`treasury`** has its own dedicated 3-step rotation flow (audit hardening): `propose_new_treasury` → `commit_new_treasury` after `TREASURY_TIMELOCK_SECS = 7d` (with `cancel_new_treasury` as escape hatch), plus `lock_treasury()` as a one-way kill switch for permanent immutability.
 
 ### 4.6 Step 4d mechanics — reputation + identity (added v0.4 — 2026-04-22)
 

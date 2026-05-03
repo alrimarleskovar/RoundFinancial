@@ -85,6 +85,14 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     config.paused                = false;
     config.bump                  = ctx.bumps.config;
 
+    // Treasury rotation safety (audit hardening): start unlocked + no
+    // pending proposal. Authority must explicitly run the propose →
+    // commit dance to rotate, and may call `lock_treasury()` post-
+    // deployment for one-way immutability.
+    config.treasury_locked       = false;
+    config.pending_treasury      = Pubkey::default();
+    config.pending_treasury_eta  = 0;
+
     msg!("roundfi-core: protocol initialized");
     Ok(())
 }

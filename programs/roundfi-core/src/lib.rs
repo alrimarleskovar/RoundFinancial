@@ -100,6 +100,34 @@ pub mod roundfi_core {
         instructions::update_protocol_config::handler(ctx, args)
     }
 
+    /// Treasury rotation step 1/3 — stage a new treasury behind a
+    /// `TREASURY_TIMELOCK_SECS` (7d) window. Reverts if locked or
+    /// another proposal is already pending. Authority-only.
+    pub fn propose_new_treasury(
+        ctx: Context<ProposeNewTreasury>,
+        args: ProposeNewTreasuryArgs,
+    ) -> Result<()> {
+        instructions::propose_new_treasury::handler(ctx, args)
+    }
+
+    /// Treasury rotation step 2/3 (optional) — abort a pending
+    /// proposal before its eta. Authority-only.
+    pub fn cancel_new_treasury(ctx: Context<CancelNewTreasury>) -> Result<()> {
+        instructions::cancel_new_treasury::handler(ctx)
+    }
+
+    /// Treasury rotation step 3/3 — commit a pending proposal once
+    /// its eta has passed. Anyone can crank (timelock is the gate).
+    pub fn commit_new_treasury(ctx: Context<CommitNewTreasury>) -> Result<()> {
+        instructions::commit_new_treasury::handler(ctx)
+    }
+
+    /// One-way kill switch — once called, treasury cannot be rotated
+    /// again (existing pending proposals still commit). Authority-only.
+    pub fn lock_treasury(ctx: Context<LockTreasury>) -> Result<()> {
+        instructions::lock_treasury::handler(ctx)
+    }
+
     pub fn pause(ctx: Context<Pause>, args: PauseArgs) -> Result<()> {
         instructions::pause::handler(ctx, args)
     }
