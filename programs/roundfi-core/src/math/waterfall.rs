@@ -355,3 +355,132 @@ impl Default for Waterfall {
         Self { protocol_fee: 0, guarantee_fund: 0, lp_share: 0, participants: 0 }
     }
 }
+
+// ─── Property-based tests (proptest) ────────────────────────────────────
+//
+// Unit tests above pin specific cases. The block below pins *invariants*
+// — the rules that must hold for every input, including Byzantine corners
+// no human would think to write (extreme bps + tiny yield + GF room
+// equal to after-fee residual + 1, etc.). Each `proptest!` block runs
+// 256 cases by default; failures are minimized to the smallest input
+// that breaks the property.
+//
+// Strategies cap yield + GF room at u64::MAX/4 so the four buckets can
+// always sum without overflow. The on-chain invariant matches: harvest
+// reads from a single token-account balance that fits in u64, and the
+// caller never lets gf_room exceed cap which is bounded by accrued fees.
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn safe_yield()      -> impl Strategy<Value = u64> { 0u64..=(u64::MAX / 4) }
+    fn safe_gf_room()    -> impl Strategy<Value = u64> { 0u64..=(u64::MAX / 4) }
+    fn fee_bps_strat()   -> impl Strategy<Value = u16> { 0u16..=10_000 }
+    fn lp_bps_strat()    -> impl Strategy<Value = u16> { 0u16..=10_000 }
+    fn gf_bps_strat()    -> impl Strategy<Value = u16> { 0u16..=50_000 }
+
+    proptest! {
+        // ─── Conservation: sum of buckets == input yield ─────────────
+        #[test]
+        fn p_conservation(
+            y    in safe_yield(),
+            gf   in safe_gf_room(),
+            fbps in fee_bps_strat(),
+            lbps in lp_bps_strat(),
+        ) {
+            let w = waterfall(y, gf, fbps, lbps).unwrap();
+            prop_assert_eq!(w.total().unwrap(), y);
+        }
+
+        // ─── Guarantee Fund respects both caps (room + post-fee) ─────
+        // Room is the soft cap from governance; after_fee is the hard
+        // limit from arithmetic. Both must hold simultaneously.
+        #[test]
+        fn p_gf_respects_caps(
+            y    in safe_yield(),
+            gf   in safe_gf_room(),
+            fbps in fee_bps_strat(),
+            lbps in lp_bps_strat(),
+        ) {
+            let w = waterfall(y, gf, fbps, lbps).unwrap();
+            prop_assert!(w.guarantee_fund <= gf,                 "GF exceeded room");
+            prop_assert!(w.guarantee_fund <= y,                  "GF exceeded yield");
+            prop_assert!(w.guarantee_fund <= y - w.protocol_fee, "GF exceeded post-fee residual");
+        }
+
+        // ─── No bucket invents money — every bucket ≤ input yield ────
+        #[test]
+        fn p_no_bucket_exceeds_yield(
+            y    in safe_yield(),
+            gf   in safe_gf_room(),
+            fbps in fee_bps_strat(),
+            lbps in lp_bps_strat(),
+        ) {
+            let w = waterfall(y, gf, fbps, lbps).unwrap();
+            prop_assert!(w.protocol_fee   <= y);
+            prop_assert!(w.guarantee_fund <= y);
+            prop_assert!(w.lp_share       <= y);
+            prop_assert!(w.participants   <= y);
+        }
+
+        // ─── Fee runs on GROSS yield, not on any residual ────────────
+        // Locks the PDF-canonical order — a future refactor that moved
+        // fee computation downstream of GF would change this equality.
+        #[test]
+        fn p_fee_on_gross(
+            y    in safe_yield(),
+            gf   in safe_gf_room(),
+            fbps in fee_bps_strat(),
+            lbps in lp_bps_strat(),
+        ) {
+            let w = waterfall(y, gf, fbps, lbps).unwrap();
+            let expected_fee = ((y as u128) * (fbps as u128) / 10_000u128) as u64;
+            prop_assert_eq!(w.protocol_fee, expected_fee);
+        }
+
+        // ─── Monotonicity: more yield → more-or-equal participant payout ─
+        // Cliff effects (where one extra unit of yield somehow REDUCES
+        // participant payout) would indicate an arithmetic ordering bug.
+        #[test]
+        fn p_participants_monotonic_in_yield(
+            y1    in 0u64..=(u64::MAX / 8),
+            extra in 0u64..=1_000_000_000u64,
+            gf    in safe_gf_room(),
+            fbps  in fee_bps_strat(),
+            lbps  in lp_bps_strat(),
+        ) {
+            let y2 = y1.saturating_add(extra);
+            let w1 = waterfall(y1, gf, fbps, lbps).unwrap();
+            let w2 = waterfall(y2, gf, fbps, lbps).unwrap();
+            prop_assert!(
+                w2.participants >= w1.participants,
+                "participants regressed: y1={} → {} vs y2={} → {}",
+                y1, w1.participants, y2, w2.participants,
+            );
+        }
+
+        // ─── GF room saturating semantics ─────────────────────────────
+        // current ≥ cap ⇒ room == 0 (saturating clamp, not underflow).
+        // current  < cap ⇒ room == cap - current (linear).
+        // guarantee_fund_cap can legitimately overflow on some
+        // (total_fee, gf_bps) combos — those are tested in the unit
+        // suite (gf_cap_overflow_rejected_cleanly); we simply skip them
+        // here by gating on the Ok case.
+        #[test]
+        fn p_gf_room_saturates(
+            total_fee in 0u64..(u64::MAX / 2),
+            current   in 0u64..(u64::MAX / 2),
+            gf_bps    in gf_bps_strat(),
+        ) {
+            if let Ok(cap) = guarantee_fund_cap(total_fee, gf_bps) {
+                let room = guarantee_fund_room(total_fee, current, gf_bps).unwrap();
+                if current >= cap {
+                    prop_assert_eq!(room, 0);
+                } else {
+                    prop_assert_eq!(room, cap - current);
+                }
+            }
+        }
+    }
+}

@@ -26,3 +26,9 @@ mpl-core    = { version = "0.8.0", features = ["anchor"] }
 # flips the dependency to no-entrypoint mode, so we pull in the module
 # tree without registering a second entrypoint.
 roundfi-reputation = { path = "../roundfi-reputation", features = ["cpi", "no-entrypoint"] }
+
+[dev-dependencies]
+# Property-based tests against `math/waterfall.rs` invariants
+# (conservation, monotonicity, GF saturating semantics, fee-on-gross
+# ordering). dev-dependencies don't compile into the BPF binary.
+proptest = "1"
