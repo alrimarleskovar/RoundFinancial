@@ -9,6 +9,7 @@ import { FilterRow } from "@/components/grupos/FilterRow";
 import { FilterSelect } from "@/components/grupos/FilterSelect";
 import { GroupCard } from "@/components/grupos/GroupCard";
 import { NewCycleModal } from "@/components/grupos/NewCycleModal";
+import { NoGroupsYet } from "@/components/grupos/NoGroupsYet";
 import { DeskBtn } from "@/components/home/DeskBtn";
 import { useSession } from "@/lib/session";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type GroupLevel } from "@/data/groups";
@@ -395,50 +396,7 @@ export function GruposClient() {
 
       {/* Results */}
       {filtered.length === 0 ? (
-        <div
-          style={{
-            ...glass,
-            marginTop: 24,
-            padding: 40,
-            borderRadius: 16,
-            textAlign: "center",
-            border: `1px dashed ${tokens.borderStr}`,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "var(--font-syne), Syne",
-              fontSize: 18,
-              fontWeight: 700,
-              color: tokens.text,
-            }}
-          >
-            {t("groups.empty.title")}
-          </div>
-          <div
-            style={{ fontSize: 12, color: tokens.muted, marginTop: 6 }}
-          >
-            {t("groups.empty.sub")}
-          </div>
-          <button
-            type="button"
-            onClick={clearAll}
-            style={{
-              marginTop: 14,
-              padding: "9px 16px",
-              borderRadius: 10,
-              cursor: "pointer",
-              background: tokens.fillSoft,
-              border: `1px solid ${tokens.borderStr}`,
-              color: tokens.text,
-              fontSize: 12,
-              fontWeight: 600,
-              fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
-            }}
-          >
-            {t("groups.clear")}
-          </button>
-        </div>
+        <NoGroupsYet onClear={clearAll} />
       ) : (
         <div
           style={{

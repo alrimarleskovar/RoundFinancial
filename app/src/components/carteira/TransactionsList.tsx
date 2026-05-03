@@ -2,6 +2,7 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
+import { NoTransactionsYet } from "@/components/carteira/NoTransactionsYet";
 import { TX_LIST, type Transaction } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
 import { useSession, type SessionEvent } from "@/lib/session";
@@ -102,6 +103,7 @@ export function TransactionsList({
         )}
       </div>
       <div style={{ marginTop: 12 }}>
+        {rows.length === 0 && <NoTransactionsYet />}
         {rows.map((tx, i) => (
           <div
             key={i}
