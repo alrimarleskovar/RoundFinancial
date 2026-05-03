@@ -210,7 +210,7 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 
 ## Development Status
 
-**62 PRs merged on `main` · all squash-merged via `claude/<scope>` branches with structured bodies + Claude session links.**
+**125+ PRs merged on `main` · all squash-merged via `claude/<scope>` branches with structured bodies + Claude session links.**
 
 | Step | Status |
 |---|---|
@@ -233,11 +233,11 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 | Smart contracts | Rust + Anchor 0.30 |
 | Tests | `anchor test` + `solana-bankrun` |
 | NFTs | Metaplex Core |
-| NFT metadata | Arweave via Irys |
+| NFT metadata | Client-supplied URI today (`https://` / `ipfs://` / `ar://` accepted); Arweave-via-Irys upload pipeline planned for M3 — `IRYS_NODE_URL` already wired in [`config/clusters.ts`](config/clusters.ts) |
 | Attestations | In-house SAS-compatible module (Devnet) → official SAS (Mainnet) |
 | Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet) |
 | Stablecoin | USDC |
-| Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL + Helius webhooks |
+| Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL — **indexer (Helius webhooks + websocket fallback) lands in M3**; see [`docs/architecture.md`](docs/architecture.md#indexer) |
 | Frontend | Next.js 14 + React 18 + framer-motion 11 + Tailwind 3 (landing) + @solana/wallet-adapter + @coral-xyz/anchor |
 | Cluster | Devnet → Mainnet (env-driven) |
 
