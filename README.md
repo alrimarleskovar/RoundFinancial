@@ -246,7 +246,7 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 | NFTs | Metaplex Core |
 | NFT metadata | Client-supplied URI today (`https://` / `ipfs://` / `ar://` accepted); Arweave-via-Irys upload pipeline planned for M3 — `IRYS_NODE_URL` already wired in [`config/clusters.ts`](config/clusters.ts) |
 | Attestations | In-house SAS-compatible module (Devnet) → official SAS (Mainnet) |
-| Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet) |
+| Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet). `roundfi-yield-kamino::deposit()` does a real `deposit_reserve_liquidity` CPI on Kamino Lend mainnet program; `harvest()` ships in next milestone (park-only mode until then). |
 | Stablecoin | USDC |
 | Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL — **indexer (Helius webhooks + websocket fallback) lands in M3**; see [`docs/architecture.md`](docs/architecture.md#indexer) |
 | Frontend | Next.js 14 + React 18 + framer-motion 11 + Tailwind 3 (landing) + @solana/wallet-adapter + @coral-xyz/anchor |
