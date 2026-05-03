@@ -41,6 +41,7 @@ import {
   memberPda,
   poolPda,
   positionAuthorityPda,
+  reputationProfileFor,
   solidarityVaultAuthorityPda,
   yieldVaultAuthorityPda,
 } from "./pda.js";
@@ -233,6 +234,11 @@ export async function joinPool(
 
   const metadataUri = opts.metadataUri ?? `https://roundfi.test/position/${opts.slotIndex}`;
 
+  // Step 4d: trusted reputation level — handler reads ReputationProfile
+  // PDA owned by config.reputation_program. May be uninitialized for a
+  // fresh wallet; the program treats absence as level 1.
+  const reputationProfile = reputationProfileFor(env, opts.member.publicKey);
+
   // Metaplex Core CreateV2 is CU-heavy (>200k on first-of-run), so
   // pre-bump the budget to avoid flaky CI failures.
   const bumpCu = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
@@ -255,6 +261,8 @@ export async function joinPool(
       positionAuthority,
       nftAsset: nftAsset.publicKey,
       metaplexCore: METAPLEX_CORE_ID,
+      reputationProgram: env.ids.reputation,
+      reputationProfile,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,

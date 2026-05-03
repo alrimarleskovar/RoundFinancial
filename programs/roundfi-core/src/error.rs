@@ -122,4 +122,6 @@ pub enum RoundfiError {
     ReputationCpiFailed,
     #[msg("Passed reputation program does not match config.reputation_program")]
     ReputationProgramMismatch,
+    #[msg("Asserted reputation_level does not match the on-chain ReputationProfile")]
+    ReputationLevelMismatch,
 }
