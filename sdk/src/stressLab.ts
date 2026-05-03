@@ -365,6 +365,18 @@ export function runSimulation(
         if (matrix[m][i] === "C") monthContemplated = i + 1;
       }
 
+      // Hoisted: payout split for this member's contemplation. Both
+      // the per-cycle payout block AND the X-action default-seizure
+      // block read these. Computed once per (m, c) so future tweaks
+      // happen in one place.
+      const upfrontTotal =
+        monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
+      const escrowTotal =
+        monthContemplated === 1 ? credit - upfrontTotal : credit * params.escrowPct;
+      const escrowPerMonth = escrowTotal / releaseMonths;
+      const refundMonths = N - monthContemplated - releaseMonths;
+      const refundPerMonth = refundMonths > 0 ? stake / refundMonths : 0;
+
       if (action === "P" || action === "C") {
         cycleInstallments += inst;
         ledger[m].installmentsPaid += inst;
@@ -385,19 +397,6 @@ export function runSimulation(
         // also skip.
         let payoutThisMonth = 0;
         let refundThisMonth = 0;
-        const upfrontTotal =
-          monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
-        const escrowTotal =
-          monthContemplated === 1 ? credit - upfrontTotal : credit * params.escrowPct;
-        const escrowPerMonth = escrowTotal / releaseMonths;
-        // Stake-refund window opens the cycle AFTER the escrow drip
-        // ends, runs through cycle N. If contemplation is too late
-        // for any refund window to fit, refundMonths <= 0 and the
-        // stake stays retained by the protocol (same way the tail
-        // of the escrow drip stays retained when contemplation is
-        // late — modelled as protocol-favourable carry).
-        const refundMonths = N - monthContemplated - releaseMonths;
-        const refundPerMonth = refundMonths > 0 ? stake / refundMonths : 0;
 
         if (c === monthContemplated) {
           payoutThisMonth = upfrontTotal;
@@ -430,14 +429,62 @@ export function runSimulation(
           ledger[m].retained = paidSoFar;
           totalRetained += paidSoFar;
         } else {
-          // Post-contemplation default: net difference between received and paid.
+          // Post-contemplation default: TWO ledger entries flow at default
+          // time, both real cashflows the whitepaper accounts for:
+          //
+          //   (a) lossCaused — net cash the member walked away with.
+          //       received_so_far − paid_so_far. This is "damage" to the
+          //       float because the cash already left the pool.
+          //
+          //   (b) retained — the seizure leg. At default, the protocol
+          //       claws back the un-dripped escrow (the share of credit
+          //       that was scheduled to drip in future cycles but never
+          //       did) AND the un-refunded stake (the stake collateral
+          //       that was earmarked to be returned to the member after
+          //       all drips complete). Both of these are forfeit on
+          //       default and offset the (a) loss in solvency math.
+          //
+          // Without this seizure leg, `totalRetained` would only count
+          // the rare case of `received < paid`, which never happens for a
+          // post-contemplation default by definition (the upfront alone
+          // exceeds installments paid). The whitepaper's "Triple Veteran
+          // Default produces 3 calotes + positive solvency" claim relies
+          // on the seizure side cancelling the loss side.
           ledger[m].status = "calote_pos";
           const diff = ledger[m].received - paidSoFar;
           if (diff > 0) {
             ledger[m].lossCaused = diff;
             totalLoss += diff;
-          } else {
-            ledger[m].retained = Math.abs(diff);
+          }
+
+          // Escrow seizure: full escrow minus the part already dripped
+          // to the member pre-default. `received` aggregates upfront +
+          // escrow drips + stake refund; subtracting upfront + the
+          // tracked stake refund isolates how much escrow has dripped.
+          const escrowDrippedToMember = Math.max(
+            0,
+            ledger[m].received - upfrontTotal - ledger[m].stakeRefunded,
+          );
+          const escrowSeized = Math.max(
+            0,
+            escrowTotal - escrowDrippedToMember,
+          );
+
+          // Stake seizure: any stake not yet refunded is forfeit. For the
+          // canonical post-contemplation default (default before refund
+          // window opens), this is the full stake.
+          const stakeSeized = Math.max(0, stake - ledger[m].stakeRefunded);
+
+          const totalSeized = escrowSeized + stakeSeized;
+          ledger[m].retained = totalSeized;
+          totalRetained += totalSeized;
+
+          // If `diff <= 0` (i.e. member paid more than received — only
+          // possible if they defaulted DURING the escrow drip phase
+          // before fully recovering their upfront-equivalent), credit the
+          // surplus to retained as well — same convention as before.
+          if (diff <= 0) {
+            ledger[m].retained += Math.abs(diff);
             totalRetained += Math.abs(diff);
           }
         }
