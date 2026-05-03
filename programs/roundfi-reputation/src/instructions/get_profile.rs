@@ -94,13 +94,25 @@ pub fn handler(ctx: Context<GetProfile>) -> Result<()> {
         // Sentinel — caller signaled "no identity linked".
         (0u8, 0u8, 0i64, false)
     } else {
-        // `Account::try_from` validates BOTH the discriminator and
-        // that the account is owned by this program, so a forged
-        // `IdentityRecord`-looking account from another program can
-        // never reach the field reads below.
+        // Manual validate-then-deserialize instead of
+        // `Account::try_from(&info)` — the typed-Account path runs into
+        // a newer-rustc lifetime conflict between the
+        // `Context.remaining_accounts` lifetime and the accounts-struct
+        // lifetime when the AccountInfo originates from a function-local
+        // binding. The two checks below replicate exactly what
+        // `Account::try_from` does internally:
+        //   1. owner == this program (anti-spoof)
+        //   2. discriminator matches (8-byte prefix on Anchor accounts)
         let info = ctx.accounts.identity_record.to_account_info();
-        let ir: Account<IdentityRecord> = Account::try_from(&info)
+        require_keys_eq!(
+            *info.owner,
+            crate::ID,
+            ReputationError::ProfileNotFound,
+        );
+        let data = info.try_borrow_data()?;
+        let ir = IdentityRecord::try_deserialize(&mut &data[..])
             .map_err(|_| error!(ReputationError::ProfileNotFound))?;
+        drop(data);
         // Cross-check the record belongs to the profile's wallet —
         // otherwise a caller could pair any profile with any
         // identity record to forge a verified projection.

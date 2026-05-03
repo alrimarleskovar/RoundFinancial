@@ -24,14 +24,14 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 use crate::constants::*;
 use crate::error::ReputationError;
 use crate::state::{
-    Attestation, IdentityRecord, IdentityStatus, ReputationConfig, ReputationProfile,
+    Attestation, IdentityRecord, IdentityStatus, Payload, ReputationConfig, ReputationProfile,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AttestArgs {
     pub schema_id: u16,
     pub nonce:     u64,
-    pub payload:   [u8; ATTESTATION_PAYLOAD_LEN],
+    pub payload:   Payload,
     /// Pool PDA key (used to derive `(subject, pool)` default-sticky
     /// check via the payload; caller must include it here so we can
     /// verify the issuer signer matches pool-PDA derivation).
