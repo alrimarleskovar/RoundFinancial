@@ -110,27 +110,25 @@ jobs:
         # 0.30 + Agave 2.x are validated end-to-end, drop the `|| true`
         # and add `--ignore RUSTSEC-...` for any persistently-flagged ID.
 
-  # ─── 4. Anchor lane (allowed-failure) ────────────────────────────────
-  # Full `anchor build` + bankrun integration suite. Currently allowed to
-  # fail because the WSL toolchain alignment is still in flight (PRs #121,
-  # #125, #127, #129). Flip `continue-on-error` to false once a green run
-  # confirms Agave 3.x + Anchor 0.30.1 are reproducibly building in CI.
+  # ─── 4. Anchor lane (required) ───────────────────────────────────────
+  # `anchor build --no-idl` against Agave 3.0.0 + Anchor 0.30.1.
+  # Toolchain alignment landed in PR #138 (Anchor.toml + Cargo.lock pins);
+  # codebase fixes landed in PR #139 (Payload newtype, get_profile
+  # lifetime, mpl-core 0.8.0 pin). The lane is now required — a red badge
+  # here means a real regression, not toolchain drift.
+  #
+  # `pnpm test:bankrun` is deliberately NOT run here yet. The bankrun
+  # harness in `tests/_harness/bankrun.ts` loads `target/idl/*.json`,
+  # but `--no-idl` skips that generation. The full IDL build path
+  # invokes anchor-syn which calls the removed `Span::source_file()` API
+  # — fixed in Anchor 0.31+. Once we bump anchor or land a workaround,
+  # bankrun goes back into this lane as required.
   anchor:
-    name: anchor · build + bankrun (allowed to fail)
+    name: anchor · build
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Enable Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.12.0 --activate
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -161,18 +159,19 @@ jobs:
           cargo install --git https://github.com/coral-xyz/anchor \
             --tag v0.30.1 anchor-cli
 
-      - name: pnpm install
-        run: pnpm install --no-frozen-lockfile
-
       - name: anchor build (--no-idl)
         # `--no-idl` skips the IDL build step. anchor-syn 0.30.1's
         # IDL builder calls `Span::source_file()` which was removed
-        # from stable rustc; until anchor 0.31 lands the fix, IDL
-        # generation must run on a pinned older rustc. The committed
-        # Cargo.lock pins solana-program 1.18.26 + blake3 1.5.0 so the
-        # SBF target compile itself is reproducible against
+        # from stable rustc; until Anchor 0.31 lands the fix, IDL
+        # generation can't run. The committed Cargo.lock pins
+        # solana-program 1.18.26 + blake3 1.5.0 + mpl-core 0.8.0 so
+        # the SBF target compile itself is reproducible against
         # platform-tools v1.51 cargo 1.84.
         run: anchor build --no-idl
 
-      - name: bankrun integration suite
-        run: pnpm test:bankrun
+      # NOTE: `pnpm test:bankrun` is intentionally not in this lane.
+      # The bankrun harness loads `target/idl/*.json`, which `--no-idl`
+      # skips. Adds back as a required step once Anchor 0.31 (or a
+      # workaround) restores IDL generation. Tracking the gap as a
+      # follow-up — not a regression hidden behind an `allowed-to-fail`
+      # mask.
