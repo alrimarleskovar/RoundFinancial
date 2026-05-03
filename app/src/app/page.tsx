@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -299,11 +300,19 @@ export default function LandingPage() {
                   }}
                 >
                   <div className="aspect-square w-full relative overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={c.src}
-                      alt=""
-                      className="w-full h-full object-cover"
+                      alt={t(`landing.cofi.card.${c.key}.title`)}
+                      fill
+                      // 1 column on mobile (~100vw), 3 columns on md+ (~33vw).
+                      // Lets next/image generate the right srcSet and skip
+                      // serving a 1.5 MB PNG to a 400px-wide phone viewport.
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="object-cover"
+                      // First card is above-the-fold on most viewports;
+                      // priority hint avoids a frame-1 layout shift on the
+                      // hero LCP. Other two stay lazy.
+                      priority={i === 0}
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display =
                           "none";
@@ -808,10 +817,18 @@ export default function LandingPage() {
                   className="grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all flex items-center"
                   title={p.alt}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={p.src}
                     alt={p.alt}
+                    width={120}
+                    height={28}
+                    // SVGs aren't run through the optimizer (Next.js
+                    // disables that by default for security). Hint
+                    // avoids a console warning + matches semantics.
+                    unoptimized
+                    // h-5 / md:h-7 + w-auto from Tailwind override the
+                    // explicit width/height so the partner logo keeps
+                    // its native aspect ratio at the design height.
                     className="h-5 md:h-7 w-auto"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).style.display = "none";
