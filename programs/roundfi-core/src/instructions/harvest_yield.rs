@@ -111,7 +111,28 @@ pub struct HarvestYield<'info> {
     )]
     pub treasury_usdc: Account<'info, TokenAccount>,
 
-    /// CHECK: Untrusted adapter-side vault.
+    /// CHECK: Adapter-side vault holding the deposited principal +
+    /// pending yield. Intentionally `UncheckedAccount` — we do NOT
+    /// enforce `owner == pool.yield_adapter` here for two reasons:
+    ///
+    ///   1. The adapter program ID is enforced separately via
+    ///      `yield_adapter_program.key() == pool.yield_adapter`
+    ///      inside `invoke_adapter` (see `cpi/yield_adapter.rs`).
+    ///   2. The vault's authority topology is adapter-defined (e.g.
+    ///      Kamino uses a strategy PDA as authority; the mock uses
+    ///      its own state PDA). Hard-coding owner here would require
+    ///      a per-adapter switch and re-introduce the trust we've
+    ///      already moved into the program-id pin.
+    ///
+    /// What protects us instead is the **delta-balance** mitigation:
+    /// we snapshot `yield_vault_before` + `vault_before`, run the CPI,
+    /// then assert `yield_vault_drop <= realized + 1` (catches an
+    /// adapter that drains principal as if it were yield) and the
+    /// caller-provided `min_realized_usdc` slippage guard (catches an
+    /// adapter that under-reports yield to pocket the difference).
+    /// Together those make `yield_vault.owner` immaterial — the
+    /// authoritative number is the post-CPI delta on `pool_usdc_vault`,
+    /// which IS owner-checked (it's an Anchor `TokenAccount`).
     #[account(mut)]
     pub yield_vault: UncheckedAccount<'info>,
 

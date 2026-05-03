@@ -107,9 +107,30 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
         (1..=3).contains(&args.reputation_level),
         RoundfiError::InvalidReputationLevel,
     );
+    // ─── metadata_uri validation (audit hardening) ────────────────────
+    // (a) Non-empty: an empty string would mint an unviewable NFT and
+    //     waste the slot.
+    // (b) Length cap: MAX_URI_LEN = 200 bytes mirrors mpl-core 0.8's
+    //     internal asset URI ceiling. `len()` is BYTE length — for
+    //     unicode URIs the visible-char count may be smaller, which
+    //     is the conservative direction.
+    // (c) Scheme allow-list: must start with one of the supported
+    //     schemes (https://, ipfs://, ar://). Catches typos like
+    //     "ipsf://..." that mpl-core would mint successfully but no
+    //     wallet/explorer can resolve.
+    require!(
+        !args.metadata_uri.is_empty(),
+        RoundfiError::MetadataUriTooLong, // reuse — "invalid length" covers empty too
+    );
     require!(
         args.metadata_uri.len() <= MAX_URI_LEN,
         RoundfiError::MetadataUriTooLong,
+    );
+    require!(
+        args.metadata_uri.starts_with("https://")
+            || args.metadata_uri.starts_with("ipfs://")
+            || args.metadata_uri.starts_with("ar://"),
+        RoundfiError::MetadataUriInvalidScheme,
     );
 
     let stake_bps = stake_bps_for_level(args.reputation_level)

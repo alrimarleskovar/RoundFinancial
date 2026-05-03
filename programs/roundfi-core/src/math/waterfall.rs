@@ -120,12 +120,25 @@ pub fn guarantee_fund_cap(
 
 /// How much room the GF has before hitting its cap.
 /// Returns 0 if the fund is already at-or-above the cap.
+///
+/// Audit hardening: `current > cap` is technically possible if the
+/// protocol authority lowered `guarantee_fund_bps` AFTER the GF had
+/// already been topped up under a higher cap. Not exploitable (the
+/// `saturating_sub` clamps to 0 — no underflow), but we emit an
+/// explicit `msg!` so on-chain monitoring catches the inconsistency
+/// and the team can reconcile via governance.
 pub fn guarantee_fund_room(
     total_protocol_fee_accrued: u64,
     current_gf_balance: u64,
     guarantee_fund_bps: u16,
 ) -> Result<u64> {
     let cap = guarantee_fund_cap(total_protocol_fee_accrued, guarantee_fund_bps)?;
+    if current_gf_balance > cap {
+        msg!(
+            "roundfi-core: WARN guarantee_fund_room current={} > cap={} (bps={}); clamping room to 0",
+            current_gf_balance, cap, guarantee_fund_bps,
+        );
+    }
     Ok(cap.saturating_sub(current_gf_balance))
 }
 
