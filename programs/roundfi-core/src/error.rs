@@ -105,6 +105,10 @@ pub enum RoundfiError {
     TreasuryTimelockActive,
     #[msg("A treasury rotation is already pending — cancel it first")]
     TreasuryProposalAlreadyPending,
+    #[msg("Post-CPI verification: asset owner is not the buyer after transfer")]
+    AssetTransferIncomplete,
+    #[msg("Post-CPI verification: asset is not frozen after re-freeze step")]
+    AssetNotRefrozen,
     #[msg("Pool has outstanding defaults — cannot close")]
     OutstandingDefaults,
     #[msg("Yield adapter not configured for this pool")]

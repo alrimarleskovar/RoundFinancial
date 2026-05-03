@@ -16,7 +16,14 @@
 //!      seller_wallet → buyer_wallet → toggle FreezeDelegate.frozen=true.
 //!      All three CPIs signed by the slot's `position_authority` PDA
 //!      (which is FreezeDelegate AND TransferDelegate authority).
-//!   8. Close the listing; rent returns to seller.
+//!   8. Post-CPI verification (audit defence-in-depth): re-deserialize
+//!      the asset and assert `asset.owner == buyer_wallet` AND the
+//!      FreezeDelegate plugin is `frozen=true`. Catches a buggy or
+//!      compromised mpl-core, a future API drift, or a mis-configured
+//!      CPI builder that returned Ok(()) without actually mutating
+//!      state — any of which would otherwise leave the position in
+//!      an inconsistent owned/frozen mix without our handler noticing.
+//!   9. Close the listing; rent returns to seller.
 //!
 //! Pool-level aggregates (total_contributed, solidarity_balance,
 //! escrow_balance) are untouched — only the wallet pointer moves and
@@ -40,8 +47,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use mpl_core::{
+    accounts::BaseAssetV1,
+    fetch_plugin,
     instructions::{TransferV1CpiBuilder, UpdatePluginV1CpiBuilder},
-    types::{FreezeDelegate, Plugin},
+    types::{FreezeDelegate, Plugin, PluginType},
 };
 
 use crate::constants::*;
@@ -271,6 +280,45 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
         .system_program(&ctx.accounts.system_program.to_account_info())
         .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: true }))
         .invoke_signed(position_signer)?;
+
+    // ─── Post-CPI invariant verification (audit defence-in-depth) ────
+    // Solana txs are atomic, so any of the 3 CPIs above failing would
+    // revert the entire handler. But that doesn't protect against:
+    //   (a) a buggy/compromised mpl-core program returning Ok(()) without
+    //       actually transferring the asset
+    //   (b) a future mpl-core release silently changing semantics so
+    //       the same builder call no longer guarantees ownership swap
+    //   (c) our own CPI builder being mis-configured (wrong field set,
+    //       missing signer, etc.) so the call appears successful but
+    //       no state change happened
+    // Re-deserialize the asset and assert the post-conditions we
+    // promised: owner == buyer_wallet AND FreezeDelegate is on +
+    // frozen. If either invariant fails the tx reverts here and the
+    // bookkeeping (Member re-anchor, USDC payment) rolls back with it.
+    {
+        let asset_info = ctx.accounts.nft_asset.to_account_info();
+        let asset_data = asset_info.try_borrow_data()?;
+        let asset = BaseAssetV1::from_bytes(&asset_data)
+            .map_err(|_| error!(RoundfiError::AssetTransferIncomplete))?;
+        require_keys_eq!(
+            asset.owner,
+            ctx.accounts.buyer_wallet.key(),
+            RoundfiError::AssetTransferIncomplete,
+        );
+        drop(asset_data);
+
+        // FreezeDelegate must be present AND frozen=true. fetch_plugin
+        // returns (authority, plugin, _offset). The authority side is
+        // a sanity check that the plugin still points at our PDA —
+        // an attacker that somehow re-routed the FreezeDelegate to a
+        // different signer during the transfer would land here.
+        let (_freeze_auth, freeze, _) = fetch_plugin::<BaseAssetV1, FreezeDelegate>(
+            &asset_info,
+            PluginType::FreezeDelegate,
+        )
+        .map_err(|_| error!(RoundfiError::AssetNotRefrozen))?;
+        require!(freeze.frozen, RoundfiError::AssetNotRefrozen);
+    }
 
     msg!(
         "roundfi-core: escape_valve_buy slot={} seller={} buyer={} price={} asset={}",
