@@ -79,6 +79,8 @@ The protocol's economic spec is encoded in a **pure-TypeScript actuarial simulat
 
 **33 L1 tests green** under `pnpm run test:economic-parity-l1` covering: input refactor (credit-amount as primary), toggleCell click semantics, escrow gating on default month, stake cashback phase, net-solvency identity, capital structure invariants, mature-group acceleration (5/4/3 → 3/2/1), Escape Valve `"E"` cell architecture, and the 4-tier waterfall split.
 
+**L1 ↔ L2 parity validated on-chain (Healthy preset).** The `Healthy` matrix from `runSimulation()` is now driven end-to-end against `roundfi-core` and asserts per-member USDC delta on-chain ≡ L1 net within ε = 1 USDC base unit. Pre-default / Post-default / Cascade unlock mechanically once the canary turns green organically; the matrix-driver harness already supports all four preset shapes.
+
 ## Repository Layout
 
 ```
