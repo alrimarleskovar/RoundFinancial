@@ -32,14 +32,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+          pnpm --version
 
       - name: pnpm install
         run: pnpm install --no-frozen-lockfile
@@ -76,7 +77,11 @@ jobs:
   # known transient advisories from solana-program 1.x deps until the
   # Anza Agave 2.x migration completes.
   audit:
-    name: audit · cargo-audit
+    # Job name explicitly says "advisory" so the badge / status checks
+    # never lie: `cargo audit` runs with `|| true` (warn-only) until
+    # the Solana 1.18 / mpl-core 0.8 transitive advisories are
+    # resolved post-Agave-2.x migration. Hide-nothing naming.
+    name: audit · cargo-audit (advisory)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -118,14 +123,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
 
       - uses: dtolnay/rust-toolchain@stable
 
