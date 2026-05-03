@@ -138,6 +138,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.offers.col.action": "",
     "market.offers.cta.buy": "Comprar",
     "market.offers.purchased": "Comprado",
+    "market.offers.empty.title": "Nenhuma posição à venda",
+    "market.offers.empty.sub": "Quando alguém precisar de liquidez antes do prazo, a oferta vai aparecer aqui.",
     "market.purchases.title": "◆ Minhas compras",
     "market.purchases.count": "{n} cota(s) adquirida(s)",
     "market.purchases.empty":
@@ -802,6 +804,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.tx.recent": "◆ Atividade recente",
     "wallet.tx.all": "◆ Todas as transações",
     "wallet.tx.seeAll": "Ver tudo →",
+    "wallet.tx.empty.title": "Carteira ainda zerada",
+    "wallet.tx.empty.sub": "Movimentos de USDC, parcelas e yield aparecem aqui em tempo real.",
     "wallet.sell": "Vender",
     "wallet.expires": "expira {d}",
     // wallet menus / errors
@@ -1011,6 +1015,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.offers.col.action": "",
     "market.offers.cta.buy": "Buy",
     "market.offers.purchased": "Owned",
+    "market.offers.empty.title": "No positions for sale yet",
+    "market.offers.empty.sub": "When a member needs liquidity before maturity, their listing will surface here.",
     "market.purchases.title": "◆ My purchases",
     "market.purchases.count": "{n} share(s) acquired",
     "market.purchases.empty":
@@ -1671,6 +1677,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.positions.c": "{n} positions",
     "wallet.tx.recent": "◆ Recent activity",
     "wallet.tx.all": "◆ All transactions",
+    "wallet.tx.empty.title": "Wallet's still empty",
+    "wallet.tx.empty.sub": "USDC moves, installments and yield show up here in real time.",
     "wallet.tx.seeAll": "See all →",
     "wallet.sell": "Sell",
     "wallet.expires": "expires {d}",

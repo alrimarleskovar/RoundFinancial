@@ -2,6 +2,7 @@
 
 import type { BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { MonoLabel } from "@/components/brand/brand";
+import { NoListingsYet } from "@/components/mercado/NoListingsYet";
 import { MARKET_OFFERS } from "@/data/market";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -49,28 +50,32 @@ export function OffersTable({
         </span>
       </div>
 
-      <div
-        style={{
-          marginTop: 14,
-          display: "grid",
-          gridTemplateColumns: "60px 1.3fr 1fr 1fr 1fr auto",
-          gap: 12,
-          padding: "0 12px 8px",
-          borderBottom: `1px solid ${tokens.border}`,
-          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-          fontSize: 9,
-          color: tokens.muted,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-        }}
-      >
-        <span>{t("market.offers.col.share")}</span>
-        <span>{t("market.offers.col.group")}</span>
-        <span>{t("market.offers.col.face")}</span>
-        <span>{t("market.offers.col.price")}</span>
-        <span>{t("market.offers.col.disc")}</span>
-        <span />
-      </div>
+      {MARKET_OFFERS.length === 0 && <NoListingsYet />}
+
+      {MARKET_OFFERS.length > 0 && (
+        <div
+          style={{
+            marginTop: 14,
+            display: "grid",
+            gridTemplateColumns: "60px 1.3fr 1fr 1fr 1fr auto",
+            gap: 12,
+            padding: "0 12px 8px",
+            borderBottom: `1px solid ${tokens.border}`,
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontSize: 9,
+            color: tokens.muted,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+          }}
+        >
+          <span>{t("market.offers.col.share")}</span>
+          <span>{t("market.offers.col.group")}</span>
+          <span>{t("market.offers.col.face")}</span>
+          <span>{t("market.offers.col.price")}</span>
+          <span>{t("market.offers.col.disc")}</span>
+          <span />
+        </div>
+      )}
 
       {MARKET_OFFERS.map((o, i) => {
         const purchased = purchasedSet.has(o.id);
