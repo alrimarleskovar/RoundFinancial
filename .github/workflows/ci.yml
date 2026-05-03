@@ -138,24 +138,41 @@ jobs:
         with:
           shared-key: anchor-bpf
 
-      - name: Install Solana Agave (stable)
+      - name: Install Solana Agave 3.0.0 (pinned)
+        # Stable channel had platform-tools download issues mid-2026
+        # ("missing platform-tools/rust/lib"). 3.0.0 is the last
+        # known-good version that reliably downloads platform-tools
+        # v1.51 on a fresh ubuntu-latest runner.
         run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
       - name: Verify solana CLI
         run: solana --version
 
       - name: Install Anchor 0.30.1
+        # `--locked` fails on Rust 1.85+ because anchor's pinned `time`
+        # crate doesn't compile (E0282 type inference). Without
+        # `--locked`, cargo resolves a compatible newer `time`.
         run: |
           cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli --locked
+            --tag v0.30.1 anchor-cli
 
       - name: pnpm install
         run: pnpm install --no-frozen-lockfile
 
-      - name: anchor build
-        run: anchor build
+      - name: anchor build (--no-idl)
+        # `--no-idl` skips the IDL build step. anchor-syn 0.30.1's
+        # IDL builder calls `Span::source_file()` which was removed
+        # from stable rustc; until anchor 0.31 lands the fix, IDL
+        # generation must run on a pinned older rustc. The committed
+        # Cargo.lock pins solana-program 1.18.26 + blake3 1.5.0 so the
+        # SBF target compile itself is reproducible against
+        # platform-tools v1.51 cargo 1.84.
+        run: anchor build --no-idl
 
       - name: bankrun integration suite
         run: pnpm test:bankrun

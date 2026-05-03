@@ -1,6 +1,14 @@
-[toolchain]
-anchor_version = "0.30.1"
-solana_version = "1.18.17"
+# `[toolchain]` block intentionally omitted. PR #121 bumped the
+# workspace to Anza Agave 2.x (stable channel) for edition2024
+# transitive deps; pinning a `solana_version` here would trigger
+# `solana-install init <ver>` before every build, which (a) requires
+# the user to have the legacy 1.x cached locally, and (b) overwrites
+# whatever Agave 2.x they installed for the CI lane.
+#
+# `anchor build` now uses whichever `solana` is in PATH, matching the
+# `programs/roundfi-core/Cargo.toml` `mpl-core 0.8` constraint and the
+# `.github/workflows/ci.yml` anchor lane (which installs Agave stable
+# on a fresh ubuntu-latest runner). Same toolchain everywhere.
 
 [features]
 resolution = true
