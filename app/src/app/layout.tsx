@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, JetBrains_Mono, Syne } from "next/font/google";
 
 import "./globals.css";
@@ -33,6 +33,30 @@ export const metadata: Metadata = {
   title: "RoundFi — Cooperative credit, on-chain",
   description:
     "On-chain ROSCA protocol on Solana: behavioral credit, reputation-weighted stake, transparent lifecycle.",
+};
+
+// Explicit viewport (Next.js 14 app-router export). Renders to:
+//   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+//   <meta name="theme-color" content="#06090F">
+//   <meta name="color-scheme" content="dark">
+//
+// Notes:
+//   - `width: "device-width"` + `initialScale: 1` is the standard
+//     mobile baseline; without it, mobile Safari/Chrome render at a
+//     980px desktop width and zoom out, breaking everything.
+//   - We deliberately do NOT set `maximumScale` or `userScalable: false`
+//     — pinching to zoom is a baseline a11y guarantee for users with
+//     low vision; locking it would be a WCAG 2.1 violation.
+//   - `viewportFit: "cover"` lets the layout extend into the iOS notch
+//     / safe-area insets so the dark palette reaches edge-to-edge.
+//   - `themeColor` + `colorScheme` mirror the brand ground color
+//     (#06090F) so the iOS Safari URL bar + browser chrome blend in.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#06090F",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({

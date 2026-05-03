@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Icons } from "@/components/brand/icons";
@@ -10,6 +10,28 @@ import { useTheme } from "@/lib/theme";
 // Generic modal: backdrop + centered dialog, Esc + click-outside
 // closes, framer-motion entrance/exit. Renders into a portal so the
 // dialog escapes any sticky/overflow ancestors.
+//
+// A11y (added in PR #135 — focus trap pass):
+//   - `role="dialog"` + `aria-modal="true"` (already there)
+//   - `aria-labelledby` links the title to the dialog so screen readers
+//     announce it on focus
+//   - Autofocus: dialog gets focus on mount (tabIndex={-1}) so screen
+//     readers read the title and Tab navigates inside
+//   - Focus trap: Tab + Shift+Tab cycle through focusable elements
+//     inside the dialog only — keyboard users can't tab into the
+//     content behind the backdrop
+//   - Focus restoration: when the modal closes, focus returns to the
+//     element that was active before opening (typically the trigger
+//     button), matching native `<dialog>` semantics
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 export function Modal({
   open,
@@ -29,19 +51,90 @@ export function Modal({
   closeable?: boolean;
 }) {
   const { tokens, isDark } = useTheme();
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  // Element that had focus before the modal opened — restored on close.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
+
+    // ─── (1) capture the trigger so we can restore focus on close ──
+    previouslyFocusedRef.current =
+      (document.activeElement as HTMLElement | null) ?? null;
+
+    // ─── (2) move focus into the dialog ───────────────────────────
+    // Schedule via rAF so the framer-motion mount completes first
+    // and the dialog ref is attached. Falls back to setTimeout for
+    // environments without rAF.
+    const focusDialog = () => {
+      if (dialogRef.current && document.activeElement !== dialogRef.current) {
+        dialogRef.current.focus();
+      }
+    };
+    const raf =
+      typeof requestAnimationFrame !== "undefined"
+        ? requestAnimationFrame(focusDialog)
+        : (setTimeout(focusDialog, 0) as unknown as number);
+
+    // ─── (3) keyboard handling: Esc + Tab/Shift+Tab focus trap ────
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && closeable) onClose();
+      if (e.key === "Escape" && closeable) {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusables = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter(
+        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+      );
+      if (focusables.length === 0) {
+        // No interactive children — keep focus on the dialog itself.
+        e.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement as HTMLElement | null;
+
+      // If focus has somehow escaped the dialog (e.g. clicked the
+      // backdrop and tabbed), pull it back to the first focusable.
+      if (!active || !dialogRef.current.contains(active)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
-    // Lock body scroll while modal is open.
+
+    // ─── (4) lock body scroll while modal is open ─────────────────
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
+      if (typeof cancelAnimationFrame !== "undefined") {
+        cancelAnimationFrame(raf);
+      } else {
+        clearTimeout(raf);
+      }
+      // ─── (5) restore focus to the trigger ──────────────────────
+      // Guard against the previous element being detached (e.g. if
+      // a route change happened while the modal was open).
+      const prev = previouslyFocusedRef.current;
+      if (prev && document.body.contains(prev)) {
+        prev.focus();
+      }
     };
   }, [open, onClose, closeable]);
 
@@ -69,8 +162,11 @@ export function Modal({
           }}
         >
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -88,6 +184,7 @@ export function Modal({
               padding: 22,
               fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
               color: tokens.text,
+              outline: "none", // tabIndex={-1} adds an outline by default
             }}
           >
             <div
@@ -101,6 +198,7 @@ export function Modal({
             >
               <div style={{ minWidth: 0 }}>
                 <div
+                  id={titleId}
                   style={{
                     fontFamily: "var(--font-syne), Syne",
                     fontSize: 22,
