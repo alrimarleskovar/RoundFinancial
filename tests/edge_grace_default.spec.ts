@@ -293,7 +293,7 @@ describe("edge — grace-period default (bankrun setClock)", function () {
 
     let threw = false;
     try {
-      await env.programs.core.methods
+      await (env.programs.core.methods as any)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .settleDefault({ cycle: DEFAULT_CYCLE_ARG } as any)
         .accounts(settleAccounts())
@@ -327,7 +327,7 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     const solidarityVaultBefore = await readTokenBalance(env, solidarityVault);
     const escrowVaultBefore     = await readTokenBalance(env, escrowVault);
 
-    await env.programs.core.methods
+    await (env.programs.core.methods as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .settleDefault({ cycle: DEFAULT_CYCLE_ARG } as any)
       .accounts(settleAccounts())
@@ -412,7 +412,7 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     // the default state transition is one-directional.
     let threw = false;
     try {
-      await env.programs.core.methods
+      await (env.programs.core.methods as any)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .settleDefault({ cycle: DEFAULT_CYCLE_ARG } as any)
         .accounts(settleAccounts())

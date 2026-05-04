@@ -151,7 +151,7 @@ export async function createPool(
   const solidarityVault = getAssociatedTokenAddressSync(opts.usdcMint, solidarityVaultAuthority, true);
   const yieldVault      = getAssociatedTokenAddressSync(opts.usdcMint, yieldVaultAuthority, true);
 
-  await env.programs.core.methods
+  await (env.programs.core.methods as any)
     .createPool({
       seedId:            new BN(seedId.toString()),
       membersTarget:     membersTarget,
@@ -243,7 +243,7 @@ export async function joinPool(
   // pre-bump the budget to avoid flaky CI failures.
   const bumpCu = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
 
-  await env.programs.core.methods
+  await (env.programs.core.methods as any)
     .joinPool({
       slotIndex: opts.slotIndex,
       reputationLevel: opts.reputationLevel,

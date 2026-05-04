@@ -214,17 +214,17 @@ export function toggleCell(
 ): MatrixCell[][] {
   const N = matrix.length;
   const next = matrix.map((r) => [...r]);
-  const current = next[row][col];
-  const existingContemplationCol = next[row].findIndex((c) => c === "C");
+  const current = next[row]![col];
+  const existingContemplationCol = next[row]!.findIndex((c) => c === "C");
 
   if (current === "X") {
     // Revert this cycle and everything after it back to P. Any C
     // sitting before `col` is preserved (X can't appear before its
     // own row's C — that's enforced by the other branches).
-    for (let j = col; j < N; j++) next[row][j] = "P";
+    for (let j = col; j < N; j++) next[row]![j] = "P";
   } else if (current === "C") {
     // Cancel contemplation. Just turn the cell into P.
-    next[row][col] = "P";
+    next[row]![col] = "P";
   } else if (
     existingContemplationCol >= 0 &&
     col > existingContemplationCol
@@ -233,15 +233,15 @@ export function toggleCell(
     // Preserves the contemplation at existingContemplationCol so
     // `runSimulation` sees `monthContemplated > 0` and flags this
     // member as `calote_pos`.
-    for (let j = col; j < N; j++) next[row][j] = "X";
+    for (let j = col; j < N; j++) next[row]![j] = "X";
   } else {
     // P before the row's C (or no C in this row): promote to C.
     // Clear any conflicting C in this column + any earlier C in
     // this row, then mark prior cells as P.
-    for (let i = 0; i < N; i++) if (next[i][col] === "C") next[i][col] = "P";
-    for (let j = 0; j < N; j++) if (next[row][j] === "C") next[row][j] = "P";
-    next[row][col] = "C";
-    for (let j = 0; j < col; j++) next[row][j] = "P";
+    for (let i = 0; i < N; i++) if (next[i]![col] === "C") next[i]![col] = "P";
+    for (let j = 0; j < N; j++) if (next[row]![j] === "C") next[row]![j] = "P";
+    next[row]![col] = "C";
+    for (let j = 0; j < col; j++) next[row]![j] = "P";
   }
 
   return next;
@@ -270,14 +270,14 @@ export function toggleCellEscape(
 ): MatrixCell[][] {
   const N = matrix.length;
   const next = matrix.map((r) => [...r]);
-  const current = next[row][col];
+  const current = next[row]![col];
 
   if (current === "E") {
     // Cancel escape. Revert this cell + downstream cycles to P, but
     // preserve any C that sits before col in the same row.
-    for (let j = col; j < N; j++) next[row][j] = "P";
+    for (let j = col; j < N; j++) next[row]![j] = "P";
   } else {
-    next[row][col] = "E";
+    next[row]![col] = "E";
   }
 
   return next;
@@ -357,12 +357,12 @@ export function runSimulation(
     let cyclePaidOut = 0;
 
     for (let m = 0; m < N; m++) {
-      const action = matrix[m][c - 1];
+      const action = matrix[m]![c - 1];
 
       // Find the cycle in which member m gets contemplated (if at all).
       let monthContemplated = -1;
       for (let i = 0; i < N; i++) {
-        if (matrix[m][i] === "C") monthContemplated = i + 1;
+        if (matrix[m]![i] === "C") monthContemplated = i + 1;
       }
 
       // Hoisted: payout split for this member's contemplation. Both
@@ -379,13 +379,13 @@ export function runSimulation(
 
       if (action === "P" || action === "C") {
         cycleInstallments += inst;
-        ledger[m].installmentsPaid += inst;
+        ledger[m]!.installmentsPaid += inst;
       }
 
       if (
         monthContemplated > 0 &&
         monthContemplated <= c &&
-        ledger[m].status === "ok" &&
+        ledger[m]!.status === "ok" &&
         action !== "X" &&
         action !== "E"
       ) {
@@ -415,18 +415,18 @@ export function runSimulation(
         if (payoutThisMonth > 0 || refundThisMonth > 0) {
           const total = payoutThisMonth + refundThisMonth;
           cyclePaidOut += total;
-          ledger[m].received += total;
-          ledger[m].stakeRefunded += refundThisMonth;
+          ledger[m]!.received += total;
+          ledger[m]!.stakeRefunded += refundThisMonth;
         }
       }
 
-      if (action === "X" && ledger[m].status === "ok") {
-        const paidSoFar = ledger[m].stakePaid + ledger[m].installmentsPaid;
+      if (action === "X" && ledger[m]!.status === "ok") {
+        const paidSoFar = ledger[m]!.stakePaid + ledger[m]!.installmentsPaid;
 
         if (monthContemplated === -1 || c <= monthContemplated) {
           // Pre-contemplation default: protocol keeps everything.
-          ledger[m].status = "calote_pre";
-          ledger[m].retained = paidSoFar;
+          ledger[m]!.status = "calote_pre";
+          ledger[m]!.retained = paidSoFar;
           totalRetained += paidSoFar;
         } else {
           // Post-contemplation default: TWO ledger entries flow at default
@@ -450,10 +450,10 @@ export function runSimulation(
           // exceeds installments paid). The whitepaper's "Triple Veteran
           // Default produces 3 calotes + positive solvency" claim relies
           // on the seizure side cancelling the loss side.
-          ledger[m].status = "calote_pos";
-          const diff = ledger[m].received - paidSoFar;
+          ledger[m]!.status = "calote_pos";
+          const diff = ledger[m]!.received - paidSoFar;
           if (diff > 0) {
-            ledger[m].lossCaused = diff;
+            ledger[m]!.lossCaused = diff;
             totalLoss += diff;
           }
 
@@ -463,7 +463,7 @@ export function runSimulation(
           // tracked stake refund isolates how much escrow has dripped.
           const escrowDrippedToMember = Math.max(
             0,
-            ledger[m].received - upfrontTotal - ledger[m].stakeRefunded,
+            ledger[m]!.received - upfrontTotal - ledger[m]!.stakeRefunded,
           );
           const escrowSeized = Math.max(
             0,
@@ -473,10 +473,10 @@ export function runSimulation(
           // Stake seizure: any stake not yet refunded is forfeit. For the
           // canonical post-contemplation default (default before refund
           // window opens), this is the full stake.
-          const stakeSeized = Math.max(0, stake - ledger[m].stakeRefunded);
+          const stakeSeized = Math.max(0, stake - ledger[m]!.stakeRefunded);
 
           const totalSeized = escrowSeized + stakeSeized;
-          ledger[m].retained = totalSeized;
+          ledger[m]!.retained = totalSeized;
           totalRetained += totalSeized;
 
           // If `diff <= 0` (i.e. member paid more than received — only
@@ -484,20 +484,20 @@ export function runSimulation(
           // before fully recovering their upfront-equivalent), credit the
           // surplus to retained as well — same convention as before.
           if (diff <= 0) {
-            ledger[m].retained += Math.abs(diff);
+            ledger[m]!.retained += Math.abs(diff);
             totalRetained += Math.abs(diff);
           }
         }
       }
 
-      if (action === "E" && ledger[m].status === "ok") {
+      if (action === "E" && ledger[m]!.status === "ok") {
         // Escape Valve: member sells the NFT share. They exit without
         // penalty; the protocol does NOT register a loss (a buyer
         // assumes the position in production). Phase 1 just locks the
         // member in `exited` state so their future installments and
         // escrow drips are skipped. Phase 2 wires the buyer-takeover
         // continuation into the same row's downstream cycles.
-        ledger[m].status = "exited";
+        ledger[m]!.status = "exited";
       }
     }
 
@@ -542,15 +542,15 @@ export function runSimulation(
     let outstandingStakeRefund = 0;
     let outstandingEscrow = 0;
     for (let m = 0; m < N; m++) {
-      if (ledger[m].status !== "ok") continue;
-      outstandingStakeRefund += stake - ledger[m].stakeRefunded;
+      if (ledger[m]!.status !== "ok") continue;
+      outstandingStakeRefund += stake - ledger[m]!.stakeRefunded;
 
       let monthContemplated = -1;
       for (let i = 0; i < N; i++) {
-        if (matrix[m][i] === "C") monthContemplated = i + 1;
+        if (matrix[m]![i] === "C") monthContemplated = i + 1;
       }
       if (monthContemplated > 0) {
-        const creditReceived = ledger[m].received - ledger[m].stakeRefunded;
+        const creditReceived = ledger[m]!.received - ledger[m]!.stakeRefunded;
         outstandingEscrow += Math.max(0, credit - creditReceived);
       }
     }
@@ -645,7 +645,7 @@ function withDefaults(
 ): MatrixCell[][] {
   const m = defaultMatrix(N);
   for (const { row, cycle } of defaults) {
-    for (let j = cycle - 1; j < N; j++) m[row][j] = "X";
+    for (let j = cycle - 1; j < N; j++) m[row]![j] = "X";
   }
   return m;
 }

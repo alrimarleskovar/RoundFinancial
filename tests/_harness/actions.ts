@@ -66,7 +66,7 @@ export async function contribute(
     nonce,
   );
 
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .contribute({ cycle: opts.cycle })
     .accounts({
       memberWallet: opts.member.wallet.publicKey,
@@ -114,7 +114,7 @@ export async function claimPayout(
     nonce,
   );
 
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .claimPayout({ cycle: opts.cycle })
     .accounts({
       memberWallet: opts.member.wallet.publicKey,
@@ -148,7 +148,7 @@ export async function releaseEscrow(
   env: Env,
   opts: ReleaseEscrowOpts,
 ): Promise<string> {
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .releaseEscrow({ checkpoint: opts.checkpoint })
     .accounts({
       memberWallet: opts.member.wallet.publicKey,
@@ -183,7 +183,7 @@ export async function depositIdleToYield(
   // PoolHandle.yieldVault (that one stays empty in the mock setup).
   const mockVault = yieldMockVault(env, opts.pool.pool, opts.pool.usdcMint);
 
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .depositIdleToYield({ amount: new BN(opts.amount.toString()) })
     .accounts({
       caller: caller.publicKey,
@@ -227,7 +227,7 @@ export async function harvestYield(
   const mockState = yieldMockStatePda(env, opts.pool.pool);
   const mockVault = yieldMockVault(env, opts.pool.pool, opts.pool.usdcMint);
 
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .harvestYield({
       lpShareBps: opts.lpShareBps ?? 6_500,
       minRealizedUsdc: new BN((opts.minRealizedUsdc ?? 0).toString()),
@@ -266,7 +266,7 @@ export async function closePool(
   opts: ClosePoolOpts,
 ): Promise<string> {
   const authority = opts.authority ?? opts.pool.authority;
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .closePool()
     .accounts({
       config: configPda(env),
@@ -303,7 +303,7 @@ export async function settleDefault(
     nonce,
   );
 
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .settleDefault({ cycle: opts.cycle })
     .accounts({
       caller: caller.publicKey,
@@ -351,7 +351,7 @@ export async function escapeValveList(
     env.ids.core,
   );
 
-  const signature = await env.programs.core.methods
+  const signature = await (env.programs.core.methods as any)
     .escapeValveList({ priceUsdc: new BN(opts.priceUsdc.toString()) })
     .accounts({
       sellerWallet: opts.seller.wallet.publicKey,
@@ -392,7 +392,7 @@ export async function escapeValveBuy(
   );
   const [newMember] = memberPda(env.ids.core, opts.pool.pool, opts.buyer.publicKey);
 
-  return env.programs.core.methods
+  return (env.programs.core.methods as any)
     .escapeValveBuy({ priceUsdc: new BN(opts.priceUsdc.toString()) })
     .accounts({
       buyerWallet: opts.buyer.publicKey,

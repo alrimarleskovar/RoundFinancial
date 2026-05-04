@@ -138,8 +138,10 @@ async function memberState(env: Env, member: PublicKey) {
   }>;
 }
 
-function bn(x: { toString(): string }): bigint {
-  return BigInt(x.toString());
+function bn(x: unknown): bigint {
+  // Loose `unknown` because Anchor's `account.fetch()` returns
+  // Record<string, unknown> when the IDL isn't typed end-to-end.
+  return BigInt((x as { toString(): string }).toString());
 }
 
 // ─── The test ─────────────────────────────────────────────────────────

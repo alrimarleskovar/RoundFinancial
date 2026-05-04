@@ -19,19 +19,19 @@ env:
 
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
-  # Two test suites today:
+  # Three checks today:
+  #   - TypeScript typecheck (`tsc --noEmit -p .`) — entire workspace
   #   - LifecycleEvent shape contract (test:events)
   #   - Stress Lab L1 economic-parity (test:economic-parity-l1) — 34
   #     tests against the pure-TS actuarial simulator. Includes the
-  #     "Triple Veteran Default" canonical whitepaper scenario, fixed
-  #     in the same PR that re-added it here.
+  #     "Triple Veteran Default" canonical whitepaper scenario.
   #
-  # Other pnpm tasks (lint, typecheck, test:parity) have pre-existing
-  # failures unrelated to this PR — re-adding them requires their own
-  # cleanup PRs (prettier sweep across legacy `app/public/prototype/`,
-  # fix TS errors in spec files, fix ts-node ESM resolution).
+  # Other pnpm tasks (lint, test:parity) still have pre-existing
+  # failures unrelated to this PR. Re-adding them requires:
+  #   - prettier sweep across legacy `app/public/prototype/` (lint)
+  #   - fix ts-node ESM resolution in test:parity
   js:
-    name: js · events + L1 economic-parity
+    name: js · typecheck + events + L1 economic-parity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +53,9 @@ jobs:
         # toolchain (~3K resolved deps) and historically drifts on the
         # author's WSL box. Use `--no-frozen-lockfile` until a dedicated
         # PR runs a clean `pnpm install` and re-pins the lockfile.
+
+      - name: TypeScript typecheck (workspace)
+        run: pnpm typecheck
 
       - name: LifecycleEvent canonical-types contract
         run: pnpm test:events

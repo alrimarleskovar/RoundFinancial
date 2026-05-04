@@ -250,11 +250,11 @@ describe("security — malicious inputs + PDA tampering", function () {
       cycleDurationSec:  CYCLE_DURATION_SEC,
       escrowReleaseBps:  2_500,
     });
-    [memberBHandle] = await joinMembers(
+    memberBHandle = (await joinMembers(
       env,
       poolB,
       [{ member: memberB, reputationLevel: LEVEL }],
-    );
+    ))[0]!;
 
     // Attacker holdings — a real USDC ATA they own, plus an ATA
     // under the wrong-mint for token::mint constraint tests.
@@ -301,7 +301,7 @@ describe("security — malicious inputs + PDA tampering", function () {
       ...overrides,
     };
 
-    return env.programs.core.methods
+    return (env.programs.core.methods as any)
       .contribute({ cycle })
       .accounts(accounts)
       .signers([signer])
@@ -513,7 +513,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     const before = await snapshot(env, poolA, h);
     expect(before.memberContribs).to.equal(0);
 
-    const sig = await env.programs.core.methods
+    const sig = await (env.programs.core.methods as any)
       .contribute({ cycle: 0 })
       .accounts({
         memberWallet:             h.wallet.publicKey,
