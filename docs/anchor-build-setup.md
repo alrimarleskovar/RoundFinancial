@@ -152,14 +152,90 @@ separately. The toolchain itself is unblocked at that point.
 ## CI parity
 
 `.github/workflows/ci.yml`'s `anchor` lane runs the same recipe on a
-fresh `ubuntu-latest` runner. If a step fails in your WSL but passes in
-CI (or vice versa), check:
+fresh `ubuntu-latest` runner. The lane is **required** today (no
+`continue-on-error`) — green there means a fresh ubuntu can reproduce
+what we get on WSL. If a step fails in your WSL but passes in CI
+(or vice versa), check:
 
 1. The committed `Cargo.lock` matches what's on `main` (don't run
    `cargo update` casually — run the precise pins above).
 2. `Anchor.toml` does NOT have a `[toolchain]` block.
 3. Your `solana --version` reports `2.x` or `3.x`, not `1.x`.
 
-The CI lane is `continue-on-error: true` until the borsh array fix
-lands; once it does, flip the lane to required so future regressions
-are caught at PR time.
+---
+
+## Why bankrun isn't in CI yet
+
+`pnpm test:bankrun` exercises the full lifecycle suite against
+`solana-bankrun`. It loads `target/idl/*.json` to build typed `Program`
+handles. Those JSON files come from `anchor build` *without* `--no-idl`
+— and that path hits Pitfall **C** above (`Span::source_file()`).
+
+We investigated three solutions in depth:
+
+### Option 1 — Bump anchor 0.30 → 0.31
+
+Anchor 0.31 removed the `Span::source_file()` call upstream. But:
+
+- `mpl-core 0.8.0` (which we use for the position NFTs) hard-pins
+  `anchor-lang = "0.30.0"`. To bump anchor we must bump mpl-core to
+  0.12+ as well.
+- `mpl-core 0.12` reshapes the plugin builder (`CreateV2CpiBuilder`
+  signatures, `Plugin` enum variants) — concrete code rewrites in
+  `join_pool.rs`, `escape_valve_buy.rs`, `harvest_yield.rs`.
+- Estimated effort: 1–2 days, including re-validating the audit fixes
+  from PRs #122, #123, #124, #125, #127.
+
+Tracked as a future "mainnet upgrade" PR. Not session-time.
+
+### Option 2 — Hand-write IDL JSON files
+
+Drop ~800 lines of hand-written IDL JSON into `sdk/src/generated/`
+(one per program). Have the harness load from there instead of
+`target/idl/`. Deterministic, but:
+
+- Tedious to write correctly (instruction args, account structs,
+  error codes, type defs, all by hand).
+- Drift risk: every ABI change requires re-writing the JSON.
+- Doesn't unlock `anchor test` (which still tries to build IDL); only
+  unlocks bankrun.
+
+Tracked as a follow-up if mainnet timeline forces it.
+
+### Option 3 — Patch `anchor-syn` locally to skip `Span::source_file()`
+
+Tried this. Vendored `anchor-syn 0.30.1` and replaced the call with
+`CARGO_MANIFEST_DIR`-based path resolution. The patch compiled; it then
+surfaced a deeper requirement: our `Payload` newtype (in
+`roundfi-reputation/state/attestation.rs`, the borsh-array workaround
+from PR #139) needs manual `IdlBuild` trait impls (`get_full_path`,
+`create_type`, `insert_types`) — three methods that anchor's macros
+auto-derive but only for `#[derive(AnchorSerialize, AnchorDeserialize)]`
+types, not hand-rolled wrappers.
+
+The vendor would have to maintain those impls per anchor version.
+Net: the same maintenance burden as Option 2, with extra fragility.
+
+### Decision
+
+**Accept the gap. Document it. Move on.**
+
+What CI gates today (per PR, required):
+
+- prettier --check
+- tsc --noEmit (workspace)
+- 7 Rust↔TS parity tests
+- 2 LifecycleEvent shape tests
+- 34 Stress Lab L1 economic-parity tests (whitepaper math)
+- cargo audit (advisory)
+- `anchor build --no-idl` (SBF compile)
+
+What's missing:
+
+- bankrun integration suite (clock-warped lifecycle + escape-valve +
+  default + yield flows)
+- `anchor test` (full devnet lifecycle)
+
+These come back in the mainnet upgrade PR (Option 1). Until then,
+the L1 simulator + on-chain unit tests + property tests in
+`math/waterfall.rs` (PR #129) cover the canonical economic invariants.
