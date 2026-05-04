@@ -168,7 +168,7 @@ what we get on WSL. If a step fails in your WSL but passes in CI
 
 `pnpm test:bankrun` exercises the full lifecycle suite against
 `solana-bankrun`. It loads `target/idl/*.json` to build typed `Program`
-handles. Those JSON files come from `anchor build` *without* `--no-idl`
+handles. Those JSON files come from `anchor build` _without_ `--no-idl`
 — and that path hits Pitfall **C** above (`Span::source_file()`).
 
 We investigated three solutions in depth:
