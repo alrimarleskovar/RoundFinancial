@@ -539,7 +539,7 @@ describe("security — economic exploits + waterfall", function () {
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(U64_MAX.toString()) })
         .accounts({
           caller:              env.payer.publicKey,
@@ -570,8 +570,8 @@ describe("security — economic exploits + waterfall", function () {
     // amount <= spendable_idle (InsufficientStake). 1 passes both
     // because vault ≥ 1 and gf_balance = 0 (first harvest at cold cap).
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
-    expect(before.poolVault - before.gfBalance, "D.2 precondition: spendable ≥ 1")
-      .to.be.greaterThanOrEqual(1n);
+    expect((before.poolVault - before.gfBalance) >= 1n, "D.2 precondition: spendable ≥ 1")
+      .to.equal(true);
 
     await depositIdleToYield(env, { pool: poolY, amount: 1n });
 

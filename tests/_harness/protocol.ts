@@ -69,7 +69,7 @@ export async function initializeProtocol(
     };
   }
 
-  await env.programs.core.methods
+  await (env.programs.core.methods as any)
     .initializeProtocol({
       feeBpsYield:      opts.feeBpsYield      ?? FEES.yieldFeeBps,
       feeBpsCycleL1:    opts.feeBpsCycleL1    ?? FEES.cycleFeeL1Bps,

@@ -99,8 +99,12 @@ async function poolState(env: Env, pool: PublicKey) {
   }>;
 }
 
-function bn(x: { toString(): string }): bigint {
-  return BigInt(x.toString());
+function bn(x: unknown): bigint {
+  // Loose `unknown` because Anchor's `account.fetch()` returns
+  // Record<string, unknown> when the IDL isn't typed end-to-end.
+  // Every Anchor-deserialized field has a `.toString()` (Pubkey, BN,
+  // u64, primitives, …), so we trust that and cast at runtime.
+  return BigInt((x as { toString(): string }).toString());
 }
 
 /** Apply `bps` to `amount` with floor rounding — mirrors math::apply_bps. */

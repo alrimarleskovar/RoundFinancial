@@ -224,7 +224,7 @@ describe("reputation CPI — guards + negative paths", function () {
     // with a lookalike — yieldMock is a real, executable program, so the
     // executable guard passes but the keys-eq guard fails.
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .contribute({ cycle: 0 })
         .accounts({
           memberWallet:             h.wallet.publicKey,

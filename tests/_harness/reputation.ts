@@ -71,7 +71,7 @@ export async function initializeReputation(
     return { config, authority: env.payer.publicKey };
   }
 
-  await env.programs.reputation.methods
+  await (env.programs.reputation.methods as any)
     .initializeReputation({
       roundfiCoreProgram:  opts.coreProgram,
       civicGatewayProgram: opts.civicGatewayProgram ?? LOCALNET_CIVIC_GATEWAY,
@@ -101,7 +101,7 @@ export async function initProfile(
   const existing = await env.connection.getAccountInfo(profile, "confirmed");
   if (existing) return profile;
 
-  await env.programs.reputation.methods
+  await (env.programs.reputation.methods as any)
     .initProfile(wallet)
     .accounts({
       payer: env.payer.publicKey,
@@ -208,7 +208,7 @@ export async function adminAttest(
     opts.nonce,
   );
 
-  return env.programs.reputation.methods
+  return (env.programs.reputation.methods as any)
     .attest({
       schemaId:      opts.schemaId,
       nonce:         new BN(opts.nonce.toString()),
@@ -257,7 +257,7 @@ export async function revokeAttestation(
   opts: RevokeAttestationOpts,
 ): Promise<string> {
   const profile = reputationProfileFor(env, opts.subject);
-  return env.programs.reputation.methods
+  return (env.programs.reputation.methods as any)
     .revoke()
     .accounts({
       issuer:      opts.issuer.publicKey,
@@ -289,7 +289,7 @@ export async function promoteLevel(
 ): Promise<string> {
   const caller = opts.caller ?? env.payer;
   const profile = reputationProfileFor(env, opts.subject);
-  return env.programs.reputation.methods
+  return (env.programs.reputation.methods as any)
     .promoteLevel()
     .accounts({
       subject: opts.subject,

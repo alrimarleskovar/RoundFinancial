@@ -423,7 +423,7 @@ describe("security — state transitions + escape valve", function () {
     const deltaMemberBook = before.memberEscrowBalance - after.memberEscrowBalance;
     const deltaPoolBook   = before.poolEscrowBalance - after.poolEscrowBalance;
 
-    expect(deltaVault,      "B.4: escrow vault dropped").to.be.greaterThan(0n);
+    expect(deltaVault > 0n, "B.4: escrow vault dropped").to.equal(true);
     expect(deltaMemberUsdc, "B.4: member USDC rose by same amount").to.equal(deltaVault);
     expect(deltaMemberBook, "B.4: member.escrow_balance book drops").to.equal(deltaVault);
     expect(deltaPoolBook,   "B.4: pool.escrow_balance book drops").to.equal(deltaVault);
@@ -458,7 +458,7 @@ describe("security — state transitions + escape valve", function () {
     const [outsiderMemberPda] = memberPda(env.ids.core, poolL.pool, outsider.publicKey);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .releaseEscrow({ checkpoint: 1 })
         .accounts({
           memberWallet: outsider.publicKey,
@@ -495,7 +495,7 @@ describe("security — state transitions + escape valve", function () {
     expect(p0.status, "C.1 precondition: pool Active").to.equal(1);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .closePool()
         .accounts({
           config: configPda(env),
@@ -527,7 +527,7 @@ describe("security — state transitions + escape valve", function () {
     const p0 = await fetchPool(env, poolL.pool) as { status: number };
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .closePool()
         .accounts({
           config: configPda(env),
@@ -556,7 +556,7 @@ describe("security — state transitions + escape valve", function () {
     ).to.be.null;
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .escapeValveList({ priceUsdc: new BN(0) })
         .accounts({
           sellerWallet: seller.wallet.publicKey,
@@ -582,7 +582,7 @@ describe("security — state transitions + escape valve", function () {
     const seller = handlesEV[1]!;   // slot 1 — used throughout D.3–D.5
     const listing = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
 
-    await env.programs.core.methods
+    await (env.programs.core.methods as any)
       .escapeValveList({ priceUsdc: new BN(LISTING_PRICE.toString()) })
       .accounts({
         sellerWallet: seller.wallet.publicKey,
@@ -624,7 +624,7 @@ describe("security — state transitions + escape valve", function () {
 
     // Listing price is LISTING_PRICE; tx claims a different one.
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .escapeValveBuy({ priceUsdc: new BN((LISTING_PRICE + 1n).toString()) })
         .accounts({
           buyerWallet:  buyer.publicKey,
@@ -675,7 +675,7 @@ describe("security — state transitions + escape valve", function () {
     const fakeSellerUsdcBefore = await balanceOf(env, fakeSellerUsdc);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .escapeValveBuy({ priceUsdc: new BN(LISTING_PRICE.toString()) })
         .accounts({
           buyerWallet:  buyer.publicKey,
@@ -750,7 +750,7 @@ describe("security — state transitions + escape valve", function () {
       "D.5 precondition: buyer has no pre-existing Member row",
     ).to.be.null;
 
-    await env.programs.core.methods
+    await (env.programs.core.methods as any)
       .escapeValveBuy({ priceUsdc: new BN(LISTING_PRICE.toString()) })
       .accounts({
         buyerWallet:  buyer.publicKey,

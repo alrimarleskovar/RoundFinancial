@@ -127,8 +127,8 @@ function buildPool(): Pool {
   let aggregateEscrow = 0n;
   let poolFloat = 0n;
   for (let i = 0; i < POOL.membersTarget; i++) {
-    const level = slotAssignment[i];
-    const stakeBps = STAKE_BPS_BY_LEVEL[level];
+    const level = slotAssignment[i]!;
+    const stakeBps = STAKE_BPS_BY_LEVEL[level]!;
     const stake = applyBps(POOL.creditAmount, stakeBps);
 
     // Convention: stake is deposited into the escrow vault at join.

@@ -76,7 +76,7 @@ export async function initMockVault(
     return { state, vault, txSig: "already-initialized" };
   }
 
-  const txSig = await env.programs.yieldMock.methods
+  const txSig = await (env.programs.yieldMock.methods as any)
     .initVault()
     .accounts({
       payer: payer.publicKey,

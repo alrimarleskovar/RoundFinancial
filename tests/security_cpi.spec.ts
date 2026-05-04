@@ -333,7 +333,7 @@ describe("security — CPI + adapter abuse", function () {
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(usdc(10n).toString()) })
         .accounts({
           caller:              env.payer.publicKey,
@@ -360,7 +360,7 @@ describe("security — CPI + adapter abuse", function () {
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
         .accounts({
           caller:              env.payer.publicKey,
@@ -394,7 +394,7 @@ describe("security — CPI + adapter abuse", function () {
     // touching gf/fee/LP-share/participants — no phantom accrual.
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
-    await env.programs.core.methods
+    await (env.programs.core.methods as any)
       .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
       .accounts({
         caller:              env.payer.publicKey,
@@ -424,7 +424,7 @@ describe("security — CPI + adapter abuse", function () {
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(usdc(10n).toString()) })
         .accounts({
           caller:              env.payer.publicKey,
@@ -455,7 +455,7 @@ describe("security — CPI + adapter abuse", function () {
     const before = await snapshotYield(env, poolA, treasury, mockVaultA);
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
         .accounts({
           caller:              env.payer.publicKey,
@@ -493,7 +493,7 @@ describe("security — CPI + adapter abuse", function () {
     // is poolA (core propagates poolA's PDA as CPI signer), state.pool
     // is poolB. UnauthorizedPool → core atomic rollback.
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(usdc(10n).toString()) })
         .accounts({
           caller:              env.payer.publicKey,
@@ -546,7 +546,7 @@ describe("security — CPI + adapter abuse", function () {
     );
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .claimPayout({ cycle: 0 })
         .accounts({
           memberWallet:      h.wallet.publicKey,
@@ -597,7 +597,7 @@ describe("security — CPI + adapter abuse", function () {
     );
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .contribute({ cycle: 0 })
         .accounts({
           memberWallet:             h.wallet.publicKey,
@@ -649,7 +649,7 @@ describe("security — CPI + adapter abuse", function () {
     );
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .contribute({ cycle: 0 })
         .accounts({
           memberWallet:             h.wallet.publicKey,
@@ -701,7 +701,7 @@ describe("security — CPI + adapter abuse", function () {
     );
 
     const msg = await expectRejected(() =>
-      env.programs.core.methods
+      (env.programs.core.methods as any)
         .contribute({ cycle: wrongCycle })
         .accounts({
           memberWallet:             h.wallet.publicKey,
