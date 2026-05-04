@@ -65,8 +65,8 @@ export interface PoolConfig {
   memberNames: string[];
   /** Per-member reputation level. Defaults to L1 (50% stake). */
   reputationLevels?: (1 | 2 | 3)[];
-  installmentAmount: bigint;   // base units
-  creditAmount: bigint;        // base units
+  installmentAmount: bigint; // base units
+  creditAmount: bigint; // base units
   cyclesTotal: number;
   cycleDurationSec: number;
   /** 0–10000 bps. Defaults to FEES.escrowReleaseBps (2500 = 25% per milestone). */
@@ -138,7 +138,10 @@ function counter(): {
 }
 
 function both(a: EventSink, b: EventSink): EventSink {
-  return (e) => { a(e); b(e); };
+  return (e) => {
+    a(e);
+    b(e);
+  };
 }
 
 async function phase<T>(
@@ -175,9 +178,7 @@ function computeDefaultFunding(cfg: PoolConfig): bigint {
 
 // ─── Main entry point ────────────────────────────────────────────────
 
-export async function lifecycleDemo(
-  config: LifecycleDemoConfig,
-): Promise<LifecycleDemoResult> {
+export async function lifecycleDemo(config: LifecycleDemoConfig): Promise<LifecycleDemoResult> {
   const { client, authority } = config;
   const { wrap: counterSink, stats } = counter();
   const sink: EventSink = both(config.sink, counterSink);
@@ -187,8 +188,8 @@ export async function lifecycleDemo(
     const airdropLamports = config.airdropLamports ?? 1_000_000_000; // 1 SOL
     const wallets: PublicKey[] = [authority.publicKey];
     const members = buildMembers({
-      names:             config.pool.memberNames,
-      reputationLevels:  config.pool.reputationLevels,
+      names: config.pool.memberNames,
+      reputationLevels: config.pool.reputationLevels,
     });
     for (const m of members) wallets.push(m.wallet.publicKey);
 
@@ -197,17 +198,11 @@ export async function lifecycleDemo(
     }
 
     const usdcMint =
-      config.usdcMint ??
-      (await createDemoUsdcMint(client.connection, authority, sink));
+      config.usdcMint ?? (await createDemoUsdcMint(client.connection, authority, sink));
 
     const treasury =
       config.treasury ??
-      (await ensureTreasuryAta(
-        client.connection,
-        authority,
-        usdcMint,
-        authority.publicKey,
-      ));
+      (await ensureTreasuryAta(client.connection, authority, usdcMint, authority.publicKey));
 
     const funding = config.memberFundingUsdc ?? computeDefaultFunding(config.pool);
     await fundMembers(client.connection, authority, usdcMint, members, funding, sink);
@@ -218,11 +213,7 @@ export async function lifecycleDemo(
 
   // ── 2. protocol + reputation init ───────────────────────────────
   await phase(sink, "protocol_init", "Protocol initialization", async () => {
-    await ensureProtocolInitialized(
-      client,
-      { authority, usdcMint, treasury },
-      sink,
-    );
+    await ensureProtocolInitialized(client, { authority, usdcMint, treasury }, sink);
     await ensureReputationInitialized(client, authority, sink);
     await ensureMemberProfiles(client, authority, members, sink);
   });
@@ -234,12 +225,12 @@ export async function lifecycleDemo(
       authority,
       usdcMint,
       seedId,
-      membersTarget:     members.length,
+      membersTarget: members.length,
       installmentAmount: config.pool.installmentAmount,
-      creditAmount:      config.pool.creditAmount,
-      cyclesTotal:       config.pool.cyclesTotal,
-      cycleDurationSec:  config.pool.cycleDurationSec,
-      escrowReleaseBps:  config.pool.escrowReleaseBps ?? FEES.escrowReleaseBps,
+      creditAmount: config.pool.creditAmount,
+      cyclesTotal: config.pool.cyclesTotal,
+      cycleDurationSec: config.pool.cycleDurationSec,
+      escrowReleaseBps: config.pool.escrowReleaseBps ?? FEES.escrowReleaseBps,
     });
     sink({
       kind: "action.ok",
@@ -259,10 +250,10 @@ export async function lifecycleDemo(
   await phase(sink, "members_join", "Members joining", async () => {
     for (const mbr of members) {
       const res = await joinPool(client, {
-        pool:            poolAddress,
+        pool: poolAddress,
         usdcMint,
-        memberWallet:    mbr.wallet,
-        slotIndex:       mbr.slotIndex,
+        memberWallet: mbr.wallet,
+        slotIndex: mbr.slotIndex,
         reputationLevel: mbr.reputationLevel,
       });
       sink({
@@ -280,8 +271,7 @@ export async function lifecycleDemo(
         action: "joinPool",
         actor: mbr.name,
         signature: res.signature,
-        detail:
-          `${mbr.name} joined pool at slot ${mbr.slotIndex} (L${mbr.reputationLevel})`,
+        detail: `${mbr.name} joined pool at slot ${mbr.slotIndex} (L${mbr.reputationLevel})`,
         at: now(),
       });
     }
@@ -304,27 +294,26 @@ export async function lifecycleDemo(
         const t0 = now();
 
         const isDefaultCycle =
-          config.defaultScenario !== undefined &&
-          config.defaultScenario.atCycle === c;
+          config.defaultScenario !== undefined && config.defaultScenario.atCycle === c;
 
         let result: RunCycleResult;
         if (isDefaultCycle && config.defaultScenario) {
           result = await simulateDefault({
             client,
-            pool:            poolAddress,
+            pool: poolAddress,
             usdcMint,
             members,
-            atCycle:         c,
+            atCycle: c,
             memberSlotIndex: config.defaultScenario.memberSlotIndex,
             sink,
           });
         } else {
           result = await runCycle({
             client,
-            pool:     poolAddress,
+            pool: poolAddress,
             usdcMint,
             members,
-            cycle:    c,
+            cycle: c,
             sink,
           });
         }
@@ -383,20 +372,18 @@ export async function lifecycleDemo(
   finalPool = await fetchPool(client, poolAddress);
   const vaults = poolVaults(client, poolAddress, usdcMint);
   const finalVaultBalances = {
-    poolUsdcVault:   await fetchTokenBalance(client, vaults.poolUsdcVault),
-    escrowVault:     await fetchTokenBalance(client, vaults.escrowVault),
+    poolUsdcVault: await fetchTokenBalance(client, vaults.poolUsdcVault),
+    escrowVault: await fetchTokenBalance(client, vaults.escrowVault),
     solidarityVault: await fetchTokenBalance(client, vaults.solidarityVault),
-    yieldVault:      await fetchTokenBalance(client, vaults.yieldVault),
+    yieldVault: await fetchTokenBalance(client, vaults.yieldVault),
   };
 
   const notes: string[] = [];
   if (config.defaultScenario) {
-    const m = members.find(
-      (x) => x.slotIndex === config.defaultScenario!.memberSlotIndex,
-    );
+    const m = members.find((x) => x.slotIndex === config.defaultScenario!.memberSlotIndex);
     notes.push(
       `Default scenario: ${m?.name ?? "?"} skipped cycle ${config.defaultScenario.atCycle}. ` +
-      `Full economic recovery is validated in the bankrun edge suite.`,
+        `Full economic recovery is validated in the bankrun edge suite.`,
     );
   }
   if (closed) notes.push("Pool closed cleanly.");

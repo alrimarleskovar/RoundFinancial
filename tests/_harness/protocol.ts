@@ -23,7 +23,7 @@ import { ensureAta } from "./mint.js";
 
 export interface InitializeProtocolOpts {
   usdcMint: PublicKey;
-  treasuryOwner?: PublicKey;             // defaults to env.payer.publicKey
+  treasuryOwner?: PublicKey; // defaults to env.payer.publicKey
   feeBpsYield?: number;
   feeBpsCycleL1?: number;
   feeBpsCycleL2?: number;
@@ -39,9 +39,7 @@ export interface ProtocolHandle {
 }
 
 /** Metaplex Core program ID (same on every cluster). */
-export const METAPLEX_CORE_ID = new PublicKey(
-  "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
-);
+export const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
 /**
  * Ensures a protocol is initialized for this env. Idempotent:
@@ -71,10 +69,10 @@ export async function initializeProtocol(
 
   await (env.programs.core.methods as any)
     .initializeProtocol({
-      feeBpsYield:      opts.feeBpsYield      ?? FEES.yieldFeeBps,
-      feeBpsCycleL1:    opts.feeBpsCycleL1    ?? FEES.cycleFeeL1Bps,
-      feeBpsCycleL2:    opts.feeBpsCycleL2    ?? FEES.cycleFeeL2Bps,
-      feeBpsCycleL3:    opts.feeBpsCycleL3    ?? FEES.cycleFeeL3Bps,
+      feeBpsYield: opts.feeBpsYield ?? FEES.yieldFeeBps,
+      feeBpsCycleL1: opts.feeBpsCycleL1 ?? FEES.cycleFeeL1Bps,
+      feeBpsCycleL2: opts.feeBpsCycleL2 ?? FEES.cycleFeeL2Bps,
+      feeBpsCycleL3: opts.feeBpsCycleL3 ?? FEES.cycleFeeL3Bps,
       guaranteeFundBps: opts.guaranteeFundBps ?? FEES.guaranteeFundBps,
     })
     .accounts({
@@ -98,14 +96,13 @@ export async function initializeProtocol(
 }
 
 /** Loosely-typed accessor; each spec can cast to the generated type later. */
-export async function fetchProtocolConfig(
-  env: Env,
-): Promise<Record<string, unknown>> {
+export async function fetchProtocolConfig(env: Env): Promise<Record<string, unknown>> {
   const config = configPda(env);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (await (env.programs.core.account as any).protocolConfig.fetch(
-    config,
-  )) as Record<string, unknown>;
+  return (await (env.programs.core.account as any).protocolConfig.fetch(config)) as Record<
+    string,
+    unknown
+  >;
 }
 
 // Silence unused-import warnings on BN until specs start passing big numbers.

@@ -48,8 +48,7 @@ export function SetupPanel({
           style={{
             fontSize: 9,
             color: tokens.muted,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
           }}
@@ -123,8 +122,7 @@ export function SetupPanel({
                   color: active ? tokens.green : tokens.text2,
                   fontSize: 12,
                   fontWeight: 700,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   letterSpacing: "0.04em",
                 }}
               >
@@ -219,9 +217,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function inputStyle(
-  tokens: ReturnType<typeof useTheme>["tokens"],
-): React.CSSProperties {
+function inputStyle(tokens: ReturnType<typeof useTheme>["tokens"]): React.CSSProperties {
   return {
     padding: "10px 12px",
     borderRadius: 8,

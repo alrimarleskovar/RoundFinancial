@@ -28,12 +28,7 @@
  */
 
 import { AnchorProvider } from "@coral-xyz/anchor";
-import {
-  Connection,
-  Keypair,
-  Transaction,
-  VersionedTransaction,
-} from "@solana/web3.js";
+import { Connection, Keypair, Transaction, VersionedTransaction } from "@solana/web3.js";
 
 import { createClient } from "@roundfi/sdk";
 import { lifecycleDemo } from "@roundfi/orchestrator";
@@ -87,9 +82,7 @@ function nowFn(): number {
 function makeWalletForKeypair(kp: Keypair) {
   return {
     publicKey: kp.publicKey,
-    async signTransaction<T extends Transaction | VersionedTransaction>(
-      tx: T,
-    ): Promise<T> {
+    async signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T> {
       if (tx instanceof VersionedTransaction) {
         tx.sign([kp]);
       } else {
@@ -130,11 +123,7 @@ export function runRealDemo(
     // All preflight failures short-circuit into a single visible
     // action.fail + summary so the user sees exactly which prerequisite
     // is missing instead of cryptic "fetch /idls failed" or RPC timeout.
-    const abortWith = (
-      action: string,
-      error: string,
-      note: string,
-    ): void => {
+    const abortWith = (action: string, error: string, note: string): void => {
       emit({ kind: "action.fail", action, error, at: nowFn() });
       emit({
         kind: "summary",
@@ -168,9 +157,7 @@ export function runRealDemo(
     emit({
       kind: "action.ok",
       action: "preflight.wallet",
-      detail: config.walletLabel
-        ? `Wallet connected (${config.walletLabel})`
-        : "Wallet connected",
+      detail: config.walletLabel ? `Wallet connected (${config.walletLabel})` : "Wallet connected",
       at: nowFn(),
     });
 

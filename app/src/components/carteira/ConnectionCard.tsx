@@ -4,10 +4,7 @@ import { useState, type MouseEvent } from "react";
 
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
-import {
-  ConnectionGlyph,
-  type GlyphKind,
-} from "@/components/carteira/ConnectionGlyph";
+import { ConnectionGlyph, type GlyphKind } from "@/components/carteira/ConnectionGlyph";
 import { ManageConnectionModal } from "@/components/carteira/ManageConnectionModal";
 import { PhantomFaucet } from "@/components/carteira/PhantomFaucet";
 import { useI18n, useT } from "@/lib/i18n";
@@ -65,11 +62,16 @@ export function ConnectionCard({
 
   const tc = ((): string => {
     switch (c.tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   })();
 
@@ -186,8 +188,7 @@ export function ConnectionCard({
                   border: `1px solid ${tokens.amber}33`,
                   padding: "2px 6px",
                   borderRadius: 999,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
                 title={t("conn.demoTitle")}
               >
@@ -203,8 +204,7 @@ export function ConnectionCard({
                   fontSize: 10,
                   color: tokens.green,
                   fontWeight: 500,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 <span
@@ -228,8 +228,7 @@ export function ConnectionCard({
                   fontSize: 10,
                   color: tokens.muted,
                   fontWeight: 500,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 <span
@@ -244,17 +243,14 @@ export function ConnectionCard({
               </span>
             )}
           </div>
-          <div style={{ fontSize: 11, color: tokens.text2, marginTop: 3 }}>
-            {c.tagline}
-          </div>
+          <div style={{ fontSize: 11, color: tokens.text2, marginTop: 3 }}>{c.tagline}</div>
         </div>
         {isConnected ? (
           <span
             style={{
               fontSize: 10,
               color: tokens.muted,
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             }}
           >
             {t("conn.since", { d: runtime.since ?? "—" })}
@@ -281,8 +277,8 @@ export function ConnectionCard({
             {busy
               ? t("conn.connecting")
               : notInstalled
-              ? t("conn.phantom.installCTA")
-              : t("conn.reconnect")}
+                ? t("conn.phantom.installCTA")
+                : t("conn.reconnect")}
           </button>
         )}
         <span
@@ -323,16 +319,12 @@ export function ConnectionCard({
                 }}
               >
                 {c.meta.map((m) => (
-                  <div
-                    key={m.l}
-                    style={{ display: "flex", flexDirection: "column" }}
-                  >
+                  <div key={m.l} style={{ display: "flex", flexDirection: "column" }}>
                     <span
                       style={{
                         fontSize: 10,
                         color: tokens.muted,
-                        fontFamily:
-                          "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       }}
                     >
                       {m.l}
@@ -401,11 +393,7 @@ export function ConnectionCard({
                       color: tokens.text2,
                     }}
                   >
-                    <Icons.check
-                      size={12}
-                      stroke={isConnected ? tc : tokens.muted}
-                      sw={2}
-                    />
+                    <Icons.check size={12} stroke={isConnected ? tc : tokens.muted} sw={2} />
                     <span>{p}</span>
                   </div>
                 ))}
@@ -413,9 +401,7 @@ export function ConnectionCard({
             </div>
           </div>
 
-          {isPhantom && wallet && isConnected && (
-            <PhantomFaucet wallet={wallet} tc={tc} />
-          )}
+          {isPhantom && wallet && isConnected && <PhantomFaucet wallet={wallet} tc={tc} />}
 
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             {isConnected ? (
@@ -492,46 +478,36 @@ export function ConnectionCard({
                 {busy
                   ? t("conn.connecting")
                   : notInstalled
-                  ? t("conn.phantom.installCTA")
-                  : t("conn.connect", { n: c.name })}
+                    ? t("conn.phantom.installCTA")
+                    : t("conn.connect", { n: c.name })}
               </button>
             )}
           </div>
 
           {/* Phantom-specific inline error (not the floating toast) */}
-          {isPhantom &&
-            wallet?.lastError &&
-            !isConnected &&
-            !busy && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  background: notInstalled
-                    ? `${tokens.amber}1A`
-                    : `${tokens.red}1A`,
-                  border: `1px solid ${
-                    notInstalled ? tokens.amber : tokens.red
-                  }4D`,
-                  fontSize: 11,
-                  color: notInstalled ? tokens.amber : tokens.red,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <Icons.info
-                  size={12}
-                  stroke={notInstalled ? tokens.amber : tokens.red}
-                />
-                {notInstalled
-                  ? t("conn.phantom.install")
-                  : wallet.lastError === "user_rejected"
+          {isPhantom && wallet?.lastError && !isConnected && !busy && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: notInstalled ? `${tokens.amber}1A` : `${tokens.red}1A`,
+                border: `1px solid ${notInstalled ? tokens.amber : tokens.red}4D`,
+                fontSize: 11,
+                color: notInstalled ? tokens.amber : tokens.red,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Icons.info size={12} stroke={notInstalled ? tokens.amber : tokens.red} />
+              {notInstalled
+                ? t("conn.phantom.install")
+                : wallet.lastError === "user_rejected"
                   ? t("conn.phantom.rejected")
                   : t("conn.phantom.failed", { msg: wallet.lastError })}
-              </div>
-            )}
+            </div>
+          )}
         </div>
       )}
 

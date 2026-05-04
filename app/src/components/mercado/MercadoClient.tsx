@@ -3,16 +3,10 @@
 import { useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
-import {
-  BuyOfferModal,
-  type BuyOfferTarget,
-} from "@/components/mercado/BuyOfferModal";
+import { BuyOfferModal, type BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { FeaturedOffer } from "@/components/mercado/FeaturedOffer";
 import { HowItWorks } from "@/components/mercado/HowItWorks";
-import {
-  ListingDetailsModal,
-  type ActiveListing,
-} from "@/components/mercado/ListingDetailsModal";
+import { ListingDetailsModal, type ActiveListing } from "@/components/mercado/ListingDetailsModal";
 import { MiniStat } from "@/components/mercado/MiniStat";
 import { MyPurchases } from "@/components/mercado/MyPurchases";
 import { OffersTable } from "@/components/mercado/OffersTable";

@@ -41,11 +41,7 @@ export function SegToggle<V extends string>({
               padding: "5px 10px",
               borderRadius: 7,
               cursor: "pointer",
-              background: active
-                ? isDark
-                  ? tokens.surface2
-                  : tokens.surface1
-                : "transparent",
+              background: active ? (isDark ? tokens.surface2 : tokens.surface1) : "transparent",
               border: "none",
               color: active ? tokens.text : tokens.muted,
               fontSize: 11,

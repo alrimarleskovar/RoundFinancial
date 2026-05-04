@@ -39,11 +39,7 @@ export function SellPositionModal({
   position: NftPosition | null;
   open: boolean;
   onClose: () => void;
-  onListed?: (listing: {
-    position: NftPosition;
-    askPrice: number;
-    discountPct: number;
-  }) => void;
+  onListed?: (listing: { position: NftPosition; askPrice: number; discountPct: number }) => void;
 }) {
   const { tokens } = useTheme();
   const { fmtMoney } = useI18n();
@@ -67,14 +63,8 @@ export function SellPositionModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={
-        phase === "price"
-          ? t("market.sellModal.title")
-          : t("market.sellModal.successTitle")
-      }
-      subtitle={
-        phase === "price" ? t("market.sellModal.subtitle") : undefined
-      }
+      title={phase === "price" ? t("market.sellModal.title") : t("market.sellModal.successTitle")}
+      subtitle={phase === "price" ? t("market.sellModal.subtitle") : undefined}
       width={500}
     >
       {phase === "price" ? (
@@ -108,8 +98,7 @@ export function SellPositionModal({
               </div>
               <div
                 style={{
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   fontSize: 11,
                   color: tokens.muted,
                 }}
@@ -122,8 +111,7 @@ export function SellPositionModal({
                 fontSize: 11,
                 color: tokens.muted,
                 marginTop: 4,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {t("market.sellModal.expiry")}: {position.exp}
@@ -173,8 +161,7 @@ export function SellPositionModal({
                 marginTop: 4,
                 fontSize: 10,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               <span>50%</span>
@@ -227,14 +214,8 @@ export function SellPositionModal({
               gap: 8,
             }}
           >
-            <Bullet
-              icon="check"
-              label={t("market.sellModal.protectionDebt")}
-            />
-            <Bullet
-              icon="check"
-              label={t("market.sellModal.protectionSas")}
-            />
+            <Bullet icon="check" label={t("market.sellModal.protectionDebt")} />
+            <Bullet icon="check" label={t("market.sellModal.protectionSas")} />
             <Bullet
               icon="warn"
               label={t("market.sellModal.protectionSlashing", {
@@ -259,9 +240,7 @@ export function SellPositionModal({
             <MonoLabel size={9} color={tokens.amber}>
               {t("market.sellModal.demoBadge")}
             </MonoLabel>
-            <span
-              style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}
-            >
+            <span style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
               {t("market.sellModal.demoBody")}
             </span>
           </div>
@@ -390,13 +369,7 @@ function Stat({
   );
 }
 
-function Bullet({
-  icon,
-  label,
-}: {
-  icon: "check" | "warn";
-  label: string;
-}) {
+function Bullet({ icon, label }: { icon: "check" | "warn"; label: string }) {
   const { tokens } = useTheme();
   const accent = icon === "check" ? tokens.green : tokens.amber;
   const glyph = icon === "check" ? "✓" : "⏱";

@@ -107,10 +107,7 @@ export interface ProtocolSnapshot {
 
 // ─── Internals ───────────────────────────────────────────────────────
 
-function memberToSummary(
-  m: MemberView,
-  status: MemberLifecycleStatus,
-): MemberSummary {
+function memberToSummary(m: MemberView, status: MemberLifecycleStatus): MemberSummary {
   return {
     address: m.address,
     wallet: m.wallet,
@@ -169,23 +166,23 @@ export async function getPoolSnapshot(
   ]);
 
   const vaults: PoolSnapshotVaults = {
-    poolUsdcVault:   { address: vaultAtas.poolUsdcVault,   balance: poolUsdcBal },
-    escrowVault:     { address: vaultAtas.escrowVault,     balance: escrowBal },
+    poolUsdcVault: { address: vaultAtas.poolUsdcVault, balance: poolUsdcBal },
+    escrowVault: { address: vaultAtas.escrowVault, balance: escrowBal },
     solidarityVault: { address: vaultAtas.solidarityVault, balance: solidarityBal },
-    yieldVault:      { address: vaultAtas.yieldVault,      balance: yieldBal },
+    yieldVault: { address: vaultAtas.yieldVault, balance: yieldBal },
   };
 
   const totalValue = poolUsdcBal + escrowBal + solidarityBal + yieldBal;
 
   const computed: PoolComputed = {
-    poolHealth:      computePoolHealth(pool),
-    currentCycle:    pool.currentCycle,
-    totalCycles:     pool.cyclesTotal,
+    poolHealth: computePoolHealth(pool),
+    currentCycle: pool.currentCycle,
+    totalCycles: pool.cyclesTotal,
     remainingCycles: Math.max(pool.cyclesTotal - pool.currentCycle, 0),
     totalValue,
-    defaultsCount:   pool.defaultedMembers,
-    paidOutCount:    members.filter((m) => m.paidOut).length,
-    pendingPayouts:  computePendingPayouts(rawMembers),
+    defaultsCount: pool.defaultedMembers,
+    paidOutCount: members.filter((m) => m.paidOut).length,
+    pendingPayouts: computePendingPayouts(rawMembers),
   };
 
   return { pool, members, vaults, computed, at: Date.now() };
@@ -221,30 +218,23 @@ export async function listAllPools(client: RoundFiClient): Promise<PoolView[]> {
  * pool, and each pool's snapshot (members + vault balances) in a single
  * call. No caching — each invocation hits RPC.
  */
-export async function getProtocolSnapshot(
-  client: RoundFiClient,
-): Promise<ProtocolSnapshot> {
-  const [config, pools] = await Promise.all([
-    fetchProtocolConfig(client),
-    listAllPools(client),
-  ]);
+export async function getProtocolSnapshot(client: RoundFiClient): Promise<ProtocolSnapshot> {
+  const [config, pools] = await Promise.all([fetchProtocolConfig(client), listAllPools(client)]);
 
-  const snapshots = await Promise.all(
-    pools.map((p) => getPoolSnapshot(client, p.address)),
-  );
+  const snapshots = await Promise.all(pools.map((p) => getPoolSnapshot(client, p.address)));
   const poolSnapshots = snapshots.filter((s): s is PoolSnapshot => s !== null);
 
   const stats: ProtocolStats = {
-    totalPools:       poolSnapshots.length,
-    formingPools:     poolSnapshots.filter((s) => s.pool.status === "Forming").length,
-    activePools:      poolSnapshots.filter((s) => s.pool.status === "Active").length,
-    completedPools:   poolSnapshots.filter((s) => s.pool.status === "Completed").length,
-    liquidatedPools:  poolSnapshots.filter((s) => s.pool.status === "Liquidated").length,
-    totalMembers:     poolSnapshots.reduce((n, s) => n + s.members.length, 0),
+    totalPools: poolSnapshots.length,
+    formingPools: poolSnapshots.filter((s) => s.pool.status === "Forming").length,
+    activePools: poolSnapshots.filter((s) => s.pool.status === "Active").length,
+    completedPools: poolSnapshots.filter((s) => s.pool.status === "Completed").length,
+    liquidatedPools: poolSnapshots.filter((s) => s.pool.status === "Liquidated").length,
+    totalMembers: poolSnapshots.reduce((n, s) => n + s.members.length, 0),
     totalValueLocked: poolSnapshots.reduce((n, s) => n + s.computed.totalValue, 0n),
     totalContributed: poolSnapshots.reduce((n, s) => n + s.pool.totalContributed, 0n),
-    totalPaidOut:     poolSnapshots.reduce((n, s) => n + s.pool.totalPaidOut, 0n),
-    totalDefaults:    poolSnapshots.reduce((n, s) => n + s.computed.defaultsCount, 0),
+    totalPaidOut: poolSnapshots.reduce((n, s) => n + s.pool.totalPaidOut, 0n),
+    totalDefaults: poolSnapshots.reduce((n, s) => n + s.computed.defaultsCount, 0),
   };
 
   return { config, pools: poolSnapshots, stats, at: Date.now() };

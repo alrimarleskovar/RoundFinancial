@@ -15,13 +15,7 @@ import { useTheme } from "@/lib/theme";
 // capability per the whitepaper. Mirrors the on-chain rule that
 // `roundfi-core::create_pool` will enforce in production (M3).
 
-export function NewCycleModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function NewCycleModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tokens } = useTheme();
   const t = useT();
   const { user } = useSession();
@@ -35,11 +29,7 @@ export function NewCycleModal({
       open={open}
       onClose={onClose}
       title={t("modal.newCycle.title")}
-      subtitle={
-        eligible
-          ? t("modal.newCycle.subtitle")
-          : t("modal.newCycle.lockedSubtitle")
-      }
+      subtitle={eligible ? t("modal.newCycle.subtitle") : t("modal.newCycle.lockedSubtitle")}
       width={460}
     >
       {eligible ? (
@@ -107,8 +97,7 @@ export function NewCycleModal({
                 fontSize: 12,
                 color: tokens.amber,
                 fontWeight: 700,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
               }}
@@ -139,8 +128,7 @@ export function NewCycleModal({
                 alignItems: "baseline",
                 fontSize: 11,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 marginBottom: 6,
               }}
             >

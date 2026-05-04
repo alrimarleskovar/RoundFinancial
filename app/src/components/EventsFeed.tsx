@@ -45,9 +45,7 @@ function lineForEvent(e: LifecycleEvent): {
       // Any action.ok that carries `signature` is a confirmed on-chain
       // tx — surface it visibly so Real mode shows tx hashes without
       // requiring a separate devtools panel.
-      const line = e.signature
-        ? `${e.detail}  🔗 ${shortSig(e.signature)} ✔`
-        : e.detail;
+      const line = e.signature ? `${e.detail}  🔗 ${shortSig(e.signature)} ✔` : e.detail;
       return { line, tone: "ok", ts: e.at };
     }
     case "action.skip":
@@ -131,9 +129,7 @@ export function EventsFeed({ events }: EventsFeedProps) {
   return (
     <section className="flex flex-col rounded-2xl border border-border bg-surface shadow-card">
       <header className="flex items-baseline justify-between border-b border-border px-5 py-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-          Events
-        </h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Events</h3>
         <span className="text-xs text-slate-500">{events.length} total</span>
       </header>
       <div
@@ -141,9 +137,7 @@ export function EventsFeed({ events }: EventsFeedProps) {
         className="scrollable max-h-[380px] overflow-y-auto px-5 py-3 font-mono text-xs"
       >
         {events.length === 0 ? (
-          <div className="py-10 text-center text-slate-500">
-            The demo hasn&rsquo;t started yet.
-          </div>
+          <div className="py-10 text-center text-slate-500">The demo hasn&rsquo;t started yet.</div>
         ) : (
           <ul className="space-y-0.5">
             {events.map((e, i) => {

@@ -107,23 +107,23 @@ import {
 // yield-adapter sandbox (deposit/harvest only). Pool_vault starts at
 // 0; tests that need funds mint USDC directly into it.
 //
-const E_MEMBERS_TARGET     = 3;
-const E_CYCLES_TOTAL       = 3;
-const E_INSTALLMENT_USDC   = 1_250n;
-const E_CREDIT_USDC        = 2_775n;
-const E_LEVEL: 1 | 2 | 3   = 2;
+const E_MEMBERS_TARGET = 3;
+const E_CYCLES_TOTAL = 3;
+const E_INSTALLMENT_USDC = 1_250n;
+const E_CREDIT_USDC = 2_775n;
+const E_LEVEL: 1 | 2 | 3 = 2;
 
 const E_INSTALLMENT_BASE = usdc(E_INSTALLMENT_USDC);
-const E_CREDIT_BASE      = usdc(E_CREDIT_USDC);
+const E_CREDIT_BASE = usdc(E_CREDIT_USDC);
 
-const Y_MEMBERS_TARGET   = 2;
-const Y_CYCLES_TOTAL     = 2;
+const Y_MEMBERS_TARGET = 2;
+const Y_CYCLES_TOTAL = 2;
 const Y_INSTALLMENT_USDC = 1_000n;
-const Y_CREDIT_USDC      = 1_500n;
+const Y_CREDIT_USDC = 1_500n;
 const Y_LEVEL: 1 | 2 | 3 = 2;
 
 const Y_INSTALLMENT_BASE = usdc(Y_INSTALLMENT_USDC);
-const Y_CREDIT_BASE      = usdc(Y_CREDIT_USDC);
+const Y_CREDIT_BASE = usdc(Y_CREDIT_USDC);
 
 const CYCLE_DURATION_SEC = 60;
 
@@ -133,20 +133,20 @@ const U64_MAX = (1n << 64n) - 1n;
 // ─── Snapshot / assertion helpers ─────────────────────────────────────
 
 interface PoolSnapshot {
-  poolVault:          bigint;
-  solidarity:         bigint;
-  escrow:             bigint;
-  treasury:           bigint;
-  mockVault:          bigint;
-  gfBalance:          bigint;
-  solidarityBalance:  bigint;
+  poolVault: bigint;
+  solidarity: bigint;
+  escrow: bigint;
+  treasury: bigint;
+  mockVault: bigint;
+  gfBalance: bigint;
+  solidarityBalance: bigint;
   /** v1.1: yield-waterfall LP slice earmarked on Pool. */
-  lpDistribution:     bigint;
-  yieldAccrued:       bigint;
-  feeAccrued:         bigint;
+  lpDistribution: bigint;
+  yieldAccrued: bigint;
+  feeAccrued: bigint;
   principalDeposited: bigint;
-  currentCycle:       number;
-  totalPaidOut:       bigint;
+  currentCycle: number;
+  totalPaidOut: bigint;
 }
 
 function bn(x: { toString(): string }): bigint {
@@ -166,38 +166,34 @@ async function snapshotPool(
     balanceOf(env, treasury),
     balanceOf(env, mockVault),
   ]);
-  const p = await fetchPool(env, pool.pool) as {
+  const p = (await fetchPool(env, pool.pool)) as {
     currentCycle: number;
-    guaranteeFundBalance:    { toString(): string };
-    solidarityBalance:       { toString(): string };
-    lpDistributionBalance:   { toString(): string };
-    yieldAccrued:            { toString(): string };
+    guaranteeFundBalance: { toString(): string };
+    solidarityBalance: { toString(): string };
+    lpDistributionBalance: { toString(): string };
+    yieldAccrued: { toString(): string };
     totalProtocolFeeAccrued: { toString(): string };
     yieldPrincipalDeposited: { toString(): string };
-    totalPaidOut:            { toString(): string };
+    totalPaidOut: { toString(): string };
   };
   return {
     poolVault,
     solidarity,
     escrow,
-    treasury:           treasuryBal,
-    mockVault:          mockBal,
-    gfBalance:          bn(p.guaranteeFundBalance),
-    solidarityBalance:  bn(p.solidarityBalance),
-    lpDistribution:     bn(p.lpDistributionBalance),
-    yieldAccrued:       bn(p.yieldAccrued),
-    feeAccrued:         bn(p.totalProtocolFeeAccrued),
+    treasury: treasuryBal,
+    mockVault: mockBal,
+    gfBalance: bn(p.guaranteeFundBalance),
+    solidarityBalance: bn(p.solidarityBalance),
+    lpDistribution: bn(p.lpDistributionBalance),
+    yieldAccrued: bn(p.yieldAccrued),
+    feeAccrued: bn(p.totalProtocolFeeAccrued),
     principalDeposited: bn(p.yieldPrincipalDeposited),
-    currentCycle:       p.currentCycle,
-    totalPaidOut:       bn(p.totalPaidOut),
+    currentCycle: p.currentCycle,
+    totalPaidOut: bn(p.totalPaidOut),
   };
 }
 
-function expectPoolUnchanged(
-  before: PoolSnapshot,
-  after: PoolSnapshot,
-  label: string,
-): void {
+function expectPoolUnchanged(before: PoolSnapshot, after: PoolSnapshot, label: string): void {
   expect(after, `${label}: pool snapshot drift`).to.deep.equal(before);
 }
 
@@ -239,11 +235,7 @@ function computeWaterfall(
   return { fee, gf, lpShare, participants };
 }
 
-function computeGfRoom(
-  feeAccrued: bigint,
-  gfBalance: bigint,
-  gfBps: bigint,
-): bigint {
+function computeGfRoom(feeAccrued: bigint, gfBalance: bigint, gfBps: bigint): bigint {
   // cap = fee_accrued × gf_bps / 10_000 (bps may exceed 10_000 — default 15_000).
   const cap = (feeAccrued * gfBps) / 10_000n;
   return cap > gfBalance ? cap - gfBalance : 0n;
@@ -281,12 +273,12 @@ describe("security — economic exploits + waterfall", function () {
     poolE = await createPool(env, {
       authority: authorityE,
       usdcMint,
-      membersTarget:     E_MEMBERS_TARGET,
+      membersTarget: E_MEMBERS_TARGET,
       installmentAmount: E_INSTALLMENT_BASE,
-      creditAmount:      E_CREDIT_BASE,
-      cyclesTotal:       E_CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: E_CREDIT_BASE,
+      cyclesTotal: E_CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesE = await joinMembers(
       env,
@@ -306,12 +298,12 @@ describe("security — economic exploits + waterfall", function () {
     poolY = await createPool(env, {
       authority: authorityY,
       usdcMint,
-      membersTarget:     Y_MEMBERS_TARGET,
+      membersTarget: Y_MEMBERS_TARGET,
       installmentAmount: Y_INSTALLMENT_BASE,
-      creditAmount:      Y_CREDIT_BASE,
-      cyclesTotal:       Y_CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: Y_CREDIT_BASE,
+      cyclesTotal: Y_CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesY = await joinMembers(
       env,
@@ -348,9 +340,7 @@ describe("security — economic exploits + waterfall", function () {
     const h = handlesE[0]!;
     const before = await snapshotPool(env, poolE, treasury, mockVaultE);
 
-    const msg = await expectRejected(() =>
-      claimPayout(env, { pool: poolE, member: h, cycle: 1 }),
-    );
+    const msg = await expectRejected(() => claimPayout(env, { pool: poolE, member: h, cycle: 1 }));
     expect(msg, `A.2: ${msg}`).to.match(/WrongCycle|cycle/i);
     expectPoolUnchanged(before, await snapshotPool(env, poolE, treasury, mockVaultE), "A.2");
   });
@@ -358,30 +348,28 @@ describe("security — economic exploits + waterfall", function () {
   it("A.3 double-claim: first succeeds, second rejects (paid_out)", async function () {
     const h = handlesE[0]!;
     const memberUsdcBefore = await balanceOf(env, h.memberUsdc);
-    const poolVaultBefore  = await balanceOf(env, poolE.poolUsdcVault);
+    const poolVaultBefore = await balanceOf(env, poolE.poolUsdcVault);
 
     // First claim — must succeed. Cycle advances 0 → 1.
     await claimPayout(env, { pool: poolE, member: h, cycle: 0 });
 
     const memberUsdcAfter = await balanceOf(env, h.memberUsdc);
-    const poolVaultAfter  = await balanceOf(env, poolE.poolUsdcVault);
+    const poolVaultAfter = await balanceOf(env, poolE.poolUsdcVault);
     const deltaMember = memberUsdcAfter - memberUsdcBefore;
-    const deltaVault  = poolVaultBefore - poolVaultAfter;
+    const deltaVault = poolVaultBefore - poolVaultAfter;
     expect(deltaMember, "A.3: member USDC should increase by credit").to.equal(E_CREDIT_BASE);
-    expect(deltaVault,  "A.3: pool vault should decrease by credit").to.equal(E_CREDIT_BASE);
+    expect(deltaVault, "A.3: pool vault should decrease by credit").to.equal(E_CREDIT_BASE);
 
-    const memberRow = await fetchMember(env, h.member) as { paidOut: boolean };
+    const memberRow = (await fetchMember(env, h.member)) as { paidOut: boolean };
     expect(memberRow.paidOut, "A.3: member.paid_out must be true post-claim").to.be.true;
 
-    const poolRow = await fetchPool(env, poolE.pool) as { currentCycle: number };
+    const poolRow = (await fetchPool(env, poolE.pool)) as { currentCycle: number };
     expect(poolRow.currentCycle, "A.3: pool advances to cycle 1").to.equal(1);
 
     // Second claim on the same slot — paid_out guard rejects before
     // any state mutation.
     const before = await snapshotPool(env, poolE, treasury, mockVaultE);
-    const msg = await expectRejected(() =>
-      claimPayout(env, { pool: poolE, member: h, cycle: 1 }),
-    );
+    const msg = await expectRejected(() => claimPayout(env, { pool: poolE, member: h, cycle: 1 }));
     // `constraint = !member.paid_out @ NotYourPayoutSlot` is the first
     // member-level guard to trip — the handler never runs.
     expect(msg, `A.3 double-claim: ${msg}`).to.match(/NotYourPayoutSlot|slot owner/i);
@@ -400,9 +388,7 @@ describe("security — economic exploits + waterfall", function () {
     const h = handlesY[0]!;
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
 
-    const msg = await expectRejected(() =>
-      claimPayout(env, { pool: poolY, member: h, cycle: 0 }),
-    );
+    const msg = await expectRejected(() => claimPayout(env, { pool: poolY, member: h, cycle: 0 }));
     expect(msg, `A.4: ${msg}`).to.match(/WaterfallUnderflow|SeedDrawShortfall|underflow|seed/i);
     expectPoolUnchanged(before, await snapshotPool(env, poolY, treasury, mockVaultY), "A.4");
   });
@@ -412,9 +398,7 @@ describe("security — economic exploits + waterfall", function () {
   it("B.1 deposit(amount=0) → InvalidAmount", async function () {
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
 
-    const msg = await expectRejected(() =>
-      depositIdleToYield(env, { pool: poolY, amount: 0n }),
-    );
+    const msg = await expectRejected(() => depositIdleToYield(env, { pool: poolY, amount: 0n }));
     expect(msg, `B.1: ${msg}`).to.match(/InvalidAmount|non-zero|amount/i);
     expectPoolUnchanged(before, await snapshotPool(env, poolY, treasury, mockVaultY), "B.1");
   });
@@ -425,9 +409,7 @@ describe("security — economic exploits + waterfall", function () {
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
     expect(before.poolVault, "B.2 precondition: vault must be empty").to.equal(0n);
 
-    const msg = await expectRejected(() =>
-      depositIdleToYield(env, { pool: poolY, amount: 1n }),
-    );
+    const msg = await expectRejected(() => depositIdleToYield(env, { pool: poolY, amount: 1n }));
     expect(msg, `B.2: ${msg}`).to.match(/InsufficientStake|stake|below|solvency/i);
     expectPoolUnchanged(before, await snapshotPool(env, poolY, treasury, mockVaultY), "B.2");
   });
@@ -445,20 +427,28 @@ describe("security — economic exploits + waterfall", function () {
 
     await depositIdleToYield(env, { pool: poolY, amount });
     const t1 = await snapshotPool(env, poolY, treasury, mockVaultY);
-    expect(t1.poolVault,          "B.3/after-1: pool_vault drained by amount").to.equal(t0.poolVault - amount);
-    expect(t1.mockVault,          "B.3/after-1: mock_vault gains amount").to.equal(t0.mockVault + amount);
-    expect(t1.principalDeposited, "B.3/after-1: principal += amount").to.equal(t0.principalDeposited + amount);
+    expect(t1.poolVault, "B.3/after-1: pool_vault drained by amount").to.equal(
+      t0.poolVault - amount,
+    );
+    expect(t1.mockVault, "B.3/after-1: mock_vault gains amount").to.equal(t0.mockVault + amount);
+    expect(t1.principalDeposited, "B.3/after-1: principal += amount").to.equal(
+      t0.principalDeposited + amount,
+    );
     // Non-yield state must not move.
-    expect(t1.gfBalance,    "B.3/after-1: gf unchanged").to.equal(t0.gfBalance);
-    expect(t1.feeAccrued,   "B.3/after-1: fee unchanged").to.equal(t0.feeAccrued);
+    expect(t1.gfBalance, "B.3/after-1: gf unchanged").to.equal(t0.gfBalance);
+    expect(t1.feeAccrued, "B.3/after-1: fee unchanged").to.equal(t0.feeAccrued);
     expect(t1.yieldAccrued, "B.3/after-1: yield_accrued unchanged").to.equal(t0.yieldAccrued);
-    expect(t1.treasury,     "B.3/after-1: treasury unchanged").to.equal(t0.treasury);
+    expect(t1.treasury, "B.3/after-1: treasury unchanged").to.equal(t0.treasury);
 
     await depositIdleToYield(env, { pool: poolY, amount });
     const t2 = await snapshotPool(env, poolY, treasury, mockVaultY);
-    expect(t2.poolVault,          "B.3/after-2: pool_vault fully drained").to.equal(0n);
-    expect(t2.mockVault,          "B.3/after-2: mock_vault holds 2× amount").to.equal(t0.mockVault + amount * 2n);
-    expect(t2.principalDeposited, "B.3/after-2: principal += 2× amount").to.equal(t0.principalDeposited + amount * 2n);
+    expect(t2.poolVault, "B.3/after-2: pool_vault fully drained").to.equal(0n);
+    expect(t2.mockVault, "B.3/after-2: mock_vault holds 2× amount").to.equal(
+      t0.mockVault + amount * 2n,
+    );
+    expect(t2.principalDeposited, "B.3/after-2: principal += 2× amount").to.equal(
+      t0.principalDeposited + amount * 2n,
+    );
   });
 
   // ─── C. Harvest waterfall + idempotency ───────────────────────────────
@@ -487,34 +477,46 @@ describe("security — economic exploits + waterfall", function () {
       realized,
       gfRoom,
       BigInt(FEES.yieldFeeBps),
-      6_500n,   // default lp_share_bps in harvestYield helper
+      6_500n, // default lp_share_bps in harvestYield helper
     );
     // Conservation check at the TS level — mirrors `waterfall()` require.
-    expect(w.fee + w.gf + w.lpShare + w.participants, "C.1: bucket sum == realized").to.equal(realized);
+    expect(w.fee + w.gf + w.lpShare + w.participants, "C.1: bucket sum == realized").to.equal(
+      realized,
+    );
 
     await harvestYield(env, {
-      pool:         poolY,
+      pool: poolY,
       treasuryUsdc: treasury,
     });
 
     const after = await snapshotPool(env, poolY, treasury, mockVaultY);
 
     // On-chain bucket deltas must match the TS-computed waterfall exactly.
-    expect(after.gfBalance,        "C.1: gf delta")     .to.equal(before.gfBalance + w.gf);
-    expect(after.feeAccrued,       "C.1: fee delta")    .to.equal(before.feeAccrued + w.fee);
-    expect(after.treasury,         "C.1: treasury delta").to.equal(before.treasury + w.fee);
+    expect(after.gfBalance, "C.1: gf delta").to.equal(before.gfBalance + w.gf);
+    expect(after.feeAccrued, "C.1: fee delta").to.equal(before.feeAccrued + w.fee);
+    expect(after.treasury, "C.1: treasury delta").to.equal(before.treasury + w.fee);
     // Solidarity vault is no longer credited from yield (v1.1) — Cofre
     // Solidário is funded only from the 1% das parcelas in `contribute()`.
-    expect(after.solidarity,       "C.1: solidarity unchanged").to.equal(before.solidarity);
-    expect(after.solidarityBalance, "C.1: solidarity_balance unchanged").to.equal(before.solidarityBalance);
+    expect(after.solidarity, "C.1: solidarity unchanged").to.equal(before.solidarity);
+    expect(after.solidarityBalance, "C.1: solidarity_balance unchanged").to.equal(
+      before.solidarityBalance,
+    );
     // LP slice is now earmarked on pool.lp_distribution_balance.
-    expect(after.lpDistribution,   "C.1: lp_distribution delta").to.equal(before.lpDistribution + w.lpShare);
+    expect(after.lpDistribution, "C.1: lp_distribution delta").to.equal(
+      before.lpDistribution + w.lpShare,
+    );
     // Pool vault gains everything except what was transferred to treasury.
-    expect(after.poolVault,        "C.1: pool vault delta").to.equal(before.poolVault + w.gf + w.lpShare + w.participants);
-    expect(after.yieldAccrued,"C.1: yield_accrued += realized").to.equal(before.yieldAccrued + realized);
+    expect(after.poolVault, "C.1: pool vault delta").to.equal(
+      before.poolVault + w.gf + w.lpShare + w.participants,
+    );
+    expect(after.yieldAccrued, "C.1: yield_accrued += realized").to.equal(
+      before.yieldAccrued + realized,
+    );
 
     // Mock vault drained to tracked_principal — realized portion left.
-    expect(after.mockVault,   "C.1: mock vault drops by realized").to.equal(before.mockVault - realized);
+    expect(after.mockVault, "C.1: mock vault drops by realized").to.equal(
+      before.mockVault - realized,
+    );
   });
 
   it("C.2 repeat harvest with no new yield → realized=0 no-op", async function () {
@@ -523,7 +525,7 @@ describe("security — economic exploits + waterfall", function () {
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
 
     await harvestYield(env, {
-      pool:         poolY,
+      pool: poolY,
       treasuryUsdc: treasury,
     });
 
@@ -542,14 +544,14 @@ describe("security — economic exploits + waterfall", function () {
       (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(U64_MAX.toString()) })
         .accounts({
-          caller:              env.payer.publicKey,
-          config:              configPda(env),
-          pool:                poolY.pool,
+          caller: env.payer.publicKey,
+          config: configPda(env),
+          pool: poolY.pool,
           usdcMint,
-          poolUsdcVault:       poolY.poolUsdcVault,
-          yieldVault:          yieldMockVault(env, poolY.pool, usdcMint),
+          poolUsdcVault: poolY.poolUsdcVault,
+          yieldVault: yieldMockVault(env, poolY.pool, usdcMint),
           yieldAdapterProgram: env.ids.yieldMock,
-          tokenProgram:        TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
           { pubkey: yieldMockStatePda(env, poolY.pool), isSigner: false, isWritable: true },
@@ -570,20 +572,23 @@ describe("security — economic exploits + waterfall", function () {
     // amount <= spendable_idle (InsufficientStake). 1 passes both
     // because vault ≥ 1 and gf_balance = 0 (first harvest at cold cap).
     const before = await snapshotPool(env, poolY, treasury, mockVaultY);
-    expect((before.poolVault - before.gfBalance) >= 1n, "D.2 precondition: spendable ≥ 1")
-      .to.equal(true);
+    expect(before.poolVault - before.gfBalance >= 1n, "D.2 precondition: spendable ≥ 1").to.equal(
+      true,
+    );
 
     await depositIdleToYield(env, { pool: poolY, amount: 1n });
 
     const after = await snapshotPool(env, poolY, treasury, mockVaultY);
-    expect(after.poolVault,          "D.2: vault -= 1").to.equal(before.poolVault - 1n);
-    expect(after.mockVault,          "D.2: mock += 1").to.equal(before.mockVault + 1n);
-    expect(after.principalDeposited, "D.2: principal += 1").to.equal(before.principalDeposited + 1n);
+    expect(after.poolVault, "D.2: vault -= 1").to.equal(before.poolVault - 1n);
+    expect(after.mockVault, "D.2: mock += 1").to.equal(before.mockVault + 1n);
+    expect(after.principalDeposited, "D.2: principal += 1").to.equal(
+      before.principalDeposited + 1n,
+    );
     // Non-deposit state must not move.
-    expect(after.gfBalance,    "D.2: gf unchanged").to.equal(before.gfBalance);
-    expect(after.feeAccrued,   "D.2: fee unchanged").to.equal(before.feeAccrued);
+    expect(after.gfBalance, "D.2: gf unchanged").to.equal(before.gfBalance);
+    expect(after.feeAccrued, "D.2: fee unchanged").to.equal(before.feeAccrued);
     expect(after.yieldAccrued, "D.2: yield_accrued unchanged").to.equal(before.yieldAccrued);
-    expect(after.treasury,     "D.2: treasury unchanged").to.equal(before.treasury);
-    expect(after.solidarity,   "D.2: solidarity unchanged").to.equal(before.solidarity);
+    expect(after.treasury, "D.2: treasury unchanged").to.equal(before.treasury);
+    expect(after.solidarity, "D.2: solidarity unchanged").to.equal(before.solidarity);
   });
 });

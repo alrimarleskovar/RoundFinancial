@@ -22,17 +22,28 @@ import type { LifecycleEvent } from "@roundfi/sdk/events";
 // union without adding a case here produces a TS error.
 function describeEvent(e: LifecycleEvent): string {
   switch (e.kind) {
-    case "phase.start":         return `phase.start ${e.phase}`;
-    case "phase.end":           return `phase.end ${e.phase} (${e.elapsedMs}ms)`;
-    case "action.ok":           return `${e.action} OK`;
-    case "action.skip":         return `${e.action} skip · ${e.reason}`;
-    case "action.fail":         return `${e.action} FAIL · ${e.error}`;
-    case "member.joined":       return `${e.actor} joined slot ${e.slotIndex}`;
-    case "member.contributed":  return `${e.actor} paid cycle ${e.cycle}`;
-    case "member.missed":       return `${e.actor} missed cycle ${e.cycle}`;
-    case "payout.executed":     return `payout #${e.cycle} → ${e.actor}`;
-    case "pool.snapshot":       return `snapshot cycle ${e.cycle} status=${e.status}`;
-    case "summary":             return `summary ${e.totalEvents} events · ${e.elapsedMs}ms`;
+    case "phase.start":
+      return `phase.start ${e.phase}`;
+    case "phase.end":
+      return `phase.end ${e.phase} (${e.elapsedMs}ms)`;
+    case "action.ok":
+      return `${e.action} OK`;
+    case "action.skip":
+      return `${e.action} skip · ${e.reason}`;
+    case "action.fail":
+      return `${e.action} FAIL · ${e.error}`;
+    case "member.joined":
+      return `${e.actor} joined slot ${e.slotIndex}`;
+    case "member.contributed":
+      return `${e.actor} paid cycle ${e.cycle}`;
+    case "member.missed":
+      return `${e.actor} missed cycle ${e.cycle}`;
+    case "payout.executed":
+      return `payout #${e.cycle} → ${e.actor}`;
+    case "pool.snapshot":
+      return `snapshot cycle ${e.cycle} status=${e.status}`;
+    case "summary":
+      return `summary ${e.totalEvents} events · ${e.elapsedMs}ms`;
     default: {
       // The `never` annotation here is what makes this compile-time
       // exhaustive. If a new variant is added to LifecycleEvent
@@ -47,30 +58,62 @@ function describeEvent(e: LifecycleEvent): string {
 describe("LifecycleEvent — canonical-types contract", () => {
   it("exhaustive switch over every variant produces a string", () => {
     const samples: LifecycleEvent[] = [
-      { kind: "phase.start",         phase: "cycle",    label: "cycle 1",  at: 0 },
-      { kind: "phase.end",           phase: "cycle",    label: "cycle 1",  at: 0, elapsedMs: 350 },
-      { kind: "action.ok",           action: "ping",                       at: 0, detail: "ok" },
-      { kind: "action.skip",         action: "ping",                       at: 0, reason: "—" },
-      { kind: "action.fail",         action: "ping",                       at: 0, error: "boom" },
-      { kind: "member.joined",       actor: "Maria", slotIndex: 0,
-                                     reputationLevel: 2, memberPda: "x",
-                                     wallet: "y", stakeDeposited: 0n,     at: 0 },
-      { kind: "member.contributed",  actor: "Maria", slotIndex: 0,
-                                     cycle: 1, amount: 1_000_000n,
-                                     onTime: true,                          at: 0 },
-      { kind: "member.missed",       actor: "Maria", slotIndex: 0, cycle: 1,
-                                     note: "—",                            at: 0 },
-      { kind: "payout.executed",     actor: "Maria", slotIndex: 0, cycle: 1,
-                                     amount: 5_000_000n,                    at: 0 },
-      { kind: "pool.snapshot",       cycle: 1, status: "Active",
-                                     totalContributed: 0n, totalPaidOut: 0n,
-                                     solidarityBalance: 0n, escrowBalance: 0n,
-                                     defaultedMembers: 0,
-                                     poolUsdcVaultBalance: 0n,             at: 0 },
-      { kind: "summary",             totalEvents: 11, okCount: 11,
-                                     skipCount: 0, failCount: 0,
-                                     startedAt: 0, finishedAt: 0,
-                                     elapsedMs: 0, notes: [] },
+      { kind: "phase.start", phase: "cycle", label: "cycle 1", at: 0 },
+      { kind: "phase.end", phase: "cycle", label: "cycle 1", at: 0, elapsedMs: 350 },
+      { kind: "action.ok", action: "ping", at: 0, detail: "ok" },
+      { kind: "action.skip", action: "ping", at: 0, reason: "—" },
+      { kind: "action.fail", action: "ping", at: 0, error: "boom" },
+      {
+        kind: "member.joined",
+        actor: "Maria",
+        slotIndex: 0,
+        reputationLevel: 2,
+        memberPda: "x",
+        wallet: "y",
+        stakeDeposited: 0n,
+        at: 0,
+      },
+      {
+        kind: "member.contributed",
+        actor: "Maria",
+        slotIndex: 0,
+        cycle: 1,
+        amount: 1_000_000n,
+        onTime: true,
+        at: 0,
+      },
+      { kind: "member.missed", actor: "Maria", slotIndex: 0, cycle: 1, note: "—", at: 0 },
+      {
+        kind: "payout.executed",
+        actor: "Maria",
+        slotIndex: 0,
+        cycle: 1,
+        amount: 5_000_000n,
+        at: 0,
+      },
+      {
+        kind: "pool.snapshot",
+        cycle: 1,
+        status: "Active",
+        totalContributed: 0n,
+        totalPaidOut: 0n,
+        solidarityBalance: 0n,
+        escrowBalance: 0n,
+        defaultedMembers: 0,
+        poolUsdcVaultBalance: 0n,
+        at: 0,
+      },
+      {
+        kind: "summary",
+        totalEvents: 11,
+        okCount: 11,
+        skipCount: 0,
+        failCount: 0,
+        startedAt: 0,
+        finishedAt: 0,
+        elapsedMs: 0,
+        notes: [],
+      },
     ];
 
     // Every sample must produce a non-empty string with no exception.

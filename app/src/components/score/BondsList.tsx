@@ -5,12 +5,7 @@ import { useState } from "react";
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { BondDetailModal } from "@/components/score/BondDetailModal";
-import {
-  SAS_BONDS,
-  SAS_TOTAL_CYCLES,
-  SAS_TOTAL_INSTALLMENTS,
-  type SasBond,
-} from "@/data/score";
+import { SAS_BONDS, SAS_TOTAL_CYCLES, SAS_TOTAL_INSTALLMENTS, type SasBond } from "@/data/score";
 import type { Tone } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -27,11 +22,16 @@ export function BondsList() {
 
   const toneColor = (tone: Tone): string => {
     switch (tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   };
 
@@ -125,12 +125,10 @@ export function BondsList() {
                     fontSize: 10,
                     color: tokens.muted,
                     marginTop: 2,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
-                  {b.date} ·{" "}
-                  {t("score.bondAttest", { n: b.installments })}
+                  {b.date} · {t("score.bondAttest", { n: b.installments })}
                 </div>
               </div>
               {b.status === "active" ? (
@@ -143,11 +141,7 @@ export function BondsList() {
         })}
       </div>
 
-      <BondDetailModal
-        bond={opened}
-        open={opened !== null}
-        onClose={() => setOpened(null)}
-      />
+      <BondDetailModal bond={opened} open={opened !== null} onClose={() => setOpened(null)} />
     </div>
   );
 }

@@ -9,10 +9,7 @@
  * not jargon. All amounts are converted from base units to human USDC.
  */
 
-import type {
-  EventSink,
-  LifecycleEvent,
-} from "./events.js";
+import type { EventSink, LifecycleEvent } from "./events.js";
 
 // ─── Format helpers ──────────────────────────────────────────────────
 
@@ -21,7 +18,7 @@ const USDC_SCALE = 10n ** BigInt(USDC_DECIMALS);
 
 export function formatUsdc(amount: bigint): string {
   const whole = amount / USDC_SCALE;
-  const frac  = amount % USDC_SCALE;
+  const frac = amount % USDC_SCALE;
   if (frac === 0n) return `${whole.toString()} USDC`;
   const fracStr = frac.toString().padStart(USDC_DECIMALS, "0").replace(/0+$/, "");
   return `${whole.toString()}.${fracStr} USDC`;

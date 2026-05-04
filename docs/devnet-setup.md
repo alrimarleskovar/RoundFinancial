@@ -11,15 +11,16 @@ Solana Devnet. Follow it in order.
 
 ## 0 · Prerequisites
 
-| Tool | Version | Install |
-|---|---|---|
-| Rust | **1.79.0** (pinned in `rust-toolchain.toml`) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| Solana CLI | **1.18.17** | `sh -c "$(curl -sSfL https://release.anza.xyz/v1.18.17/install)"` |
-| Anchor | **0.30.1** | `cargo install --git https://github.com/coral-xyz/anchor avm --locked --force && avm install 0.30.1 && avm use 0.30.1` |
-| Node.js | **20.x** (see `.nvmrc`) | `nvm install` (inside the repo) |
-| pnpm | **9.x** | `npm i -g pnpm@9` |
+| Tool       | Version                                      | Install                                                                                                                |
+| ---------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Rust       | **1.79.0** (pinned in `rust-toolchain.toml`) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh`                                                      |
+| Solana CLI | **1.18.17**                                  | `sh -c "$(curl -sSfL https://release.anza.xyz/v1.18.17/install)"`                                                      |
+| Anchor     | **0.30.1**                                   | `cargo install --git https://github.com/coral-xyz/anchor avm --locked --force && avm install 0.30.1 && avm use 0.30.1` |
+| Node.js    | **20.x** (see `.nvmrc`)                      | `nvm install` (inside the repo)                                                                                        |
+| pnpm       | **9.x**                                      | `npm i -g pnpm@9`                                                                                                      |
 
 Verify:
+
 ```bash
 rustc --version        # 1.79.0
 solana --version       # 1.18.17
@@ -49,6 +50,7 @@ export ANCHOR_WALLET=$(pwd)/keypairs/deployer.json
 ```
 
 Edit `.env`:
+
 ```env
 ANCHOR_WALLET=./keypairs/deployer.json
 ```
@@ -66,6 +68,7 @@ pnpm run devnet:airdrop -- ./keypairs/deployer.json 2
 ```
 
 Check:
+
 ```bash
 solana balance
 ```
@@ -142,6 +145,7 @@ pnpm run devnet:seed
 
 **"Program authority mismatch"**
 → The deployed program was built under a different keypair. Run:
+
 ```bash
 anchor clean
 pnpm run devnet:deploy

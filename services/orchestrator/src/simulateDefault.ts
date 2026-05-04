@@ -35,16 +35,10 @@ export interface SimulateDefaultArgs {
   sink: EventSink;
 }
 
-export async function simulateDefault(
-  args: SimulateDefaultArgs,
-): Promise<RunCycleResult> {
-  const defaulter = args.members.find(
-    (m) => m.slotIndex === args.memberSlotIndex,
-  );
+export async function simulateDefault(args: SimulateDefaultArgs): Promise<RunCycleResult> {
+  const defaulter = args.members.find((m) => m.slotIndex === args.memberSlotIndex);
   if (!defaulter) {
-    throw new Error(
-      `simulateDefault: no member found at slot ${args.memberSlotIndex}`,
-    );
+    throw new Error(`simulateDefault: no member found at slot ${args.memberSlotIndex}`);
   }
 
   args.sink({
@@ -58,13 +52,13 @@ export async function simulateDefault(
   });
 
   const result = await runCycle({
-    client:         args.client,
-    pool:           args.pool,
-    usdcMint:       args.usdcMint,
-    members:        args.members,
-    cycle:          args.atCycle,
+    client: args.client,
+    pool: args.pool,
+    usdcMint: args.usdcMint,
+    members: args.members,
+    cycle: args.atCycle,
     skipContribute: [defaulter.slotIndex],
-    sink:           args.sink,
+    sink: args.sink,
   });
 
   args.sink({

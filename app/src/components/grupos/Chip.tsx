@@ -22,11 +22,16 @@ export function Chip({
   const { tokens } = useTheme();
   const toneColor = ((): string => {
     switch (tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   })();
 

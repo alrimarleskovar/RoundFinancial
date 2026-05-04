@@ -17,13 +17,7 @@ import { useTheme } from "@/lib/theme";
 
 type Phase = "confirm" | "success";
 
-export function WithdrawYieldModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function WithdrawYieldModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
@@ -46,14 +40,8 @@ export function WithdrawYieldModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={
-        phase === "confirm"
-          ? t("modal.withdraw.title")
-          : t("modal.withdraw.successTitle")
-      }
-      subtitle={
-        phase === "confirm" ? t("modal.withdraw.subtitle") : undefined
-      }
+      title={phase === "confirm" ? t("modal.withdraw.title") : t("modal.withdraw.successTitle")}
+      subtitle={phase === "confirm" ? t("modal.withdraw.subtitle") : undefined}
       width={460}
     >
       {phase === "confirm" ? (
@@ -81,8 +69,7 @@ export function WithdrawYieldModal({
                 style={{
                   fontSize: 11,
                   color: tokens.muted,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {KAMINO_VAULT.apy}% APY
@@ -105,8 +92,7 @@ export function WithdrawYieldModal({
                 marginTop: 4,
                 fontSize: 11,
                 color: tokens.text2,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {t("modal.withdraw.cycles", { n: KAMINO_VAULT.cycles })}
@@ -152,9 +138,7 @@ export function WithdrawYieldModal({
             <MonoLabel size={9} color={tokens.amber}>
               {t("modal.withdraw.demoBadge")}
             </MonoLabel>
-            <span
-              style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}
-            >
+            <span style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
               {t("modal.withdraw.demoBody")}
             </span>
           </div>

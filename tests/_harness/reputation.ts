@@ -19,11 +19,7 @@ import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 
 import type { Env } from "./env.js";
-import {
-  attestationFor,
-  reputationConfigFor,
-  reputationProfileFor,
-} from "./pda.js";
+import { attestationFor, reputationConfigFor, reputationProfileFor } from "./pda.js";
 
 /** Matches `roundfi_reputation::constants::SCHEMA_*`. */
 export const SCHEMA = {
@@ -53,12 +49,8 @@ export interface ReputationHandle {
 // Arbitrary non-zero localnet placeholder for the Civic gateway.
 // Attestation tests never CPI into this; identity tests that DO need
 // a real gateway must pass their own override.
-const LOCALNET_CIVIC_GATEWAY = new PublicKey(
-  "gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs",
-);
-const LOCALNET_CIVIC_NETWORK = new PublicKey(
-  "ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6",
-);
+const LOCALNET_CIVIC_GATEWAY = new PublicKey("gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs");
+const LOCALNET_CIVIC_NETWORK = new PublicKey("ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6");
 
 export async function initializeReputation(
   env: Env,
@@ -73,9 +65,9 @@ export async function initializeReputation(
 
   await (env.programs.reputation.methods as any)
     .initializeReputation({
-      roundfiCoreProgram:  opts.coreProgram,
+      roundfiCoreProgram: opts.coreProgram,
       civicGatewayProgram: opts.civicGatewayProgram ?? LOCALNET_CIVIC_GATEWAY,
-      civicNetwork:        opts.civicNetwork ?? LOCALNET_CIVIC_NETWORK,
+      civicNetwork: opts.civicNetwork ?? LOCALNET_CIVIC_NETWORK,
     })
     .accounts({
       authority: env.payer.publicKey,
@@ -92,10 +84,7 @@ export async function initializeReputation(
  * Ensure a `ReputationProfile` exists for `wallet`. Idempotent.
  * Returns the profile PDA.
  */
-export async function initProfile(
-  env: Env,
-  wallet: PublicKey,
-): Promise<PublicKey> {
+export async function initProfile(env: Env, wallet: PublicKey): Promise<PublicKey> {
   const profile = reputationProfileFor(env, wallet);
 
   const existing = await env.connection.getAccountInfo(profile, "confirmed");
@@ -133,15 +122,13 @@ export async function seedReputation(
 }
 
 /** Loosely-typed profile fetcher. */
-export async function fetchProfile(
-  env: Env,
-  wallet: PublicKey,
-): Promise<Record<string, unknown>> {
+export async function fetchProfile(env: Env, wallet: PublicKey): Promise<Record<string, unknown>> {
   const pda = reputationProfileFor(env, wallet);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (await (env.programs.reputation.account as any).reputationProfile.fetch(
-    pda,
-  )) as Record<string, unknown>;
+  return (await (env.programs.reputation.account as any).reputationProfile.fetch(pda)) as Record<
+    string,
+    unknown
+  >;
 }
 
 // ─── Admin-path attest ───────────────────────────────────────────────
@@ -186,10 +173,7 @@ export interface AdminAttestOpts {
  * any program-side failure — callers in negative-path tests should
  * wrap this in their own try/catch.
  */
-export async function adminAttest(
-  env: Env,
-  opts: AdminAttestOpts,
-): Promise<string> {
+export async function adminAttest(env: Env, opts: AdminAttestOpts): Promise<string> {
   const issuer = opts.issuer ?? env.payer;
 
   // Fixed 96-byte payload; Anchor expects number[].
@@ -210,29 +194,27 @@ export async function adminAttest(
 
   return (env.programs.reputation.methods as any)
     .attest({
-      schemaId:      opts.schemaId,
-      nonce:         new BN(opts.nonce.toString()),
+      schemaId: opts.schemaId,
+      nonce: new BN(opts.nonce.toString()),
       payload,
-      pool:          opts.poolKey ?? PublicKey.default,
+      pool: opts.poolKey ?? PublicKey.default,
       poolAuthority: opts.poolAuthority ?? PublicKey.default,
-      poolSeedId:    new BN((opts.poolSeedId ?? 0n).toString()),
+      poolSeedId: new BN((opts.poolSeedId ?? 0n).toString()),
     })
     .accounts({
-      issuer:        issuer.publicKey,
-      subject:       opts.subject,
-      config:        reputationConfigFor(env),
+      issuer: issuer.publicKey,
+      subject: opts.subject,
+      config: reputationConfigFor(env),
       profile,
-      identity:      opts.identity ?? env.ids.reputation,
+      identity: opts.identity ?? env.ids.reputation,
       attestation,
-      payer:         env.payer.publicKey,
+      payer: env.payer.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .signers(
       // env.payer is always a signer (fee payer). If issuer is a different
       // keypair, it also needs to sign.
-      issuer.publicKey.equals(env.payer.publicKey)
-        ? [env.payer]
-        : [env.payer, issuer],
+      issuer.publicKey.equals(env.payer.publicKey) ? [env.payer] : [env.payer, issuer],
     )
     .rpc();
 }
@@ -252,24 +234,19 @@ export interface RevokeAttestationOpts {
   identity?: PublicKey;
 }
 
-export async function revokeAttestation(
-  env: Env,
-  opts: RevokeAttestationOpts,
-): Promise<string> {
+export async function revokeAttestation(env: Env, opts: RevokeAttestationOpts): Promise<string> {
   const profile = reputationProfileFor(env, opts.subject);
   return (env.programs.reputation.methods as any)
     .revoke()
     .accounts({
-      issuer:      opts.issuer.publicKey,
-      subject:     opts.subject,
+      issuer: opts.issuer.publicKey,
+      subject: opts.subject,
       profile,
-      identity:    opts.identity ?? env.ids.reputation,
+      identity: opts.identity ?? env.ids.reputation,
       attestation: opts.attestation,
     })
     .signers(
-      opts.issuer.publicKey.equals(env.payer.publicKey)
-        ? [env.payer]
-        : [env.payer, opts.issuer],
+      opts.issuer.publicKey.equals(env.payer.publicKey) ? [env.payer] : [env.payer, opts.issuer],
     )
     .rpc();
 }
@@ -283,10 +260,7 @@ export interface PromoteLevelOpts {
   caller?: Keypair;
 }
 
-export async function promoteLevel(
-  env: Env,
-  opts: PromoteLevelOpts,
-): Promise<string> {
+export async function promoteLevel(env: Env, opts: PromoteLevelOpts): Promise<string> {
   const caller = opts.caller ?? env.payer;
   const profile = reputationProfileFor(env, opts.subject);
   return (env.programs.reputation.methods as any)
@@ -294,13 +268,9 @@ export async function promoteLevel(
     .accounts({
       subject: opts.subject,
       profile,
-      caller:  caller.publicKey,
+      caller: caller.publicKey,
     })
-    .signers(
-      caller.publicKey.equals(env.payer.publicKey)
-        ? [env.payer]
-        : [env.payer, caller],
-    )
+    .signers(caller.publicKey.equals(env.payer.publicKey) ? [env.payer] : [env.payer, caller])
     .rpc();
 }
 
@@ -310,7 +280,8 @@ export async function fetchAttestation(
   attestation: PublicKey,
 ): Promise<Record<string, unknown>> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (await (env.programs.reputation.account as any).attestation.fetch(
-    attestation,
-  )) as Record<string, unknown>;
+  return (await (env.programs.reputation.account as any).attestation.fetch(attestation)) as Record<
+    string,
+    unknown
+  >;
 }

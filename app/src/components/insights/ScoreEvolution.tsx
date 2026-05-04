@@ -30,9 +30,7 @@ export function ScoreEvolution() {
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
 
   const curve = curveForRange(range);
-  const linePath = curve
-    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`)
-    .join(" ");
+  const linePath = curve.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
   const areaPath = `${linePath} L600,220 L0,220 Z`;
 
   const allMonths = lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN;
@@ -57,9 +55,7 @@ export function ScoreEvolution() {
         }}
       >
         <div>
-          <MonoLabel color={tokens.green}>
-            {t("insights.evolution.title")}
-          </MonoLabel>
+          <MonoLabel color={tokens.green}>{t("insights.evolution.title")}</MonoLabel>
           <div
             style={{
               fontFamily: "var(--font-syne), Syne",
@@ -74,8 +70,7 @@ export function ScoreEvolution() {
               style={{
                 fontSize: 12,
                 color: tokens.green,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {t("insights.evolution.delta", { n: user.scoreDelta })}
@@ -109,8 +104,7 @@ export function ScoreEvolution() {
                   color: active ? tokens.text : tokens.text2,
                   fontSize: 10,
                   fontWeight: 600,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {r}
@@ -175,13 +169,7 @@ export function ScoreEvolution() {
           />
           {/* current point */}
           <circle cx={last[0]} cy={last[1]} r="4" fill={tokens.green} />
-          <circle
-            cx={last[0]}
-            cy={last[1]}
-            r="8"
-            fill={tokens.green}
-            opacity="0.2"
-          />
+          <circle cx={last[0]} cy={last[1]} r="8" fill={tokens.green} opacity="0.2" />
         </svg>
 
         <div

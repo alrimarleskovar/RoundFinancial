@@ -1,0 +1,41 @@
+# Prettier ignore — files we deliberately don't format-check.
+# (Each block has a 1-line reason. Keep the file lean — broad globs
+# tend to grow into "we ignore everything because we never cleaned up.")
+
+# Build artefacts and dependencies
+node_modules/
+.next/
+dist/
+target/
+out/
+
+# Lockfiles + machine-generated configs
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+Cargo.lock
+*.tsbuildinfo
+
+# Legacy design handoff bundle (per README — original prototype, not
+# served by the live app). Will get its own a11y + format pass if ever
+# revived; not worth gating PRs on it today.
+app/public/prototype/
+
+# READMEs inside asset directories — short notes for humans, not
+# canonical content. Many contain markdown patterns prettier rejects
+# (table alignment, inline HTML).
+app/public/illustrations/README.md
+app/public/partners/README.md
+
+# Generated IDLs + types from `anchor build`
+sdk/src/generated/
+
+# Grant submission docs — written for humans, prettier breaks the
+# layout patterns we use for the bundle.
+grant/
+
+# Pitch decks (HTML — hand-tuned styling)
+docs/pitch/
+
+# Doc PDFs (binary, prettier no-op anyway, but explicit)
+docs/pt/

@@ -128,8 +128,7 @@ export function SellShareModal({
                 style={{
                   fontSize: 8,
                   opacity: 0.7,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 #
@@ -145,8 +144,7 @@ export function SellShareModal({
                   fontSize: 11,
                   color: tokens.muted,
                   marginTop: 2,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 Mês {position.month}/{position.total} · expira {position.exp}
@@ -194,8 +192,7 @@ export function SellShareModal({
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 9,
                 color: tokens.muted,
                 marginTop: 4,
@@ -255,8 +252,7 @@ export function SellShareModal({
               <MonoLabel size={9}>{t("modal.sell.apyForBuyer")}</MonoLabel>
               <div
                 style={{
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   fontSize: 12,
                   color: tokens.teal,
                   fontWeight: 600,
@@ -294,10 +290,15 @@ export function SellShareModal({
 
 function toneColor(tokens: ReturnType<typeof useTheme>["tokens"], tone: Tone): string {
   switch (tone) {
-    case "g": return tokens.green;
-    case "t": return tokens.teal;
-    case "p": return tokens.purple;
-    case "a": return tokens.amber;
-    case "r": return tokens.red;
+    case "g":
+      return tokens.green;
+    case "t":
+      return tokens.teal;
+    case "p":
+      return tokens.purple;
+    case "a":
+      return tokens.amber;
+    case "r":
+      return tokens.red;
   }
 }

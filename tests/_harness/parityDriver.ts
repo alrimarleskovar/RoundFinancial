@@ -52,10 +52,10 @@ import { ensureFunded } from "./airdrop.js";
 
 export interface CycleSummary {
   cycle: number;
-  contributed: number[];      // slot indices that paid this cycle
-  defaultedNewly: number[];   // slot indices that became X this cycle
-  exitedNewly: number[];      // slot indices that became E this cycle
-  recipient: number | null;   // slot index that claimed payout, or null
+  contributed: number[]; // slot indices that paid this cycle
+  defaultedNewly: number[]; // slot indices that became X this cycle
+  exitedNewly: number[]; // slot indices that became E this cycle
+  recipient: number | null; // slot index that claimed payout, or null
 }
 
 export interface DriveOpts {
@@ -83,9 +83,7 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
   const { env, pool, members, matrix } = opts;
   const N = members.length;
   if (matrix.length !== N) {
-    throw new Error(
-      `driveMatrix: matrix has ${matrix.length} rows but pool has ${N} members`,
-    );
+    throw new Error(`driveMatrix: matrix has ${matrix.length} rows but pool has ${N} members`);
   }
   if (matrix.some((row) => row.length !== N)) {
     throw new Error(`driveMatrix: matrix is not ${N}×${N}`);
@@ -131,20 +129,11 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       const buyer = Keypair.generate();
       await ensureFunded(env, [buyer], 1);
 
-      const priceUsdc =
-        opts.escapeValvePriceUsdc ?? pool.creditAmount / 2n;
+      const priceUsdc = opts.escapeValvePriceUsdc ?? pool.creditAmount / 2n;
 
       // Pre-fund the buyer's USDC ATA so the buy transfer can settle.
-      const buyerUsdc = await fundUsdc(
-        env,
-        pool.usdcMint,
-        buyer.publicKey,
-        priceUsdc,
-      );
-      const sellerUsdc = getAssociatedTokenAddressSync(
-        pool.usdcMint,
-        seller.wallet.publicKey,
-      );
+      const buyerUsdc = await fundUsdc(env, pool.usdcMint, buyer.publicKey, priceUsdc);
+      const sellerUsdc = getAssociatedTokenAddressSync(pool.usdcMint, seller.wallet.publicKey);
 
       const { listing } = await escapeValveList(env, {
         pool,

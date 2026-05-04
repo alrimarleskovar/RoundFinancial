@@ -31,11 +31,11 @@ const USDC = 1_000_000n; // 6 decimals
 const POOL = {
   membersTarget: 24,
   installmentAmount: 416n * USDC, // 416 USDC
-  creditAmount: 10_000n * USDC,   // 10,000 USDC
+  creditAmount: 10_000n * USDC, // 10,000 USDC
   cyclesTotal: 24,
-  solidarityBps: 100,              // 1%
-  escrowReleaseBps: 2_500,         // 25% of installment goes to escrow
-  seedDrawBps: 9_160,              // 91.6% must be retained at cycle 0
+  solidarityBps: 100, // 1%
+  escrowReleaseBps: 2_500, // 25% of installment goes to escrow
+  seedDrawBps: 9_160, // 91.6% must be retained at cycle 0
 };
 
 // Per-level stake requirements (matches constants.rs:stake_bps_for_level)
@@ -60,10 +60,10 @@ interface Member {
 }
 
 interface Pool {
-  usdcVault: bigint;        // pool_usdc_vault.amount
+  usdcVault: bigint; // pool_usdc_vault.amount
   solidarityBalance: bigint;
-  escrowBalance: bigint;    // aggregate (informational)
-  guaranteeFund: bigint;    // earmarked inside usdcVault
+  escrowBalance: bigint; // aggregate (informational)
+  guaranteeFund: bigint; // earmarked inside usdcVault
   totalContributed: bigint;
   totalPaidOut: bigint;
   currentCycle: number;
@@ -71,8 +71,7 @@ interface Pool {
 }
 
 // ─── bps helper ──────────────────────────────────────────────────────
-const applyBps = (amount: bigint, bps: number): bigint =>
-  (amount * BigInt(bps)) / 10_000n;
+const applyBps = (amount: bigint, bps: number): bigint => (amount * BigInt(bps)) / 10_000n;
 
 // ─── Split an installment into (solidarity, escrow, poolFloat) ───────
 function splitInstallment(amount: bigint, solidarityBps: number, escrowBps: number) {
@@ -177,8 +176,7 @@ function run(pool: Pool, opts: RunOptions): Pool {
     for (const m of pool.members) {
       if (m.defaulted) continue;
       const shouldDefault =
-        opts.defaultAtCycle === cycle &&
-        (opts.defaultMemberIds ?? []).includes(m.id);
+        opts.defaultAtCycle === cycle && (opts.defaultMemberIds ?? []).includes(m.id);
       if (shouldDefault) continue; // skip contribution → triggers default
 
       const { solidarity, escrow, poolFloat } = splitInstallment(
@@ -305,10 +303,7 @@ function scenarioHappyPath(): void {
     pool.totalPaidOut === POOL.creditAmount * BigInt(POOL.membersTarget),
     `total paid out = ${fmtUsdc(POOL.creditAmount * BigInt(POOL.membersTarget))}`,
   );
-  assert(
-    pool.usdcVault >= 0n,
-    `pool vault non-negative (end: ${fmtUsdc(pool.usdcVault)})`,
-  );
+  assert(pool.usdcVault >= 0n, `pool vault non-negative (end: ${fmtUsdc(pool.usdcVault)})`);
 }
 
 function scenarioThreeVeteransDefault(): void {
@@ -362,11 +357,16 @@ function scenarioThreeVeteransDefault(): void {
 }
 
 function scenarioAllVeteransDefault(): void {
-  console.log("\n━━━ Scenario C — adversarial upper bound (all 3 veterans + 2 trusted default) ━━━");
+  console.log(
+    "\n━━━ Scenario C — adversarial upper bound (all 3 veterans + 2 trusted default) ━━━",
+  );
   const pool = buildPool();
   const ids = [
     ...pool.members.filter((m) => m.level === 3).map((m) => m.id),
-    ...pool.members.filter((m) => m.level === 2).slice(0, 2).map((m) => m.id),
+    ...pool.members
+      .filter((m) => m.level === 2)
+      .slice(0, 2)
+      .map((m) => m.id),
   ];
   run(pool, {
     cycles: POOL.cyclesTotal,

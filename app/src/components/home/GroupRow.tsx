@@ -22,11 +22,16 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
 
   const tc = ((): string => {
     switch (g.tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   })();
 
@@ -74,9 +79,7 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
         {g.emoji}
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: tokens.text }}>
-          {g.name}
-        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: tokens.text }}>{g.name}</div>
         <div
           style={{
             fontSize: 10,
@@ -87,9 +90,7 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
         >
           {t("home.month")} {String(g.month).padStart(2, "0")} / {g.total}
           {g.status === "drawn" && (
-            <span style={{ color: tokens.green, marginLeft: 8 }}>
-              ✓ sorteado
-            </span>
+            <span style={{ color: tokens.green, marginLeft: 8 }}>✓ sorteado</span>
           )}
         </div>
       </div>
@@ -133,11 +134,7 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
       </div>
       <Icons.arrow size={16} stroke={tokens.muted} />
 
-      <PayInstallmentModal
-        group={g}
-        open={payOpen}
-        onClose={() => setPayOpen(false)}
-      />
+      <PayInstallmentModal group={g} open={payOpen} onClose={() => setPayOpen(false)} />
     </button>
   );
 }

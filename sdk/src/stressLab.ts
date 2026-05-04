@@ -45,8 +45,8 @@ export interface MemberLedger {
    */
   stakeRefunded: number;
   status: MemberStatus;
-  retained: number;     // protocol-favorable retention (drop-out / negative-loss)
-  lossCaused: number;   // damage to the fund (calote pos-contemplação)
+  retained: number; // protocol-favorable retention (drop-out / negative-loss)
+  lossCaused: number; // damage to the fund (calote pos-contemplação)
 }
 
 export interface FrameMetrics {
@@ -127,9 +127,9 @@ export interface StressLabFrame {
 export type GroupMaturity = "immature" | "mature";
 
 export interface LevelParams {
-  stakePct: number;     // % of credit locked as initial stake
-  upfrontPct: number;   // 0..1, share of credit released at contemplation
-  escrowPct: number;    // 0..1, share retained in escrow
+  stakePct: number; // % of credit locked as initial stake
+  upfrontPct: number; // 0..1, share of credit released at contemplation
+  escrowPct: number; // 0..1, share retained in escrow
   /**
    * Months over which the escrow drips out in an *immature* group.
    * Default schedule before the protocol has trust-history with the
@@ -147,16 +147,54 @@ export interface LevelParams {
 // Spec: 50/30/10 stake rule + adaptive escrow per level. Mature groups
 // drip faster (3/2/1 vs 5/4/3) — selected via StressLabConfig.maturity.
 export const LEVEL_PARAMS: Record<GroupLevel, LevelParams> = {
-  Iniciante:  { stakePct: 50, upfrontPct: 0.5,  escrowPct: 0.5,  releaseMonths: 5, releaseMonthsMature: 3 },
-  Comprovado: { stakePct: 30, upfrontPct: 0.45, escrowPct: 0.55, releaseMonths: 4, releaseMonthsMature: 2 },
-  Veterano:   { stakePct: 10, upfrontPct: 0.35, escrowPct: 0.65, releaseMonths: 3, releaseMonthsMature: 1 },
+  Iniciante: {
+    stakePct: 50,
+    upfrontPct: 0.5,
+    escrowPct: 0.5,
+    releaseMonths: 5,
+    releaseMonthsMature: 3,
+  },
+  Comprovado: {
+    stakePct: 30,
+    upfrontPct: 0.45,
+    escrowPct: 0.55,
+    releaseMonths: 4,
+    releaseMonthsMature: 2,
+  },
+  Veterano: {
+    stakePct: 10,
+    upfrontPct: 0.35,
+    escrowPct: 0.65,
+    releaseMonths: 3,
+    releaseMonthsMature: 1,
+  },
 };
 
 export const ALL_NAMES = [
-  "Ana", "Bruno", "Clara", "David", "Elena", "Fábio",
-  "Gabi", "Hugo", "Igor", "Júlia", "Kaio", "Lara",
-  "Malu", "Noah", "Olívia", "Pedro", "Quinn", "Ravi",
-  "Sofia", "Theo", "Uma", "Vitor", "Wendy", "Xuxa",
+  "Ana",
+  "Bruno",
+  "Clara",
+  "David",
+  "Elena",
+  "Fábio",
+  "Gabi",
+  "Hugo",
+  "Igor",
+  "Júlia",
+  "Kaio",
+  "Lara",
+  "Malu",
+  "Noah",
+  "Olívia",
+  "Pedro",
+  "Quinn",
+  "Ravi",
+  "Sofia",
+  "Theo",
+  "Uma",
+  "Vitor",
+  "Wendy",
+  "Xuxa",
 ];
 
 export interface StressLabConfig {
@@ -170,8 +208,8 @@ export interface StressLabConfig {
    * member, one contemplation per cycle).
    */
   creditAmountUsdc: number;
-  kaminoApy: number;    // % annual
-  yieldFeePct: number;  // % of yield kept by the protocol as admin fee
+  kaminoApy: number; // % annual
+  yieldFeePct: number; // % of yield kept by the protocol as admin fee
   memberNames?: string[];
   /**
    * Group maturity. Drives the escrow release schedule per
@@ -207,11 +245,7 @@ export function defaultMatrix(N: number): MatrixCell[][] {
 //   contemplation entirely; everything stays as P).
 // - X                                →  P (revert from this cycle
 //   onward, recovering the row's existing C if it sat before col).
-export function toggleCell(
-  matrix: MatrixCell[][],
-  row: number,
-  col: number,
-): MatrixCell[][] {
+export function toggleCell(matrix: MatrixCell[][], row: number, col: number): MatrixCell[][] {
   const N = matrix.length;
   const next = matrix.map((r) => [...r]);
   const current = next[row]![col];
@@ -225,10 +259,7 @@ export function toggleCell(
   } else if (current === "C") {
     // Cancel contemplation. Just turn the cell into P.
     next[row]![col] = "P";
-  } else if (
-    existingContemplationCol >= 0 &&
-    col > existingContemplationCol
-  ) {
+  } else if (existingContemplationCol >= 0 && col > existingContemplationCol) {
     // P after the existing C → cascade X from `col` onward.
     // Preserves the contemplation at existingContemplationCol so
     // `runSimulation` sees `monthContemplated > 0` and flags this
@@ -263,11 +294,7 @@ export function toggleCell(
 // - C → E   (member was contemplated then sold the share — valid case)
 // - X → E   (revert default and convert to clean exit)
 // - E → P   (cancel the escape; row reverts to P from this cycle on)
-export function toggleCellEscape(
-  matrix: MatrixCell[][],
-  row: number,
-  col: number,
-): MatrixCell[][] {
+export function toggleCellEscape(matrix: MatrixCell[][], row: number, col: number): MatrixCell[][] {
   const N = matrix.length;
   const next = matrix.map((r) => [...r]);
   const current = next[row]![col];
@@ -286,10 +313,7 @@ export function toggleCellEscape(
 // ── Simulation ─────────────────────────────────────────────
 // Pre-calculates every cycle's frame so the UI can step through them
 // without any further math (or animate at any speed).
-export function runSimulation(
-  config: StressLabConfig,
-  matrix: MatrixCell[][],
-): StressLabFrame[] {
+export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): StressLabFrame[] {
   const N = config.members;
   // Credit (carta) is the primary input. Monthly installment is
   // derived: each of the N members contributes 1/N of the credit
@@ -302,9 +326,7 @@ export function runSimulation(
   // Mature groups get the accelerated drip schedule (3/2/1 across
   // Lv1/Lv2/Lv3). Default is the immature schedule (5/4/3).
   const releaseMonths =
-    config.maturity === "mature"
-      ? params.releaseMonthsMature
-      : params.releaseMonths;
+    config.maturity === "mature" ? params.releaseMonthsMature : params.releaseMonths;
   const apy = config.kaminoApy;
   const adminFee = config.yieldFeePct;
 
@@ -369,8 +391,7 @@ export function runSimulation(
       // the per-cycle payout block AND the X-action default-seizure
       // block read these. Computed once per (m, c) so future tweaks
       // happen in one place.
-      const upfrontTotal =
-        monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
+      const upfrontTotal = monthContemplated === 1 ? 2 * inst : credit * params.upfrontPct;
       const escrowTotal =
         monthContemplated === 1 ? credit - upfrontTotal : credit * params.escrowPct;
       const escrowPerMonth = escrowTotal / releaseMonths;
@@ -400,15 +421,9 @@ export function runSimulation(
 
         if (c === monthContemplated) {
           payoutThisMonth = upfrontTotal;
-        } else if (
-          c > monthContemplated &&
-          c - monthContemplated <= releaseMonths
-        ) {
+        } else if (c > monthContemplated && c - monthContemplated <= releaseMonths) {
           payoutThisMonth = escrowPerMonth;
-        } else if (
-          c > monthContemplated + releaseMonths &&
-          refundPerMonth > 0
-        ) {
+        } else if (c > monthContemplated + releaseMonths && refundPerMonth > 0) {
           refundThisMonth = refundPerMonth;
         }
 
@@ -465,10 +480,7 @@ export function runSimulation(
             0,
             ledger[m]!.received - upfrontTotal - ledger[m]!.stakeRefunded,
           );
-          const escrowSeized = Math.max(
-            0,
-            escrowTotal - escrowDrippedToMember,
-          );
+          const escrowSeized = Math.max(0, escrowTotal - escrowDrippedToMember);
 
           // Stake seizure: any stake not yet refunded is forfeit. For the
           // canonical post-contemplation default (default before refund
@@ -639,10 +651,7 @@ export interface ScenarioPreset {
 
 // Helper: starts from a default-diagonal matrix and applies X bursts.
 // Each burst: row defaults from `cycle` onward (1-indexed cycle).
-function withDefaults(
-  N: number,
-  defaults: Array<{ row: number; cycle: number }>,
-): MatrixCell[][] {
+function withDefaults(N: number, defaults: Array<{ row: number; cycle: number }>): MatrixCell[][] {
   const m = defaultMatrix(N);
   for (const { row, cycle } of defaults) {
     for (let j = cycle - 1; j < N; j++) m[row]![j] = "X";

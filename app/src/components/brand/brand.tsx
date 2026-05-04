@@ -8,13 +8,7 @@ import { useTheme } from "@/lib/theme";
 //   RFILogoMark, RFILogoLockup, RFIPill, RFICard, MonoLabel.
 // Each consumes tokens via useTheme() so palette switches propagate.
 
-export function RFILogoMark({
-  size = 28,
-  style,
-}: {
-  size?: number;
-  style?: CSSProperties;
-}) {
+export function RFILogoMark({ size = 28, style }: { size?: number; style?: CSSProperties }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" style={style} fill="none">
       <defs>

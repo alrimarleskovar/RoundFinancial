@@ -60,11 +60,11 @@ import {
 
 // ─── Pool parameters ──────────────────────────────────────────────────
 
-const MEMBERS_TARGET     = 2;
-const CYCLES_TOTAL       = 2;
-const CYCLE_DURATION_SEC = 60;               // MIN_CYCLE_DURATION
-const INSTALLMENT_BASE   = usdc(1_000n);
-const CREDIT_BASE        = usdc(2_200n);
+const MEMBERS_TARGET = 2;
+const CYCLES_TOTAL = 2;
+const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
+const INSTALLMENT_BASE = usdc(1_000n);
+const CREDIT_BASE = usdc(2_200n);
 
 // Safe margin (seconds) we keep from `next_cycle_at` on each leg.
 // Ensures the on-chain `clock.unix_timestamp <= next_cycle_at` check
@@ -98,11 +98,11 @@ describe("edge — cycle boundary on-time vs late", function () {
     pool = await createPool(env, {
       authority,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
     });
 
     const [aliceH, bobH] = await joinMembers(env, pool, [
@@ -110,19 +110,19 @@ describe("edge — cycle boundary on-time vs late", function () {
       { member: members[1]!, reputationLevel: 1 },
     ]);
     alice = aliceH!;
-    bob   = bobH!;
+    bob = bobH!;
 
     // One installment worth per member (plus a cushion — the join
     // already transferred the stake, so walletUSDC is currently 0).
     await fundUsdc(env, usdcMint, alice.wallet.publicKey, INSTALLMENT_BASE);
-    await fundUsdc(env, usdcMint, bob.wallet.publicKey,   INSTALLMENT_BASE);
+    await fundUsdc(env, usdcMint, bob.wallet.publicKey, INSTALLMENT_BASE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (await fetchPool(env, pool.pool)) as any;
-    const now         = await onchainUnix(env.connection);
+    const now = await onchainUnix(env.connection);
     const nextCycleAt = Number(p.nextCycleAt.toString());
 
-    expect(p.status).to.equal(1);                    // Active
+    expect(p.status).to.equal(1); // Active
     expect(p.currentCycle).to.equal(0);
     expect(nextCycleAt).to.be.greaterThan(now);
     // Cluster clock vs wall-clock drift is ≤ a few seconds. Bound it.
@@ -159,8 +159,8 @@ describe("edge — cycle boundary on-time vs late", function () {
     // The payment attestation PDA is now initialized.
     const att = attestationFor(
       env,
-      pool.pool,                      // issuer
-      alice.wallet.publicKey,         // subject
+      pool.pool, // issuer
+      alice.wallet.publicKey, // subject
       ATTESTATION_SCHEMA.Payment,
       attestationNonce(0, alice.slotIndex),
     );
@@ -175,10 +175,7 @@ describe("edge — cycle boundary on-time vs late", function () {
 
     // Wait until the on-chain clock is SAFE_MARGIN_SEC past the deadline.
     // Cap the wait so a mis-set fixture doesn't hang CI.
-    await waitUntilUnix(
-      nextCycleAt + SAFE_MARGIN_SEC,
-      (CYCLE_DURATION_SEC + 30) * 1_000,
-    );
+    await waitUntilUnix(nextCycleAt + SAFE_MARGIN_SEC, (CYCLE_DURATION_SEC + 30) * 1_000);
 
     const after = await onchainUnix(env.connection);
     expect(after).to.be.greaterThan(
@@ -254,8 +251,8 @@ describe("edge — cycle boundary on-time vs late", function () {
     // must be uninitialized — proving no cross-schema collision leaked
     // data onto the wrong account.
     const aliceWrong = await env.connection.getAccountInfo(aliceAsLate);
-    const bobWrong   = await env.connection.getAccountInfo(bobAsPayment);
+    const bobWrong = await env.connection.getAccountInfo(bobAsPayment);
     expect(aliceWrong, "Alice's Late-schema slot should be empty").to.be.null;
-    expect(bobWrong,   "Bob's Payment-schema slot should be empty").to.be.null;
+    expect(bobWrong, "Bob's Payment-schema slot should be empty").to.be.null;
   });
 });

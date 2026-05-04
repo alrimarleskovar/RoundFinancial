@@ -17,13 +17,7 @@
  * readable.
  */
 
-import {
-  Connection,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -57,12 +51,8 @@ export function usdc(whole: number | bigint): bigint {
 }
 
 /** Localnet placeholder for the Civic gateway — unused by the demo flow. */
-const LOCALNET_CIVIC_GATEWAY = new PublicKey(
-  "gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs",
-);
-const LOCALNET_CIVIC_NETWORK = new PublicKey(
-  "ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6",
-);
+const LOCALNET_CIVIC_GATEWAY = new PublicKey("gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs");
+const LOCALNET_CIVIC_NETWORK = new PublicKey("ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6");
 
 // Anchor's Program<AnyIdl>.methods.<ix> is typed as possibly undefined
 // because AnyIdl carries no instruction schema. Runtime IDL provides
@@ -117,10 +107,7 @@ export async function airdropSol(
   for (const w of wallets) {
     const sig = await connection.requestAirdrop(w, lamports);
     const latest = await connection.getLatestBlockhash("confirmed");
-    await connection.confirmTransaction(
-      { signature: sig, ...latest },
-      "confirmed",
-    );
+    await connection.confirmTransaction({ signature: sig, ...latest }, "confirmed");
     sink({
       kind: "action.ok",
       action: "airdropSol",
@@ -268,13 +255,13 @@ export async function ensureProtocolInitialized(
   }
 
   const res = await initializeProtocol(client, {
-    authority:        args.authority,
-    usdcMint:         args.usdcMint,
-    treasury:         args.treasury,
-    feeBpsYield:      FEES.yieldFeeBps,
-    feeBpsCycleL1:    FEES.cycleFeeL1Bps,
-    feeBpsCycleL2:    FEES.cycleFeeL2Bps,
-    feeBpsCycleL3:    FEES.cycleFeeL3Bps,
+    authority: args.authority,
+    usdcMint: args.usdcMint,
+    treasury: args.treasury,
+    feeBpsYield: FEES.yieldFeeBps,
+    feeBpsCycleL1: FEES.cycleFeeL1Bps,
+    feeBpsCycleL2: FEES.cycleFeeL2Bps,
+    feeBpsCycleL3: FEES.cycleFeeL3Bps,
     guaranteeFundBps: FEES.guaranteeFundBps,
   });
   sink({
@@ -310,12 +297,12 @@ export async function ensureReputationInitialized(
 
   const sig = await m(client.programs.reputation)
     .initializeReputation({
-      roundfiCoreProgram:  client.ids.core,
+      roundfiCoreProgram: client.ids.core,
       civicGatewayProgram: LOCALNET_CIVIC_GATEWAY,
-      civicNetwork:        LOCALNET_CIVIC_NETWORK,
+      civicNetwork: LOCALNET_CIVIC_NETWORK,
     })
     .accounts({
-      authority:     authority.publicKey,
+      authority: authority.publicKey,
       config,
       systemProgram: SystemProgram.programId,
     })
@@ -350,7 +337,7 @@ export async function ensureReputationProfile(
   await m(client.programs.reputation)
     .initProfile(subject)
     .accounts({
-      payer:         payer.publicKey,
+      payer: payer.publicKey,
       profile,
       systemProgram: SystemProgram.programId,
     })

@@ -9,10 +9,7 @@ import { NETWORK_OPTIONS, type NetworkId } from "@/lib/network";
 // wallet-adapter-react-ui's WalletMultiButton mounts a portal and
 // reads `document`, so SSR must be skipped.
 const WalletMultiButton = dynamic(
-  () =>
-    import("@solana/wallet-adapter-react-ui").then(
-      (mod) => mod.WalletMultiButton,
-    ),
+  () => import("@solana/wallet-adapter-react-ui").then((mod) => mod.WalletMultiButton),
   { ssr: false },
 );
 
@@ -48,7 +45,7 @@ const PRESETS: Record<string, DemoConfig> = {
     memberNames: ["Ana", "Bruno", "Clara", "David"],
     cyclesTotal: 4,
     installmentAmount: 1_000_000_000n, // 1000 USDC
-    creditAmount: 2_000_000_000n,      // 2000 USDC
+    creditAmount: 2_000_000_000n, // 2000 USDC
     enableDefault: false,
     defaultMemberSlot: 1,
     defaultAtCycle: 1,
@@ -112,12 +109,8 @@ export function ActionsPanel({
   return (
     <aside className="flex h-full flex-col gap-5 rounded-2xl border border-border bg-surface p-5 shadow-card">
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-          Actions
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Drive the protocol demo end-to-end.
-        </p>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Actions</h2>
+        <p className="mt-1 text-xs text-slate-500">Drive the protocol demo end-to-end.</p>
       </div>
 
       <div className="space-y-2">
@@ -195,9 +188,7 @@ export function ActionsPanel({
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
-              {network.notes}
-            </p>
+            <p className="mt-1.5 text-[10px] leading-snug text-slate-500">{network.notes}</p>
           </div>
         </div>
       ) : null}
@@ -229,9 +220,7 @@ export function ActionsPanel({
             type="checkbox"
             className="h-4 w-4 rounded border-border bg-surfaceMuted accent-accent"
             checked={config.enableDefault}
-            onChange={(e) =>
-              onConfigChange({ ...config, enableDefault: e.target.checked })
-            }
+            onChange={(e) => onConfigChange({ ...config, enableDefault: e.target.checked })}
             disabled={running}
           />
           Simulate a missed contribution
@@ -293,13 +282,9 @@ export function ActionsPanel({
         </h3>
         <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs text-slate-400">
           <span>Members</span>
-          <span className="text-right font-mono text-slate-200">
-            {config.memberNames.length}
-          </span>
+          <span className="text-right font-mono text-slate-200">{config.memberNames.length}</span>
           <span>Cycles</span>
-          <span className="text-right font-mono text-slate-200">
-            {config.cyclesTotal}
-          </span>
+          <span className="text-right font-mono text-slate-200">{config.cyclesTotal}</span>
           <span>Installment</span>
           <span className="text-right font-mono text-slate-200">
             {formatUsdc(config.installmentAmount)}
@@ -311,9 +296,7 @@ export function ActionsPanel({
           {mode === "mock" ? (
             <>
               <span>Step delay</span>
-              <span className="text-right font-mono text-slate-200">
-                {config.stepDelayMs} ms
-              </span>
+              <span className="text-right font-mono text-slate-200">{config.stepDelayMs} ms</span>
             </>
           ) : null}
         </div>
@@ -323,18 +306,17 @@ export function ActionsPanel({
         {mode === "real" ? (
           <>
             Real mode drives the full orchestrator end-to-end over{" "}
-            <span className="font-mono text-slate-300">{networkId}</span>.
-            Requires a running validator with the three programs deployed
-            and IDLs populated under{" "}
-            <span className="font-mono text-slate-300">app/public/idls/</span>{" "}
-            (see the README there).
+            <span className="font-mono text-slate-300">{networkId}</span>. Requires a running
+            validator with the three programs deployed and IDLs populated under{" "}
+            <span className="font-mono text-slate-300">app/public/idls/</span> (see the README
+            there).
           </>
         ) : (
           <>
             Mock mode emits the exact same{" "}
-            <span className="font-mono text-slate-300">LifecycleEvent</span>{" "}
-            shapes as the orchestrator — no validator, no wallet, instant.
-            Toggle to Real above to drive the actual on-chain flow.
+            <span className="font-mono text-slate-300">LifecycleEvent</span> shapes as the
+            orchestrator — no validator, no wallet, instant. Toggle to Real above to drive the
+            actual on-chain flow.
           </>
         )}
       </div>

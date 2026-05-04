@@ -41,11 +41,7 @@ export function yieldMockStatePda(env: Env, owner: PublicKey): PublicKey {
  * Different from the core-side `yield_vault` minted in `create_pool`;
  * that one stays empty in the mock setup.
  */
-export function yieldMockVault(
-  env: Env,
-  pool: PublicKey,
-  usdcMint: PublicKey,
-): PublicKey {
+export function yieldMockVault(env: Env, pool: PublicKey, usdcMint: PublicKey): PublicKey {
   const state = yieldMockStatePda(env, pool);
   return getAssociatedTokenAddressSync(usdcMint, state, true);
 }
@@ -121,15 +117,10 @@ export interface MockVaultStateView {
 }
 
 /** Loosely-typed fetch of the mock's YieldVaultState account. */
-export async function fetchMockVaultState(
-  env: Env,
-  pool: PublicKey,
-): Promise<MockVaultStateView> {
+export async function fetchMockVaultState(env: Env, pool: PublicKey): Promise<MockVaultStateView> {
   const state = yieldMockStatePda(env, pool);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = (await (env.programs.yieldMock.account as any).yieldVaultState.fetch(
-    state,
-  )) as {
+  const raw = (await (env.programs.yieldMock.account as any).yieldVaultState.fetch(state)) as {
     pool: PublicKey;
     underlyingMint: PublicKey;
     vault: PublicKey;

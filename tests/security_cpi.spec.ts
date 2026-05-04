@@ -111,32 +111,32 @@ import {
 // Small pool — we only need to activate, make one contribute, and get
 // cycle 0 ready for claim_payout.
 
-const MEMBERS_TARGET     = 2;
-const CYCLES_TOTAL       = 2;
+const MEMBERS_TARGET = 2;
+const CYCLES_TOTAL = 2;
 const CYCLE_DURATION_SEC = 60;
-const INSTALLMENT_USDC   = 1_250n;
+const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst = 1_250 * (1 - 0.01 - 0.25) = 925 USDC
 // credit must fit 2 * 925 = 1_850 USDC
-const CREDIT_USDC        = 1_800n;
-const LEVEL: 1 | 2 | 3   = 2;
+const CREDIT_USDC = 1_800n;
+const LEVEL: 1 | 2 | 3 = 2;
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
-const CREDIT_BASE      = usdc(CREDIT_USDC);
-const DEPOSIT_BASE     = usdc(100n);   // principal moved into the mock
+const CREDIT_BASE = usdc(CREDIT_USDC);
+const DEPOSIT_BASE = usdc(100n); // principal moved into the mock
 
 // ─── Snapshot / assertion helpers ─────────────────────────────────────
 
 interface YieldSnapshot {
-  poolVault:          bigint;
-  solidarity:         bigint;
-  escrow:             bigint;
-  treasury:           bigint;
-  mockVault:          bigint;
-  gfBalance:          bigint;
-  yieldAccrued:       bigint;
-  feeAccrued:         bigint;
+  poolVault: bigint;
+  solidarity: bigint;
+  escrow: bigint;
+  treasury: bigint;
+  mockVault: bigint;
+  gfBalance: bigint;
+  yieldAccrued: bigint;
+  feeAccrued: bigint;
   principalDeposited: bigint;
-  currentCycle:       number;
+  currentCycle: number;
 }
 
 function bn(x: { toString(): string }): bigint {
@@ -156,10 +156,10 @@ async function snapshotYield(
     balanceOf(env, treasury),
     balanceOf(env, mockVault),
   ]);
-  const p = await fetchPool(env, pool.pool) as {
+  const p = (await fetchPool(env, pool.pool)) as {
     currentCycle: number;
-    guaranteeFundBalance:    { toString(): string };
-    yieldAccrued:            { toString(): string };
+    guaranteeFundBalance: { toString(): string };
+    yieldAccrued: { toString(): string };
     totalProtocolFeeAccrued: { toString(): string };
     yieldPrincipalDeposited: { toString(): string };
   };
@@ -169,20 +169,20 @@ async function snapshotYield(
     escrow,
     treasury: treasuryBal,
     mockVault: mockBal,
-    gfBalance:          bn(p.guaranteeFundBalance),
-    yieldAccrued:       bn(p.yieldAccrued),
-    feeAccrued:         bn(p.totalProtocolFeeAccrued),
+    gfBalance: bn(p.guaranteeFundBalance),
+    yieldAccrued: bn(p.yieldAccrued),
+    feeAccrued: bn(p.totalProtocolFeeAccrued),
     principalDeposited: bn(p.yieldPrincipalDeposited),
-    currentCycle:       p.currentCycle,
+    currentCycle: p.currentCycle,
   };
 }
 
 interface MemberSnapshot {
-  memberUsdc:     bigint;
-  contributions:  number;
-  onTimeCount:    number;
-  profileScore:   bigint;
-  profileOnTime:  number;
+  memberUsdc: bigint;
+  contributions: number;
+  onTimeCount: number;
+  profileScore: bigint;
+  profileOnTime: number;
 }
 
 async function snapshotMember(env: Env, h: MemberHandle): Promise<MemberSnapshot> {
@@ -190,35 +190,27 @@ async function snapshotMember(env: Env, h: MemberHandle): Promise<MemberSnapshot
     balanceOf(env, h.memberUsdc),
     fetchMember(env, h.member) as Promise<{
       contributionsPaid: number;
-      onTimeCount:       number;
+      onTimeCount: number;
     }>,
     fetchProfile(env, h.wallet.publicKey) as Promise<{
-      score:           { toString(): string };
-      onTimePayments:  number;
+      score: { toString(): string };
+      onTimePayments: number;
     }>,
   ]);
   return {
     memberUsdc,
-    contributions:  m.contributionsPaid,
-    onTimeCount:    m.onTimeCount,
-    profileScore:   bn(p.score),
-    profileOnTime:  p.onTimePayments,
+    contributions: m.contributionsPaid,
+    onTimeCount: m.onTimeCount,
+    profileScore: bn(p.score),
+    profileOnTime: p.onTimePayments,
   };
 }
 
-function expectYieldUnchanged(
-  before: YieldSnapshot,
-  after: YieldSnapshot,
-  label: string,
-): void {
+function expectYieldUnchanged(before: YieldSnapshot, after: YieldSnapshot, label: string): void {
   expect(after, `${label}: yield snapshot drift`).to.deep.equal(before);
 }
 
-function expectMemberUnchanged(
-  before: MemberSnapshot,
-  after: MemberSnapshot,
-  label: string,
-): void {
+function expectMemberUnchanged(before: MemberSnapshot, after: MemberSnapshot, label: string): void {
   expect(after, `${label}: member snapshot drift`).to.deep.equal(before);
 }
 
@@ -252,7 +244,7 @@ describe("security — CPI + adapter abuse", function () {
   let handlesA: MemberHandle[];
   let handlesB: MemberHandle[];
   let mockVaultA: PublicKey;
-  let mockVaultB: PublicKey;   // foreign pool vault — we never want tokens here
+  let mockVaultB: PublicKey; // foreign pool vault — we never want tokens here
 
   let attackerUsdc: PublicKey;
 
@@ -267,12 +259,12 @@ describe("security — CPI + adapter abuse", function () {
     poolA = await createPool(env, {
       authority: authorityA,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesA = await joinMembers(
       env,
@@ -297,12 +289,12 @@ describe("security — CPI + adapter abuse", function () {
     poolB = await createPool(env, {
       authority: authorityB,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesB = await joinMembers(
       env,
@@ -336,15 +328,15 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(usdc(10n).toString()) })
         .accounts({
-          caller:              env.payer.publicKey,
-          config:              configPda(env),
-          pool:                poolA.pool,
+          caller: env.payer.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
           usdcMint,
-          poolUsdcVault:       poolA.poolUsdcVault,
-          yieldVault:          mockVaultA,
+          poolUsdcVault: poolA.poolUsdcVault,
+          yieldVault: mockVaultA,
           // substituted adapter program — must equal pool.yield_adapter
           yieldAdapterProgram: env.ids.reputation,
-          tokenProgram:        TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
           { pubkey: yieldMockStatePda(env, poolA.pool), isSigner: false, isWritable: true },
@@ -363,17 +355,17 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
         .accounts({
-          caller:              env.payer.publicKey,
-          config:              configPda(env),
-          pool:                poolA.pool,
+          caller: env.payer.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
           usdcMint,
-          poolUsdcVault:       poolA.poolUsdcVault,
+          poolUsdcVault: poolA.poolUsdcVault,
           solidarityVaultAuthority: poolA.solidarityVaultAuthority,
-          solidarityVault:     poolA.solidarityVault,
-          treasuryUsdc:        treasury,
-          yieldVault:          mockVaultA,
-          yieldAdapterProgram: env.ids.reputation,   // wrong program
-          tokenProgram:        TOKEN_PROGRAM_ID,
+          solidarityVault: poolA.solidarityVault,
+          treasuryUsdc: treasury,
+          yieldVault: mockVaultA,
+          yieldAdapterProgram: env.ids.reputation, // wrong program
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
           { pubkey: yieldMockStatePda(env, poolA.pool), isSigner: false, isWritable: false },
@@ -397,17 +389,17 @@ describe("security — CPI + adapter abuse", function () {
     await (env.programs.core.methods as any)
       .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
       .accounts({
-        caller:              env.payer.publicKey,
-        config:              configPda(env),
-        pool:                poolA.pool,
+        caller: env.payer.publicKey,
+        config: configPda(env),
+        pool: poolA.pool,
         usdcMint,
-        poolUsdcVault:       poolA.poolUsdcVault,
+        poolUsdcVault: poolA.poolUsdcVault,
         solidarityVaultAuthority: poolA.solidarityVaultAuthority,
-        solidarityVault:     poolA.solidarityVault,
-        treasuryUsdc:        treasury,
-        yieldVault:          mockVaultA,
+        solidarityVault: poolA.solidarityVault,
+        treasuryUsdc: treasury,
+        yieldVault: mockVaultA,
         yieldAdapterProgram: env.ids.yieldMock,
-        tokenProgram:        TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
       })
       .remainingAccounts([
         { pubkey: yieldMockStatePda(env, poolA.pool), isSigner: false, isWritable: false },
@@ -427,15 +419,15 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(usdc(10n).toString()) })
         .accounts({
-          caller:              env.payer.publicKey,
-          config:              configPda(env),
-          pool:                poolA.pool,
+          caller: env.payer.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
           usdcMint,
-          poolUsdcVault:       poolA.poolUsdcVault,
+          poolUsdcVault: poolA.poolUsdcVault,
           // attacker ATA in place of the pool's mock vault
-          yieldVault:          attackerUsdc,
+          yieldVault: attackerUsdc,
           yieldAdapterProgram: env.ids.yieldMock,
-          tokenProgram:        TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
           { pubkey: yieldMockStatePda(env, poolA.pool), isSigner: false, isWritable: true },
@@ -458,17 +450,17 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .harvestYield({ lpShareBps: 6_500, minRealizedUsdc: new BN(0) })
         .accounts({
-          caller:              env.payer.publicKey,
-          config:              configPda(env),
-          pool:                poolA.pool,
+          caller: env.payer.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
           usdcMint,
-          poolUsdcVault:       poolA.poolUsdcVault,
+          poolUsdcVault: poolA.poolUsdcVault,
           solidarityVaultAuthority: poolA.solidarityVaultAuthority,
-          solidarityVault:     poolA.solidarityVault,
-          treasuryUsdc:        treasury,
-          yieldVault:          attackerUsdc,
+          solidarityVault: poolA.solidarityVault,
+          treasuryUsdc: treasury,
+          yieldVault: attackerUsdc,
           yieldAdapterProgram: env.ids.yieldMock,
-          tokenProgram:        TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
           { pubkey: yieldMockStatePda(env, poolA.pool), isSigner: false, isWritable: false },
@@ -496,14 +488,14 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .depositIdleToYield({ amount: new BN(usdc(10n).toString()) })
         .accounts({
-          caller:              env.payer.publicKey,
-          config:              configPda(env),
-          pool:                poolA.pool,
+          caller: env.payer.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
           usdcMint,
-          poolUsdcVault:       poolA.poolUsdcVault,
-          yieldVault:          mockVaultA,
+          poolUsdcVault: poolA.poolUsdcVault,
+          yieldVault: mockVaultA,
           yieldAdapterProgram: env.ids.yieldMock,
-          tokenProgram:        TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
           // poolB's state PDA — foreign to poolA
@@ -549,31 +541,35 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .claimPayout({ cycle: 0 })
         .accounts({
-          memberWallet:      h.wallet.publicKey,
-          config:            configPda(env),
-          pool:              poolA.pool,
-          member:            h.member,
+          memberWallet: h.wallet.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
+          member: h.member,
           usdcMint,
-          memberUsdc:        h.memberUsdc,
-          poolUsdcVault:     poolA.poolUsdcVault,
-          tokenProgram:      TOKEN_PROGRAM_ID,
+          memberUsdc: h.memberUsdc,
+          poolUsdcVault: poolA.poolUsdcVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
           // Substituted reputation program. Guard lives inside
           // invoke_attest, AFTER transfer + bookkeeping in the handler —
           // on error, the whole CPI chain atomically rolls back, so
           // post-tx state is bit-identical to pre-tx (hence snapshot
           // diff == {}).
           reputationProgram: env.ids.yieldMock,
-          reputationConfig:  reputationConfigFor(env),
+          reputationConfig: reputationConfigFor(env),
           reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
-          identityRecord:    env.ids.reputation,
-          attestation:       defaultAttestation,
-          systemProgram:     SystemProgram.programId,
+          identityRecord: env.ids.reputation,
+          attestation: defaultAttestation,
+          systemProgram: SystemProgram.programId,
         })
         .signers([h.wallet])
         .rpc(),
     );
     expect(msg, `E.1: ${msg}`).to.match(/Unauthorized/);
-    expectYieldUnchanged(beforeY, await snapshotYield(env, poolA, treasury, mockVaultA), "E.1/yield");
+    expectYieldUnchanged(
+      beforeY,
+      await snapshotYield(env, poolA, treasury, mockVaultA),
+      "E.1/yield",
+    );
     expectMemberUnchanged(beforeM, await snapshotMember(env, h), "E.1/member");
   });
 
@@ -590,7 +586,7 @@ describe("security — CPI + adapter abuse", function () {
     // ROGUE issuer seed: env.payer instead of poolB.pool
     const spoofedAttestation = attestationFor(
       env,
-      env.payer.publicKey,              // <-- wrong issuer
+      env.payer.publicKey, // <-- wrong issuer
       h.wallet.publicKey,
       ATTESTATION_SCHEMA.Payment,
       nonce,
@@ -600,24 +596,24 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .contribute({ cycle: 0 })
         .accounts({
-          memberWallet:             h.wallet.publicKey,
-          config:                   configPda(env),
-          pool:                     poolB.pool,
-          member:                   h.member,
+          memberWallet: h.wallet.publicKey,
+          config: configPda(env),
+          pool: poolB.pool,
+          member: h.member,
           usdcMint,
-          memberUsdc:               h.memberUsdc,
-          poolUsdcVault:            poolB.poolUsdcVault,
+          memberUsdc: h.memberUsdc,
+          poolUsdcVault: poolB.poolUsdcVault,
           solidarityVaultAuthority: poolB.solidarityVaultAuthority,
-          solidarityVault:          poolB.solidarityVault,
-          escrowVaultAuthority:     poolB.escrowVaultAuthority,
-          escrowVault:              poolB.escrowVault,
-          tokenProgram:             TOKEN_PROGRAM_ID,
-          reputationProgram:        env.ids.reputation,
-          reputationConfig:         reputationConfigFor(env),
-          reputationProfile:        reputationProfileFor(env, h.wallet.publicKey),
-          identityRecord:           env.ids.reputation,
-          attestation:              spoofedAttestation,
-          systemProgram:            SystemProgram.programId,
+          solidarityVault: poolB.solidarityVault,
+          escrowVaultAuthority: poolB.escrowVaultAuthority,
+          escrowVault: poolB.escrowVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          reputationProgram: env.ids.reputation,
+          reputationConfig: reputationConfigFor(env),
+          reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
+          identityRecord: env.ids.reputation,
+          attestation: spoofedAttestation,
+          systemProgram: SystemProgram.programId,
         })
         .signers([h.wallet])
         .rpc(),
@@ -644,7 +640,7 @@ describe("security — CPI + adapter abuse", function () {
       env,
       poolB.pool,
       h.wallet.publicKey,
-      ATTESTATION_SCHEMA.CycleComplete,   // wrong schema in seeds
+      ATTESTATION_SCHEMA.CycleComplete, // wrong schema in seeds
       nonce,
     );
 
@@ -652,24 +648,24 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .contribute({ cycle: 0 })
         .accounts({
-          memberWallet:             h.wallet.publicKey,
-          config:                   configPda(env),
-          pool:                     poolB.pool,
-          member:                   h.member,
+          memberWallet: h.wallet.publicKey,
+          config: configPda(env),
+          pool: poolB.pool,
+          member: h.member,
           usdcMint,
-          memberUsdc:               h.memberUsdc,
-          poolUsdcVault:            poolB.poolUsdcVault,
+          memberUsdc: h.memberUsdc,
+          poolUsdcVault: poolB.poolUsdcVault,
           solidarityVaultAuthority: poolB.solidarityVaultAuthority,
-          solidarityVault:          poolB.solidarityVault,
-          escrowVaultAuthority:     poolB.escrowVaultAuthority,
-          escrowVault:              poolB.escrowVault,
-          tokenProgram:             TOKEN_PROGRAM_ID,
-          reputationProgram:        env.ids.reputation,
-          reputationConfig:         reputationConfigFor(env),
-          reputationProfile:        reputationProfileFor(env, h.wallet.publicKey),
-          identityRecord:           env.ids.reputation,
-          attestation:              spoofedAttestation,
-          systemProgram:            SystemProgram.programId,
+          solidarityVault: poolB.solidarityVault,
+          escrowVaultAuthority: poolB.escrowVaultAuthority,
+          escrowVault: poolB.escrowVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          reputationProgram: env.ids.reputation,
+          reputationConfig: reputationConfigFor(env),
+          reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
+          identityRecord: env.ids.reputation,
+          attestation: spoofedAttestation,
+          systemProgram: SystemProgram.programId,
         })
         .signers([h.wallet])
         .rpc(),
@@ -704,24 +700,24 @@ describe("security — CPI + adapter abuse", function () {
       (env.programs.core.methods as any)
         .contribute({ cycle: wrongCycle })
         .accounts({
-          memberWallet:             h.wallet.publicKey,
-          config:                   configPda(env),
-          pool:                     poolB.pool,
-          member:                   h.member,
+          memberWallet: h.wallet.publicKey,
+          config: configPda(env),
+          pool: poolB.pool,
+          member: h.member,
           usdcMint,
-          memberUsdc:               h.memberUsdc,
-          poolUsdcVault:            poolB.poolUsdcVault,
+          memberUsdc: h.memberUsdc,
+          poolUsdcVault: poolB.poolUsdcVault,
           solidarityVaultAuthority: poolB.solidarityVaultAuthority,
-          solidarityVault:          poolB.solidarityVault,
-          escrowVaultAuthority:     poolB.escrowVaultAuthority,
-          escrowVault:              poolB.escrowVault,
-          tokenProgram:             TOKEN_PROGRAM_ID,
-          reputationProgram:        env.ids.reputation,
-          reputationConfig:         reputationConfigFor(env),
-          reputationProfile:        reputationProfileFor(env, h.wallet.publicKey),
-          identityRecord:           env.ids.reputation,
+          solidarityVault: poolB.solidarityVault,
+          escrowVaultAuthority: poolB.escrowVaultAuthority,
+          escrowVault: poolB.escrowVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          reputationProgram: env.ids.reputation,
+          reputationConfig: reputationConfigFor(env),
+          reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
+          identityRecord: env.ids.reputation,
           attestation,
-          systemProgram:            SystemProgram.programId,
+          systemProgram: SystemProgram.programId,
         })
         .signers([h.wallet])
         .rpc(),

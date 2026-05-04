@@ -3,14 +3,7 @@
 
 import type { ActiveGroup, DiscoverGroup, GroupLevel } from "@/data/groups";
 
-export type Category =
-  | "pme"
-  | "vip"
-  | "dev"
-  | "delivery"
-  | "estudo"
-  | "casa"
-  | "pessoal";
+export type Category = "pme" | "vip" | "dev" | "delivery" | "estudo" | "casa" | "pessoal";
 
 export const CATEGORY_KEYS: Category[] = [
   "pme",

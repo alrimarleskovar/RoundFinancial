@@ -59,13 +59,7 @@ export function DeskBtn({
 
   const inner = (
     <>
-      {Ic && (
-        <Ic
-          size={15}
-          stroke={primary ? tokens.bgDeep : tokens.text}
-          sw={primary ? 2 : 1.8}
-        />
-      )}
+      {Ic && <Ic size={15} stroke={primary ? tokens.bgDeep : tokens.text} sw={primary ? 2 : 1.8} />}
       {children}
     </>
   );

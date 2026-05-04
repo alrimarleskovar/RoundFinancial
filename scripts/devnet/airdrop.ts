@@ -13,8 +13,7 @@ import { resolve } from "node:path";
 
 import { loadCluster } from "../../config/clusters.js";
 
-const DEFAULT_WALLET =
-  process.env.ANCHOR_WALLET ?? resolve(homedir(), ".config/solana/id.json");
+const DEFAULT_WALLET = process.env.ANCHOR_WALLET ?? resolve(homedir(), ".config/solana/id.json");
 const DEFAULT_AMOUNT_SOL = 2;
 const MAX_AMOUNT_SOL = 5; // Devnet faucet cap per request
 
@@ -46,16 +45,15 @@ async function main() {
   console.log(`→ Amount      : ${amountSol} SOL`);
 
   const connection = new Connection(cluster.rpcUrl, "confirmed");
-  const sig = await connection.requestAirdrop(
-    wallet.publicKey,
-    amountSol * LAMPORTS_PER_SOL,
-  );
+  const sig = await connection.requestAirdrop(wallet.publicKey, amountSol * LAMPORTS_PER_SOL);
   await connection.confirmTransaction(sig, "confirmed");
 
   const balance = await connection.getBalance(wallet.publicKey);
   console.log(`✓ Signature   : ${sig}`);
   console.log(`✓ Balance     : ${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
-  console.log(`  Explorer    : ${cluster.explorerBase}${cluster.explorerBase.includes("?") ? "&" : "?"}tx=${sig}`);
+  console.log(
+    `  Explorer    : ${cluster.explorerBase}${cluster.explorerBase.includes("?") ? "&" : "?"}tx=${sig}`,
+  );
 }
 
 main().catch((e) => {

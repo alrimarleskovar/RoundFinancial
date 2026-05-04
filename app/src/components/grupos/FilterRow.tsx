@@ -7,13 +7,7 @@ import { MonoLabel } from "@/components/brand/brand";
 // 110px label column + flex-wrap chip column. Used by the Grupos
 // filter panel.
 
-export function FilterRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+export function FilterRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div
       style={{

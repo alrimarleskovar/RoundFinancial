@@ -14,11 +14,7 @@ const repoRoot = resolve(here, "..", "..");
 const targetDir = resolve(repoRoot, "target", "idl");
 const publicDir = resolve(here, "..", "public", "idls");
 
-const required = [
-  "roundfi_core.json",
-  "roundfi_reputation.json",
-  "roundfi_yield_mock.json",
-];
+const required = ["roundfi_core.json", "roundfi_reputation.json", "roundfi_yield_mock.json"];
 
 if (!existsSync(targetDir)) {
   console.error(

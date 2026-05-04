@@ -40,12 +40,42 @@ export function SideNav({
   const pathname = usePathname();
 
   const items: NavItem[] = [
-    { id: "home",     label: t("nav.home"),     href: "/home",     icon: Icons.home,   matchPrefix: "/home" },
-    { id: "groups",   label: t("nav.groups"),   href: "/grupos",   icon: Icons.groups, matchPrefix: "/grupos" },
-    { id: "score",    label: t("nav.score"),    href: "/reputacao",icon: Icons.shield, matchPrefix: "/reputacao" },
-    { id: "wallet",   label: t("nav.wallet"),   href: "/carteira", icon: Icons.wallet, matchPrefix: "/carteira" },
-    { id: "market",   label: t("nav.market"),   href: "/mercado",  icon: Icons.ticket, matchPrefix: "/mercado" },
-    { id: "insights", label: t("nav.insights"), href: "/insights", icon: Icons.chart,  matchPrefix: "/insights" },
+    { id: "home", label: t("nav.home"), href: "/home", icon: Icons.home, matchPrefix: "/home" },
+    {
+      id: "groups",
+      label: t("nav.groups"),
+      href: "/grupos",
+      icon: Icons.groups,
+      matchPrefix: "/grupos",
+    },
+    {
+      id: "score",
+      label: t("nav.score"),
+      href: "/reputacao",
+      icon: Icons.shield,
+      matchPrefix: "/reputacao",
+    },
+    {
+      id: "wallet",
+      label: t("nav.wallet"),
+      href: "/carteira",
+      icon: Icons.wallet,
+      matchPrefix: "/carteira",
+    },
+    {
+      id: "market",
+      label: t("nav.market"),
+      href: "/mercado",
+      icon: Icons.ticket,
+      matchPrefix: "/mercado",
+    },
+    {
+      id: "insights",
+      label: t("nav.insights"),
+      href: "/insights",
+      icon: Icons.chart,
+      matchPrefix: "/insights",
+    },
   ];
 
   const levelCopy = {
@@ -135,8 +165,7 @@ export function SideNav({
                   style={{
                     textTransform: "uppercase",
                     letterSpacing: "0.12em",
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontSize: 11,
                   }}
                 >
@@ -163,9 +192,7 @@ export function SideNav({
           <MonoLabel color={tokens.green} size={9}>
             {levelCopy.badge}
           </MonoLabel>
-          <div style={{ marginTop: 8, fontSize: 11, color: tokens.text2 }}>
-            {levelCopy.pts}
-          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: tokens.text2 }}>{levelCopy.pts}</div>
           <div
             style={{
               marginTop: 8,
@@ -232,8 +259,7 @@ export function SideNav({
               style={{
                 fontSize: 10,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {user.walletShort}

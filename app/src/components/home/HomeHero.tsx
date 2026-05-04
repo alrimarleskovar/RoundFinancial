@@ -58,9 +58,7 @@ export function HomeHero() {
             }}
           >
             {t("home.summary.a")}{" "}
-            <span style={{ color: tokens.green, fontWeight: 600 }}>
-              {t("home.summary.b")}
-            </span>{" "}
+            <span style={{ color: tokens.green, fontWeight: 600 }}>{t("home.summary.b")}</span>{" "}
             {t("home.summary.c")}{" "}
             <span style={{ color: tokens.teal, fontWeight: 600 }}>
               {t("home.yieldAmt", { v: fmtMoney(user.yield, { noCents: true }) })}
@@ -69,11 +67,7 @@ export function HomeHero() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <DeskBtn
-            tone="primary"
-            icon={Icons.send}
-            onClick={() => setPayOpen(true)}
-          >
+          <DeskBtn tone="primary" icon={Icons.send} onClick={() => setPayOpen(true)}>
             {t("home.payInstallment")}
           </DeskBtn>
           <DeskBtn icon={Icons.plus} href="/grupos">
@@ -82,11 +76,7 @@ export function HomeHero() {
         </div>
       </div>
 
-      <PayInstallmentModal
-        group={targetGroup}
-        open={payOpen}
-        onClose={() => setPayOpen(false)}
-      />
+      <PayInstallmentModal group={targetGroup} open={payOpen} onClose={() => setPayOpen(false)} />
     </>
   );
 }

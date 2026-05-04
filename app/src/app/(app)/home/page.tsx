@@ -34,74 +34,74 @@ export default function HomePage() {
         gap: 16,
       }}
     >
-        <HomeHero />
+      <HomeHero />
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr 1fr",
-            gridAutoRows: "auto",
-            gridTemplateAreas: `
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr 1fr",
+          gridAutoRows: "auto",
+          gridTemplateAreas: `
               "saldo yield colat score"
               "feat  feat  feat  score"
               "groups groups triplo triplo"
               "act    act    act    act"
             `,
-            gap: 16,
-          }}
-        >
-          <div style={{ gridArea: "saldo" }}>
-            <DeskKpi
-              label={t("home.kpi.balance")}
-              value={fmtMoney(user.balance)}
-              numericValue={user.balance}
-              format={(n) => fmtMoney(n)}
-              delta={t("home.kpi.delta.balance")}
-              tone="g"
-              href="/carteira"
-            />
-          </div>
-          <div style={{ gridArea: "yield" }}>
-            <DeskKpi
-              label={t("home.kpi.yield")}
-              value={fmtMoney(user.yield)}
-              numericValue={user.yield}
-              format={(n) => fmtMoney(n)}
-              delta={t("home.kpi.delta.yield")}
-              tone="p"
-              href="/carteira"
-            />
-          </div>
-          <div style={{ gridArea: "colat" }}>
-            <DeskKpi
-              label={t("home.kpi.colat")}
-              value={`${user.colateralPct}%`}
-              numericValue={user.colateralPct}
-              format={(n) => `${Math.round(n)}%`}
-              delta={t("home.kpi.delta.lev", { x: user.leverageX })}
-              tone="a"
-              href="/insights"
-            />
-          </div>
-          <div style={{ gridArea: "score", display: "flex" }}>
-            <PassportMini />
-          </div>
-
-          <div style={{ gridArea: "feat" }}>
-            <FeaturedGroup />
-          </div>
-
-          <div style={{ gridArea: "groups" }}>
-            <YourGroups />
-          </div>
-          <div style={{ gridArea: "triplo" }}>
-            <TripleShield />
-          </div>
-
-          <div style={{ gridArea: "act" }}>
-            <Activity />
-          </div>
+          gap: 16,
+        }}
+      >
+        <div style={{ gridArea: "saldo" }}>
+          <DeskKpi
+            label={t("home.kpi.balance")}
+            value={fmtMoney(user.balance)}
+            numericValue={user.balance}
+            format={(n) => fmtMoney(n)}
+            delta={t("home.kpi.delta.balance")}
+            tone="g"
+            href="/carteira"
+          />
         </div>
+        <div style={{ gridArea: "yield" }}>
+          <DeskKpi
+            label={t("home.kpi.yield")}
+            value={fmtMoney(user.yield)}
+            numericValue={user.yield}
+            format={(n) => fmtMoney(n)}
+            delta={t("home.kpi.delta.yield")}
+            tone="p"
+            href="/carteira"
+          />
+        </div>
+        <div style={{ gridArea: "colat" }}>
+          <DeskKpi
+            label={t("home.kpi.colat")}
+            value={`${user.colateralPct}%`}
+            numericValue={user.colateralPct}
+            format={(n) => `${Math.round(n)}%`}
+            delta={t("home.kpi.delta.lev", { x: user.leverageX })}
+            tone="a"
+            href="/insights"
+          />
+        </div>
+        <div style={{ gridArea: "score", display: "flex" }}>
+          <PassportMini />
+        </div>
+
+        <div style={{ gridArea: "feat" }}>
+          <FeaturedGroup />
+        </div>
+
+        <div style={{ gridArea: "groups" }}>
+          <YourGroups />
+        </div>
+        <div style={{ gridArea: "triplo" }}>
+          <TripleShield />
+        </div>
+
+        <div style={{ gridArea: "act" }}>
+          <Activity />
+        </div>
+      </div>
     </div>
   );
 }

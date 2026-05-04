@@ -36,11 +36,16 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
 
   const tc = ((): string => {
     switch (g.tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   })();
 
@@ -118,9 +123,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         {isJoined ? (
           <RFIPill tone="g">{t("groups.card.joined")}</RFIPill>
         ) : locked ? (
-          <RFIPill tone="n">
-            {t("groups.card.requiresLevel", { lv: g.level })}
-          </RFIPill>
+          <RFIPill tone="n">{t("groups.card.requiresLevel", { lv: g.level })}</RFIPill>
         ) : g.level === 3 ? (
           <RFIPill tone="p">{t("groups.card.vip")}</RFIPill>
         ) : (
@@ -211,19 +214,13 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         style={{
           padding: "10px 14px",
           borderRadius: 11,
-          border: locked
-            ? `1px solid ${tokens.borderStr}`
-            : `1px solid ${tokens.borderStr}`,
+          border: locked ? `1px solid ${tokens.borderStr}` : `1px solid ${tokens.borderStr}`,
           background: isJoined
             ? tokens.fillSoft
             : locked
-            ? tokens.fillMed
-            : `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
-          color: isJoined
-            ? tokens.text
-            : locked
-            ? tokens.text2
-            : tokens.bgDeep,
+              ? tokens.fillMed
+              : `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
+          color: isJoined ? tokens.text : locked ? tokens.text2 : tokens.bgDeep,
           fontSize: 12,
           fontWeight: 600,
           cursor: "pointer",
@@ -238,19 +235,11 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         {isJoined
           ? t("groups.card.cta.view")
           : locked
-          ? t("groups.card.cta.locked", { lv: g.level })
-          : t("groups.card.cta.join")}
+            ? t("groups.card.cta.locked", { lv: g.level })
+            : t("groups.card.cta.join")}
       </button>
-      <JoinGroupModal
-        group={g}
-        open={joinOpen}
-        onClose={() => setJoinOpen(false)}
-      />
-      <GroupDetailsModal
-        group={g}
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-      />
+      <JoinGroupModal group={g} open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <GroupDetailsModal group={g} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
     </div>
   );
 }

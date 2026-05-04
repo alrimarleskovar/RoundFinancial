@@ -64,9 +64,7 @@ export interface ActionResult<Context> {
 }
 
 /** Metaplex Core program ID — same on every cluster. */
-export const METAPLEX_CORE_ID = new PublicKey(
-  "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
-);
+export const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
 /** Cross-program attestation nonce: (cycle << 32) | slot. Mirrors reputation::cpi. */
 export function attestationNonce(cycle: number, slot: number): bigint {
@@ -86,8 +84,7 @@ async function requireAccountMissing(
   const info = await client.connection.getAccountInfo(address, "confirmed");
   if (info) {
     throw new Error(
-      `${label} already exists at ${address.toBase58()}; this action ` +
-        `cannot re-initialize.`,
+      `${label} already exists at ${address.toBase58()}; this action ` + `cannot re-initialize.`,
     );
   }
 }
@@ -111,7 +108,7 @@ async function requireAccountPresent(
 export interface InitializeProtocolArgs {
   authority: Keypair;
   usdcMint: PublicKey;
-  treasury: PublicKey;            // pre-existing USDC ATA for fees
+  treasury: PublicKey; // pre-existing USDC ATA for fees
   feeBpsYield: number;
   feeBpsCycleL1: number;
   feeBpsCycleL2: number;
@@ -141,10 +138,10 @@ export async function initializeProtocol(
 
   const signature = await m(client.programs.core)
     .initializeProtocol({
-      feeBpsYield:      args.feeBpsYield,
-      feeBpsCycleL1:    args.feeBpsCycleL1,
-      feeBpsCycleL2:    args.feeBpsCycleL2,
-      feeBpsCycleL3:    args.feeBpsCycleL3,
+      feeBpsYield: args.feeBpsYield,
+      feeBpsCycleL1: args.feeBpsCycleL1,
+      feeBpsCycleL2: args.feeBpsCycleL2,
+      feeBpsCycleL3: args.feeBpsCycleL3,
       guaranteeFundBps: args.guaranteeFundBps,
     })
     .accounts({
@@ -207,20 +204,24 @@ export async function createPool(
     throw new Error("createPool: cyclesTotal must be in [1, 255]");
   }
 
-  const [config]                    = protocolConfigPda(client.ids.core);
-  const [pool]                      = poolPda(client.ids.core, args.authority.publicKey, args.seedId);
-  const [escrowVaultAuthority]      = escrowVaultAuthorityPda(client.ids.core, pool);
-  const [solidarityVaultAuthority]  = solidarityVaultAuthorityPda(client.ids.core, pool);
-  const [yieldVaultAuthority]       = yieldVaultAuthorityPda(client.ids.core, pool);
-  const yieldAdapter                = args.yieldAdapter ?? client.ids.yieldAdapter;
+  const [config] = protocolConfigPda(client.ids.core);
+  const [pool] = poolPda(client.ids.core, args.authority.publicKey, args.seedId);
+  const [escrowVaultAuthority] = escrowVaultAuthorityPda(client.ids.core, pool);
+  const [solidarityVaultAuthority] = solidarityVaultAuthorityPda(client.ids.core, pool);
+  const [yieldVaultAuthority] = yieldVaultAuthorityPda(client.ids.core, pool);
+  const yieldAdapter = args.yieldAdapter ?? client.ids.yieldAdapter;
 
   await requireAccountPresent(client, config, "ProtocolConfig");
   await requireAccountMissing(client, pool, "Pool");
 
-  const poolUsdcVault   = getAssociatedTokenAddressSync(args.usdcMint, pool, true);
-  const escrowVault     = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
-  const solidarityVault = getAssociatedTokenAddressSync(args.usdcMint, solidarityVaultAuthority, true);
-  const yieldVault      = getAssociatedTokenAddressSync(args.usdcMint, yieldVaultAuthority, true);
+  const poolUsdcVault = getAssociatedTokenAddressSync(args.usdcMint, pool, true);
+  const escrowVault = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
+  const solidarityVault = getAssociatedTokenAddressSync(
+    args.usdcMint,
+    solidarityVaultAuthority,
+    true,
+  );
+  const yieldVault = getAssociatedTokenAddressSync(args.usdcMint, yieldVaultAuthority, true);
 
   client.debug("action.createPool.start", {
     pool: pool.toBase58(),
@@ -230,13 +231,13 @@ export async function createPool(
 
   const signature = await m(client.programs.core)
     .createPool({
-      seedId:            new BN(args.seedId.toString()),
-      membersTarget:     args.membersTarget,
+      seedId: new BN(args.seedId.toString()),
+      membersTarget: args.membersTarget,
       installmentAmount: new BN(args.installmentAmount.toString()),
-      creditAmount:      new BN(args.creditAmount.toString()),
-      cyclesTotal:       args.cyclesTotal,
-      cycleDuration:     new BN(args.cycleDurationSec.toString()),
-      escrowReleaseBps:  args.escrowReleaseBps,
+      creditAmount: new BN(args.creditAmount.toString()),
+      cyclesTotal: args.cyclesTotal,
+      cycleDuration: new BN(args.cycleDurationSec.toString()),
+      escrowReleaseBps: args.escrowReleaseBps,
     })
     .accounts({
       authority: args.authority.publicKey,
@@ -314,8 +315,8 @@ export async function joinPool(
     throw new Error("joinPool: reputationLevel must be 1, 2, or 3");
   }
 
-  const [config]            = protocolConfigPda(client.ids.core);
-  const [member]            = memberPda(client.ids.core, args.pool, args.memberWallet.publicKey);
+  const [config] = protocolConfigPda(client.ids.core);
+  const [member] = memberPda(client.ids.core, args.pool, args.memberWallet.publicKey);
   const [positionAuthority] = positionAuthorityPda(client.ids.core, args.pool, args.slotIndex);
   const [escrowVaultAuthority] = escrowVaultAuthorityPda(client.ids.core, args.pool);
 
@@ -324,8 +325,7 @@ export async function joinPool(
 
   const nftAsset = args.nftAsset ?? Keypair.generate();
   const memberUsdc =
-    args.memberUsdc ??
-    getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
+    args.memberUsdc ?? getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
   const escrowVault = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
 
   // Step 4d audit close-out: trusted reputation level. Core reads the
@@ -414,12 +414,15 @@ export async function contribute(
   client: RoundFiClient,
   args: ContributeArgs,
 ): Promise<ActionResult<ContributeContext>> {
-  const [config]                    = protocolConfigPda(client.ids.core);
-  const [member]                    = memberPda(client.ids.core, args.pool, args.memberWallet.publicKey);
-  const [reputationConfig]          = reputationConfigPda(client.ids.reputation);
-  const [reputationProfile]         = reputationProfilePda(client.ids.reputation, args.memberWallet.publicKey);
-  const [escrowVaultAuthority]      = escrowVaultAuthorityPda(client.ids.core, args.pool);
-  const [solidarityVaultAuthority]  = solidarityVaultAuthorityPda(client.ids.core, args.pool);
+  const [config] = protocolConfigPda(client.ids.core);
+  const [member] = memberPda(client.ids.core, args.pool, args.memberWallet.publicKey);
+  const [reputationConfig] = reputationConfigPda(client.ids.reputation);
+  const [reputationProfile] = reputationProfilePda(
+    client.ids.reputation,
+    args.memberWallet.publicKey,
+  );
+  const [escrowVaultAuthority] = escrowVaultAuthorityPda(client.ids.core, args.pool);
+  const [solidarityVaultAuthority] = solidarityVaultAuthorityPda(client.ids.core, args.pool);
 
   await requireAccountPresent(client, args.pool, "Pool");
   await requireAccountPresent(client, member, "Member");
@@ -434,10 +437,14 @@ export async function contribute(
     nonce,
   );
 
-  const memberUsdc      = getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
-  const poolUsdcVault   = getAssociatedTokenAddressSync(args.usdcMint, args.pool, true);
-  const escrowVault     = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
-  const solidarityVault = getAssociatedTokenAddressSync(args.usdcMint, solidarityVaultAuthority, true);
+  const memberUsdc = getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
+  const poolUsdcVault = getAssociatedTokenAddressSync(args.usdcMint, args.pool, true);
+  const escrowVault = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
+  const solidarityVault = getAssociatedTokenAddressSync(
+    args.usdcMint,
+    solidarityVaultAuthority,
+    true,
+  );
 
   client.debug("action.contribute.start", {
     pool: args.pool.toBase58(),
@@ -500,10 +507,13 @@ export async function claimPayout(
   client: RoundFiClient,
   args: ClaimPayoutArgs,
 ): Promise<ActionResult<ClaimPayoutContext>> {
-  const [config]            = protocolConfigPda(client.ids.core);
-  const [member]            = memberPda(client.ids.core, args.pool, args.memberWallet.publicKey);
-  const [reputationConfig]  = reputationConfigPda(client.ids.reputation);
-  const [reputationProfile] = reputationProfilePda(client.ids.reputation, args.memberWallet.publicKey);
+  const [config] = protocolConfigPda(client.ids.core);
+  const [member] = memberPda(client.ids.core, args.pool, args.memberWallet.publicKey);
+  const [reputationConfig] = reputationConfigPda(client.ids.reputation);
+  const [reputationProfile] = reputationProfilePda(
+    client.ids.reputation,
+    args.memberWallet.publicKey,
+  );
 
   await requireAccountPresent(client, args.pool, "Pool");
   await requireAccountPresent(client, member, "Member");
@@ -517,7 +527,7 @@ export async function claimPayout(
     nonce,
   );
 
-  const memberUsdc    = getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
+  const memberUsdc = getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
   const poolUsdcVault = getAssociatedTokenAddressSync(args.usdcMint, args.pool, true);
 
   client.debug("action.claimPayout.start", {
@@ -579,12 +589,15 @@ export async function settleDefault(
   client: RoundFiClient,
   args: SettleDefaultArgs,
 ): Promise<ActionResult<SettleDefaultContext>> {
-  const [config]                    = protocolConfigPda(client.ids.core);
-  const [member]                    = memberPda(client.ids.core, args.pool, args.defaultedMemberWallet);
-  const [reputationConfig]          = reputationConfigPda(client.ids.reputation);
-  const [reputationProfile]         = reputationProfilePda(client.ids.reputation, args.defaultedMemberWallet);
-  const [escrowVaultAuthority]      = escrowVaultAuthorityPda(client.ids.core, args.pool);
-  const [solidarityVaultAuthority]  = solidarityVaultAuthorityPda(client.ids.core, args.pool);
+  const [config] = protocolConfigPda(client.ids.core);
+  const [member] = memberPda(client.ids.core, args.pool, args.defaultedMemberWallet);
+  const [reputationConfig] = reputationConfigPda(client.ids.reputation);
+  const [reputationProfile] = reputationProfilePda(
+    client.ids.reputation,
+    args.defaultedMemberWallet,
+  );
+  const [escrowVaultAuthority] = escrowVaultAuthorityPda(client.ids.core, args.pool);
+  const [solidarityVaultAuthority] = solidarityVaultAuthorityPda(client.ids.core, args.pool);
 
   await requireAccountPresent(client, args.pool, "Pool");
   await requireAccountPresent(client, member, "Member");
@@ -598,9 +611,13 @@ export async function settleDefault(
     nonce,
   );
 
-  const poolUsdcVault   = getAssociatedTokenAddressSync(args.usdcMint, args.pool, true);
-  const escrowVault     = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
-  const solidarityVault = getAssociatedTokenAddressSync(args.usdcMint, solidarityVaultAuthority, true);
+  const poolUsdcVault = getAssociatedTokenAddressSync(args.usdcMint, args.pool, true);
+  const escrowVault = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
+  const solidarityVault = getAssociatedTokenAddressSync(
+    args.usdcMint,
+    solidarityVaultAuthority,
+    true,
+  );
 
   client.debug("action.settleDefault.start", {
     pool: args.pool.toBase58(),
@@ -631,9 +648,7 @@ export async function settleDefault(
       systemProgram: SystemProgram.programId,
     });
 
-  const signature = await (args.caller
-    ? builder.signers([args.caller]).rpc()
-    : builder.rpc());
+  const signature = await (args.caller ? builder.signers([args.caller]).rpc() : builder.rpc());
 
   client.debug("action.settleDefault.ok", { signature });
   return {

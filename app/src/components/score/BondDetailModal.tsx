@@ -30,11 +30,16 @@ export function BondDetailModal({
 
   const toneColor = (tone: Tone): string => {
     switch (tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   };
   const accent = toneColor(bond.tone);
@@ -76,8 +81,7 @@ export function BondDetailModal({
         <div style={{ flex: 1 }}>
           <div
             style={{
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               fontSize: 10,
               color: tokens.muted,
               letterSpacing: "0.1em",

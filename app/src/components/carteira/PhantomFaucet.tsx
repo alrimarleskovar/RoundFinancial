@@ -10,13 +10,7 @@ import type { WalletView } from "@/lib/wallet";
 // expanded Phantom card when the wallet is connected. Port of the
 // inline PhantomFaucet from prototype/components/desktop-more.jsx.
 
-export function PhantomFaucet({
-  wallet,
-  tc,
-}: {
-  wallet: WalletView;
-  tc: string;
-}) {
+export function PhantomFaucet({ wallet, tc }: { wallet: WalletView; tc: string }) {
   const { tokens } = useTheme();
   const t = useT();
   const busy = wallet.airdropping;
@@ -186,8 +180,8 @@ export function PhantomFaucet({
           >
             {(
               [
-                { href: "https://faucet.solana.com",        l: "faucet.solana.com" },
-                { href: "https://www.helius.dev/faucet",    l: "helius.dev/faucet" },
+                { href: "https://faucet.solana.com", l: "faucet.solana.com" },
+                { href: "https://www.helius.dev/faucet", l: "helius.dev/faucet" },
                 { href: "https://faucet.quicknode.com/solana/devnet", l: "quicknode.com" },
               ] as const
             ).map((alt) => (
@@ -204,8 +198,7 @@ export function PhantomFaucet({
                   color: tokens.amber,
                   fontWeight: 600,
                   textDecoration: "none",
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   fontSize: 10,
                 }}
               >

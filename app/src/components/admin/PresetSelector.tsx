@@ -23,12 +23,18 @@ export function PresetSelector({
 
   const toneColor = (tone: string): string => {
     switch (tone) {
-      case "green": return tokens.green;
-      case "teal": return tokens.teal;
-      case "amber": return tokens.amber;
-      case "red": return tokens.red;
-      case "purple": return tokens.purple;
-      default: return tokens.text2;
+      case "green":
+        return tokens.green;
+      case "teal":
+        return tokens.teal;
+      case "amber":
+        return tokens.amber;
+      case "red":
+        return tokens.red;
+      case "purple":
+        return tokens.purple;
+      default:
+        return tokens.text2;
     }
   };
 
@@ -53,8 +59,7 @@ export function PresetSelector({
           style={{
             fontSize: 11,
             color: tokens.muted,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
           {t("admin.preset.hint")}
@@ -142,8 +147,7 @@ export function PresetSelector({
                       background: `${tone}33`,
                       color: tone,
                       fontWeight: 700,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
                       whiteSpace: "nowrap",

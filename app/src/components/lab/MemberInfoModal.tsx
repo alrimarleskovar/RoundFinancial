@@ -35,18 +35,18 @@ export function MemberInfoModal({
     member.status === "ok"
       ? "lab.member.statusOk"
       : member.status === "calote_pre"
-      ? "lab.member.statusPre"
-      : member.status === "calote_pos"
-      ? "lab.member.statusPos"
-      : "lab.member.statusExited";
+        ? "lab.member.statusPre"
+        : member.status === "calote_pos"
+          ? "lab.member.statusPos"
+          : "lab.member.statusExited";
   const statusColor =
     member.status === "ok"
       ? tokens.green
       : member.status === "calote_pre"
-      ? tokens.amber
-      : member.status === "calote_pos"
-      ? tokens.red
-      : tokens.teal;
+        ? tokens.amber
+        : member.status === "calote_pos"
+          ? tokens.red
+          : tokens.teal;
 
   return (
     <Modal open={open} onClose={onClose} title={t("lab.member.title")} width={460}>
@@ -70,9 +70,7 @@ export function MemberInfoModal({
           {member.name.charAt(0)}
         </div>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: tokens.text }}>
-            {member.name}
-          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: tokens.text }}>{member.name}</div>
           <div
             style={{
               fontSize: 11,
@@ -80,7 +78,7 @@ export function MemberInfoModal({
               fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             }}
           >
-            {t("lab.member.contractId")}: RNDF-{(member.name.charCodeAt(0) * 79) % 9000 + 1000}
+            {t("lab.member.contractId")}: RNDF-{((member.name.charCodeAt(0) * 79) % 9000) + 1000}
           </div>
         </div>
       </div>
@@ -181,12 +179,8 @@ function Row({
         borderBottom: noBorder ? "none" : `1px solid ${tokens.border}`,
       }}
     >
-      <span style={{ color: color ?? tokens.muted, fontWeight: bold ? 700 : 400 }}>
-        {label}
-      </span>
-      <span style={{ color: color ?? tokens.text, fontWeight: bold ? 700 : 500 }}>
-        {value}
-      </span>
+      <span style={{ color: color ?? tokens.muted, fontWeight: bold ? 700 : 400 }}>{label}</span>
+      <span style={{ color: color ?? tokens.text, fontWeight: bold ? 700 : 500 }}>{value}</span>
     </div>
   );
 }

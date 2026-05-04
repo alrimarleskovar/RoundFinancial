@@ -11,10 +11,7 @@ export function formatUsdc(amount: bigint, opts?: { suffix?: boolean }): string 
   if (frac === 0n) {
     out = whole.toString();
   } else {
-    const fracStr = frac
-      .toString()
-      .padStart(USDC_DECIMALS, "0")
-      .replace(/0+$/, "");
+    const fracStr = frac.toString().padStart(USDC_DECIMALS, "0").replace(/0+$/, "");
     out = `${whole.toString()}.${fracStr}`;
   }
   return suffix ? `${out} USDC` : out;

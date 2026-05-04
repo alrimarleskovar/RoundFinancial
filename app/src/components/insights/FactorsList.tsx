@@ -16,11 +16,16 @@ export function FactorsList() {
 
   const toneColor = (tone: Tone): string => {
     switch (tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   };
 
@@ -63,8 +68,7 @@ export function FactorsList() {
                 </span>
                 <span
                   style={{
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontSize: 11,
                     color: c,
                     fontWeight: 600,
@@ -96,8 +100,7 @@ export function FactorsList() {
                   fontSize: 10,
                   color: tokens.muted,
                   marginTop: 4,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {t(`insights.factor.${f.key}.detail`)}

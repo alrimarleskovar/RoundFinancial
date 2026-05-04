@@ -56,15 +56,12 @@ export function SellPositionsList({
               marginBottom: 14,
             }}
           >
-            <MonoLabel color={tokens.green}>
-              ◆ {t("market.listings.title")}
-            </MonoLabel>
+            <MonoLabel color={tokens.green}>◆ {t("market.listings.title")}</MonoLabel>
             <span
               style={{
                 fontSize: 11,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {t("market.listings.count", { n: listings.length })}
@@ -117,8 +114,7 @@ export function SellPositionsList({
                     style={{
                       fontSize: 11,
                       color: tokens.muted,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       fontWeight: 500,
                     }}
                   >
@@ -144,8 +140,7 @@ export function SellPositionsList({
                       fontSize: 10,
                       color: tokens.muted,
                       marginTop: 3,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     {fmtMoney(l.askPrice, { noCents: true })} ·{" "}
@@ -163,8 +158,7 @@ export function SellPositionsList({
                     color: tokens.green,
                     fontSize: 9,
                     fontWeight: 700,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     whiteSpace: "nowrap",
@@ -176,8 +170,7 @@ export function SellPositionsList({
                   style={{
                     color: tokens.text2,
                     fontSize: 16,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
                   ›
@@ -204,15 +197,12 @@ export function SellPositionsList({
             marginBottom: 14,
           }}
         >
-          <MonoLabel color={tokens.amber}>
-            {t("market.sellList.title")}
-          </MonoLabel>
+          <MonoLabel color={tokens.amber}>{t("market.sellList.title")}</MonoLabel>
           <span
             style={{
               fontSize: 11,
               color: tokens.muted,
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             }}
           >
             {t("market.sellList.count", { n: available.length })}
@@ -265,8 +255,7 @@ export function SellPositionsList({
                     style={{
                       fontSize: 11,
                       color: tokens.muted,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       fontWeight: 500,
                     }}
                   >
@@ -292,8 +281,7 @@ export function SellPositionsList({
                       fontSize: 10,
                       color: tokens.muted,
                       marginTop: 3,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     {t("home.month")} {p.month}/{p.total} · {p.exp}

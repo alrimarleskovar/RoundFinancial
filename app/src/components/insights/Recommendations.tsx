@@ -25,11 +25,16 @@ export function Recommendations() {
 
   const toneColor = (tone: Tone): string => {
     switch (tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   };
 
@@ -50,9 +55,7 @@ export function Recommendations() {
             <button
               key={r.key}
               type="button"
-              onClick={() =>
-                setOpened({ key: r.key, pts: r.pts, accent: c })
-              }
+              onClick={() => setOpened({ key: r.key, pts: r.pts, accent: c })}
               style={{
                 ...glass,
                 padding: 18,
@@ -117,8 +120,7 @@ export function Recommendations() {
                   style={{
                     fontSize: 11,
                     color: tokens.muted,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
                   {t(`insights.next.${r.key}.sub`)}
@@ -127,8 +129,7 @@ export function Recommendations() {
                   style={{
                     fontSize: 10,
                     color: c,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontWeight: 700,
                   }}
                 >
@@ -140,11 +141,7 @@ export function Recommendations() {
         })}
       </div>
 
-      <RecommendationModal
-        detail={opened}
-        open={opened !== null}
-        onClose={() => setOpened(null)}
-      />
+      <RecommendationModal detail={opened} open={opened !== null} onClose={() => setOpened(null)} />
     </div>
   );
 }

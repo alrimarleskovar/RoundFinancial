@@ -45,13 +45,7 @@ function formatRelative(ts: number): string {
   return `${days}d atrás`;
 }
 
-export function TransactionsList({
-  limit,
-  onSeeAll,
-}: {
-  limit?: number;
-  onSeeAll?: () => void;
-}) {
+export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll?: () => void }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
@@ -60,9 +54,7 @@ export function TransactionsList({
   // Live events (newest first via reducer) prepended to static rows.
   // Skip attestation events — they're 0-amount metadata pings, not
   // "transactions" the user moves money with.
-  const liveTx = events
-    .filter((e) => e.kind !== "attestation")
-    .map(eventToTx);
+  const liveTx = events.filter((e) => e.kind !== "attestation").map(eventToTx);
   const merged = [...liveTx, ...TX_LIST];
   const rows = limit ? merged.slice(0, limit) : merged;
   return (
@@ -112,8 +104,7 @@ export function TransactionsList({
               gridTemplateColumns: "28px 1fr auto auto",
               gap: 12,
               padding: "12px 0",
-              borderBottom:
-                i < rows.length - 1 ? `1px solid ${tokens.border}` : "none",
+              borderBottom: i < rows.length - 1 ? `1px solid ${tokens.border}` : "none",
               alignItems: "center",
             }}
           >
@@ -129,23 +120,16 @@ export function TransactionsList({
                 color: tx.amount > 0 ? tokens.green : tokens.text2,
               }}
             >
-              {tx.amount > 0 ? (
-                <Icons.arrow size={12} sw={2} />
-              ) : (
-                <Icons.send size={12} sw={1.8} />
-              )}
+              {tx.amount > 0 ? <Icons.arrow size={12} sw={2} /> : <Icons.send size={12} sw={1.8} />}
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: tokens.text }}>
-                {tx.label}
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: tokens.text }}>{tx.label}</div>
               <div
                 style={{
                   fontSize: 10,
                   color: tokens.muted,
                   marginTop: 2,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {tx.addr}

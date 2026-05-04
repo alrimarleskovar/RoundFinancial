@@ -29,16 +29,14 @@ export function keypairFromSeed(seed: string): Keypair {
  * `member-0`, `member-1`, ..., for multi-member pool fixtures.
  */
 export function memberKeypairs(count: number, prefix = "member"): Keypair[] {
-  return Array.from({ length: count }, (_, i) =>
-    keypairFromSeed(`${prefix}-${i}`),
-  );
+  return Array.from({ length: count }, (_, i) => keypairFromSeed(`${prefix}-${i}`));
 }
 
 /** Well-known named wallets used by multiple specs. */
 export const NAMED = {
-  alice:   () => keypairFromSeed("alice"),
-  bob:     () => keypairFromSeed("bob"),
-  carol:   () => keypairFromSeed("carol"),
-  crank:   () => keypairFromSeed("crank"),
+  alice: () => keypairFromSeed("alice"),
+  bob: () => keypairFromSeed("bob"),
+  carol: () => keypairFromSeed("carol"),
+  crank: () => keypairFromSeed("crank"),
   treasury: () => keypairFromSeed("treasury"),
 } as const;

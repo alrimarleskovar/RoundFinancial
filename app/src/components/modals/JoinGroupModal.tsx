@@ -60,8 +60,7 @@ export function JoinGroupModal({
 
   const collateralPct = group?.level === 1 ? 50 : group?.level === 2 ? 30 : 10;
   const locked = group ? group.level > user.level && !group.joined : false;
-  const pointsNeeded =
-    group && locked ? Math.max(0, user.nextLevel - user.score) : 0;
+  const pointsNeeded = group && locked ? Math.max(0, user.nextLevel - user.score) : 0;
 
   if (!group) return null;
 
@@ -73,15 +72,11 @@ export function JoinGroupModal({
         done
           ? ""
           : locked
-          ? t("modal.join.locked.title", { lv: group.level })
-          : t("modal.join.title")
+            ? t("modal.join.locked.title", { lv: group.level })
+            : t("modal.join.title")
       }
       subtitle={
-        done
-          ? undefined
-          : locked
-          ? t("modal.join.locked.subtitle")
-          : t("modal.join.subtitle")
+        done ? undefined : locked ? t("modal.join.locked.subtitle") : t("modal.join.subtitle")
       }
       closeable={!submitting}
     >
@@ -107,8 +102,7 @@ export function JoinGroupModal({
                 fontSize: 12,
                 color: tokens.amber,
                 fontWeight: 700,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
               }}
@@ -143,8 +137,7 @@ export function JoinGroupModal({
                 alignItems: "baseline",
                 fontSize: 11,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 marginBottom: 6,
               }}
             >
@@ -243,15 +236,12 @@ export function JoinGroupModal({
               {group.emoji}
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: tokens.text }}>
-                {group.name}
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: tokens.text }}>{group.name}</div>
               <div
                 style={{
                   fontSize: 11,
                   color: tokens.muted,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 Lv.{group.level} · {group.filled}/{group.total} cotas
@@ -268,10 +258,26 @@ export function JoinGroupModal({
               marginBottom: 18,
             }}
           >
-            <Cell label={t("modal.join.summary.prize")} value={fmtMoney(group.prize, { noCents: true })} tokens={tokens} />
-            <Cell label={t("modal.join.summary.duration")} value={`${group.months} m`} tokens={tokens} />
-            <Cell label={t("modal.join.summary.installment")} value={fmtMoney(group.installment, { noCents: true })} tokens={tokens} />
-            <Cell label={t("modal.join.summary.collateral")} value={`${collateralPct}%`} tokens={tokens} />
+            <Cell
+              label={t("modal.join.summary.prize")}
+              value={fmtMoney(group.prize, { noCents: true })}
+              tokens={tokens}
+            />
+            <Cell
+              label={t("modal.join.summary.duration")}
+              value={`${group.months} m`}
+              tokens={tokens}
+            />
+            <Cell
+              label={t("modal.join.summary.installment")}
+              value={fmtMoney(group.installment, { noCents: true })}
+              tokens={tokens}
+            />
+            <Cell
+              label={t("modal.join.summary.collateral")}
+              value={`${collateralPct}%`}
+              tokens={tokens}
+            />
           </div>
 
           <div
@@ -351,16 +357,18 @@ function Cell({
   );
 }
 
-function toneColor(
-  tokens: ReturnType<typeof useTheme>["tokens"],
-  tone: CatalogGroup["tone"],
-) {
+function toneColor(tokens: ReturnType<typeof useTheme>["tokens"], tone: CatalogGroup["tone"]) {
   switch (tone) {
-    case "g": return tokens.green;
-    case "t": return tokens.teal;
-    case "p": return tokens.purple;
-    case "a": return tokens.amber;
-    case "r": return tokens.red;
+    case "g":
+      return tokens.green;
+    case "t":
+      return tokens.teal;
+    case "p":
+      return tokens.purple;
+    case "a":
+      return tokens.amber;
+    case "r":
+      return tokens.red;
   }
 }
 

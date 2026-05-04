@@ -35,9 +35,7 @@ async function fetchIdl(file: string): Promise<AnyIdl> {
   try {
     return JSON.parse(text) as AnyIdl;
   } catch (err) {
-    throw new Error(
-      `Failed to parse IDL at ${url}: ${(err as Error).message}`,
-    );
+    throw new Error(`Failed to parse IDL at ${url}: ${(err as Error).message}`);
   }
 }
 

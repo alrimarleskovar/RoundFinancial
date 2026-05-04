@@ -27,9 +27,7 @@ const RELATIVE_TIME_THRESHOLDS_EN: Array<[number, (n: number) => string]> = [
 
 function formatRelative(ts: number, lang: string): string {
   const delta = Date.now() - ts;
-  const table = lang === "pt"
-    ? RELATIVE_TIME_THRESHOLDS_PT
-    : RELATIVE_TIME_THRESHOLDS_EN;
+  const table = lang === "pt" ? RELATIVE_TIME_THRESHOLDS_PT : RELATIVE_TIME_THRESHOLDS_EN;
   for (const [bound, fmt] of table) {
     if (delta < bound) return fmt(delta);
   }
@@ -77,8 +75,7 @@ export function Activity() {
             gap: 6,
             fontSize: 9,
             color: tokens.muted,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
           }}
@@ -105,11 +102,12 @@ export function Activity() {
       >
         {rows.map((r, i) => {
           const c = colorFor(r.kind);
-          const amount = r.attestPts != null
-            ? `+${r.attestPts} pts`
-            : r.amountBrl !== 0
-            ? fmtMoney(r.amountBrl, { noCents: true, signed: true })
-            : "—";
+          const amount =
+            r.attestPts != null
+              ? `+${r.attestPts} pts`
+              : r.amountBrl !== 0
+                ? fmtMoney(r.amountBrl, { noCents: true, signed: true })
+                : "—";
           return (
             <div
               key={r.id}
@@ -119,10 +117,7 @@ export function Activity() {
                 gap: 10,
                 alignItems: "center",
                 padding: "4px 0",
-                borderBottom:
-                  i < rows.length - 1
-                    ? `1px dashed ${tokens.border}`
-                    : "none",
+                borderBottom: i < rows.length - 1 ? `1px dashed ${tokens.border}` : "none",
               }}
             >
               {/* prompt > */}

@@ -10,7 +10,12 @@ html,
 body {
   background: #0b0f19;
   color: #e5e7eb;
-  font-family: ui-sans-serif, system-ui, -apple-system, Inter, sans-serif;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Inter,
+    sans-serif;
   /* Kept on the root so the landing's negative-positioned glow blurs
      don't cause a horizontal scrollbar. Doing it here (vs on <main>)
      keeps `position: sticky` working — overflow-x on a sticky element's
@@ -44,7 +49,8 @@ body {
 
 /* Pulse used by the network status dot + connected wallet chip glow */
 @keyframes rfi-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -55,37 +61,46 @@ body {
 }
 
 @keyframes rfi-glow {
-  0%, 100% {
-    box-shadow: 0 0 18px rgba(20, 241, 149, 0.25),
-                0 0 4px rgba(20, 241, 149, 0.4);
+  0%,
+  100% {
+    box-shadow:
+      0 0 18px rgba(20, 241, 149, 0.25),
+      0 0 4px rgba(20, 241, 149, 0.4);
   }
   50% {
-    box-shadow: 0 0 28px rgba(20, 241, 149, 0.45),
-                0 0 6px rgba(20, 241, 149, 0.55);
+    box-shadow:
+      0 0 28px rgba(20, 241, 149, 0.45),
+      0 0 6px rgba(20, 241, 149, 0.55);
   }
 }
 
 /* Landing CTA glows — bigger halos than the WalletChip's rfi-glow
    since the landing buttons are the primary call to action. */
 @keyframes rfi-btn-glow-green {
-  0%, 100% {
-    box-shadow: 0 0 24px rgba(20, 241, 149, 0.4),
-                0 4px 18px rgba(0, 200, 255, 0.2);
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(20, 241, 149, 0.4),
+      0 4px 18px rgba(0, 200, 255, 0.2);
   }
   50% {
-    box-shadow: 0 0 36px rgba(20, 241, 149, 0.6),
-                0 6px 22px rgba(0, 200, 255, 0.3);
+    box-shadow:
+      0 0 36px rgba(20, 241, 149, 0.6),
+      0 6px 22px rgba(0, 200, 255, 0.3);
   }
 }
 
 @keyframes rfi-btn-glow-purple {
-  0%, 100% {
-    box-shadow: 0 0 24px rgba(153, 69, 255, 0.45),
-                0 4px 18px rgba(20, 241, 149, 0.18);
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(153, 69, 255, 0.45),
+      0 4px 18px rgba(20, 241, 149, 0.18);
   }
   50% {
-    box-shadow: 0 0 38px rgba(153, 69, 255, 0.65),
-                0 6px 22px rgba(20, 241, 149, 0.28);
+    box-shadow:
+      0 0 38px rgba(153, 69, 255, 0.65),
+      0 6px 22px rgba(20, 241, 149, 0.28);
   }
 }
 
@@ -101,7 +116,8 @@ body {
    title so the green -> teal -> purple band feels alive. The
    element itself must set background-size: 200% auto. */
 @keyframes rfi-gradient-flow {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -136,8 +152,13 @@ body {
    rotation, so the gradient sits fixed on the edges of the
    parent and the "life" comes from the in-out fade. */
 @keyframes rfi-pulse-halo {
-  0%, 100% { opacity: 0.28; }
-  50%      { opacity: 0.65; }
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 0.65;
+  }
 }
 .rfi-pulse-halo {
   animation: rfi-pulse-halo 2.8s ease-in-out infinite;
@@ -148,8 +169,12 @@ body {
    Pair with `mask-image` on the parent for the soft top/bottom
    fade, and with content duplicated 2x for a seamless loop. */
 @keyframes rfi-stream {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-50%); }
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
 }
 .rfi-stream {
   animation: rfi-stream 60s linear infinite;

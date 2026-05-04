@@ -92,9 +92,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
               width: 10,
               height: 10,
               borderRadius: "50%",
-              border: `2px solid ${
-                isDark ? "rgba(2,5,11,0.3)" : "rgba(255,255,255,0.35)"
-              }`,
+              border: `2px solid ${isDark ? "rgba(2,5,11,0.3)" : "rgba(255,255,255,0.35)"}`,
               borderTopColor: isDark ? tokens.bgDeep : "#FFFFFF",
               animation: "rfi-spin 0.7s linear infinite",
               display: "inline-block",
@@ -104,8 +102,8 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
         {connecting
           ? t("top.connecting")
           : wallet.isInstalled
-          ? t("top.connect")
-          : t("conn.phantom.installCTA")}
+            ? t("top.connect")
+            : t("conn.phantom.installCTA")}
       </button>
     );
   }
@@ -204,8 +202,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
             <MonoLabel size={9}>{t("conn.phantom.addr")}</MonoLabel>
             <span
               style={{
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 11,
                 color: tokens.text,
                 wordBreak: "break-all",
@@ -221,10 +218,10 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
                   marginTop: 2,
                 }}
               >
-                {wallet.balanceSol.toLocaleString(
-                  lang === "pt" ? "pt-BR" : "en-US",
-                  { minimumFractionDigits: 2, maximumFractionDigits: 4 },
-                )}{" "}
+                {wallet.balanceSol.toLocaleString(lang === "pt" ? "pt-BR" : "en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}{" "}
                 SOL · {wallet.network}
               </span>
             )}
@@ -236,11 +233,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
           />
           <MenuItem
             icon={Icons.spark}
-            label={
-              wallet.airdropping
-                ? t("wallet.menu.airdropBusy")
-                : t("wallet.menu.airdrop")
-            }
+            label={wallet.airdropping ? t("wallet.menu.airdropBusy") : t("wallet.menu.airdrop")}
             disabled={wallet.airdropping}
             onClick={() => {
               setAirdropResult(null);
@@ -253,11 +246,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
             icon={Icons.arrow}
             label={t("wallet.menu.explorer")}
             onClick={() => {
-              window.open(
-                wallet.explorerAddr(addr),
-                "_blank",
-                "noopener,noreferrer",
-              );
+              window.open(wallet.explorerAddr(addr), "_blank", "noopener,noreferrer");
               setOpen(false);
             }}
           />
@@ -296,21 +285,21 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
               airdropResult?.kind === "ok"
                 ? `${tokens.green}1A`
                 : airdropResult?.kind === "err"
-                ? `${tokens.amber}1A`
-                : tokens.fillMed,
+                  ? `${tokens.amber}1A`
+                  : tokens.fillMed,
             border: `1px solid ${
               airdropResult?.kind === "ok"
                 ? `${tokens.green}55`
                 : airdropResult?.kind === "err"
-                ? `${tokens.amber}55`
-                : tokens.borderStr
+                  ? `${tokens.amber}55`
+                  : tokens.borderStr
             }`,
             color:
               airdropResult?.kind === "ok"
                 ? tokens.green
                 : airdropResult?.kind === "err"
-                ? tokens.amber
-                : tokens.text2,
+                  ? tokens.amber
+                  : tokens.text2,
             fontSize: 11,
             fontWeight: 600,
             display: "inline-flex",

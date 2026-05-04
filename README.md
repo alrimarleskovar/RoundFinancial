@@ -1,6 +1,6 @@
 # RoundFi
 
-> **Behavioral-credit infrastructure for Solana.** RoundFi runs on-chain ROSCAs as a **data-acquisition engine**: every paid installment mints an on-chain attestation that builds a portable credit identity. The ROSCA is the bait; the **behavioral score** is the product. Endgame: a high-margin B2B oracle that neobanks and DeFi protocols subscribe to before lending — *the Serasa of Web3*.
+> **Behavioral-credit infrastructure for Solana.** RoundFi runs on-chain ROSCAs as a **data-acquisition engine**: every paid installment mints an on-chain attestation that builds a portable credit identity. The ROSCA is the bait; the **behavioral score** is the product. Endgame: a high-margin B2B oracle that neobanks and DeFi protocols subscribe to before lending — _the Serasa of Web3_.
 
 <p>
   <a href="https://github.com/alrimarleskovar/RoundFinancial/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alrimarleskovar/RoundFinancial/actions/workflows/ci.yml/badge.svg?branch=main"/></a>
@@ -26,22 +26,22 @@ Built for the **Colosseum Hackathon 2026**.
 
 DeFi solved trading. DeFi solved liquidity. DeFi never solved **credit**. The two clearest attempts at on-chain ROSCAs / under-collateralized retail credit both shipped — and both went quiet:
 
-- **WeTrust** (Ethereum, 2017–2018) — first on-chain ROSCA, *Trusted Lending Circles*. Gas costs ate margins, retention collapsed when ETH stalled, and the protocol *was* the product — no data layer to monetize. Wound down quietly.
+- **WeTrust** (Ethereum, 2017–2018) — first on-chain ROSCA, _Trusted Lending Circles_. Gas costs ate margins, retention collapsed when ETH stalled, and the protocol _was_ the product — no data layer to monetize. Wound down quietly.
 - **RociFi** (Solana, 2021–2023) — under-collateralized lending with NFT credit scores. The score was program-internal (not portable, not SAS-compatible), B2B distribution never materialized, and liquidator economics broke under volatility. Project sunset.
 
-| Protocol | Status | Sub-collateral | Behavior score | Retail user | Emerging markets | Position NFT | No prior crypto |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Aave / Marginfi  | live       | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Goldfinch        | live       | ✓ | ✗ | ✗ | ~ | ✗ | ✗ |
-| Maple / TrueFi   | live       | ~ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Credix           | live       | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
-| WeTrust          | **sunset** | ✓ | ✗ | ✓ | ~ | ✗ | ✗ |
-| RociFi           | **sunset** | ✓ | ~ | ~ | ✗ | ~ | ✗ |
-| **RoundFi**      | **devnet** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+| Protocol        |   Status   | Sub-collateral | Behavior score | Retail user | Emerging markets | Position NFT | No prior crypto |
+| --------------- | :--------: | :------------: | :------------: | :---------: | :--------------: | :----------: | :-------------: |
+| Aave / Marginfi |    live    |       ✗        |       ✗        |      ✗      |        ✗         |      ✗       |        ✗        |
+| Goldfinch       |    live    |       ✓        |       ✗        |      ✗      |        ~         |      ✗       |        ✗        |
+| Maple / TrueFi  |    live    |       ~        |       ✗        |      ✗      |        ✗         |      ✗       |        ✗        |
+| Credix          |    live    |       ✓        |       ✗        |      ✗      |        ✓         |      ✗       |        ✗        |
+| WeTrust         | **sunset** |       ✓        |       ✗        |      ✓      |        ~         |      ✗       |        ✗        |
+| RociFi          | **sunset** |       ✓        |       ~        |      ~      |        ✗         |      ~       |        ✗        |
+| **RoundFi**     | **devnet** |     **✓**      |     **✓**      |    **✓**    |      **✓**       |    **✓**     |      **✓**      |
 
 The boxes alone don't make us right — Aave, Goldfinch, and Credix are real businesses with billions of TVL between them. **What separates RoundFi from the projects that sunset is structural, not feature-list:**
 
-- **Phase 3 is the revenue model from day 1, not an afterthought.** WeTrust's protocol *was* the product, so when retention slipped there was nothing left to sell. RociFi's NFT score didn't read outside their pools, so there was no B2B moat. RoundFi treats Phase 1 (ROSCAs) explicitly as the data-acquisition engine for Phase 3 (per-call B2B oracle subscriptions to neobanks + DeFi protocols). The Triple Shield + Yield Cascade exist to keep Phase 1 solvent **while** the on-chain dataset compounds.
+- **Phase 3 is the revenue model from day 1, not an afterthought.** WeTrust's protocol _was_ the product, so when retention slipped there was nothing left to sell. RociFi's NFT score didn't read outside their pools, so there was no B2B moat. RoundFi treats Phase 1 (ROSCAs) explicitly as the data-acquisition engine for Phase 3 (per-call B2B oracle subscriptions to neobanks + DeFi protocols). The Triple Shield + Yield Cascade exist to keep Phase 1 solvent **while** the on-chain dataset compounds.
 - **Score is SAS-compatible from the first attestation.** Every paid installment mints against the Solana Attestation Service schema, so the score reads from any wallet, any protocol — Web3-native portability instead of vendor lock-in. RociFi's score died with RociFi.
 - **Solvency is mathematical, not aspirational.** WeTrust's retention model was "members keep paying because trust." RoundFi's Triple Shield gives a **91.6% Month-1 retention floor** as a deterministic property of the contract — encoded in [`programs/roundfi-core/src/math/waterfall.rs`](programs/roundfi-core/src/math/waterfall.rs) and parity-tested against the [Stress Lab L1 simulator](sdk/src/stressLab.ts). Stake decays 50% → 30% → 10% but only after on-chain attestations confirm cycle completion — no honor system.
 
@@ -49,11 +49,11 @@ The boxes alone don't make us right — Aave, Goldfinch, and Credix are real bus
 
 RoundFi is a **behavioral-credit primitive disguised as a savings protocol**. The product evolves through three explicit phases — codified in the [B2B plan](docs/pt/plano-b2b.pdf) and [Expansion plan](docs/pt/plano-expansao.pdf):
 
-| Phase | Surface | What it does |
-|---|---|---|
-| **1 · Liquidity** | ROSCA pools on Solana | Bootstrap users with sub-collateralized credit. Stake ladder 50% → 30% → 10% as reputation graduates. |
-| **2 · Reputation** | SAS attestations + behavioral score | Every paid installment mints an immutable attestation; the score becomes a portable credit identity. |
-| **3 · B2B data** | Behavioral oracle API | Neobanks, DeFi protocols, and emerging-market lenders subscribe per-call to query the score before extending credit. **High-margin endgame.** |
+| Phase              | Surface                             | What it does                                                                                                                                  |
+| ------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 · Liquidity**  | ROSCA pools on Solana               | Bootstrap users with sub-collateralized credit. Stake ladder 50% → 30% → 10% as reputation graduates.                                         |
+| **2 · Reputation** | SAS attestations + behavioral score | Every paid installment mints an immutable attestation; the score becomes a portable credit identity.                                          |
+| **3 · B2B data**   | Behavioral oracle API               | Neobanks, DeFi protocols, and emerging-market lenders subscribe per-call to query the score before extending credit. **High-margin endgame.** |
 
 **Phase 1 is the acquisition engine. Phase 3 is the business model.** The Triple Shield + Yield Cascade exist to keep Phase 1 solvent while the on-chain dataset compounds. Esusu hit a $1.2B valuation building Phase 2 in Web2; RoundFi does it on-chain with deterministic logic, then sells the data layer.
 
@@ -67,7 +67,7 @@ RoundFi is a **behavioral-credit primitive disguised as a savings protocol**. Th
   3. **Solidarity Vault** — 1% of each installment, redistributed as Good Faith Bonus.
 - **Yield Waterfall (Kamino, 5–8% APY):** Protocol → Guarantee Fund → LP Angels → Participants.
 - **Escape Valve:** positions are dynamic NFTs. Distressed users sell instead of defaulting.
-- **Behavioral oracle:** every payment is an on-chain attestation (SAS-compatible) — a portable credit identity, the *"Serasa of Web3"*.
+- **Behavioral oracle:** every payment is an on-chain attestation (SAS-compatible) — a portable credit identity, the _"Serasa of Web3"_.
 
 ## Stress Lab (L1 reference impl)
 
@@ -122,22 +122,26 @@ RoundFinancial/
 ## Documentation
 
 **Core**
+
 - [**Architecture Spec**](docs/architecture.md) — programs, accounts, instructions, PDAs, CPI graph, error taxonomy
 - [Devnet Setup](docs/devnet-setup.md) — full prerequisites + deploy walkthrough
 - [Pitch Alignment](docs/pitch-alignment.md) — how the implementation maps to the deck
 - [Yield & Guarantee Fund](docs/yield-and-guarantee-fund.md) — waterfall math + adapters
 
 **Pitch**
+
 - [3-min Pitch · EN](docs/pitch/pitch-3min-en.html) — 12-slide short-form deck (English)
 - [3-min Pitch · PT](docs/pitch/pitch-3min.html) — 12-slide short-form deck (Portuguese)
 - [Long-form Deck · EN](docs/pitch/pitch-deck-en.html) — 15-slide Colosseum deck
 
 **Grant bundle (Superteam · Agentic Engineering)**
+
 - [Grant index](grant/00_README.md) — 7-file response bundle
 - [Project overview](grant/01_PROJECT.md) · [Agentic process](grant/02_AGENTIC_PROCESS.md) · [PR log](grant/03_PR_LOG.md)
 - [Grant use](grant/04_GRANT_USE.md) · [Builder note](grant/05_BUILDER_NOTE.md) · [Milestones](grant/06_MILESTONES.md)
 
 **Portuguese (strategy + research)**
+
 - [Whitepaper Técnico](docs/pt/whitepaper.pdf)
 - [Guia do Usuário](docs/pt/guia-usuario.pdf)
 - [Viabilidade Técnica](docs/pt/viabilidade-tecnica.pdf)
@@ -164,17 +168,17 @@ pnpm --filter @roundfi/app dev
 
 ### Routes
 
-| Route | What's there |
-|---|---|
-| **`/`** | Public landing — animated gradient title + PT/EN toggle + interactive simulator + comparison table + **CoFi paradigm** + **6-card Security grid** + 5-Q **FAQ accordion** + **Waitlist form** + scrolling tx-id "data stream" behind the hero. Connect Phantom CTAs redirect to `/home`. |
-| **`/home`** | Bento dashboard — clickable KPI cards (Saldo/Yield → `/carteira`, Colateral → `/insights`) + featured round with **CTAs** (Pagar parcela / Ver no catálogo) + clickable group rows (open `PayInstallmentModal`) + radial **SAS Passport ring** + Triplo Escudo + live **Activity feed**. |
-| **`/carteira`** | 4 tabs · **5 wired modals**: Receber (QR + copy address), Enviar (base58 validation + MAX), Sacar (Kamino yield withdraw), Gerenciar (per-connection inspector). PhantomFaucet (1-SOL airdrop + hosted fallback + Circle USDC). DEMO badges on Civic/Kamino/Solflare/PIX mocks. WalletChip airdrop has inline pill feedback. |
-| **`/grupos`** | ROSCA catalog with search + 5 multi-facet filters + **level gating in 3 layers** (locked card visual + locked-state modal + defensive `joinGroup()` guard). `+ Novo ciclo` opens `NewCycleModal` (eligible if Lv.3, locked otherwise). |
-| **`/reputacao`** | SAS passport — **click-to-copy wallet** + radial score + 50/30/10 ladder with **level-up bridge** to `/insights` + 4 SAS bonds opening `BondDetailModal` (attestation count, on-chain path, demo callout). |
-| **`/mercado`** | Buy + Sell tabs · **Buy modal** (offer summary + savings + demo callout for `escape_valve_buy`) · **Sell modal** (price slider 50–100% of face + 7-day slashing window + Whitepaper protections panel). |
-| **`/insights`** | Score evolution — **range pill (1M/3M/6M/12M)** that actually reshapes the curve + 5-factor breakdown + 3 **clickable recommendation cards** opening detail modals (GANHO ESTIMADO / POR QUE / SINAL ON-CHAIN). |
-| **`/lab`** | **Stress Lab** — L1 actuarial simulator. Inputs: tier · maturity · members · credit value · APY · admin fee. 4 one-click preset scenarios. Matrix editor (P/C/X/E cells with position-aware toggle). Pool-balance sparkline. Audit panel: Caixa Bruto + Cofre Solidário + Fundo Garantido − obrigações pendentes = **Solvência Líquida**. |
-| `/demo` | Lifecycle orchestrator demo (developer-facing, not in user nav). |
+| Route            | What's there                                                                                                                                                                                                                                                                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`/`**          | Public landing — animated gradient title + PT/EN toggle + interactive simulator + comparison table + **CoFi paradigm** + **6-card Security grid** + 5-Q **FAQ accordion** + **Waitlist form** + scrolling tx-id "data stream" behind the hero. Connect Phantom CTAs redirect to `/home`.                                                  |
+| **`/home`**      | Bento dashboard — clickable KPI cards (Saldo/Yield → `/carteira`, Colateral → `/insights`) + featured round with **CTAs** (Pagar parcela / Ver no catálogo) + clickable group rows (open `PayInstallmentModal`) + radial **SAS Passport ring** + Triplo Escudo + live **Activity feed**.                                                  |
+| **`/carteira`**  | 4 tabs · **5 wired modals**: Receber (QR + copy address), Enviar (base58 validation + MAX), Sacar (Kamino yield withdraw), Gerenciar (per-connection inspector). PhantomFaucet (1-SOL airdrop + hosted fallback + Circle USDC). DEMO badges on Civic/Kamino/Solflare/PIX mocks. WalletChip airdrop has inline pill feedback.              |
+| **`/grupos`**    | ROSCA catalog with search + 5 multi-facet filters + **level gating in 3 layers** (locked card visual + locked-state modal + defensive `joinGroup()` guard). `+ Novo ciclo` opens `NewCycleModal` (eligible if Lv.3, locked otherwise).                                                                                                    |
+| **`/reputacao`** | SAS passport — **click-to-copy wallet** + radial score + 50/30/10 ladder with **level-up bridge** to `/insights` + 4 SAS bonds opening `BondDetailModal` (attestation count, on-chain path, demo callout).                                                                                                                                |
+| **`/mercado`**   | Buy + Sell tabs · **Buy modal** (offer summary + savings + demo callout for `escape_valve_buy`) · **Sell modal** (price slider 50–100% of face + 7-day slashing window + Whitepaper protections panel).                                                                                                                                   |
+| **`/insights`**  | Score evolution — **range pill (1M/3M/6M/12M)** that actually reshapes the curve + 5-factor breakdown + 3 **clickable recommendation cards** opening detail modals (GANHO ESTIMADO / POR QUE / SINAL ON-CHAIN).                                                                                                                           |
+| **`/lab`**       | **Stress Lab** — L1 actuarial simulator. Inputs: tier · maturity · members · credit value · APY · admin fee. 4 one-click preset scenarios. Matrix editor (P/C/X/E cells with position-aware toggle). Pool-balance sparkline. Audit panel: Caixa Bruto + Cofre Solidário + Fundo Garantido − obrigações pendentes = **Solvência Líquida**. |
+| `/demo`          | Lifecycle orchestrator demo (developer-facing, not in user nav).                                                                                                                                                                                                                                                                          |
 
 ### Aesthetic system
 
@@ -223,34 +227,34 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 
 **125+ PRs merged on `main` · all squash-merged via `claude/<scope>` branches with structured bodies + Claude session links.**
 
-| Step | Status |
-|---|---|
-| 1. Project analysis | ✅ Done |
-| 2. Architecture spec | ✅ Done |
-| 3. Devnet environment | ✅ Done |
-| 4. Smart contracts drafted | ✅ ~4,300 LoC across 14 `roundfi-core` instructions + math modules + state types. Validation pending in M1 of grant. |
-| 5. Contract tests | 🟢 L1↔L2 economic-parity scaffold + 33 tests passing. 13 lifecycle/edge/security drafts ready to wire under bankrun. |
-| 6. Backend services | ⏳ Indexer + SDK round-trips (M3) |
-| 7. Frontend | ✅ Landing + 8 dashboard routes (`/home`, `/carteira`, `/grupos`, `/reputacao`, `/mercado`, `/insights`, `/lab`, `/demo`) + Phantom devnet flow + 12 functional modals + Stress Lab L1 reference + Web3 aesthetic system |
-| 8. Integration | ⏳ M3 of grant |
-| 9. Security audit | ⏳ |
-| 10. Devnet testing | ⏳ M3 of grant |
-| 11. Mainnet migration | ⏳ |
+| Step                       | Status                                                                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. Project analysis        | ✅ Done                                                                                                                                                                                                                  |
+| 2. Architecture spec       | ✅ Done                                                                                                                                                                                                                  |
+| 3. Devnet environment      | ✅ Done                                                                                                                                                                                                                  |
+| 4. Smart contracts drafted | ✅ ~4,300 LoC across 14 `roundfi-core` instructions + math modules + state types. Validation pending in M1 of grant.                                                                                                     |
+| 5. Contract tests          | 🟢 L1↔L2 economic-parity scaffold + 33 tests passing. 13 lifecycle/edge/security drafts ready to wire under bankrun.                                                                                                     |
+| 6. Backend services        | ⏳ Indexer + SDK round-trips (M3)                                                                                                                                                                                        |
+| 7. Frontend                | ✅ Landing + 8 dashboard routes (`/home`, `/carteira`, `/grupos`, `/reputacao`, `/mercado`, `/insights`, `/lab`, `/demo`) + Phantom devnet flow + 12 functional modals + Stress Lab L1 reference + Web3 aesthetic system |
+| 8. Integration             | ⏳ M3 of grant                                                                                                                                                                                                           |
+| 9. Security audit          | ⏳                                                                                                                                                                                                                       |
+| 10. Devnet testing         | ⏳ M3 of grant                                                                                                                                                                                                           |
+| 11. Mainnet migration      | ⏳                                                                                                                                                                                                                       |
 
 ## Stack
 
-| Layer | Tech |
-|---|---|
-| Smart contracts | Rust + Anchor 0.30 |
-| Tests | `anchor test` + `solana-bankrun` |
-| NFTs | Metaplex Core |
-| NFT metadata | Client-supplied URI today (`https://` / `ipfs://` / `ar://` accepted); Arweave-via-Irys upload pipeline planned for M3 — `IRYS_NODE_URL` already wired in [`config/clusters.ts`](config/clusters.ts) |
-| Attestations | In-house SAS-compatible module (Devnet) → official SAS (Mainnet) |
-| Yield | Mock adapter (Devnet) → Kamino CPI (Mainnet). `roundfi-yield-kamino::deposit()` does a real `deposit_reserve_liquidity` CPI on Kamino Lend mainnet program; `harvest()` ships in next milestone (park-only mode until then). |
-| Stablecoin | USDC |
-| Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL — **indexer (Helius webhooks + websocket fallback) lands in M3**; see [`docs/architecture.md`](docs/architecture.md#indexer) |
-| Frontend | Next.js 14 + React 18 + framer-motion 11 + Tailwind 3 (landing) + @solana/wallet-adapter + @coral-xyz/anchor |
-| Cluster | Devnet → Mainnet (env-driven) |
+| Layer           | Tech                                                                                                                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smart contracts | Rust + Anchor 0.30                                                                                                                                                                                                           |
+| Tests           | `anchor test` + `solana-bankrun`                                                                                                                                                                                             |
+| NFTs            | Metaplex Core                                                                                                                                                                                                                |
+| NFT metadata    | Client-supplied URI today (`https://` / `ipfs://` / `ar://` accepted); Arweave-via-Irys upload pipeline planned for M3 — `IRYS_NODE_URL` already wired in [`config/clusters.ts`](config/clusters.ts)                         |
+| Attestations    | In-house SAS-compatible module (Devnet) → official SAS (Mainnet)                                                                                                                                                             |
+| Yield           | Mock adapter (Devnet) → Kamino CPI (Mainnet). `roundfi-yield-kamino::deposit()` does a real `deposit_reserve_liquidity` CPI on Kamino Lend mainnet program; `harvest()` ships in next milestone (park-only mode until then). |
+| Stablecoin      | USDC                                                                                                                                                                                                                         |
+| Backend         | Node.js + TypeScript + Fastify + Prisma + PostgreSQL — **indexer (Helius webhooks + websocket fallback) lands in M3**; see [`docs/architecture.md`](docs/architecture.md#indexer)                                            |
+| Frontend        | Next.js 14 + React 18 + framer-motion 11 + Tailwind 3 (landing) + @solana/wallet-adapter + @coral-xyz/anchor                                                                                                                 |
+| Cluster         | Devnet → Mainnet (env-driven)                                                                                                                                                                                                |
 
 ## Quick Start
 
@@ -296,6 +300,7 @@ The repo ships an `app/vercel.json` so the deploy works with one tweak in the da
 4. Click **Deploy**. ~2 minutes.
 
 No env vars required for the public landing — wallet adapter handles its own RPC defaults (devnet). After M3 of the grant ships, the deploy will need:
+
 - `NEXT_PUBLIC_SOLANA_RPC_URL` (Helius / public devnet)
 - `NEXT_PUBLIC_ROUNDFI_CORE_PROGRAM_ID`
 - `NEXT_PUBLIC_ROUNDFI_REPUTATION_PROGRAM_ID`

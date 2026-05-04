@@ -3,12 +3,7 @@
 
 import type { Tone } from "@/data/carteira";
 
-export type FactorKey =
-  | "punctuality"
-  | "anticipation"
-  | "consistency"
-  | "engagement"
-  | "diversity";
+export type FactorKey = "punctuality" | "anticipation" | "consistency" | "engagement" | "diversity";
 
 export interface BehaviorFactor {
   key: FactorKey;
@@ -17,11 +12,11 @@ export interface BehaviorFactor {
 }
 
 export const FACTORS: BehaviorFactor[] = [
-  { key: "punctuality",  value: 96, tone: "g" },
+  { key: "punctuality", value: 96, tone: "g" },
   { key: "anticipation", value: 78, tone: "t" },
-  { key: "consistency",  value: 64, tone: "p" },
-  { key: "engagement",   value: 52, tone: "a" },
-  { key: "diversity",    value: 40, tone: "r" },
+  { key: "consistency", value: 64, tone: "p" },
+  { key: "engagement", value: 52, tone: "a" },
+  { key: "diversity", value: 40, tone: "r" },
 ];
 
 export type RecommendationKey = "anticipate" | "diversify" | "complete";
@@ -34,27 +29,27 @@ export interface ScoreRecommendation {
 
 export const RECOMMENDATIONS: ScoreRecommendation[] = [
   { key: "anticipate", pts: 24, tone: "g" },
-  { key: "diversify",  pts: 18, tone: "t" },
-  { key: "complete",   pts: 42, tone: "p" },
+  { key: "diversify", pts: 18, tone: "t" },
+  { key: "complete", pts: 42, tone: "p" },
 ];
 
 // Synthetic 7-month score curve (relative coords on a 0-220 SVG).
 // Each entry is a (x, y) pair in viewBox space; the chart renders
 // straight-line segments between them.
 export const SCORE_CURVE: ReadonlyArray<readonly [number, number]> = [
-  [  0, 190],
-  [ 50, 180],
+  [0, 190],
+  [50, 180],
   [100, 170],
   [150, 150],
   [200, 160],
   [250, 130],
   [300, 120],
   [350, 110],
-  [400,  90],
-  [450,  85],
-  [500,  70],
-  [550,  60],
-  [600,  50],
+  [400, 90],
+  [450, 85],
+  [500, 70],
+  [550, 60],
+  [600, 50],
 ];
 
 // Last 7 month labels for the x-axis of the chart (most recent last).
@@ -81,9 +76,7 @@ export const RANGE_MONTHS: Record<ScoreRange, number> = {
  * (0..600). 1M shows ~2 points stretched edge-to-edge; 12M shows
  * the full curve unchanged.
  */
-export function curveForRange(
-  range: ScoreRange,
-): ReadonlyArray<readonly [number, number]> {
+export function curveForRange(range: ScoreRange): ReadonlyArray<readonly [number, number]> {
   const months = RANGE_MONTHS[range];
   const totalMonths = SCORE_MONTHS_PT.length;
   const fraction = months / totalMonths;
@@ -95,9 +88,7 @@ export function curveForRange(
   const firstX = slice[0]![0];
   const lastX = slice[slice.length - 1]![0];
   const span = lastX - firstX || 1;
-  return slice.map(
-    ([x, y]) => [((x - firstX) / span) * 600, y] as const,
-  );
+  return slice.map(([x, y]) => [((x - firstX) / span) * 600, y] as const);
 }
 
 /**

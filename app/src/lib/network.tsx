@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { clusterApiUrl } from "@solana/web3.js";
 
 export type NetworkId = "localnet" | "devnet";
@@ -26,16 +19,14 @@ export const NETWORK_OPTIONS: Record<NetworkId, NetworkOption> = {
     label: "Localnet",
     endpoint: "http://127.0.0.1:8899",
     canAirdrop: true,
-    notes:
-      "Requires `solana-test-validator` running locally with the three programs deployed.",
+    notes: "Requires `solana-test-validator` running locally with the three programs deployed.",
   },
   devnet: {
     id: "devnet",
     label: "Devnet",
     endpoint: clusterApiUrl("devnet"),
     canAirdrop: true,
-    notes:
-      "Devnet airdrops are rate-limited; real mode here is best-effort.",
+    notes: "Devnet airdrops are rate-limited; real mode here is best-effort.",
   },
 };
 

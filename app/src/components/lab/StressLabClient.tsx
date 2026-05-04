@@ -88,11 +88,7 @@ export function StressLabClient() {
 
   const handleToggle = (row: number, col: number, shiftKey = false) => {
     if (running || finished) return;
-    setMatrix((prev) =>
-      shiftKey
-        ? toggleCellEscape(prev, row, col)
-        : toggleCell(prev, row, col),
-    );
+    setMatrix((prev) => (shiftKey ? toggleCellEscape(prev, row, col) : toggleCell(prev, row, col)));
     setActivePreset(null);
   };
 
@@ -139,9 +135,12 @@ export function StressLabClient() {
     setCurrentCycle(0);
   };
 
-  useEffect(() => () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    },
+    [],
+  );
 
   // ── Member modal ─────────────────────────────────────────
   const [selectedMember, setSelectedMember] = useState<MemberLedger | null>(null);
@@ -204,9 +203,7 @@ export function StressLabClient() {
         >
           {t("lab.title")}
         </div>
-        <div style={{ fontSize: 13, color: tokens.text2, marginTop: 4 }}>
-          {t("lab.subtitle")}
-        </div>
+        <div style={{ fontSize: 13, color: tokens.text2, marginTop: 4 }}>{t("lab.subtitle")}</div>
       </div>
 
       {/* Two-column layout */}
@@ -252,12 +249,12 @@ export function StressLabClient() {
                       id === "healthy"
                         ? tokens.green
                         : id === "preDefault"
-                        ? tokens.amber
-                        : id === "postDefault"
-                        ? tokens.red
-                        : id === "cascade"
-                        ? tokens.purple
-                        : tokens.teal;
+                          ? tokens.amber
+                          : id === "postDefault"
+                            ? tokens.red
+                            : id === "cascade"
+                              ? tokens.purple
+                              : tokens.teal;
                     return (
                       <button
                         key={id}
@@ -301,8 +298,7 @@ export function StressLabClient() {
                     color: tokens.text2,
                     background: `${tokens.amber}0F`,
                     border: `1px solid ${tokens.amber}33`,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
                   ◆ {t("lab.presets.roundingNotice")}
@@ -454,50 +450,45 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       gap: 6,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       fontSize: 10,
                     }}
                   >
-                    {(["Iniciante", "Comprovado", "Veterano"] as const).map(
-                      (lvl) => {
-                        const lvlParams = LEVEL_PARAMS[lvl];
-                        const months =
-                          maturity === "mature"
-                            ? lvlParams.releaseMonthsMature
-                            : lvlParams.releaseMonths;
-                        const isCurrent = level === lvl;
-                        return (
+                    {(["Iniciante", "Comprovado", "Veterano"] as const).map((lvl) => {
+                      const lvlParams = LEVEL_PARAMS[lvl];
+                      const months =
+                        maturity === "mature"
+                          ? lvlParams.releaseMonthsMature
+                          : lvlParams.releaseMonths;
+                      const isCurrent = level === lvl;
+                      return (
+                        <div
+                          key={lvl}
+                          style={{
+                            flex: 1,
+                            textAlign: "center",
+                            color: isCurrent ? tokens.text : tokens.muted,
+                            fontWeight: isCurrent ? 700 : 400,
+                          }}
+                        >
+                          <div style={{ fontSize: 8, letterSpacing: "0.08em" }}>
+                            {t(`lab.level.${lvl.toLowerCase()}`).slice(0, 3).toUpperCase()}
+                          </div>
                           <div
-                            key={lvl}
                             style={{
-                              flex: 1,
-                              textAlign: "center",
-                              color: isCurrent ? tokens.text : tokens.muted,
-                              fontWeight: isCurrent ? 700 : 400,
+                              marginTop: 2,
+                              color: isCurrent
+                                ? maturity === "mature"
+                                  ? tokens.green
+                                  : tokens.teal
+                                : tokens.muted,
                             }}
                           >
-                            <div style={{ fontSize: 8, letterSpacing: "0.08em" }}>
-                              {t(`lab.level.${lvl.toLowerCase()}`)
-                                .slice(0, 3)
-                                .toUpperCase()}
-                            </div>
-                            <div
-                              style={{
-                                marginTop: 2,
-                                color: isCurrent
-                                  ? maturity === "mature"
-                                    ? tokens.green
-                                    : tokens.teal
-                                  : tokens.muted,
-                              }}
-                            >
-                              {months}m
-                            </div>
+                            {months}m
                           </div>
-                        );
-                      },
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -617,9 +608,7 @@ export function StressLabClient() {
                   step={500}
                   value={creditAmountUsdc}
                   disabled={running || finished}
-                  onChange={(e) =>
-                    setCreditAmountUsdc(Number(e.target.value))
-                  }
+                  onChange={(e) => setCreditAmountUsdc(Number(e.target.value))}
                   style={{
                     width: "100%",
                     background: tokens.fillSoft,
@@ -637,16 +626,14 @@ export function StressLabClient() {
                     marginTop: 6,
                     display: "flex",
                     justifyContent: "space-between",
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontSize: 10,
                     color: tokens.muted,
                   }}
                 >
                   <span>{t("lab.controls.derivedInstallment")}</span>
                   <span style={{ color: tokens.text2 }}>
-                    ${fmtUsdc(installmentUsdc)} ×{" "}
-                    {t("lab.controls.derivedCycles", { n: members })}
+                    ${fmtUsdc(installmentUsdc)} × {t("lab.controls.derivedCycles", { n: members })}
                   </span>
                 </div>
               </div>
@@ -814,8 +801,7 @@ export function StressLabClient() {
                         key={i}
                         style={{
                           fontSize: 8,
-                          fontFamily:
-                            "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                           color: currentCycle === i + 1 ? tokens.green : tokens.muted,
                           paddingBottom: 6,
                           fontWeight: 500,
@@ -832,8 +818,7 @@ export function StressLabClient() {
                       <td
                         style={{
                           fontSize: 10,
-                          fontFamily:
-                            "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                           color: tokens.text2,
                           paddingRight: 8,
                           whiteSpace: "nowrap",
@@ -883,8 +868,7 @@ export function StressLabClient() {
                                 borderRadius: 4,
                                 fontSize: 9,
                                 fontWeight: 700,
-                                fontFamily:
-                                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                                 cursor: running || finished ? "not-allowed" : "pointer",
                                 opacity: dimmed ? 0.3 : 1,
                                 outline: isActiveCycle ? `1px solid ${tokens.green}` : "none",
@@ -927,10 +911,7 @@ export function StressLabClient() {
                     ...glass,
                     padding: 22,
                     borderRadius: 22,
-                    background:
-                      m.netSolvency >= 0
-                        ? `${tokens.green}0D`
-                        : `${tokens.red}1A`,
+                    background: m.netSolvency >= 0 ? `${tokens.green}0D` : `${tokens.red}1A`,
                     border: `1px solid ${
                       m.netSolvency >= 0 ? `${tokens.green}55` : `${tokens.red}55`
                     }`,
@@ -945,8 +926,7 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     <span style={{ color: tokens.text2, textTransform: "uppercase" }}>
@@ -962,8 +942,7 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     <span style={{ color: tokens.green, textTransform: "uppercase" }}>
@@ -981,8 +960,7 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     <span style={{ color: tokens.green, textTransform: "uppercase" }}>
@@ -1010,8 +988,7 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     <span style={{ color: tokens.amber, textTransform: "uppercase" }}>
@@ -1027,8 +1004,7 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     <span style={{ color: tokens.amber, textTransform: "uppercase" }}>
@@ -1046,8 +1022,7 @@ export function StressLabClient() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: 11,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     <span style={{ color: tokens.red, textTransform: "uppercase" }}>
@@ -1068,15 +1043,12 @@ export function StressLabClient() {
                       flexDirection: "column",
                       gap: 4,
                       fontSize: 10,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       color: tokens.muted,
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ textTransform: "uppercase" }}>
-                        {t("lab.audit.retained")}
-                      </span>
+                      <span style={{ textTransform: "uppercase" }}>{t("lab.audit.retained")}</span>
                       <span>+${fmtUsdc(m.totalRetained)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -1118,24 +1090,20 @@ export function StressLabClient() {
                     </span>
                     <span
                       style={{
-                        fontFamily:
-                          "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                         fontWeight: 800,
                         fontSize: 18,
                         color: m.netSolvency >= 0 ? tokens.green : tokens.red,
                       }}
                     >
-                      {m.netSolvency >= 0
-                        ? t("lab.audit.solvent")
-                        : t("lab.audit.insolvent")}
+                      {m.netSolvency >= 0 ? t("lab.audit.solvent") : t("lab.audit.insolvent")}
                     </span>
                   </div>
                   <div
                     style={{
                       marginTop: 4,
                       fontSize: 10,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       color: tokens.muted,
                       textAlign: "right",
                     }}
@@ -1178,8 +1146,7 @@ export function StressLabClient() {
                 <div
                   style={{
                     marginTop: 6,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontWeight: 800,
                     fontSize: 20,
                     color: tokens.amber,
@@ -1211,8 +1178,7 @@ export function StressLabClient() {
                   flex: 1,
                   overflowY: "auto",
                   fontSize: 10,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1394,8 +1360,7 @@ function PoolBalanceSparkline({
 
   const N = frames.length;
   const xAt = (i: number) => pad + (i / Math.max(1, N - 1)) * (W - pad * 2);
-  const yAt = (v: number) =>
-    H - pad - ((v - minBal) / span) * (H - pad * 2);
+  const yAt = (v: number) => H - pad - ((v - minBal) / span) * (H - pad * 2);
 
   const points = frames.map((f, i) => `${xAt(i)},${yAt(f.metrics.poolBalance)}`);
   const path = `M ${points.join(" L ")}`;
@@ -1403,14 +1368,8 @@ function PoolBalanceSparkline({
 
   // Solid path up to currentCycle, dim path thereafter.
   const cutoff = currentCycle > 0 ? currentCycle : N;
-  const solidPath =
-    cutoff >= 2
-      ? `M ${points.slice(0, cutoff).join(" L ")}`
-      : "";
-  const dimPath =
-    cutoff < N
-      ? `M ${points.slice(Math.max(0, cutoff - 1)).join(" L ")}`
-      : "";
+  const solidPath = cutoff >= 2 ? `M ${points.slice(0, cutoff).join(" L ")}` : "";
+  const dimPath = cutoff < N ? `M ${points.slice(Math.max(0, cutoff - 1)).join(" L ")}` : "";
 
   const lastBalance = frames[frames.length - 1].metrics.poolBalance;
   // Color signal driven by net solvency (gross cash − outstanding

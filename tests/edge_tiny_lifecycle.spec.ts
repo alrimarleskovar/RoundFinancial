@@ -71,22 +71,21 @@ import {
 
 // ─── Pool parameters (minimal non-trivial rotation) ───────────────────
 
-const MEMBERS_TARGET     = 3;
-const CYCLES_TOTAL       = 3;
-const CYCLE_DURATION_SEC = 60;                   // MIN_CYCLE_DURATION
+const MEMBERS_TARGET = 3;
+const CYCLES_TOTAL = 3;
+const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
 
-const LEVEL: 1 | 2 | 3   = 1;                    // 50 % stake
-const STAKE_BPS          = 5_000;
+const LEVEL: 1 | 2 | 3 = 1; // 50 % stake
+const STAKE_BPS = 5_000;
 
-const INSTALLMENT_BASE   = usdc(1_000n);         // 1_000_000_000
-const CREDIT_BASE        = usdc(2_200n);         // 2_200_000_000
-const STAKE_BASE         = (CREDIT_BASE * BigInt(STAKE_BPS)) / 10_000n; // 1_100_000_000
+const INSTALLMENT_BASE = usdc(1_000n); // 1_000_000_000
+const CREDIT_BASE = usdc(2_200n); // 2_200_000_000
+const STAKE_BASE = (CREDIT_BASE * BigInt(STAKE_BPS)) / 10_000n; // 1_100_000_000
 
 // Installment split (solidarity=100 bps, escrow=2 500 bps):
-const SOLIDARITY_PER_INST = (INSTALLMENT_BASE *   100n) / 10_000n;      //   10_000_000
-const ESCROW_PER_INST     = (INSTALLMENT_BASE * 2_500n) / 10_000n;      //  250_000_000
-const POOL_FLOAT_PER_INST =
-  INSTALLMENT_BASE - SOLIDARITY_PER_INST - ESCROW_PER_INST;             //  740_000_000
+const SOLIDARITY_PER_INST = (INSTALLMENT_BASE * 100n) / 10_000n; //   10_000_000
+const ESCROW_PER_INST = (INSTALLMENT_BASE * 2_500n) / 10_000n; //  250_000_000
+const POOL_FLOAT_PER_INST = INSTALLMENT_BASE - SOLIDARITY_PER_INST - ESCROW_PER_INST; //  740_000_000
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -124,11 +123,11 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
     pool = await createPool(env, {
       authority,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
     });
 
     handles = await joinMembers(
@@ -141,27 +140,20 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
     // Top each wallet up to CYCLES_TOTAL × INSTALLMENT fresh USDC — the
     // stake they were minted in `joinMembers` is already locked in escrow.
     for (const m of members) {
-      await fundUsdc(
-        env,
-        usdcMint,
-        m.publicKey,
-        BigInt(CYCLES_TOTAL) * INSTALLMENT_BASE,
-      );
+      await fundUsdc(env, usdcMint, m.publicKey, BigInt(CYCLES_TOTAL) * INSTALLMENT_BASE);
     }
     totalMinted += BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * INSTALLMENT_BASE;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (await fetchPool(env, pool.pool)) as any;
-    expect(p.status).to.equal(1);                  // Active
+    expect(p.status).to.equal(1); // Active
     expect(p.membersJoined).to.equal(MEMBERS_TARGET);
     expect(p.membersTarget).to.equal(MEMBERS_TARGET);
     expect(p.cyclesTotal).to.equal(CYCLES_TOTAL);
     expect(p.currentCycle).to.equal(0);
 
     // Escrow holds every stake, vault + solidarity start empty.
-    expect(await balanceOf(env, pool.escrowVault)).to.equal(
-      BigInt(MEMBERS_TARGET) * STAKE_BASE,
-    );
+    expect(await balanceOf(env, pool.escrowVault)).to.equal(BigInt(MEMBERS_TARGET) * STAKE_BASE);
     expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(0n);
     expect(await balanceOf(env, pool.solidarityVault)).to.equal(0n);
   });
@@ -170,42 +162,40 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
   for (let cycle = 0; cycle < CYCLES_TOTAL; cycle++) {
     it(`cycle ${cycle}: 3 contributions + slot ${cycle} claim`, async function () {
       const poolBefore = await balanceOf(env, pool.poolUsdcVault);
-      const solBefore  = await balanceOf(env, pool.solidarityVault);
-      const escBefore  = await balanceOf(env, pool.escrowVault);
+      const solBefore = await balanceOf(env, pool.solidarityVault);
+      const escBefore = await balanceOf(env, pool.escrowVault);
 
       for (const h of handles) {
         await contribute(env, { pool, member: h, cycle });
       }
 
       // Vault deltas match the per-cycle split exactly.
-      expect(
-        (await balanceOf(env, pool.poolUsdcVault)) - poolBefore,
-      ).to.equal(BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST);
-      expect(
-        (await balanceOf(env, pool.solidarityVault)) - solBefore,
-      ).to.equal(BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST);
-      expect(
-        (await balanceOf(env, pool.escrowVault)) - escBefore,
-      ).to.equal(BigInt(MEMBERS_TARGET) * ESCROW_PER_INST);
+      expect((await balanceOf(env, pool.poolUsdcVault)) - poolBefore).to.equal(
+        BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST,
+      );
+      expect((await balanceOf(env, pool.solidarityVault)) - solBefore).to.equal(
+        BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST,
+      );
+      expect((await balanceOf(env, pool.escrowVault)) - escBefore).to.equal(
+        BigInt(MEMBERS_TARGET) * ESCROW_PER_INST,
+      );
 
       // Claim: slot_index == cycle (monotonic rotation).
       const recipient = handles[cycle]!;
       const recipientBefore = await balanceOf(env, recipient.memberUsdc);
       await claimPayout(env, { pool, member: recipient, cycle });
-      expect(
-        (await balanceOf(env, recipient.memberUsdc)) - recipientBefore,
-      ).to.equal(CREDIT_BASE);
+      expect((await balanceOf(env, recipient.memberUsdc)) - recipientBefore).to.equal(CREDIT_BASE);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = (await fetchPool(env, pool.pool)) as any;
       if (cycle + 1 < CYCLES_TOTAL) {
         expect(p.currentCycle).to.equal(cycle + 1);
-        expect(p.status).to.equal(1);              // Active
+        expect(p.status).to.equal(1); // Active
       } else {
         // On the final cycle `claim_payout` flips status to Completed
         // without advancing current_cycle past the last index.
         expect(p.currentCycle).to.equal(CYCLES_TOTAL - 1);
-        expect(p.status).to.equal(2);              // Completed
+        expect(p.status).to.equal(2); // Completed
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -217,21 +207,19 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
   it("pool aggregates match hand-computed totals after 3 cycles", async function () {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (await fetchPool(env, pool.pool)) as any;
-    expect(p.status).to.equal(2);                  // Completed
+    expect(p.status).to.equal(2); // Completed
     expect(bn(p.totalContributed)).to.equal(
       BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * INSTALLMENT_BASE,
     );
-    expect(bn(p.totalPaidOut)).to.equal(
-      BigInt(CYCLES_TOTAL) * CREDIT_BASE,
-    );
+    expect(bn(p.totalPaidOut)).to.equal(BigInt(CYCLES_TOTAL) * CREDIT_BASE);
     expect(bn(p.solidarityBalance)).to.equal(
       BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * SOLIDARITY_PER_INST,
     );
     // pool.escrow_balance tracks stake + escrow contributions — stakes
     // not yet released.
     expect(bn(p.escrowBalance)).to.equal(
-      BigInt(MEMBERS_TARGET) * STAKE_BASE
-      + BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * ESCROW_PER_INST,
+      BigInt(MEMBERS_TARGET) * STAKE_BASE +
+        BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * ESCROW_PER_INST,
     );
 
     // Every member contributed every cycle on-time and was paid once.
@@ -267,9 +255,7 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
       // member.escrow_balance was stake + C×escrow_per_inst; release
       // drained only the stake portion — escrow contributions remain
       // in the vault and stay tracked per-member.
-      expect(bn(ms.escrowBalance)).to.equal(
-        BigInt(CYCLES_TOTAL) * ESCROW_PER_INST,
-      );
+      expect(bn(ms.escrowBalance)).to.equal(BigInt(CYCLES_TOTAL) * ESCROW_PER_INST);
     }
 
     // Aggregate: every stake is gone from the escrow vault.
@@ -298,8 +284,8 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
   });
 
   it("global conservation: total USDC accounted for, every base unit", async function () {
-    const poolVault  = await balanceOf(env, pool.poolUsdcVault);
-    const escrow     = await balanceOf(env, pool.escrowVault);
+    const poolVault = await balanceOf(env, pool.poolUsdcVault);
+    const escrow = await balanceOf(env, pool.escrowVault);
     const solidarity = await balanceOf(env, pool.solidarityVault);
 
     let memberSum = 0n;
@@ -313,19 +299,15 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
 
     // Strict end-state per bucket — flags any accidental re-routing of
     // solidarity / escrow splits.
-    const expectedPoolVault   =
-      BigInt(CYCLES_TOTAL)
-      * (BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST - CREDIT_BASE);          //    60 USDC
-    const expectedSolidarity  =
-      BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * SOLIDARITY_PER_INST;      //    90 USDC
-    const expectedEscrow      =
-      BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * ESCROW_PER_INST;          // 2 250 USDC
-    const expectedMemberSum   =
-      BigInt(MEMBERS_TARGET) * (CREDIT_BASE + STAKE_BASE);                      // 9 900 USDC
+    const expectedPoolVault =
+      BigInt(CYCLES_TOTAL) * (BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST - CREDIT_BASE); //    60 USDC
+    const expectedSolidarity = BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * SOLIDARITY_PER_INST; //    90 USDC
+    const expectedEscrow = BigInt(MEMBERS_TARGET) * BigInt(CYCLES_TOTAL) * ESCROW_PER_INST; // 2 250 USDC
+    const expectedMemberSum = BigInt(MEMBERS_TARGET) * (CREDIT_BASE + STAKE_BASE); // 9 900 USDC
 
-    expect(poolVault,  "pool vault")       .to.equal(expectedPoolVault);
-    expect(solidarity, "solidarity vault") .to.equal(expectedSolidarity);
-    expect(escrow,     "escrow vault")     .to.equal(expectedEscrow);
-    expect(memberSum,  "member wallets")   .to.equal(expectedMemberSum);
+    expect(poolVault, "pool vault").to.equal(expectedPoolVault);
+    expect(solidarity, "solidarity vault").to.equal(expectedSolidarity);
+    expect(escrow, "escrow vault").to.equal(expectedEscrow);
+    expect(memberSum, "member wallets").to.equal(expectedMemberSum);
   });
 });

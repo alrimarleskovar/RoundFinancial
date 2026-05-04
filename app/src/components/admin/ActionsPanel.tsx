@@ -153,8 +153,7 @@ function ActionBtn({
             fontSize: 10,
             color: tokens.muted,
             marginTop: 2,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
           {sub}

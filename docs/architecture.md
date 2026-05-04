@@ -14,6 +14,7 @@ This document is the single source of truth for RoundFi's on-chain and off-chain
 ## 1. Design Goals & Non-Goals
 
 **Goals**
+
 - Production-ready, hackathon-grade protocol on **Solana Devnet** with a clean **Mainnet migration path**.
 - Enforce all product invariants (Triple Shield, 50-30-10 ladder, seed draw 91.6%, 1% solidarity, yield waterfall) directly on-chain — off-chain services may read/present, never gate.
 - **Losses are bounded and the protocol remains solvent by construction.** The D/C invariant (per-member, in `settle_default`) and the Seed-Draw invariant (per-pool, in `claim_payout`) together bound per-transaction loss to the defaulter's own posted collateral, and guarantee the pool retains ≥91.6% of max-month-1 collections at cycle 0. No profit claim is made under stress; solvency is the claim.
@@ -21,6 +22,7 @@ This document is the single source of truth for RoundFi's on-chain and off-chain
 - Every account address is a deterministic PDA → SDK and indexer work without on-chain account discovery heuristics.
 
 **Non-goals (this phase)**
+
 - KYC / Proof-of-Personhood (Civic, Fractal) — skipped, wallet-only identity.
 - Governance / token. No `$RFI` token this phase; revenue accrues to `treasury` account.
 - L2 / cross-chain bridging.
@@ -53,7 +55,8 @@ The protocol consists of **3 programs + Metaplex Core CPI**:
 ```
 
 **Rationale for this split:**
-- `roundfi-core` contains the *pool state machine*; keeping escrow + solidarity vault inside core avoids brittle 3-way CPIs on hot paths (`contribute`, `claim_payout`).
+
+- `roundfi-core` contains the _pool state machine_; keeping escrow + solidarity vault inside core avoids brittle 3-way CPIs on hot paths (`contribute`, `claim_payout`).
 - `roundfi-reputation` is separate because (a) it exposes a SAS-compatible read surface to 3rd parties (B2B score API), (b) it will be re-implemented to CPI into the official Solana Attestation Service on Mainnet — isolating this keeps that migration surgical.
 - `yield-adapter` is a **program-level trait**: two distinct programs (`yield-mock`, `yield-kamino`) that share the exact same instruction discriminators and account layouts. `PoolConfig.yield_adapter: Pubkey` dictates which one core CPIs into. No compile-time coupling.
 - Metaplex Core is used directly via CPI for the position NFT — no custom NFT program needed.
@@ -65,6 +68,7 @@ The protocol consists of **3 programs + Metaplex Core CPI**:
 All accounts are PDAs derived from the seeds below. Numeric amounts are `u64` in **base units of USDC** (6 decimals) unless noted.
 
 ### 3.1 `ProtocolConfig` (singleton)
+
 Seeds: `[b"config"]`
 
 ```rust
@@ -86,6 +90,7 @@ pub struct ProtocolConfig {
 ```
 
 ### 3.2 `Pool`
+
 Seeds: `[b"pool", authority, seed_id_le_bytes]`
 
 ```rust
@@ -122,12 +127,14 @@ pub struct Pool {
 ```
 
 **Associated token accounts** (all are ATAs of the `Pool` PDA authority):
-- `pool_usdc_vault`    — holds live contribution float
-- `escrow_vault`       — holds locked rewards (PDA seeds `[b"escrow", pool]`)
-- `solidarity_vault`   — holds 1% collections (PDA seeds `[b"solidarity", pool]`)
-- `yield_vault`        — holds in-flight funds deposited to yield adapter (PDA seeds `[b"yield", pool]`)
+
+- `pool_usdc_vault` — holds live contribution float
+- `escrow_vault` — holds locked rewards (PDA seeds `[b"escrow", pool]`)
+- `solidarity_vault` — holds 1% collections (PDA seeds `[b"solidarity", pool]`)
+- `yield_vault` — holds in-flight funds deposited to yield adapter (PDA seeds `[b"yield", pool]`)
 
 ### 3.3 `Member`
+
 Seeds: `[b"member", pool, wallet]`
 
 ```rust
@@ -152,6 +159,7 @@ pub struct Member {
 ```
 
 ### 3.4 `ReputationProfile` (program: `roundfi-reputation`)
+
 Seeds: `[b"reputation", wallet]`
 
 ```rust
@@ -174,6 +182,7 @@ pub struct ReputationProfile {
 Step 4d extends this struct with `total_participated` and `last_cycle_complete_at`. Absence of a profile is treated as score=0, level=1 (default unverified).
 
 ### 3.5 `Attestation` (program: `roundfi-reputation`)
+
 Seeds: `[b"attestation", issuer, subject, schema_id_le, nonce_le]`
 
 ```rust
@@ -188,9 +197,11 @@ pub struct Attestation {
     pub bump:        u8,
 }
 ```
-*Mainnet migration:* this same struct maps 1-to-1 onto the official SAS schema shape — the program ID changes, layout does not.
+
+_Mainnet migration:_ this same struct maps 1-to-1 onto the official SAS schema shape — the program ID changes, layout does not.
 
 ### 3.6 Yield adapter accounts
+
 Both `yield-mock` and `yield-kamino` expose an identical `YieldVaultState`:
 
 ```rust
@@ -209,47 +220,48 @@ pub struct YieldVaultState {
 
 ### 4.1 `roundfi-core`
 
-| Instruction | Caller | Key accounts (signer = S, mut = M) | Effect |
-|---|---|---|---|
-| `initialize_protocol(cfg)` | authority (S) | ProtocolConfig (M), treasury, usdc_mint | One-time singleton init |
-| `update_protocol_config(patch)` | authority (S) | ProtocolConfig (M) | Admin knobs (fees, pause) |
-| `create_pool(seed_id, params)` | authority (S) | Pool (M), vaults (M), yield_adapter | Opens a Forming pool |
-| `join_pool(slot_hint?)` | user (S) | Pool (M), Member (M), NFT asset (M), stake_src (M), reputation_profile | Deposits stake, mints position NFT, assigns slot; transitions to Active when `members_joined == members_target` |
-| `contribute(cycle)` | user (S) | Pool (M), Member (M), member_src (M), pool_usdc_vault (M), solidarity_vault (M), escrow_vault (M) | Collects `installment_amount`, routes 1% to solidarity, escrow_release_bps to escrow, remainder to pool_usdc_vault; emits Payment attestation via CPI |
-| `claim_payout(cycle)` | user (S) | Pool (M), Member (M), member_dst (M), pool_usdc_vault (M), yield_vault (M) | Releases `credit_amount` to member at slot_index == cycle; updates NFT metadata via Core CPI |
-| `release_escrow(cycle_checkpoint)` | user (S) | Pool, Member (M), escrow_vault (M), member_dst (M) | Releases vested escrow portion if member is on-time through checkpoint |
-| `distribute_good_faith_bonus(cycle)` | crank | Pool (M), solidarity_vault (M), members | Splits solidarity balance among on-time members of the cycle |
-| `settle_default(member)` | crank | Pool (M), Member (M), vaults (M) | Executes stake seizure; emits Default attestation |
-| `escape_valve_list(price)` | member (S) | Pool, Member (M), NFT asset (M) | Lists position for sale (on-chain bid book) |
-| `escape_valve_buy(member)` | buyer (S) | Pool (M), Member (M old → new wallet), NFT asset (M), buyer_src (M), seller_dst (M) | Transfers NFT + Member PDA re-anchors to buyer; emits reputation transfer attestation |
-| `deposit_idle_to_yield(amount)` | crank | Pool (M), pool_usdc_vault (M), yield_vault (M), yield_adapter CPI | Moves idle float into yield adapter |
-| `harvest_yield()` | crank | Pool (M), yield adapter CPI, treasury ATA (M), pool_usdc_vault (M) | Pulls yield, splits per waterfall in strict order: **(1) Guarantee Fund top-up → (2) Protocol fee 20% → (3) Good-faith bonus → (4) Remaining to participants**. No step skippable or reorderable. |
-| `close_pool()` | authority (S) | Pool (M), vaults (M) | After all cycles completed; sweeps residuals; emits CycleComplete attestations for all members |
+| Instruction                          | Caller        | Key accounts (signer = S, mut = M)                                                                | Effect                                                                                                                                                                                            |
+| ------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialize_protocol(cfg)`           | authority (S) | ProtocolConfig (M), treasury, usdc_mint                                                           | One-time singleton init                                                                                                                                                                           |
+| `update_protocol_config(patch)`      | authority (S) | ProtocolConfig (M)                                                                                | Admin knobs (fees, pause)                                                                                                                                                                         |
+| `create_pool(seed_id, params)`       | authority (S) | Pool (M), vaults (M), yield_adapter                                                               | Opens a Forming pool                                                                                                                                                                              |
+| `join_pool(slot_hint?)`              | user (S)      | Pool (M), Member (M), NFT asset (M), stake_src (M), reputation_profile                            | Deposits stake, mints position NFT, assigns slot; transitions to Active when `members_joined == members_target`                                                                                   |
+| `contribute(cycle)`                  | user (S)      | Pool (M), Member (M), member_src (M), pool_usdc_vault (M), solidarity_vault (M), escrow_vault (M) | Collects `installment_amount`, routes 1% to solidarity, escrow_release_bps to escrow, remainder to pool_usdc_vault; emits Payment attestation via CPI                                             |
+| `claim_payout(cycle)`                | user (S)      | Pool (M), Member (M), member_dst (M), pool_usdc_vault (M), yield_vault (M)                        | Releases `credit_amount` to member at slot_index == cycle; updates NFT metadata via Core CPI                                                                                                      |
+| `release_escrow(cycle_checkpoint)`   | user (S)      | Pool, Member (M), escrow_vault (M), member_dst (M)                                                | Releases vested escrow portion if member is on-time through checkpoint                                                                                                                            |
+| `distribute_good_faith_bonus(cycle)` | crank         | Pool (M), solidarity_vault (M), members                                                           | Splits solidarity balance among on-time members of the cycle                                                                                                                                      |
+| `settle_default(member)`             | crank         | Pool (M), Member (M), vaults (M)                                                                  | Executes stake seizure; emits Default attestation                                                                                                                                                 |
+| `escape_valve_list(price)`           | member (S)    | Pool, Member (M), NFT asset (M)                                                                   | Lists position for sale (on-chain bid book)                                                                                                                                                       |
+| `escape_valve_buy(member)`           | buyer (S)     | Pool (M), Member (M old → new wallet), NFT asset (M), buyer_src (M), seller_dst (M)               | Transfers NFT + Member PDA re-anchors to buyer; emits reputation transfer attestation                                                                                                             |
+| `deposit_idle_to_yield(amount)`      | crank         | Pool (M), pool_usdc_vault (M), yield_vault (M), yield_adapter CPI                                 | Moves idle float into yield adapter                                                                                                                                                               |
+| `harvest_yield()`                    | crank         | Pool (M), yield adapter CPI, treasury ATA (M), pool_usdc_vault (M)                                | Pulls yield, splits per waterfall in strict order: **(1) Guarantee Fund top-up → (2) Protocol fee 20% → (3) Good-faith bonus → (4) Remaining to participants**. No step skippable or reorderable. |
+| `close_pool()`                       | authority (S) | Pool (M), vaults (M)                                                                              | After all cycles completed; sweeps residuals; emits CycleComplete attestations for all members                                                                                                    |
 
 ### 4.2 `roundfi-reputation`
 
-| Instruction | Caller | Effect |
-|---|---|---|
-| `initialize_reputation(cfg)` | authority (S) | One-time singleton init of `ReputationConfig` — stores `roundfi_core_program` and the Civic network pubkey. |
-| `init_profile(wallet)` | anyone (S) | Creates `ReputationProfile` for a wallet. Permissionless bootstrap. |
-| `attest(schema_id, nonce, payload)` | authorized issuer (S) | Creates `Attestation`; updates `ReputationProfile.score` and counters according to schema. Rejects unwhitelisted issuers and cooldown violations. |
-| `revoke(attestation)` | issuer (S) | Marks revoked; recomputes score. |
-| `promote_level(wallet)` | anyone (S) | Permissionless — re-reads the score and applies the threshold rule. Advances `level` 1→2 or 2→3; no admin override. |
-| `link_civic_identity(gateway_token)` | user (S) | Validates Civic gateway-token account against the Civic Networks program and writes `IdentityRecord { provider: Civic, status: Verified }`. Untrusted-provider checks enforced. |
-| `refresh_identity()` | anyone (S) | Re-reads the gateway token and flips status to `Expired` / `Revoked` when appropriate. No privileged access; anyone can refresh any profile. |
-| `unlink_identity()` | user (S) | Owner-only removal — frees the `IdentityRecord`. |
+| Instruction                          | Caller                | Effect                                                                                                                                                                          |
+| ------------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialize_reputation(cfg)`         | authority (S)         | One-time singleton init of `ReputationConfig` — stores `roundfi_core_program` and the Civic network pubkey.                                                                     |
+| `init_profile(wallet)`               | anyone (S)            | Creates `ReputationProfile` for a wallet. Permissionless bootstrap.                                                                                                             |
+| `attest(schema_id, nonce, payload)`  | authorized issuer (S) | Creates `Attestation`; updates `ReputationProfile.score` and counters according to schema. Rejects unwhitelisted issuers and cooldown violations.                               |
+| `revoke(attestation)`                | issuer (S)            | Marks revoked; recomputes score.                                                                                                                                                |
+| `promote_level(wallet)`              | anyone (S)            | Permissionless — re-reads the score and applies the threshold rule. Advances `level` 1→2 or 2→3; no admin override.                                                             |
+| `link_civic_identity(gateway_token)` | user (S)              | Validates Civic gateway-token account against the Civic Networks program and writes `IdentityRecord { provider: Civic, status: Verified }`. Untrusted-provider checks enforced. |
+| `refresh_identity()`                 | anyone (S)            | Re-reads the gateway token and flips status to `Expired` / `Revoked` when appropriate. No privileged access; anyone can refresh any profile.                                    |
+| `unlink_identity()`                  | user (S)              | Owner-only removal — frees the `IdentityRecord`.                                                                                                                                |
 
 **Authorized issuers** = whitelist stored in `ReputationConfig`, initialized with `roundfi-core`'s program ID. On Mainnet, the whitelist is replaced by signed SAS issuance. The core program CPIs into `attest()` inside `contribute` / `claim_payout` / `settle_default`; every CPI is checked against the stored program id (program-id guard).
 
 **Anti-gaming rules (locked Step 4d):**
 
 1. **Cycle-complete cooldown.** A `CycleComplete` attestation for a given subject is rejected when `clock.unix_timestamp < profile.last_cycle_complete_at + MIN_CYCLE_COOLDOWN_SECS`. Default `MIN_CYCLE_COOLDOWN_SECS = 518_400` (60 % of a 10-day cycle). Prevents a sybil farm spinning up fake pools that all "complete" in one slot.
-2. **Same-issuer / same-subject rate limit.** Per schema, an issuer may only attest once per cooldown window. Enforced by the attestation PDA seeds `[b"attestation", issuer, subject, schema_id, nonce]` *plus* an on-chain time check against `profile.last_updated_at`.
+2. **Same-issuer / same-subject rate limit.** Per schema, an issuer may only attest once per cooldown window. Enforced by the attestation PDA seeds `[b"attestation", issuer, subject, schema_id, nonce]` _plus_ an on-chain time check against `profile.last_updated_at`.
 3. **Sybil hint.** If `IdentityRecord.status == Verified`, on-time increments are applied at full weight; if Unverified/Expired/Revoked, on-time weight is **halved** (integer arithmetic: `delta / 2`). Defaults are never reduced — this rule only dampens positive signals.
 4. **Default stickiness.** Once a `Default` attestation lands with `schema_id == SCHEMA_DEFAULT` for a `(subject, pool)` tuple, subsequent `CycleComplete` attestations for that same pool are rejected. Recovery is deferred (post-4d).
 5. **Permissionless promotion.** `promote_level` re-reads the score and applies the threshold. No admin can bypass; no admin can demote either — level is monotonic up except via `Default` attestations that drop the score below a threshold.
 
 **Score arithmetic (v1):**
+
 - `+10` per `Payment` (on-time)
 - `+50` per `CycleComplete` (halved to `+25` if unverified)
 - `-100` per `Late`
@@ -259,12 +271,12 @@ pub struct YieldVaultState {
 
 ### 4.3 `yield-adapter` interface (shared by mock + kamino)
 
-| Instruction | Caller | Effect |
-|---|---|---|
-| `init_vault(owner)` | core CPI | Opens `YieldVaultState` owned by pool |
-| `deposit(amount)` | core CPI | Transfers USDC in; principal += amount |
-| `withdraw(amount)` | core CPI | Transfers USDC out; principal -= amount |
-| `harvest()` | core CPI, returns yield_amount | Realizes accrued yield and transfers it to `destination` ATA |
+| Instruction         | Caller                         | Effect                                                       |
+| ------------------- | ------------------------------ | ------------------------------------------------------------ |
+| `init_vault(owner)` | core CPI                       | Opens `YieldVaultState` owned by pool                        |
+| `deposit(amount)`   | core CPI                       | Transfers USDC in; principal += amount                       |
+| `withdraw(amount)`  | core CPI                       | Transfers USDC out; principal -= amount                      |
+| `harvest()`         | core CPI, returns yield_amount | Realizes accrued yield and transfers it to `destination` ATA |
 
 **Mock implementation:** accrual is `principal * mock_apy_bps * elapsed_secs / seconds_per_year / 10_000`, computed lazily at harvest time. `mock_apy_bps` is set to 650 (6.5%) by default, configurable per-vault for scenario testing.
 
@@ -309,12 +321,14 @@ pub struct IdentityRecord {
 ```
 
 **Instructions (roundfi-reputation, Step 4d):**
+
 - `link_civic_identity(gateway_token)` — validates a Civic Gateway Token account against the Civic Networks program; sets `IdentityRecord { provider: Civic, status: Verified, expires_at }`.
 - `refresh_identity()` — re-reads the gateway token; marks `Expired` if Civic revoked it.
 - `unlink_identity()` — user-initiated removal.
 - `attest(...)` — unchanged SAS-compatible issuance; when an `IdentityRecord` exists for the subject, the attestation `payload` embeds the provider+status as a read-only hint to indexers.
 
 **Rules (non-breaking by construction):**
+
 1. **Never a gate.** `join_pool` does NOT read `IdentityRecord`. Reputation-level logic (`promote_level`, stake bps snapshot) continues to derive from on-chain behavior alone.
 2. **Additive only.** Absence of an `IdentityRecord` is indistinguishable from `IdentityStatus::Unverified` — no existing wallet is affected when this layer ships.
 3. **Scoring hint, not auth.** The B2B score API MAY weigh verified identities higher; the on-chain protocol MUST not.
@@ -328,15 +342,15 @@ pub struct IdentityRecord {
 
 The product narrative refers to a "Triple Shield" security architecture. The canonical mapping below matches the [whitepaper](pt/whitepaper.pdf) and [B2B plan](pt/plano-b2b.pdf) — i.e. it presents the Shields in their **build order** during the pool's lifecycle, not in the on-chain seizure order of `settle_default.rs`. The seizure order is a separate implementation detail (see note below).
 
-| # | Canonical name | Build trigger | Funding source | On-chain primitive |
-|---|----------------|---------------|----------------|---------------------|
-| **Shield 1** | **Sorteio Semente** *(Seed Draw / Bootstrap Mês 1)* | First cycle of every pool | Asymmetric upfront cap (cycle 1 contemplated member receives only `2 × installment`; ~91.6% of cycle-1 capital stays in the vault) | Cycle = 1 special case in `claim_payout.rs` |
-| **Shield 2** | **Escrow Adaptativo + Stake** | Activates at every contemplation from cycle 2 onward | Reputation-tier-driven payout/escrow split + stake floor (Lv1 50/50/50/5m, Lv2 30/45/55/4m, Lv3 10/35/65/3m for stake/payout/escrow/release) | `LEVEL_PARAMS` in stress-lab + `member.escrow_balance` / `member.stake_deposited` |
-| **Shield 3** | **Cofre Solidário + Cascata de Yield** | Accrues continuously across the pool's life | 1% of every paid installment → segregated **Solidarity Vault** + Kamino yield waterfall (admin fee → Guarantee Fund cap 150% × credit → 65% LPs → 35% participants) | `solidarity_vault` PDA + `harvest_yield.rs` waterfall |
+| #            | Canonical name                                      | Build trigger                                        | Funding source                                                                                                                                                      | On-chain primitive                                                                |
+| ------------ | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Shield 1** | **Sorteio Semente** _(Seed Draw / Bootstrap Mês 1)_ | First cycle of every pool                            | Asymmetric upfront cap (cycle 1 contemplated member receives only `2 × installment`; ~91.6% of cycle-1 capital stays in the vault)                                  | Cycle = 1 special case in `claim_payout.rs`                                       |
+| **Shield 2** | **Escrow Adaptativo + Stake**                       | Activates at every contemplation from cycle 2 onward | Reputation-tier-driven payout/escrow split + stake floor (Lv1 50/50/50/5m, Lv2 30/45/55/4m, Lv3 10/35/65/3m for stake/payout/escrow/release)                        | `LEVEL_PARAMS` in stress-lab + `member.escrow_balance` / `member.stake_deposited` |
+| **Shield 3** | **Cofre Solidário + Cascata de Yield**              | Accrues continuously across the pool's life          | 1% of every paid installment → segregated **Solidarity Vault** + Kamino yield waterfall (admin fee → Guarantee Fund cap 150% × credit → 65% LPs → 35% participants) | `solidarity_vault` PDA + `harvest_yield.rs` waterfall                             |
 
-**On-chain seizure order — implementation note.** When a default occurs, `settle_default.rs` draws capital in a *different* order than the Shield build sequence above: solidarity vault first → escrow second → stake third, capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`). This recovery sequence is orthogonal to the structural narrative; pitch / public-facing copy should always use the Shield 1 → 2 → 3 build order from the table above. The seizure order matters only for technical / due-diligence audiences.
+**On-chain seizure order — implementation note.** When a default occurs, `settle_default.rs` draws capital in a _different_ order than the Shield build sequence above: solidarity vault first → escrow second → stake third, capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`). This recovery sequence is orthogonal to the structural narrative; pitch / public-facing copy should always use the Shield 1 → 2 → 3 build order from the table above. The seizure order matters only for technical / due-diligence audiences.
 
-**Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The **"10× leverage"** wording is canonical (per the whitepaper + B2B plan): a Veteran deposits 10% of the credit and accesses 100% of it — `MAX_BPS / STAKE_BPS_LEVEL_3 = 10`. This is *not* leveraged lending in the DeFi margin/liquidation sense (the member also commits to N-1 future installments), but the headline ratio is real and matches the pitch. The "Serasa da Web3 / on-chain behavior oracle" framing is the central thesis (per the [B2B plan](pt/plano-b2b.pdf)), with the ROSCA acting as the data-acquisition engine.
+**Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The **"10× leverage"** wording is canonical (per the whitepaper + B2B plan): a Veteran deposits 10% of the credit and accesses 100% of it — `MAX_BPS / STAKE_BPS_LEVEL_3 = 10`. This is _not_ leveraged lending in the DeFi margin/liquidation sense (the member also commits to N-1 future installments), but the headline ratio is real and matches the pitch. The "Serasa da Web3 / on-chain behavior oracle" framing is the central thesis (per the [B2B plan](pt/plano-b2b.pdf)), with the ROSCA acting as the data-acquisition engine.
 
 See [pitch-alignment.md](./pitch-alignment.md) §3 for the full Triple Shield narrative + script, and [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md) for the yield-waterfall explainer.
 
@@ -352,7 +366,8 @@ This section freezes the behavior contracts for the Step 4c instructions. Any ch
   - `C_initial = member.stake_deposited_initial + member.total_escrow_deposited`
   - `C_remaining = member.stake_deposited + member.escrow_balance`
 
-  The seizure amount must satisfy `D_remaining * C_initial <= C_remaining_after_seizure * D_initial` (cross-multiplied, no division). If the invariant cannot hold, the handler seizes *less* rather than violating it.
+  The seizure amount must satisfy `D_remaining * C_initial <= C_remaining_after_seizure * D_initial` (cross-multiplied, no division). If the invariant cannot hold, the handler seizes _less_ rather than violating it.
+
 - **Order of operations:**
   1. Flag `member.defaulted = true` (atomic with seizure — state never half-set).
   2. Seize from solidarity vault first (up to remaining installments covered), then from member escrow, then from member stake.
@@ -377,7 +392,7 @@ This section freezes the behavior contracts for the Step 4c instructions. Any ch
   1. Snapshot old Member state (slot_index, contributions_paid, escrow_balance, on_time_count, late_count, stake_deposited, nft_asset, reputation_level, stake_bps).
   2. Close old Member PDA; rent returns to seller.
   3. Create new Member PDA at `[b"member", pool, buyer]`; populate with snapshot except `wallet` and `joined_at`.
-  4. Transfer NFT asset ownership to buyer via Metaplex Core CPI (escrow-frozen remains, it's soulbound to the *position* not the wallet).
+  4. Transfer NFT asset ownership to buyer via Metaplex Core CPI (escrow-frozen remains, it's soulbound to the _position_ not the wallet).
   5. Close the listing account; rent returns to seller.
 - **Irrelevant to invariants:** The escape valve does NOT change pool totals (`total_contributed`, `solidarity_balance`, `escrow_balance`) — only the wallet pointer moves.
 
@@ -388,7 +403,7 @@ This section freezes the behavior contracts for the Step 4c instructions. Any ch
   - All adapter-side accounts are passed through `remaining_accounts`; core never assumes PDA layout.
 - **Balance-based verification (never trust return values):**
   - Before `deposit`/`withdraw`/`harvest`, snapshot the affected token account amounts.
-  - After the CPI, reload accounts and compute the *actual* delta.
+  - After the CPI, reload accounts and compute the _actual_ delta.
   - Use the actual delta — never the requested amount — for subsequent accounting.
 - **Failure modes:**
   - Adapter reverts → core reverts (normal behavior).
@@ -408,7 +423,7 @@ This section freezes the behavior contracts for the Step 4d instructions that li
 #### 4.6.1 Program boundary with `roundfi-core`
 
 - `ReputationConfig` stores `roundfi_core_program: Pubkey` at init time. This is **frozen** — no admin path can rotate it.
-- Every write-path instruction that can be triggered by core CPI (`attest`, `revoke`) validates the *caller program id* via `anchor_lang::solana_program::sysvar::instructions` introspection OR via a PDA signer check: core passes the `Pool` PDA as the issuer signer, and `attest` computes `Pubkey::find_program_address(...)` with `roundfi_core_program` and requires a match.
+- Every write-path instruction that can be triggered by core CPI (`attest`, `revoke`) validates the _caller program id_ via `anchor_lang::solana_program::sysvar::instructions` introspection OR via a PDA signer check: core passes the `Pool` PDA as the issuer signer, and `attest` computes `Pubkey::find_program_address(...)` with `roundfi_core_program` and requires a match.
 - Non-whitelisted programs are rejected with `InvalidIssuer`. Direct wallet-signed `attest` calls are only allowed from the `ReputationConfig.authority` (used for manual corrections in Step 9 forward).
 
 #### 4.6.2 Identity validator — untrusted provider contract
@@ -418,7 +433,7 @@ This section freezes the behavior contracts for the Step 4d instructions that li
 1. Verifies the account's **owner** equals the Civic Networks program ID stored in `ReputationConfig`.
 2. Deserializes the gateway-token layout (Civic's 83-byte state struct) from raw account data — no Anchor `Account<'info, T>` trust, since the program does not own that type.
 3. Checks: `state == Active`, `expires_at == 0 || expires_at > clock.unix_timestamp`, `owner_wallet == signer.key()`.
-4. Checks the token's *gatekeeper network* matches `ReputationConfig.civic_network`.
+4. Checks the token's _gatekeeper network_ matches `ReputationConfig.civic_network`.
 5. On success, writes `IdentityRecord { provider: Civic, status: Verified, verified_at: clock.unix_timestamp, expires_at, gateway_token: token.key(), bump }`.
 
 Any deserialization error, owner mismatch, or state flag mismatch rejects with `InvalidIdentityProof` — never a silent downgrade.
@@ -436,13 +451,14 @@ When `roundfi-core` finalizes a contribution / claim / default, it CPIs into `ro
 - `payload` = 96-byte struct: `{ pool, cycle, installment_amount, on_time_bonus_bps, identity_hint }`.
 
 The reputation program:
+
 - Derives the expected pool-issuer PDA from `(roundfi_core_program, b"pool", pool_authority, seed_id_le)` and **requires the signer to match**.
 - Applies the schema's delta to `ReputationProfile.score` with saturating math.
 - Checks anti-gaming rules (§4.2 #1–#4) before committing.
 - For `SCHEMA_CYCLE_COMPLETE`: updates `last_cycle_complete_at` and `total_participated` + `cycles_completed`.
 - For `SCHEMA_DEFAULT`: flips an internal `(subject, pool)` default-sticky bit.
 
-`promote_level` is a **read-only** re-computation: anyone may call it, the program re-reads the score, picks the highest threshold tier, and writes the new level. No admin override, no demotion path — defaults reduce the *score*, and the next `promote_level` call naturally settles the level if it drops.
+`promote_level` is a **read-only** re-computation: anyone may call it, the program re-reads the score, picks the highest threshold tier, and writes the new level. No admin override, no demotion path — defaults reduce the _score_, and the next `promote_level` call naturally settles the level if it drops.
 
 #### 4.6.4 Non-breaking guarantee
 
@@ -455,15 +471,16 @@ Step 4d does NOT alter any instruction in `roundfi-core`'s storage layout. The e
 These are enforced by assertions inside instruction handlers. A test per invariant is mandatory in Step 5.
 
 1. **Seed Draw 91.6%** — at the end of Month 1 (cycle 0 payout), `pool_usdc_vault.balance + escrow_vault.balance >= 0.916 * (members_target * installment_amount)`.
-2. **Debt-faster-than-collateral** — for any member holding both outstanding debt *D* and escrowed collateral *C*, after any `release_escrow`, the new state must satisfy `D / D_initial <= C / C_initial` (escrow releases lag debt paydown).
+2. **Debt-faster-than-collateral** — for any member holding both outstanding debt _D_ and escrowed collateral _C_, after any `release_escrow`, the new state must satisfy `D / D_initial <= C / C_initial` (escrow releases lag debt paydown).
 3. **Solidarity conservation** — `sum(solidarity_in) == sum(good_faith_out) + solidarity_balance` across the life of a pool.
 4. **Yield waterfall order** — `harvest_yield` must pay in this strict order (revised in v0.3 for Step 4c):
    1. **Guarantee Fund top-up** up to `guarantee_fund_bps` × cumulative protocol fees (default 150%). GF is topped up FIRST so the pool's shock absorber is funded before any fee skimming.
-   2. **Protocol fee** — 20% of the *remaining* yield (after GF top-up) is transferred to `treasury`.
+   2. **Protocol fee** — 20% of the _remaining_ yield (after GF top-up) is transferred to `treasury`.
    3. **Good-faith bonus** — configurable share of the remaining yield is routed to the solidarity vault for distribution to on-time members via `distribute_good_faith_bonus`.
    4. **Participants** — the residual is credited to `pool_usdc_vault` for pro-rata distribution (effectively reducing future installments or topping up payouts).
 
    The handler must enforce `gf + fee + bonus + participants == harvested` and reject any reordering. If the yield adapter returns less than requested, the handler uses the actual post-CPI delta — never the requested amount.
+
 5. **Stake bps by level** — `Member.stake_bps` is snapshotted at `join_pool` from current `ReputationProfile.level`, and never changes mid-cycle.
 6. **Slot monotonicity** — each `claim_payout(cycle)` must be called exactly once per cycle by exactly one `Member.slot_index == cycle`.
 7. **NFT mirrors state** — after any state transition, the NFT's on-chain attributes (contributions_paid, defaulted, level) must match the `Member` PDA. Enforced by updating both in the same instruction.
@@ -493,20 +510,20 @@ EscapeValveNotListed, EscapeValvePriceMismatch
 
 ## 7. PDA Seeds — Authoritative List
 
-| Account | Program | Seeds |
-|---|---|---|
-| ProtocolConfig | core | `[b"config"]` |
-| Pool | core | `[b"pool", authority, seed_id.to_le_bytes()]` |
-| Member | core | `[b"member", pool, wallet]` |
-| escrow_vault authority | core | `[b"escrow", pool]` |
-| solidarity_vault authority | core | `[b"solidarity", pool]` |
-| yield_vault authority | core | `[b"yield", pool]` |
-| position_authority | core | `[b"position", pool, slot_index.to_le_bytes()]` |
-| ReputationProfile | reputation | `[b"reputation", wallet]` |
-| ReputationConfig | reputation | `[b"rep-config"]` |
-| Attestation | reputation | `[b"attestation", issuer, subject, schema_id.to_le_bytes(), nonce.to_le_bytes()]` |
-| IdentityRecord | reputation | `[b"identity", wallet]` |
-| YieldVaultState | yield-* | `[b"yield-state", owner]` |
+| Account                    | Program    | Seeds                                                                             |
+| -------------------------- | ---------- | --------------------------------------------------------------------------------- |
+| ProtocolConfig             | core       | `[b"config"]`                                                                     |
+| Pool                       | core       | `[b"pool", authority, seed_id.to_le_bytes()]`                                     |
+| Member                     | core       | `[b"member", pool, wallet]`                                                       |
+| escrow_vault authority     | core       | `[b"escrow", pool]`                                                               |
+| solidarity_vault authority | core       | `[b"solidarity", pool]`                                                           |
+| yield_vault authority      | core       | `[b"yield", pool]`                                                                |
+| position_authority         | core       | `[b"position", pool, slot_index.to_le_bytes()]`                                   |
+| ReputationProfile          | reputation | `[b"reputation", wallet]`                                                         |
+| ReputationConfig           | reputation | `[b"rep-config"]`                                                                 |
+| Attestation                | reputation | `[b"attestation", issuer, subject, schema_id.to_le_bytes(), nonce.to_le_bytes()]` |
+| IdentityRecord             | reputation | `[b"identity", wallet]`                                                           |
+| YieldVaultState            | yield-\*   | `[b"yield-state", owner]`                                                         |
 
 ---
 
@@ -527,6 +544,7 @@ backend/
 ```
 
 **API endpoints (v1):**
+
 - `GET /pools` — list, filter by status/level
 - `GET /pools/:id` — pool detail with member roster
 - `POST /pools/:id/tx/join` — returns partially-signed TX
@@ -538,6 +556,7 @@ backend/
 - `GET /healthz` · `GET /metrics` (prometheus)
 
 **Crank service:** runs three jobs on cron:
+
 - `harvest_yield` per active pool — every 6h
 - `distribute_good_faith_bonus` — at end of each cycle (`now >= pool.next_cycle_at`)
 - `settle_default` — grace-period check, 7 days after missed contribution
@@ -549,6 +568,7 @@ The crank authority wallet holds minimal SOL and is a **dedicated keypair** (not
 Next.js 15 App Router, Server Components for reads, Client Components for wallet interactions.
 
 **Routes:**
+
 - `/` — landing (hero aligned with pitch)
 - `/pools` — browse pools (Forming + Active)
 - `/pools/new` — create pool wizard (authority-gated in hackathon; public after Mainnet)
@@ -559,6 +579,7 @@ Next.js 15 App Router, Server Components for reads, Client Components for wallet
 - `/docs` — MDX-rendered docs (mirrors `/docs/*` in repo)
 
 **Key libs:**
+
 - `@solana/wallet-adapter-react` + `@solana/wallet-adapter-react-ui`
 - `@coral-xyz/anchor` (client)
 - `@solana/kit` (modern tx building)
@@ -574,6 +595,7 @@ Next.js 15 App Router, Server Components for reads, Client Components for wallet
 `config/clusters.ts` is the only place env vars are read. Everything else imports from it.
 
 `.env.example`:
+
 ```
 # ─── Cluster ─────────────────────────────
 SOLANA_CLUSTER=devnet               # devnet | mainnet-beta | localnet
@@ -611,17 +633,17 @@ NEXT_PUBLIC_CORE_PROGRAM_ID=
 
 ## 10. Security Model (Step-2 summary, full audit in Step 9)
 
-| Threat | Mitigation |
-|---|---|
-| Signer spoofing | All mut accounts verified against PDA derivation with expected seeds |
-| Re-entrancy via CPI | Core program uses `invoke_signed` only; no callbacks; state writes precede CPIs |
-| Arithmetic overflow | `checked_*` on all financial math; custom `MathOverflow` error |
-| Default griefing | `settle_default` requires `now >= member.next_due + grace_period` (7d) |
-| NFT impersonation | Member PDA stores `nft_asset` pubkey; every mutation checks `nft_asset == passed_asset` |
+| Threat                    | Mitigation                                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Signer spoofing           | All mut accounts verified against PDA derivation with expected seeds                                      |
+| Re-entrancy via CPI       | Core program uses `invoke_signed` only; no callbacks; state writes precede CPIs                           |
+| Arithmetic overflow       | `checked_*` on all financial math; custom `MathOverflow` error                                            |
+| Default griefing          | `settle_default` requires `now >= member.next_due + grace_period` (7d)                                    |
+| NFT impersonation         | Member PDA stores `nft_asset` pubkey; every mutation checks `nft_asset == passed_asset`                   |
 | Yield adapter swap attack | `PoolConfig.yield_adapter` is immutable after pool creation — can't be hot-swapped to a malicious program |
-| Reputation inflation | Attestations are idempotent per `(issuer, subject, schema, nonce)` PDA — duplicates fail |
-| Waterfall rounding drift | Use bps math with floor; residuals accumulate in `solidarity_balance` |
-| Admin capture | ProtocolConfig.authority is a multisig on Mainnet (Squads V4) |
+| Reputation inflation      | Attestations are idempotent per `(issuer, subject, schema, nonce)` PDA — duplicates fail                  |
+| Waterfall rounding drift  | Use bps math with floor; residuals accumulate in `solidarity_balance`                                     |
+| Admin capture             | ProtocolConfig.authority is a multisig on Mainnet (Squads V4)                                             |
 
 ---
 
@@ -643,6 +665,7 @@ NEXT_PUBLIC_CORE_PROGRAM_ID=
 ## 12. Mainnet Migration Plan (Step 11 deliverable)
 
 Already de-risked by Step 2 decisions:
+
 1. `roundfi-yield-kamino` replaces `roundfi-yield-mock` (same interface). Authority calls `update_protocol_config({ default_yield_adapter })`.
 2. `roundfi-reputation` is reimplemented against the official SAS program (same `Attestation` schema). Program-upgrade authority redeploys; existing `ReputationProfile` accounts migrate in-place.
 3. `USDC_MINT` env swap to Mainnet USDC.
@@ -723,4 +746,4 @@ RoundFinancial/
 
 ---
 
-*End of Architecture Spec v0.1.*
+_End of Architecture Spec v0.1._

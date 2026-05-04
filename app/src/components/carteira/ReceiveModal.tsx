@@ -15,13 +15,7 @@ import { useWallet } from "@/lib/wallet";
 // copy affordance + a QR-style block. Network badge anchors the
 // address to Solana devnet so the user sees where to send funds.
 
-export function ReceiveModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function ReceiveModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tokens } = useTheme();
   const t = useT();
   const { user } = useSession();
@@ -32,9 +26,7 @@ export function ReceiveModal({
   // fall back to the session placeholder so the modal is never
   // empty in demo mode.
   const address =
-    wallet.status === "connected" && wallet.publicKey
-      ? wallet.publicKey
-      : user.walletShort;
+    wallet.status === "connected" && wallet.publicKey ? wallet.publicKey : user.walletShort;
 
   useEffect(() => {
     if (!copied) return;
@@ -108,8 +100,7 @@ export function ReceiveModal({
         <span
           style={{
             fontSize: 9,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             letterSpacing: "0.12em",
           }}
         >
@@ -118,8 +109,7 @@ export function ReceiveModal({
         <span
           style={{
             fontSize: 9,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             color: tokens.muted,
           }}
         >
@@ -137,9 +127,7 @@ export function ReceiveModal({
           padding: 14,
           borderRadius: 12,
           background: tokens.fillSoft,
-          border: `1px solid ${
-            copied ? tokens.green + "55" : tokens.border
-          }`,
+          border: `1px solid ${copied ? tokens.green + "55" : tokens.border}`,
           color: copied ? tokens.green : tokens.text,
           fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           fontSize: 13,
@@ -173,8 +161,7 @@ export function ReceiveModal({
         <div
           style={{
             marginTop: 6,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             fontSize: 10,
             color: tokens.green,
             letterSpacing: "0.08em",
@@ -201,9 +188,7 @@ export function ReceiveModal({
         <MonoLabel size={9} color={tokens.amber}>
           {t("modal.receive.demoBadge")}
         </MonoLabel>
-        <span
-          style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}
-        >
+        <span style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
           {t("modal.receive.demoBody")}
         </span>
       </div>

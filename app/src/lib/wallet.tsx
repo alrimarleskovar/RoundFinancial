@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
@@ -17,11 +11,7 @@ import { useNetwork } from "@/lib/network";
 // the same shape as the prototype's useWallet(). Covers connect/disconnect,
 // balance, and devnet SOL airdrops.
 
-export type WalletStatus =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "error";
+export type WalletStatus = "disconnected" | "connecting" | "connected" | "error";
 
 export interface WalletView {
   status: WalletStatus;
@@ -62,10 +52,10 @@ export function useWallet(): WalletView {
   const status: WalletStatus = adapter.connecting
     ? "connecting"
     : adapter.connected
-    ? "connected"
-    : lastError
-    ? "error"
-    : "disconnected";
+      ? "connected"
+      : lastError
+        ? "error"
+        : "disconnected";
 
   const publicKey = adapter.publicKey ? adapter.publicKey.toBase58() : null;
   const walletLabel = adapter.wallet?.adapter.name ?? null;
@@ -123,8 +113,7 @@ export function useWallet(): WalletView {
       return { ok: true };
     } catch (err: unknown) {
       const e = err as { code?: number; message?: string };
-      const reason =
-        e?.code === 4001 ? "user_rejected" : e?.message ?? "connect_failed";
+      const reason = e?.code === 4001 ? "user_rejected" : (e?.message ?? "connect_failed");
       setLastError(reason);
       return { ok: false, reason };
     }
@@ -164,8 +153,8 @@ export function useWallet(): WalletView {
         const reason = /429|rate.?limit|too many/i.test(msg)
           ? "rate_limited"
           : /airdrop.*limit|faucet.*has.*run.*dry/i.test(msg)
-          ? "airdrop_limit"
-          : msg;
+            ? "airdrop_limit"
+            : msg;
         setLastError(reason);
         setAirdropping(false);
         return { ok: false as const, reason };
@@ -175,8 +164,7 @@ export function useWallet(): WalletView {
   );
 
   const explorerTx = useCallback(
-    (sig: string) =>
-      `https://explorer.solana.com/tx/${sig}?cluster=${explorerCluster(net.id)}`,
+    (sig: string) => `https://explorer.solana.com/tx/${sig}?cluster=${explorerCluster(net.id)}`,
     [net.id],
   );
   const explorerAddr = useCallback(

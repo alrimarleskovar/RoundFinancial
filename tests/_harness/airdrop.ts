@@ -9,13 +9,7 @@
  * are rare — the primary target is localnet via `anchor test`.
  */
 
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 
 import type { Env } from "./env.js";
 
@@ -32,12 +26,8 @@ export async function airdrop(
 ): Promise<void> {
   const list = Array.isArray(wallets) ? wallets : [wallets];
   const lamports = amountSol * LAMPORTS_PER_SOL;
-  const sigs = await Promise.all(
-    list.map((w) => env.connection.requestAirdrop(w, lamports)),
-  );
-  await Promise.all(
-    sigs.map((sig) => env.connection.confirmTransaction(sig, "confirmed")),
-  );
+  const sigs = await Promise.all(list.map((w) => env.connection.requestAirdrop(w, lamports)));
+  await Promise.all(sigs.map((sig) => env.connection.confirmTransaction(sig, "confirmed")));
 }
 
 /**
@@ -69,16 +59,14 @@ export async function fundFromPayer(
  * from the payer if they don't. Cheaper than unconditional airdrops
  * when the same specfile seeds multiple describe() blocks.
  */
-export async function ensureFunded(
-  env: Env,
-  keypairs: Keypair[],
-  minSol = 1,
-): Promise<void> {
+export async function ensureFunded(env: Env, keypairs: Keypair[], minSol = 1): Promise<void> {
   const minLamports = minSol * LAMPORTS_PER_SOL;
-  const balances = await Promise.all(
-    keypairs.map((kp) => env.connection.getBalance(kp.publicKey)),
-  );
+  const balances = await Promise.all(keypairs.map((kp) => env.connection.getBalance(kp.publicKey)));
   const underfunded = keypairs.filter((_, i) => (balances[i] ?? 0) < minLamports);
   if (underfunded.length === 0) return;
-  await fundFromPayer(env, underfunded.map((kp) => kp.publicKey), minSol);
+  await fundFromPayer(
+    env,
+    underfunded.map((kp) => kp.publicKey),
+    minSol,
+  );
 }

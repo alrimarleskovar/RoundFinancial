@@ -26,9 +26,7 @@ export function PoolCard({ pool, memberCount }: PoolCardProps) {
     <section className="rounded-2xl border border-border bg-surface p-5 shadow-card">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wider text-slate-400">
-            Pool
-          </div>
+          <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Pool</div>
           <h2 className="mt-1 text-2xl font-semibold">
             {memberCount} members × {pool.totalCycles || "–"} cycles
           </h2>
@@ -65,10 +63,7 @@ export function PoolCard({ pool, memberCount }: PoolCardProps) {
           value={pool.creditAmount === 0n ? "—" : formatUsdc(pool.creditAmount)}
           hint="Released to the cycle's slot owner"
         />
-        <StatCard
-          label="Total contributed"
-          value={formatUsdc(pool.totalContributed)}
-        />
+        <StatCard label="Total contributed" value={formatUsdc(pool.totalContributed)} />
         <StatCard label="Total paid out" value={formatUsdc(pool.totalPaidOut)} />
         <StatCard
           label="Defaults"

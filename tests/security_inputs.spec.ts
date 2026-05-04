@@ -74,57 +74,53 @@ import {
 
 // ─── Pool parameters ──────────────────────────────────────────────────
 
-const MEMBERS_TARGET     = 3;
-const CYCLES_TOTAL       = 3;
+const MEMBERS_TARGET = 3;
+const CYCLES_TOTAL = 3;
 const CYCLE_DURATION_SEC = 60;
-const INSTALLMENT_USDC   = 1_250n;
-const CREDIT_USDC        = 2_775n;
-const LEVEL: 1 | 2 | 3   = 2;
+const INSTALLMENT_USDC = 1_250n;
+const CREDIT_USDC = 2_775n;
+const LEVEL: 1 | 2 | 3 = 2;
 
-const INSTALLMENT_BASE   = usdc(INSTALLMENT_USDC);
-const CREDIT_BASE        = usdc(CREDIT_USDC);
+const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
+const CREDIT_BASE = usdc(CREDIT_USDC);
 
 // ─── Snapshot / assertion helpers ─────────────────────────────────────
 
 interface SecuritySnapshot {
-  poolVault:        bigint;
-  solidarity:       bigint;
-  escrow:           bigint;
-  memberUsdc:       bigint;
-  memberContribs:   number;
-  memberOnTime:     number;
-  memberDefaulted:  boolean;
+  poolVault: bigint;
+  solidarity: bigint;
+  escrow: bigint;
+  memberUsdc: bigint;
+  memberContribs: number;
+  memberOnTime: number;
+  memberDefaulted: boolean;
   poolCurrentCycle: number;
   poolTotalContrib: bigint;
-  profileScore:     bigint;
-  profileOnTime:    number;
+  profileScore: bigint;
+  profileOnTime: number;
 }
 
 function bn(x: { toString(): string }): bigint {
   return BigInt(x.toString());
 }
 
-async function snapshot(
-  env: Env,
-  pool: PoolHandle,
-  h: MemberHandle,
-): Promise<SecuritySnapshot> {
+async function snapshot(env: Env, pool: PoolHandle, h: MemberHandle): Promise<SecuritySnapshot> {
   const [poolVault, solidarity, escrow, memberUsdc] = await Promise.all([
     balanceOf(env, pool.poolUsdcVault),
     balanceOf(env, pool.solidarityVault),
     balanceOf(env, pool.escrowVault),
     balanceOf(env, h.memberUsdc),
   ]);
-  const m = await fetchMember(env, h.member) as {
+  const m = (await fetchMember(env, h.member)) as {
     contributionsPaid: number;
     onTimeCount: number;
     defaulted: boolean;
   };
-  const p = await fetchPool(env, pool.pool) as {
+  const p = (await fetchPool(env, pool.pool)) as {
     currentCycle: number;
     totalContributed: { toString(): string };
   };
-  const profile = await fetchProfile(env, h.wallet.publicKey) as {
+  const profile = (await fetchProfile(env, h.wallet.publicKey)) as {
     score: { toString(): string };
     onTimePayments: number;
   };
@@ -133,21 +129,17 @@ async function snapshot(
     solidarity,
     escrow,
     memberUsdc,
-    memberContribs:   m.contributionsPaid,
-    memberOnTime:     m.onTimeCount,
-    memberDefaulted:  m.defaulted,
+    memberContribs: m.contributionsPaid,
+    memberOnTime: m.onTimeCount,
+    memberDefaulted: m.defaulted,
     poolCurrentCycle: p.currentCycle,
     poolTotalContrib: bn(p.totalContributed),
-    profileScore:     bn(profile.score),
-    profileOnTime:    profile.onTimePayments,
+    profileScore: bn(profile.score),
+    profileOnTime: profile.onTimePayments,
   };
 }
 
-function expectUnchanged(
-  before: SecuritySnapshot,
-  after: SecuritySnapshot,
-  label: string,
-): void {
+function expectUnchanged(before: SecuritySnapshot, after: SecuritySnapshot, label: string): void {
   expect(after, `${label}: snapshot drift`).to.deep.equal(before);
 }
 
@@ -170,21 +162,21 @@ async function expectRejected(thunk: () => Promise<unknown>): Promise<string> {
  * attackers pass arbitrary pubkeys into typed slots.
  */
 type AccountOverrides = Partial<{
-  config:                   PublicKey;
-  pool:                     PublicKey;
-  member:                   PublicKey;
-  usdcMint:                 PublicKey;
-  memberUsdc:               PublicKey;
-  poolUsdcVault:            PublicKey;
+  config: PublicKey;
+  pool: PublicKey;
+  member: PublicKey;
+  usdcMint: PublicKey;
+  memberUsdc: PublicKey;
+  poolUsdcVault: PublicKey;
   solidarityVaultAuthority: PublicKey;
-  solidarityVault:          PublicKey;
-  escrowVaultAuthority:     PublicKey;
-  escrowVault:              PublicKey;
-  reputationProgram:        PublicKey;
-  reputationConfig:         PublicKey;
-  reputationProfile:        PublicKey;
-  identityRecord:           PublicKey;
-  attestation:              PublicKey;
+  solidarityVault: PublicKey;
+  escrowVaultAuthority: PublicKey;
+  escrowVault: PublicKey;
+  reputationProgram: PublicKey;
+  reputationConfig: PublicKey;
+  reputationProfile: PublicKey;
+  identityRecord: PublicKey;
+  attestation: PublicKey;
 }>;
 
 // ─── Tests ────────────────────────────────────────────────────────────
@@ -194,27 +186,27 @@ describe("security — malicious inputs + PDA tampering", function () {
 
   let env: Env;
   let usdcMint: PublicKey;
-  let fakeMint: PublicKey;          // totally separate mint for InvalidMint tests
+  let fakeMint: PublicKey; // totally separate mint for InvalidMint tests
 
   const authorityA = Keypair.generate();
   const authorityB = Keypair.generate();
   const membersA = memberKeypairs(MEMBERS_TARGET, "sec/inputs/A");
-  const memberB  = memberKeypairs(1, "sec/inputs/B")[0]!;
+  const memberB = memberKeypairs(1, "sec/inputs/B")[0]!;
   const attacker = Keypair.generate();
-  const rogueAuthPda = Keypair.generate().publicKey;   // random pubkey (no real PDA)
+  const rogueAuthPda = Keypair.generate().publicKey; // random pubkey (no real PDA)
 
   let poolA: PoolHandle;
-  let poolB: PoolHandle;               // Forming, exists to harvest foreign PDAs
+  let poolB: PoolHandle; // Forming, exists to harvest foreign PDAs
   let handlesA: MemberHandle[];
-  let memberBHandle: MemberHandle;     // member joined in poolB
+  let memberBHandle: MemberHandle; // member joined in poolB
 
-  let attackerUsdc: PublicKey;         // attacker-owned USDC ATA
+  let attackerUsdc: PublicKey; // attacker-owned USDC ATA
   let attackerFakeMintUsdc: PublicKey; // ATA of pool owner under the WRONG mint
 
   before(async function () {
     env = await setupEnv();
     usdcMint = await createUsdcMint(env);
-    fakeMint = await createUsdcMint(env);      // second, unrelated mint
+    fakeMint = await createUsdcMint(env); // second, unrelated mint
     await initializeProtocol(env, { usdcMint });
     await initializeReputation(env, { coreProgram: env.ids.core });
 
@@ -222,12 +214,12 @@ describe("security — malicious inputs + PDA tampering", function () {
     poolA = await createPool(env, {
       authority: authorityA,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesA = await joinMembers(
       env,
@@ -243,18 +235,16 @@ describe("security — malicious inputs + PDA tampering", function () {
     poolB = await createPool(env, {
       authority: authorityB,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
-    memberBHandle = (await joinMembers(
-      env,
-      poolB,
-      [{ member: memberB, reputationLevel: LEVEL }],
-    ))[0]!;
+    memberBHandle = (
+      await joinMembers(env, poolB, [{ member: memberB, reputationLevel: LEVEL }])
+    )[0]!;
 
     // Attacker holdings — a real USDC ATA they own, plus an ATA
     // under the wrong-mint for token::mint constraint tests.
@@ -280,24 +270,24 @@ describe("security — malicious inputs + PDA tampering", function () {
     );
 
     const accounts = {
-      memberWallet:             signer.publicKey,
-      config:                   configPda(env),
-      pool:                     poolA.pool,
-      member:                   h.member,
+      memberWallet: signer.publicKey,
+      config: configPda(env),
+      pool: poolA.pool,
+      member: h.member,
       usdcMint,
-      memberUsdc:               h.memberUsdc,
-      poolUsdcVault:            poolA.poolUsdcVault,
+      memberUsdc: h.memberUsdc,
+      poolUsdcVault: poolA.poolUsdcVault,
       solidarityVaultAuthority: poolA.solidarityVaultAuthority,
-      solidarityVault:          poolA.solidarityVault,
-      escrowVaultAuthority:     poolA.escrowVaultAuthority,
-      escrowVault:              poolA.escrowVault,
-      tokenProgram:             TOKEN_PROGRAM_ID,
-      reputationProgram:        env.ids.reputation,
-      reputationConfig:         reputationConfigFor(env),
-      reputationProfile:        reputationProfileFor(env, h.wallet.publicKey),
-      identityRecord:           env.ids.reputation,
-      attestation:              defaultAttestation,
-      systemProgram:            SystemProgram.programId,
+      solidarityVault: poolA.solidarityVault,
+      escrowVaultAuthority: poolA.escrowVaultAuthority,
+      escrowVault: poolA.escrowVault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      reputationProgram: env.ids.reputation,
+      reputationConfig: reputationConfigFor(env),
+      reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
+      identityRecord: env.ids.reputation,
+      attestation: defaultAttestation,
+      systemProgram: SystemProgram.programId,
       ...overrides,
     };
 
@@ -314,9 +304,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     const h = handlesA[0]!;
     const before = await snapshot(env, poolA, h);
 
-    const msg = await expectRejected(() =>
-      contributeWith({ pool: poolB.pool }),
-    );
+    const msg = await expectRejected(() => contributeWith({ pool: poolB.pool }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "A.1");
@@ -329,9 +317,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     // memberB's record lives under seeds [SEED_MEMBER, poolB, memberB_wallet].
     // We pass it as `member` for a poolA contribute — Anchor's seeds
     // constraint uses pool.key()=poolA, so address derivation diverges.
-    const msg = await expectRejected(() =>
-      contributeWith({ member: memberBHandle.member }),
-    );
+    const msg = await expectRejected(() => contributeWith({ member: memberBHandle.member }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "A.2");
@@ -355,9 +341,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     const before = await snapshot(env, poolA, h);
 
     const [escrowB] = escrowVaultAuthorityPda(env.ids.core, poolB.pool);
-    const msg = await expectRejected(() =>
-      contributeWith({ escrowVaultAuthority: escrowB }),
-    );
+    const msg = await expectRejected(() => contributeWith({ escrowVaultAuthority: escrowB }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "A.4");
@@ -369,9 +353,7 @@ describe("security — malicious inputs + PDA tampering", function () {
 
     // rogueAuthPda is a random curve point — not a PDA at all. Anchor
     // tries to deserialize as `Account<Pool>`, fails on owner/discriminator.
-    const msg = await expectRejected(() =>
-      contributeWith({ pool: rogueAuthPda }),
-    );
+    const msg = await expectRejected(() => contributeWith({ pool: rogueAuthPda }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "A.5");
@@ -383,9 +365,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     const h = handlesA[0]!;
     const before = await snapshot(env, poolA, h);
 
-    const msg = await expectRejected(() =>
-      contributeWith({ usdcMint: fakeMint }),
-    );
+    const msg = await expectRejected(() => contributeWith({ usdcMint: fakeMint }));
     // explicit constraint: `usdc_mint.key() == pool.usdc_mint @ InvalidMint`
     expect(msg, `message: ${msg}`).to.match(/InvalidMint|mint/i);
 
@@ -398,9 +378,7 @@ describe("security — malicious inputs + PDA tampering", function () {
 
     // attackerUsdc is owned by `attacker`, not by pool → associated-token
     // authority constraint on pool_usdc_vault trips.
-    const msg = await expectRejected(() =>
-      contributeWith({ poolUsdcVault: attackerUsdc }),
-    );
+    const msg = await expectRejected(() => contributeWith({ poolUsdcVault: attackerUsdc }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "B.2");
@@ -412,9 +390,7 @@ describe("security — malicious inputs + PDA tampering", function () {
 
     // attackerFakeMintUsdc holds `fakeMint` — pool_usdc_vault's
     // `associated_token::mint = usdc_mint` constraint fails.
-    const msg = await expectRejected(() =>
-      contributeWith({ poolUsdcVault: attackerFakeMintUsdc }),
-    );
+    const msg = await expectRejected(() => contributeWith({ poolUsdcVault: attackerFakeMintUsdc }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "B.3");
@@ -429,9 +405,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     // poolA's authority (since we didn't override that); poolB's ATA
     // was minted to poolB's authority → authority mismatch.
     const poolBSolATA = poolB.solidarityVault;
-    const msg = await expectRejected(() =>
-      contributeWith({ solidarityVault: poolBSolATA }),
-    );
+    const msg = await expectRejected(() => contributeWith({ solidarityVault: poolBSolATA }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "B.4");
@@ -446,9 +420,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     // The attacker's wallet is SystemProgram-owned. Anchor's
     // `Account<Pool>` first checks owner == program_id, then
     // deserializes the 8-byte discriminator. Owner check fails.
-    const msg = await expectRejected(() =>
-      contributeWith({ pool: attacker.publicKey }),
-    );
+    const msg = await expectRejected(() => contributeWith({ pool: attacker.publicKey }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "C.1");
@@ -463,9 +435,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     // rejects on AccountNotInitialized.
     const neverJoined = Keypair.generate();
     const [fakeMember] = memberPda(env.ids.core, poolA.pool, neverJoined.publicKey);
-    const msg = await expectRejected(() =>
-      contributeWith({ member: fakeMember }),
-    );
+    const msg = await expectRejected(() => contributeWith({ member: fakeMember }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "C.2");
@@ -478,9 +448,7 @@ describe("security — malicious inputs + PDA tampering", function () {
     // member_usdc must have `authority = member_wallet` (the signer);
     // attackerUsdc's authority is `attacker`, not handlesA[0].wallet,
     // so the token::authority constraint fails.
-    const msg = await expectRejected(() =>
-      contributeWith({ memberUsdc: attackerUsdc }),
-    );
+    const msg = await expectRejected(() => contributeWith({ memberUsdc: attackerUsdc }));
     expect(msg.length, msg).to.be.greaterThan(0);
 
     expectUnchanged(before, await snapshot(env, poolA, h), "C.3");
@@ -516,22 +484,22 @@ describe("security — malicious inputs + PDA tampering", function () {
     const sig = await (env.programs.core.methods as any)
       .contribute({ cycle: 0 })
       .accounts({
-        memberWallet:             h.wallet.publicKey,
-        config:                   configPda(env),
-        pool:                     poolA.pool,
-        member:                   h.member,
+        memberWallet: h.wallet.publicKey,
+        config: configPda(env),
+        pool: poolA.pool,
+        member: h.member,
         usdcMint,
-        memberUsdc:               h.memberUsdc,
-        poolUsdcVault:            poolA.poolUsdcVault,
+        memberUsdc: h.memberUsdc,
+        poolUsdcVault: poolA.poolUsdcVault,
         solidarityVaultAuthority: poolA.solidarityVaultAuthority,
-        solidarityVault:          poolA.solidarityVault,
-        escrowVaultAuthority:     poolA.escrowVaultAuthority,
-        escrowVault:              poolA.escrowVault,
-        tokenProgram:             TOKEN_PROGRAM_ID,
-        reputationProgram:        env.ids.reputation,
-        reputationConfig:         reputationConfigFor(env),
-        reputationProfile:        reputationProfileFor(env, h.wallet.publicKey),
-        identityRecord:           env.ids.reputation,
+        solidarityVault: poolA.solidarityVault,
+        escrowVaultAuthority: poolA.escrowVaultAuthority,
+        escrowVault: poolA.escrowVault,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        reputationProgram: env.ids.reputation,
+        reputationConfig: reputationConfigFor(env),
+        reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
+        identityRecord: env.ids.reputation,
         attestation: attestationFor(
           env,
           poolA.pool,
@@ -539,7 +507,7 @@ describe("security — malicious inputs + PDA tampering", function () {
           ATTESTATION_SCHEMA.Payment,
           attestationNonce(0, h.slotIndex),
         ),
-        systemProgram:            SystemProgram.programId,
+        systemProgram: SystemProgram.programId,
       })
       .signers([h.wallet])
       .rpc();

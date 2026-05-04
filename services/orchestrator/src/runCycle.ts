@@ -93,12 +93,12 @@ export async function runCycle(args: RunCycleArgs): Promise<RunCycleResult> {
 
     try {
       const res = await contribute(args.client, {
-        pool:           args.pool,
-        usdcMint:       args.usdcMint,
-        memberWallet:   mbr.wallet,
-        slotIndex:      mbr.slotIndex,
-        cycle:          args.cycle,
-        schemaId:       late.has(mbr.slotIndex) ? 2 /* Late */ : 1 /* Payment */,
+        pool: args.pool,
+        usdcMint: args.usdcMint,
+        memberWallet: mbr.wallet,
+        slotIndex: mbr.slotIndex,
+        cycle: args.cycle,
+        schemaId: late.has(mbr.slotIndex) ? 2 /* Late */ : 1 /* Payment */,
       });
 
       const pool = await fetchPool(args.client, args.pool);
@@ -168,11 +168,11 @@ export async function runCycle(args: RunCycleArgs): Promise<RunCycleResult> {
       });
     } else {
       const res = await claimPayout(args.client, {
-        pool:         args.pool,
-        usdcMint:     args.usdcMint,
+        pool: args.pool,
+        usdcMint: args.usdcMint,
         memberWallet: claimant.wallet,
-        slotIndex:    claimant.slotIndex,
-        cycle:        args.cycle,
+        slotIndex: claimant.slotIndex,
+        cycle: args.cycle,
       });
 
       const pool = await fetchPool(args.client, args.pool);

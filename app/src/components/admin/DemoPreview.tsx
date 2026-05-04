@@ -21,30 +21,27 @@ export function DemoPreview({ state }: { state: DemoState }) {
   const status = state.defaulted
     ? "defaulted"
     : state.exitedViaValve
-    ? "exited"
-    : state.contemplated
-    ? "contemplated"
-    : state.currentMonth > 0
-    ? "active"
-    : "pending";
+      ? "exited"
+      : state.contemplated
+        ? "contemplated"
+        : state.currentMonth > 0
+          ? "active"
+          : "pending";
   const statusTone =
     status === "defaulted"
       ? tokens.red
       : status === "exited"
-      ? tokens.amber
-      : status === "contemplated"
-      ? tokens.green
-      : status === "active"
-      ? tokens.teal
-      : tokens.muted;
+        ? tokens.amber
+        : status === "contemplated"
+          ? tokens.green
+          : status === "active"
+            ? tokens.teal
+            : tokens.muted;
   const statusLabel = t(`admin.preview.status.${status}`);
 
   const escrowLocked = Math.round(state.group.carta * 0.65);
   const escrowReleased = state.contemplated
-    ? Math.min(
-        escrowLocked,
-        Math.round((state.monthsPaid / state.group.months) * escrowLocked),
-      )
+    ? Math.min(escrowLocked, Math.round((state.monthsPaid / state.group.months) * escrowLocked))
     : 0;
 
   return (
@@ -68,8 +65,7 @@ export function DemoPreview({ state }: { state: DemoState }) {
           style={{
             fontSize: 11,
             color: tokens.muted,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
           {t("admin.preview.hint")}
@@ -121,12 +117,12 @@ export function DemoPreview({ state }: { state: DemoState }) {
               fontSize: 11,
               color: tokens.muted,
               marginTop: 4,
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               letterSpacing: "0.06em",
             }}
           >
-            L{state.user.level} · SCORE {state.user.score} · MÊS {state.currentMonth}/{state.group.months}
+            L{state.user.level} · SCORE {state.user.score} · MÊS {state.currentMonth}/
+            {state.group.months}
           </div>
         </div>
         <RFIPill tone={status === "defaulted" ? "r" : status === "exited" ? "a" : "g"}>
@@ -228,9 +224,7 @@ export function DemoPreview({ state }: { state: DemoState }) {
                 lineHeight: 1.5,
               }}
             >
-              <strong style={{ color: tokens.green }}>
-                ◆ {t("admin.preview.contemplated")}
-              </strong>{" "}
+              <strong style={{ color: tokens.green }}>◆ {t("admin.preview.contemplated")}</strong>{" "}
               {t("admin.preview.contemplatedBody", {
                 m: state.group.contemplationMonth,
                 v: Math.round(state.group.carta * 0.35),
@@ -249,9 +243,7 @@ export function DemoPreview({ state }: { state: DemoState }) {
                 lineHeight: 1.5,
               }}
             >
-              <strong style={{ color: tokens.red }}>
-                ⚠ {t("admin.preview.defaulted")}
-              </strong>{" "}
+              <strong style={{ color: tokens.red }}>⚠ {t("admin.preview.defaulted")}</strong>{" "}
               {t("admin.preview.defaultedBody", {
                 v: Math.round(state.group.carta * 0.1),
               })}
@@ -269,9 +261,7 @@ export function DemoPreview({ state }: { state: DemoState }) {
                 lineHeight: 1.5,
               }}
             >
-              <strong style={{ color: tokens.amber }}>
-                🚪 {t("admin.preview.exited")}
-              </strong>{" "}
+              <strong style={{ color: tokens.amber }}>🚪 {t("admin.preview.exited")}</strong>{" "}
               {t("admin.preview.exitedBody", {
                 v: Math.round(state.group.carta * 0.88),
               })}
@@ -297,15 +287,12 @@ export function DemoPreview({ state }: { state: DemoState }) {
               justifyContent: "space-between",
             }}
           >
-            <MonoLabel color={tokens.purple}>
-              {t("admin.preview.activity.title")}
-            </MonoLabel>
+            <MonoLabel color={tokens.purple}>{t("admin.preview.activity.title")}</MonoLabel>
             <span
               style={{
                 fontSize: 10,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {state.events.length}
@@ -334,12 +321,7 @@ export function DemoPreview({ state }: { state: DemoState }) {
               }}
             >
               {state.events.slice(0, 20).map((e) => (
-                <ActivityRow
-                  key={e.id}
-                  kind={e.kind}
-                  label={e.label}
-                  amount={e.amount}
-                />
+                <ActivityRow key={e.id} kind={e.kind} label={e.label} amount={e.amount} />
               ))}
             </div>
           )}
@@ -349,15 +331,7 @@ export function DemoPreview({ state }: { state: DemoState }) {
   );
 }
 
-function Kpi({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: string;
-}) {
+function Kpi({ label, value, tone }: { label: string; value: string; tone: string }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   return (
@@ -396,15 +370,7 @@ function Kpi({
   );
 }
 
-function Stat({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color?: string;
-}) {
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   const { tokens } = useTheme();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -433,15 +399,7 @@ function Stat({
   );
 }
 
-function ProgressBar({
-  label,
-  pct,
-  tone,
-}: {
-  label: string;
-  pct: number;
-  tone: string;
-}) {
+function ProgressBar({ label, pct, tone }: { label: string; pct: number; tone: string }) {
   const { tokens } = useTheme();
   const clamped = Math.max(0, Math.min(100, pct));
   return (
@@ -460,8 +418,7 @@ function ProgressBar({
             color: tokens.muted,
             textTransform: "uppercase",
             letterSpacing: "0.1em",
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
           {label}
@@ -470,8 +427,7 @@ function ProgressBar({
           style={{
             fontSize: 11,
             color: tokens.text2,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
           {clamped.toFixed(0)}%
@@ -510,13 +466,20 @@ function ActivityRow({
   const { tokens } = useTheme();
   const tone = ((): string => {
     switch (kind) {
-      case "installment": return tokens.green;
-      case "contemplated": return tokens.teal;
-      case "default": return tokens.red;
-      case "sale": return tokens.amber;
-      case "yieldHarvest": return tokens.purple;
-      case "monthAdvance": return tokens.text2;
-      default: return tokens.muted;
+      case "installment":
+        return tokens.green;
+      case "contemplated":
+        return tokens.teal;
+      case "default":
+        return tokens.red;
+      case "sale":
+        return tokens.amber;
+      case "yieldHarvest":
+        return tokens.purple;
+      case "monthAdvance":
+        return tokens.text2;
+      default:
+        return tokens.muted;
     }
   })();
   return (
@@ -561,8 +524,7 @@ function ActivityRow({
             fontSize: 11,
             fontWeight: 700,
             color: amount > 0 ? tokens.green : tokens.text,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             flexShrink: 0,
           }}
         >

@@ -11,11 +11,7 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 // Order book table for the Buy tab. Each row = one NFT share resold
 // below face value.
 
-export function OffersTable({
-  onBuy,
-}: {
-  onBuy: (target: BuyOfferTarget) => void;
-}) {
+export function OffersTable({ onBuy }: { onBuy: (target: BuyOfferTarget) => void }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
@@ -80,149 +76,141 @@ export function OffersTable({
       {MARKET_OFFERS.map((o, i) => {
         const purchased = purchasedSet.has(o.id);
         return (
-        <div
-          key={o.id}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "60px 1.3fr 1fr 1fr 1fr auto",
-            gap: 12,
-            padding: "12px",
-            alignItems: "center",
-            borderBottom:
-              i < MARKET_OFFERS.length - 1
-                ? `1px solid ${tokens.border}`
-                : "none",
-            opacity: purchased ? 0.55 : 1,
-            transition: "opacity 220ms ease",
-          }}
-        >
           <div
+            key={o.id}
             style={{
-              fontFamily: "var(--font-syne), Syne",
-              fontSize: 15,
-              fontWeight: 800,
-              color: tokens.text,
-              display: "flex",
-              alignItems: "baseline",
-              gap: 2,
+              display: "grid",
+              gridTemplateColumns: "60px 1.3fr 1fr 1fr 1fr auto",
+              gap: 12,
+              padding: "12px",
+              alignItems: "center",
+              borderBottom: i < MARKET_OFFERS.length - 1 ? `1px solid ${tokens.border}` : "none",
+              opacity: purchased ? 0.55 : 1,
+              transition: "opacity 220ms ease",
             }}
           >
-            <span
-              style={{
-                fontSize: 10,
-                color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                fontWeight: 500,
-              }}
-            >
-              #
-            </span>
-            {o.num}
-          </div>
-          <div>
             <div
               style={{
+                fontFamily: "var(--font-syne), Syne",
+                fontSize: 15,
+                fontWeight: 800,
+                color: tokens.text,
+                display: "flex",
+                alignItems: "baseline",
+                gap: 2,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  color: tokens.muted,
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontWeight: 500,
+                }}
+              >
+                #
+              </span>
+              {o.num}
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: tokens.text,
+                }}
+              >
+                {o.group}
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: tokens.muted,
+                  marginTop: 2,
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                }}
+              >
+                {t("home.month")} {o.month}/{o.total}
+              </div>
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 12,
-                fontWeight: 600,
-                color: tokens.text,
+                color: tokens.text2,
               }}
             >
-              {o.group}
+              {fmtMoney(o.face, { noCents: true })}
             </div>
             <div
               style={{
-                fontSize: 10,
-                color: tokens.muted,
-                marginTop: 2,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-              }}
-            >
-              {t("home.month")} {o.month}/{o.total}
-            </div>
-          </div>
-          <div
-            style={{
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-              fontSize: 12,
-              color: tokens.text2,
-            }}
-          >
-            {fmtMoney(o.face, { noCents: true })}
-          </div>
-          <div
-            style={{
-              fontFamily: "var(--font-syne), Syne",
-              fontSize: 14,
-              fontWeight: 700,
-              color: tokens.text,
-            }}
-          >
-            {fmtMoney(o.price, { noCents: true })}
-          </div>
-          <div
-            style={{
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-              fontSize: 12,
-              color: tokens.green,
-              fontWeight: 600,
-            }}
-          >
-            −{o.disc}%
-          </div>
-          {purchased ? (
-            <span
-              style={{
-                padding: "6px 11px",
-                borderRadius: 8,
-                fontSize: 10,
+                fontFamily: "var(--font-syne), Syne",
+                fontSize: 14,
                 fontWeight: 700,
-                background: `${tokens.green}1F`,
-                border: `1px solid ${tokens.green}55`,
-                color: tokens.green,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              ✓ {t("market.offers.purchased")}
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() =>
-                onBuy({
-                  id: o.id,
-                  group: o.group,
-                  detail: `#${o.num} · ${t("home.month")} ${o.month}/${o.total}`,
-                  face: o.face,
-                  price: o.price,
-                  discount: o.disc,
-                })
-              }
-              style={{
-                padding: "7px 12px",
-                borderRadius: 8,
-                cursor: "pointer",
-                background: tokens.fillSoft,
                 color: tokens.text,
-                fontSize: 11,
-                fontWeight: 600,
-                border: `1px solid ${tokens.borderStr}`,
               }}
             >
-              {t("market.offers.cta.buy")}
-            </button>
-          )}
-        </div>
+              {fmtMoney(o.price, { noCents: true })}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontSize: 12,
+                color: tokens.green,
+                fontWeight: 600,
+              }}
+            >
+              −{o.disc}%
+            </div>
+            {purchased ? (
+              <span
+                style={{
+                  padding: "6px 11px",
+                  borderRadius: 8,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  background: `${tokens.green}1F`,
+                  border: `1px solid ${tokens.green}55`,
+                  color: tokens.green,
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                ✓ {t("market.offers.purchased")}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  onBuy({
+                    id: o.id,
+                    group: o.group,
+                    detail: `#${o.num} · ${t("home.month")} ${o.month}/${o.total}`,
+                    face: o.face,
+                    price: o.price,
+                    discount: o.disc,
+                  })
+                }
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  background: tokens.fillSoft,
+                  color: tokens.text,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: `1px solid ${tokens.borderStr}`,
+                }}
+              >
+                {t("market.offers.cta.buy")}
+              </button>
+            )}
+          </div>
         );
       })}
     </div>

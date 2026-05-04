@@ -56,10 +56,7 @@ export function TripleShield() {
         }}
       >
         {items.map((i) => (
-          <div
-            key={i.n}
-            style={{ display: "flex", gap: 12, alignItems: "flex-start" }}
-          >
+          <div key={i.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
             <div
               style={{
                 width: 28,
@@ -71,8 +68,7 @@ export function TripleShield() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 10,
                 color: i.c,
                 fontWeight: 600,
@@ -95,8 +91,7 @@ export function TripleShield() {
                   fontSize: 10,
                   color: tokens.muted,
                   marginTop: 2,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {i.desc}

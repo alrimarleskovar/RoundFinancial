@@ -42,9 +42,7 @@ export function PassportMini() {
     };
   }, []);
 
-  const offset = drawn
-    ? CIRCUMFERENCE * (1 - targetPct)
-    : CIRCUMFERENCE;
+  const offset = drawn ? CIRCUMFERENCE * (1 - targetPct) : CIRCUMFERENCE;
 
   const gradId = "rfi-score-ring-grad";
 
@@ -132,8 +130,7 @@ export function PassportMini() {
               strokeDasharray={CIRCUMFERENCE}
               strokeDashoffset={offset}
               style={{
-                transition:
-                  "stroke-dashoffset 1600ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transition: "stroke-dashoffset 1600ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}
             />
           </svg>
@@ -168,8 +165,7 @@ export function PassportMini() {
             </span>
             <span
               style={{
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 11,
                 color: tokens.green,
                 fontWeight: 600,
@@ -192,8 +188,7 @@ export function PassportMini() {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               fontSize: 9,
               color: tokens.muted,
               letterSpacing: "0.08em",
@@ -209,7 +204,9 @@ export function PassportMini() {
               justifyContent: "center",
             }}
           >
-            <RFIPill tone="g">Nv. {user.level} · {user.levelLabel}</RFIPill>
+            <RFIPill tone="g">
+              Nv. {user.level} · {user.levelLabel}
+            </RFIPill>
           </div>
         </div>
       </div>

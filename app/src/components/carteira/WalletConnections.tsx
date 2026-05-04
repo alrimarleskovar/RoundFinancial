@@ -4,10 +4,7 @@ import { useMemo, useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
-import {
-  ConnectionCard,
-  type ConnSpec,
-} from "@/components/carteira/ConnectionCard";
+import { ConnectionCard, type ConnSpec } from "@/components/carteira/ConnectionCard";
 import { useConnections, type ConnId } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -32,11 +29,8 @@ export function WalletConnections() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
     })} SOL`;
-  const phantomAddrShort = wallet.publicKey
-    ? shortAddr(wallet.publicKey, 6, 6)
-    : "—";
-  const phantomBalance =
-    wallet.balanceSol != null ? solFmt(wallet.balanceSol) : "—";
+  const phantomAddrShort = wallet.publicKey ? shortAddr(wallet.publicKey, 6, 6) : "—";
+  const phantomBalance = wallet.balanceSol != null ? solFmt(wallet.balanceSol) : "—";
 
   const spec: ConnSpec[] = useMemo(
     () => [
@@ -58,11 +52,7 @@ export function WalletConnections() {
           { l: t("conn.phantom.net"), v: t("conn.phantom.devnet") },
           { l: t("conn.phantom.balance"), v: phantomBalance, mono: true },
         ],
-        perms: [
-          t("conn.phantom.p1"),
-          t("conn.phantom.p2"),
-          t("conn.phantom.p3"),
-        ],
+        perms: [t("conn.phantom.p1"), t("conn.phantom.p2"), t("conn.phantom.p3")],
       },
       {
         id: "civic",
@@ -91,11 +81,7 @@ export function WalletConnections() {
             v: `${fmtMoney(312.08)} (+6,8% APY)`,
           },
         ],
-        perms: [
-          t("conn.kamino.p1"),
-          t("conn.kamino.p2"),
-          t("conn.kamino.p3"),
-        ],
+        perms: [t("conn.kamino.p1"), t("conn.kamino.p2"), t("conn.kamino.p3")],
       },
       {
         id: "solflare",
@@ -131,9 +117,8 @@ export function WalletConnections() {
   // Connected count: Phantom is real, others come from ConnectionsProvider.
   const connectedCount =
     (wallet.status === "connected" ? 1 : 0) +
-    (Object.keys(conns.state) as ConnId[]).filter(
-      (k) => conns.state[k].status === "connected",
-    ).length;
+    (Object.keys(conns.state) as ConnId[]).filter((k) => conns.state[k].status === "connected")
+      .length;
 
   return (
     <div
@@ -157,8 +142,7 @@ export function WalletConnections() {
             style={{
               fontSize: 11,
               color: tokens.muted,
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             }}
           >
             {t("conn.count", { c: connectedCount, t: spec.length })}
@@ -167,9 +151,7 @@ export function WalletConnections() {
 
         {spec.map((c) => {
           const runtime =
-            c.id === "phantom"
-              ? { status: "disconnected" as const }
-              : conns.state[c.id as ConnId];
+            c.id === "phantom" ? { status: "disconnected" as const } : conns.state[c.id as ConnId];
           return (
             <ConnectionCard
               key={c.id}
@@ -177,9 +159,7 @@ export function WalletConnections() {
               runtime={runtime}
               wallet={c.id === "phantom" ? wallet : null}
               open={expanded === c.id}
-              onToggle={() =>
-                setExpanded(expanded === c.id ? null : c.id)
-              }
+              onToggle={() => setExpanded(expanded === c.id ? null : c.id)}
               onMockConnect={conns.connect}
               onMockDisconnect={conns.disconnect}
             />
@@ -293,8 +273,7 @@ export function WalletConnections() {
                     background: tokens.fillSoft,
                     border: `1px solid ${tokens.border}`,
                     color: tokens.muted,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
                   {t("conn.roadmap")}
