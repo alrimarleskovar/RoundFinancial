@@ -64,18 +64,18 @@ import {
 // ─── Shared pool defaults ─────────────────────────────────────────────
 
 const CYCLE_DURATION_SEC = 60;
-const INSTALLMENT_BASE   = usdc(1_000n);
+const INSTALLMENT_BASE = usdc(1_000n);
 // credit_amount = 1.48 × installment — large enough to exceed the
 // seed-draw floor (1.832 × installment ÷ 2 members = 0.916 × installment)
 // comfortably while still < pool_float_per_cycle × members.
 // Actually: seed-draw floor at 2 members × I × 91.6% = 1.832I.
 // Pool retained after cycle-0 contribute = (0.74 + 0.25) × 2I = 1.98I.
 // Credit spendable cap = pool_float_per_cycle × 2 = 1.48I.
-const CREDIT_BASE        = usdc(1_480n);
+const CREDIT_BASE = usdc(1_480n);
 
 // Installment split (solidarity=100bps, escrow=2500bps):
-const SOLIDARITY_PER_INST = (INSTALLMENT_BASE *   100n) / 10_000n;   //  10_000_000
-const ESCROW_PER_INST     = (INSTALLMENT_BASE * 2_500n) / 10_000n;   // 250_000_000
+const SOLIDARITY_PER_INST = (INSTALLMENT_BASE * 100n) / 10_000n; //  10_000_000
+const ESCROW_PER_INST = (INSTALLMENT_BASE * 2_500n) / 10_000n; // 250_000_000
 const POOL_FLOAT_PER_INST = INSTALLMENT_BASE - SOLIDARITY_PER_INST - ESCROW_PER_INST;
 
 // Loose getters.
@@ -103,7 +103,7 @@ describe("edge — degenerate pool shapes", function () {
 
   describe("A. cycles_total = 1 (one-shot pool)", function () {
     const authority = Keypair.generate();
-    const [m0, m1]  = memberKeypairs(2, "edge_deg_A") as [Keypair, Keypair];
+    const [m0, m1] = memberKeypairs(2, "edge_deg_A") as [Keypair, Keypair];
 
     let pool: PoolHandle;
     let mh0: MemberHandle;
@@ -113,11 +113,11 @@ describe("edge — degenerate pool shapes", function () {
       pool = await createPool(env, {
         authority,
         usdcMint,
-        membersTarget:     2,
+        membersTarget: 2,
         installmentAmount: INSTALLMENT_BASE,
-        creditAmount:      CREDIT_BASE,
-        cyclesTotal:       1,
-        cycleDurationSec:  CYCLE_DURATION_SEC,
+        creditAmount: CREDIT_BASE,
+        cyclesTotal: 1,
+        cycleDurationSec: CYCLE_DURATION_SEC,
       });
       const handles = await joinMembers(env, pool, [
         { member: m0, reputationLevel: 1 },
@@ -132,7 +132,7 @@ describe("edge — degenerate pool shapes", function () {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = (await fetchPool(env, pool.pool)) as any;
-      expect(p.status).to.equal(1);        // Active
+      expect(p.status).to.equal(1); // Active
       expect(p.cyclesTotal).to.equal(1);
       expect(p.currentCycle).to.equal(0);
     });
@@ -142,13 +142,11 @@ describe("edge — degenerate pool shapes", function () {
       await contribute(env, { pool, member: mh1, cycle: 0 });
 
       const poolFloat = await balanceOf(env, pool.poolUsdcVault);
-      const escrow    = await balanceOf(env, pool.escrowVault);
+      const escrow = await balanceOf(env, pool.escrowVault);
       const solidarity = await balanceOf(env, pool.solidarityVault);
 
       expect(poolFloat).to.equal(2n * POOL_FLOAT_PER_INST);
-      expect(escrow).to.equal(
-        2n * ESCROW_PER_INST + mh0.stakeAmount + mh1.stakeAmount,
-      );
+      expect(escrow).to.equal(2n * ESCROW_PER_INST + mh0.stakeAmount + mh1.stakeAmount);
       expect(solidarity).to.equal(2n * SOLIDARITY_PER_INST);
     });
 
@@ -161,7 +159,7 @@ describe("edge — degenerate pool shapes", function () {
       // next_cycle < cycles_total; here next_cycle=1 == cycles_total=1
       // so the pool flips Completed without advancing the counter).
       expect(p.currentCycle).to.equal(0);
-      expect(p.status).to.equal(2);        // Completed
+      expect(p.status).to.equal(2); // Completed
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const m = (await fetchMember(env, mh0.member)) as any;
@@ -181,7 +179,7 @@ describe("edge — degenerate pool shapes", function () {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const m = (await fetchMember(env, mh1.member)) as any;
-      expect(m.paidOut).to.equal(false);   // no state leak
+      expect(m.paidOut).to.equal(false); // no state leak
     });
   });
 
@@ -189,7 +187,7 @@ describe("edge — degenerate pool shapes", function () {
 
   describe("B. minimal 2×2 pool (2 members, 2 cycles)", function () {
     const authority = Keypair.generate();
-    const [m0, m1]  = memberKeypairs(2, "edge_deg_B") as [Keypair, Keypair];
+    const [m0, m1] = memberKeypairs(2, "edge_deg_B") as [Keypair, Keypair];
 
     let pool: PoolHandle;
     let mh0: MemberHandle;
@@ -199,11 +197,11 @@ describe("edge — degenerate pool shapes", function () {
       pool = await createPool(env, {
         authority,
         usdcMint,
-        membersTarget:     2,
+        membersTarget: 2,
         installmentAmount: INSTALLMENT_BASE,
-        creditAmount:      CREDIT_BASE,
-        cyclesTotal:       2,
-        cycleDurationSec:  CYCLE_DURATION_SEC,
+        creditAmount: CREDIT_BASE,
+        cyclesTotal: 2,
+        cycleDurationSec: CYCLE_DURATION_SEC,
       });
       const handles = await joinMembers(env, pool, [
         { member: m0, reputationLevel: 1 },
@@ -222,7 +220,7 @@ describe("edge — degenerate pool shapes", function () {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = (await fetchPool(env, pool.pool)) as any;
-      expect(p.status).to.equal(1);         // still Active
+      expect(p.status).to.equal(1); // still Active
       expect(p.currentCycle).to.equal(1);
       expect(bn(p.totalPaidOut)).to.equal(CREDIT_BASE);
     });
@@ -236,7 +234,7 @@ describe("edge — degenerate pool shapes", function () {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = (await fetchPool(env, pool.pool)) as any;
-      expect(p.status).to.equal(2);         // Completed
+      expect(p.status).to.equal(2); // Completed
       // current_cycle never advances past the last cycle index.
       expect(p.currentCycle).to.equal(1);
       expect(bn(p.totalPaidOut)).to.equal(2n * CREDIT_BASE);
@@ -251,9 +249,7 @@ describe("edge — degenerate pool shapes", function () {
 
       const escrow = await balanceOf(env, pool.escrowVault);
       // 2 members × stake + 2 members × 2 cycles × escrow_per_inst.
-      expect(escrow).to.equal(
-        mh0.stakeAmount + mh1.stakeAmount + 4n * ESCROW_PER_INST,
-      );
+      expect(escrow).to.equal(mh0.stakeAmount + mh1.stakeAmount + 4n * ESCROW_PER_INST);
     });
   });
 
@@ -261,7 +257,7 @@ describe("edge — degenerate pool shapes", function () {
 
   describe("C. seed-draw inclusive boundary", function () {
     const authority = Keypair.generate();
-    const [m0, m1]  = memberKeypairs(2, "edge_deg_C") as [Keypair, Keypair];
+    const [m0, m1] = memberKeypairs(2, "edge_deg_C") as [Keypair, Keypair];
 
     let pool: PoolHandle;
     let mh0: MemberHandle;
@@ -271,11 +267,11 @@ describe("edge — degenerate pool shapes", function () {
       pool = await createPool(env, {
         authority,
         usdcMint,
-        membersTarget:     2,
+        membersTarget: 2,
         installmentAmount: INSTALLMENT_BASE,
-        creditAmount:      CREDIT_BASE,
-        cyclesTotal:       2,
-        cycleDurationSec:  CYCLE_DURATION_SEC,
+        creditAmount: CREDIT_BASE,
+        cyclesTotal: 2,
+        cycleDurationSec: CYCLE_DURATION_SEC,
       });
       const handles = await joinMembers(env, pool, [
         { member: m0, reputationLevel: 1 },
@@ -305,9 +301,7 @@ describe("edge — degenerate pool shapes", function () {
       const retained = poolFloat + bn(p.escrowBalance);
       // Chai v4's `.greaterThanOrEqual` doesn't accept bigint; compare
       // via boolean coercion so the bigint precision is preserved.
-      expect(retained >= floor,
-        `retained ${retained} < floor ${floor}`,
-      ).to.equal(true);
+      expect(retained >= floor, `retained ${retained} < floor ${floor}`).to.equal(true);
 
       // With pool_float = 2 × 0.74 × I = 1.48I and escrow_balance =
       // 2 × 0.25 × I = 0.5I, retained = 1.98I. Floor = 1.832I. Margin 0.148I.

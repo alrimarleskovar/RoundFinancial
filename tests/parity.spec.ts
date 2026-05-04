@@ -22,30 +22,27 @@ import { expect } from "chai";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+// Direct sub-path imports (not the barrel) so legacy ts-node 7's
+// CommonJS resolver doesn't try to load the `.js`-suffixed re-exports
+// that the barrel emits for NodeNext compatibility. Same workaround
+// pattern as `economic_parity.spec.ts`.
+import { SEED } from "@roundfi/sdk/pda";
 import {
-  SEED,
   FEES,
   STAKE_BPS_BY_LEVEL,
   POOL_DEFAULTS,
   ATTESTATION_SCHEMA,
-} from "@roundfi/sdk";
+} from "@roundfi/sdk/constants";
 
-const CORE_CONSTANTS = resolve(
-  process.cwd(),
-  "programs/roundfi-core/src/constants.rs",
-);
-const REP_CONSTANTS = resolve(
-  process.cwd(),
-  "programs/roundfi-reputation/src/constants.rs",
-);
+const CORE_CONSTANTS = resolve(process.cwd(), "programs/roundfi-core/src/constants.rs");
+const REP_CONSTANTS = resolve(process.cwd(), "programs/roundfi-reputation/src/constants.rs");
 
 function readRustConstants(path: string): string {
   return readFileSync(path, "utf-8");
 }
 
 // Matches: `pub const SEED_FOO: &[u8] = b"foo";` (with optional spaces).
-const SEED_RE =
-  /pub\s+const\s+(SEED_[A-Z_]+)\s*:\s*&\[\s*u8\s*\]\s*=\s*b"([^"]+)"\s*;/g;
+const SEED_RE = /pub\s+const\s+(SEED_[A-Z_]+)\s*:\s*&\[\s*u8\s*\]\s*=\s*b"([^"]+)"\s*;/g;
 
 function extractSeeds(src: string): Map<string, string> {
   const out = new Map<string, string>();
@@ -83,21 +80,20 @@ describe("Rust ↔ TS constants parity", () => {
     // Rust seed isn't mirrored in TS yet (e.g. listing — Step 4c,
     // SDK parity pending).
     const mapping: Record<string, string | undefined> = {
-      SEED_CONFIG:     "config",
-      SEED_POOL:       "pool",
-      SEED_MEMBER:     "member",
-      SEED_ESCROW:     "escrow",
+      SEED_CONFIG: "config",
+      SEED_POOL: "pool",
+      SEED_MEMBER: "member",
+      SEED_ESCROW: "escrow",
       SEED_SOLIDARITY: "solidarity",
-      SEED_YIELD:      "yield",
-      SEED_POSITION:   "position",
-      SEED_LISTING:    undefined,
+      SEED_YIELD: "yield",
+      SEED_POSITION: "position",
+      SEED_LISTING: undefined,
     };
 
     it("extracts every seed from Rust source", () => {
       const rust = extractSeeds(coreSrc);
       for (const rustName of Object.keys(mapping)) {
-        expect(rust.has(rustName), `Rust constant missing: ${rustName}`)
-          .to.equal(true);
+        expect(rust.has(rustName), `Rust constant missing: ${rustName}`).to.equal(true);
       }
     });
 
@@ -124,11 +120,11 @@ describe("Rust ↔ TS constants parity", () => {
     // flows, SEED_POOL here is mirrored from core for issuer-PDA
     // derivation only.
     const mapping: Record<string, string | undefined> = {
-      SEED_REP_CONFIG:  "reputationConfig",
-      SEED_PROFILE:     "reputation",
+      SEED_REP_CONFIG: "reputationConfig",
+      SEED_PROFILE: "reputation",
       SEED_ATTESTATION: "attestation",
-      SEED_IDENTITY:    undefined,
-      SEED_POOL:        "pool",
+      SEED_IDENTITY: undefined,
+      SEED_POOL: "pool",
     };
 
     it("Rust ↔ TS seed bytes agree", () => {
@@ -136,9 +132,7 @@ describe("Rust ↔ TS constants parity", () => {
       const seedTable = SEED as Record<string, Buffer>;
       for (const [rustName, tsKey] of Object.entries(mapping)) {
         const rustBytes = rust.get(rustName);
-        expect(rustBytes, `missing Rust constant ${rustName}`).to.not.equal(
-          undefined,
-        );
+        expect(rustBytes, `missing Rust constant ${rustName}`).to.not.equal(undefined);
         if (tsKey === undefined) continue;
         const tsBytes = seedTable[tsKey];
         expect(tsBytes, `TS SDK missing SEED.${tsKey}`).to.not.equal(undefined);
@@ -153,13 +147,13 @@ describe("Rust ↔ TS constants parity", () => {
   describe("Numeric constants — roundfi-core", () => {
     it("fee schedule matches", () => {
       const rust = extractInt(coreSrc);
-      expect(Number(rust.get("DEFAULT_FEE_BPS_YIELD")))    .to.equal(FEES.yieldFeeBps);
-      expect(Number(rust.get("DEFAULT_FEE_BPS_CYCLE_L1"))) .to.equal(FEES.cycleFeeL1Bps);
-      expect(Number(rust.get("DEFAULT_FEE_BPS_CYCLE_L2"))) .to.equal(FEES.cycleFeeL2Bps);
-      expect(Number(rust.get("DEFAULT_FEE_BPS_CYCLE_L3"))) .to.equal(FEES.cycleFeeL3Bps);
+      expect(Number(rust.get("DEFAULT_FEE_BPS_YIELD"))).to.equal(FEES.yieldFeeBps);
+      expect(Number(rust.get("DEFAULT_FEE_BPS_CYCLE_L1"))).to.equal(FEES.cycleFeeL1Bps);
+      expect(Number(rust.get("DEFAULT_FEE_BPS_CYCLE_L2"))).to.equal(FEES.cycleFeeL2Bps);
+      expect(Number(rust.get("DEFAULT_FEE_BPS_CYCLE_L3"))).to.equal(FEES.cycleFeeL3Bps);
       expect(Number(rust.get("DEFAULT_GUARANTEE_FUND_BPS"))).to.equal(FEES.guaranteeFundBps);
-      expect(Number(rust.get("SEED_DRAW_BPS")))            .to.equal(FEES.seedDrawBps);
-      expect(Number(rust.get("SOLIDARITY_BPS")))           .to.equal(FEES.solidarityBps);
+      expect(Number(rust.get("SEED_DRAW_BPS"))).to.equal(FEES.seedDrawBps);
+      expect(Number(rust.get("SOLIDARITY_BPS"))).to.equal(FEES.solidarityBps);
       expect(Number(rust.get("DEFAULT_ESCROW_RELEASE_BPS"))).to.equal(FEES.escrowReleaseBps);
     });
 
@@ -173,9 +167,9 @@ describe("Rust ↔ TS constants parity", () => {
     it("pool defaults match", () => {
       const rust = extractInt(coreSrc);
       expect(Number(rust.get("DEFAULT_MEMBERS_TARGET"))).to.equal(POOL_DEFAULTS.membersTarget);
-      expect(rust.get("DEFAULT_INSTALLMENT_AMOUNT"))   .to.equal(POOL_DEFAULTS.installmentAmount);
-      expect(rust.get("DEFAULT_CREDIT_AMOUNT"))        .to.equal(POOL_DEFAULTS.creditAmount);
-      expect(Number(rust.get("DEFAULT_CYCLES_TOTAL"))) .to.equal(POOL_DEFAULTS.cyclesTotal);
+      expect(rust.get("DEFAULT_INSTALLMENT_AMOUNT")).to.equal(POOL_DEFAULTS.installmentAmount);
+      expect(rust.get("DEFAULT_CREDIT_AMOUNT")).to.equal(POOL_DEFAULTS.creditAmount);
+      expect(Number(rust.get("DEFAULT_CYCLES_TOTAL"))).to.equal(POOL_DEFAULTS.cyclesTotal);
       expect(Number(rust.get("DEFAULT_CYCLE_DURATION"))).to.equal(POOL_DEFAULTS.cycleDurationSec);
     });
   });
@@ -184,11 +178,11 @@ describe("Rust ↔ TS constants parity", () => {
     // Rust uses `pub const SCHEMA_PAYMENT: u16 = 1;` etc.
     it("attestation schema IDs match", () => {
       const rust = extractInt(repSrc);
-      expect(Number(rust.get("SCHEMA_PAYMENT")))       .to.equal(ATTESTATION_SCHEMA.Payment);
-      expect(Number(rust.get("SCHEMA_LATE")))          .to.equal(ATTESTATION_SCHEMA.Late);
-      expect(Number(rust.get("SCHEMA_DEFAULT")))       .to.equal(ATTESTATION_SCHEMA.Default);
+      expect(Number(rust.get("SCHEMA_PAYMENT"))).to.equal(ATTESTATION_SCHEMA.Payment);
+      expect(Number(rust.get("SCHEMA_LATE"))).to.equal(ATTESTATION_SCHEMA.Late);
+      expect(Number(rust.get("SCHEMA_DEFAULT"))).to.equal(ATTESTATION_SCHEMA.Default);
       expect(Number(rust.get("SCHEMA_CYCLE_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.CycleComplete);
-      expect(Number(rust.get("SCHEMA_LEVEL_UP")))      .to.equal(ATTESTATION_SCHEMA.LevelUp);
+      expect(Number(rust.get("SCHEMA_LEVEL_UP"))).to.equal(ATTESTATION_SCHEMA.LevelUp);
     });
   });
 });

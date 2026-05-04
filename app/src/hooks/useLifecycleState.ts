@@ -11,11 +11,11 @@ import type { LifecycleEvent } from "@roundfi/orchestrator";
  */
 
 export type MemberUiStatus =
-  | "pending"      // not joined yet
-  | "current"      // caught up on contributions
-  | "late"         // skipped a contribution this cycle
-  | "paid_out"     // already received credit
-  | "defaulted";   // settle_default fired
+  | "pending" // not joined yet
+  | "current" // caught up on contributions
+  | "late" // skipped a contribution this cycle
+  | "paid_out" // already received credit
+  | "defaulted"; // settle_default fired
 
 export interface MemberUi {
   name: string;
@@ -90,7 +90,13 @@ export const INITIAL_STATE: LifecycleState = {
 };
 
 export type LifecycleAction =
-  | { type: "reset"; cyclesTotal: number; installment: bigint; credit: bigint; memberNames: string[] }
+  | {
+      type: "reset";
+      cyclesTotal: number;
+      installment: bigint;
+      credit: bigint;
+      memberNames: string[];
+    }
   | { type: "start" }
   | { type: "event"; event: LifecycleEvent }
   | { type: "finish" };
@@ -253,10 +259,7 @@ function reducer(state: LifecycleState, action: LifecycleAction): LifecycleState
   }
 }
 
-export function useLifecycleState(): [
-  LifecycleState,
-  React.Dispatch<LifecycleAction>,
-] {
+export function useLifecycleState(): [LifecycleState, React.Dispatch<LifecycleAction>] {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   return [state, dispatch];
 }

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 // Palette tokens mirror the prototype's `RFI` object in
 // app/public/prototype/components/brand.jsx. Kept in TypeScript so

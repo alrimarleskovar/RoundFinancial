@@ -100,9 +100,7 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
     for (const id of PRESET_ORDER) {
       const { frames } = metricsOf(id);
       const final = lastFrame(frames);
-      expect(final.ledgerSnapshot.length, `preset=${id}`).to.equal(
-        PRESETS[id].config.members,
-      );
+      expect(final.ledgerSnapshot.length, `preset=${id}`).to.equal(PRESETS[id].config.members);
     }
   });
 
@@ -168,9 +166,7 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
     const final = lastFrame(frames);
 
     // (a) Exactly three calote_pos members.
-    const postDefaults = final.ledgerSnapshot.filter(
-      (l) => l.status === "calote_pos",
-    );
+    const postDefaults = final.ledgerSnapshot.filter((l) => l.status === "calote_pos");
     expect(postDefaults.length, "exactly 3 calote_pos members").to.equal(3);
 
     // (b) Each defaulter received the upfront (passed contemplation).
@@ -181,9 +177,7 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
 
     // (c) No pre-contemplation defaults — these are POST-contemplation
     // calotes specifically (the harder, "received the bag" case).
-    const preDefaults = final.ledgerSnapshot.filter(
-      (l) => l.status === "calote_pre",
-    );
+    const preDefaults = final.ledgerSnapshot.filter((l) => l.status === "calote_pre");
     expect(preDefaults.length, "zero calote_pre members").to.equal(0);
 
     // (d) Pool solvent by construction — the whitepaper headline claim.
@@ -217,14 +211,8 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
     for (const id of PRESET_ORDER) {
       const { finalMetrics: m } = metricsOf(id);
       const grossInflow = m.totalStake + m.collectedInstallments;
-      expect(
-        grossInflow,
-        `preset=${id} gross inflow non-negative`,
-      ).to.be.gte(0);
-      expect(
-        m.paidOut,
-        `preset=${id} paidOut non-negative`,
-      ).to.be.gte(0);
+      expect(grossInflow, `preset=${id} gross inflow non-negative`).to.be.gte(0);
+      expect(m.paidOut, `preset=${id} paidOut non-negative`).to.be.gte(0);
     }
   });
 });
@@ -260,9 +248,7 @@ describe("toggleCell — post-contemplation default is composable", () => {
       m1,
     );
     const finalLedger = frames[frames.length - 1]!.ledgerSnapshot;
-    expect(finalLedger[1]!.status, "post-contemplation default").to.equal(
-      "calote_pos",
-    );
+    expect(finalLedger[1]!.status, "post-contemplation default").to.equal("calote_pos");
   });
 
   it("clicking C cancels the row's contemplation entirely", () => {
@@ -330,7 +316,7 @@ describe("runSimulation — no escrow release at the default month", () => {
         level: "Iniciante",
         members: N,
         creditAmountUsdc: N * 1000,
-        kaminoApy: 0,    // turn yield off so we count cents, not bps
+        kaminoApy: 0, // turn yield off so we count cents, not bps
         yieldFeePct: 0,
         memberNames: ["A", "B", "C", "D", "E", "F"],
       },
@@ -346,10 +332,9 @@ describe("runSimulation — no escrow release at the default month", () => {
     const escrowPerMonth = escrowTotal / 5; // releaseMonths for Iniciante
     const expectedReceived = upfront + 2 * escrowPerMonth;
 
-    expect(
-      ledger0.received,
-      "received excludes the drip on the default month",
-    ).to.equal(expectedReceived);
+    expect(ledger0.received, "received excludes the drip on the default month").to.equal(
+      expectedReceived,
+    );
     expect(ledger0.status, "post-contemplation default").to.equal("calote_pos");
   });
 
@@ -407,10 +392,9 @@ describe("runSimulation — stake cashback phase", () => {
     const credit = inst * N;
     const stake = credit * 0.5;
     const paid = stake + N * inst;
-    expect(
-      ledger0.received,
-      "received closes the books — paid ≡ received for healthy",
-    ).to.equal(paid);
+    expect(ledger0.received, "received closes the books — paid ≡ received for healthy").to.equal(
+      paid,
+    );
     expect(ledger0.stakeRefunded, "stake fully refunded").to.equal(stake);
   });
 
@@ -441,10 +425,9 @@ describe("runSimulation — stake cashback phase", () => {
     const refundPerMonth = stake / 2; // refundMonths = 2
 
     // Got: upfront + 5 drips + 1 refund tranche.
-    expect(
-      ledger0.stakeRefunded,
-      "exactly one refund tranche before default",
-    ).to.equal(refundPerMonth);
+    expect(ledger0.stakeRefunded, "exactly one refund tranche before default").to.equal(
+      refundPerMonth,
+    );
     expect(ledger0.status).to.equal("calote_pos");
   });
 
@@ -503,10 +486,9 @@ describe("runSimulation — net solvency vs gross cash", () => {
       m.outstandingEscrow + m.outstandingStakeRefund,
       "obligations > 0 mid-run",
     ).to.be.greaterThan(0);
-    expect(
-      m.netSolvency,
-      "netSolvency < poolBalance while obligations exist",
-    ).to.be.lessThan(m.poolBalance);
+    expect(m.netSolvency, "netSolvency < poolBalance while obligations exist").to.be.lessThan(
+      m.poolBalance,
+    );
   });
 
   it("a pre-contemplation defaulter is removed from outstanding obligations", () => {
@@ -521,10 +503,10 @@ describe("runSimulation — net solvency vs gross cash", () => {
     // specific preset the difference is in totalRetained, not in
     // outstanding numbers. Asserting the totalRetained delta keeps
     // the test meaningful even when outstanding doesn't move.
-    const healthyEnd =
-      runSimulation(PRESETS.healthy.config, PRESETS.healthy.matrix).slice(-1)[0]!;
-    const preEnd =
-      runSimulation(PRESETS.preDefault.config, PRESETS.preDefault.matrix).slice(-1)[0]!;
+    const healthyEnd = runSimulation(PRESETS.healthy.config, PRESETS.healthy.matrix).slice(-1)[0]!;
+    const preEnd = runSimulation(PRESETS.preDefault.config, PRESETS.preDefault.matrix).slice(
+      -1,
+    )[0]!;
 
     expect(
       preEnd.metrics.totalRetained,
@@ -552,8 +534,7 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
   it("Cofre Solidário accrues exactly 1% of collected installments", () => {
     for (const id of PRESET_ORDER) {
       const preset = PRESETS[id];
-      const final =
-        runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
+      const final = runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
       expect(
         final.solidarityVault,
         `preset=${id}: solidarityVault === 1% × collectedInstallments`,
@@ -565,13 +546,11 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
     for (const id of PRESET_ORDER) {
       const preset = PRESETS[id];
       const credit = preset.config.creditAmountUsdc;
-      const final =
-        runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
+      const final = runSimulation(preset.config, preset.matrix).slice(-1)[0]!.metrics;
       expect(final.guaranteeFundCap, `preset=${id}`).to.equal(1.5 * credit);
-      expect(
-        final.guaranteeFund,
-        `preset=${id}: never exceeds cap`,
-      ).to.be.at.most(final.guaranteeFundCap + 1e-6);
+      expect(final.guaranteeFund, `preset=${id}: never exceeds cap`).to.be.at.most(
+        final.guaranteeFundCap + 1e-6,
+      );
     }
   });
 
@@ -586,10 +565,10 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
     for (const frame of frames) {
       const m = frame.metrics;
       const totalYieldDistributed = m.guaranteeFund + m.lpDistribution;
-      expect(
-        totalYieldDistributed,
-        `cycle=${frame.cycle}: GF + LP equals net yield`,
-      ).to.be.closeTo(m.kaminoNetYield, 1e-6);
+      expect(totalYieldDistributed, `cycle=${frame.cycle}: GF + LP equals net yield`).to.be.closeTo(
+        m.kaminoNetYield,
+        1e-6,
+      );
 
       // Either the GF is below cap and LP is 0, OR GF is at cap and
       // LP holds the overflow.
@@ -704,10 +683,9 @@ describe("runSimulation — mature group acceleration", () => {
     // Total received (credit + refund) should be higher in mature
     // since the credit fully releases in 3 cycles instead of 5,
     // freeing the refund phase to start sooner.
-    expect(
-      m0Mature.received,
-      "mature member receives more by cycle 4",
-    ).to.be.greaterThan(m0Immature.received);
+    expect(m0Mature.received, "mature member receives more by cycle 4").to.be.greaterThan(
+      m0Immature.received,
+    );
   });
 
   it("mature group ends with smaller outstanding obligations", () => {
@@ -725,17 +703,14 @@ describe("runSimulation — mature group acceleration", () => {
       { ...baseConfig, maturity: "immature" },
       defaultMatrix(12),
     ).slice(-1)[0]!.metrics;
-    const matureEnd = runSimulation(
-      { ...baseConfig, maturity: "mature" },
-      defaultMatrix(12),
-    ).slice(-1)[0]!.metrics;
+    const matureEnd = runSimulation({ ...baseConfig, maturity: "mature" }, defaultMatrix(12)).slice(
+      -1,
+    )[0]!.metrics;
 
     expect(
       matureEnd.outstandingEscrow + matureEnd.outstandingStakeRefund,
       "mature: less owed at end of pool",
-    ).to.be.lessThan(
-      immatureEnd.outstandingEscrow + immatureEnd.outstandingStakeRefund,
-    );
+    ).to.be.lessThan(immatureEnd.outstandingEscrow + immatureEnd.outstandingStakeRefund);
   });
 });
 
@@ -752,8 +727,7 @@ describe("runSimulation — credit-amount input + Escape Valve", () => {
     const preset = PRESETS.healthy;
     const frames = runSimulation(preset.config, preset.matrix);
     const cycle1 = frames[0]!;
-    const expectedInst =
-      preset.config.creditAmountUsdc / preset.config.members;
+    const expectedInst = preset.config.creditAmountUsdc / preset.config.members;
     for (const ledger of cycle1.ledgerSnapshot) {
       expect(
         ledger.installmentsPaid,
@@ -771,10 +745,7 @@ describe("runSimulation — credit-amount input + Escape Valve", () => {
       yieldFeePct: 20,
     };
     const baseFrames = runSimulation(baseConfig, defaultMatrix(12));
-    const doubled = runSimulation(
-      { ...baseConfig, creditAmountUsdc: 24000 },
-      defaultMatrix(12),
-    );
+    const doubled = runSimulation({ ...baseConfig, creditAmountUsdc: 24000 }, defaultMatrix(12));
 
     // Doubling the carta should double every member's installmentsPaid
     // at end of pool — direct proportionality.
@@ -784,10 +755,7 @@ describe("runSimulation — credit-amount input + Escape Valve", () => {
       expect(
         dblFinal.ledgerSnapshot[i]!.installmentsPaid,
         `member ${i}: doubled installment`,
-      ).to.be.closeTo(
-        2 * baseFinal.ledgerSnapshot[i]!.installmentsPaid,
-        1e-6,
-      );
+      ).to.be.closeTo(2 * baseFinal.ledgerSnapshot[i]!.installmentsPaid, 1e-6);
     }
   });
 
@@ -818,14 +786,8 @@ describe("runSimulation — credit-amount input + Escape Valve", () => {
     // Pool-level: no totalRetained / totalLoss attributable to the
     // exiter. (Other ok members may have contributed to retained/loss
     // in other scenarios, but here the diagonal is otherwise clean.)
-    expect(
-      final.metrics.totalRetained,
-      "totalRetained unaffected by Escape Valve",
-    ).to.equal(0);
-    expect(
-      final.metrics.totalLoss,
-      "totalLoss unaffected by Escape Valve",
-    ).to.equal(0);
+    expect(final.metrics.totalRetained, "totalRetained unaffected by Escape Valve").to.equal(0);
+    expect(final.metrics.totalLoss, "totalLoss unaffected by Escape Valve").to.equal(0);
   });
 
   it("E behaves differently from X: no penalty, status preserved as 'exited'", () => {
@@ -894,8 +856,7 @@ describe("runSimulation — yield waterfall (4 tiers)", () => {
     expect(final.guaranteeFund).to.be.closeTo(final.guaranteeFundCap, 0.5);
 
     // Total yield distributed = GF + LP + participants.
-    const total =
-      final.guaranteeFund + final.lpDistribution + final.participantsDistribution;
+    const total = final.guaranteeFund + final.lpDistribution + final.participantsDistribution;
     expect(total, "GF + LP + Participants ≡ total net yield").to.be.closeTo(
       final.kaminoNetYield,
       1e-6,
@@ -904,10 +865,10 @@ describe("runSimulation — yield waterfall (4 tiers)", () => {
     // Of the residual after GF, LP gets 65%, participants 35%.
     const residual = final.lpDistribution + final.participantsDistribution;
     if (residual > 0) {
-      expect(
-        final.lpDistribution / residual,
-        "LP share of residual ≈ 65%",
-      ).to.be.closeTo(0.65, 0.01);
+      expect(final.lpDistribution / residual, "LP share of residual ≈ 65%").to.be.closeTo(
+        0.65,
+        0.01,
+      );
       expect(
         final.participantsDistribution / residual,
         "Participants share of residual ≈ 35%",
@@ -919,10 +880,7 @@ describe("runSimulation — yield waterfall (4 tiers)", () => {
     // Healthy preset, default APY. Yield is small relative to GF cap
     // (1.5 × 12000 = 18000). After all 12 cycles, GF should still be
     // below cap → residual = 0 → no LP / participants.
-    const frames = runSimulation(
-      PRESETS.healthy.config,
-      PRESETS.healthy.matrix,
-    );
+    const frames = runSimulation(PRESETS.healthy.config, PRESETS.healthy.matrix);
     const final = frames[frames.length - 1]!.metrics;
     expect(final.guaranteeFund).to.be.lessThan(final.guaranteeFundCap);
     expect(final.lpDistribution).to.equal(0);
@@ -989,8 +947,8 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     //           yieldFeePct: 20 }
     // installment = 12_000 / 12 = 1_000 USDC.
     const N = 12;
-    const installmentUsdc = 1_000n * 1_000_000n;       // 1000 USDC base units
-    const creditAmountUsdc = 12_000n * 1_000_000n;     // 12_000 USDC
+    const installmentUsdc = 1_000n * 1_000_000n; // 1000 USDC base units
+    const creditAmountUsdc = 12_000n * 1_000_000n; // 12_000 USDC
 
     const usdcMint = await createUsdcMint(env);
     // Protocol authority defaults to env.payer in the harness; we only
@@ -1025,12 +983,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const wallets = memberKeypairs(N, "healthy-parity");
     const memberAtas: PublicKey[] = [];
     for (const w of wallets) {
-      const ata = await harness.fundUsdc(
-        env,
-        usdcMint,
-        w.publicKey,
-        totalUsdcPerMember,
-      );
+      const ata = await harness.fundUsdc(env, usdcMint, w.publicKey, totalUsdcPerMember);
       memberAtas.push(ata);
     }
 
@@ -1068,9 +1021,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
       members.map((m) => harness.balanceOf(env, m.memberUsdc)),
     );
 
-    onChainDeltasByMember = memberUsdcBefore.map(
-      (before, i) => memberUsdcAfter[i]! - before,
-    );
+    onChainDeltasByMember = memberUsdcBefore.map((before, i) => memberUsdcAfter[i]! - before);
 
     // ─── (4) Run L1 simulator on the same preset ─────────────────────
     const { runSimulation } = await import("@roundfi/sdk/stressLab");
@@ -1102,10 +1053,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
   it("pool conservation: every cent of inflow accounted for in final state", async function () {
     const harness = await import("./_harness/index.js");
     // Sum of every observable USDC sink after close_pool.
-    const sumMemberWalletDeltas = onChainDeltasByMember.reduce(
-      (acc, d) => acc + d,
-      0n,
-    );
+    const sumMemberWalletDeltas = onChainDeltasByMember.reduce((acc, d) => acc + d, 0n);
     const escrowFinal = await harness.balanceOf(env, pool.escrowVault);
     const solidarityFinal = await harness.balanceOf(env, pool.solidarityVault);
     const poolVaultFinal = await harness.balanceOf(env, pool.poolUsdcVault);
@@ -1116,8 +1064,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     // signed USDC delta plus the residual vault balances should equal
     // zero ± ε relative to a pristine accounting (members started
     // with stake amounts pre-funded; ended with refund + payouts).
-    const totalAccounted =
-      sumMemberWalletDeltas + escrowFinal + solidarityFinal + poolVaultFinal;
+    const totalAccounted = sumMemberWalletDeltas + escrowFinal + solidarityFinal + poolVaultFinal;
     // L1 conservation total: same shape but computed off `frames`. We
     // don't recompute it here — the per-member assertion above already
     // implies pool-level conservation up to rounding. This test exists

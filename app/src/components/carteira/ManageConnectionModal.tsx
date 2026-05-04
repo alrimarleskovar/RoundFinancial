@@ -33,11 +33,16 @@ export function ManageConnectionModal({
 
   const accent = ((): string => {
     switch (conn.tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   })();
 
@@ -107,8 +112,7 @@ export function ManageConnectionModal({
                 <span
                   style={{
                     color: tokens.muted,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
                     fontSize: 10,
@@ -185,9 +189,7 @@ export function ManageConnectionModal({
         <MonoLabel size={9} color={tokens.amber}>
           {t("modal.manage.demoBadge")}
         </MonoLabel>
-        <span
-          style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}
-        >
+        <span style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
           {t("modal.manage.demoBody")}
         </span>
       </div>

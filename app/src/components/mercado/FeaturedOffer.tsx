@@ -9,11 +9,7 @@ import { useTheme } from "@/lib/theme";
 // Sidebar "destaque do dia" card. Highlights one offer with a
 // purple-tinted gradient + face/price progress + buy CTA.
 
-export function FeaturedOffer({
-  onBuy,
-}: {
-  onBuy: (target: BuyOfferTarget) => void;
-}) {
+export function FeaturedOffer({ onBuy }: { onBuy: (target: BuyOfferTarget) => void }) {
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
@@ -66,8 +62,7 @@ export function FeaturedOffer({
           <MonoLabel size={9}>{t("market.featured.face")}</MonoLabel>
           <span
             style={{
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               fontSize: 13,
               color: tokens.text2,
             }}

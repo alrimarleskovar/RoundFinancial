@@ -56,6 +56,7 @@ which Cargo resolves to 2.3.0+ — that pulls modern hashbrown / hybrid-
 array / block-buffer that all opted into edition2024 mid-2025.
 
 **Fix:** Committed `Cargo.lock` pins:
+
 - `solana-program = 1.18.26` (downgraded from 2.3.0)
 - `blake3 = 1.5.0` (uses digest 0.10 / block-buffer 0.10 — pre-edition2024)
 - `indexmap = 2.7.0` (last version using hashbrown 0.15)
@@ -63,6 +64,7 @@ array / block-buffer that all opted into edition2024 mid-2025.
 - `unicode-segmentation = 1.12.0` (1.13 needs rustc 1.85)
 
 If you regenerate `Cargo.lock`, run:
+
 ```bash
 cargo update -p solana-program@2.3.0 --precise 1.18.26
 cargo update -p blake3 --precise 1.5.0
@@ -81,6 +83,7 @@ removed in stable 1.84+. anchor 0.30.1 was written when this API still
 worked. Fixed in anchor 0.31+ but our codebase is pinned to 0.30.1.
 
 **Fix:** Build with `--no-idl`:
+
 ```bash
 anchor build --no-idl
 ```
@@ -100,6 +103,7 @@ Rust 1.85+ due to a tightened type-inference rule. Anchor 0.30.1's own
 `Cargo.lock` was last bumped before that rust release.
 
 **Fix:** Drop `--locked` so cargo resolves a newer compatible `time`:
+
 ```bash
 cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli
 ```
@@ -117,6 +121,7 @@ to network hiccups, leaving a half-installed state.
 **Fix:** Pin to **Agave 3.0.0** (which ships platform-tools v1.51
 inline with the install tarball). The TL;DR command above does this.
 If you want to retry stable instead:
+
 ```bash
 rm -rf ~/.cache/solana ~/.local/share/solana
 sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"

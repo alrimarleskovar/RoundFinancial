@@ -70,10 +70,10 @@ export interface PhaseEnd {
 
 export interface ActionOk {
   kind: "action.ok";
-  action: string;           // e.g. "contribute", "claimPayout"
-  actor?: string;           // human-readable name (e.g. "Maria")
-  signature?: string;       // tx signature when on-chain
-  detail: string;           // human-readable one-liner
+  action: string; // e.g. "contribute", "claimPayout"
+  actor?: string; // human-readable name (e.g. "Maria")
+  signature?: string; // tx signature when on-chain
+  detail: string; // human-readable one-liner
   data?: Record<string, unknown>;
   at: number;
 }
@@ -139,7 +139,7 @@ export interface PayoutExecuted {
 export interface PoolStateSnapshot {
   kind: "pool.snapshot";
   cycle: number;
-  status: string;            // PoolStatusName
+  status: string; // PoolStatusName
   totalContributed: bigint;
   totalPaidOut: bigint;
   solidarityBalance: bigint;

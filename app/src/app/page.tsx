@@ -83,11 +83,11 @@ export default function LandingPage() {
             {(
               [
                 ["#simulator", t("landing.nav.simulator")],
-                ["#compare",   t("landing.nav.advantages")],
-                ["#cofi",      t("landing.nav.cofi")],
-                ["#security",  t("landing.nav.security")],
-                ["#",          t("landing.nav.docs")],
-                ["#",          t("landing.nav.audit")],
+                ["#compare", t("landing.nav.advantages")],
+                ["#cofi", t("landing.nav.cofi")],
+                ["#security", t("landing.nav.security")],
+                ["#", t("landing.nav.docs")],
+                ["#", t("landing.nav.audit")],
               ] as const
             ).map(([href, label]) => (
               <a
@@ -109,10 +109,7 @@ export default function LandingPage() {
               ]}
             />
             <div className="scale-75 md:scale-100 origin-right">
-              <span
-                className="rfi-btn-glow-wrap green inline-flex"
-                style={{ borderRadius: 12 }}
-              >
+              <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 12 }}>
                 <WalletMultiButton
                   style={{
                     backgroundColor: "#14F195",
@@ -131,91 +128,94 @@ export default function LandingPage() {
       <section className="relative flex flex-col items-center justify-center pt-10 md:pt-20 pb-20 md:pb-32 px-4 md:px-6 text-center w-full">
         <DataStream />
         <div className="relative z-10 w-full flex flex-col items-center">
-        <MountReveal>
-          <div className="inline-flex items-center gap-2 bg-[#14F195]/10 border border-[#14F195]/20 text-[#14F195] px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-bold mb-6 md:mb-8">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
-            </span>
-            {t("landing.hero.live")}
-          </div>
-        </MountReveal>
+          <MountReveal>
+            <div className="inline-flex items-center gap-2 bg-[#14F195]/10 border border-[#14F195]/20 text-[#14F195] px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-bold mb-6 md:mb-8">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
+              </span>
+              {t("landing.hero.live")}
+            </div>
+          </MountReveal>
 
-        <MountReveal delay={0.08}>
-          <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
-            {t("landing.hero.title1")} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)] rfi-gradient-flow">
-              {t("landing.hero.title2")}
-            </span>
-          </h1>
-        </MountReveal>
+          <MountReveal delay={0.08}>
+            <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
+              {t("landing.hero.title1")} <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)] rfi-gradient-flow">
+                {t("landing.hero.title2")}
+              </span>
+            </h1>
+          </MountReveal>
 
-        <MountReveal delay={0.16}>
-          <p className="text-sm md:text-xl text-gray-400 max-w-3xl mb-8 md:mb-12 font-light leading-relaxed px-2">
-            {t("landing.hero.body").split(t("landing.hero.cofi"))[0]}
-            <span className="text-white font-bold">{t("landing.hero.cofi")}</span>
-            {t("landing.hero.body").split(t("landing.hero.cofi"))[1]}
-          </p>
-        </MountReveal>
+          <MountReveal delay={0.16}>
+            <p className="text-sm md:text-xl text-gray-400 max-w-3xl mb-8 md:mb-12 font-light leading-relaxed px-2">
+              {t("landing.hero.body").split(t("landing.hero.cofi"))[0]}
+              <span className="text-white font-bold">{t("landing.hero.cofi")}</span>
+              {t("landing.hero.body").split(t("landing.hero.cofi"))[1]}
+            </p>
+          </MountReveal>
 
-        <MountReveal delay={0.24} className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto">
-          <div className="w-full sm:w-auto flex justify-center">
-            <span
-              className="rfi-btn-glow-wrap purple inline-flex"
-              style={{ borderRadius: 16 }}
-            >
-              <WalletMultiButton
-                style={{
-                  height: "50px",
-                  padding: "0 30px",
-                  fontSize: "1rem",
-                  borderRadius: "16px",
-                  backgroundColor: "#9945FF",
-                  color: "#fff",
-                }}
-              />
-            </span>
-          </div>
-          <a
-            href="https://x.com/roundfinancesol"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-[50px] px-8 rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-md font-bold flex items-center justify-center hover:bg-white/[0.08] hover:border-[#14F195]/60 hover:shadow-[0_0_24px_rgba(20,241,149,0.25)] hover:scale-[1.03] transition-all duration-300 gap-2 text-sm w-full sm:w-auto tracking-wide"
+          <MountReveal
+            delay={0.24}
+            className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto"
           >
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-            {t("landing.hero.x")}
-          </a>
-        </MountReveal>
+            <div className="w-full sm:w-auto flex justify-center">
+              <span className="rfi-btn-glow-wrap purple inline-flex" style={{ borderRadius: 16 }}>
+                <WalletMultiButton
+                  style={{
+                    height: "50px",
+                    padding: "0 30px",
+                    fontSize: "1rem",
+                    borderRadius: "16px",
+                    backgroundColor: "#9945FF",
+                    color: "#fff",
+                  }}
+                />
+              </span>
+            </div>
+            <a
+              href="https://x.com/roundfinancesol"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-[50px] px-8 rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-md font-bold flex items-center justify-center hover:bg-white/[0.08] hover:border-[#14F195]/60 hover:shadow-[0_0_24px_rgba(20,241,149,0.25)] hover:scale-[1.03] transition-all duration-300 gap-2 text-sm w-full sm:w-auto tracking-wide"
+            >
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+              {t("landing.hero.x")}
+            </a>
+          </MountReveal>
 
-        {/* Metrics */}
-        <MountReveal delay={0.32} className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20">
-          <div>
-            <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              {t("landing.metric.tvl")}
-            </p>
-            <p className="text-xl md:text-4xl font-bold">$1,245,800</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              {t("landing.metric.pools")}
-            </p>
-            <p className="text-xl md:text-4xl font-bold">14</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              {t("landing.metric.apy")}
-            </p>
-            <p className="text-xl md:text-4xl font-bold text-[#14F195]">~ 6.5%</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-              {t("landing.metric.fee")}
-            </p>
-            <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
-          </div>
-        </MountReveal>
+          {/* Metrics */}
+          <MountReveal
+            delay={0.32}
+            className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20"
+          >
+            <div>
+              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                {t("landing.metric.tvl")}
+              </p>
+              <p className="text-xl md:text-4xl font-bold">$1,245,800</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                {t("landing.metric.pools")}
+              </p>
+              <p className="text-xl md:text-4xl font-bold">14</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                {t("landing.metric.apy")}
+              </p>
+              <p className="text-xl md:text-4xl font-bold text-[#14F195]">~ 6.5%</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                {t("landing.metric.fee")}
+              </p>
+              <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
+            </div>
+          </MountReveal>
         </div>
       </section>
 
@@ -235,12 +235,13 @@ export default function LandingPage() {
               {t("landing.cofi.title2")}
             </span>
           </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-12">
-            {t("landing.cofi.body")}
-          </p>
+          <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-12">{t("landing.cofi.body")}</p>
         </Reveal>
 
-        <Reveal delay={0.08} className="flex flex-col sm:flex-row justify-center gap-4 mb-16 relative z-10">
+        <Reveal
+          delay={0.08}
+          className="flex flex-col sm:flex-row justify-center gap-4 mb-16 relative z-10"
+        >
           <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 16 }}>
             <WalletMultiButton
               style={{
@@ -314,8 +315,7 @@ export default function LandingPage() {
                       // hero LCP. Other two stay lazy.
                       priority={i === 0}
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display =
-                          "none";
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
                       }}
                     />
                   </div>
@@ -325,11 +325,7 @@ export default function LandingPage() {
                     </h3>
                     <p className="text-gray-400 text-sm md:text-base leading-relaxed">
                       {pre}
-                      {accent && (
-                        <span style={{ color: c.color, fontWeight: 700 }}>
-                          {accent}
-                        </span>
-                      )}
+                      {accent && <span style={{ color: c.color, fontWeight: 700 }}>{accent}</span>}
                       {post}
                     </p>
                   </div>
@@ -349,7 +345,9 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
               {t("landing.security.title1")}{" "}
-              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">{t("landing.security.title2")}</span>
+              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">
+                {t("landing.security.title2")}
+              </span>
             </h2>
             <p className="text-gray-400 max-w-2xl mx-auto text-base">
               {t("landing.security.body")}
@@ -357,44 +355,42 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(
-            [
-              { key: "semente",  Icon: Icons.lock,   color: "#14F195" },
-              { key: "escrow",   Icon: Icons.scales, color: "#4A9EFF" },
-              { key: "valve",    Icon: Icons.ticket, color: "#FFD23F" },
-              { key: "slashing", Icon: Icons.bolt,   color: "#FF4D4F" },
-              { key: "triplo",  Icon: Icons.shield,  color: "#9945FF" },
-              { key: "silos",   Icon: Icons.cubes,   color: "#E0E0E0" },
-            ] as const
-          ).map((c) => (
-            <div
-              key={c.key}
-              className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
-              style={{
-                background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
-                border: `1px solid ${c.color}40`,
-                boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
-              }}
-            >
+            {(
+              [
+                { key: "semente", Icon: Icons.lock, color: "#14F195" },
+                { key: "escrow", Icon: Icons.scales, color: "#4A9EFF" },
+                { key: "valve", Icon: Icons.ticket, color: "#FFD23F" },
+                { key: "slashing", Icon: Icons.bolt, color: "#FF4D4F" },
+                { key: "triplo", Icon: Icons.shield, color: "#9945FF" },
+                { key: "silos", Icon: Icons.cubes, color: "#E0E0E0" },
+              ] as const
+            ).map((c) => (
               <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                key={c.key}
+                className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
                 style={{
-                  background: `${c.color}1F`,
-                  border: `1px solid ${c.color}55`,
-                  color: c.color,
-                  boxShadow: `0 0 28px ${c.color}33`,
+                  background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
+                  border: `1px solid ${c.color}40`,
+                  boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
                 }}
               >
-                <c.Icon size={26} stroke={c.color} sw={1.8} />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                  style={{
+                    background: `${c.color}1F`,
+                    border: `1px solid ${c.color}55`,
+                    color: c.color,
+                    boxShadow: `0 0 28px ${c.color}33`,
+                  }}
+                >
+                  <c.Icon size={26} stroke={c.color} sw={1.8} />
+                </div>
+                <h3 className="text-xl font-bold mb-2">
+                  {t(`landing.security.card.${c.key}.title`)}
+                </h3>
+                <p className="text-gray-400 text-sm">{t(`landing.security.card.${c.key}.desc`)}</p>
               </div>
-              <h3 className="text-xl font-bold mb-2">
-                {t(`landing.security.card.${c.key}.title`)}
-              </h3>
-              <p className="text-gray-400 text-sm">
-                {t(`landing.security.card.${c.key}.desc`)}
-              </p>
-            </div>
-          ))}
+            ))}
           </div>
         </Reveal>
       </section>
@@ -408,7 +404,9 @@ export default function LandingPage() {
           <Reveal className="text-center lg:text-left">
             <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
               {t("landing.sim.title1")} <br />
-              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">{t("landing.sim.title2")}</span>
+              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">
+                {t("landing.sim.title2")}
+              </span>
             </h2>
             <p className="text-gray-400 text-sm md:text-lg mb-8 md:mb-10">
               {t("landing.sim.body").split(t("landing.sim.cofi"))[0]}
@@ -463,7 +461,10 @@ export default function LandingPage() {
           </Reveal>
 
           {/* Simulator chart */}
-          <Reveal delay={0.12} className="bg-gradient-to-br from-[#14F195]/30 via-white/[0.06] to-[#9945FF]/30 p-0.5 md:p-1 rounded-[32px] md:rounded-[40px] shadow-2xl shadow-[#14F195]/15">
+          <Reveal
+            delay={0.12}
+            className="bg-gradient-to-br from-[#14F195]/30 via-white/[0.06] to-[#9945FF]/30 p-0.5 md:p-1 rounded-[32px] md:rounded-[40px] shadow-2xl shadow-[#14F195]/15"
+          >
             <div className="bg-[#06090F]/85 backdrop-blur-xl rounded-[30px] md:rounded-[38px] p-8 md:p-12 text-center border border-white/[0.06]">
               <p className="text-gray-500 uppercase tracking-widest text-[10px] md:text-xs font-bold mb-2 md:mb-4">
                 {t("landing.sim.result")}
@@ -482,18 +483,12 @@ export default function LandingPage() {
                   // both grow finalBalance, so we drive bars off normalized
                   // finalBalance / maxFinalBalance (=$100k @ 60mo).
                   const maxBalance = 100000 * (1 + apy * 5);
-                  const fill = Math.max(
-                    0,
-                    Math.min(1, finalBalance / maxBalance),
-                  );
+                  const fill = Math.max(0, Math.min(1, finalBalance / maxBalance));
                   const heights = [30, 42, 55, 68, 82, 100];
                   const segSize = 1 / heights.length;
                   return heights.map((maxH, i) => {
                     const segStart = i * segSize;
-                    const progress = Math.max(
-                      0,
-                      Math.min(1, (fill - segStart) / segSize),
-                    );
+                    const progress = Math.max(0, Math.min(1, (fill - segStart) / segSize));
                     const baseH = 15;
                     const height = baseH + (maxH - baseH) * progress;
                     const r = Math.round(75 - 55 * progress);
@@ -518,10 +513,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex justify-center">
-                <span
-                  className="rfi-btn-glow-wrap green inline-flex"
-                  style={{ borderRadius: 16 }}
-                >
+                <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 16 }}>
                   <WalletMultiButton
                     style={{
                       backgroundColor: "#14F195",
@@ -548,7 +540,9 @@ export default function LandingPage() {
         <Reveal>
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
             {t("landing.cmp.title1")}{" "}
-            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">{t("landing.cmp.title2")}</span>
+            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">
+              {t("landing.cmp.title2")}
+            </span>
           </h2>
           <p className="text-gray-400 text-center max-w-2xl mx-auto mb-10 md:mb-16 text-sm md:text-base">
             {t("landing.cmp.body")}
@@ -562,8 +556,7 @@ export default function LandingPage() {
             background:
               "linear-gradient(180deg, rgba(153,69,255,0.04) 0%, rgba(255,255,255,0.02) 60%)",
             border: "1px solid rgba(153,69,255,0.18)",
-            boxShadow:
-              "0 12px 40px rgba(153,69,255,0.08), inset 0 1px 0 rgba(153,69,255,0.10)",
+            boxShadow: "0 12px 40px rgba(153,69,255,0.08), inset 0 1px 0 rgba(153,69,255,0.10)",
           }}
         >
           <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] flex-1">
@@ -584,12 +577,8 @@ export default function LandingPage() {
                   key={key}
                   className="h-auto md:h-10 flex items-center justify-between md:justify-start gap-1 px-2 -mx-2 py-1.5"
                 >
-                  <span className="md:hidden font-bold">
-                    {t(`landing.cmp.row.${key}.short`)}
-                  </span>
-                  <span className="md:block hidden">
-                    {t(`landing.cmp.row.${key}.label`)}
-                  </span>
+                  <span className="md:hidden font-bold">{t(`landing.cmp.row.${key}.short`)}</span>
+                  <span className="md:block hidden">{t(`landing.cmp.row.${key}.label`)}</span>
                 </li>
               ))}
             </ul>
@@ -678,7 +667,9 @@ export default function LandingPage() {
         <Reveal>
           <h2 className="text-3xl md:text-5xl font-black text-center mb-12">
             {t("landing.faq.title1")}{" "}
-            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">{t("landing.faq.title2")}</span>
+            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">
+              {t("landing.faq.title2")}
+            </span>
           </h2>
         </Reveal>
 
@@ -691,18 +682,14 @@ export default function LandingPage() {
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
                   className="w-full flex justify-between items-center py-6 text-left hover:text-[#14F195] transition-colors"
                 >
-                  <span className="text-base md:text-lg font-bold">
-                    {t(`landing.faq.q${n}`)}
-                  </span>
+                  <span className="text-base md:text-lg font-bold">{t(`landing.faq.q${n}`)}</span>
                   <span className="text-2xl text-gray-500 font-light shrink-0 ml-4">
                     {openFaq === index ? "−" : "+"}
                   </span>
                 </button>
                 <div
                   className={`transition-all duration-300 ease-in-out ${
-                    openFaq === index
-                      ? "max-h-96 opacity-100 mb-6"
-                      : "max-h-0 opacity-0"
+                    openFaq === index ? "max-h-96 opacity-100 mb-6" : "max-h-0 opacity-0"
                   }`}
                 >
                   <p className="text-gray-400 text-sm md:text-base leading-relaxed pr-4 md:pr-8">
@@ -734,8 +721,7 @@ export default function LandingPage() {
             <div
               className="absolute -inset-px rounded-[2rem] blur-2xl pointer-events-none rfi-pulse-halo"
               style={{
-                background:
-                  "linear-gradient(120deg, #14F195, #00C8FF, #9945FF, #14F195)",
+                background: "linear-gradient(120deg, #14F195, #00C8FF, #9945FF, #14F195)",
               }}
               aria-hidden
             />
@@ -804,9 +790,17 @@ export default function LandingPage() {
               <div className="h-8 w-px bg-white/10 hidden md:block" aria-hidden />
               {(
                 [
-                  { src: "/partners/solana.svg",    alt: "Solana",    href: "https://solana.com" },
-                  { src: "/partners/colosseum.svg", alt: "Colosseum", href: "https://www.colosseum.com" },
-                  { src: "/partners/kamino.svg",    alt: "Kamino",    href: "https://app.kamino.finance" },
+                  { src: "/partners/solana.svg", alt: "Solana", href: "https://solana.com" },
+                  {
+                    src: "/partners/colosseum.svg",
+                    alt: "Colosseum",
+                    href: "https://www.colosseum.com",
+                  },
+                  {
+                    src: "/partners/kamino.svg",
+                    alt: "Kamino",
+                    href: "https://app.kamino.finance",
+                  },
                 ] as const
               ).map((p) => (
                 <a
@@ -848,9 +842,21 @@ export default function LandingPage() {
               {t("landing.footer.protocol")}
             </h4>
             <ul className="text-gray-500 space-y-3 md:space-y-4 text-xs md:text-sm">
-              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.savings")}</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.score")}</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.audit")}</a></li>
+              <li>
+                <a href="#" className="hover:text-white transition-colors">
+                  {t("landing.footer.link.savings")}
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white transition-colors">
+                  {t("landing.footer.link.score")}
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white transition-colors">
+                  {t("landing.footer.link.audit")}
+                </a>
+              </li>
             </ul>
           </div>
           <div>
@@ -871,8 +877,16 @@ export default function LandingPage() {
                   {t("landing.footer.link.twitter")}
                 </a>
               </li>
-              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.discord")}</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">{t("landing.footer.link.github")}</a></li>
+              <li>
+                <a href="#" className="hover:text-white transition-colors">
+                  {t("landing.footer.link.discord")}
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white transition-colors">
+                  {t("landing.footer.link.github")}
+                </a>
+              </li>
             </ul>
           </div>
         </div>

@@ -107,18 +107,10 @@ function CarteiraContent() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            type="button"
-            style={btnSoft}
-            onClick={() => setReceiveOpen(true)}
-          >
+          <button type="button" style={btnSoft} onClick={() => setReceiveOpen(true)}>
             {t("wallet.receive")}
           </button>
-          <button
-            type="button"
-            style={btnPrimary}
-            onClick={() => setSendOpen(true)}
-          >
+          <button type="button" style={btnPrimary} onClick={() => setSendOpen(true)}>
             {t("wallet.send")}
           </button>
         </div>
@@ -135,10 +127,10 @@ function CarteiraContent() {
       >
         {ALL_TABS.map((id) => {
           const labels: Record<Tab, string> = {
-            overview:     t("wallet.tab.overview"),
-            positions:    t("wallet.tab.positions"),
+            overview: t("wallet.tab.overview"),
+            positions: t("wallet.tab.positions"),
             transactions: t("wallet.tab.transactions"),
-            connections:  t("wallet.tab.connections"),
+            connections: t("wallet.tab.connections"),
           };
           const active = tab === id;
           return (
@@ -171,8 +163,7 @@ function CarteiraContent() {
                     borderRadius: 999,
                     background: `${tokens.green}22`,
                     color: tokens.green,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontWeight: 600,
                   }}
                 >
@@ -184,9 +175,7 @@ function CarteiraContent() {
         })}
       </div>
 
-      {tab === "overview" && (
-        <WalletOverview onSeeAllTx={() => setTab("transactions")} />
-      )}
+      {tab === "overview" && <WalletOverview onSeeAllTx={() => setTab("transactions")} />}
       {tab === "positions" && (
         <div style={{ marginTop: 20 }}>
           <PositionsList />
@@ -199,10 +188,7 @@ function CarteiraContent() {
       )}
       {tab === "connections" && <WalletConnections />}
 
-      <ReceiveModal
-        open={receiveOpen}
-        onClose={() => setReceiveOpen(false)}
-      />
+      <ReceiveModal open={receiveOpen} onClose={() => setReceiveOpen(false)} />
       <SendModal open={sendOpen} onClose={() => setSendOpen(false)} />
     </div>
   );

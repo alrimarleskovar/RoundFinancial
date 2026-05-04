@@ -12,14 +12,8 @@
  * `identity_record` (see core::cpi::reputation).
  */
 
-import {
-  Keypair,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js";
-import {
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
 
 import { ATTESTATION_SCHEMA } from "@roundfi/sdk";
@@ -52,15 +46,12 @@ export interface ContributeOpts {
   schemaId?: number;
 }
 
-export async function contribute(
-  env: Env,
-  opts: ContributeOpts,
-): Promise<string> {
+export async function contribute(env: Env, opts: ContributeOpts): Promise<string> {
   const schemaId = opts.schemaId ?? ATTESTATION_SCHEMA.Payment;
   const nonce = attestationNonce(opts.cycle, opts.member.slotIndex);
   const attestation = attestationFor(
     env,
-    opts.pool.pool,              // issuer
+    opts.pool.pool, // issuer
     opts.member.wallet.publicKey, // subject
     schemaId,
     nonce,
@@ -101,10 +92,7 @@ export interface ClaimPayoutOpts {
   cycle: number;
 }
 
-export async function claimPayout(
-  env: Env,
-  opts: ClaimPayoutOpts,
-): Promise<string> {
+export async function claimPayout(env: Env, opts: ClaimPayoutOpts): Promise<string> {
   const nonce = attestationNonce(opts.cycle, opts.member.slotIndex);
   const attestation = attestationFor(
     env,
@@ -144,10 +132,7 @@ export interface ReleaseEscrowOpts {
   checkpoint: number;
 }
 
-export async function releaseEscrow(
-  env: Env,
-  opts: ReleaseEscrowOpts,
-): Promise<string> {
+export async function releaseEscrow(env: Env, opts: ReleaseEscrowOpts): Promise<string> {
   return (env.programs.core.methods as any)
     .releaseEscrow({ checkpoint: opts.checkpoint })
     .accounts({
@@ -170,37 +155,34 @@ export async function releaseEscrow(
 export interface DepositIdleOpts {
   pool: PoolHandle;
   amount: bigint;
-  caller?: Keypair;     // anyone can crank; defaults to env.payer
+  caller?: Keypair; // anyone can crank; defaults to env.payer
 }
 
-export async function depositIdleToYield(
-  env: Env,
-  opts: DepositIdleOpts,
-): Promise<string> {
+export async function depositIdleToYield(env: Env, opts: DepositIdleOpts): Promise<string> {
   const caller = opts.caller ?? env.payer;
   const mockState = yieldMockStatePda(env, opts.pool.pool);
   // Pass the MOCK's vault ATA as yield_vault — not the core-side
   // PoolHandle.yieldVault (that one stays empty in the mock setup).
   const mockVault = yieldMockVault(env, opts.pool.pool, opts.pool.usdcMint);
 
-  return (env.programs.core.methods as any)
-    .depositIdleToYield({ amount: new BN(opts.amount.toString()) })
-    .accounts({
-      caller: caller.publicKey,
-      config: configPda(env),
-      pool: opts.pool.pool,
-      usdcMint: opts.pool.usdcMint,
-      poolUsdcVault: opts.pool.poolUsdcVault,
-      yieldVault: mockVault,
-      yieldAdapterProgram: env.ids.yieldMock,
-      tokenProgram: TOKEN_PROGRAM_ID,
-    })
-    // The mock needs its `state` PDA as the sole remaining account.
-    .remainingAccounts([
-      { pubkey: mockState, isSigner: false, isWritable: true },
-    ])
-    .signers([caller])
-    .rpc();
+  return (
+    (env.programs.core.methods as any)
+      .depositIdleToYield({ amount: new BN(opts.amount.toString()) })
+      .accounts({
+        caller: caller.publicKey,
+        config: configPda(env),
+        pool: opts.pool.pool,
+        usdcMint: opts.pool.usdcMint,
+        poolUsdcVault: opts.pool.poolUsdcVault,
+        yieldVault: mockVault,
+        yieldAdapterProgram: env.ids.yieldMock,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      // The mock needs its `state` PDA as the sole remaining account.
+      .remainingAccounts([{ pubkey: mockState, isSigner: false, isWritable: true }])
+      .signers([caller])
+      .rpc()
+  );
 }
 
 // ─── harvest_yield ─────────────────────────────────────────────────────
@@ -219,10 +201,7 @@ export interface HarvestYieldOpts {
   caller?: Keypair;
 }
 
-export async function harvestYield(
-  env: Env,
-  opts: HarvestYieldOpts,
-): Promise<string> {
+export async function harvestYield(env: Env, opts: HarvestYieldOpts): Promise<string> {
   const caller = opts.caller ?? env.payer;
   const mockState = yieldMockStatePda(env, opts.pool.pool);
   const mockVault = yieldMockVault(env, opts.pool.pool, opts.pool.usdcMint);
@@ -258,13 +237,10 @@ export async function harvestYield(
 
 export interface ClosePoolOpts {
   pool: PoolHandle;
-  authority?: Keypair;    // defaults to pool.authority
+  authority?: Keypair; // defaults to pool.authority
 }
 
-export async function closePool(
-  env: Env,
-  opts: ClosePoolOpts,
-): Promise<string> {
+export async function closePool(env: Env, opts: ClosePoolOpts): Promise<string> {
   const authority = opts.authority ?? opts.pool.authority;
   return (env.programs.core.methods as any)
     .closePool()
@@ -286,13 +262,10 @@ export interface SettleDefaultOpts {
   pool: PoolHandle;
   defaulter: MemberHandle;
   cycle: number;
-  caller?: Keypair;    // defaults to env.payer
+  caller?: Keypair; // defaults to env.payer
 }
 
-export async function settleDefault(
-  env: Env,
-  opts: SettleDefaultOpts,
-): Promise<string> {
+export async function settleDefault(env: Env, opts: SettleDefaultOpts): Promise<string> {
   const caller = opts.caller ?? env.payer;
   const nonce = attestationNonce(opts.cycle, opts.defaulter.slotIndex);
   const attestation = attestationFor(
@@ -343,11 +316,7 @@ export async function escapeValveList(
   opts: EscapeValveListOpts,
 ): Promise<{ signature: string; listing: PublicKey }> {
   const [listing] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("listing"),
-      opts.pool.pool.toBuffer(),
-      Uint8Array.of(opts.seller.slotIndex),
-    ],
+    [Buffer.from("listing"), opts.pool.pool.toBuffer(), Uint8Array.of(opts.seller.slotIndex)],
     env.ids.core,
   );
 
@@ -381,10 +350,7 @@ export interface EscapeValveBuyOpts {
   listing: PublicKey;
 }
 
-export async function escapeValveBuy(
-  env: Env,
-  opts: EscapeValveBuyOpts,
-): Promise<string> {
+export async function escapeValveBuy(env: Env, opts: EscapeValveBuyOpts): Promise<string> {
   const [positionAuthority] = positionAuthorityPda(
     env.ids.core,
     opts.pool.pool,
@@ -414,4 +380,3 @@ export async function escapeValveBuy(
     .signers([opts.buyer])
     .rpc();
 }
-

@@ -34,19 +34,25 @@ export function GroupDetailsModal({
 
   const tc = ((): string => {
     switch (group.tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   })();
 
   const fillPct = (group.filled / group.total) * 100;
-  const groupEvents = events.filter((e) =>
-    e.target.toLowerCase().includes(group.name.toLowerCase()) ||
-    (group.name.toLowerCase().includes("·") &&
-      e.target.toLowerCase().includes(group.name.split("·")[0]!.trim().toLowerCase()))
+  const groupEvents = events.filter(
+    (e) =>
+      e.target.toLowerCase().includes(group.name.toLowerCase()) ||
+      (group.name.toLowerCase().includes("·") &&
+        e.target.toLowerCase().includes(group.name.split("·")[0]!.trim().toLowerCase())),
   );
 
   return (
@@ -250,8 +256,7 @@ export function GroupDetailsModal({
                 <span>{kindLabel(e.kind, t)}</span>
                 <span
                   style={{
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     color: e.amountBrl >= 0 ? tokens.green : tokens.text,
                     fontWeight: 600,
                   }}
@@ -292,12 +297,18 @@ export function GroupDetailsModal({
 
 function kindLabel(kind: string, t: (k: string) => string): string {
   switch (kind) {
-    case "payment": return t("groups.details.act.payment");
-    case "purchase": return t("groups.details.act.purchase");
-    case "sale": return t("groups.details.act.sale");
-    case "join": return t("groups.details.act.join");
-    case "yield": return t("groups.details.act.yield");
-    default: return kind;
+    case "payment":
+      return t("groups.details.act.payment");
+    case "purchase":
+      return t("groups.details.act.purchase");
+    case "sale":
+      return t("groups.details.act.sale");
+    case "join":
+      return t("groups.details.act.join");
+    case "yield":
+      return t("groups.details.act.yield");
+    default:
+      return kind;
   }
 }
 

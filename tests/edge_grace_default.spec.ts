@@ -40,11 +40,7 @@
 import { expect } from "chai";
 import { BN } from "@coral-xyz/anchor";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import {
-  AccountLayout,
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-} from "@solana/spl-token";
+import { AccountLayout, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
 import {
   escrowVaultAuthorityPda,
@@ -71,39 +67,36 @@ import {
 
 const GRACE_PERIOD_SECS = 604_800n;
 
-const MEMBERS_TARGET      = 3;
-const CYCLES_TOTAL        = 3;
-const CYCLE_DURATION_SEC  = 60n;
-const INSTALLMENT         = 1_000_000_000n; // 1_000 USDC
-const CREDIT              = 3_000_000_000n; // 3_000 USDC == 3 × installment
-const STAKE_INITIAL       = 1_500_000_000n; // 50% of credit (Level-1)
-const ESCROW_DEPOSITED    =   250_000_000n; // one installment × 25%
+const MEMBERS_TARGET = 3;
+const CYCLES_TOTAL = 3;
+const CYCLE_DURATION_SEC = 60n;
+const INSTALLMENT = 1_000_000_000n; // 1_000 USDC
+const CREDIT = 3_000_000_000n; // 3_000 USDC == 3 × installment
+const STAKE_INITIAL = 1_500_000_000n; // 50% of credit (Level-1)
+const ESCROW_DEPOSITED = 250_000_000n; // one installment × 25%
 
-const SOLIDARITY_BALANCE  =    50_000_000n; // 50 USDC pre-seed
-const ESCROW_VAULT_BAL    = STAKE_INITIAL + ESCROW_DEPOSITED; // 1_750 USDC
-const POOL_VAULT_INITIAL  =             0n;
+const SOLIDARITY_BALANCE = 50_000_000n; // 50 USDC pre-seed
+const ESCROW_VAULT_BAL = STAKE_INITIAL + ESCROW_DEPOSITED; // 1_750 USDC
+const POOL_VAULT_INITIAL = 0n;
 
 // Fixed simulated unix time representing pool.next_cycle_at.
 // ~ 2027-01-15 UTC — safely in the future even for slow CI clocks.
-const NEXT_CYCLE_AT       = 1_800_000_000n;
+const NEXT_CYCLE_AT = 1_800_000_000n;
 
-const POOL_SEED_ID        = 999n;
+const POOL_SEED_ID = 999n;
 
 // Defaulter state on the chain before settle_default:
 //   contributions_paid = 1  (paid cycle 0 only)
 //   pool.current_cycle = 2  (cycle has advanced — defaulter is behind
 //                            by missing cycle 1's installment)
 // Caller passes args.cycle = 2 per the `cycle == current_cycle` guard.
-const CONTRIBUTIONS_PAID  = 1;
-const CURRENT_CYCLE       = 2;
-const DEFAULT_CYCLE_ARG   = 2;
+const CONTRIBUTIONS_PAID = 1;
+const CURRENT_CYCLE = 2;
+const DEFAULT_CYCLE_ARG = 2;
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-async function readTokenBalance(
-  env: BankrunEnv,
-  ata: PublicKey,
-): Promise<bigint> {
+async function readTokenBalance(env: BankrunEnv, ata: PublicKey): Promise<bigint> {
   const info = await env.context.banksClient.getAccount(ata);
   if (!info) {
     throw new Error(`token account not found: ${ata.toBase58()}`);
@@ -121,24 +114,28 @@ describe("edge — grace-period default (bankrun setClock)", function () {
 
   // Fabricated identities. None of these wallets need to sign — the
   // only signer is the bankrun payer (acting as `caller`).
-  const poolAuthority    = Keypair.generate();
-  const defaulterWallet  = Keypair.generate();
-  const nftAsset         = Keypair.generate();
-  const treasury         = Keypair.generate();
-  const metaplexCore     = new PublicKey(
-    "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
-  );
+  const poolAuthority = Keypair.generate();
+  const defaulterWallet = Keypair.generate();
+  const nftAsset = Keypair.generate();
+  const treasury = Keypair.generate();
+  const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
   // The USDC mint we fabricate — any fresh pubkey.
   const usdcMint = Keypair.generate().publicKey;
 
   // Derived addresses (filled in before()).
-  let configPk: PublicKey;             let configBump: number;
-  let poolPk: PublicKey;               let poolBump: number;
-  let memberPk: PublicKey;             let memberBump: number;
-  let escrowVaultAuth: PublicKey;      let escrowBump: number;
-  let solidarityVaultAuth: PublicKey;  let solidarityBump: number;
-  let yieldVaultAuth: PublicKey;       let yieldBump: number;
+  let configPk: PublicKey;
+  let configBump: number;
+  let poolPk: PublicKey;
+  let poolBump: number;
+  let memberPk: PublicKey;
+  let memberBump: number;
+  let escrowVaultAuth: PublicKey;
+  let escrowBump: number;
+  let solidarityVaultAuth: PublicKey;
+  let solidarityBump: number;
+  let yieldVaultAuth: PublicKey;
+  let yieldBump: number;
   let poolUsdcVault: PublicKey;
   let escrowVault: PublicKey;
   let solidarityVault: PublicKey;
@@ -147,15 +144,15 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     env = await setupBankrunEnv();
 
     // ─── Derive PDAs + ATAs ──────────────────────────────────────────
-    [configPk, configBump]           = protocolConfigPda(env.ids.core);
-    [poolPk,   poolBump]             = poolPda(env.ids.core, poolAuthority.publicKey, POOL_SEED_ID);
-    [memberPk, memberBump]           = memberPda(env.ids.core, poolPk, defaulterWallet.publicKey);
-    [escrowVaultAuth, escrowBump]    = escrowVaultAuthorityPda(env.ids.core, poolPk);
+    [configPk, configBump] = protocolConfigPda(env.ids.core);
+    [poolPk, poolBump] = poolPda(env.ids.core, poolAuthority.publicKey, POOL_SEED_ID);
+    [memberPk, memberBump] = memberPda(env.ids.core, poolPk, defaulterWallet.publicKey);
+    [escrowVaultAuth, escrowBump] = escrowVaultAuthorityPda(env.ids.core, poolPk);
     [solidarityVaultAuth, solidarityBump] = solidarityVaultAuthorityPda(env.ids.core, poolPk);
-    [yieldVaultAuth, yieldBump]      = yieldVaultAuthorityPda(env.ids.core, poolPk);
+    [yieldVaultAuth, yieldBump] = yieldVaultAuthorityPda(env.ids.core, poolPk);
 
-    poolUsdcVault   = getAssociatedTokenAddressSync(usdcMint, poolPk, true);
-    escrowVault     = getAssociatedTokenAddressSync(usdcMint, escrowVaultAuth, true);
+    poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, poolPk, true);
+    escrowVault = getAssociatedTokenAddressSync(usdcMint, escrowVaultAuth, true);
     solidarityVault = getAssociatedTokenAddressSync(usdcMint, solidarityVaultAuth, true);
 
     // ─── Seed the USDC mint ──────────────────────────────────────────
@@ -166,13 +163,19 @@ describe("edge — grace-period default (bankrun setClock)", function () {
 
     // ─── Seed the three pool token vaults ────────────────────────────
     writeTokenAccount(env.context, poolUsdcVault, {
-      mint: usdcMint, owner: poolPk, amount: POOL_VAULT_INITIAL,
+      mint: usdcMint,
+      owner: poolPk,
+      amount: POOL_VAULT_INITIAL,
     });
     writeTokenAccount(env.context, escrowVault, {
-      mint: usdcMint, owner: escrowVaultAuth, amount: ESCROW_VAULT_BAL,
+      mint: usdcMint,
+      owner: escrowVaultAuth,
+      amount: ESCROW_VAULT_BAL,
     });
     writeTokenAccount(env.context, solidarityVault, {
-      mint: usdcMint, owner: solidarityVaultAuth, amount: SOLIDARITY_BALANCE,
+      mint: usdcMint,
+      owner: solidarityVaultAuth,
+      amount: SOLIDARITY_BALANCE,
     });
 
     // ─── Seed ProtocolConfig ─────────────────────────────────────────
@@ -180,79 +183,81 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     // skip its reputation CPI — exactly the branch we want for an
     // isolated grace-period test.
     await writeAnchorAccount(env.context, env.programs.core, "protocolConfig", configPk, {
-      authority:           env.payer.publicKey,
-      treasury:            treasury.publicKey,
+      authority: env.payer.publicKey,
+      treasury: treasury.publicKey,
       usdcMint,
       metaplexCore,
       defaultYieldAdapter: env.ids.yieldMock,
-      reputationProgram:   PublicKey.default,
-      feeBpsYield:         2_000,
-      feeBpsCycleL1:       200,
-      feeBpsCycleL2:       100,
-      feeBpsCycleL3:       0,
-      guaranteeFundBps:    15_000,
-      paused:              false,
-      bump:                configBump,
+      reputationProgram: PublicKey.default,
+      feeBpsYield: 2_000,
+      feeBpsCycleL1: 200,
+      feeBpsCycleL2: 100,
+      feeBpsCycleL3: 0,
+      guaranteeFundBps: 15_000,
+      paused: false,
+      bump: configBump,
     });
 
     // ─── Seed Pool (Active, current_cycle=2, next_cycle_at=T0) ───────
     await writeAnchorAccount(env.context, env.programs.core, "pool", poolPk, {
-      authority:                poolAuthority.publicKey,
-      seedId:                   new BN(POOL_SEED_ID.toString()),
+      authority: poolAuthority.publicKey,
+      seedId: new BN(POOL_SEED_ID.toString()),
       usdcMint,
-      yieldAdapter:             env.ids.yieldMock,
-      membersTarget:            MEMBERS_TARGET,
-      installmentAmount:        new BN(INSTALLMENT.toString()),
-      creditAmount:             new BN(CREDIT.toString()),
-      cyclesTotal:              CYCLES_TOTAL,
-      cycleDuration:            new BN(CYCLE_DURATION_SEC.toString()),
-      seedDrawBps:              9_160,
-      solidarityBps:            100,
-      escrowReleaseBps:         2_500,
-      membersJoined:            MEMBERS_TARGET,
-      status:                   1, // Active
-      startedAt:                new BN((NEXT_CYCLE_AT - CYCLE_DURATION_SEC * BigInt(CURRENT_CYCLE + 1)).toString()),
-      currentCycle:             CURRENT_CYCLE,
-      nextCycleAt:              new BN(NEXT_CYCLE_AT.toString()),
-      totalContributed:         new BN(0),
-      totalPaidOut:             new BN(0),
-      solidarityBalance:        new BN(SOLIDARITY_BALANCE.toString()),
-      escrowBalance:            new BN(ESCROW_VAULT_BAL.toString()),
-      yieldAccrued:             new BN(0),
-      guaranteeFundBalance:     new BN(0),
-      totalProtocolFeeAccrued:  new BN(0),
-      yieldPrincipalDeposited:  new BN(0),
-      defaultedMembers:         0,
-      slotsBitmap:              Buffer.from([0x07, 0, 0, 0, 0, 0, 0, 0]),
-      bump:                     poolBump,
-      escrowVaultBump:          escrowBump,
-      solidarityVaultBump:      solidarityBump,
-      yieldVaultBump:           yieldBump,
+      yieldAdapter: env.ids.yieldMock,
+      membersTarget: MEMBERS_TARGET,
+      installmentAmount: new BN(INSTALLMENT.toString()),
+      creditAmount: new BN(CREDIT.toString()),
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDuration: new BN(CYCLE_DURATION_SEC.toString()),
+      seedDrawBps: 9_160,
+      solidarityBps: 100,
+      escrowReleaseBps: 2_500,
+      membersJoined: MEMBERS_TARGET,
+      status: 1, // Active
+      startedAt: new BN(
+        (NEXT_CYCLE_AT - CYCLE_DURATION_SEC * BigInt(CURRENT_CYCLE + 1)).toString(),
+      ),
+      currentCycle: CURRENT_CYCLE,
+      nextCycleAt: new BN(NEXT_CYCLE_AT.toString()),
+      totalContributed: new BN(0),
+      totalPaidOut: new BN(0),
+      solidarityBalance: new BN(SOLIDARITY_BALANCE.toString()),
+      escrowBalance: new BN(ESCROW_VAULT_BAL.toString()),
+      yieldAccrued: new BN(0),
+      guaranteeFundBalance: new BN(0),
+      totalProtocolFeeAccrued: new BN(0),
+      yieldPrincipalDeposited: new BN(0),
+      defaultedMembers: 0,
+      slotsBitmap: Buffer.from([0x07, 0, 0, 0, 0, 0, 0, 0]),
+      bump: poolBump,
+      escrowVaultBump: escrowBump,
+      solidarityVaultBump: solidarityBump,
+      yieldVaultBump: yieldBump,
     });
 
     // ─── Seed the defaulter's Member record ──────────────────────────
     await writeAnchorAccount(env.context, env.programs.core, "member", memberPk, {
-      pool:                      poolPk,
-      wallet:                    defaulterWallet.publicKey,
-      nftAsset:                  nftAsset.publicKey,
-      slotIndex:                 2,
-      reputationLevel:           1,
-      stakeBps:                  5_000,
-      stakeDeposited:            new BN(STAKE_INITIAL.toString()),
-      contributionsPaid:         CONTRIBUTIONS_PAID,
-      totalContributed:          new BN(INSTALLMENT.toString()),
-      totalReceived:             new BN(0),
-      escrowBalance:             new BN(ESCROW_DEPOSITED.toString()),
-      onTimeCount:               1,
-      lateCount:                 0,
-      defaulted:                 false,
-      paidOut:                   false,
-      lastReleasedCheckpoint:    0,
-      joinedAt:                  new BN((NEXT_CYCLE_AT - 120n).toString()),
-      stakeDepositedInitial:     new BN(STAKE_INITIAL.toString()),
-      totalEscrowDeposited:      new BN(ESCROW_DEPOSITED.toString()),
-      lastTransferredAt:         new BN(0),
-      bump:                      memberBump,
+      pool: poolPk,
+      wallet: defaulterWallet.publicKey,
+      nftAsset: nftAsset.publicKey,
+      slotIndex: 2,
+      reputationLevel: 1,
+      stakeBps: 5_000,
+      stakeDeposited: new BN(STAKE_INITIAL.toString()),
+      contributionsPaid: CONTRIBUTIONS_PAID,
+      totalContributed: new BN(INSTALLMENT.toString()),
+      totalReceived: new BN(0),
+      escrowBalance: new BN(ESCROW_DEPOSITED.toString()),
+      onTimeCount: 1,
+      lateCount: 0,
+      defaulted: false,
+      paidOut: false,
+      lastReleasedCheckpoint: 0,
+      joinedAt: new BN((NEXT_CYCLE_AT - 120n).toString()),
+      stakeDepositedInitial: new BN(STAKE_INITIAL.toString()),
+      totalEscrowDeposited: new BN(ESCROW_DEPOSITED.toString()),
+      lastTransferredAt: new BN(0),
+      bump: memberBump,
     });
   });
 
@@ -264,24 +269,24 @@ describe("edge — grace-period default (bankrun setClock)", function () {
   // used everywhere in the harness.
   function settleAccounts() {
     return {
-      caller:                 env.payer.publicKey,
-      config:                 configPk,
-      pool:                   poolPk,
-      member:                 memberPk,
-      defaultedMemberWallet:  defaulterWallet.publicKey,
+      caller: env.payer.publicKey,
+      config: configPk,
+      pool: poolPk,
+      member: memberPk,
+      defaultedMemberWallet: defaulterWallet.publicKey,
       usdcMint,
       poolUsdcVault,
       solidarityVaultAuthority: solidarityVaultAuth,
       solidarityVault,
-      escrowVaultAuthority:   escrowVaultAuth,
+      escrowVaultAuthority: escrowVaultAuth,
       escrowVault,
-      tokenProgram:           TOKEN_PROGRAM_ID,
-      reputationProgram:      env.ids.reputation,
-      reputationConfig:       env.ids.reputation,
-      reputationProfile:      env.ids.reputation,
-      identityRecord:         env.ids.reputation,
-      attestation:            env.ids.reputation,
-      systemProgram:          SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      reputationProgram: env.ids.reputation,
+      reputationConfig: env.ids.reputation,
+      reputationProfile: env.ids.reputation,
+      identityRecord: env.ids.reputation,
+      attestation: env.ids.reputation,
+      systemProgram: SystemProgram.programId,
     };
   }
 
@@ -301,11 +306,7 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     } catch (e) {
       threw = true;
       const err = e as { logs?: string[]; message?: string };
-      const haystack = [
-        ...(err.logs ?? []),
-        err.message ?? "",
-        String(e),
-      ].join("\n");
+      const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
       expect(haystack).to.match(
         /GracePeriodNotElapsed/,
         `expected GracePeriodNotElapsed, got:\n${haystack}`,
@@ -318,14 +319,11 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     // Bump the clock well past the grace deadline. Using +10s past the
     // deadline to leave no ambiguity. The specific value beyond the
     // threshold is irrelevant — only `clock >= deadline` matters.
-    await setBankrunUnixTs(
-      env.context,
-      NEXT_CYCLE_AT + GRACE_PERIOD_SECS + 10n,
-    );
+    await setBankrunUnixTs(env.context, NEXT_CYCLE_AT + GRACE_PERIOD_SECS + 10n);
 
-    const poolVaultBefore       = await readTokenBalance(env, poolUsdcVault);
+    const poolVaultBefore = await readTokenBalance(env, poolUsdcVault);
     const solidarityVaultBefore = await readTokenBalance(env, solidarityVault);
-    const escrowVaultBefore     = await readTokenBalance(env, escrowVault);
+    const escrowVaultBefore = await readTokenBalance(env, escrowVault);
 
     await (env.programs.core.methods as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -353,16 +351,22 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     const EXPECTED_SEIZED = 633_000_000n;
 
     // Token flows — pool_usdc_vault absorbs the full seizure.
-    const poolVaultAfter       = await readTokenBalance(env, poolUsdcVault);
+    const poolVaultAfter = await readTokenBalance(env, poolUsdcVault);
     const solidarityVaultAfter = await readTokenBalance(env, solidarityVault);
-    const escrowVaultAfter     = await readTokenBalance(env, escrowVault);
+    const escrowVaultAfter = await readTokenBalance(env, escrowVault);
 
-    expect(poolVaultAfter - poolVaultBefore)
-      .to.equal(EXPECTED_SEIZED, "pool vault must receive the full seized total");
-    expect(solidarityVaultBefore - solidarityVaultAfter)
-      .to.equal(50_000_000n, "solidarity vault drained by full balance");
-    expect(escrowVaultBefore - escrowVaultAfter)
-      .to.equal(583_000_000n, "escrow vault drained by escrow+stake legs (250 + 333)");
+    expect(poolVaultAfter - poolVaultBefore).to.equal(
+      EXPECTED_SEIZED,
+      "pool vault must receive the full seized total",
+    );
+    expect(solidarityVaultBefore - solidarityVaultAfter).to.equal(
+      50_000_000n,
+      "solidarity vault drained by full balance",
+    );
+    expect(escrowVaultBefore - escrowVaultAfter).to.equal(
+      583_000_000n,
+      "escrow vault drained by escrow+stake legs (250 + 333)",
+    );
 
     // Member bookkeeping — defaulted flips, escrow drains to 0,
     // stake shrinks by the D/C-capped amount.
@@ -391,19 +395,16 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     };
     expect(p.defaultedMembers).to.equal(1);
     expect(p.solidarityBalance.toString()).to.equal("0");
-    expect(p.escrowBalance.toString())
-      .to.equal((ESCROW_VAULT_BAL - 583_000_000n).toString());
+    expect(p.escrowBalance.toString()).to.equal((ESCROW_VAULT_BAL - 583_000_000n).toString());
 
     // D/C invariant on the post-seizure member state — recomputed
     // from raw member fields, identical formula to math/dc.rs:9.
     const D_init = CREDIT;
-    const D_rem  = (BigInt(CYCLES_TOTAL) - BigInt(m.contributionsPaid)) * INSTALLMENT;
-    const C_init = BigInt(m.stakeDepositedInitial.toString()) +
-                   BigInt(m.totalEscrowDeposited.toString());
-    const C_rem  = BigInt(m.stakeDeposited.toString()) +
-                   BigInt(m.escrowBalance.toString());
-    expect(D_rem * C_init <= C_rem * D_init, "D/C invariant must hold post-seizure")
-      .to.equal(true);
+    const D_rem = (BigInt(CYCLES_TOTAL) - BigInt(m.contributionsPaid)) * INSTALLMENT;
+    const C_init =
+      BigInt(m.stakeDepositedInitial.toString()) + BigInt(m.totalEscrowDeposited.toString());
+    const C_rem = BigInt(m.stakeDeposited.toString()) + BigInt(m.escrowBalance.toString());
+    expect(D_rem * C_init <= C_rem * D_init, "D/C invariant must hold post-seizure").to.equal(true);
   });
 
   it("C. second settle_default on defaulted member → DefaultedMember", async function () {
@@ -420,15 +421,8 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     } catch (e) {
       threw = true;
       const err = e as { logs?: string[]; message?: string };
-      const haystack = [
-        ...(err.logs ?? []),
-        err.message ?? "",
-        String(e),
-      ].join("\n");
-      expect(haystack).to.match(
-        /DefaultedMember/,
-        `expected DefaultedMember, got:\n${haystack}`,
-      );
+      const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+      expect(haystack).to.match(/DefaultedMember/, `expected DefaultedMember, got:\n${haystack}`);
     }
     expect(threw, "second settle_default must reject").to.equal(true);
   });

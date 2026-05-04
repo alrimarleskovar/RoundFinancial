@@ -89,8 +89,7 @@ export function ReputationPassport() {
                 border: "none",
                 cursor: "pointer",
                 padding: 0,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 10,
                 color: copied ? tokens.green : tokens.text2,
                 transition: "color 180ms ease",
@@ -107,8 +106,7 @@ export function ReputationPassport() {
               <div
                 style={{
                   marginTop: 2,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   fontSize: 9,
                   color: tokens.green,
                   letterSpacing: "0.08em",
@@ -152,8 +150,7 @@ export function ReputationPassport() {
                 fontSize: 18,
                 color: tokens.green,
                 fontWeight: 600,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               +{user.scoreDelta}
@@ -205,8 +202,7 @@ export function ReputationPassport() {
             <div style={{ fontSize: 13, color: tokens.text }}>{user.name}</div>
             <div
               style={{
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 10,
                 color: tokens.muted,
                 marginTop: 2,
@@ -215,9 +211,7 @@ export function ReputationPassport() {
               {user.handle}
             </div>
           </div>
-          <RFIPill tone="g">
-            {t("score.lvPill", { n: user.level, name: user.levelLabel })}
-          </RFIPill>
+          <RFIPill tone="g">{t("score.lvPill", { n: user.level, name: user.levelLabel })}</RFIPill>
         </div>
       </div>
     </div>

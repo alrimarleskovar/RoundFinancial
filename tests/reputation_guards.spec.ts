@@ -42,11 +42,7 @@
  */
 
 import { expect } from "chai";
-import {
-  Keypair,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import { ATTESTATION_SCHEMA } from "@roundfi/sdk";
@@ -78,16 +74,16 @@ import {
 
 // ─── Base pool parameters ─────────────────────────────────────────────
 
-const MEMBERS_TARGET     = 3;
-const CYCLES_TOTAL       = 3;
+const MEMBERS_TARGET = 3;
+const CYCLES_TOTAL = 3;
 const CYCLE_DURATION_SEC = 60;
-const INSTALLMENT_USDC   = 1_250n;
-const CREDIT_USDC        = 2_775n;
+const INSTALLMENT_USDC = 1_250n;
+const CREDIT_USDC = 2_775n;
 
-const LEVEL: 1 | 2 | 3   = 2;
+const LEVEL: 1 | 2 | 3 = 2;
 
-const INSTALLMENT_BASE   = usdc(INSTALLMENT_USDC);
-const CREDIT_BASE        = usdc(CREDIT_USDC);
+const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
+const CREDIT_BASE = usdc(CREDIT_USDC);
 
 const DELTA_PAYMENT_UNVERIFIED = 5n;
 
@@ -108,10 +104,7 @@ function bn(x: { toString(): string }): bigint {
   return BigInt(x.toString());
 }
 
-async function snapshotProfile(
-  env: Env,
-  wallet: PublicKey,
-): Promise<ProfileSnapshot> {
+async function snapshotProfile(env: Env, wallet: PublicKey): Promise<ProfileSnapshot> {
   const raw = await fetchProfile(env, wallet);
   const p = raw as unknown as {
     score: { toString(): string };
@@ -124,14 +117,14 @@ async function snapshotProfile(
     lastUpdatedAt: { toString(): string };
   };
   return {
-    score:             bn(p.score),
-    level:             p.level,
-    cyclesCompleted:   p.cyclesCompleted,
-    onTimePayments:    p.onTimePayments,
-    latePayments:      p.latePayments,
-    defaults:          p.defaults,
+    score: bn(p.score),
+    level: p.level,
+    cyclesCompleted: p.cyclesCompleted,
+    onTimePayments: p.onTimePayments,
+    latePayments: p.latePayments,
+    defaults: p.defaults,
     totalParticipated: p.totalParticipated,
-    lastUpdatedAt:     bn(p.lastUpdatedAt),
+    lastUpdatedAt: bn(p.lastUpdatedAt),
   };
 }
 
@@ -184,12 +177,12 @@ describe("reputation CPI — guards + negative paths", function () {
     poolA = await createPool(env, {
       authority: authorityA,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
 
     handlesA = await joinMembers(
@@ -227,24 +220,24 @@ describe("reputation CPI — guards + negative paths", function () {
       (env.programs.core.methods as any)
         .contribute({ cycle: 0 })
         .accounts({
-          memberWallet:             h.wallet.publicKey,
-          config:                   configPda(env),
-          pool:                     poolA.pool,
-          member:                   h.member,
+          memberWallet: h.wallet.publicKey,
+          config: configPda(env),
+          pool: poolA.pool,
+          member: h.member,
           usdcMint,
-          memberUsdc:               h.memberUsdc,
-          poolUsdcVault:            poolA.poolUsdcVault,
+          memberUsdc: h.memberUsdc,
+          poolUsdcVault: poolA.poolUsdcVault,
           solidarityVaultAuthority: poolA.solidarityVaultAuthority,
-          solidarityVault:          poolA.solidarityVault,
-          escrowVaultAuthority:     poolA.escrowVaultAuthority,
-          escrowVault:              poolA.escrowVault,
-          tokenProgram:             TOKEN_PROGRAM_ID,
-          reputationProgram:        env.ids.yieldMock,   // <<< wrong
-          reputationConfig:         reputationConfigFor(env),
-          reputationProfile:        reputationProfileFor(env, h.wallet.publicKey),
-          identityRecord:           env.ids.yieldMock,   // sentinel must match
+          solidarityVault: poolA.solidarityVault,
+          escrowVaultAuthority: poolA.escrowVaultAuthority,
+          escrowVault: poolA.escrowVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          reputationProgram: env.ids.yieldMock, // <<< wrong
+          reputationConfig: reputationConfigFor(env),
+          reputationProfile: reputationProfileFor(env, h.wallet.publicKey),
+          identityRecord: env.ids.yieldMock, // sentinel must match
           attestation,
-          systemProgram:            SystemProgram.programId,
+          systemProgram: SystemProgram.programId,
         })
         .signers([h.wallet])
         .rpc(),
@@ -307,14 +300,14 @@ describe("reputation CPI — guards + negative paths", function () {
   // ─── 3. Invalid schema via admin path ───────────────────────────────
 
   it("admin attest with unknown schema (99) → InvalidSchema, profile unchanged", async function () {
-    const h = handlesA[1]!;          // different member so we don't tangle with #2
+    const h = handlesA[1]!; // different member so we don't tangle with #2
     const before = await snapshotProfile(env, h.wallet.publicKey);
 
     const msg = await expectRejected(() =>
       adminAttest(env, {
-        subject:  h.wallet.publicKey,
+        subject: h.wallet.publicKey,
         schemaId: 99,
-        nonce:    0xdead0001n,
+        nonce: 0xdead0001n,
       }),
     );
     expect(msg, `message: ${msg}`).to.match(/InvalidSchema|schema/i);
@@ -342,10 +335,10 @@ describe("reputation CPI — guards + negative paths", function () {
 
     const msg = await expectRejected(() =>
       adminAttest(env, {
-        subject:  h.wallet.publicKey,
+        subject: h.wallet.publicKey,
         schemaId: SCHEMA.Payment,
-        nonce:    0xdead0002n,
-        issuer:   rogue,
+        nonce: 0xdead0002n,
+        issuer: rogue,
       }),
     );
     expect(msg, `message: ${msg}`).to.match(/InvalidIssuer|issuer/i);
@@ -358,13 +351,13 @@ describe("reputation CPI — guards + negative paths", function () {
 
   describe("cross-pool isolation", function () {
     const sharedMember = Keypair.generate();
-    const companionB   = Keypair.generate();
-    const authorityB   = Keypair.generate();
-    const companionA   = memberKeypairs(1, "repguards/companionA")[0]!;
-    const authorityC   = Keypair.generate();
+    const companionB = Keypair.generate();
+    const authorityB = Keypair.generate();
+    const companionA = memberKeypairs(1, "repguards/companionA")[0]!;
+    const authorityC = Keypair.generate();
 
-    let poolX: PoolHandle;   // pool with sharedMember + companionA
-    let poolY: PoolHandle;   // pool with sharedMember + companionB
+    let poolX: PoolHandle; // pool with sharedMember + companionA
+    let poolY: PoolHandle; // pool with sharedMember + companionB
 
     let sharedInX: MemberHandle;
     let sharedInY: MemberHandle;
@@ -378,34 +371,34 @@ describe("reputation CPI — guards + negative paths", function () {
       poolX = await createPool(env, {
         authority: authorityB,
         usdcMint,
-        membersTarget:     2,
+        membersTarget: 2,
         installmentAmount: INSTALLMENT_BASE,
         // credit <= pool_float_per_inst = 925 × 2 = 1_850
-        creditAmount:      usdc(1_800n),
-        cyclesTotal:       2,
-        cycleDurationSec:  CYCLE_DURATION_SEC,
-        escrowReleaseBps:  2_500,
+        creditAmount: usdc(1_800n),
+        cyclesTotal: 2,
+        cycleDurationSec: CYCLE_DURATION_SEC,
+        escrowReleaseBps: 2_500,
       });
       // sharedMember first (slot 0), companionA second (slot 1).
       const handlesX = await joinMembers(env, poolX, [
         { member: sharedMember, reputationLevel: LEVEL },
-        { member: companionA,   reputationLevel: LEVEL },
+        { member: companionA, reputationLevel: LEVEL },
       ]);
       sharedInX = handlesX[0]!;
 
       poolY = await createPool(env, {
         authority: authorityC,
         usdcMint,
-        membersTarget:     2,
+        membersTarget: 2,
         installmentAmount: INSTALLMENT_BASE,
-        creditAmount:      usdc(1_800n),
-        cyclesTotal:       2,
-        cycleDurationSec:  CYCLE_DURATION_SEC,
-        escrowReleaseBps:  2_500,
+        creditAmount: usdc(1_800n),
+        cyclesTotal: 2,
+        cycleDurationSec: CYCLE_DURATION_SEC,
+        escrowReleaseBps: 2_500,
       });
       const handlesY = await joinMembers(env, poolY, [
         { member: sharedMember, reputationLevel: LEVEL },
-        { member: companionB,   reputationLevel: LEVEL },
+        { member: companionB, reputationLevel: LEVEL },
       ]);
       sharedInY = handlesY[0]!;
 
@@ -419,10 +412,18 @@ describe("reputation CPI — guards + negative paths", function () {
 
       const nonce = attestationNonce(0, 0);
       const pdaX = attestationFor(
-        env, poolX.pool, sharedMember.publicKey, ATTESTATION_SCHEMA.Payment, nonce,
+        env,
+        poolX.pool,
+        sharedMember.publicKey,
+        ATTESTATION_SCHEMA.Payment,
+        nonce,
       );
       const pdaY = attestationFor(
-        env, poolY.pool, sharedMember.publicKey, ATTESTATION_SCHEMA.Payment, nonce,
+        env,
+        poolY.pool,
+        sharedMember.publicKey,
+        ATTESTATION_SCHEMA.Payment,
+        nonce,
       );
       expect(pdaX.toBase58()).to.not.equal(pdaY.toBase58());
 
@@ -460,7 +461,10 @@ describe("reputation CPI — guards + negative paths", function () {
 
       // Pool Y's attestation PDA still exists.
       const pdaY = attestationFor(
-        env, poolY.pool, sharedMember.publicKey, ATTESTATION_SCHEMA.Payment,
+        env,
+        poolY.pool,
+        sharedMember.publicKey,
+        ATTESTATION_SCHEMA.Payment,
         attestationNonce(0, 0),
       );
       const infoY = await env.connection.getAccountInfo(pdaY, "confirmed");

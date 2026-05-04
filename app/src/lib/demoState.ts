@@ -10,20 +10,20 @@ import { useReducer, useCallback, type Dispatch } from "react";
 
 export interface DemoUser {
   name: string;
-  avatar: string;       // initials (auto-derived if blank)
+  avatar: string; // initials (auto-derived if blank)
   level: 1 | 2 | 3;
   score: number;
-  balance: number;      // BRL
-  yield: number;        // BRL
+  balance: number; // BRL
+  yield: number; // BRL
 }
 
 export interface DemoGroup {
-  carta: number;          // credit letter face value (BRL)
-  months: number;         // total cycle length
-  installment: number;    // BRL/month — derived but editable
+  carta: number; // credit letter face value (BRL)
+  months: number; // total cycle length
+  installment: number; // BRL/month — derived but editable
   contemplationMonth: number; // 1..months (when this user wins the prize)
   members: number;
-  yieldApy: number;       // % APY for ambient Kamino accrual
+  yieldApy: number; // % APY for ambient Kamino accrual
 }
 
 export type DemoEventKind =
@@ -38,19 +38,19 @@ export type DemoEventKind =
 export interface DemoEvent {
   id: string;
   kind: DemoEventKind;
-  ts: number;            // ms
-  label: string;         // pre-formatted for the activity log
-  amount: number;        // BRL; positive = inflow, negative = outflow
+  ts: number; // ms
+  label: string; // pre-formatted for the activity log
+  amount: number; // BRL; positive = inflow, negative = outflow
 }
 
 export interface DemoState {
   user: DemoUser;
   group: DemoGroup;
-  currentMonth: number;  // 0 = pre-cycle; 1..months = cycle months
+  currentMonth: number; // 0 = pre-cycle; 1..months = cycle months
   contemplated: boolean;
   defaulted: boolean;
   exitedViaValve: boolean;
-  monthsPaid: number;    // count of installments paid this cycle
+  monthsPaid: number; // count of installments paid this cycle
   events: DemoEvent[];
 }
 
@@ -68,7 +68,7 @@ export const DEFAULT_DEMO_STATE: DemoState = {
   group: {
     carta: 10000,
     months: 12,
-    installment: 833,    // 10000/12 ≈ 833
+    installment: 833, // 10000/12 ≈ 833
     contemplationMonth: 4,
     members: 12,
     yieldApy: 6.8,
@@ -285,10 +285,7 @@ function pushEvent(
   label: string,
   amount: number,
 ): DemoEvent[] {
-  return [
-    { id: makeId(), kind, ts: Date.now(), label, amount },
-    ...state.events,
-  ];
+  return [{ id: makeId(), kind, ts: Date.now(), label, amount }, ...state.events];
 }
 
 function reducer(state: DemoState, action: Action): DemoState {
@@ -359,10 +356,7 @@ function reducer(state: DemoState, action: Action): DemoState {
       // Walk forward month-by-month until contemplation, accumulating
       // events naturally. Keeps the activity log honest for video.
       let cur: DemoState = state;
-      while (
-        !cur.contemplated &&
-        cur.currentMonth < cur.group.contemplationMonth
-      ) {
+      while (!cur.contemplated && cur.currentMonth < cur.group.contemplationMonth) {
         cur = reducer(cur, { type: "ADVANCE_MONTH" });
       }
       return cur;
@@ -432,12 +426,7 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         exitedViaValve: true,
         user: { ...state.user, balance: state.user.balance + ask },
-        events: pushEvent(
-          state,
-          "sale",
-          `Válvula de Escape · cota vendida por ${ask} (-12%)`,
-          ask,
-        ),
+        events: pushEvent(state, "sale", `Válvula de Escape · cota vendida por ${ask} (-12%)`, ask),
       };
     }
 
@@ -510,10 +499,7 @@ export function useDemoState(): DemoController {
     setGroup: useCallback((patch) => dispatch({ type: "SET_GROUP", patch }), []),
     advanceMonth: useCallback(() => dispatch({ type: "ADVANCE_MONTH" }), []),
     rewindMonth: useCallback(() => dispatch({ type: "REWIND_MONTH" }), []),
-    jumpToContemplation: useCallback(
-      () => dispatch({ type: "JUMP_TO_CONTEMPLATION" }),
-      [],
-    ),
+    jumpToContemplation: useCallback(() => dispatch({ type: "JUMP_TO_CONTEMPLATION" }), []),
     payInstallment: useCallback(() => dispatch({ type: "PAY_INSTALLMENT" }), []),
     contemplate: useCallback(() => dispatch({ type: "CONTEMPLATE" }), []),
     triggerDefault: useCallback(() => dispatch({ type: "DEFAULT" }), []),

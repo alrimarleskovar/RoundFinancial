@@ -32,8 +32,8 @@ export interface MockHandle {
 }
 
 const USDC_UNIT = 1_000_000n;
-const SOLIDARITY_BPS = 100n;       // 1% to solidarity vault
-const ESCROW_BPS     = 2_500n;     // 25% to escrow
+const SOLIDARITY_BPS = 100n; // 1% to solidarity vault
+const ESCROW_BPS = 2_500n; // 25% to escrow
 // pool_float = 10_000 - solidarity - escrow = 74%
 
 function stakePerMemberL1(credit: bigint): bigint {
@@ -237,11 +237,8 @@ export function runMockDemo(
       });
 
       const isDefaultCycle =
-        config.defaultScenario !== undefined &&
-        config.defaultScenario.atCycle === c;
-      const defaulterSlot = isDefaultCycle
-        ? config.defaultScenario!.memberSlotIndex
-        : -1;
+        config.defaultScenario !== undefined && config.defaultScenario.atCycle === c;
+      const defaulterSlot = isDefaultCycle ? config.defaultScenario!.memberSlotIndex : -1;
 
       if (isDefaultCycle) {
         emit({
@@ -370,8 +367,8 @@ export function runMockDemo(
     if (config.defaultScenario) {
       notes.push(
         `Default scenario: ${members[config.defaultScenario.memberSlotIndex]?.name} ` +
-        `skipped cycle ${config.defaultScenario.atCycle}. Full economic recovery is ` +
-        `validated in the bankrun edge suite.`,
+          `skipped cycle ${config.defaultScenario.atCycle}. Full economic recovery is ` +
+          `validated in the bankrun edge suite.`,
       );
     }
     notes.push("Pool closed cleanly.");

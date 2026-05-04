@@ -82,17 +82,9 @@ import {
 //
 // Rust: seeds = [b"listing", pool.key().as_ref(), &[slot_index]]
 //
-function listingPdaFor(
-  coreProgram: PublicKey,
-  pool: PublicKey,
-  slotIndex: number,
-): PublicKey {
+function listingPdaFor(coreProgram: PublicKey, pool: PublicKey, slotIndex: number): PublicKey {
   const [pda] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("listing"),
-      pool.toBuffer(),
-      Buffer.from([slotIndex]),
-    ],
+    [Buffer.from("listing"), pool.toBuffer(), Buffer.from([slotIndex])],
     coreProgram,
   );
   return pda;
@@ -120,28 +112,28 @@ const CYCLE_DURATION_SEC = 60;
 const LEVEL: 1 | 2 | 3 = 2;
 
 // Pool F (Forming).
-const F_MEMBERS_TARGET    = 3;
-const F_CYCLES_TOTAL      = 2;
-const F_INSTALLMENT_USDC  = 1_000n;
-const F_CREDIT_USDC       = 1_500n;
-const F_INSTALLMENT_BASE  = usdc(F_INSTALLMENT_USDC);
-const F_CREDIT_BASE       = usdc(F_CREDIT_USDC);
+const F_MEMBERS_TARGET = 3;
+const F_CYCLES_TOTAL = 2;
+const F_INSTALLMENT_USDC = 1_000n;
+const F_CREDIT_USDC = 1_500n;
+const F_INSTALLMENT_BASE = usdc(F_INSTALLMENT_USDC);
+const F_CREDIT_BASE = usdc(F_CREDIT_USDC);
 
 // Pool L (Lifecycle — release_escrow + close_pool).
-const L_MEMBERS_TARGET    = 2;
-const L_CYCLES_TOTAL      = 3;
-const L_INSTALLMENT_USDC  = 1_000n;
-const L_CREDIT_USDC       = 1_500n;
-const L_INSTALLMENT_BASE  = usdc(L_INSTALLMENT_USDC);
-const L_CREDIT_BASE       = usdc(L_CREDIT_USDC);
+const L_MEMBERS_TARGET = 2;
+const L_CYCLES_TOTAL = 3;
+const L_INSTALLMENT_USDC = 1_000n;
+const L_CREDIT_USDC = 1_500n;
+const L_INSTALLMENT_BASE = usdc(L_INSTALLMENT_USDC);
+const L_CREDIT_BASE = usdc(L_CREDIT_USDC);
 
 // Pool EV (Escape valve).
-const EV_MEMBERS_TARGET   = 3;
-const EV_CYCLES_TOTAL     = 3;
+const EV_MEMBERS_TARGET = 3;
+const EV_CYCLES_TOTAL = 3;
 const EV_INSTALLMENT_USDC = 1_000n;
-const EV_CREDIT_USDC      = 2_200n;
+const EV_CREDIT_USDC = 2_200n;
 const EV_INSTALLMENT_BASE = usdc(EV_INSTALLMENT_USDC);
-const EV_CREDIT_BASE      = usdc(EV_CREDIT_USDC);
+const EV_CREDIT_BASE = usdc(EV_CREDIT_USDC);
 
 // Listing price used in D.x.
 const LISTING_PRICE = usdc(10n);
@@ -149,11 +141,11 @@ const LISTING_PRICE = usdc(10n);
 // ─── Snapshot helpers ────────────────────────────────────────────────
 
 interface ReleaseSnapshot {
-  escrowVault:         bigint;
-  memberUsdc:          bigint;
+  escrowVault: bigint;
+  memberUsdc: bigint;
   memberEscrowBalance: bigint;
-  memberLastReleased:  number;
-  poolEscrowBalance:   bigint;
+  memberLastReleased: number;
+  poolEscrowBalance: bigint;
 }
 
 function bn(x: { toString(): string }): bigint {
@@ -169,19 +161,19 @@ async function snapshotRelease(
     balanceOf(env, pool.escrowVault),
     balanceOf(env, h.memberUsdc),
   ]);
-  const m = await fetchMember(env, h.member) as {
-    escrowBalance:           { toString(): string };
-    lastReleasedCheckpoint:  number;
+  const m = (await fetchMember(env, h.member)) as {
+    escrowBalance: { toString(): string };
+    lastReleasedCheckpoint: number;
   };
-  const p = await fetchPool(env, pool.pool) as {
+  const p = (await fetchPool(env, pool.pool)) as {
     escrowBalance: { toString(): string };
   };
   return {
     escrowVault,
     memberUsdc,
     memberEscrowBalance: bn(m.escrowBalance),
-    memberLastReleased:  m.lastReleasedCheckpoint,
-    poolEscrowBalance:   bn(p.escrowBalance),
+    memberLastReleased: m.lastReleasedCheckpoint,
+    poolEscrowBalance: bn(p.escrowBalance),
   };
 }
 
@@ -212,23 +204,23 @@ describe("security — state transitions + escape valve", function () {
   let usdcMint: PublicKey;
 
   // Authorities.
-  const authorityF  = Keypair.generate();
-  const authorityL  = Keypair.generate();
+  const authorityF = Keypair.generate();
+  const authorityL = Keypair.generate();
   const authorityEV = Keypair.generate();
-  const protocolImpostor = Keypair.generate();   // for C.2
+  const protocolImpostor = Keypair.generate(); // for C.2
 
   // Members.
-  const membersF  = memberKeypairs(F_MEMBERS_TARGET,  "sec/lc/F");   // only 2/3 will join
-  const membersL  = memberKeypairs(L_MEMBERS_TARGET,  "sec/lc/L");
+  const membersF = memberKeypairs(F_MEMBERS_TARGET, "sec/lc/F"); // only 2/3 will join
+  const membersL = memberKeypairs(L_MEMBERS_TARGET, "sec/lc/L");
   const membersEV = memberKeypairs(EV_MEMBERS_TARGET, "sec/lc/EV");
-  const outsider  = Keypair.generate();   // used for A.2, B.5, D.5
+  const outsider = Keypair.generate(); // used for A.2, B.5, D.5
 
   // Pools + handles.
-  let poolF:  PoolHandle;
-  let poolL:  PoolHandle;
+  let poolF: PoolHandle;
+  let poolL: PoolHandle;
   let poolEV: PoolHandle;
-  let handlesF:  MemberHandle[];   // only 2 entries
-  let handlesL:  MemberHandle[];
+  let handlesF: MemberHandle[]; // only 2 entries
+  let handlesL: MemberHandle[];
   let handlesEV: MemberHandle[];
 
   before(async function () {
@@ -241,12 +233,12 @@ describe("security — state transitions + escape valve", function () {
     poolF = await createPool(env, {
       authority: authorityF,
       usdcMint,
-      membersTarget:     F_MEMBERS_TARGET,
+      membersTarget: F_MEMBERS_TARGET,
       installmentAmount: F_INSTALLMENT_BASE,
-      creditAmount:      F_CREDIT_BASE,
-      cyclesTotal:       F_CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: F_CREDIT_BASE,
+      cyclesTotal: F_CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesF = await joinMembers(
       env,
@@ -264,12 +256,12 @@ describe("security — state transitions + escape valve", function () {
     poolL = await createPool(env, {
       authority: authorityL,
       usdcMint,
-      membersTarget:     L_MEMBERS_TARGET,
+      membersTarget: L_MEMBERS_TARGET,
       installmentAmount: L_INSTALLMENT_BASE,
-      creditAmount:      L_CREDIT_BASE,
-      cyclesTotal:       L_CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: L_CREDIT_BASE,
+      cyclesTotal: L_CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesL = await joinMembers(
       env,
@@ -289,12 +281,12 @@ describe("security — state transitions + escape valve", function () {
     poolEV = await createPool(env, {
       authority: authorityEV,
       usdcMint,
-      membersTarget:     EV_MEMBERS_TARGET,
+      membersTarget: EV_MEMBERS_TARGET,
       installmentAmount: EV_INSTALLMENT_BASE,
-      creditAmount:      EV_CREDIT_BASE,
-      cyclesTotal:       EV_CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: EV_CREDIT_BASE,
+      cyclesTotal: EV_CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
     handlesEV = await joinMembers(
       env,
@@ -319,24 +311,24 @@ describe("security — state transitions + escape valve", function () {
 
   it("A.1 contribute on Forming pool → PoolNotActive, state unchanged", async function () {
     const h = handlesF[0]!;
-    const vaultBefore       = await balanceOf(env, poolF.poolUsdcVault);
-    const solidarityBefore  = await balanceOf(env, poolF.solidarityVault);
-    const escrowBefore      = await balanceOf(env, poolF.escrowVault);
-    const memberUsdcBefore  = await balanceOf(env, h.memberUsdc);
+    const vaultBefore = await balanceOf(env, poolF.poolUsdcVault);
+    const solidarityBefore = await balanceOf(env, poolF.solidarityVault);
+    const escrowBefore = await balanceOf(env, poolF.escrowVault);
+    const memberUsdcBefore = await balanceOf(env, h.memberUsdc);
 
-    const msg = await expectRejected(() =>
-      contribute(env, { pool: poolF, member: h, cycle: 0 }),
-    );
+    const msg = await expectRejected(() => contribute(env, { pool: poolF, member: h, cycle: 0 }));
     expect(msg, `A.1: ${msg}`).to.match(/PoolNotActive|not active|forming/i);
 
-    expect(await balanceOf(env, poolF.poolUsdcVault),
-      "A.1: pool vault unchanged").to.equal(vaultBefore);
-    expect(await balanceOf(env, poolF.solidarityVault),
-      "A.1: solidarity unchanged").to.equal(solidarityBefore);
-    expect(await balanceOf(env, poolF.escrowVault),
-      "A.1: escrow unchanged").to.equal(escrowBefore);
-    expect(await balanceOf(env, h.memberUsdc),
-      "A.1: member USDC unchanged").to.equal(memberUsdcBefore);
+    expect(await balanceOf(env, poolF.poolUsdcVault), "A.1: pool vault unchanged").to.equal(
+      vaultBefore,
+    );
+    expect(await balanceOf(env, poolF.solidarityVault), "A.1: solidarity unchanged").to.equal(
+      solidarityBefore,
+    );
+    expect(await balanceOf(env, poolF.escrowVault), "A.1: escrow unchanged").to.equal(escrowBefore);
+    expect(await balanceOf(env, h.memberUsdc), "A.1: member USDC unchanged").to.equal(
+      memberUsdcBefore,
+    );
   });
 
   it("A.2 join_pool on fully-joined (Active) pool → PoolNotForming", async function () {
@@ -348,7 +340,7 @@ describe("security — state transitions + escape valve", function () {
     const msg = await expectRejected(() =>
       joinPool(env, poolEV, {
         member: outsider,
-        slotIndex: 0,                 // would-be-conflict, but status check fires first
+        slotIndex: 0, // would-be-conflict, but status check fires first
         reputationLevel: LEVEL,
         prefundStake: true,
       }),
@@ -356,13 +348,13 @@ describe("security — state transitions + escape valve", function () {
     expect(msg, `A.2: ${msg}`).to.match(/PoolNotForming|PoolFull|forming|full/i);
 
     // Pool EV state untouched — members_joined still == members_target.
-    const p = await fetchPool(env, poolEV.pool) as {
+    const p = (await fetchPool(env, poolEV.pool)) as {
       membersJoined: number;
       membersTarget: number;
       status: number;
     };
     expect(p.membersJoined, "A.2: members_joined preserved").to.equal(EV_MEMBERS_TARGET);
-    expect(p.status,        "A.2: status still Active").to.equal(1);
+    expect(p.status, "A.2: status still Active").to.equal(1);
   });
 
   // ─── B. release_escrow guards (Pool L, slot 1 at current_cycle=0) ─────
@@ -418,17 +410,16 @@ describe("security — state transitions + escape valve", function () {
     await releaseEscrow(env, { pool: poolL, member: h, checkpoint: 1 });
     const after = await snapshotRelease(env, poolL, h);
 
-    const deltaVault      = before.escrowVault - after.escrowVault;
+    const deltaVault = before.escrowVault - after.escrowVault;
     const deltaMemberUsdc = after.memberUsdc - before.memberUsdc;
     const deltaMemberBook = before.memberEscrowBalance - after.memberEscrowBalance;
-    const deltaPoolBook   = before.poolEscrowBalance - after.poolEscrowBalance;
+    const deltaPoolBook = before.poolEscrowBalance - after.poolEscrowBalance;
 
     expect(deltaVault > 0n, "B.4: escrow vault dropped").to.equal(true);
     expect(deltaMemberUsdc, "B.4: member USDC rose by same amount").to.equal(deltaVault);
     expect(deltaMemberBook, "B.4: member.escrow_balance book drops").to.equal(deltaVault);
-    expect(deltaPoolBook,   "B.4: pool.escrow_balance book drops").to.equal(deltaVault);
-    expect(after.memberLastReleased,
-      "B.4: last_released_checkpoint = 1").to.equal(1);
+    expect(deltaPoolBook, "B.4: pool.escrow_balance book drops").to.equal(deltaVault);
+    expect(after.memberLastReleased, "B.4: last_released_checkpoint = 1").to.equal(1);
 
     // Repeat at same checkpoint — require! #3 fails: checkpoint (1) !=
     // > last_released_checkpoint (1). Handler yields EscrowNothingToRelease.
@@ -438,11 +429,7 @@ describe("security — state transitions + escape valve", function () {
     );
     expect(msg, `B.4/double: ${msg}`).to.match(/EscrowNothingToRelease|nothing|escrow/i);
 
-    expectReleaseUnchanged(
-      snapAfterFirst,
-      await snapshotRelease(env, poolL, h),
-      "B.4/double",
-    );
+    expectReleaseUnchanged(snapAfterFirst, await snapshotRelease(env, poolL, h), "B.4/double");
   });
 
   it("B.5 non-member signs release_escrow → seeds-mismatch rejection", async function () {
@@ -469,7 +456,7 @@ describe("security — state transitions + escape valve", function () {
           // Outsider has no USDC ATA tied to pool L; Anchor will catch
           // the missing-account condition before ever hitting the
           // member-seed check — any rejection satisfies fail-closed.
-          memberUsdc: h.memberUsdc,           // deliberate mismatch
+          memberUsdc: h.memberUsdc, // deliberate mismatch
           escrowVaultAuthority: poolL.escrowVaultAuthority,
           escrowVault: poolL.escrowVault,
           tokenProgram: TOKEN_PROGRAM_ID,
@@ -491,7 +478,7 @@ describe("security — state transitions + escape valve", function () {
 
   it("C.1 close_pool while Active → PoolNotCompleted", async function () {
     // Pool L is Active (cycle 0, claim has not advanced it yet).
-    const p0 = await fetchPool(env, poolL.pool) as { status: number };
+    const p0 = (await fetchPool(env, poolL.pool)) as { status: number };
     expect(p0.status, "C.1 precondition: pool Active").to.equal(1);
 
     const msg = await expectRejected(() =>
@@ -508,7 +495,7 @@ describe("security — state transitions + escape valve", function () {
     expect(msg, `C.1: ${msg}`).to.match(/PoolNotCompleted|completed|status/i);
 
     // Status unchanged — still Active.
-    const p1 = await fetchPool(env, poolL.pool) as { status: number };
+    const p1 = (await fetchPool(env, poolL.pool)) as { status: number };
     expect(p1.status, "C.1: pool status unchanged").to.equal(1);
   });
 
@@ -524,7 +511,7 @@ describe("security — state transitions + escape valve", function () {
       await new Promise((r) => setTimeout(r, 250));
     }
 
-    const p0 = await fetchPool(env, poolL.pool) as { status: number };
+    const p0 = (await fetchPool(env, poolL.pool)) as { status: number };
 
     const msg = await expectRejected(() =>
       (env.programs.core.methods as any)
@@ -539,14 +526,14 @@ describe("security — state transitions + escape valve", function () {
     );
     expect(msg, `C.2: ${msg}`).to.match(/Unauthorized|authority|unauthorized/i);
 
-    const p1 = await fetchPool(env, poolL.pool) as { status: number };
+    const p1 = (await fetchPool(env, poolL.pool)) as { status: number };
     expect(p1.status, "C.2: pool status unchanged").to.equal(p0.status);
   });
 
   // ─── D. Escape valve ──────────────────────────────────────────────────
 
   it("D.1 escape_valve_list with price=0 → InvalidListingPrice", async function () {
-    const seller = handlesEV[2]!;   // keep slot 1 free for the happy-path list in D.2
+    const seller = handlesEV[2]!; // keep slot 1 free for the happy-path list in D.2
     const listing = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
 
     // No prior listing for slot 2.
@@ -579,7 +566,7 @@ describe("security — state transitions + escape valve", function () {
   });
 
   it("D.2 escape_valve_list happy path — listing stored Active", async function () {
-    const seller = handlesEV[1]!;   // slot 1 — used throughout D.3–D.5
+    const seller = handlesEV[1]!; // slot 1 — used throughout D.3–D.5
     const listing = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
 
     await (env.programs.core.methods as any)
@@ -603,23 +590,25 @@ describe("security — state transitions + escape valve", function () {
       priceUsdc: { toString(): string };
       status: number;
     };
-    expect(row.pool.toBase58(),   "D.2: listing.pool").to.equal(poolEV.pool.toBase58());
-    expect(row.seller.toBase58(), "D.2: listing.seller").to.equal(seller.wallet.publicKey.toBase58());
-    expect(row.slotIndex,         "D.2: listing.slot_index").to.equal(seller.slotIndex);
-    expect(bn(row.priceUsdc),     "D.2: listing.price_usdc").to.equal(LISTING_PRICE);
-    expect(row.status,            "D.2: listing.status == Active").to.equal(0);
+    expect(row.pool.toBase58(), "D.2: listing.pool").to.equal(poolEV.pool.toBase58());
+    expect(row.seller.toBase58(), "D.2: listing.seller").to.equal(
+      seller.wallet.publicKey.toBase58(),
+    );
+    expect(row.slotIndex, "D.2: listing.slot_index").to.equal(seller.slotIndex);
+    expect(bn(row.priceUsdc), "D.2: listing.price_usdc").to.equal(LISTING_PRICE);
+    expect(row.status, "D.2: listing.status == Active").to.equal(0);
   });
 
   it("D.3 escape_valve_buy with wrong price → EscapeValvePriceMismatch", async function () {
-    const seller  = handlesEV[1]!;
-    const buyer   = outsider;
+    const seller = handlesEV[1]!;
+    const buyer = outsider;
     const listing = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
 
-    const buyerUsdc  = await ensureAta(env, usdcMint, buyer.publicKey);
+    const buyerUsdc = await ensureAta(env, usdcMint, buyer.publicKey);
     const sellerUsdc = await ensureAta(env, usdcMint, seller.wallet.publicKey);
     const [newMemberPda] = memberPda(env.ids.core, poolEV.pool, buyer.publicKey);
 
-    const buyerUsdcBefore  = await balanceOf(env, buyerUsdc);
+    const buyerUsdcBefore = await balanceOf(env, buyerUsdc);
     const sellerUsdcBefore = await balanceOf(env, sellerUsdc);
 
     // Listing price is LISTING_PRICE; tx claims a different one.
@@ -627,17 +616,17 @@ describe("security — state transitions + escape valve", function () {
       (env.programs.core.methods as any)
         .escapeValveBuy({ priceUsdc: new BN((LISTING_PRICE + 1n).toString()) })
         .accounts({
-          buyerWallet:  buyer.publicKey,
+          buyerWallet: buyer.publicKey,
           sellerWallet: seller.wallet.publicKey,
-          config:       configPda(env),
-          pool:         poolEV.pool,
+          config: configPda(env),
+          pool: poolEV.pool,
           listing,
-          oldMember:    seller.member,
-          newMember:    newMemberPda,
+          oldMember: seller.member,
+          newMember: newMemberPda,
           usdcMint,
           buyerUsdc,
           sellerUsdc,
-          tokenProgram:  TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
         .signers([buyer])
@@ -645,16 +634,14 @@ describe("security — state transitions + escape valve", function () {
     );
     expect(msg, `D.3: ${msg}`).to.match(/EscapeValvePriceMismatch|price|mismatch/i);
 
-    expect(await balanceOf(env, buyerUsdc),
-      "D.3: buyer USDC unchanged").to.equal(buyerUsdcBefore);
-    expect(await balanceOf(env, sellerUsdc),
-      "D.3: seller USDC unchanged").to.equal(sellerUsdcBefore);
+    expect(await balanceOf(env, buyerUsdc), "D.3: buyer USDC unchanged").to.equal(buyerUsdcBefore);
+    expect(await balanceOf(env, sellerUsdc), "D.3: seller USDC unchanged").to.equal(
+      sellerUsdcBefore,
+    );
 
     // Listing + old member still present.
-    expect(
-      await env.connection.getAccountInfo(listing, "confirmed"),
-      "D.3: listing survives",
-    ).to.not.be.null;
+    expect(await env.connection.getAccountInfo(listing, "confirmed"), "D.3: listing survives").to
+      .not.be.null;
     expect(
       await env.connection.getAccountInfo(seller.member, "confirmed"),
       "D.3: old member row survives",
@@ -662,37 +649,37 @@ describe("security — state transitions + escape valve", function () {
   });
 
   it("D.4 escape_valve_buy with wrong seller_wallet → Unauthorized", async function () {
-    const seller       = handlesEV[1]!;
-    const fakeSeller   = handlesEV[0]!;   // different member, wallet != listing.seller
-    const buyer        = outsider;
-    const listing      = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
+    const seller = handlesEV[1]!;
+    const fakeSeller = handlesEV[0]!; // different member, wallet != listing.seller
+    const buyer = outsider;
+    const listing = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
 
-    const buyerUsdc      = await ensureAta(env, usdcMint, buyer.publicKey);
+    const buyerUsdc = await ensureAta(env, usdcMint, buyer.publicKey);
     const fakeSellerUsdc = await ensureAta(env, usdcMint, fakeSeller.wallet.publicKey);
     const [newMemberPda] = memberPda(env.ids.core, poolEV.pool, buyer.publicKey);
 
-    const buyerUsdcBefore      = await balanceOf(env, buyerUsdc);
+    const buyerUsdcBefore = await balanceOf(env, buyerUsdc);
     const fakeSellerUsdcBefore = await balanceOf(env, fakeSellerUsdc);
 
     const msg = await expectRejected(() =>
       (env.programs.core.methods as any)
         .escapeValveBuy({ priceUsdc: new BN(LISTING_PRICE.toString()) })
         .accounts({
-          buyerWallet:  buyer.publicKey,
-          sellerWallet: fakeSeller.wallet.publicKey,     // ← mismatch
-          config:       configPda(env),
-          pool:         poolEV.pool,
+          buyerWallet: buyer.publicKey,
+          sellerWallet: fakeSeller.wallet.publicKey, // ← mismatch
+          config: configPda(env),
+          pool: poolEV.pool,
           listing,
           // old_member seeds include the seller wallet — here we pass
           // the fake seller's member to keep the seeds check consistent
           // with the (bogus) seller argument. The seller_wallet key
           // constraint is still what fires.
-          oldMember:    fakeSeller.member,
-          newMember:    newMemberPda,
+          oldMember: fakeSeller.member,
+          newMember: newMemberPda,
           usdcMint,
           buyerUsdc,
-          sellerUsdc:   fakeSellerUsdc,
-          tokenProgram:  TOKEN_PROGRAM_ID,
+          sellerUsdc: fakeSellerUsdc,
+          tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
         .signers([buyer])
@@ -704,16 +691,14 @@ describe("security — state transitions + escape valve", function () {
     // fires first. Either is fail-closed.
     expect(msg, `D.4: ${msg}`).to.match(/Unauthorized|NotYourPayoutSlot|seller|slot/i);
 
-    expect(await balanceOf(env, buyerUsdc),
-      "D.4: buyer USDC unchanged").to.equal(buyerUsdcBefore);
-    expect(await balanceOf(env, fakeSellerUsdc),
-      "D.4: wrong seller USDC unchanged").to.equal(fakeSellerUsdcBefore);
+    expect(await balanceOf(env, buyerUsdc), "D.4: buyer USDC unchanged").to.equal(buyerUsdcBefore);
+    expect(await balanceOf(env, fakeSellerUsdc), "D.4: wrong seller USDC unchanged").to.equal(
+      fakeSellerUsdcBefore,
+    );
 
     // Listing + both member rows still present.
-    expect(
-      await env.connection.getAccountInfo(listing, "confirmed"),
-      "D.4: listing survives",
-    ).to.not.be.null;
+    expect(await env.connection.getAccountInfo(listing, "confirmed"), "D.4: listing survives").to
+      .not.be.null;
     expect(
       await env.connection.getAccountInfo(seller.member, "confirmed"),
       "D.4: slot-1 member row survives",
@@ -725,23 +710,23 @@ describe("security — state transitions + escape valve", function () {
   });
 
   it("D.5 escape_valve_buy happy path — member re-anchored to buyer", async function () {
-    const seller  = handlesEV[1]!;
-    const buyer   = outsider;
+    const seller = handlesEV[1]!;
+    const buyer = outsider;
     const listing = listingPdaFor(env.ids.core, poolEV.pool, seller.slotIndex);
 
-    const buyerUsdc  = await ensureAta(env, usdcMint, buyer.publicKey);
+    const buyerUsdc = await ensureAta(env, usdcMint, buyer.publicKey);
     const sellerUsdc = await ensureAta(env, usdcMint, seller.wallet.publicKey);
     const [newMemberPda] = memberPda(env.ids.core, poolEV.pool, buyer.publicKey);
 
     // Snapshot pre-transfer state that the atomic re-anchor must preserve.
-    const oldMemberRow = await fetchMember(env, seller.member) as {
-      slotIndex:         number;
-      reputationLevel:   number;
+    const oldMemberRow = (await fetchMember(env, seller.member)) as {
+      slotIndex: number;
+      reputationLevel: number;
       contributionsPaid: number;
-      escrowBalance:     { toString(): string };
-      stakeDeposited:    { toString(): string };
+      escrowBalance: { toString(): string };
+      stakeDeposited: { toString(): string };
     };
-    const buyerUsdcBefore  = await balanceOf(env, buyerUsdc);
+    const buyerUsdcBefore = await balanceOf(env, buyerUsdc);
     const sellerUsdcBefore = await balanceOf(env, sellerUsdc);
 
     // Precondition: buyer must not already have a Member at this pool.
@@ -753,17 +738,17 @@ describe("security — state transitions + escape valve", function () {
     await (env.programs.core.methods as any)
       .escapeValveBuy({ priceUsdc: new BN(LISTING_PRICE.toString()) })
       .accounts({
-        buyerWallet:  buyer.publicKey,
+        buyerWallet: buyer.publicKey,
         sellerWallet: seller.wallet.publicKey,
-        config:       configPda(env),
-        pool:         poolEV.pool,
+        config: configPda(env),
+        pool: poolEV.pool,
         listing,
-        oldMember:    seller.member,
-        newMember:    newMemberPda,
+        oldMember: seller.member,
+        newMember: newMemberPda,
         usdcMint,
         buyerUsdc,
         sellerUsdc,
-        tokenProgram:  TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
       .signers([buyer])
@@ -772,10 +757,12 @@ describe("security — state transitions + escape valve", function () {
     // Buyer paid exactly the listing price; seller received it plus
     // the rent refund for the closed Member + Listing PDAs (which
     // arrives as SOL, not USDC — so the USDC delta equals the price).
-    expect(await balanceOf(env, buyerUsdc),
-      "D.5: buyer USDC − LISTING_PRICE").to.equal(buyerUsdcBefore - LISTING_PRICE);
-    expect(await balanceOf(env, sellerUsdc),
-      "D.5: seller USDC + LISTING_PRICE").to.equal(sellerUsdcBefore + LISTING_PRICE);
+    expect(await balanceOf(env, buyerUsdc), "D.5: buyer USDC − LISTING_PRICE").to.equal(
+      buyerUsdcBefore - LISTING_PRICE,
+    );
+    expect(await balanceOf(env, sellerUsdc), "D.5: seller USDC + LISTING_PRICE").to.equal(
+      sellerUsdcBefore + LISTING_PRICE,
+    );
 
     // Old Member PDA is gone; new Member PDA exists with state copied over.
     expect(
@@ -783,35 +770,35 @@ describe("security — state transitions + escape valve", function () {
       "D.5: old member PDA closed",
     ).to.be.null;
 
-    const newMemberRow = await fetchMember(env, newMemberPda) as {
-      wallet:            PublicKey;
-      slotIndex:         number;
-      reputationLevel:   number;
+    const newMemberRow = (await fetchMember(env, newMemberPda)) as {
+      wallet: PublicKey;
+      slotIndex: number;
+      reputationLevel: number;
       contributionsPaid: number;
-      escrowBalance:     { toString(): string };
-      stakeDeposited:    { toString(): string };
-      defaulted:         boolean;
+      escrowBalance: { toString(): string };
+      stakeDeposited: { toString(): string };
+      defaulted: boolean;
     };
-    expect(newMemberRow.wallet.toBase58(),
-      "D.5: new member wallet = buyer").to.equal(buyer.publicKey.toBase58());
-    expect(newMemberRow.slotIndex,
-      "D.5: slot preserved").to.equal(oldMemberRow.slotIndex);
-    expect(newMemberRow.reputationLevel,
-      "D.5: reputation_level preserved").to.equal(oldMemberRow.reputationLevel);
-    expect(newMemberRow.contributionsPaid,
-      "D.5: contributions_paid preserved").to.equal(oldMemberRow.contributionsPaid);
-    expect(bn(newMemberRow.escrowBalance),
-      "D.5: escrow_balance preserved").to.equal(bn(oldMemberRow.escrowBalance));
-    expect(bn(newMemberRow.stakeDeposited),
-      "D.5: stake_deposited preserved").to.equal(bn(oldMemberRow.stakeDeposited));
-    expect(newMemberRow.defaulted,
-      "D.5: defaulted reset to false").to.be.false;
+    expect(newMemberRow.wallet.toBase58(), "D.5: new member wallet = buyer").to.equal(
+      buyer.publicKey.toBase58(),
+    );
+    expect(newMemberRow.slotIndex, "D.5: slot preserved").to.equal(oldMemberRow.slotIndex);
+    expect(newMemberRow.reputationLevel, "D.5: reputation_level preserved").to.equal(
+      oldMemberRow.reputationLevel,
+    );
+    expect(newMemberRow.contributionsPaid, "D.5: contributions_paid preserved").to.equal(
+      oldMemberRow.contributionsPaid,
+    );
+    expect(bn(newMemberRow.escrowBalance), "D.5: escrow_balance preserved").to.equal(
+      bn(oldMemberRow.escrowBalance),
+    );
+    expect(bn(newMemberRow.stakeDeposited), "D.5: stake_deposited preserved").to.equal(
+      bn(oldMemberRow.stakeDeposited),
+    );
+    expect(newMemberRow.defaulted, "D.5: defaulted reset to false").to.be.false;
 
     // Listing PDA closed.
-    expect(
-      await env.connection.getAccountInfo(listing, "confirmed"),
-      "D.5: listing PDA closed",
-    ).to.be.null;
+    expect(await env.connection.getAccountInfo(listing, "confirmed"), "D.5: listing PDA closed").to
+      .be.null;
   });
 });
-

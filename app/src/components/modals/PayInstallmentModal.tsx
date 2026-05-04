@@ -16,8 +16,8 @@ import { useTheme } from "@/lib/theme";
 
 const SHIELD_SPLITS = [
   { key: "escrow", pct: 65 },
-  { key: "vault",  pct: 30 },
-  { key: "fee",    pct:  5 },
+  { key: "vault", pct: 30 },
+  { key: "fee", pct: 5 },
 ] as const;
 
 export function PayInstallmentModal({
@@ -102,16 +102,13 @@ export function PayInstallmentModal({
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <MonoLabel size={9}>{t("modal.pay.group")}</MonoLabel>
-              <div style={{ fontSize: 14, fontWeight: 600, color: tokens.text }}>
-                {group.name}
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: tokens.text }}>{group.name}</div>
               <div
                 style={{
                   fontSize: 11,
                   color: tokens.muted,
                   marginTop: 2,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {t("modal.pay.month", { m: group.month, t: group.total })} ·{" "}
@@ -173,11 +170,7 @@ export function PayInstallmentModal({
           >
             {SHIELD_SPLITS.map((s) => {
               const c =
-                s.key === "escrow"
-                  ? tokens.green
-                  : s.key === "vault"
-                  ? tokens.teal
-                  : tokens.purple;
+                s.key === "escrow" ? tokens.green : s.key === "vault" ? tokens.teal : tokens.purple;
               return (
                 <div key={s.key}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -191,8 +184,7 @@ export function PayInstallmentModal({
                     />
                     <span
                       style={{
-                        fontFamily:
-                          "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                         fontSize: 10,
                         color: c,
                         fontWeight: 600,
@@ -201,9 +193,7 @@ export function PayInstallmentModal({
                       {s.pct}%
                     </span>
                   </div>
-                  <div
-                    style={{ fontSize: 11, color: tokens.text2, marginTop: 2 }}
-                  >
+                  <div style={{ fontSize: 11, color: tokens.text2, marginTop: 2 }}>
                     {t(`modal.pay.breakdown.${s.key}`)}
                   </div>
                   <div

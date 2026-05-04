@@ -60,9 +60,7 @@ export function loadCluster(
       : (process.env.USDC_MINT_DEVNET ?? USDC_DEVNET_DEFAULT),
   );
 
-  const metaplexCore = new PublicKey(
-    process.env.METAPLEX_CORE_PROGRAM_ID ?? METAPLEX_CORE_DEFAULT,
-  );
+  const metaplexCore = new PublicKey(process.env.METAPLEX_CORE_PROGRAM_ID ?? METAPLEX_CORE_DEFAULT);
 
   return {
     name,
@@ -85,10 +83,7 @@ export function loadCluster(
   };
 }
 
-export function requireProgram(
-  cfg: ClusterConfig,
-  key: keyof ClusterPrograms,
-): PublicKey {
+export function requireProgram(cfg: ClusterConfig, key: keyof ClusterPrograms): PublicKey {
   const pk = cfg.programs[key];
   if (!pk) {
     throw new Error(

@@ -72,14 +72,7 @@ export function FeaturedGroup() {
                 <stop offset="1" stopColor={tokens.teal} />
               </linearGradient>
             </defs>
-            <circle
-              cx="50"
-              cy="50"
-              r="42"
-              fill="none"
-              stroke={tokens.fillMed}
-              strokeWidth="5"
-            />
+            <circle cx="50" cy="50" r="42" fill="none" stroke={tokens.fillMed} strokeWidth="5" />
             <circle
               cx="50"
               cy="50"
@@ -169,14 +162,8 @@ export function FeaturedGroup() {
               gap: 24,
             }}
           >
-            <DeskMeta
-              label={t("home.meta.prize")}
-              v={fmtMoney(g.prize, { noCents: true })}
-            />
-            <DeskMeta
-              label={t("home.meta.next")}
-              v={fmtMoney(g.installment, { noCents: true })}
-            />
+            <DeskMeta label={t("home.meta.prize")} v={fmtMoney(g.prize, { noCents: true })} />
+            <DeskMeta label={t("home.meta.next")} v={fmtMoney(g.installment, { noCents: true })} />
             <DeskMeta label={t("home.meta.draw")} v={t("home.drawIn")} />
           </div>
           <div
@@ -196,14 +183,12 @@ export function FeaturedGroup() {
                     height: 26,
                     borderRadius: "50%",
                     marginLeft: i ? -8 : 0,
-                    background:
-                      i === 5 ? tokens.surface3 : `hsl(${(i * 60) % 360} 40% 45%)`,
+                    background: i === 5 ? tokens.surface3 : `hsl(${(i * 60) % 360} 40% 45%)`,
                     border: `2px solid ${tokens.bg}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontSize: 8,
                     color: tokens.text,
                   }}
@@ -213,8 +198,7 @@ export function FeaturedGroup() {
               ))}
             </div>
             <span style={{ fontSize: 11, color: tokens.muted }}>
-              {g.members} {t("home.installments")} · {g.month}{" "}
-              {t("home.drawn")}
+              {g.members} {t("home.installments")} · {g.month} {t("home.drawn")}
             </span>
           </div>
 
@@ -266,11 +250,7 @@ export function FeaturedGroup() {
         </div>
       </div>
 
-      <PayInstallmentModal
-        group={g}
-        open={payOpen}
-        onClose={() => setPayOpen(false)}
-      />
+      <PayInstallmentModal group={g} open={payOpen} onClose={() => setPayOpen(false)} />
     </div>
   );
 }

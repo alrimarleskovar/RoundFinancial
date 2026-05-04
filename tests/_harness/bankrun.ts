@@ -26,12 +26,7 @@
 
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import {
-  AccountInfoBytes,
-  Clock,
-  ProgramTestContext,
-  startAnchor,
-} from "solana-bankrun";
+import { AccountInfoBytes, Clock, ProgramTestContext, startAnchor } from "solana-bankrun";
 import { BankrunProvider } from "anchor-bankrun";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
@@ -68,9 +63,7 @@ export interface BankrunEnv {
 function loadIdl(name: string): AnyIdl {
   const path = resolve(process.cwd(), "target", "idl", `${name}.json`);
   if (!existsSync(path)) {
-    throw new Error(
-      `IDL not found: ${path}. Run 'anchor build' before bankrun tests.`,
-    );
+    throw new Error(`IDL not found: ${path}. Run 'anchor build' before bankrun tests.`);
   }
   return JSON.parse(readFileSync(path, "utf-8")) as AnyIdl;
 }
@@ -89,13 +82,13 @@ export async function setupBankrunEnv(): Promise<BankrunEnv> {
   const provider = new BankrunProvider(context);
   anchor.setProvider(provider);
 
-  const coreIdl       = loadIdl("roundfi_core");
+  const coreIdl = loadIdl("roundfi_core");
   const reputationIdl = loadIdl("roundfi_reputation");
-  const yieldMockIdl  = loadIdl("roundfi_yield_mock");
+  const yieldMockIdl = loadIdl("roundfi_yield_mock");
 
-  const core       = new Program(coreIdl, provider);
+  const core = new Program(coreIdl, provider);
   const reputation = new Program(reputationIdl, provider);
-  const yieldMock  = new Program(yieldMockIdl, provider);
+  const yieldMock = new Program(yieldMockIdl, provider);
 
   return {
     context,
@@ -103,9 +96,9 @@ export async function setupBankrunEnv(): Promise<BankrunEnv> {
     payer: context.payer,
     programs: { core, reputation, yieldMock },
     ids: {
-      core:       core.programId,
+      core: core.programId,
       reputation: reputation.programId,
-      yieldMock:  yieldMock.programId,
+      yieldMock: yieldMock.programId,
     },
   };
 }
@@ -117,10 +110,7 @@ export async function setupBankrunEnv(): Promise<BankrunEnv> {
  * the slot/epoch fields at their current values. Every on-chain
  * `Clock::get()?` call afterwards observes the new timestamp.
  */
-export async function setBankrunUnixTs(
-  context: ProgramTestContext,
-  unixTs: bigint,
-): Promise<void> {
+export async function setBankrunUnixTs(context: ProgramTestContext, unixTs: bigint): Promise<void> {
   const current = await context.banksClient.getClock();
   context.setClock(
     new Clock(
@@ -237,10 +227,7 @@ export async function writeAnchorAccount<T>(
   data: T,
   owner: PublicKey = program.programId,
 ): Promise<void> {
-  const encoded: Buffer = await program.coder.accounts.encode(
-    accountName,
-    data,
-  );
+  const encoded: Buffer = await program.coder.accounts.encode(accountName, data);
   context.setAccount(address, makeAccountInfo(owner, encoded));
 }
 

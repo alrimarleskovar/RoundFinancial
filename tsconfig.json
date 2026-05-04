@@ -4,10 +4,6 @@
     "rootDir": ".",
     "types": ["node", "mocha", "chai"]
   },
-  "include": [
-    "config/**/*.ts",
-    "scripts/**/*.ts",
-    "tests/**/*.ts"
-  ],
+  "include": ["config/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "target", "dist", "**/generated/**"]
 }

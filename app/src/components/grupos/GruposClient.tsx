@@ -37,10 +37,7 @@ export function GruposClient() {
   const { user } = useSession();
 
   const enriched: CatalogGroup[] = useMemo(
-    () => [
-      ...ACTIVE_GROUPS.map(fromActive),
-      ...DISCOVER_GROUPS.map(fromDiscover),
-    ],
+    () => [...ACTIVE_GROUPS.map(fromActive), ...DISCOVER_GROUPS.map(fromDiscover)],
     [],
   );
 
@@ -79,14 +76,22 @@ export function GruposClient() {
       rows = rows.filter((g) => g.name.toLowerCase().includes(q));
     }
     if (sort === "prize-low") rows = [...rows].sort((a, b) => a.prize - b.prize);
-    if (sort === "prize-high")
-      rows = [...rows].sort((a, b) => b.prize - a.prize);
+    if (sort === "prize-high") rows = [...rows].sort((a, b) => b.prize - a.prize);
     if (sort === "spots")
-      rows = [...rows].sort(
-        (a, b) => a.total - a.filled - (b.total - b.filled),
-      );
+      rows = [...rows].sort((a, b) => a.total - a.filled - (b.total - b.filled));
     return rows;
-  }, [enriched, level, category, budget, duration, onlyOpen, onlyAccessible, query, sort, user.level]);
+  }, [
+    enriched,
+    level,
+    category,
+    budget,
+    duration,
+    onlyOpen,
+    onlyAccessible,
+    query,
+    sort,
+    user.level,
+  ]);
 
   const totalOpen = enriched.filter((g) => g.filled < g.total).length;
   const accessibleCount = enriched.filter((g) => g.level <= user.level).length;
@@ -154,11 +159,7 @@ export function GruposClient() {
             })}
           </div>
         </div>
-        <DeskBtn
-          tone="primary"
-          icon={Icons.plus}
-          onClick={() => setNewCycleOpen(true)}
-        >
+        <DeskBtn tone="primary" icon={Icons.plus} onClick={() => setNewCycleOpen(true)}>
           {t("groups.newCycle")}
         </DeskBtn>
       </div>
@@ -256,18 +257,11 @@ export function GruposClient() {
           </FilterRow>
 
           <FilterRow label={t("groups.filter.category")}>
-            <Chip
-              active={category === "all"}
-              onClick={() => setCategory("all")}
-            >
+            <Chip active={category === "all"} onClick={() => setCategory("all")}>
               {t("groups.chip.all")}
             </Chip>
             {CATEGORY_KEYS.map((k) => (
-              <Chip
-                key={k}
-                active={category === k}
-                onClick={() => setCategory(k)}
-              >
+              <Chip key={k} active={category === k} onClick={() => setCategory(k)}>
                 {categoryLabel(k)}
               </Chip>
             ))}
@@ -277,52 +271,31 @@ export function GruposClient() {
             <Chip active={budget === "all"} onClick={() => setBudget("all")}>
               {t("groups.chip.any")}
             </Chip>
-            <Chip
-              active={budget === "lt15"}
-              onClick={() => setBudget("lt15")}
-            >
+            <Chip active={budget === "lt15"} onClick={() => setBudget("lt15")}>
               {t("groups.chip.lt15", { v: fmtMoneyThreshold(15000) })}
             </Chip>
-            <Chip
-              active={budget === "15to30"}
-              onClick={() => setBudget("15to30")}
-            >
+            <Chip active={budget === "15to30"} onClick={() => setBudget("15to30")}>
               {t("groups.chip.15to30", {
                 a: fmtMoneyThreshold(15000),
                 b: fmtMoneyThreshold(30000),
               })}
             </Chip>
-            <Chip
-              active={budget === "gt30"}
-              onClick={() => setBudget("gt30")}
-            >
+            <Chip active={budget === "gt30"} onClick={() => setBudget("gt30")}>
               {t("groups.chip.gt30", { v: fmtMoneyThreshold(30000) })}
             </Chip>
           </FilterRow>
 
           <FilterRow label={t("groups.filter.duration")}>
-            <Chip
-              active={duration === "all"}
-              onClick={() => setDuration("all")}
-            >
+            <Chip active={duration === "all"} onClick={() => setDuration("all")}>
               {t("groups.chip.any")}
             </Chip>
-            <Chip
-              active={duration === "short"}
-              onClick={() => setDuration("short")}
-            >
+            <Chip active={duration === "short"} onClick={() => setDuration("short")}>
               {t("groups.chip.lt6")}
             </Chip>
-            <Chip
-              active={duration === "mid"}
-              onClick={() => setDuration("mid")}
-            >
+            <Chip active={duration === "mid"} onClick={() => setDuration("mid")}>
               {t("groups.chip.7to12")}
             </Chip>
-            <Chip
-              active={duration === "long"}
-              onClick={() => setDuration("long")}
-            >
+            <Chip active={duration === "long"} onClick={() => setDuration("long")}>
               {t("groups.chip.gt12")}
             </Chip>
           </FilterRow>
@@ -332,10 +305,7 @@ export function GruposClient() {
               {onlyOpen ? "✓ " : ""}
               {t("groups.chip.onlyOpen")}
             </Chip>
-            <Chip
-              active={onlyAccessible}
-              onClick={() => setOnlyAccessible(!onlyAccessible)}
-            >
+            <Chip active={onlyAccessible} onClick={() => setOnlyAccessible(!onlyAccessible)}>
               {onlyAccessible ? "✓ " : ""}
               {t("groups.chip.onlyAccessible", { lv: user.level })}
             </Chip>
@@ -360,8 +330,7 @@ export function GruposClient() {
               style={{
                 fontSize: 11,
                 color: tokens.text2,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {t("groups.ofN", {
@@ -381,8 +350,7 @@ export function GruposClient() {
                 color: tokens.teal,
                 fontSize: 11,
                 fontWeight: 600,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
@@ -412,10 +380,7 @@ export function GruposClient() {
         </div>
       )}
 
-      <NewCycleModal
-        open={newCycleOpen}
-        onClose={() => setNewCycleOpen(false)}
-      />
+      <NewCycleModal open={newCycleOpen} onClose={() => setNewCycleOpen(false)} />
     </div>
   );
 }

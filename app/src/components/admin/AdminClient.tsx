@@ -42,9 +42,12 @@ export function AdminClient() {
   const applyToSession = () => {
     const levelLabel = ((): string => {
       switch (ctrl.state.user.level) {
-        case 1: return "Iniciante";
-        case 2: return "Comprovado";
-        case 3: return "Veterano";
+        case 1:
+          return "Iniciante";
+        case 2:
+          return "Comprovado";
+        case 3:
+          return "Veterano";
       }
     })();
     const groupName = `Cenário ${ctrl.state.user.name.split(" ")[0]}`;
@@ -96,8 +99,7 @@ export function AdminClient() {
                 background: tokens.fillSoft,
                 border: `1px solid ${tokens.border}`,
                 color: tokens.text2,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 11,
                 fontWeight: 600,
                 textDecoration: "none",

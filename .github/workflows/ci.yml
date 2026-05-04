@@ -13,25 +13,21 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CARGO_TERM_COLOR:  always
-  CARGO_INCREMENTAL: 0  # CI cache hits matter more than incremental
-  RUST_BACKTRACE:    1
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0 # CI cache hits matter more than incremental
+  RUST_BACKTRACE: 1
 
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
-  # Three checks today:
+  # Five checks:
+  #   - prettier --check (lint) — gated by .prettierignore
   #   - TypeScript typecheck (`tsc --noEmit -p .`) — entire workspace
-  #   - LifecycleEvent shape contract (test:events)
+  #   - Rust ↔ TS constants/seeds parity (test:parity) — 7 tests
+  #   - LifecycleEvent shape contract (test:events) — 2 tests
   #   - Stress Lab L1 economic-parity (test:economic-parity-l1) — 34
-  #     tests against the pure-TS actuarial simulator. Includes the
-  #     "Triple Veteran Default" canonical whitepaper scenario.
-  #
-  # Other pnpm tasks (lint, test:parity) still have pre-existing
-  # failures unrelated to this PR. Re-adding them requires:
-  #   - prettier sweep across legacy `app/public/prototype/` (lint)
-  #   - fix ts-node ESM resolution in test:parity
+  #     tests, includes the "Triple Veteran Default" whitepaper scenario.
   js:
-    name: js · typecheck + events + L1 economic-parity
+    name: js · lint + typecheck + parity + L1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,10 +50,16 @@ jobs:
         # author's WSL box. Use `--no-frozen-lockfile` until a dedicated
         # PR runs a clean `pnpm install` and re-pins the lockfile.
 
+      - name: Prettier check
+        run: pnpm lint
+
       - name: TypeScript typecheck (workspace)
         run: pnpm typecheck
 
-      - name: LifecycleEvent canonical-types contract
+      - name: Rust ↔ TS constants/seeds parity (7 tests)
+        run: pnpm test:parity
+
+      - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events
 
       - name: Stress Lab L1 economic-parity (34 tests)

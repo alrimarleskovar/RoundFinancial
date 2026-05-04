@@ -36,16 +36,11 @@ export function sleepSec(seconds: number): Promise<void> {
  * cycle_duration (1–5s). Caps the wait at `maxMs` to avoid
  * hanging CI if a deadline is mis-set.
  */
-export async function waitUntilUnix(
-  targetSec: number,
-  maxMs = 60_000,
-): Promise<void> {
+export async function waitUntilUnix(targetSec: number, maxMs = 60_000): Promise<void> {
   const deadline = Date.now() + maxMs;
   while (Date.now() / 1000 < targetSec) {
     if (Date.now() > deadline) {
-      throw new Error(
-        `waitUntilUnix: exceeded ${maxMs}ms while waiting for ${targetSec}`,
-      );
+      throw new Error(`waitUntilUnix: exceeded ${maxMs}ms while waiting for ${targetSec}`);
     }
     await sleep(100);
   }

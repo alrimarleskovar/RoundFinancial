@@ -13,12 +13,15 @@ import { useMotion, type MotionMode } from "@/lib/motion";
 //
 // Mode is driven by useMotion() (Tweaks panel toggle).
 
-const VARIANTS: Record<MotionMode, {
-  initial: Record<string, number>;
-  animate: Record<string, number>;
-  exit: Record<string, number>;
-  transition: { duration: number; ease: [number, number, number, number] };
-}> = {
+const VARIANTS: Record<
+  MotionMode,
+  {
+    initial: Record<string, number>;
+    animate: Record<string, number>;
+    exit: Record<string, number>;
+    transition: { duration: number; ease: [number, number, number, number] };
+  }
+> = {
   off: {
     initial: { opacity: 1 },
     animate: { opacity: 1 },

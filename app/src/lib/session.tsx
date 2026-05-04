@@ -25,22 +25,16 @@ import type { CatalogGroup } from "@/lib/groups";
 // data shape as data/carteira.ts so swapping fixtures for an
 // on-chain indexer later is a single-file change.
 
-export type SessionEventKind =
-  | "payment"
-  | "yield"
-  | "sale"
-  | "purchase"
-  | "attestation"
-  | "join";
+export type SessionEventKind = "payment" | "yield" | "sale" | "purchase" | "attestation" | "join";
 
 export interface SessionEvent {
   id: string;
   kind: SessionEventKind;
-  ts: number;        // unix ms
-  txid: string;      // synthesized e.g. "tx_4xR9…k9Fn"
-  op: string;        // "payment.send" / "yield.claim" / "secondary.market"
+  ts: number; // unix ms
+  txid: string; // synthesized e.g. "tx_4xR9…k9Fn"
+  op: string; // "payment.send" / "yield.claim" / "secondary.market"
   amountBrl: number; // 0 for non-money events
-  target: string;    // "escrow.usdc" / "kamino.vault" / "@petrus" / "civic.pass"
+  target: string; // "escrow.usdc" / "kamino.vault" / "@petrus" / "civic.pass"
   attestPts?: number; // only present for kind === "attestation"
 }
 
@@ -81,10 +75,43 @@ function makeId(): string {
 }
 
 const INITIAL_EVENTS: SessionEvent[] = [
-  { id: "e0a", kind: "payment",     ts: Date.now() - 18 * 60 * 60 * 1000, txid: "tx_4xR9…k9Fn", op: "payment.send",     amountBrl: -892.4, target: "escrow.usdc" },
-  { id: "e0b", kind: "yield",       ts: Date.now() - 60 * 60 * 60 * 1000, txid: "tx_8mP2…aQ7L", op: "yield.claim",      amountBrl: +52.3,  target: "kamino.vault" },
-  { id: "e0c", kind: "sale",        ts: Date.now() - 5 * 24 * 60 * 60 * 1000, txid: "tx_2vK7…hN4T", op: "secondary.market", amountBrl: +1890,  target: "@petrus" },
-  { id: "e0d", kind: "attestation", ts: Date.now() - 6 * 24 * 60 * 60 * 1000, txid: "tx_6wB3…pX1Z", op: "sas.attestation", amountBrl: 0,      target: "civic.pass", attestPts: 18 },
+  {
+    id: "e0a",
+    kind: "payment",
+    ts: Date.now() - 18 * 60 * 60 * 1000,
+    txid: "tx_4xR9…k9Fn",
+    op: "payment.send",
+    amountBrl: -892.4,
+    target: "escrow.usdc",
+  },
+  {
+    id: "e0b",
+    kind: "yield",
+    ts: Date.now() - 60 * 60 * 60 * 1000,
+    txid: "tx_8mP2…aQ7L",
+    op: "yield.claim",
+    amountBrl: +52.3,
+    target: "kamino.vault",
+  },
+  {
+    id: "e0c",
+    kind: "sale",
+    ts: Date.now() - 5 * 24 * 60 * 60 * 1000,
+    txid: "tx_2vK7…hN4T",
+    op: "secondary.market",
+    amountBrl: +1890,
+    target: "@petrus",
+  },
+  {
+    id: "e0d",
+    kind: "attestation",
+    ts: Date.now() - 6 * 24 * 60 * 60 * 1000,
+    txid: "tx_6wB3…pX1Z",
+    op: "sas.attestation",
+    amountBrl: 0,
+    target: "civic.pass",
+    attestPts: 18,
+  },
 ];
 
 const INITIAL_STATE: SessionState = {
@@ -278,11 +305,7 @@ interface SessionContextValue {
   joinedGroupNames: string[];
   payInstallment: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
-  sellShare: (
-    position: NftPosition,
-    askPrice: number,
-    discountPct: number,
-  ) => void;
+  sellShare: (position: NftPosition, askPrice: number, discountPct: number) => void;
   buyShare: (offerId: string, group: string, price: number, face: number) => void;
   pushYield: (amount: number, source?: string) => void;
   harvestYield: () => void;
@@ -338,10 +361,7 @@ export function SessionProvider({
       dispatch({ type: "YIELD_TICK", amount, source }),
     [],
   );
-  const harvestYield = useCallback(
-    () => dispatch({ type: "HARVEST_YIELD" }),
-    [],
-  );
+  const harvestYield = useCallback(() => dispatch({ type: "HARVEST_YIELD" }), []);
   const loadFromDemo = useCallback(
     (userPatch: Partial<User>, groupName: string | undefined, tag: string) =>
       dispatch({ type: "LOAD_FROM_DEMO", userPatch, groupName, tag }),
@@ -362,16 +382,7 @@ export function SessionProvider({
       harvestYield,
       loadFromDemo,
     }),
-    [
-      state,
-      payInstallment,
-      joinGroup,
-      sellShare,
-      buyShare,
-      pushYield,
-      harvestYield,
-      loadFromDemo,
-    ],
+    [state, payInstallment, joinGroup, sellShare, buyShare, pushYield, harvestYield, loadFromDemo],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

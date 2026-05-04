@@ -17,11 +17,7 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 // carteira page via the `onSeeAllTx` callback so the page can swap
 // to the transactions tab without a full route change.
 
-export function WalletOverview({
-  onSeeAllTx,
-}: {
-  onSeeAllTx?: () => void;
-}) {
+export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -29,10 +25,10 @@ export function WalletOverview({
   const { user } = useSession();
 
   const composition = [
-    { c: tokens.green,  l: t("wallet.quota"),      brl: 4380, pct: "52%" },
-    { c: tokens.teal,   l: t("wallet.yieldVault"), brl: 2360, pct: "28%" },
+    { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%" },
+    { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%" },
     { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%" },
-    { c: tokens.amber,  l: t("wallet.free"),       brl:  500, pct:  "6%" },
+    { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%" },
   ];
 
   return (
@@ -108,9 +104,7 @@ export function WalletOverview({
               <span style={{ color: tokens.green }}>
                 {fmtMoney(248.12, { signed: true })} · 24h
               </span>
-              <span style={{ color: tokens.text2 }}>
-                {t("home.kpi.delta.balance")}
-              </span>
+              <span style={{ color: tokens.text2 }}>{t("home.kpi.delta.balance")}</span>
             </div>
 
             {/* composition bar */}
@@ -153,8 +147,7 @@ export function WalletOverview({
                         style={{
                           fontSize: 10,
                           color: tokens.muted,
-                          fontFamily:
-                            "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                         }}
                       >
                         {x.pct}
@@ -273,10 +266,7 @@ export function WalletOverview({
         <TransactionsList limit={3} onSeeAll={onSeeAllTx} />
       </div>
 
-      <WithdrawYieldModal
-        open={withdrawOpen}
-        onClose={() => setWithdrawOpen(false)}
-      />
+      <WithdrawYieldModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </div>
   );
 }

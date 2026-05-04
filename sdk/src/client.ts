@@ -48,10 +48,7 @@ export interface RoundFiIdls {
  * shape — `console.debug.bind(console)`, a pino logger wrapper, or
  * a no-op for production UI. Absence ⇒ silent.
  */
-export type DebugHook = (
-  tag: string,
-  data?: Record<string, unknown>,
-) => void;
+export type DebugHook = (tag: string, data?: Record<string, unknown>) => void;
 
 export interface RoundFiClientConfig {
   provider: Provider;
@@ -80,11 +77,7 @@ export interface RoundFiClient {
 
 // ─── Implementation ──────────────────────────────────────────────────
 
-function assertMatchingId(
-  label: string,
-  loaded: PublicKey,
-  expected: PublicKey | undefined,
-): void {
+function assertMatchingId(label: string, loaded: PublicKey, expected: PublicKey | undefined): void {
   if (expected && !expected.equals(loaded)) {
     throw new Error(
       `RoundFiClient: ${label} program ID mismatch. ` +
@@ -101,18 +94,18 @@ function assertMatchingId(
 export function createClient(cfg: RoundFiClientConfig): RoundFiClient {
   const debug: DebugHook = cfg.debug ?? (() => {});
 
-  const core         = new Program(cfg.idls.core,         cfg.provider);
-  const reputation   = new Program(cfg.idls.reputation,   cfg.provider);
+  const core = new Program(cfg.idls.core, cfg.provider);
+  const reputation = new Program(cfg.idls.reputation, cfg.provider);
   const yieldAdapter = new Program(cfg.idls.yieldAdapter, cfg.provider);
 
   const ids: RoundFiProgramIds = {
-    core:         core.programId,
-    reputation:   reputation.programId,
+    core: core.programId,
+    reputation: reputation.programId,
     yieldAdapter: yieldAdapter.programId,
   };
 
-  assertMatchingId("core",         ids.core,         cfg.expectedIds?.core);
-  assertMatchingId("reputation",   ids.reputation,   cfg.expectedIds?.reputation);
+  assertMatchingId("core", ids.core, cfg.expectedIds?.core);
+  assertMatchingId("reputation", ids.reputation, cfg.expectedIds?.reputation);
   assertMatchingId("yieldAdapter", ids.yieldAdapter, cfg.expectedIds?.yieldAdapter);
 
   // AnchorProvider exposes `connection`; other Provider implementations
@@ -130,10 +123,10 @@ export function createClient(cfg: RoundFiClientConfig): RoundFiClient {
   }
 
   debug("client.created", {
-    core:         ids.core.toBase58(),
-    reputation:   ids.reputation.toBase58(),
+    core: ids.core.toBase58(),
+    reputation: ids.reputation.toBase58(),
     yieldAdapter: ids.yieldAdapter.toBase58(),
-    endpoint:     connection.rpcEndpoint,
+    endpoint: connection.rpcEndpoint,
   });
 
   return {

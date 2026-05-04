@@ -56,12 +56,12 @@ export interface CreatePoolOpts {
   usdcMint: PublicKey;
   seedId?: bigint;
   membersTarget?: number;
-  installmentAmount?: bigint;     // base units
-  creditAmount?: bigint;          // base units
+  installmentAmount?: bigint; // base units
+  creditAmount?: bigint; // base units
   cyclesTotal?: number;
   cycleDurationSec?: number;
   escrowReleaseBps?: number;
-  yieldAdapter?: PublicKey;       // defaults to env.ids.yieldMock
+  yieldAdapter?: PublicKey; // defaults to env.ids.yieldMock
 }
 
 export interface PoolHandle {
@@ -97,14 +97,14 @@ export interface JoinOpts {
 }
 
 export interface MemberHandle {
-  member: PublicKey;              // member-record PDA
-  wallet: Keypair;                // the joining signer
-  nftAsset: Keypair;              // fresh keypair that became the NFT asset
+  member: PublicKey; // member-record PDA
+  wallet: Keypair; // the joining signer
+  nftAsset: Keypair; // fresh keypair that became the NFT asset
   slotIndex: number;
   reputationLevel: 1 | 2 | 3;
   stakeBps: number;
-  stakeAmount: bigint;            // credit_amount * stake_bps / 10_000
-  memberUsdc: PublicKey;          // the member's USDC ATA
+  stakeAmount: bigint; // credit_amount * stake_bps / 10_000
+  memberUsdc: PublicKey; // the member's USDC ATA
   positionAuthority: PublicKey;
 }
 
@@ -122,23 +122,20 @@ function stakeAmount(creditAmount: bigint, stakeBps: number): bigint {
 
 // ─── createPool ───────────────────────────────────────────────────────
 
-export async function createPool(
-  env: Env,
-  opts: CreatePoolOpts,
-): Promise<PoolHandle> {
+export async function createPool(env: Env, opts: CreatePoolOpts): Promise<PoolHandle> {
   await ensureFunded(env, [opts.authority], 3);
 
-  const seedId            = opts.seedId            ?? nextSeedId();
-  const membersTarget     = opts.membersTarget     ?? POOL_DEFAULTS.membersTarget;
+  const seedId = opts.seedId ?? nextSeedId();
+  const membersTarget = opts.membersTarget ?? POOL_DEFAULTS.membersTarget;
   const installmentAmount = opts.installmentAmount ?? POOL_DEFAULTS.installmentAmount;
-  const creditAmount      = opts.creditAmount      ?? POOL_DEFAULTS.creditAmount;
-  const cyclesTotal       = opts.cyclesTotal       ?? POOL_DEFAULTS.cyclesTotal;
+  const creditAmount = opts.creditAmount ?? POOL_DEFAULTS.creditAmount;
+  const cyclesTotal = opts.cyclesTotal ?? POOL_DEFAULTS.cyclesTotal;
   // Tests should prefer tiny cycle durations so time-based specs
   // can `sleep()` across boundaries in seconds instead of days.
   // Default to 60s (matches MIN_CYCLE_DURATION).
-  const cycleDurationSec  = opts.cycleDurationSec  ?? 60;
-  const escrowReleaseBps  = opts.escrowReleaseBps  ?? 2500;
-  const yieldAdapter      = opts.yieldAdapter      ?? env.ids.yieldMock;
+  const cycleDurationSec = opts.cycleDurationSec ?? 60;
+  const escrowReleaseBps = opts.escrowReleaseBps ?? 2500;
+  const yieldAdapter = opts.yieldAdapter ?? env.ids.yieldMock;
 
   const authorityPk = opts.authority.publicKey;
   const [pool] = poolPda(env.ids.core, authorityPk, seedId);
@@ -146,20 +143,24 @@ export async function createPool(
   const [solidarityVaultAuthority] = solidarityVaultAuthorityPda(env.ids.core, pool);
   const [yieldVaultAuthority] = yieldVaultAuthorityPda(env.ids.core, pool);
 
-  const poolUsdcVault   = getAssociatedTokenAddressSync(opts.usdcMint, pool, true);
-  const escrowVault     = getAssociatedTokenAddressSync(opts.usdcMint, escrowVaultAuthority, true);
-  const solidarityVault = getAssociatedTokenAddressSync(opts.usdcMint, solidarityVaultAuthority, true);
-  const yieldVault      = getAssociatedTokenAddressSync(opts.usdcMint, yieldVaultAuthority, true);
+  const poolUsdcVault = getAssociatedTokenAddressSync(opts.usdcMint, pool, true);
+  const escrowVault = getAssociatedTokenAddressSync(opts.usdcMint, escrowVaultAuthority, true);
+  const solidarityVault = getAssociatedTokenAddressSync(
+    opts.usdcMint,
+    solidarityVaultAuthority,
+    true,
+  );
+  const yieldVault = getAssociatedTokenAddressSync(opts.usdcMint, yieldVaultAuthority, true);
 
   await (env.programs.core.methods as any)
     .createPool({
-      seedId:            new BN(seedId.toString()),
-      membersTarget:     membersTarget,
+      seedId: new BN(seedId.toString()),
+      membersTarget: membersTarget,
       installmentAmount: new BN(installmentAmount.toString()),
-      creditAmount:      new BN(creditAmount.toString()),
-      cyclesTotal:       cyclesTotal,
-      cycleDuration:     new BN(cycleDurationSec),
-      escrowReleaseBps:  escrowReleaseBps,
+      creditAmount: new BN(creditAmount.toString()),
+      cyclesTotal: cyclesTotal,
+      cycleDuration: new BN(cycleDurationSec),
+      escrowReleaseBps: escrowReleaseBps,
     })
     .accounts({
       authority: authorityPk,
@@ -206,12 +207,8 @@ export async function createPool(
 
 // ─── joinPool ─────────────────────────────────────────────────────────
 
-export async function joinPool(
-  env: Env,
-  pool: PoolHandle,
-  opts: JoinOpts,
-): Promise<MemberHandle> {
-  const prefundSol   = opts.prefundSol   ?? true;
+export async function joinPool(env: Env, pool: PoolHandle, opts: JoinOpts): Promise<MemberHandle> {
+  const prefundSol = opts.prefundSol ?? true;
   const prefundStake = opts.prefundStake ?? true;
 
   if (prefundSol) {

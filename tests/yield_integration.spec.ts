@@ -58,45 +58,48 @@ import {
 
 // ─── Pool parameters ──────────────────────────────────────────────────
 
-const MEMBERS_TARGET     = 4;
-const CYCLES_TOTAL       = 4;
+const MEMBERS_TARGET = 4;
+const CYCLES_TOTAL = 4;
 const CYCLE_DURATION_SEC = 60;
-const INSTALLMENT_USDC   = 1_250n;
-const CREDIT_USDC        = 3_500n;
-const LEVEL: 1 | 2 | 3   = 2;
+const INSTALLMENT_USDC = 1_250n;
+const CREDIT_USDC = 3_500n;
+const LEVEL: 1 | 2 | 3 = 2;
 
-const INSTALLMENT_BASE    = usdc(INSTALLMENT_USDC);
-const CREDIT_BASE         = usdc(CREDIT_USDC);
-const POOL_FLOAT_PER_INST = INSTALLMENT_BASE
-  - (INSTALLMENT_BASE * 100n)   / 10_000n     // solidarity 1%
-  - (INSTALLMENT_BASE * 2_500n) / 10_000n;    // escrow 25%
+const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
+const CREDIT_BASE = usdc(CREDIT_USDC);
+const POOL_FLOAT_PER_INST =
+  INSTALLMENT_BASE -
+  (INSTALLMENT_BASE * 100n) / 10_000n - // solidarity 1%
+  (INSTALLMENT_BASE * 2_500n) / 10_000n; // escrow 25%
 // = 925_000_000 per member per cycle
 
 // Pool-vault balance after every member contributes cycle 0:
 const POOL_VAULT_AFTER_CYCLE0 = BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST;
 
 // Yield numbers (hand-computed — see per-it header below each scenario):
-const DEPOSIT_BASE         = usdc(200n);   // moved into the mock
-const YIELD_B_BASE         = usdc(100n);   // "empty GF" harvest
-const YIELD_C_BASE         = usdc(200n);   // "partial GF fill" harvest
-const YIELD_D_BASE         = usdc(20n);    // "fully absorbed by GF" harvest
+const DEPOSIT_BASE = usdc(200n); // moved into the mock
+const YIELD_B_BASE = usdc(100n); // "empty GF" harvest
+const YIELD_C_BASE = usdc(200n); // "partial GF fill" harvest
+const YIELD_D_BASE = usdc(20n); // "fully absorbed by GF" harvest
 
 // Protocol defaults (mirrors DEFAULT_* in roundfi-core::constants):
-const FEE_BPS_YIELD      = 2_000;   // 20 % protocol fee on gross
-const GUARANTEE_FUND_BPS = 15_000;  // 150 % of fees
-const LP_SHARE_BPS       = 6_500;   // 65 % LPs / Anjos de Liquidez
+const FEE_BPS_YIELD = 2_000; // 20 % protocol fee on gross
+const GUARANTEE_FUND_BPS = 15_000; // 150 % of fees
+const LP_SHARE_BPS = 6_500; // 65 % LPs / Anjos de Liquidez
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 async function poolState(env: Env, pool: PublicKey) {
-  return fetchPool(env, pool) as Promise<Record<string, unknown> & {
-    currentCycle: number;
-    status: number;
-    guaranteeFundBalance: { toString(): string };
-    yieldAccrued: { toString(): string };
-    yieldPrincipalDeposited: { toString(): string };
-    totalProtocolFeeAccrued: { toString(): string };
-  }>;
+  return fetchPool(env, pool) as Promise<
+    Record<string, unknown> & {
+      currentCycle: number;
+      status: number;
+      guaranteeFundBalance: { toString(): string };
+      yieldAccrued: { toString(): string };
+      yieldPrincipalDeposited: { toString(): string };
+      totalProtocolFeeAccrued: { toString(): string };
+    }
+  >;
 }
 
 function bn(x: unknown): bigint {
@@ -143,7 +146,7 @@ async function expectRejected(thunk: () => Promise<unknown>): Promise<string> {
     return String((err as Error)?.message ?? err);
   }
   expect.fail("expected transaction to revert, but it succeeded");
-  return "";  // unreachable — expect.fail throws
+  return ""; // unreachable — expect.fail throws
 }
 
 // ─── The test ─────────────────────────────────────────────────────────
@@ -185,12 +188,12 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     pool = await createPool(env, {
       authority,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
 
     handles = await joinMembers(
@@ -213,7 +216,7 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
 
     expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(POOL_VAULT_AFTER_CYCLE0);
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(1);                 // Active
+    expect(p.status).to.equal(1); // Active
     expect(bn(p.guaranteeFundBalance)).to.equal(0n);
     expect(bn(p.yieldAccrued)).to.equal(0n);
     expect(bn(p.totalProtocolFeeAccrued)).to.equal(0n);
@@ -237,9 +240,7 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     // The mock vault is initialized but holds nothing. GF balance = 0.
     // This path is purely the amount>0 check in the core ix — never
     // reaches the adapter.
-    const msg = await expectRejected(() =>
-      depositIdleToYield(env, { pool, amount: 0n }),
-    );
+    const msg = await expectRejected(() => depositIdleToYield(env, { pool, amount: 0n }));
     expect(msg).to.match(/InvalidAmount/);
   });
 
@@ -276,10 +277,10 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     // Mock vault holds exactly tracked_principal, so harvest computes
     // realized = 0 and short-circuits before touching any bucket.
     const before = {
-      pool:        await balanceOf(env, pool.poolUsdcVault),
-      solidarity:  await balanceOf(env, pool.solidarityVault),
-      treasury:    await balanceOf(env, treasury),
-      mock:        await balanceOf(env, mockVault),
+      pool: await balanceOf(env, pool.poolUsdcVault),
+      solidarity: await balanceOf(env, pool.solidarityVault),
+      treasury: await balanceOf(env, treasury),
+      mock: await balanceOf(env, mockVault),
     };
     const pBefore = await poolState(env, pool.pool);
 
@@ -295,12 +296,9 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     expect(await balanceOf(env, mockVault)).to.equal(before.mock);
 
     const pAfter = await poolState(env, pool.pool);
-    expect(bn(pAfter.guaranteeFundBalance))
-      .to.equal(bn(pBefore.guaranteeFundBalance));
-    expect(bn(pAfter.yieldAccrued))
-      .to.equal(bn(pBefore.yieldAccrued));
-    expect(bn(pAfter.totalProtocolFeeAccrued))
-      .to.equal(bn(pBefore.totalProtocolFeeAccrued));
+    expect(bn(pAfter.guaranteeFundBalance)).to.equal(bn(pBefore.guaranteeFundBalance));
+    expect(bn(pAfter.yieldAccrued)).to.equal(bn(pBefore.yieldAccrued));
+    expect(bn(pAfter.totalProtocolFeeAccrued)).to.equal(bn(pBefore.totalProtocolFeeAccrued));
   });
 
   // ─── Scenario B: first harvest — GF room = 0 ───────────────────────
@@ -312,19 +310,19 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     await prefundMockYield(env, pool.pool, usdcMint, YIELD_B_BASE);
 
     const before = {
-      pool:       await balanceOf(env, pool.poolUsdcVault),
+      pool: await balanceOf(env, pool.poolUsdcVault),
       solidarity: await balanceOf(env, pool.solidarityVault),
-      treasury:   await balanceOf(env, treasury),
-      mock:       await balanceOf(env, mockVault),
+      treasury: await balanceOf(env, treasury),
+      mock: await balanceOf(env, mockVault),
     };
 
     // PDF-canonical (v1.1): fee 20% of 100 = 20; afterFee=80;
     // gf=min(80, 0)=0; afterGf=80; lp 65% of 80 = 52; participants = 28.
     const exp = expectedSplit(YIELD_B_BASE, 0n);
     expect(exp).to.deep.equal({
-      fee:          usdc(20n),
-      gf:           0n,
-      lpShare:      usdc(52n),
+      fee: usdc(20n),
+      gf: 0n,
+      lpShare: usdc(52n),
       participants: usdc(28n),
     });
 
@@ -337,16 +335,12 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     // Pool vault = before + realized − fee_out
     // (Only fee is transferred OUT. GF and LP slices are logical
     //  earmarks that STAY inside pool_usdc_vault.)
-    expect(await balanceOf(env, pool.poolUsdcVault))
-      .to.equal(before.pool + YIELD_B_BASE - exp.fee);
+    expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(before.pool + YIELD_B_BASE - exp.fee);
     // Solidarity vault is no longer credited from yield (v1.1 — Cofre
     // Solidário is funded only from the 1% das parcelas).
-    expect(await balanceOf(env, pool.solidarityVault))
-      .to.equal(before.solidarity);
-    expect(await balanceOf(env, treasury))
-      .to.equal(before.treasury + exp.fee);
-    expect(await balanceOf(env, mockVault))
-      .to.equal(before.mock - YIELD_B_BASE);
+    expect(await balanceOf(env, pool.solidarityVault)).to.equal(before.solidarity);
+    expect(await balanceOf(env, treasury)).to.equal(before.treasury + exp.fee);
+    expect(await balanceOf(env, mockVault)).to.equal(before.mock - YIELD_B_BASE);
 
     const p = await poolState(env, pool.pool);
     expect(bn(p.guaranteeFundBalance)).to.equal(exp.gf);
@@ -355,10 +349,10 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     expect(bn(p.yieldAccrued)).to.equal(YIELD_B_BASE);
 
     // Bookkeep for the next scenarios.
-    gfBalance      = exp.gf;
-    feesAccrued    = exp.fee;
+    gfBalance = exp.gf;
+    feesAccrued = exp.fee;
     lpDistribution = exp.lpShare;
-    yieldAccrued   = YIELD_B_BASE;
+    yieldAccrued = YIELD_B_BASE;
   });
 
   // ─── Scenario C: second harvest — GF now has room ──────────────────
@@ -373,9 +367,9 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     await prefundMockYield(env, pool.pool, usdcMint, YIELD_C_BASE);
 
     const before = {
-      pool:       await balanceOf(env, pool.poolUsdcVault),
+      pool: await balanceOf(env, pool.poolUsdcVault),
       solidarity: await balanceOf(env, pool.solidarityVault),
-      treasury:   await balanceOf(env, treasury),
+      treasury: await balanceOf(env, treasury),
     };
 
     const cap = gfCap(feesAccrued);
@@ -383,10 +377,10 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     expect(room).to.equal(usdc(30n));
     const exp = expectedSplit(YIELD_C_BASE, room);
     expect(exp).to.deep.equal({
-      fee:          usdc(40n),
-      gf:           usdc(30n),
-      lpShare:      84_500_000n,    // 84.5 USDC in base units
-      participants: 45_500_000n,    // 45.5 USDC in base units
+      fee: usdc(40n),
+      gf: usdc(30n),
+      lpShare: 84_500_000n, // 84.5 USDC in base units
+      participants: 45_500_000n, // 45.5 USDC in base units
     });
 
     await harvestYield(env, {
@@ -397,18 +391,15 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
 
     // Only fee is transferred out. GF + LP slices stay earmarked
     // inside pool_usdc_vault (logical bookkeeping).
-    expect(await balanceOf(env, pool.poolUsdcVault))
-      .to.equal(before.pool + YIELD_C_BASE - exp.fee);
-    expect(await balanceOf(env, pool.solidarityVault))
-      .to.equal(before.solidarity); // no longer credited from yield
-    expect(await balanceOf(env, treasury))
-      .to.equal(before.treasury + exp.fee);
+    expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(before.pool + YIELD_C_BASE - exp.fee);
+    expect(await balanceOf(env, pool.solidarityVault)).to.equal(before.solidarity); // no longer credited from yield
+    expect(await balanceOf(env, treasury)).to.equal(before.treasury + exp.fee);
 
     const p = await poolState(env, pool.pool);
-    gfBalance       = gfBalance       + exp.gf;
-    feesAccrued     = feesAccrued     + exp.fee;
-    lpDistribution  = lpDistribution  + exp.lpShare;
-    yieldAccrued    = yieldAccrued    + YIELD_C_BASE;
+    gfBalance = gfBalance + exp.gf;
+    feesAccrued = feesAccrued + exp.fee;
+    lpDistribution = lpDistribution + exp.lpShare;
+    yieldAccrued = yieldAccrued + YIELD_C_BASE;
 
     expect(bn(p.guaranteeFundBalance)).to.equal(gfBalance);
     expect(bn(p.lpDistributionBalance)).to.equal(lpDistribution);
@@ -432,18 +423,18 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     await prefundMockYield(env, pool.pool, usdcMint, YIELD_D_BASE);
 
     const before = {
-      pool:       await balanceOf(env, pool.poolUsdcVault),
+      pool: await balanceOf(env, pool.poolUsdcVault),
       solidarity: await balanceOf(env, pool.solidarityVault),
-      treasury:   await balanceOf(env, treasury),
+      treasury: await balanceOf(env, treasury),
     };
 
     const room = gfCap(feesAccrued) - gfBalance;
     expect(room).to.equal(usdc(60n));
     const exp = expectedSplit(YIELD_D_BASE, room);
     expect(exp).to.deep.equal({
-      fee:          usdc(4n),
-      gf:           usdc(16n),
-      lpShare:      0n,
+      fee: usdc(4n),
+      gf: usdc(16n),
+      lpShare: 0n,
       participants: 0n,
     });
 
@@ -454,18 +445,15 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     });
 
     // Fee is transferred out (4 USDC); GF stays earmarked inside vault.
-    expect(await balanceOf(env, pool.poolUsdcVault))
-      .to.equal(before.pool + YIELD_D_BASE - exp.fee);
-    expect(await balanceOf(env, pool.solidarityVault))
-      .to.equal(before.solidarity);
-    expect(await balanceOf(env, treasury))
-      .to.equal(before.treasury + exp.fee);
+    expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(before.pool + YIELD_D_BASE - exp.fee);
+    expect(await balanceOf(env, pool.solidarityVault)).to.equal(before.solidarity);
+    expect(await balanceOf(env, treasury)).to.equal(before.treasury + exp.fee);
 
     const p = await poolState(env, pool.pool);
-    gfBalance      = gfBalance      + exp.gf;
-    feesAccrued    = feesAccrued    + exp.fee;
+    gfBalance = gfBalance + exp.gf;
+    feesAccrued = feesAccrued + exp.fee;
     lpDistribution = lpDistribution + exp.lpShare;
-    yieldAccrued   = yieldAccrued   + YIELD_D_BASE;
+    yieldAccrued = yieldAccrued + YIELD_D_BASE;
     expect(bn(p.guaranteeFundBalance)).to.equal(gfBalance);
     expect(bn(p.lpDistributionBalance)).to.equal(lpDistribution);
     expect(bn(p.totalProtocolFeeAccrued)).to.equal(feesAccrued);
@@ -482,15 +470,13 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     //   spendable_idle = pool_vault.amount - pool.guarantee_fund_balance
     //   args.amount    > spendable_idle          → InsufficientStake
     const vaultBefore = await balanceOf(env, pool.poolUsdcVault);
-    const p           = await poolState(env, pool.pool);
-    const earmark     = bn(p.guaranteeFundBalance);
-    expect(earmark > 0n).to.equal(true);       // else this test is trivially vacuous
-    const spendable   = vaultBefore - earmark;
-    const overshoot   = spendable + 1n;
+    const p = await poolState(env, pool.pool);
+    const earmark = bn(p.guaranteeFundBalance);
+    expect(earmark > 0n).to.equal(true); // else this test is trivially vacuous
+    const spendable = vaultBefore - earmark;
+    const overshoot = spendable + 1n;
 
-    const msg = await expectRejected(() =>
-      depositIdleToYield(env, { pool, amount: overshoot }),
-    );
+    const msg = await expectRejected(() => depositIdleToYield(env, { pool, amount: overshoot }));
     expect(msg).to.match(/InsufficientStake/);
 
     // Control: depositing the exact spendable amount still succeeds and

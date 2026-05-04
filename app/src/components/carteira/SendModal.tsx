@@ -20,13 +20,7 @@ type Phase = "form" | "success";
 // Solana base58 pubkeys are 32–44 chars.
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
-export function SendModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function SendModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
@@ -52,11 +46,7 @@ export function SendModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={
-        phase === "form"
-          ? t("modal.send.title")
-          : t("modal.send.successTitle")
-      }
+      title={phase === "form" ? t("modal.send.title") : t("modal.send.successTitle")}
       subtitle={phase === "form" ? t("modal.send.subtitle") : undefined}
       width={460}
     >
@@ -103,13 +93,10 @@ export function SendModal({
                 borderRadius: 10,
                 background: tokens.fillSoft,
                 border: `1px solid ${
-                  address.length === 0 || validAddress
-                    ? tokens.border
-                    : tokens.red + "55"
+                  address.length === 0 || validAddress ? tokens.border : tokens.red + "55"
                 }`,
                 color: tokens.text,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 12,
                 outline: "none",
                 transition: "border-color 180ms ease",
@@ -121,8 +108,7 @@ export function SendModal({
                   marginTop: 4,
                   fontSize: 10,
                   color: tokens.red,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {t("modal.send.invalidAddress")}
@@ -150,8 +136,7 @@ export function SendModal({
                   fontSize: 10,
                   color: tokens.teal,
                   fontWeight: 700,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   letterSpacing: "0.08em",
                 }}
               >
@@ -173,9 +158,7 @@ export function SendModal({
                 borderRadius: 10,
                 background: tokens.fillSoft,
                 border: `1px solid ${
-                  amount.length === 0 || validAmount
-                    ? tokens.border
-                    : tokens.red + "55"
+                  amount.length === 0 || validAmount ? tokens.border : tokens.red + "55"
                 }`,
                 color: tokens.text,
                 fontFamily: "var(--font-syne), Syne",
@@ -190,8 +173,7 @@ export function SendModal({
                   marginTop: 4,
                   fontSize: 10,
                   color: tokens.red,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {numericAmount > user.balance
@@ -217,9 +199,7 @@ export function SendModal({
             <MonoLabel size={9} color={tokens.amber}>
               {t("modal.send.demoBadge")}
             </MonoLabel>
-            <span
-              style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}
-            >
+            <span style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
               {t("modal.send.demoBody")}
             </span>
           </div>

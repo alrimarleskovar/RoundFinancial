@@ -43,8 +43,8 @@ export async function createUsdcMint(env: Env): Promise<PublicKey> {
   return createMint(
     env.connection,
     env.payer,
-    env.payer.publicKey,      // mint authority
-    env.payer.publicKey,      // freeze authority (unused, but set)
+    env.payer.publicKey, // mint authority
+    env.payer.publicKey, // freeze authority (unused, but set)
     USDC_DECIMALS,
     undefined,
     { commitment: "confirmed" },
@@ -64,7 +64,7 @@ export async function ensureAta(
     payer,
     mint,
     owner,
-    true,                     // allowOwnerOffCurve — some owners are PDAs
+    true, // allowOwnerOffCurve — some owners are PDAs
     "confirmed",
     { commitment: "confirmed" },
     TOKEN_PROGRAM_ID,
@@ -85,7 +85,7 @@ export async function mintToAta(
     env.payer,
     mint,
     dest,
-    env.payer,                // mint authority (= payer, by createUsdcMint)
+    env.payer, // mint authority (= payer, by createUsdcMint)
     amount,
     [],
     { commitment: "confirmed" },

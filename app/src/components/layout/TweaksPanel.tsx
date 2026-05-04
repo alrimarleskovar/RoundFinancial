@@ -15,14 +15,14 @@ import { useTheme, type Palette } from "@/lib/theme";
 const SHOW_TWEAKS = process.env.NODE_ENV !== "production";
 
 const SCREENS: ReadonlyArray<readonly [string, string]> = [
-  ["/home",      "Início"],
-  ["/carteira",  "Carteira"],
-  ["/grupos",    "Grupos"],
+  ["/home", "Início"],
+  ["/carteira", "Carteira"],
+  ["/grupos", "Grupos"],
   ["/reputacao", "Reputação"],
-  ["/mercado",   "Mercado"],
-  ["/insights",  "Insights"],
-  ["/lab",       "Stress Lab"],
-  ["/",          "Landing"],
+  ["/mercado", "Mercado"],
+  ["/insights", "Insights"],
+  ["/lab", "Stress Lab"],
+  ["/", "Landing"],
 ];
 
 const PALETTES: ReadonlyArray<readonly [Palette, string]> = [
@@ -31,8 +31,8 @@ const PALETTES: ReadonlyArray<readonly [Palette, string]> = [
 ];
 
 const MOTIONS: ReadonlyArray<readonly [MotionMode, string]> = [
-  ["off",   "Off · sem animação"],
-  ["fade",  "Fade · sutil 220ms"],
+  ["off", "Off · sem animação"],
+  ["fade", "Fade · sutil 220ms"],
   ["slide", "Slide · horizontal 260ms"],
 ];
 
@@ -212,8 +212,7 @@ export function TweaksPanel() {
               }}
             >
               {SCREENS.map(([href, label]) => {
-                const active =
-                  href === "/" ? pathname === "/" : pathname.startsWith(href);
+                const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
                 return (
                   <Link
                     key={href}

@@ -20,11 +20,16 @@ export function PositionsList({ limit }: { limit?: number }) {
   const rows: NftPosition[] = limit ? NFT_POSITIONS.slice(0, limit) : NFT_POSITIONS;
   const toneColor = (tone: Tone): string => {
     switch (tone) {
-      case "g": return tokens.green;
-      case "t": return tokens.teal;
-      case "p": return tokens.purple;
-      case "a": return tokens.amber;
-      case "r": return tokens.red;
+      case "g":
+        return tokens.green;
+      case "t":
+        return tokens.teal;
+      case "p":
+        return tokens.purple;
+      case "a":
+        return tokens.amber;
+      case "r":
+        return tokens.red;
     }
   };
   return (
@@ -68,9 +73,7 @@ export function PositionsList({ limit }: { limit?: number }) {
               key={n.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: limit
-                  ? "52px 1fr auto"
-                  : "52px 1fr auto auto",
+                gridTemplateColumns: limit ? "52px 1fr auto" : "52px 1fr auto auto",
                 gap: 14,
                 padding: 12,
                 borderRadius: 12,
@@ -100,8 +103,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                   style={{
                     fontSize: 8,
                     opacity: 0.7,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontWeight: 500,
                   }}
                 >
@@ -110,20 +112,16 @@ export function PositionsList({ limit }: { limit?: number }) {
                 {n.num}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: tokens.text }}>
-                  {n.group}
-                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: tokens.text }}>{n.group}</div>
                 <div
                   style={{
                     fontSize: 10,
                     color: tokens.muted,
                     marginTop: 2,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
-                  {t("home.month")} {n.month}/{n.total} ·{" "}
-                  {t("wallet.expires", { d: n.exp })}
+                  {t("home.month")} {n.month}/{n.total} · {t("wallet.expires", { d: n.exp })}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -142,8 +140,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                     fontSize: 10,
                     color: tokens.green,
                     marginTop: 2,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
                   +{n.yieldPct}%
@@ -172,11 +169,7 @@ export function PositionsList({ limit }: { limit?: number }) {
           );
         })}
       </div>
-      <SellShareModal
-        position={selling}
-        open={selling != null}
-        onClose={() => setSelling(null)}
-      />
+      <SellShareModal position={selling} open={selling != null} onClose={() => setSelling(null)} />
     </div>
   );
 }

@@ -23,13 +23,7 @@ export interface EmptyStateProps {
   icon?: React.ReactNode;
 }
 
-export function EmptyState({
-  title,
-  sub,
-  ctaLabel,
-  onCta,
-  icon,
-}: EmptyStateProps) {
+export function EmptyState({ title, sub, ctaLabel, onCta, icon }: EmptyStateProps) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
 
@@ -67,11 +61,7 @@ export function EmptyState({
       >
         {title}
       </div>
-      <div
-        style={{ fontSize: 12, color: tokens.muted, marginTop: 6 }}
-      >
-        {sub}
-      </div>
+      <div style={{ fontSize: 12, color: tokens.muted, marginTop: 6 }}>{sub}</div>
       {ctaLabel && onCta && (
         <button
           type="button"

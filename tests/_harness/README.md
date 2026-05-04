@@ -11,20 +11,20 @@ and runs every `tests/**/*.spec.ts` under `ts-mocha`.
 
 ## Modules
 
-| File | Purpose |
-|---|---|
-| `env.ts` | Workspace provider + typed `Program<T>` handles for all four on-chain programs. Single import point for spec files. |
-| `pda.ts` | Re-exports `@roundfi/sdk` PDA helpers; adds anchor-specific conveniences (bump extraction, arrays of position PDAs, etc.). |
-| `keypairs.ts` | Deterministic keypair generation from a seed string — reproducible fixtures across CI runs. |
-| `airdrop.ts` | Batched SOL funding for test wallets (respects faucet caps on real devnet, unthrottled on localnet). |
-| `mint.ts` | Creates a fresh 6-decimal USDC-like mint per test, mints to ATAs, ensures ATAs exist. |
-| `time.ts` | Localnet clock warping + `sleep`. For cycle-boundary and grace-window tests. |
-| `yield.ts` | Resolves the mock yield adapter program ID from the workspace and exposes its state PDA helper. |
-| `protocol.ts` | Wrapper around `initialize_protocol` — idempotent per test (skips if already init'd for the same `authority`). |
-| `reputation.ts` | Wrappers around `initialize_reputation`, `init_profile`; event-log parser for attestation events. |
-| `pool.ts` | **Reusable pool initializer**: create pool → mass-join N members at configurable tiers → optionally advance to an active cycle. |
-| `events.ts` | Anchor event parser (decodes `ProfileSnapshot`, attestation events, etc. from tx logs). |
-| `index.ts` | Barrel export. Spec files do `import { ... } from "../_harness"`. |
+| File            | Purpose                                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `env.ts`        | Workspace provider + typed `Program<T>` handles for all four on-chain programs. Single import point for spec files.             |
+| `pda.ts`        | Re-exports `@roundfi/sdk` PDA helpers; adds anchor-specific conveniences (bump extraction, arrays of position PDAs, etc.).      |
+| `keypairs.ts`   | Deterministic keypair generation from a seed string — reproducible fixtures across CI runs.                                     |
+| `airdrop.ts`    | Batched SOL funding for test wallets (respects faucet caps on real devnet, unthrottled on localnet).                            |
+| `mint.ts`       | Creates a fresh 6-decimal USDC-like mint per test, mints to ATAs, ensures ATAs exist.                                           |
+| `time.ts`       | Localnet clock warping + `sleep`. For cycle-boundary and grace-window tests.                                                    |
+| `yield.ts`      | Resolves the mock yield adapter program ID from the workspace and exposes its state PDA helper.                                 |
+| `protocol.ts`   | Wrapper around `initialize_protocol` — idempotent per test (skips if already init'd for the same `authority`).                  |
+| `reputation.ts` | Wrappers around `initialize_reputation`, `init_profile`; event-log parser for attestation events.                               |
+| `pool.ts`       | **Reusable pool initializer**: create pool → mass-join N members at configurable tiers → optionally advance to an active cycle. |
+| `events.ts`     | Anchor event parser (decodes `ProfileSnapshot`, attestation events, etc. from tx logs).                                         |
+| `index.ts`      | Barrel export. Spec files do `import { ... } from "../_harness"`.                                                               |
 
 ## Usage pattern
 

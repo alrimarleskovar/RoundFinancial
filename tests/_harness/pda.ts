@@ -61,27 +61,15 @@ export function reputationProfileFor(env: Env, wallet: PublicKey): PublicKey {
   return reputationProfilePda(env.ids.reputation, wallet)[0];
 }
 
-export function poolFor(
-  env: Env,
-  authority: PublicKey,
-  seedId: bigint | number,
-): PublicKey {
+export function poolFor(env: Env, authority: PublicKey, seedId: bigint | number): PublicKey {
   return poolPda(env.ids.core, authority, seedId)[0];
 }
 
-export function memberFor(
-  env: Env,
-  pool: PublicKey,
-  wallet: PublicKey,
-): PublicKey {
+export function memberFor(env: Env, pool: PublicKey, wallet: PublicKey): PublicKey {
   return memberPda(env.ids.core, pool, wallet)[0];
 }
 
-export function positionAuthorityFor(
-  env: Env,
-  pool: PublicKey,
-  slotIndex: number,
-): PublicKey {
+export function positionAuthorityFor(env: Env, pool: PublicKey, slotIndex: number): PublicKey {
   return positionAuthorityPda(env.ids.core, pool, slotIndex)[0];
 }
 
@@ -96,14 +84,8 @@ export function attestationFor(
 }
 
 /** All position PDAs for a pool with `n` members. Handy for assertions. */
-export function positionsForPool(
-  env: Env,
-  pool: PublicKey,
-  membersTarget: number,
-): PublicKey[] {
-  return Array.from({ length: membersTarget }, (_, i) =>
-    positionAuthorityFor(env, pool, i),
-  );
+export function positionsForPool(env: Env, pool: PublicKey, membersTarget: number): PublicKey[] {
+  return Array.from({ length: membersTarget }, (_, i) => positionAuthorityFor(env, pool, i));
 }
 
 /** Cross-program attestation nonce per reputation::cpi convention: (cycle << 32) | slot. */

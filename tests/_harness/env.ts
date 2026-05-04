@@ -52,8 +52,7 @@ export interface Env {
 let cached: Env | null = null;
 
 function loadWallet(): Keypair {
-  const path = process.env.ANCHOR_WALLET ??
-    resolve(homedir(), ".config/solana/id.json");
+  const path = process.env.ANCHOR_WALLET ?? resolve(homedir(), ".config/solana/id.json");
   if (!existsSync(path)) {
     throw new Error(
       `ANCHOR_WALLET not found at ${path}. Set ANCHOR_WALLET env or run ` +
@@ -93,13 +92,13 @@ export async function setupEnv(): Promise<Env> {
   });
   anchor.setProvider(provider);
 
-  const coreIdl       = loadIdl("roundfi_core");
+  const coreIdl = loadIdl("roundfi_core");
   const reputationIdl = loadIdl("roundfi_reputation");
-  const yieldMockIdl  = loadIdl("roundfi_yield_mock");
+  const yieldMockIdl = loadIdl("roundfi_yield_mock");
 
-  const core       = new Program(coreIdl, provider);
+  const core = new Program(coreIdl, provider);
   const reputation = new Program(reputationIdl, provider);
-  const yieldMock  = new Program(yieldMockIdl, provider);
+  const yieldMock = new Program(yieldMockIdl, provider);
 
   cached = {
     connection,
@@ -107,9 +106,9 @@ export async function setupEnv(): Promise<Env> {
     payer,
     programs: { core, reputation, yieldMock },
     ids: {
-      core:       core.programId,
+      core: core.programId,
       reputation: reputation.programId,
-      yieldMock:  yieldMock.programId,
+      yieldMock: yieldMock.programId,
     },
   };
   return cached;

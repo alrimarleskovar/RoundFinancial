@@ -60,8 +60,7 @@ export function Modal({
     if (!open) return;
 
     // ─── (1) capture the trigger so we can restore focus on close ──
-    previouslyFocusedRef.current =
-      (document.activeElement as HTMLElement | null) ?? null;
+    previouslyFocusedRef.current = (document.activeElement as HTMLElement | null) ?? null;
 
     // ─── (2) move focus into the dialog ───────────────────────────
     // Schedule via rAF so the framer-motion mount completes first
@@ -86,9 +85,7 @@ export function Modal({
       if (e.key !== "Tab" || !dialogRef.current) return;
       const focusables = Array.from(
         dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      ).filter(
-        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
-      );
+      ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
       if (focusables.length === 0) {
         // No interactive children — keep focus on the dialog itself.
         e.preventDefault();

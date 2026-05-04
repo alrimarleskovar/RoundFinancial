@@ -139,7 +139,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.offers.cta.buy": "Comprar",
     "market.offers.purchased": "Comprado",
     "market.offers.empty.title": "Nenhuma posição à venda",
-    "market.offers.empty.sub": "Quando alguém precisar de liquidez antes do prazo, a oferta vai aparecer aqui.",
+    "market.offers.empty.sub":
+      "Quando alguém precisar de liquidez antes do prazo, a oferta vai aparecer aqui.",
     "market.purchases.title": "◆ Minhas compras",
     "market.purchases.count": "{n} cota(s) adquirida(s)",
     "market.purchases.empty":
@@ -160,12 +161,14 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.discount": "Desconto",
     "market.buyModal.savings": "Economia",
     "market.buyModal.demoBadge": "MODO DEMO",
-    "market.buyModal.demoBody": "Operação simulada. A liquidação on-chain via roundfi-core::escape_valve_buy entra em devnet no M3 do roadmap.",
+    "market.buyModal.demoBody":
+      "Operação simulada. A liquidação on-chain via roundfi-core::escape_valve_buy entra em devnet no M3 do roadmap.",
     "market.buyModal.cancel": "Cancelar",
     "market.buyModal.confirm": "Confirmar compra (demo)",
     "market.buyModal.successTitle": "Compra simulada",
     "market.buyModal.successHeadline": "Posição adquirida (demo)",
-    "market.buyModal.successBody": "Em produção, sua wallet teria recebido o NFT da cota {group} por {price}. A reputação do vendedor permanece intacta.",
+    "market.buyModal.successBody":
+      "Em produção, sua wallet teria recebido o NFT da cota {group} por {price}. A reputação do vendedor permanece intacta.",
     "market.buyModal.close": "Fechar",
     "market.howWorks.title": "◆ Como funciona",
     "market.howWorks.s1": "Tomador vende sua cota com desconto",
@@ -210,8 +213,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.sellModal.youReceive": "Você recebe",
     "market.sellModal.protectionDebt":
       "Sua dívida com o fundo é quitada automaticamente na liquidação.",
-    "market.sellModal.protectionSas":
-      "Reputação SAS preservada — saída limpa, sem flag de calote.",
+    "market.sellModal.protectionSas": "Reputação SAS preservada — saída limpa, sem flag de calote.",
     "market.sellModal.protectionSlashing":
       "Sem comprador em {days} dias, slashing automático da garantia entra em cena.",
     "market.sellModal.demoBadge": "MODO DEMO",
@@ -305,7 +307,8 @@ export const DICT: Record<Lang, Dict> = {
     "lab.controls.derivedCycles": "{n} ciclos",
     "lab.controls.kaminoApy": "Rendimento Kamino APY",
     "lab.controls.adminFee": "Taxa de Admin. s/ Yield",
-    "lab.controls.adminFeeHint": "Porcentagem do rendimento que vai para a tesouraria do protocolo.",
+    "lab.controls.adminFeeHint":
+      "Porcentagem do rendimento que vai para a tesouraria do protocolo.",
     "lab.controls.run": "▶ Iniciar Motor",
     "lab.controls.reset": "↺ Resetar Matriz",
     "lab.matrix.title": "Matriz de Cenário (Sorteio Semente)",
@@ -493,8 +496,7 @@ export const DICT: Record<Lang, Dict> = {
     // Waitlist / newsletter
     "landing.waitlist.eyebrow": "◆ Lista de espera ativa",
     "landing.waitlist.title": "Seja o primeiro a testar.",
-    "landing.waitlist.body":
-      "Entre na waitlist e receba atualizações exclusivas do protocolo.",
+    "landing.waitlist.body": "Entre na waitlist e receba atualizações exclusivas do protocolo.",
     "landing.waitlist.placeholder": "seu@email.com",
     "landing.waitlist.cta": "Inscrever-se",
     "landing.waitlist.success": "Inscrito (demo)",
@@ -590,7 +592,7 @@ export const DICT: Record<Lang, Dict> = {
       "Veterano L3, carta R$ 30k em grupo de 24. Cenário alinhado com o whitepaper: dispare 3 calotes seguidos pra mostrar a cascata de garantias.",
     "admin.preset.escapeValve.label": "João · Saída via Válvula",
     "admin.preset.escapeValve.desc":
-      "Contemplado mas precisa sair antes do ciclo terminar. Clique em \"Vender cota\" pra demonstrar a Válvula de Escape (88% da face, sem slashing).",
+      'Contemplado mas precisa sair antes do ciclo terminar. Clique em "Vender cota" pra demonstrar a Válvula de Escape (88% da face, sem slashing).',
     "admin.preset.veteranBig.label": "Carlos · Veterano L3",
     "admin.preset.veteranBig.desc":
       "Carta R$ 50k, 36 meses, score 850. Mostra o tier máximo de alavancagem (10x) e capacidade de cartas grandes.",
@@ -664,12 +666,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.summary.collateral": "Colateral exigido",
     "modal.join.cta": "Confirmar entrada",
     "modal.join.success.title": "Bem-vindo ao grupo",
-    "modal.join.success.body":
-      "Sua cota foi mintada como NFT. O escrow começa no próximo ciclo.",
+    "modal.join.success.body": "Sua cota foi mintada como NFT. O escrow começa no próximo ciclo.",
     "modal.join.success.cta": "Ver no painel",
     "modal.join.locked.title": "Grupo requer Lv.{lv}",
-    "modal.join.locked.subtitle":
-      "Seu nível atual ainda não desbloqueia este grupo.",
+    "modal.join.locked.subtitle": "Seu nível atual ainda não desbloqueia este grupo.",
     "modal.join.locked.gapBadge": "VOCÊ Nv.{cur} → REQUER Nv.{req}",
     "modal.join.locked.body":
       "Este grupo é Lv.{req} (10% de stake). Você precisa de mais {pts} pontos no SAS pra atingir o limiar de {target}.",
@@ -677,10 +677,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.locked.cta": "Como subir →",
     // new cycle modal (groups header)
     "modal.newCycle.title": "Criar novo ciclo",
-    "modal.newCycle.subtitle":
-      "Veteranos podem orquestrar novos grupos no protocolo.",
-    "modal.newCycle.lockedSubtitle":
-      "Criação de ciclos é uma capacidade Lv.3.",
+    "modal.newCycle.subtitle": "Veteranos podem orquestrar novos grupos no protocolo.",
+    "modal.newCycle.lockedSubtitle": "Criação de ciclos é uma capacidade Lv.3.",
     "modal.newCycle.demoBadge": "MODO DEMO",
     "modal.newCycle.demoBody":
       "Criar grupos via roundfi-core::create_pool entra em devnet no M3 do roadmap. A regra de Lv.3 será enforced on-chain.",
@@ -703,8 +701,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.breakdown.fee": "Taxa do protocolo",
     "modal.pay.cta": "Pagar agora",
     "modal.pay.success.title": "Parcela paga",
-    "modal.pay.success.body":
-      "Atestado SAS emitido on-chain. Sua reputação subiu +6 pts.",
+    "modal.pay.success.body": "Atestado SAS emitido on-chain. Sua reputação subiu +6 pts.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -721,8 +718,7 @@ export const DICT: Record<Lang, Dict> = {
     // groups
     "groups.badge": "◆ Catálogo",
     "groups.title": "Grupos disponíveis",
-    "groups.subtitle":
-      "{open} grupos com vagas abertas · seu nível atual dá acesso a {access}",
+    "groups.subtitle": "{open} grupos com vagas abertas · seu nível atual dá acesso a {access}",
     "groups.newCycle": "Abrir novo ciclo",
     "groups.search": "Buscar por nome do grupo…",
     "groups.sort.relevant": "Relevância",
@@ -823,8 +819,7 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.error.title": "Erro na carteira",
     // faucet
     "wallet.faucet.title": "Faucet · Devnet",
-    "wallet.faucet.sub":
-      "Peça SOL de teste pra executar transações em devnet.",
+    "wallet.faucet.sub": "Peça SOL de teste pra executar transações em devnet.",
     "wallet.faucet.btn": "Solicitar 1 SOL",
     "wallet.faucet.busy": "Solicitando airdrop…",
     "wallet.faucet.ok": "Airdrop confirmado",
@@ -842,8 +837,7 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} de {t} conectadas",
     "conn.connected": "conectado",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle":
-      "Integração em modo demo · liquidação on-chain entra no M3 do roadmap.",
+    "conn.demoTitle": "Integração em modo demo · liquidação on-chain entra no M3 do roadmap.",
     "conn.disconnected": "desconectado",
     "conn.pending": "pendente",
     "conn.since": "desde {d}",
@@ -993,8 +987,7 @@ export const DICT: Record<Lang, Dict> = {
     // mercado / secondary market
     "market.badge": "◆ Secondary market",
     "market.title": "Buy positions at a discount",
-    "market.subtitle":
-      'The "escape valve" — liquidity providers earn yield, borrowers exit early.',
+    "market.subtitle": 'The "escape valve" — liquidity providers earn yield, borrowers exit early.',
     "market.tab.buy": "Buy shares",
     "market.tab.sell": "Sell mine",
     "market.stat.volume": "24h volume",
@@ -1016,7 +1009,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.offers.cta.buy": "Buy",
     "market.offers.purchased": "Owned",
     "market.offers.empty.title": "No positions for sale yet",
-    "market.offers.empty.sub": "When a member needs liquidity before maturity, their listing will surface here.",
+    "market.offers.empty.sub":
+      "When a member needs liquidity before maturity, their listing will surface here.",
     "market.purchases.title": "◆ My purchases",
     "market.purchases.count": "{n} share(s) acquired",
     "market.purchases.empty":
@@ -1037,12 +1031,14 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.discount": "Discount",
     "market.buyModal.savings": "Savings",
     "market.buyModal.demoBadge": "DEMO MODE",
-    "market.buyModal.demoBody": "Simulated action. On-chain settlement via roundfi-core::escape_valve_buy ships on devnet at M3 of the roadmap.",
+    "market.buyModal.demoBody":
+      "Simulated action. On-chain settlement via roundfi-core::escape_valve_buy ships on devnet at M3 of the roadmap.",
     "market.buyModal.cancel": "Cancel",
     "market.buyModal.confirm": "Confirm purchase (demo)",
     "market.buyModal.successTitle": "Simulated purchase",
     "market.buyModal.successHeadline": "Position acquired (demo)",
-    "market.buyModal.successBody": "In production, your wallet would have received the {group} share NFT for {price}. The seller's reputation stays intact.",
+    "market.buyModal.successBody":
+      "In production, your wallet would have received the {group} share NFT for {price}. The seller's reputation stays intact.",
     "market.buyModal.close": "Close",
     "market.howWorks.title": "◆ How it works",
     "market.howWorks.s1": "Borrower sells their share at a discount",
@@ -1056,8 +1052,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.sellList.title": "◆ Your positions",
     "market.sellList.count": "{n} shares in portfolio",
     "market.sellList.cta": "List",
-    "market.sellList.allListed":
-      "All your shares are listed. Cancel a listing to free one up.",
+    "market.sellList.allListed": "All your shares are listed. Cancel a listing to free one up.",
     "market.sellList.escapeValveTitle": "Escape Valve active.",
     "market.sellList.escapeValveBody":
       "Selling preserves your SAS reputation. The position's debt is settled in the same tx. Slashing only kicks in if no buyer is found in 7 days.",
@@ -1078,17 +1073,14 @@ export const DICT: Record<Lang, Dict> = {
     "market.listingDetails.close": "Close",
     "market.listingDetails.cancelListing": "Cancel listing",
     "market.sellModal.title": "List share on the market",
-    "market.sellModal.subtitle":
-      "Set your ask. Bigger discount = faster sale.",
+    "market.sellModal.subtitle": "Set your ask. Bigger discount = faster sale.",
     "market.sellModal.expiry": "Expires",
     "market.sellModal.askPrice": "ASK PRICE",
     "market.sellModal.face": "Face value",
     "market.sellModal.discount": "Discount",
     "market.sellModal.youReceive": "You receive",
-    "market.sellModal.protectionDebt":
-      "Your debt to the pool is settled automatically on closing.",
-    "market.sellModal.protectionSas":
-      "SAS reputation preserved — clean exit, no default flag.",
+    "market.sellModal.protectionDebt": "Your debt to the pool is settled automatically on closing.",
+    "market.sellModal.protectionSas": "SAS reputation preserved — clean exit, no default flag.",
     "market.sellModal.protectionSlashing":
       "No buyer in {days} days → automatic slashing of the collateral.",
     "market.sellModal.demoBadge": "DEMO MODE",
@@ -1370,8 +1362,7 @@ export const DICT: Record<Lang, Dict> = {
     // Waitlist / newsletter
     "landing.waitlist.eyebrow": "◆ Waitlist live",
     "landing.waitlist.title": "Be first in line.",
-    "landing.waitlist.body":
-      "Join the waitlist and get exclusive protocol updates.",
+    "landing.waitlist.body": "Join the waitlist and get exclusive protocol updates.",
     "landing.waitlist.placeholder": "you@email.com",
     "landing.waitlist.cta": "Subscribe",
     "landing.waitlist.success": "Subscribed (demo)",
@@ -1467,7 +1458,7 @@ export const DICT: Record<Lang, Dict> = {
       "Veteran L3, R$ 30k credit letter in a 24-member pool. Whitepaper-aligned: trigger 3 sequential defaults to show the guarantee cascade.",
     "admin.preset.escapeValve.label": "João · Exit via Escape Valve",
     "admin.preset.escapeValve.desc":
-      "Contemplated but needs to exit before the cycle ends. Click \"Sell share\" to demo the Escape Valve (88% of face, no slashing).",
+      'Contemplated but needs to exit before the cycle ends. Click "Sell share" to demo the Escape Valve (88% of face, no slashing).',
     "admin.preset.veteranBig.label": "Carlos · Veteran L3",
     "admin.preset.veteranBig.desc":
       "R$ 50k credit letter, 36 months, score 850. Demonstrates the max leverage tier (10x) and capacity for large credit letters.",
@@ -1504,8 +1495,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.close": "Close",
     // withdraw yield (carteira)
     "modal.withdraw.title": "Withdraw yield",
-    "modal.withdraw.subtitle":
-      "Yield accrued in the Kamino vault can be withdrawn anytime.",
+    "modal.withdraw.subtitle": "Yield accrued in the Kamino vault can be withdrawn anytime.",
     "modal.withdraw.available": "AVAILABLE",
     "modal.withdraw.cycles": "Accrued over {n} cycles",
     "modal.withdraw.allocated": "Allocated",
@@ -1541,12 +1531,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.summary.collateral": "Required collateral",
     "modal.join.cta": "Confirm entry",
     "modal.join.success.title": "Welcome to the group",
-    "modal.join.success.body":
-      "Your share was minted as an NFT. Escrow starts next cycle.",
+    "modal.join.success.body": "Your share was minted as an NFT. Escrow starts next cycle.",
     "modal.join.success.cta": "Go to dashboard",
     "modal.join.locked.title": "Group requires Lv.{lv}",
-    "modal.join.locked.subtitle":
-      "Your current tier doesn't unlock this group yet.",
+    "modal.join.locked.subtitle": "Your current tier doesn't unlock this group yet.",
     "modal.join.locked.gapBadge": "YOU Lv.{cur} → NEEDS Lv.{req}",
     "modal.join.locked.body":
       "This group is Lv.{req} (10% stake). You need {pts} more SAS points to reach the {target} threshold.",
@@ -1554,10 +1542,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.locked.cta": "How to level up →",
     // new cycle modal (groups header)
     "modal.newCycle.title": "Create new cycle",
-    "modal.newCycle.subtitle":
-      "Veterans can orchestrate new groups on the protocol.",
-    "modal.newCycle.lockedSubtitle":
-      "Creating cycles is a Lv.3 capability.",
+    "modal.newCycle.subtitle": "Veterans can orchestrate new groups on the protocol.",
+    "modal.newCycle.lockedSubtitle": "Creating cycles is a Lv.3 capability.",
     "modal.newCycle.demoBadge": "DEMO MODE",
     "modal.newCycle.demoBody":
       "Group creation via roundfi-core::create_pool ships on devnet at M3 of the roadmap. The Lv.3 rule is enforced on-chain.",
@@ -1580,8 +1566,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.breakdown.fee": "Protocol fee",
     "modal.pay.cta": "Pay now",
     "modal.pay.success.title": "Installment paid",
-    "modal.pay.success.body":
-      "SAS attestation emitted on-chain. Reputation +6 pts.",
+    "modal.pay.success.body": "SAS attestation emitted on-chain. Reputation +6 pts.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
@@ -1597,8 +1582,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.sell.success.cta": "Open Market",
     "groups.badge": "◆ Catalog",
     "groups.title": "Available groups",
-    "groups.subtitle":
-      "{open} groups with open spots · your current level unlocks {access}",
+    "groups.subtitle": "{open} groups with open spots · your current level unlocks {access}",
     "groups.newCycle": "Start new cycle",
     "groups.search": "Search by group name…",
     "groups.sort.relevant": "Relevance",
@@ -1712,8 +1696,7 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} of {t} connected",
     "conn.connected": "connected",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle":
-      "Integration in demo mode · on-chain settlement ships at M3 of the roadmap.",
+    "conn.demoTitle": "Integration in demo mode · on-chain settlement ships at M3 of the roadmap.",
     "conn.disconnected": "disconnected",
     "conn.pending": "pending",
     "conn.since": "since {d}",
@@ -1777,9 +1760,7 @@ export const DICT: Record<Lang, Dict> = {
 // ── Helpers ────────────────────────────────────────────────
 function interpolate(str: string, params?: Record<string, string | number>): string {
   if (!params) return str;
-  return str.replace(/\{(\w+)\}/g, (_, k) =>
-    params[k] != null ? String(params[k]) : `{${k}}`,
-  );
+  return str.replace(/\{(\w+)\}/g, (_, k) => (params[k] != null ? String(params[k]) : `{${k}}`));
 }
 
 export function translate(
@@ -1870,10 +1851,7 @@ export function I18nProvider({
     const fmtMoneyThreshold = (brl: number) => {
       if (currency === "USDC") {
         const u = brl / USDC_RATE;
-        const k =
-          u >= 1000
-            ? `${(u / 1000).toFixed(1).replace(/\.0$/, "")}k`
-            : `${u.toFixed(0)}`;
+        const k = u >= 1000 ? `${(u / 1000).toFixed(1).replace(/\.0$/, "")}k` : `${u.toFixed(0)}`;
         return `${k} USDC`;
       }
       const k = brl >= 1000 ? `${(brl / 1000).toFixed(0)}k` : `${brl}`;

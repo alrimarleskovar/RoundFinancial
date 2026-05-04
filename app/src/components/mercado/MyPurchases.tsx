@@ -53,9 +53,7 @@ export function MyPurchases() {
           marginBottom: 14,
         }}
       >
-        <MonoLabel color={tokens.green}>
-          {t("market.purchases.title")}
-        </MonoLabel>
+        <MonoLabel color={tokens.green}>{t("market.purchases.title")}</MonoLabel>
         <span
           style={{
             fontSize: 11,
@@ -101,8 +99,7 @@ export function MyPurchases() {
                   style={{
                     fontSize: 11,
                     color: tokens.muted,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     fontWeight: 500,
                   }}
                 >
@@ -128,8 +125,7 @@ export function MyPurchases() {
                     fontSize: 10,
                     color: tokens.muted,
                     marginTop: 3,
-                    fontFamily:
-                      "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   }}
                 >
                   {fmtMoney(Math.abs(p.amountBrl), { noCents: true })}
@@ -147,8 +143,7 @@ export function MyPurchases() {
                   color: tokens.green,
                   fontSize: 9,
                   fontWeight: 700,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   whiteSpace: "nowrap",
@@ -160,8 +155,7 @@ export function MyPurchases() {
                 style={{
                   fontSize: 10,
                   color: tokens.muted,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                   whiteSpace: "nowrap",
                 }}
               >

@@ -5,11 +5,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 
 import { runMockDemo, type MockHandle } from "@/lib/mockDemo";
 import { runRealDemo, type RealHandle } from "@/lib/realDemo";
-import {
-  ActionsPanel,
-  type DemoConfig,
-  type DemoMode,
-} from "@/components/ActionsPanel";
+import { ActionsPanel, type DemoConfig, type DemoMode } from "@/components/ActionsPanel";
 import { PoolCard } from "@/components/PoolCard";
 import { MembersList } from "@/components/MembersList";
 import { EventsFeed } from "@/components/EventsFeed";
@@ -136,10 +132,7 @@ export default function HomePage() {
         <div className="flex flex-col gap-6">
           <PoolCard pool={state.pool} memberCount={state.members.length} />
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <MembersList
-              members={state.members}
-              currentCycle={state.pool.currentCycle}
-            />
+            <MembersList members={state.members} currentCycle={state.pool.currentCycle} />
             <EventsFeed events={state.events} />
           </div>
           {state.summary ? <SummaryCard summary={state.summary} /> : null}
@@ -168,9 +161,7 @@ function Header({
             <div className="m-[3px] h-5 w-5 rounded bg-gradient-to-br from-accent to-accentMuted" />
           </div>
           <h1 className="text-xl font-semibold tracking-tight">RoundFi</h1>
-          <span className="text-xs text-slate-500">
-            ROSCA on Solana · Colosseum Hackathon demo
-          </span>
+          <span className="text-xs text-slate-500">ROSCA on Solana · Colosseum Hackathon demo</span>
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -183,9 +174,7 @@ function Header({
               running ? "animate-pulse bg-accent" : "bg-slate-600"
             }`}
           />
-          <span className="text-xs text-slate-400">
-            {running ? phase ?? "Running…" : "Idle"}
-          </span>
+          <span className="text-xs text-slate-400">{running ? (phase ?? "Running…") : "Idle"}</span>
         </div>
       </div>
     </header>
@@ -195,16 +184,11 @@ function Header({
 function SummaryCard({
   summary,
 }: {
-  summary: Extract<
-    import("@roundfi/orchestrator").LifecycleEvent,
-    { kind: "summary" }
-  >;
+  summary: Extract<import("@roundfi/orchestrator").LifecycleEvent, { kind: "summary" }>;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-surface p-5 shadow-card">
-      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-        Summary
-      </h3>
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Summary</h3>
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <SummaryStat label="Events" value={String(summary.totalEvents)} />
         <SummaryStat label="OK" value={String(summary.okCount)} tone="good" />
@@ -246,9 +230,7 @@ function SummaryStat({
   } as const;
   return (
     <div className="rounded-lg border border-border bg-background p-3">
-      <div className="text-[10px] uppercase tracking-wider text-slate-500">
-        {label}
-      </div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
       <div className={`mt-1 font-mono text-lg ${toneClass[tone]}`}>{value}</div>
     </div>
   );

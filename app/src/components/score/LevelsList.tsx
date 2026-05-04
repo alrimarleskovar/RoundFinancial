@@ -34,8 +34,8 @@ export function LevelsList() {
           l.lv === 1
             ? t("level.beginner")
             : l.lv === 2
-            ? t("level.provenName")
-            : t("level.veteran");
+              ? t("level.provenName")
+              : t("level.veteran");
         return (
           <div
             key={l.lv}
@@ -98,8 +98,7 @@ export function LevelsList() {
                       color: tokens.teal,
                       fontSize: 10,
                       marginLeft: 8,
-                      fontFamily:
-                        "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
                     {t("level.youLabel")}
@@ -111,8 +110,7 @@ export function LevelsList() {
                   fontSize: 11,
                   color: tokens.muted,
                   marginTop: 3,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {t("score.lvDetail", { c: l.colat, l: l.lev })}
@@ -156,16 +154,13 @@ export function LevelsList() {
           }}
         >
           <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: 12, fontWeight: 600 }}>
-              {t("score.levelUp.title")}
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>{t("score.levelUp.title")}</div>
             <div
               style={{
                 marginTop: 3,
                 fontSize: 10,
                 color: tokens.muted,
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
               {t("score.levelUp.gap", { pts: pointsToNext })}

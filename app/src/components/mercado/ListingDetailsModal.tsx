@@ -10,12 +10,12 @@ import { useTheme } from "@/lib/theme";
 // Created when SellPositionModal phase === "success", lives in
 // MercadoClient state (no persistence — fits the demo pattern).
 export interface ActiveListing {
-  id: string;            // listing pk (random)
+  id: string; // listing pk (random)
   position: NftPosition; // ref + denormalized so cancellation is local
   askPrice: number;
   discountPct: number;
-  listedAt: number;      // ms epoch
-  expiresAt: number;     // listedAt + 7d
+  listedAt: number; // ms epoch
+  expiresAt: number; // listedAt + 7d
 }
 
 const SLASHING_DAYS = 7;
@@ -45,15 +45,9 @@ export function ListingDetailsModal({
 
   const now = Date.now();
   const msPerDay = 24 * 60 * 60 * 1000;
-  const daysElapsed = Math.max(
-    0,
-    Math.floor((now - listing.listedAt) / msPerDay),
-  );
+  const daysElapsed = Math.max(0, Math.floor((now - listing.listedAt) / msPerDay));
   const daysRemaining = Math.max(0, SLASHING_DAYS - daysElapsed);
-  const progressPct = Math.min(
-    100,
-    Math.round((daysElapsed / SLASHING_DAYS) * 100),
-  );
+  const progressPct = Math.min(100, Math.round((daysElapsed / SLASHING_DAYS) * 100));
 
   return (
     <Modal
@@ -92,11 +86,11 @@ export function ListingDetailsModal({
               fontSize: 11,
               color: tokens.muted,
               marginTop: 4,
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             }}
           >
-            {t("home.month")} {listing.position.month}/{listing.position.total} · {listing.position.exp}
+            {t("home.month")} {listing.position.month}/{listing.position.total} ·{" "}
+            {listing.position.exp}
           </div>
         </div>
         <span
@@ -174,8 +168,7 @@ export function ListingDetailsModal({
               fontSize: 12,
               color: tokens.text,
               fontWeight: 700,
-              fontFamily:
-                "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             }}
           >
             {t("market.listingDetails.daysRemaining", {
@@ -234,11 +227,7 @@ export function ListingDetailsModal({
             gap: 8,
           }}
         >
-          <ActivityRow
-            kind="view"
-            text={t("market.listingDetails.act.view", { n: 12 })}
-            ts="2m"
-          />
+          <ActivityRow kind="view" text={t("market.listingDetails.act.view", { n: 12 })} ts="2m" />
           <ActivityRow
             kind="watch"
             text={t("market.listingDetails.act.watch", { n: 3 })}
@@ -247,7 +236,9 @@ export function ListingDetailsModal({
           <ActivityRow
             kind="offer"
             text={t("market.listingDetails.act.offer", {
-              pct: Math.max(50, listing.discountPct + 88).toString().slice(0, 2),
+              pct: Math.max(50, listing.discountPct + 88)
+                .toString()
+                .slice(0, 2),
             })}
             ts="38m"
           />
@@ -352,14 +343,8 @@ function ActivityRow({
   ts: string;
 }) {
   const { tokens } = useTheme();
-  const accent =
-    kind === "offer"
-      ? tokens.green
-      : kind === "watch"
-      ? tokens.purple
-      : tokens.text2;
-  const glyph =
-    kind === "offer" ? "◆" : kind === "watch" ? "★" : "•";
+  const accent = kind === "offer" ? tokens.green : kind === "watch" ? tokens.purple : tokens.text2;
+  const glyph = kind === "offer" ? "◆" : kind === "watch" ? "★" : "•";
   return (
     <div
       style={{
@@ -376,8 +361,7 @@ function ActivityRow({
         <span
           style={{
             color: accent,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             fontWeight: 700,
             width: 14,
             textAlign: "center",

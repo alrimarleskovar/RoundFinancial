@@ -68,30 +68,21 @@ export function escrowVaultAuthorityPda(
   coreProgram: PublicKey,
   pool: PublicKey,
 ): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [SEED.escrow, pool.toBuffer()],
-    coreProgram,
-  );
+  return PublicKey.findProgramAddressSync([SEED.escrow, pool.toBuffer()], coreProgram);
 }
 
 export function solidarityVaultAuthorityPda(
   coreProgram: PublicKey,
   pool: PublicKey,
 ): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [SEED.solidarity, pool.toBuffer()],
-    coreProgram,
-  );
+  return PublicKey.findProgramAddressSync([SEED.solidarity, pool.toBuffer()], coreProgram);
 }
 
 export function yieldVaultAuthorityPda(
   coreProgram: PublicKey,
   pool: PublicKey,
 ): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [SEED.yield, pool.toBuffer()],
-    coreProgram,
-  );
+  return PublicKey.findProgramAddressSync([SEED.yield, pool.toBuffer()], coreProgram);
 }
 
 export function positionAuthorityPda(
@@ -109,19 +100,11 @@ export function reputationProfilePda(
   reputationProgram: PublicKey,
   wallet: PublicKey,
 ): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [SEED.reputation, wallet.toBuffer()],
-    reputationProgram,
-  );
+  return PublicKey.findProgramAddressSync([SEED.reputation, wallet.toBuffer()], reputationProgram);
 }
 
-export function reputationConfigPda(
-  reputationProgram: PublicKey,
-): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [SEED.reputationConfig],
-    reputationProgram,
-  );
+export function reputationConfigPda(reputationProgram: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED.reputationConfig], reputationProgram);
 }
 
 export function attestationPda(
@@ -132,23 +115,11 @@ export function attestationPda(
   nonce: bigint | number,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [
-      SEED.attestation,
-      issuer.toBuffer(),
-      subject.toBuffer(),
-      u16le(schemaId),
-      u64le(nonce),
-    ],
+    [SEED.attestation, issuer.toBuffer(), subject.toBuffer(), u16le(schemaId), u64le(nonce)],
     reputationProgram,
   );
 }
 
-export function yieldVaultStatePda(
-  yieldProgram: PublicKey,
-  owner: PublicKey,
-): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [SEED.yieldState, owner.toBuffer()],
-    yieldProgram,
-  );
+export function yieldVaultStatePda(yieldProgram: PublicKey, owner: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED.yieldState, owner.toBuffer()], yieldProgram);
 }

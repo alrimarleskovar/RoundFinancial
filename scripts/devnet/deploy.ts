@@ -38,9 +38,7 @@ function run(cmd: string) {
 function readProgramId(name: ProgramName): string {
   const kpPath = resolve(`target/deploy/${name}-keypair.json`);
   if (!existsSync(kpPath)) {
-    throw new Error(
-      `Missing keypair: ${kpPath}. "anchor build" should have created it.`,
-    );
+    throw new Error(`Missing keypair: ${kpPath}. "anchor build" should have created it.`);
   }
   const secret = Uint8Array.from(JSON.parse(readFileSync(kpPath, "utf-8")));
   return Keypair.fromSecretKey(secret).publicKey.toBase58();

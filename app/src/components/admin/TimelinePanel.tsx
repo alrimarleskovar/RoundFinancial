@@ -71,8 +71,7 @@ export function TimelinePanel({
             fontSize: 11,
             color: contemplated ? tokens.green : tokens.muted,
             fontWeight: 600,
-            fontFamily:
-              "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
           }}
@@ -120,11 +119,7 @@ export function TimelinePanel({
 
       {/* Controls */}
       <div style={{ display: "flex", gap: 6 }}>
-        <ControlBtn
-          onClick={rewindMonth}
-          disabled={currentMonth === 0}
-          tone={tokens.text2}
-        >
+        <ControlBtn onClick={rewindMonth} disabled={currentMonth === 0} tone={tokens.text2}>
           <Icons.back size={12} stroke="currentColor" sw={2} />
           {t("admin.timeline.prev")}
         </ControlBtn>
@@ -147,9 +142,7 @@ export function TimelinePanel({
           padding: "9px 12px",
           borderRadius: 9,
           cursor: contemplated ? "not-allowed" : "pointer",
-          background: contemplated
-            ? tokens.fillSoft
-            : `${tokens.purple}14`,
+          background: contemplated ? tokens.fillSoft : `${tokens.purple}14`,
           border: `1px solid ${contemplated ? tokens.border : `${tokens.purple}55`}`,
           color: contemplated ? tokens.muted : tokens.purple,
           fontSize: 12,
@@ -191,9 +184,7 @@ function ControlBtn({
         background: primary
           ? `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`
           : tokens.fillSoft,
-        border: primary
-          ? "none"
-          : `1px solid ${tokens.border}`,
+        border: primary ? "none" : `1px solid ${tokens.border}`,
         color: primary ? tokens.bgDeep : tone,
         fontSize: 12,
         fontWeight: 700,

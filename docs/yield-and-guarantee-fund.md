@@ -9,11 +9,11 @@
 
 ## 1. Why RoundFi has a yield adapter
 
-A ROSCA pool sits on idle float between contribution and payout. In a 24-member, 24-cycle, 10k-USDC-credit pool, the `pool_usdc_vault` holds an average of ~5k USDC of member funds that are *waiting* to be paid out. Letting that float earn yield is a no-brainer — **the question is how that yield is distributed and how conservatively the protocol is positioned against adapter risk.**
+A ROSCA pool sits on idle float between contribution and payout. In a 24-member, 24-cycle, 10k-USDC-credit pool, the `pool_usdc_vault` holds an average of ~5k USDC of member funds that are _waiting_ to be paid out. Letting that float earn yield is a no-brainer — **the question is how that yield is distributed and how conservatively the protocol is positioned against adapter risk.**
 
 RoundFi's answer has two parts:
 
-1. **Adapter-is-untrusted.** The yield adapter (Kamino on mainnet, a mock on devnet) is treated as external code: core validates the program ID against `pool.yield_adapter` on every CPI, snapshots balances before-and-after, and *uses the observed delta* rather than the adapter's declared return. See [Step 4c memory](../memory/feedback_step4c_economic_security.md).
+1. **Adapter-is-untrusted.** The yield adapter (Kamino on mainnet, a mock on devnet) is treated as external code: core validates the program ID against `pool.yield_adapter` on every CPI, snapshots balances before-and-after, and _uses the observed delta_ rather than the adapter's declared return. See [Step 4c memory](../memory/feedback_step4c_economic_security.md).
 2. **Deterministic waterfall.** Every harvest routes yield through the exact same four buckets, in the exact same order, with no bucket skippable.
 
 ---
@@ -57,7 +57,7 @@ The protocol's **20% performance fee** is taken first, on the gross harvested yi
 
 ### 2.2 Step 2 — Guarantee Fund top-up (cap 150%)
 
-After the protocol fee, the Guarantee Fund is topped up from the *remaining* yield. Sizing follows `config.guarantee_fund_bps` (default 15000 bps = **150% of credit**) — the cap that keeps the GF a defensive reserve, not a yield magnet. Once the cap is hit, this step is skipped on subsequent harvests and 100% of the residual flows to step 3.
+After the protocol fee, the Guarantee Fund is topped up from the _remaining_ yield. Sizing follows `config.guarantee_fund_bps` (default 15000 bps = **150% of credit**) — the cap that keeps the GF a defensive reserve, not a yield magnet. Once the cap is hit, this step is skipped on subsequent harvests and 100% of the residual flows to step 3.
 
 ### 2.3 Step 3 — LPs (Anjos de Liquidez · ~65% of residual)
 
@@ -75,7 +75,7 @@ protocol_fee + gf_topup + lp_share + participants_share == harvested_delta
 
 Any reordering or skipping is rejected with `WaterfallNotConserved`. Computations use bps math with floor, and residuals accumulate in `solidarity_balance` so **no rounding lamports are lost**.
 
-> **On-chain alignment note (M1/M2 work).** As of v0.5 of the on-chain code, [harvest_yield.rs](../programs/roundfi-core/src/instructions/harvest_yield.rs) implements a *different* order — GF top-up first, fee second, "good-faith bonus" third, residual fourth. The PDFs and the [Stress Lab L1 simulator](../sdk/src/stressLab.ts) define the canonical order shown above. The L1↔L2 economic-parity test in [tests/economic_parity.spec.ts](../tests/economic_parity.spec.ts) will fail on this divergence in M1/M2 contract validation, forcing the Rust side to match. The doc is now the canonical spec; Rust will catch up.
+> **On-chain alignment note (M1/M2 work).** As of v0.5 of the on-chain code, [harvest_yield.rs](../programs/roundfi-core/src/instructions/harvest_yield.rs) implements a _different_ order — GF top-up first, fee second, "good-faith bonus" third, residual fourth. The PDFs and the [Stress Lab L1 simulator](../sdk/src/stressLab.ts) define the canonical order shown above. The L1↔L2 economic-parity test in [tests/economic_parity.spec.ts](../tests/economic_parity.spec.ts) will fail on this divergence in M1/M2 contract validation, forcing the Rust side to match. The doc is now the canonical spec; Rust will catch up.
 
 ---
 
@@ -96,7 +96,7 @@ This is an intentional simplification for v1. The Guarantee Fund acts as a **fut
 ### 3.3 Role tomorrow (v2 — roadmap)
 
 - **Catastrophic draw path.** If cumulative seized collateral in a cycle is insufficient to cover the payout float, a bounded draw from the GF kicks in. Rate-limited to prevent crank griefing.
-- **GF redemption on pool close.** Unused GF at `close_pool` is returned pro-rata to members who completed all cycles on-time. Turns the reserve into a *loyalty dividend*.
+- **GF redemption on pool close.** Unused GF at `close_pool` is returned pro-rata to members who completed all cycles on-time. Turns the reserve into a _loyalty dividend_.
 
 These are called out as roadmap in all narrative material; the v1 demo does **not** claim them.
 
@@ -106,11 +106,11 @@ These are called out as roadmap in all narrative material; the v1 demo does **no
 
 In the canonical pitch mapping (see [pitch-alignment.md](./pitch-alignment.md) §3, v1.1+):
 
-- **Shield 1 = Sorteio Semente** *(Seed Draw / Bootstrap Mês 1)* — cycle-1 retention of 91.6% before any payout-drain risk exists
+- **Shield 1 = Sorteio Semente** _(Seed Draw / Bootstrap Mês 1)_ — cycle-1 retention of 91.6% before any payout-drain risk exists
 - **Shield 2 = Escrow Adaptativo + Stake** — reputation-tier-driven payout/escrow split, gated by paid installments
 - **Shield 3 = Cofre Solidário + Cascata de Yield** — 1% of every installment routes to a segregated **Solidarity Vault**, plus the Kamino yield runs a 4-tier waterfall (admin fee → **Guarantee Fund** capped at 150% × credit → 65% LPs → 35% participants)
 
-The **Guarantee Fund is one of two sub-components of Shield 3** (the other is the Solidarity Vault). It's funded by the yield waterfall — *not* by an initial deposit and *not* by stress seizure. v1 uses it as a payout-drain guard; v2 will add a catastrophic-loss draw path.
+The **Guarantee Fund is one of two sub-components of Shield 3** (the other is the Solidarity Vault). It's funded by the yield waterfall — _not_ by an initial deposit and _not_ by stress seizure. v1 uses it as a payout-drain guard; v2 will add a catastrophic-loss draw path.
 
 ---
 
@@ -125,11 +125,11 @@ For a reviewer or auditor:
 For the Guarantee Fund specifically:
 
 1. Read `pool.guarantee_fund_balance` before harvest, after harvest, and after any `claim_payout`.
-2. After harvest: balance must have *grown* by `gf_topup`.
-3. After payout: balance must be *unchanged* (the earmark is enforced pre-transfer).
+2. After harvest: balance must have _grown_ by `gf_topup`.
+3. After payout: balance must be _unchanged_ (the earmark is enforced pre-transfer).
 
 The off-chain [stress-test script](../scripts/stress/multi_default.ts) (Step 4f addition) exercises a 3-veteran-default scenario against a localnet pool and asserts these relationships.
 
 ---
 
-*End of yield-and-guarantee-fund v1.0.*
+_End of yield-and-guarantee-fund v1.0._

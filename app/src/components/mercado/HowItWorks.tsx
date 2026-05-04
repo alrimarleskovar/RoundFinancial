@@ -36,14 +36,10 @@ export function HowItWorks() {
         }}
       >
         {steps.map(([n, txt]) => (
-          <div
-            key={n}
-            style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
-          >
+          <div key={n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <span
               style={{
-                fontFamily:
-                  "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 fontSize: 10,
                 color: tokens.green,
                 fontWeight: 600,

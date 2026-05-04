@@ -65,14 +65,8 @@ export function BuyOfferModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={
-        phase === "confirm"
-          ? t("market.buyModal.title")
-          : t("market.buyModal.successTitle")
-      }
-      subtitle={
-        phase === "confirm" ? t("market.buyModal.subtitle") : undefined
-      }
+      title={phase === "confirm" ? t("market.buyModal.title") : t("market.buyModal.successTitle")}
+      subtitle={phase === "confirm" ? t("market.buyModal.subtitle") : undefined}
       width={480}
     >
       {phase === "confirm" ? (
@@ -103,8 +97,7 @@ export function BuyOfferModal({
                   fontSize: 11,
                   color: tokens.muted,
                   marginTop: 4,
-                  fontFamily:
-                    "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
                 {target.detail}

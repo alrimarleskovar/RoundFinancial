@@ -9,11 +9,5 @@ import { useT } from "@/lib/i18n";
 
 export function NoTransactionsYet() {
   const t = useT();
-  return (
-    <EmptyState
-      icon="≡"
-      title={t("wallet.tx.empty.title")}
-      sub={t("wallet.tx.empty.sub")}
-    />
-  );
+  return <EmptyState icon="≡" title={t("wallet.tx.empty.title")} sub={t("wallet.tx.empty.sub")} />;
 }

@@ -71,21 +71,21 @@ import {
 
 // ─── Pool parameters ──────────────────────────────────────────────────
 
-const MEMBERS_TARGET     = 3;
-const CYCLES_TOTAL       = 3;
+const MEMBERS_TARGET = 3;
+const CYCLES_TOTAL = 3;
 const CYCLE_DURATION_SEC = 60;
-const INSTALLMENT_USDC   = 1_250n;
+const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst with solidarity_bps=100 + escrow_bps=2500 ≈ 925 per
 // installment; 3 × 925 = 2_775. Credit must fit that float.
-const CREDIT_USDC        = 2_775n;
+const CREDIT_USDC = 2_775n;
 
-const LEVEL: 1 | 2 | 3   = 2;
+const LEVEL: 1 | 2 | 3 = 2;
 
-const INSTALLMENT_BASE   = usdc(INSTALLMENT_USDC);
-const CREDIT_BASE        = usdc(CREDIT_USDC);
+const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
+const CREDIT_BASE = usdc(CREDIT_USDC);
 
 // Expected delta math. Unverified = halved for positive; see spec header.
-const DELTA_PAYMENT_UNVERIFIED       = 5n;
+const DELTA_PAYMENT_UNVERIFIED = 5n;
 const DELTA_CYCLE_COMPLETE_UNVERIFIED = 25n;
 
 // ─── Local view types for the loosely-typed account fetchers ──────────
@@ -130,10 +130,7 @@ describe("reputation CPI — happy path + score progression", function () {
 
   // Score snapshots per member, appended on every profile read. Used to
   // assert strict monotonicity at the end of the test.
-  const scoreSnapshots: bigint[][] = Array.from(
-    { length: MEMBERS_TARGET },
-    () => [],
-  );
+  const scoreSnapshots: bigint[][] = Array.from({ length: MEMBERS_TARGET }, () => []);
 
   async function captureScores(): Promise<bigint[]> {
     const scores: bigint[] = [];
@@ -169,12 +166,12 @@ describe("reputation CPI — happy path + score progression", function () {
     pool = await createPool(env, {
       authority,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
 
     handles = await joinMembers(
@@ -194,7 +191,7 @@ describe("reputation CPI — happy path + score progression", function () {
 
     for (let i = 0; i < MEMBERS_TARGET; i++) {
       const p = asView(await fetchProfile(env, members[i]!.publicKey));
-      expect(p.level).to.equal(1);              // fresh wallet
+      expect(p.level).to.equal(1); // fresh wallet
       expect(p.onTimePayments).to.equal(0);
       expect(p.cyclesCompleted).to.equal(0);
       expect(p.latePayments).to.equal(0);
@@ -230,9 +227,7 @@ describe("reputation CPI — happy path + score progression", function () {
 
         // 2. Profile delta: +5 (unverified) score, +1 on_time_payments.
         const profileAfter = asView(await fetchProfile(env, h.wallet.publicKey));
-        expect(bn(profileAfter.score) - scoreBefore).to.equal(
-          DELTA_PAYMENT_UNVERIFIED,
-        );
+        expect(bn(profileAfter.score) - scoreBefore).to.equal(DELTA_PAYMENT_UNVERIFIED);
         expect(profileAfter.onTimePayments - onTimeBefore).to.equal(1);
 
         // Pool-side counters stay in sync (contributions_paid > on_time? no,
@@ -274,9 +269,7 @@ describe("reputation CPI — happy path + score progression", function () {
       // 2. Profile delta: +25 (unverified) score, +1 cycles_completed,
       //    +1 total_participated.
       const profileAfter = asView(await fetchProfile(env, recipient.wallet.publicKey));
-      expect(bn(profileAfter.score) - scoreBefore).to.equal(
-        DELTA_CYCLE_COMPLETE_UNVERIFIED,
-      );
+      expect(bn(profileAfter.score) - scoreBefore).to.equal(DELTA_CYCLE_COMPLETE_UNVERIFIED);
       expect(profileAfter.cyclesCompleted - cyclesBefore).to.equal(1);
       expect(profileAfter.totalParticipated - totalPartBefore).to.equal(1);
 
@@ -304,8 +297,7 @@ describe("reputation CPI — happy path + score progression", function () {
       expect(p.latePayments).to.equal(0);
       expect(p.defaults).to.equal(0);
       expect(bn(p.score)).to.equal(
-        BigInt(CYCLES_TOTAL) * DELTA_PAYMENT_UNVERIFIED +
-        DELTA_CYCLE_COMPLETE_UNVERIFIED,
+        BigInt(CYCLES_TOTAL) * DELTA_PAYMENT_UNVERIFIED + DELTA_CYCLE_COMPLETE_UNVERIFIED,
       );
       // Still Level 1 (threshold 500).
       expect(p.level).to.equal(1);
@@ -331,7 +323,9 @@ describe("reputation CPI — happy path + score progression", function () {
           ATTESTATION_SCHEMA.Payment,
           attestationNonce(c, h.slotIndex),
         );
-        expect(seen.has(pda.toBase58()), `duplicate Payment PDA: ${pda.toBase58()}`).to.equal(false);
+        expect(seen.has(pda.toBase58()), `duplicate Payment PDA: ${pda.toBase58()}`).to.equal(
+          false,
+        );
         seen.add(pda.toBase58());
         const info = await env.connection.getAccountInfo(pda, "confirmed");
         expect(info, `missing Payment PDA cycle=${c} slot=${h.slotIndex}`).to.not.be.null;
@@ -366,16 +360,15 @@ describe("reputation CPI — happy path + score progression", function () {
       expect(snaps.length > 0, `no snapshots for member ${i}`).to.equal(true);
       for (let k = 1; k < snaps.length; k++) {
         const prev = snaps[k - 1]!;
-        const cur  = snaps[k]!;
+        const cur = snaps[k]!;
         expect(
           cur >= prev,
-          `member ${i}: score decreased between snapshot ${k-1} (${prev}) and ${k} (${cur})`,
+          `member ${i}: score decreased between snapshot ${k - 1} (${prev}) and ${k} (${cur})`,
         ).to.equal(true);
       }
       // Sanity: final snapshot equals the expected closed-form score.
       expect(snaps[snaps.length - 1]!).to.equal(
-        BigInt(CYCLES_TOTAL) * DELTA_PAYMENT_UNVERIFIED +
-        DELTA_CYCLE_COMPLETE_UNVERIFIED,
+        BigInt(CYCLES_TOTAL) * DELTA_PAYMENT_UNVERIFIED + DELTA_CYCLE_COMPLETE_UNVERIFIED,
       );
     }
   });

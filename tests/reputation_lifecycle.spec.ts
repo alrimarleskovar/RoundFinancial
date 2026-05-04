@@ -77,10 +77,7 @@ function bn(x: { toString(): string }): bigint {
   return BigInt(x.toString());
 }
 
-async function snapshotProfile(
-  env: Env,
-  wallet: PublicKey,
-): Promise<ProfileSnapshot> {
+async function snapshotProfile(env: Env, wallet: PublicKey): Promise<ProfileSnapshot> {
   const raw = await fetchProfile(env, wallet);
   const p = raw as unknown as {
     score: { toString(): string };
@@ -93,13 +90,13 @@ async function snapshotProfile(
     lastCycleCompleteAt: { toString(): string };
   };
   return {
-    score:               bn(p.score),
-    level:               p.level,
-    cyclesCompleted:     p.cyclesCompleted,
-    onTimePayments:      p.onTimePayments,
-    latePayments:        p.latePayments,
-    defaults:            p.defaults,
-    totalParticipated:   p.totalParticipated,
+    score: bn(p.score),
+    level: p.level,
+    cyclesCompleted: p.cyclesCompleted,
+    onTimePayments: p.onTimePayments,
+    latePayments: p.latePayments,
+    defaults: p.defaults,
+    totalParticipated: p.totalParticipated,
     lastCycleCompleteAt: bn(p.lastCycleCompleteAt),
   };
 }
@@ -115,17 +112,17 @@ async function expectRejected(thunk: () => Promise<unknown>): Promise<string> {
 }
 
 // Constants that mirror the reputation program's on-chain values.
-const DELTA_PAYMENT_UNVERIFIED        = 5n;
+const DELTA_PAYMENT_UNVERIFIED = 5n;
 const DELTA_CYCLE_COMPLETE_UNVERIFIED = 25n;
-const SCORE_DEFAULT_ABS               = 500n;
-const LEVEL_2_THRESHOLD               = 500n;
-const LEVEL_MIN                       = 1;
-const LEVEL_2                         = 2;
+const SCORE_DEFAULT_ABS = 500n;
+const LEVEL_2_THRESHOLD = 500n;
+const LEVEL_MIN = 1;
+const LEVEL_2 = 2;
 
 // ─── Tests ────────────────────────────────────────────────────────────
 
 describe("reputation — revoke + promote_level", function () {
-  this.timeout(600_000);   // 10min — the promote_level block does 100 serial attests
+  this.timeout(600_000); // 10min — the promote_level block does 100 serial attests
 
   let env: Env;
 
@@ -152,7 +149,7 @@ describe("reputation — revoke + promote_level", function () {
 
       const nonce = 0x0100_0000n;
       await adminAttest(env, {
-        subject:  subject.publicKey,
+        subject: subject.publicKey,
         schemaId: SCHEMA.Payment,
         nonce,
       });
@@ -163,17 +160,17 @@ describe("reputation — revoke + promote_level", function () {
 
       const attPda = attestationFor(
         env,
-        env.payer.publicKey,          // admin path — issuer IS env.payer
+        env.payer.publicKey, // admin path — issuer IS env.payer
         subject.publicKey,
         SCHEMA.Payment,
         nonce,
       );
-      const attBefore = await fetchAttestation(env, attPda) as { revoked: boolean };
+      const attBefore = (await fetchAttestation(env, attPda)) as { revoked: boolean };
       expect(attBefore.revoked).to.equal(false);
 
       await revokeAttestation(env, {
-        issuer:      env.payer,
-        subject:     subject.publicKey,
+        issuer: env.payer,
+        subject: subject.publicKey,
         attestation: attPda,
       });
 
@@ -188,7 +185,7 @@ describe("reputation — revoke + promote_level", function () {
       expect(afterRevoke.cyclesCompleted).to.equal(0);
       expect(afterRevoke.totalParticipated).to.equal(0);
 
-      const attAfter = await fetchAttestation(env, attPda) as { revoked: boolean };
+      const attAfter = (await fetchAttestation(env, attPda)) as { revoked: boolean };
       expect(attAfter.revoked).to.equal(true);
     });
 
@@ -198,7 +195,7 @@ describe("reputation — revoke + promote_level", function () {
 
       const nonce = 0x0100_0001n;
       await adminAttest(env, {
-        subject:  subject.publicKey,
+        subject: subject.publicKey,
         schemaId: SCHEMA.Payment,
         nonce,
       });
@@ -210,7 +207,7 @@ describe("reputation — revoke + promote_level", function () {
         SCHEMA.Payment,
         nonce,
       );
-      const attBefore = await fetchAttestation(env, attPda) as {
+      const attBefore = (await fetchAttestation(env, attPda)) as {
         revoked: boolean;
         issuer: PublicKey;
         subject: PublicKey;
@@ -224,14 +221,14 @@ describe("reputation — revoke + promote_level", function () {
 
       const msg = await expectRejected(() =>
         revokeAttestation(env, {
-          issuer:      rogue,
-          subject:     subject.publicKey,
+          issuer: rogue,
+          subject: subject.publicKey,
           attestation: attPda,
         }),
       );
       expect(msg, `message: ${msg}`).to.match(/InvalidIssuer|issuer/i);
 
-      const attAfter = await fetchAttestation(env, attPda) as { revoked: boolean };
+      const attAfter = (await fetchAttestation(env, attPda)) as { revoked: boolean };
       expect(attAfter.revoked).to.equal(false);
 
       // Profile is identical (score, counters, timestamps).
@@ -245,7 +242,7 @@ describe("reputation — revoke + promote_level", function () {
 
       const nonce = 0x0100_0002n;
       await adminAttest(env, {
-        subject:  subject.publicKey,
+        subject: subject.publicKey,
         schemaId: SCHEMA.CycleComplete,
         nonce,
       });
@@ -266,8 +263,8 @@ describe("reputation — revoke + promote_level", function () {
       );
 
       await revokeAttestation(env, {
-        issuer:      env.payer,
-        subject:     subject.publicKey,
+        issuer: env.payer,
+        subject: subject.publicKey,
         attestation: attPda,
       });
 
@@ -280,9 +277,7 @@ describe("reputation — revoke + promote_level", function () {
 
       // BUT last_cycle_complete_at stays. Cooldown must NOT be
       // clearable via revoke — that would undo anti-gaming.
-      expect(afterRevoke.lastCycleCompleteAt).to.equal(
-        afterAttest.lastCycleCompleteAt,
-      );
+      expect(afterRevoke.lastCycleCompleteAt).to.equal(afterAttest.lastCycleCompleteAt);
     });
 
     it("double-revoke on the same attestation → AttestationRevoked", async function () {
@@ -291,7 +286,7 @@ describe("reputation — revoke + promote_level", function () {
 
       const nonce = 0x0100_0003n;
       await adminAttest(env, {
-        subject:  subject.publicKey,
+        subject: subject.publicKey,
         schemaId: SCHEMA.Payment,
         nonce,
       });
@@ -305,8 +300,8 @@ describe("reputation — revoke + promote_level", function () {
       );
 
       await revokeAttestation(env, {
-        issuer:      env.payer,
-        subject:     subject.publicKey,
+        issuer: env.payer,
+        subject: subject.publicKey,
         attestation: attPda,
       });
 
@@ -314,8 +309,8 @@ describe("reputation — revoke + promote_level", function () {
 
       const msg = await expectRejected(() =>
         revokeAttestation(env, {
-          issuer:      env.payer,
-          subject:     subject.publicKey,
+          issuer: env.payer,
+          subject: subject.publicKey,
           attestation: attPda,
         }),
       );
@@ -348,9 +343,9 @@ describe("reputation — revoke + promote_level", function () {
       // Seed a single Payment so last_updated_at is set, but score
       // stays well below LEVEL_2_THRESHOLD.
       await adminAttest(env, {
-        subject:  subjectPubkey,
+        subject: subjectPubkey,
         schemaId: SCHEMA.Payment,
-        nonce:    0x0200_0000n,
+        nonce: 0x0200_0000n,
       });
 
       const before = await snapshotProfile(env, subjectPubkey);
@@ -377,10 +372,10 @@ describe("reputation — revoke + promote_level", function () {
 
       for (let i = 0; i < ADDITIONAL; i++) {
         await adminAttest(env, {
-          subject:  subjectPubkey,
+          subject: subjectPubkey,
           schemaId: SCHEMA.Payment,
           // Nonces must not collide with the 0x0200_0000 we used above.
-          nonce:    BigInt(0x0200_0100 + i),
+          nonce: BigInt(0x0200_0100 + i),
         });
       }
 
@@ -419,9 +414,9 @@ describe("reputation — revoke + promote_level", function () {
       // SCHEMA_DEFAULT delta is NOT halved for unverified (only positive
       // deltas are halved), so the full -500 lands.
       await adminAttest(env, {
-        subject:  subjectPubkey,
+        subject: subjectPubkey,
         schemaId: SCHEMA.Default,
-        nonce:    0x0300_0000n,
+        nonce: 0x0300_0000n,
       });
 
       const afterDefault = await snapshotProfile(env, subjectPubkey);
@@ -431,9 +426,7 @@ describe("reputation — revoke + promote_level", function () {
       // Level stays where it was — default doesn't touch level.
       expect(afterDefault.level).to.equal(LEVEL_2);
 
-      const msg = await expectRejected(() =>
-        promoteLevel(env, { subject: subjectPubkey }),
-      );
+      const msg = await expectRejected(() => promoteLevel(env, { subject: subjectPubkey }));
       expect(msg, `message: ${msg}`).to.match(/LevelThresholdNotMet|threshold/i);
 
       // Level is untouched by the failed promotion attempt.

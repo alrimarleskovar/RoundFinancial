@@ -83,59 +83,63 @@ import {
 
 // ─── Pool parameters (small + fast) ───────────────────────────────────
 
-const MEMBERS_TARGET      = 4;
-const CYCLES_TOTAL        = 4;
-const CYCLE_DURATION_SEC  = 60;       // MIN_CYCLE_DURATION
-const INSTALLMENT_USDC    = 1_250n;   // whole USDC
-const CREDIT_USDC         = 3_500n;
+const MEMBERS_TARGET = 4;
+const CYCLES_TOTAL = 4;
+const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
+const INSTALLMENT_USDC = 1_250n; // whole USDC
+const CREDIT_USDC = 3_500n;
 
-const LEVEL: 1 | 2 | 3    = 2;        // 30% stake → 1_050 USDC per member
-const LEVEL_STAKE_BPS     = 3_000;
+const LEVEL: 1 | 2 | 3 = 2; // 30% stake → 1_050 USDC per member
+const LEVEL_STAKE_BPS = 3_000;
 
-const INSTALLMENT_BASE    = usdc(INSTALLMENT_USDC);  // 1_250_000_000
-const CREDIT_BASE         = usdc(CREDIT_USDC);       // 3_500_000_000
-const STAKE_BASE          = (CREDIT_BASE * BigInt(LEVEL_STAKE_BPS)) / 10_000n; // 1_050_000_000
+const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC); // 1_250_000_000
+const CREDIT_BASE = usdc(CREDIT_USDC); // 3_500_000_000
+const STAKE_BASE = (CREDIT_BASE * BigInt(LEVEL_STAKE_BPS)) / 10_000n; // 1_050_000_000
 
 // Installment split with solidarity_bps=100, escrow_release_bps=2500:
-const SOLIDARITY_PER_INST = (INSTALLMENT_BASE * 100n) / 10_000n;     //    12_500_000
-const ESCROW_PER_INST     = (INSTALLMENT_BASE * 2_500n) / 10_000n;   //   312_500_000
+const SOLIDARITY_PER_INST = (INSTALLMENT_BASE * 100n) / 10_000n; //    12_500_000
+const ESCROW_PER_INST = (INSTALLMENT_BASE * 2_500n) / 10_000n; //   312_500_000
 const POOL_FLOAT_PER_INST = INSTALLMENT_BASE - SOLIDARITY_PER_INST - ESCROW_PER_INST; // 925_000_000
 
 // Yield scenario during cycle 1:
-const YIELD_DEPOSIT_BASE  = usdc(200n);   // moved from pool_vault → mock_vault
-const YIELD_PREFUND_BASE  = usdc(100n);   // bonus minted directly into mock_vault
+const YIELD_DEPOSIT_BASE = usdc(200n); // moved from pool_vault → mock_vault
+const YIELD_PREFUND_BASE = usdc(100n); // bonus minted directly into mock_vault
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 async function poolState(env: Env, pool: PublicKey) {
-  return fetchPool(env, pool) as Promise<Record<string, unknown> & {
-    currentCycle: number;
-    status: number;
-    totalContributed: { toString(): string };
-    totalPaidOut: { toString(): string };
-    solidarityBalance: { toString(): string };
-    escrowBalance: { toString(): string };
-    guaranteeFundBalance: { toString(): string };
-    yieldAccrued: { toString(): string };
-    totalProtocolFeeAccrued: { toString(): string };
-    yieldPrincipalDeposited: { toString(): string };
-    membersJoined: number;
-    membersTarget: number;
-  }>;
+  return fetchPool(env, pool) as Promise<
+    Record<string, unknown> & {
+      currentCycle: number;
+      status: number;
+      totalContributed: { toString(): string };
+      totalPaidOut: { toString(): string };
+      solidarityBalance: { toString(): string };
+      escrowBalance: { toString(): string };
+      guaranteeFundBalance: { toString(): string };
+      yieldAccrued: { toString(): string };
+      totalProtocolFeeAccrued: { toString(): string };
+      yieldPrincipalDeposited: { toString(): string };
+      membersJoined: number;
+      membersTarget: number;
+    }
+  >;
 }
 
 async function memberState(env: Env, member: PublicKey) {
-  return fetchMember(env, member) as Promise<Record<string, unknown> & {
-    slotIndex: number;
-    contributionsPaid: number;
-    onTimeCount: number;
-    escrowBalance: { toString(): string };
-    stakeDeposited: { toString(): string };
-    lastReleasedCheckpoint: number;
-    paidOut: boolean;
-    nftAsset: PublicKey;
-    defaulted: boolean;
-  }>;
+  return fetchMember(env, member) as Promise<
+    Record<string, unknown> & {
+      slotIndex: number;
+      contributionsPaid: number;
+      onTimeCount: number;
+      escrowBalance: { toString(): string };
+      stakeDeposited: { toString(): string };
+      lastReleasedCheckpoint: number;
+      paidOut: boolean;
+      nftAsset: PublicKey;
+      defaulted: boolean;
+    }
+  >;
 }
 
 function bn(x: unknown): bigint {
@@ -181,16 +185,16 @@ describe("lifecycle — full happy path", function () {
     pool = await createPool(env, {
       authority,
       usdcMint,
-      membersTarget:     MEMBERS_TARGET,
+      membersTarget: MEMBERS_TARGET,
       installmentAmount: INSTALLMENT_BASE,
-      creditAmount:      CREDIT_BASE,
-      cyclesTotal:       CYCLES_TOTAL,
-      cycleDurationSec:  CYCLE_DURATION_SEC,
-      escrowReleaseBps:  2_500,
+      creditAmount: CREDIT_BASE,
+      cyclesTotal: CYCLES_TOTAL,
+      cycleDurationSec: CYCLE_DURATION_SEC,
+      escrowReleaseBps: 2_500,
     });
 
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(0);           // Forming
+    expect(p.status).to.equal(0); // Forming
     expect(p.membersJoined).to.equal(0);
     expect(p.membersTarget).to.equal(MEMBERS_TARGET);
 
@@ -221,13 +225,11 @@ describe("lifecycle — full happy path", function () {
 
     const p = await poolState(env, pool.pool);
     expect(p.membersJoined).to.equal(MEMBERS_TARGET);
-    expect(p.status).to.equal(1);           // Active
+    expect(p.status).to.equal(1); // Active
     expect(p.currentCycle).to.equal(0);
 
     // Escrow vault holds every stake.
-    expect(await balanceOf(env, pool.escrowVault)).to.equal(
-      BigInt(MEMBERS_TARGET) * STAKE_BASE,
-    );
+    expect(await balanceOf(env, pool.escrowVault)).to.equal(BigInt(MEMBERS_TARGET) * STAKE_BASE);
 
     // Every member's NFT is linked to their state record.
     for (const h of handles) {
@@ -245,9 +247,9 @@ describe("lifecycle — full happy path", function () {
   // the cycle-1 claim, so the pool is Active for both deposit + harvest.
   for (let cycle = 0; cycle < CYCLES_TOTAL; cycle++) {
     it(`cycle ${cycle}: all 4 members contribute on-time`, async function () {
-      const poolBefore  = await balanceOf(env, pool.poolUsdcVault);
-      const solBefore   = await balanceOf(env, pool.solidarityVault);
-      const escBefore   = await balanceOf(env, pool.escrowVault);
+      const poolBefore = await balanceOf(env, pool.poolUsdcVault);
+      const solBefore = await balanceOf(env, pool.solidarityVault);
+      const escBefore = await balanceOf(env, pool.escrowVault);
 
       for (const h of handles) {
         const sig = await contribute(env, {
@@ -271,19 +273,13 @@ describe("lifecycle — full happy path", function () {
       }
 
       // Vault deltas match exact math.
-      const poolAfter  = await balanceOf(env, pool.poolUsdcVault);
-      const solAfter   = await balanceOf(env, pool.solidarityVault);
-      const escAfter   = await balanceOf(env, pool.escrowVault);
+      const poolAfter = await balanceOf(env, pool.poolUsdcVault);
+      const solAfter = await balanceOf(env, pool.solidarityVault);
+      const escAfter = await balanceOf(env, pool.escrowVault);
 
-      expect(poolAfter - poolBefore).to.equal(
-        BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST,
-      );
-      expect(solAfter - solBefore).to.equal(
-        BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST,
-      );
-      expect(escAfter - escBefore).to.equal(
-        BigInt(MEMBERS_TARGET) * ESCROW_PER_INST,
-      );
+      expect(poolAfter - poolBefore).to.equal(BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST);
+      expect(solAfter - solBefore).to.equal(BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST);
+      expect(escAfter - escBefore).to.equal(BigInt(MEMBERS_TARGET) * ESCROW_PER_INST);
 
       // Per-member state.
       for (const h of handles) {
@@ -296,12 +292,12 @@ describe("lifecycle — full happy path", function () {
     it(`cycle ${cycle}: slot ${cycle} claims payout`, async function () {
       const recipient = handles[cycle]!;
       const recipientBefore = await balanceOf(env, recipient.memberUsdc);
-      const poolBefore      = await balanceOf(env, pool.poolUsdcVault);
+      const poolBefore = await balanceOf(env, pool.poolUsdcVault);
 
       await claimPayout(env, { pool, member: recipient, cycle });
 
       const recipientAfter = await balanceOf(env, recipient.memberUsdc);
-      const poolAfter      = await balanceOf(env, pool.poolUsdcVault);
+      const poolAfter = await balanceOf(env, pool.poolUsdcVault);
 
       expect(recipientAfter - recipientBefore).to.equal(CREDIT_BASE);
       expect(poolBefore - poolAfter).to.equal(CREDIT_BASE);
@@ -324,9 +320,9 @@ describe("lifecycle — full happy path", function () {
       const p = await poolState(env, pool.pool);
       if (cycle + 1 < CYCLES_TOTAL) {
         expect(p.currentCycle).to.equal(cycle + 1);
-        expect(p.status).to.equal(1);       // Active
+        expect(p.status).to.equal(1); // Active
       } else {
-        expect(p.status).to.equal(2);       // Completed
+        expect(p.status).to.equal(2); // Completed
       }
     });
 
@@ -336,11 +332,7 @@ describe("lifecycle — full happy path", function () {
     if (cycle === 1) {
       it("yield flow: deposit_idle → prefund → harvest (waterfall)", async function () {
         // 1. Init the mock vault (idempotent).
-        const { vault: mockVault } = await initMockVault(
-          env,
-          pool.pool,
-          usdcMint,
-        );
+        const { vault: mockVault } = await initMockVault(env, pool.pool, usdcMint);
 
         // 2. deposit_idle_to_yield moves USDC from pool → mock_vault.
         const poolBeforeDep = await balanceOf(env, pool.poolUsdcVault);
@@ -357,9 +349,7 @@ describe("lifecycle — full happy path", function () {
         // 3. Prefund the mock vault with surplus — simulates accrued yield.
         await prefundMockYield(env, pool.pool, usdcMint, YIELD_PREFUND_BASE);
         totalMinted += YIELD_PREFUND_BASE;
-        expect(await balanceOf(env, mockVault)).to.equal(
-          YIELD_DEPOSIT_BASE + YIELD_PREFUND_BASE,
-        );
+        expect(await balanceOf(env, mockVault)).to.equal(YIELD_DEPOSIT_BASE + YIELD_PREFUND_BASE);
 
         // 4. harvest_yield — mock returns surplus, core splits per waterfall.
         const poolBeforeHar = await balanceOf(env, pool.poolUsdcVault);
@@ -383,10 +373,10 @@ describe("lifecycle — full happy path", function () {
         //   gf  = min(80, 0) = 0; afterGf = 80
         //   lp  = 80 * 65% = 52; participants = 28
         const expectedRealized = YIELD_PREFUND_BASE;
-        const expectedFee      = (expectedRealized * BigInt(FEES.yieldFeeBps)) / 10_000n;
-        const afterFee         = expectedRealized - expectedFee;
-        const expectedLpShare  = (afterFee * 6_500n) / 10_000n;
-        const expectedParts    = afterFee - expectedLpShare;
+        const expectedFee = (expectedRealized * BigInt(FEES.yieldFeeBps)) / 10_000n;
+        const afterFee = expectedRealized - expectedFee;
+        const expectedLpShare = (afterFee * 6_500n) / 10_000n;
+        const expectedParts = afterFee - expectedLpShare;
 
         // Pool gains realized − fee_out (LP slice and participants both
         // stay logically inside pool_usdc_vault).
@@ -415,7 +405,7 @@ describe("lifecycle — full happy path", function () {
 
   it("pool completed after cycle 3", async function () {
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(2);           // Completed
+    expect(p.status).to.equal(2); // Completed
     expect(bn(p.totalPaidOut)).to.equal(BigInt(CYCLES_TOTAL) * CREDIT_BASE);
     expect(bn(p.totalContributed)).to.equal(
       BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * INSTALLMENT_BASE,
@@ -449,24 +439,22 @@ describe("lifecycle — full happy path", function () {
       expect(ms.lastReleasedCheckpoint).to.equal(CYCLES_TOTAL);
       // member.escrow_balance was initial stake + cycle escrow portions
       // (CYCLES × ESCROW_PER_INST); release drained stake only.
-      expect(bn(ms.escrowBalance)).to.equal(
-        BigInt(CYCLES_TOTAL) * ESCROW_PER_INST,
-      );
+      expect(bn(ms.escrowBalance)).to.equal(BigInt(CYCLES_TOTAL) * ESCROW_PER_INST);
     }
   });
 
   it("closes the pool", async function () {
     await closePool(env, { pool });
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(2);           // Completed (terminal)
+    expect(p.status).to.equal(2); // Completed (terminal)
   });
 
   it("global conservation: every USDC base unit is accounted for", async function () {
     // Sum every token account the flow touched. Must equal totalMinted.
-    const poolVault  = await balanceOf(env, pool.poolUsdcVault);
-    const escrow     = await balanceOf(env, pool.escrowVault);
+    const poolVault = await balanceOf(env, pool.poolUsdcVault);
+    const escrow = await balanceOf(env, pool.escrowVault);
     const solidarity = await balanceOf(env, pool.solidarityVault);
-    const treasuryB  = await balanceOf(env, treasury);
+    const treasuryB = await balanceOf(env, treasury);
 
     const mockVault = await balanceOf(env, yieldMockVault(env, pool.pool, usdcMint));
 
@@ -496,32 +484,27 @@ describe("lifecycle — full happy path", function () {
     //   solidarity   UNCHANGED (no longer credited from yield in v1.1).
     //
     // Plus the final escrow release (×4 × STAKE_BASE → members).
-    const perCyclePool =
-      BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST - CREDIT_BASE;
-    const expectedFee      = (YIELD_PREFUND_BASE * BigInt(FEES.yieldFeeBps)) / 10_000n;
-    const expectedLpShare =
-      ((YIELD_PREFUND_BASE - expectedFee) * 6_500n) / 10_000n;
-    const expectedParts    = YIELD_PREFUND_BASE - expectedFee - expectedLpShare;
+    const perCyclePool = BigInt(MEMBERS_TARGET) * POOL_FLOAT_PER_INST - CREDIT_BASE;
+    const expectedFee = (YIELD_PREFUND_BASE * BigInt(FEES.yieldFeeBps)) / 10_000n;
+    const expectedLpShare = ((YIELD_PREFUND_BASE - expectedFee) * 6_500n) / 10_000n;
+    const expectedParts = YIELD_PREFUND_BASE - expectedFee - expectedLpShare;
 
     // LP slice + participants both stay logically inside pool_usdc_vault
     // (LP via pool.lp_distribution_balance earmark, parts via residual).
     const expectedPoolVault =
-      BigInt(CYCLES_TOTAL) * perCyclePool - YIELD_DEPOSIT_BASE
-        + expectedLpShare + expectedParts;
-    const expectedEscrow =
-      BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * ESCROW_PER_INST;
-      // stakes all released → removed from escrow above.
+      BigInt(CYCLES_TOTAL) * perCyclePool - YIELD_DEPOSIT_BASE + expectedLpShare + expectedParts;
+    const expectedEscrow = BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * ESCROW_PER_INST;
+    // stakes all released → removed from escrow above.
     // Solidarity vault is NOT credited from yield (v1.1) — only from
     // the 1% das parcelas in `contribute()`.
-    const expectedSolidarity =
-      BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST;
+    const expectedSolidarity = BigInt(CYCLES_TOTAL) * BigInt(MEMBERS_TARGET) * SOLIDARITY_PER_INST;
     const expectedTreasury = expectedFee;
-    const expectedMockVault = YIELD_DEPOSIT_BASE;   // tracked principal, stays
+    const expectedMockVault = YIELD_DEPOSIT_BASE; // tracked principal, stays
 
-    expect(poolVault,  "pool vault")       .to.equal(expectedPoolVault);
-    expect(escrow,     "escrow vault")     .to.equal(expectedEscrow);
-    expect(solidarity, "solidarity vault") .to.equal(expectedSolidarity);
-    expect(treasuryB,  "treasury")         .to.equal(expectedTreasury);
-    expect(mockVault,  "mock vault")       .to.equal(expectedMockVault);
+    expect(poolVault, "pool vault").to.equal(expectedPoolVault);
+    expect(escrow, "escrow vault").to.equal(expectedEscrow);
+    expect(solidarity, "solidarity vault").to.equal(expectedSolidarity);
+    expect(treasuryB, "treasury").to.equal(expectedTreasury);
+    expect(mockVault, "mock vault").to.equal(expectedMockVault);
   });
 });

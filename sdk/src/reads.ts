@@ -131,24 +131,24 @@ export interface MemberView {
 }
 
 export type MemberLifecycleStatus =
-  | "forming"     // pool hasn't activated yet
-  | "current"     // contributions_paid >= current_cycle (or not-yet-due)
-  | "late"        // contributions_paid < current_cycle, still within grace
-  | "paid_out"    // already received credit
-  | "defaulted";  // settle_default fired
+  | "forming" // pool hasn't activated yet
+  | "current" // contributions_paid >= current_cycle (or not-yet-due)
+  | "late" // contributions_paid < current_cycle, still within grace
+  | "paid_out" // already received credit
+  | "defaulted"; // settle_default fired
 
 /** Coarse label for `computePoolHealth().state`. */
 export type PoolHealthState =
   | "forming"
   | "healthy"
-  | "stressed"   // 1-10% default rate
+  | "stressed" // 1-10% default rate
   | "distressed" // >10% default rate
   | "completed"
   | "liquidated";
 
 export interface PoolHealth {
   state: PoolHealthState;
-  defaultRate: number;      // 0..1
+  defaultRate: number; // 0..1
   /** Fraction of total scheduled contributions collected so far (0..1). */
   collectionProgress: number;
   totalScheduledContributions: bigint;
@@ -164,37 +164,44 @@ async function fetchRawProtocolConfig(
   client: RoundFiClient,
   address: PublicKey,
 ): Promise<Record<string, unknown>> {
-  return (await (client.programs.core.account as any).protocolConfig.fetch(
-    address,
-  )) as Record<string, unknown>;
+  return (await (client.programs.core.account as any).protocolConfig.fetch(address)) as Record<
+    string,
+    unknown
+  >;
 }
 
 async function fetchRawPool(
   client: RoundFiClient,
   address: PublicKey,
 ): Promise<Record<string, unknown>> {
-  return (await (client.programs.core.account as any).pool.fetch(
-    address,
-  )) as Record<string, unknown>;
+  return (await (client.programs.core.account as any).pool.fetch(address)) as Record<
+    string,
+    unknown
+  >;
 }
 
 async function fetchRawMember(
   client: RoundFiClient,
   address: PublicKey,
 ): Promise<Record<string, unknown>> {
-  return (await (client.programs.core.account as any).member.fetch(
-    address,
-  )) as Record<string, unknown>;
+  return (await (client.programs.core.account as any).member.fetch(address)) as Record<
+    string,
+    unknown
+  >;
 }
 
 // ─── Normalizers ─────────────────────────────────────────────────────
 
 function statusName(raw: number): PoolStatusName {
   switch (raw) {
-    case POOL_STATUS.Forming:    return "Forming";
-    case POOL_STATUS.Active:     return "Active";
-    case POOL_STATUS.Completed:  return "Completed";
-    case POOL_STATUS.Liquidated: return "Liquidated";
+    case POOL_STATUS.Forming:
+      return "Forming";
+    case POOL_STATUS.Active:
+      return "Active";
+    case POOL_STATUS.Completed:
+      return "Completed";
+    case POOL_STATUS.Liquidated:
+      return "Liquidated";
     default:
       throw new Error(`Unknown pool status: ${raw}`);
   }
@@ -221,77 +228,77 @@ function normalizeProtocolConfig(
 ): ProtocolConfigView {
   return {
     address,
-    authority:           raw.authority as PublicKey,
-    treasury:            raw.treasury as PublicKey,
-    usdcMint:            raw.usdcMint as PublicKey,
-    metaplexCore:        raw.metaplexCore as PublicKey,
+    authority: raw.authority as PublicKey,
+    treasury: raw.treasury as PublicKey,
+    usdcMint: raw.usdcMint as PublicKey,
+    metaplexCore: raw.metaplexCore as PublicKey,
     defaultYieldAdapter: raw.defaultYieldAdapter as PublicKey,
-    reputationProgram:   raw.reputationProgram as PublicKey,
-    feeBpsYield:         u8(raw.feeBpsYield),
-    feeBpsCycleL1:       u8(raw.feeBpsCycleL1),
-    feeBpsCycleL2:       u8(raw.feeBpsCycleL2),
-    feeBpsCycleL3:       u8(raw.feeBpsCycleL3),
-    guaranteeFundBps:    u8(raw.guaranteeFundBps),
-    paused:              Boolean(raw.paused),
+    reputationProgram: raw.reputationProgram as PublicKey,
+    feeBpsYield: u8(raw.feeBpsYield),
+    feeBpsCycleL1: u8(raw.feeBpsCycleL1),
+    feeBpsCycleL2: u8(raw.feeBpsCycleL2),
+    feeBpsCycleL3: u8(raw.feeBpsCycleL3),
+    guaranteeFundBps: u8(raw.guaranteeFundBps),
+    paused: Boolean(raw.paused),
   };
 }
 
 function normalizePool(address: PublicKey, raw: Record<string, unknown>): PoolView {
   return {
     address,
-    authority:               raw.authority as PublicKey,
-    seedId:                  bn(raw.seedId),
-    usdcMint:                raw.usdcMint as PublicKey,
-    yieldAdapter:            raw.yieldAdapter as PublicKey,
-    membersTarget:           u8(raw.membersTarget),
-    installmentAmount:       bn(raw.installmentAmount),
-    creditAmount:            bn(raw.creditAmount),
-    cyclesTotal:             u8(raw.cyclesTotal),
-    cycleDurationSec:        bn(raw.cycleDuration),
-    seedDrawBps:             u8(raw.seedDrawBps),
-    solidarityBps:           u8(raw.solidarityBps),
-    escrowReleaseBps:        u8(raw.escrowReleaseBps),
-    membersJoined:           u8(raw.membersJoined),
-    status:                  statusName(u8(raw.status)),
-    startedAt:               bn(raw.startedAt),
-    currentCycle:            u8(raw.currentCycle),
-    nextCycleAt:             bn(raw.nextCycleAt),
-    totalContributed:        bn(raw.totalContributed),
-    totalPaidOut:            bn(raw.totalPaidOut),
-    solidarityBalance:       bn(raw.solidarityBalance),
-    escrowBalance:           bn(raw.escrowBalance),
-    yieldAccrued:            bn(raw.yieldAccrued),
-    guaranteeFundBalance:    bn(raw.guaranteeFundBalance),
+    authority: raw.authority as PublicKey,
+    seedId: bn(raw.seedId),
+    usdcMint: raw.usdcMint as PublicKey,
+    yieldAdapter: raw.yieldAdapter as PublicKey,
+    membersTarget: u8(raw.membersTarget),
+    installmentAmount: bn(raw.installmentAmount),
+    creditAmount: bn(raw.creditAmount),
+    cyclesTotal: u8(raw.cyclesTotal),
+    cycleDurationSec: bn(raw.cycleDuration),
+    seedDrawBps: u8(raw.seedDrawBps),
+    solidarityBps: u8(raw.solidarityBps),
+    escrowReleaseBps: u8(raw.escrowReleaseBps),
+    membersJoined: u8(raw.membersJoined),
+    status: statusName(u8(raw.status)),
+    startedAt: bn(raw.startedAt),
+    currentCycle: u8(raw.currentCycle),
+    nextCycleAt: bn(raw.nextCycleAt),
+    totalContributed: bn(raw.totalContributed),
+    totalPaidOut: bn(raw.totalPaidOut),
+    solidarityBalance: bn(raw.solidarityBalance),
+    escrowBalance: bn(raw.escrowBalance),
+    yieldAccrued: bn(raw.yieldAccrued),
+    guaranteeFundBalance: bn(raw.guaranteeFundBalance),
     totalProtocolFeeAccrued: bn(raw.totalProtocolFeeAccrued),
     yieldPrincipalDeposited: bn(raw.yieldPrincipalDeposited),
-    defaultedMembers:        u8(raw.defaultedMembers),
-    occupiedSlots:           occupiedSlotsFromBitmap(raw.slotsBitmap),
+    defaultedMembers: u8(raw.defaultedMembers),
+    occupiedSlots: occupiedSlotsFromBitmap(raw.slotsBitmap),
   };
 }
 
 function normalizeMember(address: PublicKey, raw: Record<string, unknown>): MemberView {
   return {
     address,
-    pool:                   raw.pool as PublicKey,
-    wallet:                 raw.wallet as PublicKey,
-    nftAsset:               raw.nftAsset as PublicKey,
-    slotIndex:              u8(raw.slotIndex),
-    reputationLevel:        u8(raw.reputationLevel),
-    stakeBps:               u8(raw.stakeBps),
-    stakeDeposited:         bn(raw.stakeDeposited),
-    stakeDepositedInitial:  bn(raw.stakeDepositedInitial),
-    totalEscrowDeposited:   bn(raw.totalEscrowDeposited),
-    escrowBalance:          bn(raw.escrowBalance),
-    contributionsPaid:      u8(raw.contributionsPaid),
-    totalContributed:       bn(raw.totalContributed),
-    totalReceived:          bn(raw.totalReceived),
-    onTimeCount:            u8(raw.onTimeCount),
-    lateCount:              u8(raw.lateCount),
-    defaulted:              Boolean(raw.defaulted),
-    paidOut:                Boolean(raw.paidOut),
+    pool: raw.pool as PublicKey,
+    wallet: raw.wallet as PublicKey,
+    nftAsset: raw.nftAsset as PublicKey,
+    slotIndex: u8(raw.slotIndex),
+    reputationLevel: u8(raw.reputationLevel),
+    stakeBps: u8(raw.stakeBps),
+    stakeDeposited: bn(raw.stakeDeposited),
+    stakeDepositedInitial: bn(raw.stakeDepositedInitial),
+    totalEscrowDeposited: bn(raw.totalEscrowDeposited),
+    escrowBalance: bn(raw.escrowBalance),
+    contributionsPaid: u8(raw.contributionsPaid),
+    totalContributed: bn(raw.totalContributed),
+    totalReceived: bn(raw.totalReceived),
+    onTimeCount: u8(raw.onTimeCount),
+    lateCount: u8(raw.lateCount),
+    defaulted: Boolean(raw.defaulted),
+    paidOut: Boolean(raw.paidOut),
     lastReleasedCheckpoint: u8(raw.lastReleasedCheckpoint),
-    joinedAt:               bn(raw.joinedAt),
-    lastTransferredAt:      bn(raw.lastTransferredAt),
+    joinedAt: bn(raw.joinedAt),
+    lastTransferredAt: bn(raw.lastTransferredAt),
   };
 }
 
@@ -362,28 +369,29 @@ export async function listPoolMembers(
 }
 
 /** All four pool vault ATAs — handy for balance reads or UI display. */
-export function poolVaults(client: RoundFiClient, pool: PublicKey, usdcMint: PublicKey): {
+export function poolVaults(
+  client: RoundFiClient,
+  pool: PublicKey,
+  usdcMint: PublicKey,
+): {
   poolUsdcVault: PublicKey;
   escrowVault: PublicKey;
   solidarityVault: PublicKey;
   yieldVault: PublicKey;
 } {
-  const [escrowAuth]     = escrowVaultAuthorityPda(client.ids.core, pool);
+  const [escrowAuth] = escrowVaultAuthorityPda(client.ids.core, pool);
   const [solidarityAuth] = solidarityVaultAuthorityPda(client.ids.core, pool);
-  const [yieldAuth]      = yieldVaultAuthorityPda(client.ids.core, pool);
+  const [yieldAuth] = yieldVaultAuthorityPda(client.ids.core, pool);
   return {
-    poolUsdcVault:   getAssociatedTokenAddressSync(usdcMint, pool, true),
-    escrowVault:     getAssociatedTokenAddressSync(usdcMint, escrowAuth, true),
+    poolUsdcVault: getAssociatedTokenAddressSync(usdcMint, pool, true),
+    escrowVault: getAssociatedTokenAddressSync(usdcMint, escrowAuth, true),
     solidarityVault: getAssociatedTokenAddressSync(usdcMint, solidarityAuth, true),
-    yieldVault:      getAssociatedTokenAddressSync(usdcMint, yieldAuth, true),
+    yieldVault: getAssociatedTokenAddressSync(usdcMint, yieldAuth, true),
   };
 }
 
 /** Read an SPL token account balance. Returns 0n if the ATA doesn't exist. */
-export async function fetchTokenBalance(
-  client: RoundFiClient,
-  ata: PublicKey,
-): Promise<bigint> {
+export async function fetchTokenBalance(client: RoundFiClient, ata: PublicKey): Promise<bigint> {
   const info = await client.connection.getAccountInfo(ata, "confirmed");
   if (!info) return 0n;
   try {
@@ -407,9 +415,9 @@ export function expectedStake(creditAmount: bigint, level: 1 | 2 | 3): bigint {
 
 /** Lifecycle label for a single member, relative to the pool state. */
 export function memberStatus(member: MemberView, pool: PoolView): MemberLifecycleStatus {
-  if (member.defaulted)             return "defaulted";
-  if (member.paidOut)               return "paid_out";
-  if (pool.status === "Forming")    return "forming";
+  if (member.defaulted) return "defaulted";
+  if (member.paidOut) return "paid_out";
+  if (pool.status === "Forming") return "forming";
   if (member.contributionsPaid >= pool.currentCycle) return "current";
   return "late";
 }
@@ -421,25 +429,20 @@ export function memberStatus(member: MemberView, pool: PoolView): MemberLifecycl
  */
 export function computePoolHealth(pool: PoolView): PoolHealth {
   const totalScheduled =
-    pool.installmentAmount *
-    BigInt(pool.cyclesTotal) *
-    BigInt(pool.membersTarget);
+    pool.installmentAmount * BigInt(pool.cyclesTotal) * BigInt(pool.membersTarget);
 
-  const collectionProgress = totalScheduled === 0n
-    ? 0
-    : Number((pool.totalContributed * 10_000n) / totalScheduled) / 10_000;
+  const collectionProgress =
+    totalScheduled === 0n ? 0 : Number((pool.totalContributed * 10_000n) / totalScheduled) / 10_000;
 
-  const defaultRate = pool.membersTarget === 0
-    ? 0
-    : pool.defaultedMembers / pool.membersTarget;
+  const defaultRate = pool.membersTarget === 0 ? 0 : pool.defaultedMembers / pool.membersTarget;
 
   let state: PoolHealthState;
-  if (pool.status === "Forming")         state = "forming";
-  else if (pool.status === "Completed")  state = "completed";
+  if (pool.status === "Forming") state = "forming";
+  else if (pool.status === "Completed") state = "completed";
   else if (pool.status === "Liquidated") state = "liquidated";
-  else if (defaultRate > 0.10)           state = "distressed";
-  else if (defaultRate > 0)              state = "stressed";
-  else                                   state = "healthy";
+  else if (defaultRate > 0.1) state = "distressed";
+  else if (defaultRate > 0) state = "stressed";
+  else state = "healthy";
 
   return {
     state,
