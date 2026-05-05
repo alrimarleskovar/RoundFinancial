@@ -28,6 +28,7 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [phase, setPhase] = useState<Phase>("form");
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -219,15 +220,21 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
             </button>
             <button
               type="button"
-              onClick={() => setPhase("success")}
-              disabled={!canSubmit}
+              onClick={() => {
+                setSubmitting(true);
+                setTimeout(() => {
+                  setSubmitting(false);
+                  setPhase("success");
+                }, 900);
+              }}
+              disabled={!canSubmit || submitting}
               style={{
                 ...primaryBtn(tokens),
-                opacity: canSubmit ? 1 : 0.45,
-                cursor: canSubmit ? "pointer" : "not-allowed",
+                opacity: !canSubmit || submitting ? 0.45 : 1,
+                cursor: !canSubmit || submitting ? "default" : "pointer",
               }}
             >
-              {t("modal.send.confirm")}
+              {submitting ? t("modal.processing") : t("modal.send.confirm")}
             </button>
           </div>
         </>
