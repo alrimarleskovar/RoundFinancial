@@ -6,6 +6,7 @@ import { Icons } from "@/components/brand/icons";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import type { ActiveGroup } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Compact row for the "Seus grupos" list under the FeaturedGroup card.
@@ -13,11 +14,17 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 // group's next installment. The trailing → icon previously sat
 // orphan; now it has a real action behind it.
 
-export function GroupRow({ g }: { g: ActiveGroup }) {
+export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { monthsPaidByGroup } = useSession();
+  // Same overlay pattern as FeaturedGroup — month advances live as the
+  // user confirms payments this session.
+  const paidExtra = monthsPaidByGroup[baseG.name] ?? 0;
+  const month = Math.min(baseG.total, baseG.month + paidExtra);
+  const g: ActiveGroup = { ...baseG, month, progress: month / baseG.total };
   const [payOpen, setPayOpen] = useState(false);
 
   const tc = ((): string => {
@@ -134,7 +141,7 @@ export function GroupRow({ g }: { g: ActiveGroup }) {
       </div>
       <Icons.arrow size={16} stroke={tokens.muted} />
 
-      <PayInstallmentModal group={g} open={payOpen} onClose={() => setPayOpen(false)} />
+      <PayInstallmentModal group={baseG} open={payOpen} onClose={() => setPayOpen(false)} />
     </button>
   );
 }

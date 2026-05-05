@@ -78,6 +78,8 @@ export const DICT: Record<Lang, Dict> = {
     "level.veteran": "Veterano",
     "level.youLabel": "← VOCÊ",
     "level.ptsToNext": "{n} pts até Veterano",
+    "level.maxBadge": "✦ NÍVEL MÁXIMO",
+    "level.maxSub": "Veterano · benefícios VIP ativos",
     // score / reputação screen
     "score.badge": "◆ SAS Passport",
     "score.title": "Reputação on-chain",
@@ -949,6 +951,8 @@ export const DICT: Record<Lang, Dict> = {
     "level.veteran": "Veteran",
     "level.youLabel": "← YOU",
     "level.ptsToNext": "{n} pts to Veteran",
+    "level.maxBadge": "✦ MAX LEVEL",
+    "level.maxSub": "Veteran · VIP perks active",
     // score / reputation screen
     "score.badge": "◆ SAS Passport",
     "score.title": "On-chain reputation",

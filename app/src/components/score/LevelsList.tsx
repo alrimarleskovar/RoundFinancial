@@ -29,6 +29,11 @@ export function LevelsList() {
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <MonoLabel color={tokens.green}>{t("score.levelsTitle")}</MonoLabel>
       {LEVELS.map((l) => {
+        // Derive current/unlocked from live session state — the fixture
+        // values were a static snapshot and would never reflect a
+        // levelup mid-session.
+        const isCurrent = l.lv === user.level;
+        const isUnlocked = l.lv <= user.level;
         const c = colorFor(l.lv);
         const localizedName =
           l.lv === 1
@@ -43,7 +48,7 @@ export function LevelsList() {
               ...glass,
               padding: 16,
               borderRadius: 14,
-              ...(l.current
+              ...(isCurrent
                 ? {
                     background: `${tokens.teal}1A`,
                     border: `1px solid ${tokens.teal}4D`,
@@ -92,7 +97,7 @@ export function LevelsList() {
                     ✦ VIP
                   </span>
                 )}
-                {l.current && (
+                {isCurrent && (
                   <span
                     style={{
                       color: tokens.teal,
@@ -116,7 +121,7 @@ export function LevelsList() {
                 {t("score.lvDetail", { c: l.colat, l: l.lev })}
               </div>
             </div>
-            {l.unlocked ? (
+            {isUnlocked ? (
               <Icons.check size={18} stroke={tokens.green} sw={2} />
             ) : (
               <Icons.lock size={18} stroke={tokens.muted} />

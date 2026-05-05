@@ -78,9 +78,10 @@ export function SideNav({
     },
   ];
 
+  const atTopTier = user.level >= 3;
   const levelCopy = {
-    badge: `◆ Nv. ${user.level} · ${user.levelLabel}`,
-    pts: t("level.ptsToNext", { n: user.nextLevel - user.score }),
+    badge: atTopTier ? t("level.maxBadge") : `◆ Nv. ${user.level} · ${user.levelLabel}`,
+    pts: atTopTier ? t("level.maxSub") : t("level.ptsToNext", { n: user.nextLevel - user.score }),
   };
 
   return (
@@ -184,32 +185,39 @@ export function SideNav({
           style={{
             padding: 14,
             borderRadius: 14,
-            background: `linear-gradient(145deg, ${tokens.navyDeep}, ${tokens.surface2})`,
-            border: `1px solid ${tokens.border}`,
+            // Max-tier gets a richer purple→teal gradient + green glow
+            // so Veteran feels visually distinct from a generic Lv2.
+            background: atTopTier
+              ? `linear-gradient(145deg, ${tokens.purple}33, ${tokens.teal}26)`
+              : `linear-gradient(145deg, ${tokens.navyDeep}, ${tokens.surface2})`,
+            border: `1px solid ${atTopTier ? `${tokens.green}66` : tokens.border}`,
+            boxShadow: atTopTier ? `0 0 24px ${tokens.green}26` : "none",
             marginBottom: 10,
           }}
         >
-          <MonoLabel color={tokens.green} size={9}>
+          <MonoLabel color={atTopTier ? tokens.green : tokens.green} size={9}>
             {levelCopy.badge}
           </MonoLabel>
           <div style={{ marginTop: 8, fontSize: 11, color: tokens.text2 }}>{levelCopy.pts}</div>
-          <div
-            style={{
-              marginTop: 8,
-              height: 4,
-              background: tokens.fillMed,
-              borderRadius: 999,
-              overflow: "hidden",
-            }}
-          >
+          {!atTopTier && (
             <div
               style={{
-                width: `${(user.score / user.nextLevel) * 100}%`,
-                height: "100%",
-                background: `linear-gradient(90deg, ${tokens.green}, ${tokens.teal})`,
+                marginTop: 8,
+                height: 4,
+                background: tokens.fillMed,
+                borderRadius: 999,
+                overflow: "hidden",
               }}
-            />
-          </div>
+            >
+              <div
+                style={{
+                  width: `${(user.score / user.nextLevel) * 100}%`,
+                  height: "100%",
+                  background: `linear-gradient(90deg, ${tokens.green}, ${tokens.teal})`,
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
 

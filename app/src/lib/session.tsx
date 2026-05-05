@@ -26,7 +26,14 @@ import type { CatalogGroup } from "@/lib/groups";
 // data shape as data/carteira.ts so swapping fixtures for an
 // on-chain indexer later is a single-file change.
 
-export type SessionEventKind = "payment" | "yield" | "sale" | "purchase" | "attestation" | "join";
+export type SessionEventKind =
+  | "payment"
+  | "yield"
+  | "sale"
+  | "purchase"
+  | "attestation"
+  | "join"
+  | "levelup";
 
 export interface SessionEvent {
   id: string;
@@ -50,6 +57,35 @@ export interface SessionState {
    *  onto its static `g.joined` flag so the catalog reflects state
    *  across tabs. Indexed by name since both flows share that key. */
   joinedGroupNames: string[];
+  /** Extra months paid this session, keyed by group name. FeaturedGroup
+   *  + GroupRow overlay this onto the static fixture so the dial advances
+   *  when the user pays an installment (capped at the group's total). */
+  monthsPaidByGroup: Record<string, number>;
+}
+
+// SAS reputation tiers. Score thresholds match the demo fixtures —
+// lvl 2 is "Comprovado" at 500+, lvl 3 is "Veterano" at 750+. The
+// reducer reads this table on every score change to decide whether
+// to bump user.level / user.levelLabel and emit a levelup event.
+const LEVEL_TABLE: ReadonlyArray<{
+  min: number;
+  level: 1 | 2 | 3;
+  label: string;
+  next: number;
+}> = [
+  { min: 0, level: 1, label: "Iniciante", next: 500 },
+  { min: 500, level: 2, label: "Comprovado", next: 750 },
+  { min: 750, level: 3, label: "Veterano", next: 999 },
+];
+
+function computeLevel(score: number): { level: 1 | 2 | 3; label: string; next: number } {
+  // Walk the table top-down so the highest-qualifying tier wins.
+  for (let i = LEVEL_TABLE.length - 1; i >= 0; i--) {
+    const tier = LEVEL_TABLE[i]!;
+    if (score >= tier.min) return { level: tier.level, label: tier.label, next: tier.next };
+  }
+  const fallback = LEVEL_TABLE[0]!;
+  return { level: fallback.level, label: fallback.label, next: fallback.next };
 }
 
 type Action =
@@ -120,12 +156,25 @@ const INITIAL_STATE: SessionState = {
   events: INITIAL_EVENTS,
   purchasedOfferIds: [],
   joinedGroupNames: [],
+  monthsPaidByGroup: {},
 };
 
 function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
     case "PAY_INSTALLMENT": {
       const amount = action.group.installment;
+      // Defensive guards — the modal already disables submit in both
+      // cases, but we no-op here too so the reducer can be trusted from
+      // any future caller (admin tools, scripted demo flows, etc.).
+      const prevPaid = state.monthsPaidByGroup[action.group.name] ?? 0;
+      const cycleMaxPaid = Math.max(0, action.group.total - action.group.month);
+      if (prevPaid >= cycleMaxPaid) return state; // cycle already fully funded
+      if (state.user.balance < amount) return state; // would go negative
+
+      const newScore = state.user.score + 6;
+      const tier = computeLevel(newScore);
+      const leveledUp = tier.level > state.user.level;
+
       const ev: SessionEvent = {
         id: makeId(),
         kind: "payment",
@@ -146,15 +195,42 @@ function reducer(state: SessionState, action: Action): SessionState {
         target: "civic.pass",
         attestPts: 6,
       };
+
+      // Levelup event sits at the head of the feed when the score
+      // crosses a threshold so the toast useEffect picks it up first.
+      const events: SessionEvent[] = leveledUp
+        ? [
+            {
+              id: makeId(),
+              kind: "levelup",
+              ts: Date.now() + 2,
+              txid: makeTxid(),
+              op: "sas.levelup",
+              amountBrl: 0,
+              target: tier.label,
+            },
+            att,
+            ev,
+            ...state.events,
+          ]
+        : [att, ev, ...state.events];
+
       return {
         ...state,
         user: {
           ...state.user,
           balance: state.user.balance - amount,
-          score: state.user.score + 6,
+          score: newScore,
           scoreDelta: state.user.scoreDelta + 6,
+          level: tier.level,
+          levelLabel: tier.label,
+          nextLevel: tier.next,
         },
-        events: [att, ev, ...state.events],
+        events,
+        monthsPaidByGroup: {
+          ...state.monthsPaidByGroup,
+          [action.group.name]: prevPaid + 1,
+        },
       };
     }
     case "JOIN_GROUP": {
@@ -261,10 +337,40 @@ function reducer(state: SessionState, action: Action): SessionState {
         action.groupName && !state.joinedGroupNames.includes(action.groupName)
           ? [...state.joinedGroupNames, action.groupName]
           : state.joinedGroupNames;
+      // Always derive level/levelLabel/nextLevel from the patched score
+      // — that's the source of truth. Admin-side level chips are UI
+      // hints; the threshold table makes (score, level) consistent.
+      const patchedUser = { ...state.user, ...action.userPatch };
+      const tier = computeLevel(patchedUser.score);
+      const leveledUp = tier.level > state.user.level;
+      // If the admin patch crosses a tier (e.g. score 850 from a
+      // current lvl 2), surface the same celebratory levelup event +
+      // toast that the normal pay-installment flow emits, so the demo
+      // studio path mirrors live play visually.
+      const events: SessionEvent[] = leveledUp
+        ? [
+            {
+              id: makeId(),
+              kind: "levelup",
+              ts: Date.now() + 1,
+              txid: makeTxid(),
+              op: "sas.levelup",
+              amountBrl: 0,
+              target: tier.label,
+            },
+            ev,
+            ...state.events,
+          ]
+        : [ev, ...state.events];
       return {
         ...state,
-        user: { ...state.user, ...action.userPatch },
-        events: [ev, ...state.events],
+        user: {
+          ...patchedUser,
+          level: tier.level,
+          levelLabel: tier.label,
+          nextLevel: tier.next,
+        },
+        events,
         joinedGroupNames: joinedAdd,
       };
     }
@@ -304,6 +410,7 @@ interface SessionContextValue {
   events: SessionEvent[];
   purchasedOfferIds: string[];
   joinedGroupNames: string[];
+  monthsPaidByGroup: Record<string, number>;
   payInstallment: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
   sellShare: (position: NftPosition, askPrice: number, discountPct: number) => void;
@@ -355,6 +462,17 @@ export function SessionProvider({
     // Only toast user-initiated events. Yield ticks + attestation
     // pings happen automatically and would spam the UI.
     if (latest.kind === "yield" || latest.kind === "attestation") return;
+
+    // Levelup gets a longer, celebratory toast. The reducer placed it
+    // at the head of the feed, so it fires before the underlying
+    // payment toast on the same tick.
+    if (latest.kind === "levelup") {
+      toast.success(`Subiu de nível: ${latest.target}`, {
+        description: "Novos grupos desbloqueados na aba Grupos.",
+        duration: 6000,
+      });
+      return;
+    }
 
     const messages: Record<string, { title: string; sub?: string }> = {
       payment: {
@@ -419,6 +537,7 @@ export function SessionProvider({
       events: state.events,
       purchasedOfferIds: state.purchasedOfferIds,
       joinedGroupNames: state.joinedGroupNames,
+      monthsPaidByGroup: state.monthsPaidByGroup,
       payInstallment,
       joinGroup,
       sellShare,
