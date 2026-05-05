@@ -223,7 +223,7 @@ export function Modal({
                 <button
                   type="button"
                   onClick={onClose}
-                  aria-label="Close"
+                  aria-label="Fechar"
                   style={{
                     background: "transparent",
                     border: "none",

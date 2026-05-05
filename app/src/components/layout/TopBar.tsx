@@ -62,6 +62,7 @@ export function TopBar() {
           </svg>
           <input
             placeholder={t("top.search")}
+            aria-label={t("top.search")}
             style={{
               flex: 1,
               background: "none",

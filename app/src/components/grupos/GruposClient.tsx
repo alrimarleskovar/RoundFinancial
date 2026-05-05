@@ -202,6 +202,7 @@ export function GruposClient() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("groups.search")}
+              aria-label={t("groups.search")}
               style={{
                 flex: 1,
                 background: "none",
