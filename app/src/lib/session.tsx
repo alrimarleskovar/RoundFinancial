@@ -337,18 +337,18 @@ function reducer(state: SessionState, action: Action): SessionState {
         action.groupName && !state.joinedGroupNames.includes(action.groupName)
           ? [...state.joinedGroupNames, action.groupName]
           : state.joinedGroupNames;
-      // Recompute level/levelLabel/nextLevel from the patched score so
-      // an admin who sets score=900 but level=1 still ends up consistent
-      // (the patch's explicit level/label still wins via the spread).
+      // Always derive level/levelLabel/nextLevel from the patched score
+      // — that's the source of truth. Admin-side level chips are UI
+      // hints; the threshold table makes (score, level) consistent.
       const patchedUser = { ...state.user, ...action.userPatch };
       const tier = computeLevel(patchedUser.score);
       return {
         ...state,
         user: {
           ...patchedUser,
-          level: action.userPatch.level ?? tier.level,
-          levelLabel: action.userPatch.levelLabel ?? tier.label,
-          nextLevel: action.userPatch.nextLevel ?? tier.next,
+          level: tier.level,
+          levelLabel: tier.label,
+          nextLevel: tier.next,
         },
         events: [ev, ...state.events],
         joinedGroupNames: joinedAdd,
