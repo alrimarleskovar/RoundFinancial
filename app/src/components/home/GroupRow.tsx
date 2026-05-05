@@ -141,7 +141,7 @@ export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
       </div>
       <Icons.arrow size={16} stroke={tokens.muted} />
 
-      <PayInstallmentModal group={g} open={payOpen} onClose={() => setPayOpen(false)} />
+      <PayInstallmentModal group={baseG} open={payOpen} onClose={() => setPayOpen(false)} />
     </button>
   );
 }

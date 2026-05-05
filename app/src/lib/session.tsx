@@ -163,6 +163,14 @@ function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
     case "PAY_INSTALLMENT": {
       const amount = action.group.installment;
+      // Defensive guards — the modal already disables submit in both
+      // cases, but we no-op here too so the reducer can be trusted from
+      // any future caller (admin tools, scripted demo flows, etc.).
+      const prevPaid = state.monthsPaidByGroup[action.group.name] ?? 0;
+      const cycleMaxPaid = Math.max(0, action.group.total - action.group.month);
+      if (prevPaid >= cycleMaxPaid) return state; // cycle already fully funded
+      if (state.user.balance < amount) return state; // would go negative
+
       const newScore = state.user.score + 6;
       const tier = computeLevel(newScore);
       const leveledUp = tier.level > state.user.level;
@@ -207,12 +215,6 @@ function reducer(state: SessionState, action: Action): SessionState {
           ]
         : [att, ev, ...state.events];
 
-      // Cap month progression at the group's total so the dial doesn't
-      // overshoot if the user spam-pays the same group.
-      const prevPaid = state.monthsPaidByGroup[action.group.name] ?? 0;
-      const remaining = Math.max(0, action.group.total - action.group.month - prevPaid);
-      const nextPaid = prevPaid + (remaining > 0 ? 1 : 0);
-
       return {
         ...state,
         user: {
@@ -227,7 +229,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         events,
         monthsPaidByGroup: {
           ...state.monthsPaidByGroup,
-          [action.group.name]: nextPaid,
+          [action.group.name]: prevPaid + 1,
         },
       };
     }

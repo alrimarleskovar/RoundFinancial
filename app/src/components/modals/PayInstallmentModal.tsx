@@ -32,9 +32,18 @@ export function PayInstallmentModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { payInstallment } = useSession();
+  const { payInstallment, user, monthsPaidByGroup } = useSession();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  // `group` is the static fixture; live progress comes from session.
+  // effectiveMonth is the month the user is *about to pay for*. When
+  // it equals group.total the cycle is fully funded — no more parcelas.
+  const paidExtra = monthsPaidByGroup[group.name] ?? 0;
+  const effectiveMonth = Math.min(group.total, group.month + paidExtra);
+  const cycleDone = effectiveMonth >= group.total;
+  const insufficient = user.balance < group.installment;
+  const blocked = cycleDone || insufficient;
 
   const reset = () => {
     setSubmitting(false);
@@ -43,6 +52,7 @@ export function PayInstallmentModal({
   };
 
   const handleConfirm = () => {
+    if (blocked) return;
     setSubmitting(true);
     setTimeout(() => {
       payInstallment(group);
@@ -111,7 +121,7 @@ export function PayInstallmentModal({
                   fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
-                {t("modal.pay.month", { m: group.month, t: group.total })} ·{" "}
+                {t("modal.pay.month", { m: effectiveMonth, t: group.total })} ·{" "}
                 {t("modal.pay.due", { d: group.nextDue })}
               </div>
             </div>
@@ -213,6 +223,37 @@ export function PayInstallmentModal({
             })}
           </div>
 
+          {/* Block reasons (cycle done / insufficient balance) */}
+          {blocked && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.red}14`,
+                border: `1px solid ${tokens.red}33`,
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.red}>
+                {cycleDone ? "CICLO COMPLETO" : "SALDO INSUFICIENTE"}
+              </MonoLabel>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: tokens.text2,
+                  lineHeight: 1.5,
+                }}
+              >
+                {cycleDone
+                  ? `Você já pagou todas as ${group.total} parcelas deste ciclo.`
+                  : `Saldo atual ${fmtMoney(user.balance, { noCents: true })} — adicione fundos pela tela de Carteira.`}
+              </span>
+            </div>
+          )}
+
           {/* Footer */}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button type="button" onClick={reset} style={ghostBtn(tokens)}>
@@ -221,11 +262,11 @@ export function PayInstallmentModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting}
+              disabled={submitting || blocked}
               style={{
                 ...primaryBtn(tokens),
-                opacity: submitting ? 0.7 : 1,
-                cursor: submitting ? "default" : "pointer",
+                opacity: submitting || blocked ? 0.45 : 1,
+                cursor: submitting || blocked ? "default" : "pointer",
               }}
             >
               {submitting ? t("modal.processing") : t("modal.pay.cta")}

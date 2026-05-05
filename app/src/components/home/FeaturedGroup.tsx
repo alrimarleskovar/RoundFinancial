@@ -258,7 +258,7 @@ export function FeaturedGroup() {
         </div>
       </div>
 
-      <PayInstallmentModal group={g} open={payOpen} onClose={() => setPayOpen(false)} />
+      <PayInstallmentModal group={baseG} open={payOpen} onClose={() => setPayOpen(false)} />
     </div>
   );
 }
