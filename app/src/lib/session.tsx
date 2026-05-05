@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import {
   createContext,
   useCallback,
@@ -337,6 +338,50 @@ export function SessionProvider({
       if (tickRef.current != null) window.clearInterval(tickRef.current);
     };
   }, [yieldTickMs]);
+
+  // ─── Toast on every new SessionEvent ──────────────────────────────
+  // Reducer stays pure — toast firing lives here in a useEffect that
+  // watches the events array. We track the most-recently-toasted
+  // event id in a ref so re-renders triggered by other state slices
+  // (theme flip, palette swap, currency toggle) don't re-fire.
+  // Skip ambient yield ticks + attestation pings (they'd be noisy);
+  // user-initiated actions only.
+  const lastToastedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const latest = state.events[0];
+    if (!latest) return;
+    if (latest.id === lastToastedIdRef.current) return;
+    lastToastedIdRef.current = latest.id;
+    // Only toast user-initiated events. Yield ticks + attestation
+    // pings happen automatically and would spam the UI.
+    if (latest.kind === "yield" || latest.kind === "attestation") return;
+
+    const messages: Record<string, { title: string; sub?: string }> = {
+      payment: {
+        title: "Pagamento confirmado",
+        sub: latest.target ? `Parcela · ${latest.target}` : undefined,
+      },
+      join: {
+        title: "Entrada confirmada",
+        sub: latest.target ? `Você entrou em ${latest.target}` : undefined,
+      },
+      sale: {
+        title: "Venda registrada",
+        sub: latest.target ? `Cota · ${latest.target}` : undefined,
+      },
+      purchase: {
+        title: "Compra confirmada",
+        sub: latest.target ? `Cota · ${latest.target}` : undefined,
+      },
+    };
+    const msg = messages[latest.kind];
+    if (msg) {
+      toast.success(msg.title, {
+        description: msg.sub,
+        duration: 3500,
+      });
+    }
+  }, [state.events]);
 
   const payInstallment = useCallback(
     (group: ActiveGroup) => dispatch({ type: "PAY_INSTALLMENT", group }),

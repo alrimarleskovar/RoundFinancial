@@ -5,6 +5,7 @@ import { useMemo, type ReactNode } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { Adapter } from "@solana/wallet-adapter-base";
+import { Toaster } from "sonner";
 
 import { ConnectionsProvider } from "@/lib/connections";
 import { MotionProvider } from "@/lib/motion";
@@ -42,6 +43,24 @@ export function ClientProviders({ children }: { children: ReactNode }) {
           </ConnectionsProvider>
         </I18nProvider>
       </MotionProvider>
+      {/* Sonner toast surface — bottom-right matches the wallet chip
+          glow halo, stays out of the way of the bento dashboard top.
+          richColors lets sonner use its themed success/error palette
+          (we override per-call when needed via toast.custom). */}
+      <Toaster
+        position="bottom-right"
+        richColors
+        closeButton
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: "rgba(6,9,15,0.92)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            backdropFilter: "blur(8px)",
+            fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+          },
+        }}
+      />
     </ThemeProvider>
   );
 }
