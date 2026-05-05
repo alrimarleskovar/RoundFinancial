@@ -23,6 +23,7 @@ export function WithdrawYieldModal({ open, onClose }: { open: boolean; onClose: 
   const { fmtMoney } = useI18n();
   const { user, harvestYield } = useSession();
   const [phase, setPhase] = useState<Phase>("confirm");
+  const [submitting, setSubmitting] = useState(false);
   // Snapshot the claim amount the moment confirm is pressed so the
   // success screen keeps reading the right value after harvestYield()
   // resets user.yield to 0.
@@ -157,18 +158,22 @@ export function WithdrawYieldModal({ open, onClose }: { open: boolean; onClose: 
             <button
               type="button"
               onClick={() => {
-                setClaimedAmount(accrued);
-                harvestYield();
-                setPhase("success");
+                setSubmitting(true);
+                setTimeout(() => {
+                  setClaimedAmount(accrued);
+                  harvestYield();
+                  setSubmitting(false);
+                  setPhase("success");
+                }, 900);
               }}
-              disabled={accrued <= 0}
+              disabled={accrued <= 0 || submitting}
               style={{
                 ...primaryBtn(tokens),
-                opacity: accrued <= 0 ? 0.5 : 1,
-                cursor: accrued <= 0 ? "not-allowed" : "pointer",
+                opacity: accrued <= 0 || submitting ? 0.5 : 1,
+                cursor: accrued <= 0 || submitting ? "default" : "pointer",
               }}
             >
-              {t("modal.withdraw.confirm")}
+              {submitting ? t("modal.processing") : t("modal.withdraw.confirm")}
             </button>
           </div>
         </>
