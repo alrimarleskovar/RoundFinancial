@@ -211,7 +211,10 @@ export function ReputationPassport() {
               {user.handle}
             </div>
           </div>
-          <RFIPill tone="g">{t("score.lvPill", { n: user.level, name: user.levelLabel })}</RFIPill>
+          <RFIPill tone={user.level === 3 ? "p" : user.level === 2 ? "g" : "a"}>
+            {user.level === 3 ? "✦ " : ""}
+            {t("score.lvPill", { n: user.level, name: user.levelLabel })}
+          </RFIPill>
         </div>
       </div>
     </div>

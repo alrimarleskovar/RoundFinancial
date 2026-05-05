@@ -342,6 +342,26 @@ function reducer(state: SessionState, action: Action): SessionState {
       // hints; the threshold table makes (score, level) consistent.
       const patchedUser = { ...state.user, ...action.userPatch };
       const tier = computeLevel(patchedUser.score);
+      const leveledUp = tier.level > state.user.level;
+      // If the admin patch crosses a tier (e.g. score 850 from a
+      // current lvl 2), surface the same celebratory levelup event +
+      // toast that the normal pay-installment flow emits, so the demo
+      // studio path mirrors live play visually.
+      const events: SessionEvent[] = leveledUp
+        ? [
+            {
+              id: makeId(),
+              kind: "levelup",
+              ts: Date.now() + 1,
+              txid: makeTxid(),
+              op: "sas.levelup",
+              amountBrl: 0,
+              target: tier.label,
+            },
+            ev,
+            ...state.events,
+          ]
+        : [ev, ...state.events];
       return {
         ...state,
         user: {
@@ -350,7 +370,7 @@ function reducer(state: SessionState, action: Action): SessionState {
           levelLabel: tier.label,
           nextLevel: tier.next,
         },
-        events: [ev, ...state.events],
+        events,
         joinedGroupNames: joinedAdd,
       };
     }
