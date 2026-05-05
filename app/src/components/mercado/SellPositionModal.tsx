@@ -46,6 +46,7 @@ export function SellPositionModal({
   const t = useT();
   const [phase, setPhase] = useState<Phase>("price");
   const [askPctOfFace, setAskPctOfFace] = useState(92);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -267,13 +268,18 @@ export function SellPositionModal({
             </button>
             <button
               type="button"
+              disabled={submitting}
               onClick={() => {
-                onListed?.({
-                  position,
-                  askPrice,
-                  discountPct: discount,
-                });
-                setPhase("success");
+                setSubmitting(true);
+                setTimeout(() => {
+                  onListed?.({
+                    position,
+                    askPrice,
+                    discountPct: discount,
+                  });
+                  setSubmitting(false);
+                  setPhase("success");
+                }, 900);
               }}
               style={{
                 flex: 1.4,
@@ -284,11 +290,12 @@ export function SellPositionModal({
                 border: "none",
                 fontWeight: 700,
                 fontSize: 12,
-                cursor: "pointer",
+                cursor: submitting ? "default" : "pointer",
+                opacity: submitting ? 0.7 : 1,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
               }}
             >
-              {t("market.sellModal.confirm")}
+              {submitting ? t("modal.processing") : t("market.sellModal.confirm")}
             </button>
           </div>
         </>

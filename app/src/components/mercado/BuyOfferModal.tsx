@@ -51,6 +51,7 @@ export function BuyOfferModal({
   const { fmtMoney } = useI18n();
   const t = useT();
   const [phase, setPhase] = useState<Phase>("confirm");
+  const [submitting, setSubmitting] = useState(false);
 
   // Reset to confirm phase whenever the modal opens for a new target.
   useEffect(() => {
@@ -191,9 +192,16 @@ export function BuyOfferModal({
             </button>
             <button
               type="button"
+              disabled={submitting}
               onClick={() => {
-                onPurchased?.(target);
-                setPhase("success");
+                setSubmitting(true);
+                // Simulated tx-confirm latency. ~900ms reads as "real
+                // network call" without making demo flow drag.
+                setTimeout(() => {
+                  onPurchased?.(target);
+                  setSubmitting(false);
+                  setPhase("success");
+                }, 900);
               }}
               style={{
                 flex: 1.4,
@@ -204,11 +212,12 @@ export function BuyOfferModal({
                 border: "none",
                 fontWeight: 700,
                 fontSize: 12,
-                cursor: "pointer",
+                cursor: submitting ? "default" : "pointer",
+                opacity: submitting ? 0.7 : 1,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
               }}
             >
-              {t("market.buyModal.confirm")}
+              {submitting ? t("modal.processing") : t("market.buyModal.confirm")}
             </button>
           </div>
         </>
