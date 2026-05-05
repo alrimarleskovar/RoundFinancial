@@ -9,6 +9,7 @@ import { DeskMeta } from "@/components/home/DeskMeta";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { ACTIVE_GROUPS } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Big featured-round card on Home: circular dial showing month
@@ -20,7 +21,14 @@ export function FeaturedGroup() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const g = ACTIVE_GROUPS[0];
+  const { monthsPaidByGroup } = useSession();
+  const baseG = ACTIVE_GROUPS[0];
+  // Overlay session-tracked installments paid this round on top of the
+  // static fixture so the dial advances live when the user confirms a
+  // payment. Capped at the group's total.
+  const paidExtra = monthsPaidByGroup[baseG.name] ?? 0;
+  const month = Math.min(baseG.total, baseG.month + paidExtra);
+  const g = { ...baseG, month, progress: month / baseG.total };
   const [payOpen, setPayOpen] = useState(false);
 
   const dialPct = g.month / g.total;
