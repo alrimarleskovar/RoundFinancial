@@ -16,6 +16,10 @@ import { USER as USER_INITIAL, type User, type NftPosition } from "@/data/cartei
 import type { ActiveGroup } from "@/data/groups";
 import type { CatalogGroup } from "@/lib/groups";
 
+// ActiveGroup is re-exported so the AdminClient can import it without
+// reaching into @/data/groups directly.
+export type { ActiveGroup } from "@/data/groups";
+
 // In-memory session orchestrator. Mutates user-level state in
 // response to dashboard actions (pay installment, join group,
 // sell share) and emits a stream of events the Activity feed
@@ -61,31 +65,58 @@ export interface SessionState {
    *  + GroupRow overlay this onto the static fixture so the dial advances
    *  when the user pays an installment (capped at the group's total). */
   monthsPaidByGroup: Record<string, number>;
+  /** When the admin Demo Studio applies a preset to the live session,
+   *  it ships a synthetic ActiveGroup (carta + months + currentMonth +
+   *  contemplated state). FeaturedGroup checks this first and falls back
+   *  to ACTIVE_GROUPS[0] when null. Cleared by reset() / next preset. */
+  demoGroup: ActiveGroup | null;
 }
 
 // SAS reputation tiers. Score thresholds match the demo fixtures —
-// lvl 2 is "Comprovado" at 500+, lvl 3 is "Veterano" at 750+. The
-// reducer reads this table on every score change to decide whether
-// to bump user.level / user.levelLabel and emit a levelup event.
+// lvl 2 is "Comprovado" at 500+, lvl 3 is "Veterano" at 750+. Each
+// tier also drives the collateral % + leverage multiplier shown on
+// the home KPI ("seu colat. ativo · 3.3x leverage"); the LEVELS data
+// fixture mirrors these for the /reputacao ladder copy.
 const LEVEL_TABLE: ReadonlyArray<{
   min: number;
   level: 1 | 2 | 3;
   label: string;
   next: number;
+  colat: number;
+  lev: number;
 }> = [
-  { min: 0, level: 1, label: "Iniciante", next: 500 },
-  { min: 500, level: 2, label: "Comprovado", next: 750 },
-  { min: 750, level: 3, label: "Veterano", next: 999 },
+  { min: 0, level: 1, label: "Iniciante", next: 500, colat: 50, lev: 2 },
+  { min: 500, level: 2, label: "Comprovado", next: 750, colat: 30, lev: 3.3 },
+  { min: 750, level: 3, label: "Veterano", next: 999, colat: 10, lev: 10 },
 ];
 
-function computeLevel(score: number): { level: 1 | 2 | 3; label: string; next: number } {
+function computeLevel(score: number): {
+  level: 1 | 2 | 3;
+  label: string;
+  next: number;
+  colat: number;
+  lev: number;
+} {
   // Walk the table top-down so the highest-qualifying tier wins.
   for (let i = LEVEL_TABLE.length - 1; i >= 0; i--) {
     const tier = LEVEL_TABLE[i]!;
-    if (score >= tier.min) return { level: tier.level, label: tier.label, next: tier.next };
+    if (score >= tier.min)
+      return {
+        level: tier.level,
+        label: tier.label,
+        next: tier.next,
+        colat: tier.colat,
+        lev: tier.lev,
+      };
   }
   const fallback = LEVEL_TABLE[0]!;
-  return { level: fallback.level, label: fallback.label, next: fallback.next };
+  return {
+    level: fallback.level,
+    label: fallback.label,
+    next: fallback.next,
+    colat: fallback.colat,
+    lev: fallback.lev,
+  };
 }
 
 type Action =
@@ -96,7 +127,13 @@ type Action =
   | { type: "YIELD_TICK"; amount: number; source: string }
   | { type: "HARVEST_YIELD" }
   | { type: "PUSH_EVENT"; event: SessionEvent }
-  | { type: "LOAD_FROM_DEMO"; userPatch: Partial<User>; groupName?: string; tag: string };
+  | {
+      type: "LOAD_FROM_DEMO";
+      userPatch: Partial<User>;
+      groupName?: string;
+      demoGroup?: ActiveGroup;
+      tag: string;
+    };
 
 // ── Helpers ────────────────────────────────────────────────
 function makeTxid(): string {
@@ -157,6 +194,7 @@ const INITIAL_STATE: SessionState = {
   purchasedOfferIds: [],
   joinedGroupNames: [],
   monthsPaidByGroup: {},
+  demoGroup: null,
 };
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -225,6 +263,8 @@ function reducer(state: SessionState, action: Action): SessionState {
           level: tier.level,
           levelLabel: tier.label,
           nextLevel: tier.next,
+          colateralPct: tier.colat,
+          leverageX: tier.lev,
         },
         events,
         monthsPaidByGroup: {
@@ -369,9 +409,12 @@ function reducer(state: SessionState, action: Action): SessionState {
           level: tier.level,
           levelLabel: tier.label,
           nextLevel: tier.next,
+          colateralPct: tier.colat,
+          leverageX: tier.lev,
         },
         events,
         joinedGroupNames: joinedAdd,
+        demoGroup: action.demoGroup ?? state.demoGroup,
       };
     }
     case "HARVEST_YIELD": {
@@ -411,13 +454,19 @@ interface SessionContextValue {
   purchasedOfferIds: string[];
   joinedGroupNames: string[];
   monthsPaidByGroup: Record<string, number>;
+  demoGroup: ActiveGroup | null;
   payInstallment: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
   sellShare: (position: NftPosition, askPrice: number, discountPct: number) => void;
   buyShare: (offerId: string, group: string, price: number, face: number) => void;
   pushYield: (amount: number, source?: string) => void;
   harvestYield: () => void;
-  loadFromDemo: (userPatch: Partial<User>, groupName: string | undefined, tag: string) => void;
+  loadFromDemo: (
+    userPatch: Partial<User>,
+    groupName: string | undefined,
+    tag: string,
+    demoGroup?: ActiveGroup,
+  ) => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -526,8 +575,12 @@ export function SessionProvider({
   );
   const harvestYield = useCallback(() => dispatch({ type: "HARVEST_YIELD" }), []);
   const loadFromDemo = useCallback(
-    (userPatch: Partial<User>, groupName: string | undefined, tag: string) =>
-      dispatch({ type: "LOAD_FROM_DEMO", userPatch, groupName, tag }),
+    (
+      userPatch: Partial<User>,
+      groupName: string | undefined,
+      tag: string,
+      demoGroup?: ActiveGroup,
+    ) => dispatch({ type: "LOAD_FROM_DEMO", userPatch, groupName, demoGroup, tag }),
     [],
   );
 
@@ -538,6 +591,7 @@ export function SessionProvider({
       purchasedOfferIds: state.purchasedOfferIds,
       joinedGroupNames: state.joinedGroupNames,
       monthsPaidByGroup: state.monthsPaidByGroup,
+      demoGroup: state.demoGroup,
       payInstallment,
       joinGroup,
       sellShare,

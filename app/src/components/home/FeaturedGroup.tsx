@@ -21,8 +21,11 @@ export function FeaturedGroup() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { monthsPaidByGroup } = useSession();
-  const baseG = ACTIVE_GROUPS[0];
+  const { monthsPaidByGroup, demoGroup } = useSession();
+  // Demo Studio scenarios swap the featured group entirely; falls back
+  // to the static fixture when no preset has been applied to the live
+  // session.
+  const baseG = demoGroup ?? ACTIVE_GROUPS[0];
   // Overlay session-tracked installments paid this round on top of the
   // static fixture so the dial advances live when the user confirms a
   // payment. Capped at the group's total.
@@ -32,7 +35,10 @@ export function FeaturedGroup() {
   const [payOpen, setPayOpen] = useState(false);
 
   const dialPct = g.month / g.total;
-  const ticks = Array.from({ length: 12 });
+  // Tick count tracks total months but caps at 24 to keep the dial
+  // readable even for the 36-month "Veteran Big" preset.
+  const tickCount = Math.min(24, g.total);
+  const ticks = Array.from({ length: tickCount });
 
   return (
     <div
@@ -92,12 +98,12 @@ export function FeaturedGroup() {
               strokeDasharray={`${264 * dialPct} 264`}
             />
             {ticks.map((_, i) => {
-              const a = (i / 12) * Math.PI * 2;
+              const a = (i / tickCount) * Math.PI * 2;
               const x1 = 50 + Math.cos(a) * 49;
               const y1 = 50 + Math.sin(a) * 49;
               const x2 = 50 + Math.cos(a) * 46;
               const y2 = 50 + Math.sin(a) * 46;
-              const done = i < g.month;
+              const done = i / tickCount < g.month / g.total;
               return (
                 <line
                   key={i}

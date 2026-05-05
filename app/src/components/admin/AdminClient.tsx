@@ -12,6 +12,7 @@ import { PresetSelector } from "@/components/admin/PresetSelector";
 import { SetupPanel } from "@/components/admin/SetupPanel";
 import { TimelinePanel } from "@/components/admin/TimelinePanel";
 import { SegToggle } from "@/components/layout/SegToggle";
+import type { ActiveGroup } from "@/data/groups";
 import { useDemoState, type DemoPresetId } from "@/lib/demoState";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -37,8 +38,10 @@ export function AdminClient() {
   // Apply current demo state to the production session and route
   // to /home so the boss can navigate the real dashboard during
   // the video. Maps user fields (name, score, balance, yield,
-  // level/levelLabel, avatar) and stamps a synthetic group name
-  // that /grupos can pick up via joinedGroupNames overlay.
+  // level/levelLabel, avatar) AND constructs a synthetic ActiveGroup
+  // from the preset's group + cycle state — FeaturedGroup picks it
+  // up via session.demoGroup so the live /home reflects the chosen
+  // scenario instead of the default Renovação MEI fixture.
   const applyToSession = () => {
     const levelLabel = ((): string => {
       switch (ctrl.state.user.level) {
@@ -50,7 +53,28 @@ export function AdminClient() {
           return "Veterano";
       }
     })();
-    const groupName = `Cenário ${ctrl.state.user.name.split(" ")[0]}`;
+    const firstName = ctrl.state.user.name.split(" ")[0] ?? "Demo";
+    const groupName = `Cenário ${firstName}`;
+    const tone = ctrl.state.user.level === 3 ? "p" : ctrl.state.user.level === 2 ? "g" : "a";
+    const emoji = ctrl.state.user.level === 3 ? "✦" : ctrl.state.contemplated ? "🏆" : "▶";
+    const remainingMonths = Math.max(0, ctrl.state.group.months - ctrl.state.currentMonth);
+    const demoGroup: ActiveGroup = {
+      id: "demo-active",
+      name: `${groupName} · ${ctrl.state.group.months}m`,
+      emoji,
+      tone,
+      prize: ctrl.state.group.carta,
+      month: ctrl.state.currentMonth,
+      total: ctrl.state.group.months,
+      status: ctrl.state.contemplated ? "drawn" : "paying",
+      nextDue: 5, // synthetic — admin doesn't expose due-date timing
+      progress: ctrl.state.currentMonth / ctrl.state.group.months,
+      members: ctrl.state.group.members,
+      draw: ctrl.state.contemplated
+        ? `ganho no mês ${ctrl.state.group.contemplationMonth}`
+        : `em ${remainingMonths} meses`,
+      installment: ctrl.state.group.installment,
+    };
     loadFromDemo(
       {
         name: ctrl.state.user.name,
@@ -63,6 +87,7 @@ export function AdminClient() {
       },
       groupName,
       `Demo Studio · ${ctrl.state.user.name}`,
+      demoGroup,
     );
     router.push("/home");
   };
