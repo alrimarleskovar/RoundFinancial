@@ -27,6 +27,29 @@ body {
   box-sizing: border-box;
 }
 
+/* ─── Global keyboard-focus indicator ─────────────────────────────
+   Visible 2px green ring on every focusable element when the user
+   reaches it via Tab/Shift+Tab. `:focus-visible` (not `:focus`)
+   means clicks DON'T trigger the ring — only keyboard nav does, so
+   mouse users don't see distracting outlines while still giving
+   keyboard users a clear "you are here" signal.
+
+   The browser default is a 1-2px black/blue dotted line that's
+   often invisible on our `#06090F` ground. Replacing it with the
+   neon green that's already part of the brand palette = a11y +
+   visual coherence in one move.
+
+   `outline-offset: 2px` keeps the ring off the element edge so
+   buttons with their own borders/shadows still read clean. */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid #14f195;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Thin scrollbars for the events feed */
 .scrollable::-webkit-scrollbar {
   width: 8px;

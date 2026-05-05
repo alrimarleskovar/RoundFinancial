@@ -149,6 +149,8 @@ export function SellPositionModal({
               step={1}
               value={askPctOfFace}
               onChange={(e) => setAskPctOfFace(Number(e.target.value))}
+              aria-label={t("market.sellModal.askPrice")}
+              aria-valuetext={`${askPctOfFace}% — ${fmtMoney(askPrice, { noCents: true })}`}
               style={{
                 width: "100%",
                 accentColor: tokens.purple,

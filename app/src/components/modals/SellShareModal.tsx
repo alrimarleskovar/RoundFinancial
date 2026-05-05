@@ -182,6 +182,8 @@ export function SellShareModal({
               step={0.5}
               value={discount}
               onChange={(e) => setDiscount(Number(e.target.value))}
+              aria-label="Desconto"
+              aria-valuetext={`${discount.toFixed(1)}%`}
               style={{
                 width: "100%",
                 accentColor: tokens.green,

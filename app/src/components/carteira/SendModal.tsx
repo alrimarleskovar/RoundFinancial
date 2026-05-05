@@ -87,6 +87,7 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder={t("modal.send.toPlaceholder")}
+              aria-label={t("modal.send.toLabel")}
               style={{
                 marginTop: 6,
                 width: "100%",
@@ -152,6 +153,7 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
               min={0}
               max={user.balance}
               step={0.01}
+              aria-label={t("modal.send.amountLabel")}
               style={{
                 marginTop: 6,
                 width: "100%",
