@@ -154,8 +154,10 @@ separately. The toolchain itself is unblocked at that point.
 `.github/workflows/ci.yml`'s `anchor` lane runs the same recipe on a
 fresh `ubuntu-latest` runner. The lane is **required** today (no
 `continue-on-error`) — green there means a fresh ubuntu can reproduce
-what we get on WSL. If a step fails in your WSL but passes in CI
-(or vice versa), check:
+what we get on WSL. Branch protection enforces that all 3 required
+lanes (`js`, `audit`, `anchor`) pass before any merge to `main`.
+
+If a step fails in your WSL but passes in CI (or vice versa), check:
 
 1. The committed `Cargo.lock` matches what's on `main` (don't run
    `cargo update` casually — run the precise pins above).
