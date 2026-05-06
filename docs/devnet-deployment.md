@@ -143,30 +143,32 @@ survives.
 > **Goal:** prove the same `target/deploy/*.so` artifacts that pass devnet
 > also land on Mainnet — validates the CD pipeline against real-cluster
 > conditions (priority fees, account size limits, recent-blockhash
-> behavior). **Not** a production launch — the protocol is NOT
-> initialized for live users until the Mainnet launch milestone (Phase 3
-> per `status.md`).
+> behavior) and gives reviewers a clickable Mainnet Solscan link as
+> evidence of execution. **Presence, not a pool** — the protocol is NOT
+> initialized for live users; production launch is gated behind the
+> Phase 3 milestone in `status.md`.
 
 ### What "smoke deploy" means here
 
 - Deploy the same four programs to Mainnet using **fresh keypairs** (so
   the eventual production deploy can rotate to the real authority
-  without conflicting). The smoke deploy IDs are throwaway.
+  without conflicting). The smoke deploy IDs can be kept (cheaper —
+  preserves the audit trail for reviewers) or closed (recovers the rent).
 - Do **NOT** call `initialize_protocol` against Mainnet from a smoke
   run. A live `ProtocolConfig` would imply user funds at risk under a
   pre-audit binary.
 - After the smoke deploy + sanity reads, the smoke programs can be
   closed (`solana program close <ID> --bypass-warning`) to recover the
-  ~2 SOL rent each upload locks.
+  rent locked by each upload.
 
 ### Pre-flight
 
-| Requirement                            | Notes                                                                                                                                                |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mainnet wallet                         | Real SOL (~10 SOL per program × 4 = ~40 SOL just for the smoke run, more if priority fees are spiking — there is no `airdrop` on Mainnet)            |
-| `Anchor.toml` patch                    | Add `[programs.mainnet]` block alongside `[programs.devnet]`, pointing at the Mainnet keypairs under `target/deploy/`                                |
-| RPC                                    | Mainnet's public RPC (`https://api.mainnet-beta.solana.com`) is rate-limited; consider Helius / Triton / QuickNode endpoints set in `SOLANA_RPC_URL` |
-| `solana config set --url mainnet-beta` | Switch CLI before deploying so `anchor deploy --provider.cluster mainnet` works                                                                      |
+| Requirement                            | Notes                                                                                                                                                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mainnet wallet                         | Real SOL — typical Anchor program upload locks ≈ 1 SOL per program in rent. **Budget ~3-5 SOL total ($300-500 at ~$100/SOL)** to cover the four programs + priority fees during a busy block. There is no `airdrop` on Mainnet. |
+| `Anchor.toml` patch                    | Add `[programs.mainnet]` block alongside `[programs.devnet]`, pointing at the Mainnet keypairs under `target/deploy/`                                                                                                           |
+| RPC                                    | Mainnet's public RPC (`https://api.mainnet-beta.solana.com`) is rate-limited; consider Helius / Triton / QuickNode endpoints set in `SOLANA_RPC_URL`                                                                            |
+| `solana config set --url mainnet-beta` | Switch CLI before deploying so `anchor deploy --provider.cluster mainnet` works                                                                                                                                                 |
 
 ### Procedure (mirrors §1-§4 but mainnet-flavored)
 
