@@ -86,18 +86,29 @@ export default function LandingPage() {
                 ["#compare", t("landing.nav.advantages")],
                 ["#cofi", t("landing.nav.cofi")],
                 ["#security", t("landing.nav.security")],
-                ["#", t("landing.nav.docs")],
-                ["#", t("landing.nav.audit")],
+                [
+                  "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/architecture.md",
+                  t("landing.nav.docs"),
+                ],
+                [
+                  "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/status.md",
+                  t("landing.nav.audit"),
+                ],
               ] as const
-            ).map(([href, label]) => (
-              <a
-                key={label}
-                href={href}
-                className="relative hover:text-white transition-colors after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:w-0 after:bg-gradient-to-r after:from-[#14F195] after:to-[#00C8FF] after:transition-all after:duration-300 hover:after:w-full"
-              >
-                {label}
-              </a>
-            ))}
+            ).map(([href, label]) => {
+              const external = href.startsWith("http");
+              return (
+                <a
+                  key={label}
+                  href={href}
+                  target={external ? "_blank" : undefined}
+                  rel={external ? "noopener noreferrer" : undefined}
+                  className="relative hover:text-white transition-colors after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:w-0 after:bg-gradient-to-r after:from-[#14F195] after:to-[#00C8FF] after:transition-all after:duration-300 hover:after:w-full"
+                >
+                  {label}
+                </a>
+              );
+            })}
           </nav>
           <div className="flex items-center gap-2 md:gap-3">
             <SegToggle
@@ -226,8 +237,14 @@ export default function LandingPage() {
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#14F195] opacity-5 blur-[150px] pointer-events-none" />
         <Reveal>
-          <div className="inline-block bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-mono text-gray-400 mb-6 uppercase tracking-widest">
-            {t("landing.cofi.eyebrow")}
+          <div className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#14F195]/10 via-white/5 to-[#9945FF]/10 border border-[#14F195]/30 rounded-full px-4 py-1.5 text-xs font-mono mb-6 uppercase tracking-widest backdrop-blur-sm shadow-[0_0_24px_rgba(20,241,149,0.15)] hover:shadow-[0_0_32px_rgba(20,241,149,0.28)] transition-shadow duration-500">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
+            </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF] font-semibold">
+              {t("landing.cofi.eyebrow")}
+            </span>
           </div>
           <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
             {t("landing.cofi.title1")} <br />
@@ -843,17 +860,22 @@ export default function LandingPage() {
             </h4>
             <ul className="text-gray-500 space-y-3 md:space-y-4 text-xs md:text-sm">
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <a href="#simulator" className="hover:text-white transition-colors">
                   {t("landing.footer.link.savings")}
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <a href="#security" className="hover:text-white transition-colors">
                   {t("landing.footer.link.score")}
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <a
+                  href="https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/status.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
                   {t("landing.footer.link.audit")}
                 </a>
               </li>
@@ -883,7 +905,12 @@ export default function LandingPage() {
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <a
+                  href="https://github.com/alrimarleskovar/RoundFinancial"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
                   {t("landing.footer.link.github")}
                 </a>
               </li>
