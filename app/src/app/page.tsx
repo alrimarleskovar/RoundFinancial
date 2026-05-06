@@ -237,8 +237,14 @@ export default function LandingPage() {
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#14F195] opacity-5 blur-[150px] pointer-events-none" />
         <Reveal>
-          <div className="inline-block bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-mono text-gray-400 mb-6 uppercase tracking-widest">
-            {t("landing.cofi.eyebrow")}
+          <div className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#14F195]/10 via-white/5 to-[#9945FF]/10 border border-[#14F195]/30 rounded-full px-4 py-1.5 text-xs font-mono mb-6 uppercase tracking-widest backdrop-blur-sm shadow-[0_0_24px_rgba(20,241,149,0.15)] hover:shadow-[0_0_32px_rgba(20,241,149,0.28)] transition-shadow duration-500">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
+            </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF] font-semibold">
+              {t("landing.cofi.eyebrow")}
+            </span>
           </div>
           <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
             {t("landing.cofi.title1")} <br />
