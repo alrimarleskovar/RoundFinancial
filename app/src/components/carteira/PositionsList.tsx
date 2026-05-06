@@ -6,18 +6,27 @@ import { MonoLabel } from "@/components/brand/brand";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // NFT positions list. When `limit` is set, renders a short preview
 // without the "Sell" action (used inside Visão geral); otherwise the
 // full list renders (used in the dedicated Positions tab — B.2.b).
+//
+// Reads (NFT_POSITIONS fixture ∪ session.acquiredPositions) so cotas
+// bought from /mercado show up natively here, and renders a
+// "LISTADO" badge instead of the Sell CTA when the position is
+// currently up on the secondary market.
 
 export function PositionsList({ limit }: { limit?: number }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
+  const { acquiredPositions, listings } = useSession();
   const [selling, setSelling] = useState<NftPosition | null>(null);
-  const rows: NftPosition[] = limit ? NFT_POSITIONS.slice(0, limit) : NFT_POSITIONS;
+  const allPositions = [...NFT_POSITIONS, ...acquiredPositions];
+  const rows: NftPosition[] = limit ? allPositions.slice(0, limit) : allPositions;
+  const listedIds = new Set(listings.map((l) => l.position.id));
   const toneColor = (tone: Tone): string => {
     switch (tone) {
       case "g":
@@ -55,7 +64,7 @@ export function PositionsList({ limit }: { limit?: number }) {
             fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
-          {t("wallet.positions.c", { n: NFT_POSITIONS.length })}
+          {t("wallet.positions.c", { n: allPositions.length })}
         </span>
       </div>
       <div
@@ -146,25 +155,44 @@ export function PositionsList({ limit }: { limit?: number }) {
                   +{n.yieldPct}%
                 </div>
               </div>
-              {!limit && (
-                <button
-                  type="button"
-                  onClick={() => setSelling(n)}
-                  style={{
-                    padding: "7px 12px",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    background: "transparent",
-                    border: `1px solid ${tokens.borderStr}`,
-                    color: tokens.text,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
-                  }}
-                >
-                  {t("wallet.sell")}
-                </button>
-              )}
+              {!limit &&
+                (listedIds.has(n.id) ? (
+                  <span
+                    style={{
+                      padding: "5px 11px",
+                      borderRadius: 999,
+                      background: `${tokens.green}1F`,
+                      border: `1px solid ${tokens.green}55`,
+                      color: tokens.green,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ◆ Listado
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSelling(n)}
+                    style={{
+                      padding: "7px 12px",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: "transparent",
+                      border: `1px solid ${tokens.borderStr}`,
+                      color: tokens.text,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                    }}
+                  >
+                    {t("wallet.sell")}
+                  </button>
+                ))}
             </div>
           );
         })}

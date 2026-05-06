@@ -1,24 +1,19 @@
 "use client";
 
 import { MonoLabel } from "@/components/brand/brand";
-import type { ActiveListing } from "@/components/mercado/ListingDetailsModal";
 import type { NftPosition } from "@/data/carteira";
 import { NFT_POSITIONS } from "@/data/carteira";
 import { useI18n, useT } from "@/lib/i18n";
+import { useSession, type ActiveListing } from "@/lib/session";
 import { glassSurfaceStyle, useTheme, type ThemeTokens } from "@/lib/theme";
 
 // Sell tab — split into two stacks:
 //  1. "Minhas posições disponíveis" — NFT positions the user holds
-//     that are NOT currently listed. Each row has a "Listar no
-//     mercado" CTA that opens SellPositionModal.
-//  2. "Minhas listagens" — quotas the user has already listed in
-//     this session. Each row is clickable and opens
-//     ListingDetailsModal showing pricing, slashing window, and a
-//     cancel button.
-//
-// Listings live in MercadoClient state (no persistence) so the
-// "available" pool is derived by filtering NFT_POSITIONS against
-// the current listings.
+//     (fixture + acquired this session) that are NOT currently
+//     listed. Each row has a "Listar no mercado" CTA.
+//  2. "Minhas listagens" — quotas the user has already listed.
+//     Each row opens ListingDetailsModal with pricing + slashing
+//     window + cancel button.
 
 export function SellPositionsList({
   listings,
@@ -33,9 +28,11 @@ export function SellPositionsList({
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
+  const { acquiredPositions } = useSession();
 
+  const allPositions = [...NFT_POSITIONS, ...acquiredPositions];
   const listedIds = new Set(listings.map((l) => l.position.id));
-  const available = NFT_POSITIONS.filter((p) => !listedIds.has(p.id));
+  const available = allPositions.filter((p) => !listedIds.has(p.id));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

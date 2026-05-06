@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { USER as USER_INITIAL, type User, type NftPosition } from "@/data/carteira";
+import { USER as USER_INITIAL, type User, type NftPosition, type Tone } from "@/data/carteira";
 import type { ActiveGroup } from "@/data/groups";
 import type { CatalogGroup } from "@/lib/groups";
 
@@ -56,6 +56,11 @@ export interface SessionState {
   /** Offer ids the user has bought on the secondary market in this
    *  session. OffersTable filters by this to mark rows as purchased. */
   purchasedOfferIds: string[];
+  /** NFT positions the user has acquired through the secondary market
+   *  in this session. Synthesized from the BuyOfferTarget at purchase
+   *  time so /carteira's PositionsList can show them alongside the
+   *  static fixture without a separate fetch. */
+  acquiredPositions: NftPosition[];
   /** Group names the user has joined (via either the join flow OR a
    *  secondary-market purchase in /mercado). GroupCard overlays this
    *  onto its static `g.joined` flag so the catalog reflects state
@@ -70,7 +75,25 @@ export interface SessionState {
    *  contemplated state). FeaturedGroup checks this first and falls back
    *  to ACTIVE_GROUPS[0] when null. Cleared by reset() / next preset. */
   demoGroup: ActiveGroup | null;
+  /** Active escape-valve listings the user has put up on /mercado.
+   *  Single source of truth: SellShareModal (/carteira) + SellPositionModal
+   *  (/mercado) both write here, and SellPositionsList + PositionsList
+   *  both read it. Persists across navigations within a session. */
+  listings: ActiveListing[];
 }
+
+/** Mirrors `ActiveListing` in components/mercado/ListingDetailsModal.
+ *  Owned here now so both modals + both list views share one source. */
+export interface ActiveListing {
+  id: string;
+  position: NftPosition;
+  askPrice: number;
+  discountPct: number;
+  listedAt: number;
+  expiresAt: number;
+}
+
+const SLASHING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // SAS reputation tiers. Score thresholds match the demo fixtures —
 // lvl 2 is "Comprovado" at 500+, lvl 3 is "Veterano" at 750+. Each
@@ -123,7 +146,22 @@ type Action =
   | { type: "PAY_INSTALLMENT"; group: ActiveGroup }
   | { type: "JOIN_GROUP"; group: CatalogGroup }
   | { type: "SELL_SHARE"; position: NftPosition; askPrice: number; discountPct: number }
-  | { type: "BUY_SHARE"; offerId: string; group: string; price: number; face: number }
+  | { type: "CANCEL_LISTING"; listingId: string }
+  | {
+      type: "BUY_SHARE";
+      offerId: string;
+      group: string;
+      price: number;
+      face: number;
+      /** Optional NFT-position metadata so /carteira can render the
+       *  bought cota natively. Comes from the underlying MarketOffer
+       *  via BuyOfferTarget (OffersTable enriches it). FeaturedOffer
+       *  may omit some fields — the reducer falls back to defaults. */
+      num?: string;
+      month?: number;
+      total?: number;
+      tone?: Tone;
+    }
   | { type: "YIELD_TICK"; amount: number; source: string }
   | { type: "HARVEST_YIELD" }
   | { type: "PUSH_EVENT"; event: SessionEvent }
@@ -192,9 +230,11 @@ const INITIAL_STATE: SessionState = {
   user: { ...USER_INITIAL },
   events: INITIAL_EVENTS,
   purchasedOfferIds: [],
+  acquiredPositions: [],
   joinedGroupNames: [],
   monthsPaidByGroup: {},
   demoGroup: null,
+  listings: [],
 };
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -295,10 +335,23 @@ function reducer(state: SessionState, action: Action): SessionState {
       };
     }
     case "SELL_SHARE": {
+      // Listing a share on the secondary market is NOT an instant sale —
+      // the seller's balance only moves when a buyer actually takes the
+      // listing (handled by BUY_SHARE on the buyer side). Idempotent on
+      // position id: re-listing the same NFT replaces the prior listing.
+      const now = Date.now();
+      const listing: ActiveListing = {
+        id: `l-${now}-${action.position.id}`,
+        position: action.position,
+        askPrice: action.askPrice,
+        discountPct: action.discountPct,
+        listedAt: now,
+        expiresAt: now + SLASHING_WINDOW_MS,
+      };
       const ev: SessionEvent = {
         id: makeId(),
         kind: "sale",
-        ts: Date.now(),
+        ts: now,
         txid: makeTxid(),
         op: "secondary.market",
         amountBrl: action.askPrice,
@@ -306,14 +359,24 @@ function reducer(state: SessionState, action: Action): SessionState {
       };
       return {
         ...state,
-        user: { ...state.user, balance: state.user.balance + action.askPrice },
         events: [ev, ...state.events],
+        listings: [...state.listings.filter((l) => l.position.id !== action.position.id), listing],
+      };
+    }
+    case "CANCEL_LISTING": {
+      // No event emitted — cancellation is a local UX action with no
+      // economic side-effect. Just removes the listing.
+      return {
+        ...state,
+        listings: state.listings.filter((l) => l.id !== action.listingId),
       };
     }
     case "BUY_SHARE": {
       // Buying a quota on the secondary market: balance drops by
-      // ask price, an event hits the ledger, and the offer id is
-      // tracked so the OffersTable can mark the row as purchased.
+      // ask price, an event hits the ledger, the offer id is tracked
+      // so OffersTable can mark the row as purchased, AND a synthetic
+      // NftPosition is appended to acquiredPositions so /carteira's
+      // PositionsList shows the new cota alongside fixture positions.
       const ev: SessionEvent = {
         id: makeId(),
         kind: "purchase",
@@ -326,11 +389,28 @@ function reducer(state: SessionState, action: Action): SessionState {
       // Buying a share on the mercado also enrols the user in the
       // origin group — match by name so the catalog reflects it.
       const groupName = action.group.split(" · ")[0] ?? action.group;
+      // Synthesize an NftPosition. Falls back to safe defaults when the
+      // caller (e.g. FeaturedOffer) doesn't have the full breakdown.
+      const acquired: NftPosition = {
+        id: action.offerId,
+        num: action.num ?? "??",
+        group: action.group,
+        tone: action.tone ?? "t",
+        month: action.month ?? 1,
+        total: action.total ?? 12,
+        exp: "—",
+        value: action.face,
+        yieldPct:
+          action.face > 0 ? +(((action.face - action.price) / action.price) * 100).toFixed(1) : 0,
+      };
       return {
         ...state,
         user: { ...state.user, balance: state.user.balance - action.price },
         events: [ev, ...state.events],
         purchasedOfferIds: [...state.purchasedOfferIds, action.offerId],
+        acquiredPositions: state.acquiredPositions.some((p) => p.id === acquired.id)
+          ? state.acquiredPositions
+          : [...state.acquiredPositions, acquired],
         joinedGroupNames: state.joinedGroupNames.includes(groupName)
           ? state.joinedGroupNames
           : [...state.joinedGroupNames, groupName],
@@ -452,13 +532,25 @@ interface SessionContextValue {
   user: User;
   events: SessionEvent[];
   purchasedOfferIds: string[];
+  acquiredPositions: NftPosition[];
   joinedGroupNames: string[];
   monthsPaidByGroup: Record<string, number>;
   demoGroup: ActiveGroup | null;
+  listings: ActiveListing[];
   payInstallment: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
   sellShare: (position: NftPosition, askPrice: number, discountPct: number) => void;
-  buyShare: (offerId: string, group: string, price: number, face: number) => void;
+  cancelListing: (listingId: string) => void;
+  buyShare: (target: {
+    offerId: string;
+    group: string;
+    price: number;
+    face: number;
+    num?: string;
+    month?: number;
+    total?: number;
+    tone?: Tone;
+  }) => void;
   pushYield: (amount: number, source?: string) => void;
   harvestYield: () => void;
   loadFromDemo: (
@@ -563,9 +655,21 @@ export function SessionProvider({
       dispatch({ type: "SELL_SHARE", position, askPrice, discountPct }),
     [],
   );
+  const cancelListing = useCallback(
+    (listingId: string) => dispatch({ type: "CANCEL_LISTING", listingId }),
+    [],
+  );
   const buyShare = useCallback(
-    (offerId: string, group: string, price: number, face: number) =>
-      dispatch({ type: "BUY_SHARE", offerId, group, price, face }),
+    (target: {
+      offerId: string;
+      group: string;
+      price: number;
+      face: number;
+      num?: string;
+      month?: number;
+      total?: number;
+      tone?: Tone;
+    }) => dispatch({ type: "BUY_SHARE", ...target }),
     [],
   );
   const pushYield = useCallback(
@@ -589,18 +693,31 @@ export function SessionProvider({
       user: state.user,
       events: state.events,
       purchasedOfferIds: state.purchasedOfferIds,
+      acquiredPositions: state.acquiredPositions,
       joinedGroupNames: state.joinedGroupNames,
       monthsPaidByGroup: state.monthsPaidByGroup,
       demoGroup: state.demoGroup,
+      listings: state.listings,
       payInstallment,
       joinGroup,
       sellShare,
+      cancelListing,
       buyShare,
       pushYield,
       harvestYield,
       loadFromDemo,
     }),
-    [state, payInstallment, joinGroup, sellShare, buyShare, pushYield, harvestYield, loadFromDemo],
+    [
+      state,
+      payInstallment,
+      joinGroup,
+      sellShare,
+      cancelListing,
+      buyShare,
+      pushYield,
+      harvestYield,
+      loadFromDemo,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

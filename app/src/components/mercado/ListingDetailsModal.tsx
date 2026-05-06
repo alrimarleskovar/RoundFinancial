@@ -2,21 +2,15 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
-import type { NftPosition } from "@/data/carteira";
 import { useI18n, useT } from "@/lib/i18n";
+import { type ActiveListing } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
-// Active listing the user has on the secondary market.
-// Created when SellPositionModal phase === "success", lives in
-// MercadoClient state (no persistence — fits the demo pattern).
-export interface ActiveListing {
-  id: string; // listing pk (random)
-  position: NftPosition; // ref + denormalized so cancellation is local
-  askPrice: number;
-  discountPct: number;
-  listedAt: number; // ms epoch
-  expiresAt: number; // listedAt + 7d
-}
+// `ActiveListing` lives in session.tsx now (single source of truth
+// across SellPositionModal + SellShareModal + SellPositionsList +
+// PositionsList). Re-exported here for callers that already imported
+// from this module.
+export type { ActiveListing };
 
 const SLASHING_DAYS = 7;
 
