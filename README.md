@@ -241,6 +241,36 @@ Calibrated against a "Web3 high-end" brief. The whole dashboard reads as a live 
 | 10. Devnet testing         | ⏳ M3 of grant                                                                                                                                                                                                           |
 | 11. Mainnet migration      | ⏳                                                                                                                                                                                                                       |
 
+## On-chain Deployments
+
+The post-deploy register lives at [`docs/devnet-deployment.md`](docs/devnet-deployment.md) — that's where program IDs, tx signatures, deployer keypair, and the verification checklist are recorded. The tables below mirror the headline IDs so reviewers can hop straight to Solscan from the README.
+
+> **Status:** `_FILL_ME_` placeholders below are intentional — they get filled in the same commit as the actual deploy, so the register exists pre-deploy and the diff is auditable in one PR.
+
+### Devnet (`?cluster=devnet`)
+
+| Program                | Program ID  | Solscan                                                     |
+| ---------------------- | ----------- | ----------------------------------------------------------- |
+| `roundfi-core`         | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
+| `roundfi-reputation`   | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
+| `roundfi-yield-mock`   | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
+| `roundfi-yield-kamino` | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
+
+Initialize tx: `_FILL_ME_` ([view](https://solscan.io/tx/_FILL_ME_?cluster=devnet))
+
+### Mainnet (smoke deploy — presence only, **not** initialized for live users)
+
+The Mainnet IDs below validate the CD pipeline against real-cluster conditions and give reviewers a clickable Mainnet Solscan link as evidence of execution. The protocol is **not** initialized; production launch is gated behind the Phase 3 milestone in [`docs/status.md`](docs/status.md). Procedure: [`docs/devnet-deployment.md` §8](docs/devnet-deployment.md#8--mainnet-smoke-deploy).
+
+| Program                | Program ID  | Solscan                                      |
+| ---------------------- | ----------- | -------------------------------------------- |
+| `roundfi-core`         | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_) |
+| `roundfi-reputation`   | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_) |
+| `roundfi-yield-mock`   | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_) |
+| `roundfi-yield-kamino` | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_) |
+
+Deploy tx (any of the four uploads): `_FILL_ME_` ([view](https://solscan.io/tx/_FILL_ME_))
+
 ## Stack
 
 | Layer           | Tech                                                                                                                                                                                                                         |
