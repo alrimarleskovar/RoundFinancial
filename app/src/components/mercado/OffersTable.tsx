@@ -194,6 +194,9 @@ export function OffersTable({ onBuy }: { onBuy: (target: BuyOfferTarget) => void
                     face: o.face,
                     price: o.price,
                     discount: o.disc,
+                    num: o.num,
+                    month: o.month,
+                    total: o.total,
                   })
                 }
                 style={{

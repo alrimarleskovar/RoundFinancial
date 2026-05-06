@@ -6,7 +6,7 @@ import { MonoLabel } from "@/components/brand/brand";
 import { BuyOfferModal, type BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { FeaturedOffer } from "@/components/mercado/FeaturedOffer";
 import { HowItWorks } from "@/components/mercado/HowItWorks";
-import { ListingDetailsModal, type ActiveListing } from "@/components/mercado/ListingDetailsModal";
+import { ListingDetailsModal } from "@/components/mercado/ListingDetailsModal";
 import { MiniStat } from "@/components/mercado/MiniStat";
 import { MyPurchases } from "@/components/mercado/MyPurchases";
 import { OffersTable } from "@/components/mercado/OffersTable";
@@ -14,7 +14,7 @@ import { SellPositionModal } from "@/components/mercado/SellPositionModal";
 import { SellPositionsList } from "@/components/mercado/SellPositionsList";
 import type { NftPosition } from "@/data/carteira";
 import { useT } from "@/lib/i18n";
-import { useSession } from "@/lib/session";
+import { useSession, type ActiveListing } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
 type Tab = "buy" | "sell";
@@ -22,14 +22,11 @@ type Tab = "buy" | "sell";
 export function MercadoClient() {
   const { tokens } = useTheme();
   const t = useT();
-  const { buyShare, sellShare } = useSession();
+  const { buyShare, sellShare, cancelListing, listings } = useSession();
   const [tab, setTab] = useState<Tab>("buy");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
   const [selling, setSelling] = useState<NftPosition | null>(null);
-  const [listings, setListings] = useState<ActiveListing[]>([]);
   const [openListing, setOpenListing] = useState<ActiveListing | null>(null);
-
-  const SLASHING_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
   return (
     <div style={{ padding: 32 }}>
@@ -167,7 +164,18 @@ export function MercadoClient() {
         open={buying !== null}
         onClose={() => setBuying(null)}
         onPurchased={(target) => {
-          buyShare(target.id, target.group, target.price, target.face);
+          // Forward the full target so /carteira can render the cota
+          // natively (num/month/total flow through to acquiredPositions).
+          buyShare({
+            offerId: target.id,
+            group: target.group,
+            price: target.price,
+            face: target.face,
+            num: target.num,
+            month: target.month,
+            total: target.total,
+            tone: target.tone,
+          });
         }}
       />
       <SellPositionModal
@@ -175,20 +183,8 @@ export function MercadoClient() {
         open={selling !== null}
         onClose={() => setSelling(null)}
         onListed={({ position, askPrice, discountPct }) => {
-          const now = Date.now();
-          setListings((prev) => [
-            ...prev,
-            {
-              id: `l-${now}-${position.id}`,
-              position,
-              askPrice,
-              discountPct,
-              listedAt: now,
-              expiresAt: now + SLASHING_DAYS_MS,
-            },
-          ]);
-          // Also fire the session reducer so /carteira/transactions
-          // picks up the listing as a sale event with the ask price.
+          // Single source of truth: reducer writes the listing AND
+          // emits the sale event. No more local-state shadowing.
           sellShare(position, askPrice, discountPct);
         }}
       />
@@ -197,7 +193,7 @@ export function MercadoClient() {
         open={openListing !== null}
         onClose={() => setOpenListing(null)}
         onCancel={(listingId) => {
-          setListings((prev) => prev.filter((l) => l.id !== listingId));
+          cancelListing(listingId);
         }}
       />
     </div>

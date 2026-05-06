@@ -32,6 +32,15 @@ export interface BuyOfferTarget {
   price: number;
   /** Discount as a positive percent (e.g. 12.2 → "−12.2%"). */
   discount: number;
+  // ── Optional NFT-position metadata ─────────────────────────────────
+  // Forwarded to session.buyShare so /carteira can render the
+  // acquired cota natively. OffersTable populates all four; the
+  // FeaturedOffer card may omit some fields and the reducer falls
+  // back to safe defaults.
+  num?: string;
+  month?: number;
+  total?: number;
+  tone?: import("@/data/carteira").Tone;
 }
 
 type Phase = "confirm" | "success";
