@@ -2,6 +2,7 @@
 // mirrors prototype/components/desktop.jsx's categorizeGroup().
 
 import type { ActiveGroup, DiscoverGroup, GroupLevel } from "@/data/groups";
+import type { DevnetPoolKey } from "@/lib/devnet";
 
 export type Category = "pme" | "vip" | "dev" | "delivery" | "estudo" | "casa" | "pessoal";
 
@@ -41,6 +42,7 @@ export interface CatalogGroup {
   level: GroupLevel;
   category: Category;
   joined: boolean;
+  devnetPool?: DevnetPoolKey;
 }
 
 export function fromActive(g: ActiveGroup): CatalogGroup {
@@ -57,6 +59,7 @@ export function fromActive(g: ActiveGroup): CatalogGroup {
     level: g.level ?? 2,
     category: categorizeGroup(g),
     joined: true,
+    devnetPool: g.devnetPool,
   };
 }
 
