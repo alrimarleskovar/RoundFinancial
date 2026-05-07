@@ -21,9 +21,8 @@
     },
     "roundfi_yield_mock": {
       "programId": "GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ",
-      "deployTx": null,
-      "status": "pending",
-      "reason": "Devnet faucet rate-limited at deploy time. Keypair generated locally at target/deploy/roundfi_yield_mock-keypair.json (committed to deployer authority); upload pending one more SOL airdrop. Mock adapter is dev/test-only — production uses roundfi_yield_kamino which IS deployed."
+      "deployTx": "3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY",
+      "status": "deployed"
     }
   }
 }
