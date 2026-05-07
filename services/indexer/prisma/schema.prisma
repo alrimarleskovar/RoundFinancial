@@ -1,0 +1,228 @@
+// RoundFi indexer event store.
+//
+// Mirrors the on-chain account / event surface 1:1 so the B2B oracle
+// (Phase 3) can answer score / reputation queries without a fresh
+// `getProgramAccounts` round-trip every time. Source of truth is still
+// on-chain; this DB is a read-replica fed by Helius webhooks +
+// periodic backfill.
+//
+// Naming convention: lowercase_snake table names + camelCase columns
+// to keep the API layer's JSON output ergonomic without
+// per-field aliases. Pubkeys land as base58 strings (44 chars) for
+// portability — they're indexed but not used in joins (FK is
+// id → id, not pubkey → pubkey).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Pools ───────────────────────────────────────────────────────────
+
+model Pool {
+  id                    String   @id @default(cuid())
+  /// PDA address — the canonical identity, indexed for lookup
+  pda                   String   @unique
+  /// (authority, seedId) tuple — used to re-derive the PDA off-chain
+  authority             String
+  seedId                BigInt
+  /// Snapshot of pool config at the time of last update
+  usdcMint              String
+  yieldAdapter          String
+  membersTarget         Int
+  installmentAmount     BigInt
+  creditAmount          BigInt
+  cyclesTotal           Int
+  cycleDurationSec      BigInt
+  seedDrawBps           Int
+  solidarityBps         Int
+  escrowReleaseBps      Int
+  /// Mutable state (refreshed every event)
+  membersJoined         Int
+  status                PoolStatus
+  startedAt             BigInt?
+  currentCycle          Int
+  nextCycleAt           BigInt?
+  totalContributed      BigInt
+  totalPaidOut          BigInt
+  solidarityBalance     BigInt
+  escrowBalance         BigInt
+  yieldAccrued          BigInt
+  guaranteeFundBalance  BigInt
+  totalProtocolFeeAccrued BigInt
+  yieldPrincipalDeposited BigInt
+  defaultedMembers      Int
+  /// Slot bitmap — packed [u8; 8], stored as base16 hex for portability
+  slotsBitmapHex        String
+  /// Audit trail
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  /// Reverse relations
+  members               Member[]
+  contributeEvents      ContributeEvent[]
+  claimEvents           ClaimEvent[]
+  defaultEvents         DefaultEvent[]
+
+  @@index([authority])
+  @@map("pools")
+}
+
+enum PoolStatus {
+  Forming
+  Active
+  Completed
+  Liquidated
+}
+
+// ─── Members ─────────────────────────────────────────────────────────
+
+model Member {
+  id                       String   @id @default(cuid())
+  /// PDA address (= [b"member", pool, wallet] under core program)
+  pda                      String   @unique
+  pool                     Pool     @relation(fields: [poolId], references: [id])
+  poolId                   String
+  /// The wallet that joined (= subject of attestations)
+  wallet                   String
+  nftAsset                 String
+  slotIndex                Int
+  reputationLevel          Int
+  stakeBps                 Int
+  stakeDeposited           BigInt
+  contributionsPaid        Int
+  totalContributed         BigInt
+  totalReceived            BigInt
+  escrowBalance            BigInt
+  onTimeCount              Int
+  lateCount                Int
+  defaulted                Boolean
+  paidOut                  Boolean
+  lastReleasedCheckpoint   Int
+  joinedAt                 BigInt
+  /// Step 4c invariants — initials never mutated
+  stakeDepositedInitial    BigInt
+  totalEscrowDeposited     BigInt
+  lastTransferredAt        BigInt
+  /// Audit trail
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  /// Reverse relations
+  attestations             Attestation[]
+  contributeEvents         ContributeEvent[]
+  claimEvents              ClaimEvent[]
+
+  @@unique([poolId, slotIndex])
+  @@index([wallet])
+  @@map("members")
+}
+
+// ─── Attestations (SAS-compatible) ───────────────────────────────────
+
+model Attestation {
+  id            String      @id @default(cuid())
+  /// PDA address (= [b"attestation", issuer, subject, schemaId, nonce])
+  pda           String      @unique
+  /// Issuer = pool PDA. Subject = wallet (member's identity).
+  issuer        String
+  subject       String
+  schemaId      Int
+  /// nonce = (cycle << 32) | slotIndex
+  nonce         BigInt
+  /// Optional FK back to Member (when issuer is a known pool +
+  /// subject is a member of that pool). NULL for orphan attestations.
+  member        Member?     @relation(fields: [memberId], references: [id])
+  memberId      String?
+  payload       String?
+  /// Audit trail
+  mintedAt      DateTime    @default(now())
+  txSignature   String
+
+  @@index([subject, schemaId])
+  @@map("attestations")
+}
+
+// ─── Events (immutable log, one row per landed tx) ───────────────────
+
+model ContributeEvent {
+  id              String   @id @default(cuid())
+  txSignature     String   @unique
+  pool            Pool     @relation(fields: [poolId], references: [id])
+  poolId          String
+  member          Member   @relation(fields: [memberId], references: [id])
+  memberId        String
+  cycle           Int
+  schemaId        Int
+  installment     BigInt
+  solidarityAmt   BigInt
+  escrowAmt       BigInt
+  poolFloatAmt    BigInt
+  onTime          Boolean
+  blockTime       BigInt
+  slot            BigInt
+
+  @@index([poolId, cycle])
+  @@map("contribute_events")
+}
+
+model ClaimEvent {
+  id            String   @id @default(cuid())
+  txSignature   String   @unique
+  pool          Pool     @relation(fields: [poolId], references: [id])
+  poolId        String
+  member        Member   @relation(fields: [memberId], references: [id])
+  memberId      String
+  cycle         Int
+  slotIndex     Int
+  amountPaid    BigInt
+  blockTime     BigInt
+  slot          BigInt
+
+  @@index([poolId, cycle])
+  @@map("claim_events")
+}
+
+model DefaultEvent {
+  id              String   @id @default(cuid())
+  txSignature     String   @unique
+  pool            Pool     @relation(fields: [poolId], references: [id])
+  poolId          String
+  /// The defaulted member — denormalized as wallet because the Member
+  /// row may have been closed by a subsequent escape_valve_buy.
+  defaultedWallet String
+  cycle           Int
+  slotIndex       Int
+  /// Triple Shield seizure breakdown, all in USDC base units
+  seizedSolidarity BigInt
+  seizedEscrow     BigInt
+  seizedStake      BigInt
+  /// D/C invariant snapshot at seizure time
+  dInit         BigInt
+  dRem          BigInt
+  cInit         BigInt
+  cAfter        BigInt
+  blockTime     BigInt
+  slot          BigInt
+
+  @@index([poolId, slotIndex])
+  @@map("default_events")
+}
+
+// ─── Indexer cursor state ────────────────────────────────────────────
+//
+// One row per (program_id, "transactions"). Tracks the last slot the
+// backfill / live indexer processed so restarts pick up where they
+// left off. Webhook handler updates this on every successful insert.
+
+model IndexerCursor {
+  id          String   @id @default(cuid())
+  programId   String   @unique
+  lastSlot    BigInt
+  lastSig     String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("indexer_cursors")
+}
