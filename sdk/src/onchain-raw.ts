@@ -270,3 +270,85 @@ export async function fetchPoolMembers(
   members.sort((a, b) => a.slotIndex - b.slotIndex);
   return members;
 }
+
+// ─── EscapeValveListing offsets (declaration-order Borsh, no padding) ──
+//
+//   off  8: pool         Pubkey (32)
+//   off 40: seller       Pubkey (32)
+//   off 72: slot_index   u8     ( 1)
+//   off 73: price_usdc   u64    ( 8)
+//   off 81: status       u8     ( 1)   // 0=Active, 1=Filled, 2=Cancelled
+//   off 82: listed_at    i64    ( 8)
+//   off 90: bump         u8     ( 1)
+//
+// Total size = 99 bytes (matches `EscapeValveListing::SIZE` in
+// listing.rs after the +8 reserved-padding tail).
+
+const LISTING_ACCOUNT_SIZE = 99;
+
+export type LocalListingStatus = "active" | "filled" | "cancelled";
+
+const LISTING_STATUS: LocalListingStatus[] = ["active", "filled", "cancelled"];
+
+export interface RawListingView {
+  address: PublicKey;
+  pool: PublicKey;
+  seller: PublicKey;
+  slotIndex: number;
+  priceUsdc: bigint;
+  status: LocalListingStatus;
+  listedAt: bigint;
+}
+
+/** Decode an EscapeValveListing account's raw bytes into a view. */
+export function decodeListingRaw(address: PublicKey, data: Buffer): RawListingView {
+  const statusByte = data.readUInt8(81);
+  return {
+    address,
+    pool: new PublicKey(data.subarray(8, 40)),
+    seller: new PublicKey(data.subarray(40, 72)),
+    slotIndex: data.readUInt8(72),
+    priceUsdc: data.readBigUInt64LE(73),
+    status: LISTING_STATUS[statusByte] ?? "active",
+    listedAt: data.readBigInt64LE(82),
+  };
+}
+
+/**
+ * Fetch + decode a listing account by its PDA. Returns null if the
+ * listing was already filled / cancelled (closed from chain) so
+ * front-ends can render a "no longer available" state cleanly.
+ */
+export async function fetchListingRaw(
+  connection: Connection,
+  address: PublicKey,
+): Promise<RawListingView | null> {
+  const info = await connection.getAccountInfo(address, "confirmed");
+  if (!info) return null;
+  return decodeListingRaw(address, info.data);
+}
+
+/**
+ * Enumerate every active listing under a given pool. Uses
+ * `getProgramAccounts` with a dataSize filter (99B) plus a memcmp on
+ * the `pool` field at offset 8. Active-only filter applied client-side
+ * since memcmp against status would conflict with the same-offset
+ * query optimization.
+ */
+export async function fetchActivePoolListings(
+  connection: Connection,
+  coreProgram: PublicKey,
+  poolAddress: PublicKey,
+): Promise<RawListingView[]> {
+  const accounts = await connection.getProgramAccounts(coreProgram, {
+    commitment: "confirmed",
+    filters: [
+      { dataSize: LISTING_ACCOUNT_SIZE },
+      { memcmp: { offset: 8, bytes: poolAddress.toBase58() } },
+    ],
+  });
+  return accounts
+    .map(({ pubkey, account }) => decodeListingRaw(pubkey, account.data as Buffer))
+    .filter((l) => l.status === "active")
+    .sort((a, b) => a.slotIndex - b.slotIndex);
+}
