@@ -60,8 +60,12 @@ function loadKeypair(path: string): Keypair {
   return Keypair.fromSecretKey(secret);
 }
 
+const MEMBER_INDEX_OFFSET = process.env.MEMBER_INDEX_OFFSET
+  ? Number(process.env.MEMBER_INDEX_OFFSET)
+  : 0;
+
 function loadMemberKeypair(slot: number): Keypair {
-  const path = resolve(KEYPAIRS_DIR, `member-${slot}.json`);
+  const path = resolve(KEYPAIRS_DIR, `member-${slot + MEMBER_INDEX_OFFSET}.json`);
   if (!existsSync(path)) {
     throw new Error(`Missing keypairs/member-${slot}.json — run 'pnpm devnet:seed-members' first.`);
   }

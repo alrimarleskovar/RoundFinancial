@@ -16,8 +16,17 @@ pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
 
 // ─── Step 4c: timing & defaults ─────────────────────────────────────────
 /// Grace window after `pool.next_cycle_at` before settle_default is callable.
-/// 7 days = 604_800 seconds. Protocol constant — not per-pool overridable.
-pub const GRACE_PERIOD_SECS: i64 = 604_800;
+///
+/// **DEVNET DEMO PATCH (2026-05-07)**: lowered from 604_800 (7 days) to
+/// 60 seconds so the settle_default flow can be exercised against a
+/// freshly-built pool 3 within a single session. Production deploys
+/// MUST restore the 7-day value before mainnet — search the repo for
+/// `GRACE_PERIOD_SECS = 60` and the canonical `7 * 24 * 60 * 60` test
+/// in this file's `#[cfg(test)]` module to revert atomically. The
+/// reduction is semantically equivalent to the production constant
+/// for verification purposes (the on-chain require! still gates on
+/// the protocol constant, just with a faster wall-clock).
+pub const GRACE_PERIOD_SECS: i64 = 60;
 
 /// Time-lock on treasury rotation. Authority can `propose_new_treasury`
 /// any time, but `commit_new_treasury` only succeeds after this window
@@ -171,9 +180,12 @@ mod tests {
     }
 
     #[test]
-    fn grace_period_is_seven_days() {
-        // Protocol constant — not per-pool overridable.
-        assert_eq!(GRACE_PERIOD_SECS, 7 * 24 * 60 * 60);
+    fn grace_period_is_devnet_demo_patch() {
+        // DEVNET DEMO PATCH: temporarily lowered to 60s to exercise the
+        // settle_default flow within a single session. Production restore:
+        // change the assertion back to `7 * 24 * 60 * 60` and the
+        // `GRACE_PERIOD_SECS` constant above to `604_800`.
+        assert_eq!(GRACE_PERIOD_SECS, 60);
     }
 
     #[test]

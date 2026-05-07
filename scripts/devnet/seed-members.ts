@@ -68,6 +68,16 @@ const MEMBER_SOL_BUDGET_LAMPORTS = 100_000_000n; // 0.1 SOL
 const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
 const MEMBER_COUNT = 3;
+// Offset into the keypairs/member-{N}.json filename. Default 0 → loads
+// member-0/1/2 (canonical pool 1+2 members). Set MEMBER_INDEX_OFFSET=3 to
+// load member-3/4/5 — useful when seeding a fresh pool whose members must
+// not carry over reputation attestations from prior pools (e.g., pool 3
+// for settle_default exercise — reuse would hit SCHEMA_CYCLE_COMPLETE
+// cooldown). The on-chain `slot_index` arg stays 0..MEMBER_COUNT-1; only
+// the wallet identity changes.
+const MEMBER_INDEX_OFFSET = process.env.MEMBER_INDEX_OFFSET
+  ? Number(process.env.MEMBER_INDEX_OFFSET)
+  : 0;
 const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
 
 function loadKeypair(path: string): Keypair {
@@ -81,11 +91,15 @@ function saveKeypair(path: string, kp: Keypair): void {
 }
 
 function loadOrCreateMember(slotIndex: number): Keypair {
-  const path = resolve(KEYPAIRS_DIR, `member-${slotIndex}.json`);
+  // slot_index passed to join_pool is 0..MEMBER_COUNT-1 (positional
+  // within the pool); keypair filename uses `slotIndex + offset` so
+  // multiple pools can each use a fresh wallet set without collision.
+  const fileIndex = slotIndex + MEMBER_INDEX_OFFSET;
+  const path = resolve(KEYPAIRS_DIR, `member-${fileIndex}.json`);
   if (existsSync(path)) return loadKeypair(path);
   const kp = Keypair.generate();
   saveKeypair(path, kp);
-  console.log(`  + generated keypairs/member-${slotIndex}.json`);
+  console.log(`  + generated keypairs/member-${fileIndex}.json`);
   return kp;
 }
 
