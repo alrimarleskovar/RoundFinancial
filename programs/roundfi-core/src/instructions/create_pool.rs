@@ -44,6 +44,10 @@ pub struct CreatePool<'info> {
     )]
     pub config: Account<'info, ProtocolConfig>,
 
+    // `Box<Account<...>>` moves the freshly-allocated zero-buffer to the
+    // heap instead of the stack. Without it, Solana 3.x's tighter stack
+    // frame check ("Access violation in stack frame 5") trips during
+    // the cascaded init of pool + 4 ATAs in this single instruction.
     #[account(
         init,
         payer = authority,
@@ -51,7 +55,7 @@ pub struct CreatePool<'info> {
         seeds = [SEED_POOL, authority.key().as_ref(), &args.seed_id.to_le_bytes()],
         bump,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         constraint = usdc_mint.key() == config.usdc_mint @ RoundfiError::InvalidMint,
