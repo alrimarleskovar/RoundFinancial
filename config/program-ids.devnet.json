@@ -268,7 +268,31 @@
         "releaseTx": "5BvLSatc9gbmaRJLjJnP9YLhHEHcCFN2thfZ5wZAL9kGjL4mkUSAL89jcszbwKLgd7rFFg5dZnpycTZVWxFcHVQm"
       }
     },
-    "claimPayoutSkipped": "Pool 2 claim_payout flow is intentionally not exercised: all 3 wallets already received SCHEMA_CYCLE_COMPLETE attestations in pool 1, and the reputation program enforces a 6-day per-subject cooldown (MIN_CYCLE_COOLDOWN_SECS = 518400). Pool 1 already covers the claim_payout positive path three times (#171)."
+    "claimPayoutSkipped": "Pool 2 claim_payout flow is intentionally not exercised: all 3 wallets already received SCHEMA_CYCLE_COMPLETE attestations in pool 1, and the reputation program enforces a 6-day per-subject cooldown (MIN_CYCLE_COOLDOWN_SECS = 518400). Pool 1 already covers the claim_payout positive path three times (#171).",
+    "escapeValve": {
+      "slotIndex": 1,
+      "originalSeller": "Bb3EXaq9sRuV2vQmfBWuNdy2NVYabF5UCjcKcGLawzPw",
+      "buyer": "Ds8zy2ofZWFjNqgFbcob4S2mLzq2wYDovnEKFi6NoZer",
+      "priceUsdc": 14,
+      "list": {
+        "listingPda": "5sQBMvMYU1iqHMz7rvNSjEdvtqohLZqmTmDxyEHoMB5A",
+        "listTx": "4aFv9zbCB6ut82TaMEsXL9pt1ASkRTywGgfgiNGvSQUo4RJ9d1qtAJsPBmnV4upNqWfWM3Sr5sbmNT2mJG3jtzDu",
+        "boxCoreUpgradeTx": "2eE6Sm2PtMBJFt7aUAhwcg79UqXHwZUJZiH7P44wsrawaR745XatGmxSnRa7ndHssgWM2H2Wwwv84WdirW175Bg4"
+      },
+      "buy": {
+        "preFixCoreUpgradeTx": "2eE6Sm2PtMBJFt7aUAhwcg79UqXHwZUJZiH7P44wsrawaR745XatGmxSnRa7ndHssgWM2H2Wwwv84WdirW175Bg4",
+        "bugCustomError": "0x1a",
+        "bugDescription": "mpl-core TransferV1 resets owner-managed plugin authorities (FreezeDelegate / TransferDelegate) to the new owner; the immediate re-freeze in escape_valve_buy.rs Step 3 lost its authority. Bankrun harness only exercised defense-in-depth AssetNotRefrozen guards (atomic-revert-only paths) and never the positive flow.",
+        "fixCoreUpgradeTx": "2RSZQLtqd8eepfz4kHGcDcupWCv7fbVvxKH4PTQWPST7B2QXN6zhCbQoSWrtSnZwVuAML8BEhZgVaE6uMeTX36tQ",
+        "fixDescription": "Insert two ApprovePluginAuthorityV1 CPIs between transfer and re-freeze, signed by buyer_wallet, re-delegating FreezeDelegate AND TransferDelegate back to position_authority.",
+        "buyTx": "3cdG3bWRmgMShw5vCQREY6tJ9HQh3VzW42GN55vdR7ZLPuBgrZhow3wGkPv97A9CTmP2VkVifVgnPTeHebGcgCpr",
+        "newMemberPda": "Am3iA2sddUE7sWyYuzuTkV8Da9ZjZj9NhxR5w3PKoxQF",
+        "nftAsset": "3DcyQDWE3pKdMv4iZe7pV5dfqqqmPLcbakieZfaVnDsu",
+        "buyerUsdcPre": 20,
+        "buyerUsdcPost": 6,
+        "sellerUsdcReceived": 14
+      }
+    }
   },
   "programs": {
     "roundfi_core": {
