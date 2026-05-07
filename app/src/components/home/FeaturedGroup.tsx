@@ -8,9 +8,11 @@ import { Icons } from "@/components/brand/icons";
 import { DeskMeta } from "@/components/home/DeskMeta";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { ACTIVE_GROUPS } from "@/data/groups";
-import { useI18n, useT } from "@/lib/i18n";
+import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { usePool, usePoolMembers } from "@/lib/usePool";
+import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Big featured-round card on Home: circular dial showing month
 // progress + group meta + member avatars + CTAs (pay this round's
@@ -22,14 +24,44 @@ export function FeaturedGroup() {
   const t = useT();
   const { fmtMoney } = useI18n();
   const { monthsPaidByGroup, demoGroup } = useSession();
-  // Demo Studio scenarios swap the featured group entirely; falls back
-  // to the static fixture when no preset has been applied to the live
-  // session.
-  const baseG = demoGroup ?? ACTIVE_GROUPS[0];
+  // ─── On-chain pool read (devnet) ────────────────────────────────────
+  // Reads the live state of the on-chain pool tagged on g1
+  // (`g1.devnetPool`, currently `pool3` because that's the only pool
+  // currently driveable from the front-end — Pool 2's contribute path
+  // is locked behind a SCHEMA_CYCLE_COMPLETE 6-day cooldown). When the
+  // pool deserializes cleanly, override the mock fixture's membership /
+  // cycle / amount fields with the live values. The Demo Studio preset
+  // (`demoGroup`) takes precedence over the chain feed so the recording
+  // flow stays deterministic — chain data fills in only when no preset
+  // is active. If RPC is down, the cluster is wrong, or the pool is
+  // missing, `usePool` returns status="fallback" and we silently render
+  // the mock fixture exactly as before.
+  const fixtureG = demoGroup ?? ACTIVE_GROUPS[0];
+  const seedKey = fixtureG.devnetPool ?? "pool3";
+  const onChain = usePool(seedKey);
+  const onChainMembers = usePoolMembers(seedKey);
+  const { explorerAddr } = useWallet();
+  const useChain = onChain.status === "ok" && onChain.pool && !demoGroup;
+  const baseG = useChain
+    ? {
+        ...fixtureG,
+        name: `Pool ${onChain.pool!.seedId} · ${onChain.pool!.membersJoined}/${onChain.pool!.membersTarget} members · $${
+          Number(onChain.pool!.creditAmount) / 1e6
+        } credit (devnet)`,
+        month: onChain.pool!.currentCycle,
+        total: onChain.pool!.cyclesTotal,
+        // fmtMoney expects BRL — multiply USDC by USDC_RATE so the
+        // converted display stays meaningful in either currency mode.
+        installment: (Number(onChain.pool!.installmentAmount) / 1e6) * USDC_RATE,
+        prize: (Number(onChain.pool!.creditAmount) / 1e6) * USDC_RATE,
+        members: onChain.pool!.membersJoined,
+      }
+    : fixtureG;
   // Overlay session-tracked installments paid this round on top of the
   // static fixture so the dial advances live when the user confirms a
-  // payment. Capped at the group's total.
-  const paidExtra = monthsPaidByGroup[baseG.name] ?? 0;
+  // payment. Capped at the group's total. Skipped when reading on-chain
+  // data — the dial reflects pool.currentCycle directly there.
+  const paidExtra = useChain ? 0 : (monthsPaidByGroup[baseG.name] ?? 0);
   const month = Math.min(baseG.total, baseG.month + paidExtra);
   const g = { ...baseG, month, progress: month / baseG.total };
   const [payOpen, setPayOpen] = useState(false);
@@ -155,7 +187,9 @@ export function FeaturedGroup() {
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <MonoLabel color={tokens.green}>{t("home.featured")}</MonoLabel>
+          <MonoLabel color={tokens.green}>
+            {useChain ? "ON-CHAIN · DEVNET" : t("home.featured")}
+          </MonoLabel>
           <div
             style={{
               fontFamily: "var(--font-syne), Syne",
@@ -215,6 +249,63 @@ export function FeaturedGroup() {
               {g.members} {t("home.installments")} · {g.month} {t("home.drawn")}
             </span>
           </div>
+
+          {/* On-chain roster — only when reading the live pool and at
+              least one member account is materialized. Shows real wallets
+              so the demo proves the membership is on-chain, not a fixture.
+              Currently sourced from pool3 via g1.devnetPool. */}
+          {useChain && onChainMembers.status === "ok" && onChainMembers.members.length > 0 ? (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: `1px dashed ${tokens.borderStr}`,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.muted}>
+                ROSTER
+              </MonoLabel>
+              {onChainMembers.members.map((m) => {
+                const addr = m.wallet.toBase58();
+                return (
+                  <a
+                    key={addr}
+                    href={explorerAddr(addr)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`slot ${m.slotIndex} · ${m.contributionsPaid} paid · ${m.onTimeCount} on-time${m.defaulted ? " · DEFAULTED" : ""}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontSize: 10,
+                      color: m.defaulted ? tokens.red : tokens.text2,
+                      background: tokens.fillSoft,
+                      border: `1px solid ${m.defaulted ? `${tokens.red}55` : tokens.borderStr}`,
+                      textDecoration: "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: m.defaulted ? tokens.red : tokens.green,
+                      }}
+                    />
+                    s{m.slotIndex}·{shortAddr(addr, 4, 4)}
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
 
           {/* CTA row */}
           <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap" }}>

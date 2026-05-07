@@ -16,5 +16,6 @@ export * from "./pda.js";
 export * from "./client.js";
 export * from "./actions.js";
 export * from "./reads.js";
+export * from "./onchain-raw.js";
 export * from "./stressLab.js";
 export * from "./events.js";

@@ -2,6 +2,7 @@
 // catalog. Ported from prototype/components/screens-home.jsx.
 
 import type { Tone } from "@/data/carteira";
+import type { DevnetPoolKey } from "@/lib/devnet";
 
 export type GroupStatus = "paying" | "drawn";
 export type GroupLevel = 1 | 2 | 3;
@@ -21,6 +22,10 @@ export interface ActiveGroup {
   draw: string; // human-friendly "em 5 dias" / "ganho no mês 6"
   installment: number; // BRL
   level?: GroupLevel; // implicit Lv2 when omitted
+  // Optional link to a deployed devnet pool. When set, the catalog +
+  // FeaturedGroup add an "on-chain" badge wired to Solscan. Pure
+  // pointer — actual live state is fetched separately via usePool.
+  devnetPool?: DevnetPoolKey;
 }
 
 export const ACTIVE_GROUPS: ActiveGroup[] = [
@@ -38,6 +43,14 @@ export const ACTIVE_GROUPS: ActiveGroup[] = [
     members: 12,
     draw: "em 5 dias",
     installment: 892.4,
+    // Pool 3 (active, 60s cycle, contribute() write path validated end-to-end
+    // via Phantom) is the live on-chain twin of this card. Pool 2 is in a
+    // contribute-locked state (all members paid cycle 0, claim_payout
+    // blocked by SCHEMA_CYCLE_COMPLETE 6-day cooldown from pool 1), so
+    // pool 3 is the only one currently driveable from the front-end. The
+    // FeaturedGroup on /home overrides counters when available; cards in
+    // /grupos surface the link via an "on-chain" badge.
+    devnetPool: "pool3",
   },
   {
     id: "g2",

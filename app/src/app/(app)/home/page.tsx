@@ -2,6 +2,7 @@
 
 import { Activity } from "@/components/home/Activity";
 import { DeskKpi } from "@/components/home/DeskKpi";
+import { DevnetPoolStatus } from "@/components/home/DevnetPoolStatus";
 import { FeaturedGroup } from "@/components/home/FeaturedGroup";
 import { HomeHero } from "@/components/home/HomeHero";
 import { PassportMini } from "@/components/home/PassportMini";
@@ -12,14 +13,16 @@ import { useSession } from "@/lib/session";
 
 // /home — Bento dashboard. Hero on top, then a 4-col asymmetric
 // grid: 3 KPIs + tall radial Score on the right; FeaturedGroup
-// spans 3 cols below; YourGroups + TripleShield split the next
-// row; Activity terminal log spans the full width at the bottom.
+// spans 3 cols below; on-chain devnet status row spans full width;
+// YourGroups + TripleShield split the next row; Activity terminal
+// log spans the full width at the bottom.
 //
 //   row 1:  [ hero  hero  hero  hero ]
 //   row 2:  [ saldo  yield  colat  score ]
 //   row 3:  [ feat   feat   feat   score ]
-//   row 4:  [ groups groups triplo triplo ]
-//   row 5:  [ act    act    act    act   ]
+//   row 4:  [ devnet devnet devnet devnet ]
+//   row 5:  [ groups groups triplo triplo ]
+//   row 6:  [ act    act    act    act   ]
 
 export default function HomePage() {
   const t = useT();
@@ -44,6 +47,7 @@ export default function HomePage() {
           gridTemplateAreas: `
               "saldo yield colat score"
               "feat  feat  feat  score"
+              "devnet devnet devnet devnet"
               "groups groups triplo triplo"
               "act    act    act    act"
             `,
@@ -89,6 +93,10 @@ export default function HomePage() {
 
         <div style={{ gridArea: "feat" }}>
           <FeaturedGroup />
+        </div>
+
+        <div style={{ gridArea: "devnet" }}>
+          <DevnetPoolStatus />
         </div>
 
         <div style={{ gridArea: "groups" }}>

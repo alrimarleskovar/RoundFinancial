@@ -6,10 +6,12 @@ import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
+import { DEVNET_POOLS } from "@/lib/devnet";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { useWallet } from "@/lib/wallet";
 
 // Single card in the Grupos catalog grid. Renders a locked state
 // when `g.level > user.level` so a Lv2 user can't accidentally
@@ -23,8 +25,10 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
   const t = useT();
   const { fmtMoney } = useI18n();
   const { user, joinedGroupNames } = useSession();
+  const { explorerAddr } = useWallet();
   const [joinOpen, setJoinOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const devnetMeta = g.devnetPool ? DEVNET_POOLS[g.devnetPool] : null;
 
   // Joined state overlays: static `g.joined` OR runtime session
   // membership (set by JOIN_GROUP and BUY_SHARE actions).
@@ -152,6 +156,41 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         >
           {g.months}m · {t("groups.card.spots", { f: g.filled, t: g.total })}
         </div>
+        {devnetMeta ? (
+          <a
+            href={explorerAddr(devnetMeta.pda.toBase58())}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 8,
+              padding: "3px 8px",
+              borderRadius: 6,
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontSize: 9,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: tokens.green,
+              background: `${tokens.green}1a`,
+              border: `1px solid ${tokens.green}55`,
+              textDecoration: "none",
+            }}
+            title={`Pool deployed on Solana devnet: ${devnetMeta.pda.toBase58()}`}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: tokens.green,
+              }}
+            />
+            on-chain · devnet
+          </a>
+        ) : null}
       </div>
       <div
         style={{
