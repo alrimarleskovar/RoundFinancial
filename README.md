@@ -249,16 +249,16 @@ The post-deploy register lives at [`docs/devnet-deployment.md`](docs/devnet-depl
 
 ### Devnet (`?cluster=devnet`)
 
-| Program                | Program ID                                     | Status                          | Solscan                                                                                                          |
-| ---------------------- | ---------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed                     | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet)                   |
-| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed                     | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet)                   |
-| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed                     | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet)                   |
-| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | 🟡 keypair-only, deploy pending | _faucet rate-limit cooldown — see [`docs/devnet-deployment.md`](docs/devnet-deployment.md#7-deployment-history)_ |
+| Program                | Program ID                                     | Status      | Solscan                                                                                        |
+| ---------------------- | ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet) |
+| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet) |
+| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
+| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | ✅ deployed | [view](https://solscan.io/account/GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ?cluster=devnet) |
 
-Initialize tx: _pending — runs after `roundfi-yield-mock` lands._
+Initialize tx: _M3 scope — see [`docs/devnet-deployment.md` §3](docs/devnet-deployment.md#3--deployment-transactions)._
 
-> **Why three of four?** Devnet faucet hit a per-IP cooldown (8h) mid-deploy after the three larger programs landed. The mock yield adapter is the smallest of the four (~250 KB) and the only one **not** used in production (Mainnet uses `roundfi-yield-kamino` for the real Kamino Lend CPI). Full upload + protocol initialization will land in a follow-up PR once the faucet refreshes.
+> **Why no `initialize_protocol` tx yet?** The `scripts/devnet/init-protocol.ts` and `scripts/devnet/seed-pool.ts` scripts ship as intentional **Step 4/8 stubs** — they print a TODO message and exit. Calling the real `initialize_protocol` / `initialize_reputation` instructions, plus the `create_pool` + `join_pool` seeding, is gated behind the M3 milestone (app ↔ on-chain wiring) per [`docs/status.md`](docs/status.md). The four programs are deployed and ready to be initialized when M3 lands.
 
 ### Mainnet (smoke deploy — presence only, **not** initialized for live users)
 

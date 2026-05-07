@@ -1,6 +1,6 @@
 # RoundFi — Devnet Deployment Record
 
-**Cluster:** Solana **Devnet** · **Status:** ✅ First deploy landed 2026-05-07 — 3 of 4 programs live, `roundfi_yield_mock` queued behind a faucet rate-limit (see §7).
+**Cluster:** Solana **Devnet** · **Status:** ✅ All 4 programs deployed (2026-05-07). Protocol initialization (`initialize_protocol` / `initialize_reputation`) + pool seeding are M3 scope per [`status.md`](./status.md) — the `scripts/devnet/init-protocol.ts` and `scripts/devnet/seed-pool.ts` stubs are intentional placeholders from Step 4/8 of the original roadmap and remain TODO until the app↔on-chain wiring lands.
 
 > This file is the **post-deploy register**: program IDs, transaction
 > signatures, deployer keypair, dates. It complements
@@ -42,12 +42,12 @@ copy the four IDs below and link each to its Solscan page so reviewers
 can verify on chain. Devnet Solscan URL pattern:
 `https://solscan.io/account/<PROGRAM_ID>?cluster=devnet`
 
-| Program                | Program ID                                     | Status                          | Solscan                                                                                        |
-| ---------------------- | ---------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed                     | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet) |
-| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed                     | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet) |
-| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed                     | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
-| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | 🟡 keypair-only, deploy pending | _will resolve once faucet limit clears (see §7)_                                               |
+| Program                | Program ID                                     | Status      | Solscan                                                                                        |
+| ---------------------- | ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet) |
+| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet) |
+| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
+| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | ✅ deployed | [view](https://solscan.io/account/GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ?cluster=devnet) |
 
 > **Sanity check after filling:** `solana program show <PROGRAM_ID> --url devnet`
 > should print `Program Id: <PROGRAM_ID>` and a non-zero `Data Length`.
@@ -68,10 +68,10 @@ tx so reviewers can see the on-chain history without poking around.
 | Deploy `reputation`                 | `TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM`  | [view](https://solscan.io/tx/TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM?cluster=devnet)  |
 | Deploy `core`                       | `3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV` | [view](https://solscan.io/tx/3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV?cluster=devnet) |
 | Deploy `yield-kamino`               | `21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3` | [view](https://solscan.io/tx/21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3?cluster=devnet) |
-| Deploy `yield-mock`                 | _pending — faucet rate-limited (see §7)_                                                   | _pending_                                                                                                                             |
-| `initialize_protocol`               | _pending — runs after `yield-mock` lands_                                                  | _pending_                                                                                                                             |
-| `initialize_reputation`             | _pending — runs alongside `initialize_protocol`_                                           | _pending_                                                                                                                             |
-| Seed demo pool (`pnpm devnet:seed`) | _pending — runs after the two `initialize_\*` calls\_                                      | _pending_                                                                                                                             |
+| Deploy `yield-mock`                 | `3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY` | [view](https://solscan.io/tx/3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY?cluster=devnet) |
+| `initialize_protocol`               | _M3 scope — `scripts/devnet/init-protocol.ts` is a TODO stub (Step 4/8 placeholder)_       | _N/A until M3_                                                                                                                        |
+| `initialize_reputation`             | _M3 scope — same script_                                                                   | _N/A until M3_                                                                                                                        |
+| Seed demo pool (`pnpm devnet:seed`) | _M3 scope — `scripts/devnet/seed-pool.ts` is a TODO stub (Step 4/8 placeholder)_           | _N/A until M3_                                                                                                                        |
 
 ---
 
@@ -132,9 +132,9 @@ Keep the most recent deploy at the top. Older entries get a `[ROTATED]`
 or `[DEPRECATED]` tag with a one-line explanation so the audit trail
 survives.
 
-| Date       | Build commit | Deployer                                       | Reason                                                                  | Notes                                                                                                                                                                                                                                                                                                                           |
-| ---------- | ------------ | ---------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-07 | `d57bb43`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy (TransferDelegate plugin + PDF-canonical waterfall) | First deployment after the audit hardening cluster (#122-#127), the level promotion + secondary-market integration (#153-#156), and the toolchain unblock (#138, #139). 3 of 4 programs landed; `roundfi-yield-mock` blocked on devnet faucet rate-limit (8h cooldown) — keypair generated, will be uploaded in a follow-up PR. |
+| Date       | Build commit | Deployer                                       | Reason                                                                  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | ------------ | ---------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | `3a05383`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy (TransferDelegate plugin + PDF-canonical waterfall) | All 4 programs deployed across two sessions on the same day. Session 1: `roundfi-reputation`, `roundfi-core`, `roundfi-yield-kamino`. Session 2 (after 8h faucet cooldown): `roundfi-yield-mock`. Protocol initialization is M3 scope — the init/seed scripts are intentional Step 4/8 stubs and stay TODO until app↔on-chain wiring lands. Build commit `d57bb43` was the build target; `3a05383` is the commit that recorded the first 3 deploys (#160). |
 
 ---
 
