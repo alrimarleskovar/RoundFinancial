@@ -38,12 +38,16 @@ pub struct JoinPool<'info> {
     #[account(mut)]
     pub member_wallet: Signer<'info>,
 
+    // Same Solana 3.x stack-pressure pattern that bit create_pool —
+    // 17 accounts with several Account<T> data fields inline pushes
+    // peak frame depth past 4KB. Box the heavyweights so the
+    // deserialized buffers live on the heap.
     #[account(
         seeds = [SEED_CONFIG],
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         mut,
@@ -52,7 +56,7 @@ pub struct JoinPool<'info> {
         constraint = pool.status == PoolStatus::Forming as u8 @ RoundfiError::PoolNotForming,
         constraint = pool.members_joined < pool.members_target @ RoundfiError::PoolFull,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         init,
@@ -61,19 +65,19 @@ pub struct JoinPool<'info> {
         seeds = [SEED_MEMBER, pool.key().as_ref(), member_wallet.key().as_ref()],
         bump,
     )]
-    pub member: Account<'info, Member>,
+    pub member: Box<Account<'info, Member>>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = member_wallet,
     )]
-    pub member_usdc: Account<'info, TokenAccount>,
+    pub member_usdc: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Escrow vault authority PDA.
     #[account(
@@ -87,7 +91,7 @@ pub struct JoinPool<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = escrow_vault_authority,
     )]
-    pub escrow_vault: Account<'info, TokenAccount>,
+    pub escrow_vault: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Position authority PDA — becomes the FreezeDelegate of the position NFT.
     #[account(
