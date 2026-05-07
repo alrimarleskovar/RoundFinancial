@@ -49,8 +49,10 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use mpl_core::{
     accounts::BaseAssetV1,
     fetch_plugin,
-    instructions::{TransferV1CpiBuilder, UpdatePluginV1CpiBuilder},
-    types::{FreezeDelegate, Plugin, PluginType},
+    instructions::{
+        ApprovePluginAuthorityV1CpiBuilder, TransferV1CpiBuilder, UpdatePluginV1CpiBuilder,
+    },
+    types::{FreezeDelegate, Plugin, PluginAuthority, PluginType},
 };
 
 use crate::constants::*;
@@ -83,14 +85,14 @@ pub struct EscapeValveBuy<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         seeds = [SEED_POOL, pool.authority.as_ref(), &pool.seed_id.to_le_bytes()],
         bump = pool.bump,
         constraint = pool.status == PoolStatus::Active as u8 @ RoundfiError::PoolNotActive,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         mut,
@@ -100,7 +102,7 @@ pub struct EscapeValveBuy<'info> {
         constraint = listing.pool == pool.key() @ RoundfiError::ListingNotActive,
         constraint = listing.status == EscapeValveStatus::Active as u8 @ RoundfiError::ListingNotActive,
     )]
-    pub listing: Account<'info, EscapeValveListing>,
+    pub listing: Box<Account<'info, EscapeValveListing>>,
 
     #[account(
         mut,
@@ -111,7 +113,7 @@ pub struct EscapeValveBuy<'info> {
         constraint = !old_member.defaulted @ RoundfiError::DefaultedMember,
         constraint = old_member.slot_index == listing.slot_index @ RoundfiError::NotYourPayoutSlot,
     )]
-    pub old_member: Account<'info, Member>,
+    pub old_member: Box<Account<'info, Member>>,
 
     #[account(
         init,
@@ -120,26 +122,26 @@ pub struct EscapeValveBuy<'info> {
         seeds = [SEED_MEMBER, pool.key().as_ref(), buyer_wallet.key().as_ref()],
         bump,
     )]
-    pub new_member: Account<'info, Member>,
+    pub new_member: Box<Account<'info, Member>>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = buyer_wallet,
     )]
-    pub buyer_usdc: Account<'info, TokenAccount>,
+    pub buyer_usdc: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = seller_wallet,
     )]
-    pub seller_usdc: Account<'info, TokenAccount>,
+    pub seller_usdc: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Metaplex Core asset for this slot. Pinned to
     /// `old_member.nft_asset` so the buyer can't substitute someone
@@ -270,9 +272,44 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
         .system_program(Some(&ctx.accounts.system_program.to_account_info()))
         .invoke_signed(position_signer)?;
 
-    // Step 3 — Re-freeze under the same position_authority. The PDA
-    // is pool-scoped, so the buyer inherits the frozen state without
-    // any plugin reassignment.
+    // Step 2b — Re-delegate owner-managed plugins back to position_authority.
+    //
+    // mpl-core's TransferV1 resets owner-managed plugin authorities
+    // (FreezeDelegate AND TransferDelegate) to the new owner — the
+    // position_authority PDA is no longer recognized as the plugin
+    // delegate post-transfer. Surfaced on devnet 2026-05-07 against a
+    // freshly transferred Pool 2 / slot 1 position; the immediate
+    // re-freeze in Step 3 reverted with mpl-core 0x1a (Approve)
+    // "Neither the asset or any plugins have approved this operation".
+    //
+    // The fix below re-approves position_authority as the delegate for
+    // both plugins, signed by buyer_wallet (the current owner). Without
+    // re-approving TransferDelegate too, a future escape_valve_buy
+    // against this slot would hit the same wall on its Step 2 transfer.
+    let new_plugin_authority = PluginAuthority::Address {
+        address: ctx.accounts.position_authority.key(),
+    };
+    ApprovePluginAuthorityV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.buyer_wallet.to_account_info()))
+        .system_program(&ctx.accounts.system_program.to_account_info())
+        .plugin_type(PluginType::FreezeDelegate)
+        .new_authority(new_plugin_authority)
+        .invoke()?;
+    let new_plugin_authority = PluginAuthority::Address {
+        address: ctx.accounts.position_authority.key(),
+    };
+    ApprovePluginAuthorityV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.buyer_wallet.to_account_info()))
+        .system_program(&ctx.accounts.system_program.to_account_info())
+        .plugin_type(PluginType::TransferDelegate)
+        .new_authority(new_plugin_authority)
+        .invoke()?;
+
+    // Step 3 — Re-freeze under the (re-delegated) position_authority.
     UpdatePluginV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
         .asset(&ctx.accounts.nft_asset.to_account_info())
         .payer(&ctx.accounts.buyer_wallet.to_account_info())
