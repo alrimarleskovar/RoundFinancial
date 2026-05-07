@@ -46,7 +46,7 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-tok
 
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
-const POOL_SEED_ID = 1n;
+const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
 const TARGET_CHECKPOINT = 1;
 const TARGET_SLOT_INDEX = 0; // member 0 is the canonical claimant for the negative test
 const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
