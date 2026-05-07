@@ -29,6 +29,7 @@
     "devnet:seed-members": "tsx scripts/devnet/seed-members.ts",
     "devnet:seed-cycle": "tsx scripts/devnet/seed-cycle.ts",
     "devnet:seed-claim": "tsx scripts/devnet/seed-claim.ts",
+    "devnet:seed-topup": "tsx scripts/devnet/seed-topup.ts",
     "devnet:seed-release": "tsx scripts/devnet/seed-release.ts",
     "devnet:seed-yield-init": "tsx scripts/devnet/seed-yield-init.ts",
     "devnet:seed-yield-deposit": "tsx scripts/devnet/seed-yield-deposit.ts",
