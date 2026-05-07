@@ -42,7 +42,7 @@ pub struct CreatePool<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     // `Box<Account<...>>` moves the freshly-allocated zero-buffer to the
     // heap instead of the stack. Without it, Solana 3.x's tighter stack
@@ -60,7 +60,7 @@ pub struct CreatePool<'info> {
     #[account(
         constraint = usdc_mint.key() == config.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     /// CHECK: Yield adapter program. Immutable after pool creation. Must be executable.
     #[account(executable)]
@@ -84,7 +84,7 @@ pub struct CreatePool<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = pool,
     )]
-    pub pool_usdc_vault: Account<'info, TokenAccount>,
+    pub pool_usdc_vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -92,7 +92,7 @@ pub struct CreatePool<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = escrow_vault_authority,
     )]
-    pub escrow_vault: Account<'info, TokenAccount>,
+    pub escrow_vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -100,7 +100,7 @@ pub struct CreatePool<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = solidarity_vault_authority,
     )]
-    pub solidarity_vault: Account<'info, TokenAccount>,
+    pub solidarity_vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -108,7 +108,7 @@ pub struct CreatePool<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = yield_vault_authority,
     )]
-    pub yield_vault: Account<'info, TokenAccount>,
+    pub yield_vault: Box<Account<'info, TokenAccount>>,
 
     pub token_program:            Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
