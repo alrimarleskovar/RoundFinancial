@@ -161,3 +161,112 @@ export async function fetchPoolBySeed(
   const [pda] = derivePoolPda(coreProgram, authority, seedId);
   return fetchPoolRaw(connection, pda);
 }
+
+// ─── Member offsets (declaration-order Borsh, no padding) ──────────────
+//
+//   off   8: pool                       Pubkey  (32)
+//   off  40: wallet                     Pubkey  (32)
+//   off  72: nft_asset                  Pubkey  (32)
+//   off 104: slot_index                 u8      ( 1)
+//   off 105: reputation_level           u8      ( 1)
+//   off 106: stake_bps                  u16     ( 2)
+//   off 108: stake_deposited            u64     ( 8)
+//   off 116: contributions_paid         u8      ( 1)
+//   off 117: total_contributed          u64     ( 8)
+//   off 125: total_received             u64     ( 8)
+//   off 133: escrow_balance             u64     ( 8)
+//   off 141: on_time_count              u16     ( 2)
+//   off 143: late_count                 u16     ( 2)
+//   off 145: defaulted                  bool    ( 1)
+//   off 146: paid_out                   bool    ( 1)
+//   off 147: last_released_checkpoint   u8      ( 1)
+//   off 148: joined_at                  i64     ( 8)
+//   off 156: stake_deposited_initial    u64     ( 8)
+//   off 164: total_escrow_deposited     u64     ( 8)
+//   off 172: last_transferred_at        i64     ( 8)
+//   off 180: bump                       u8      ( 1)
+//
+// Total size = 187 bytes (matches `Member::SIZE` in member.rs after
+// the +6 reserved-padding tail).
+
+const MEMBER_ACCOUNT_SIZE = 187;
+
+export interface RawMemberView {
+  address: PublicKey;
+  pool: PublicKey;
+  wallet: PublicKey;
+  nftAsset: PublicKey;
+  slotIndex: number;
+  reputationLevel: number;
+  stakeBps: number;
+  stakeDeposited: bigint;
+  contributionsPaid: number;
+  totalContributed: bigint;
+  totalReceived: bigint;
+  escrowBalance: bigint;
+  onTimeCount: number;
+  lateCount: number;
+  defaulted: boolean;
+  paidOut: boolean;
+  lastReleasedCheckpoint: number;
+  joinedAt: bigint;
+  stakeDepositedInitial: bigint;
+  totalEscrowDeposited: bigint;
+  lastTransferredAt: bigint;
+}
+
+/** Decode a Member account's raw bytes into the shared view shape. */
+export function decodeMemberRaw(address: PublicKey, data: Buffer): RawMemberView {
+  return {
+    address,
+    pool: new PublicKey(data.subarray(8, 40)),
+    wallet: new PublicKey(data.subarray(40, 72)),
+    nftAsset: new PublicKey(data.subarray(72, 104)),
+    slotIndex: data.readUInt8(104),
+    reputationLevel: data.readUInt8(105),
+    stakeBps: data.readUInt16LE(106),
+    stakeDeposited: data.readBigUInt64LE(108),
+    contributionsPaid: data.readUInt8(116),
+    totalContributed: data.readBigUInt64LE(117),
+    totalReceived: data.readBigUInt64LE(125),
+    escrowBalance: data.readBigUInt64LE(133),
+    onTimeCount: data.readUInt16LE(141),
+    lateCount: data.readUInt16LE(143),
+    defaulted: data.readUInt8(145) !== 0,
+    paidOut: data.readUInt8(146) !== 0,
+    lastReleasedCheckpoint: data.readUInt8(147),
+    joinedAt: data.readBigInt64LE(148),
+    stakeDepositedInitial: data.readBigUInt64LE(156),
+    totalEscrowDeposited: data.readBigUInt64LE(164),
+    lastTransferredAt: data.readBigInt64LE(172),
+  };
+}
+
+/**
+ * Enumerate every Member account that points at `poolAddress`. Uses
+ * `getProgramAccounts` with a dataSize filter (187B) plus a memcmp on
+ * the pool field (offset 8). Sorted by `slotIndex` ascending so callers
+ * get a deterministic display order.
+ *
+ * Note: `getProgramAccounts` is unindexed on most public RPCs and can
+ * be slow / rate-limited. Suitable for low-frequency reads (e.g. a
+ * 30s-refresh roster card); not for hot paths.
+ */
+export async function fetchPoolMembers(
+  connection: Connection,
+  coreProgram: PublicKey,
+  poolAddress: PublicKey,
+): Promise<RawMemberView[]> {
+  const accounts = await connection.getProgramAccounts(coreProgram, {
+    commitment: "confirmed",
+    filters: [
+      { dataSize: MEMBER_ACCOUNT_SIZE },
+      { memcmp: { offset: 8, bytes: poolAddress.toBase58() } },
+    ],
+  });
+  const members = accounts.map(({ pubkey, account }) =>
+    decodeMemberRaw(pubkey, account.data as Buffer),
+  );
+  members.sort((a, b) => a.slotIndex - b.slotIndex);
+  return members;
+}

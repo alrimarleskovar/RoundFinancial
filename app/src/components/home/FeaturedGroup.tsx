@@ -11,7 +11,8 @@ import { ACTIVE_GROUPS } from "@/data/groups";
 import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
-import { usePool } from "@/lib/usePool";
+import { usePool, usePoolMembers } from "@/lib/usePool";
+import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Big featured-round card on Home: circular dial showing month
 // progress + group meta + member avatars + CTAs (pay this round's
@@ -33,6 +34,8 @@ export function FeaturedGroup() {
   // `usePool` returns status="fallback" and we silently render the
   // mock fixture exactly as before.
   const onChain = usePool("pool2");
+  const onChainMembers = usePoolMembers("pool2");
+  const { explorerAddr } = useWallet();
   const useChain = onChain.status === "ok" && onChain.pool && !demoGroup;
   // Demo Studio scenarios swap the featured group entirely; falls back
   // to the static fixture when no preset has been applied to the live
@@ -245,6 +248,62 @@ export function FeaturedGroup() {
               {g.members} {t("home.installments")} · {g.month} {t("home.drawn")}
             </span>
           </div>
+
+          {/* On-chain roster — only when reading pool2 live and at least
+              one member account is materialized. Shows real wallets so
+              the demo proves the membership is on-chain, not a fixture. */}
+          {useChain && onChainMembers.status === "ok" && onChainMembers.members.length > 0 ? (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: `1px dashed ${tokens.borderStr}`,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.muted}>
+                ROSTER
+              </MonoLabel>
+              {onChainMembers.members.map((m) => {
+                const addr = m.wallet.toBase58();
+                return (
+                  <a
+                    key={addr}
+                    href={explorerAddr(addr)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`slot ${m.slotIndex} · ${m.contributionsPaid} paid · ${m.onTimeCount} on-time${m.defaulted ? " · DEFAULTED" : ""}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontSize: 10,
+                      color: m.defaulted ? tokens.red : tokens.text2,
+                      background: tokens.fillSoft,
+                      border: `1px solid ${m.defaulted ? `${tokens.red}55` : tokens.borderStr}`,
+                      textDecoration: "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: m.defaulted ? tokens.red : tokens.green,
+                      }}
+                    />
+                    s{m.slotIndex}·{shortAddr(addr, 4, 4)}
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
 
           {/* CTA row */}
           <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap" }}>
