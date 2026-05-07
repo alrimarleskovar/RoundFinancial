@@ -49,8 +49,10 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use mpl_core::{
     accounts::BaseAssetV1,
     fetch_plugin,
-    instructions::{TransferV1CpiBuilder, UpdatePluginV1CpiBuilder},
-    types::{FreezeDelegate, Plugin, PluginType},
+    instructions::{
+        ApprovePluginAuthorityV1CpiBuilder, TransferV1CpiBuilder, UpdatePluginV1CpiBuilder,
+    },
+    types::{FreezeDelegate, Plugin, PluginAuthority, PluginType},
 };
 
 use crate::constants::*;
@@ -270,9 +272,44 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
         .system_program(Some(&ctx.accounts.system_program.to_account_info()))
         .invoke_signed(position_signer)?;
 
-    // Step 3 — Re-freeze under the same position_authority. The PDA
-    // is pool-scoped, so the buyer inherits the frozen state without
-    // any plugin reassignment.
+    // Step 2b — Re-delegate owner-managed plugins back to position_authority.
+    //
+    // mpl-core's TransferV1 resets owner-managed plugin authorities
+    // (FreezeDelegate AND TransferDelegate) to the new owner — the
+    // position_authority PDA is no longer recognized as the plugin
+    // delegate post-transfer. Surfaced on devnet 2026-05-07 against a
+    // freshly transferred Pool 2 / slot 1 position; the immediate
+    // re-freeze in Step 3 reverted with mpl-core 0x1a (Approve)
+    // "Neither the asset or any plugins have approved this operation".
+    //
+    // The fix below re-approves position_authority as the delegate for
+    // both plugins, signed by buyer_wallet (the current owner). Without
+    // re-approving TransferDelegate too, a future escape_valve_buy
+    // against this slot would hit the same wall on its Step 2 transfer.
+    let new_plugin_authority = PluginAuthority::Address {
+        address: ctx.accounts.position_authority.key(),
+    };
+    ApprovePluginAuthorityV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.buyer_wallet.to_account_info()))
+        .system_program(&ctx.accounts.system_program.to_account_info())
+        .plugin_type(PluginType::FreezeDelegate)
+        .new_authority(new_plugin_authority)
+        .invoke()?;
+    let new_plugin_authority = PluginAuthority::Address {
+        address: ctx.accounts.position_authority.key(),
+    };
+    ApprovePluginAuthorityV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
+        .asset(&ctx.accounts.nft_asset.to_account_info())
+        .payer(&ctx.accounts.buyer_wallet.to_account_info())
+        .authority(Some(&ctx.accounts.buyer_wallet.to_account_info()))
+        .system_program(&ctx.accounts.system_program.to_account_info())
+        .plugin_type(PluginType::TransferDelegate)
+        .new_authority(new_plugin_authority)
+        .invoke()?;
+
+    // Step 3 — Re-freeze under the (re-delegated) position_authority.
     UpdatePluginV1CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
         .asset(&ctx.accounts.nft_asset.to_account_info())
         .payer(&ctx.accounts.buyer_wallet.to_account_info())
