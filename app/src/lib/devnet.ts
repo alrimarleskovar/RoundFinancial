@@ -29,12 +29,20 @@ export const DEVNET_POOLS = {
   pool1: {
     seedId: 1n,
     pda: new PublicKey("5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa"),
-    label: "Demo · 3 members · Completed",
+    label: "Pool 1 · 3 members · Completed",
+    headline: "Full lifecycle: contributions → claims → escrow release → close",
   },
   pool2: {
     seedId: 2n,
     pda: new PublicKey("8XZxRSqUDEvhVENxxnhNKM8htZTmVuyQgYbZXmtwbujm"),
-    label: "Demo · 3 members · 1h cycle · Active",
+    label: "Pool 2 · 3 members · 1h cycle · Active",
+    headline: "Live cycles + idle yield deposits + escape valve list",
+  },
+  pool3: {
+    seedId: 3n,
+    pda: new PublicKey("D9PS7QDGUsAwHa4T6Gibw6HV9Lx2sbB5aZM5GsNzpDE5"),
+    label: "Pool 3 · 3 members · 60s grace · Default",
+    headline: "Triple Shield enforcement: settle_default with stake seizure",
   },
 } as const;
 
