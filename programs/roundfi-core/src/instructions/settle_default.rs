@@ -52,7 +52,7 @@ pub struct SettleDefault<'info> {
         // settle_default bypasses the pause flag intentionally — funds
         // must never be locked indefinitely (see feedback/step4c).
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         mut,
@@ -60,7 +60,7 @@ pub struct SettleDefault<'info> {
         bump = pool.bump,
         constraint = pool.status == PoolStatus::Active as u8 @ RoundfiError::PoolNotActive,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         mut,
@@ -68,7 +68,7 @@ pub struct SettleDefault<'info> {
         bump = member.bump,
         constraint = !member.defaulted @ RoundfiError::DefaultedMember,
     )]
-    pub member: Account<'info, Member>,
+    pub member: Box<Account<'info, Member>>,
 
     /// CHECK: defaulted member's wallet — used as the reputation subject.
     /// Validated by constraint against `member.wallet`; does NOT sign.
@@ -80,14 +80,14 @@ pub struct SettleDefault<'info> {
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         associated_token::mint = usdc_mint,
         associated_token::authority = pool,
     )]
-    pub pool_usdc_vault: Account<'info, TokenAccount>,
+    pub pool_usdc_vault: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Solidarity vault authority PDA.
     #[account(
@@ -101,7 +101,7 @@ pub struct SettleDefault<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = solidarity_vault_authority,
     )]
-    pub solidarity_vault: Account<'info, TokenAccount>,
+    pub solidarity_vault: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Escrow vault authority PDA.
     #[account(
@@ -115,7 +115,7 @@ pub struct SettleDefault<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = escrow_vault_authority,
     )]
-    pub escrow_vault: Account<'info, TokenAccount>,
+    pub escrow_vault: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 
