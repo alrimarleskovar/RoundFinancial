@@ -182,6 +182,94 @@
       }
     }
   },
+  "demoPool2": {
+    "poolPda": "8XZxRSqUDEvhVENxxnhNKM8htZTmVuyQgYbZXmtwbujm",
+    "createPoolTx": "2yKtPE72B7vTuwj78aQ7KiXJJuC6sqdPdVJLjvG5cbNzmjdxfYWgQiEM4X7LGaG586SizpGVr52AdiTZc48q9eTB",
+    "initVaultsTx": "38KhhJxfT2bwr72takotc1f9x8BpstFY2C3PYDEc5reYNhFXtgijdiciVZx4gkiStG7wFEaBcjCU6rvDsfgXgNrZ",
+    "params": {
+      "seedId": 2,
+      "membersTarget": 3,
+      "creditAmountUsdc": 30,
+      "installmentAmountUsdc": 10,
+      "cyclesTotal": 3,
+      "cycleDurationSec": 3600,
+      "escrowReleaseBps": 2500
+    },
+    "yieldAdapter": {
+      "program": "GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ",
+      "statePda": "6h1mj5HU3eJKFEwridjZ4kCz1QdSddUKRqCncdpMVExd",
+      "vaultAta": "2Attqh7w2FjsuP4VN98PHFnC67cNgFhfwPoJtenCpxqE",
+      "initVaultTx": "64oGarnSZWDSoDcHCn9bcLFYW4zU7TKXLGJSSktd1zw8eT1yhx2q9NJ7Uxq83cmNtjJqaYHJ9cTProvFhbdXDTGs",
+      "deposits": [
+        {
+          "depositTx": "5Hjk5kcRCM7Sy9iybRx1WTHAC6oGMkyFaJ2vnmx39EAetxgdy3DpRWEbaGwdi6uP3c6HR6Ab7M8fihihDyWrdc2B",
+          "depositUsdc": 5,
+          "prefundTx": "5v7qa4j5sdG8EKumi2HMz2BTD6m2DrkiPyUZtFwhV4jxqZsj6NahTCxx6o2JCwoFHofD7HoG6N7gJcbEK8h6Zhi7",
+          "prefundUsdc": 0.5
+        },
+        {
+          "depositTx": "3gAbmM48vEQRRwk39oTeRET4mGD2jFrx8xRiDnAfQNxr7zn5TZbExgCM1BFPnEmEr78p7xCZy74brWRstKnyU3kp",
+          "depositUsdc": 5,
+          "prefundTx": "26DN91xosAcKJKWafQY91rSEqCCjvKRc4zF1sP3iGCnRmPCZGbGTSHaNkq7AhvwesGuQqHxYmb5QZoKfoHvy3gf2",
+          "prefundUsdc": 0.5
+        }
+      ],
+      "treasuryConstraintFixCoreUpgradeTx": "5cFrATuQorEB7t9UCXdq2cuZDWztTv8fd6PjY7Jxjp4x1nsUoVXQDoAGGP5E9fTdvwuHf1Drk1jUhKwDomoeKQXX",
+      "harvestRunZeroTx": "1f4ygBnDYbtfDUu6cyKUZvv4TurksQ9CiPXSMDodHq3r8ejzpesPepY3262AozcKABa2A8EFRLu5NAApMqpTz7d",
+      "harvestRunWithRealizedTx": "U1vK5GXMMWRhiuSEQ3ByfKDeHuBNrk6EVciC3CYRZaX4YPWTYFzBipsjBZbV4CVARjyPte47V1AcpgE33u1sdmq",
+      "harvestRealizedUsdc": 0.5,
+      "harvestPoolFloatDeltaUsdc": 0.4,
+      "inferredProtocolFeeUsdc": 0.1
+    },
+    "members": [
+      {
+        "slotIndex": 0,
+        "wallet": "7RvpGyDP6szjGLk6NXMcjpDmicizMVDW8KnLQmi3jJw2",
+        "memberPda": "FnkSyswpsLG3oUcaiJAHuqHo1bLNdoRAZBbwoJyvkbXt",
+        "joinPoolTx": "Hy3YwtMa2Czb1rMARABoZEt87QfFJMetLustW8cioHyY1V2eL8bUd8LMLS7yboBKtoMNQ5xqGck6D27FJbFGm5v",
+        "reputationLevel": 1,
+        "stakeUsdc": 15
+      },
+      {
+        "slotIndex": 1,
+        "wallet": "Bb3EXaq9sRuV2vQmfBWuNdy2NVYabF5UCjcKcGLawzPw",
+        "memberPda": "AM3XJoW28v2yLWLSRJ6nHsES6zPdFCA97XfjoFE8AD9g",
+        "joinPoolTx": "5DRSxQdawSWqwDaBco638G6pvM7DHLocG4ZUaKLc3Nk7Bk9615CryWkBtdDqPSEcXZCzKH32arXtAkX9otCqsypH",
+        "reputationLevel": 1,
+        "stakeUsdc": 15
+      },
+      {
+        "slotIndex": 2,
+        "wallet": "8XFCbitu7PdkEVT7JHgAwxhtAjQTNStr98PpTQgmM7RL",
+        "memberPda": "BosuNXisQNN1mSRrKZs8J8oaqp7E2R8wQoEnjv5D591F",
+        "joinPoolTx": "4K3hi3SUWri14t7z5xQ4aMoQBCBH2S8RiYbTGDV1JbjDZfk91AAkx9PKKkAFQY5PupnG59MLMBZuwrHCnP1HtRtc",
+        "reputationLevel": 1,
+        "stakeUsdc": 15
+      }
+    ],
+    "positiveTests": {
+      "releaseEscrow": {
+        "description": "On-time contribs unlock release_escrow happy path; member.on_time_count >= checkpoint, vesting math returns 5 USDC = stake_deposited / cycles_total = 15/3.",
+        "targetSlotIndex": 0,
+        "checkpoint": 1,
+        "memberStatePreCall": {
+          "stakeDepositedUsdc": 15,
+          "escrowBalanceUsdc": 17.5,
+          "onTimeCount": 1,
+          "lateCount": 0,
+          "lastReleasedCheckpoint": 0
+        },
+        "memberStatePostCall": {
+          "escrowBalanceUsdc": 12.5,
+          "lastReleasedCheckpoint": 1,
+          "memberAtaUsdc": 5
+        },
+        "releasedUsdc": 5,
+        "releaseTx": "5BvLSatc9gbmaRJLjJnP9YLhHEHcCFN2thfZ5wZAL9kGjL4mkUSAL89jcszbwKLgd7rFFg5dZnpycTZVWxFcHVQm"
+      }
+    },
+    "claimPayoutSkipped": "Pool 2 claim_payout flow is intentionally not exercised: all 3 wallets already received SCHEMA_CYCLE_COMPLETE attestations in pool 1, and the reputation program enforces a 6-day per-subject cooldown (MIN_CYCLE_COOLDOWN_SECS = 518400). Pool 1 already covers the claim_payout positive path three times (#171)."
+  },
   "programs": {
     "roundfi_core": {
       "programId": "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw",
