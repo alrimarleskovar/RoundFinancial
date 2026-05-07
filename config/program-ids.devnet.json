@@ -23,7 +23,33 @@
       "cyclesTotal": 3,
       "cycleDurationSec": 60,
       "escrowReleaseBps": 2500
-    }
+    },
+    "members": [
+      {
+        "slotIndex": 0,
+        "wallet": "7RvpGyDP6szjGLk6NXMcjpDmicizMVDW8KnLQmi3jJw2",
+        "memberPda": "4r2Pd9qvL5iDyh7689rTsXVrAYoocoSsoR4bLZJhADc5",
+        "joinPoolTx": "2UrRDG9f6Dq8rZE3h1t5decBPrSV5gLacHBNhbKUvEBCyjQDuC5htJNbkVxuHwD5srPu7xT6F7AGB3bJpAoddnLD",
+        "reputationLevel": 1,
+        "stakeUsdc": 15
+      },
+      {
+        "slotIndex": 1,
+        "wallet": "Bb3EXaq9sRuV2vQmfBWuNdy2NVYabF5UCjcKcGLawzPw",
+        "memberPda": "3Sr4M88HDY3f1hnWJR7dznSvjCoRB4bTwGMDvAVNeEnm",
+        "joinPoolTx": "3GJUTibE3LEn9zaJT7BdqpHKnKy8ZnPzysbYUEo6b3uxV8bbypmvAgcKtTNsGbhjfhfPzWejiaTGhkoAEvPSwU8k",
+        "reputationLevel": 1,
+        "stakeUsdc": 15
+      },
+      {
+        "slotIndex": 2,
+        "wallet": "8XFCbitu7PdkEVT7JHgAwxhtAjQTNStr98PpTQgmM7RL",
+        "memberPda": "6ymEiWiAU6oJT4i5MisJDCZTSqtuvbfBKccVfdocYiaa",
+        "joinPoolTx": "3L7dtnuaR4arvAjMuAFSofJpuSLunxz8ajWWRDbUw3d9wdgzgBPEA5x1a1yvZh6cikPVHieUkbvkNaooDqhceYSJ",
+        "reputationLevel": 1,
+        "stakeUsdc": 15
+      }
+    ]
   },
   "programs": {
     "roundfi_core": {

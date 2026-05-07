@@ -262,8 +262,12 @@ Initialize + seed txs:
 - `initialize_reputation` → [`59Sgz1…ALCn1`](https://solscan.io/tx/59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1?cluster=devnet) · ReputationConfig PDA = [`7RDWsSDc…aXo4`](https://solscan.io/account/7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4?cluster=devnet)
 - `create_pool` → [`2Emh1s…E8urS`](https://solscan.io/tx/2Emh1snRJgSRsypcwSgZUe21Duw6pKrQk4e16NJQh3CLi9ehaQGQPnj1RJvEAyPu3icjmThM4ehnk55sn8GE8urS?cluster=devnet) · Pool PDA = [`5APoECXz…c8ooa`](https://solscan.io/account/5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa?cluster=devnet) (demo, 3 members, $30 carta, 3 cycles)
 - `init_pool_vaults` → [`zmnoex…umnx`](https://solscan.io/tx/zmnoexdEA8VVwLDNQJPVh8eVPdiLK5EThEAh7rbWiVJNrjQCzyCExXpmDtQL73DdUKm1vpmNd5pNWqeVo3iumnx?cluster=devnet) (4 USDC vault ATAs: pool/escrow/solidarity/yield)
+- `join_pool` × 3 — Lv1 stakes ($15 each, 50% of credit) deposited to the escrow vault, Metaplex Core position NFTs minted with FreezeDelegate + TransferDelegate plugins:
+  - Member 0 → [`4r2Pd9qv…ADc5`](https://solscan.io/account/4r2Pd9qvL5iDyh7689rTsXVrAYoocoSsoR4bLZJhADc5?cluster=devnet) · join tx [`2UrRDG…dnLD`](https://solscan.io/tx/2UrRDG9f6Dq8rZE3h1t5decBPrSV5gLacHBNhbKUvEBCyjQDuC5htJNbkVxuHwD5srPu7xT6F7AGB3bJpAoddnLD?cluster=devnet)
+  - Member 1 → [`3Sr4M88H…eEnm`](https://solscan.io/account/3Sr4M88HDY3f1hnWJR7dznSvjCoRB4bTwGMDvAVNeEnm?cluster=devnet) · join tx [`3GJUTi…wU8k`](https://solscan.io/tx/3GJUTibE3LEn9zaJT7BdqpHKnKy8ZnPzysbYUEo6b3uxV8bbypmvAgcKtTNsGbhjfhfPzWejiaTGhkoAEvPSwU8k?cluster=devnet)
+  - Member 2 → [`6ymEiWiA…cYiaa`](https://solscan.io/account/6ymEiWiAU6oJT4i5MisJDCZTSqtuvbfBKccVfdocYiaa?cluster=devnet) · join tx [`3L7dtn…ceYSJ`](https://solscan.io/tx/3L7dtnuaR4arvAjMuAFSofJpuSLunxz8ajWWRDbUw3d9wdgzgBPEA5x1a1yvZh6cikPVHieUkbvkNaooDqhceYSJ?cluster=devnet)
 
-> **State + first pool, not just bytecode.** Devnet has live `ProtocolConfig` + `ReputationConfig` singletons + a 3-member ROSCA pool with all four USDC vault ATAs ready to receive members. Member onboarding (`seed-members.ts` with USDC stake + Metaplex Core NFT mint per join) is the next M3 step — see [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
+> **End-to-end ROSCA on devnet.** The full flow — protocol init → pool create → vault inits → 3 members joined with USDC stakes + position NFTs — runs against the deployed programs at the addresses above. Live cycle progression (contribute / claim_payout / harvest_yield) is the next M3 step — see [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
 
 ### Mainnet (smoke deploy — presence only, **not** initialized for live users)
 
