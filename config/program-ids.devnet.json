@@ -11,6 +11,20 @@
     "treasuryAta": "5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5",
     "treasuryAtaCreateTx": "4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq"
   },
+  "demoPool": {
+    "poolPda": "5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa",
+    "createPoolTx": "2Emh1snRJgSRsypcwSgZUe21Duw6pKrQk4e16NJQh3CLi9ehaQGQPnj1RJvEAyPu3icjmThM4ehnk55sn8GE8urS",
+    "initVaultsTx": "zmnoexdEA8VVwLDNQJPVh8eVPdiLK5EThEAh7rbWiVJNrjQCzyCExXpmDtQL73DdUKm1vpmNd5pNWqeVo3iumnx",
+    "params": {
+      "seedId": 1,
+      "membersTarget": 3,
+      "creditAmountUsdc": 30,
+      "installmentAmountUsdc": 10,
+      "cyclesTotal": 3,
+      "cycleDurationSec": 60,
+      "escrowReleaseBps": 2500
+    }
+  },
   "programs": {
     "roundfi_core": {
       "programId": "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw",
