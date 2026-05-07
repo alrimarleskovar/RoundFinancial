@@ -160,6 +160,18 @@
       }
     ],
     "completedAt": "2026-05-07T13:42:00Z",
+    "closePool": {
+      "boxCoreUpgradeTx": "2QHc28Mpd4eZKwLsy9HejTazUqbefh7gYmxp8ZaPZUW5H39qwPUaaZgrb5AQMCsjaBsppP5k564zKQAA5XUm279P",
+      "closePoolTx": "ct6MiMvL6cYVpPpKraXfJhdameAwUtxGyJnAFCBqHYb8h4fbcirEZHWkUwkHQphfd7uDKnXLYYMvBiRBuE7b639",
+      "summary": {
+        "totalContributedUsdc": 90,
+        "totalPaidOutUsdc": 90,
+        "yieldAccruedUsdc": 0,
+        "guaranteeFundBalanceUsdc": 0,
+        "totalProtocolFeeAccruedUsdc": 0,
+        "interpretation": "Pool 1 ran without yield (deposit_idle_to_yield was a Pool 2-only flow), so all yield/GF/fee fields are zero. total_contributed equals total_paid_out — the lifecycle invariant for a completed ROSCA with no external yield is satisfied."
+      }
+    },
     "negativeTests": {
       "releaseEscrow": {
         "description": "EscrowLocked guard fires when member.on_time_count < args.checkpoint",
