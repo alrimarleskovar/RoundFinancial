@@ -8,9 +8,10 @@ import { Icons } from "@/components/brand/icons";
 import { DeskMeta } from "@/components/home/DeskMeta";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { ACTIVE_GROUPS } from "@/data/groups";
-import { useI18n, useT } from "@/lib/i18n";
+import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { usePool } from "@/lib/usePool";
 
 // Big featured-round card on Home: circular dial showing month
 // progress + group meta + member avatars + CTAs (pay this round's
@@ -22,14 +23,41 @@ export function FeaturedGroup() {
   const t = useT();
   const { fmtMoney } = useI18n();
   const { monthsPaidByGroup, demoGroup } = useSession();
+  // ─── On-chain Pool 2 read (devnet) ─────────────────────────────────
+  // When the wallet adapter is pointed at devnet AND Pool 2 deserializes
+  // cleanly, override the mock fixture's membership / cycle / amount
+  // fields with the live values. The Demo Studio preset (`demoGroup`)
+  // takes precedence over the chain feed so the recording flow stays
+  // deterministic — chain data fills in only when no preset is active.
+  // If RPC is down, the cluster is wrong, or the pool is missing,
+  // `usePool` returns status="fallback" and we silently render the
+  // mock fixture exactly as before.
+  const onChain = usePool("pool2");
+  const useChain = onChain.status === "ok" && onChain.pool && !demoGroup;
   // Demo Studio scenarios swap the featured group entirely; falls back
   // to the static fixture when no preset has been applied to the live
   // session.
-  const baseG = demoGroup ?? ACTIVE_GROUPS[0];
+  const fixtureG = demoGroup ?? ACTIVE_GROUPS[0];
+  const baseG = useChain
+    ? {
+        ...fixtureG,
+        name: `Pool 2 · ${onChain.pool!.membersJoined}/${onChain.pool!.membersTarget} members · $${
+          Number(onChain.pool!.creditAmount) / 1e6
+        } credit (devnet)`,
+        month: onChain.pool!.currentCycle,
+        total: onChain.pool!.cyclesTotal,
+        // fmtMoney expects BRL — multiply USDC by USDC_RATE so the
+        // converted display stays meaningful in either currency mode.
+        installment: (Number(onChain.pool!.installmentAmount) / 1e6) * USDC_RATE,
+        prize: (Number(onChain.pool!.creditAmount) / 1e6) * USDC_RATE,
+        members: onChain.pool!.membersJoined,
+      }
+    : fixtureG;
   // Overlay session-tracked installments paid this round on top of the
   // static fixture so the dial advances live when the user confirms a
-  // payment. Capped at the group's total.
-  const paidExtra = monthsPaidByGroup[baseG.name] ?? 0;
+  // payment. Capped at the group's total. Skipped when reading on-chain
+  // data — the dial reflects pool.currentCycle directly there.
+  const paidExtra = useChain ? 0 : (monthsPaidByGroup[baseG.name] ?? 0);
   const month = Math.min(baseG.total, baseG.month + paidExtra);
   const g = { ...baseG, month, progress: month / baseG.total };
   const [payOpen, setPayOpen] = useState(false);
@@ -155,7 +183,9 @@ export function FeaturedGroup() {
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <MonoLabel color={tokens.green}>{t("home.featured")}</MonoLabel>
+          <MonoLabel color={tokens.green}>
+            {useChain ? "ON-CHAIN · DEVNET" : t("home.featured")}
+          </MonoLabel>
           <div
             style={{
               fontFamily: "var(--font-syne), Syne",
