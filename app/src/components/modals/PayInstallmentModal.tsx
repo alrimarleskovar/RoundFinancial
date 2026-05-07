@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 
+import { ATTESTATION_SCHEMA } from "@roundfi/sdk";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
 import { Modal } from "@/components/ui/Modal";
@@ -102,6 +104,16 @@ export function PayInstallmentModal({
 
     if (onChainReady && memberRecord && onChainPool.pool && adapter.sendTransaction) {
       try {
+        // Schema selection mirrors contribute.rs:
+        //   on_time = clock.unix_timestamp <= pool.next_cycle_at
+        //   schema  = on_time ? SCHEMA_PAYMENT (1) : SCHEMA_LATE (2)
+        // The attestation PDA seeds include the schema id, so the
+        // off-chain derivation MUST match what the on-chain handler
+        // will write or the AccountAlreadyInitialized / seed-mismatch
+        // preflight rejects.
+        const nowSec = BigInt(Math.floor(Date.now() / 1000));
+        const onTime = nowSec <= onChainPool.pool.nextCycleAt;
+        const schemaId = onTime ? ATTESTATION_SCHEMA.Payment : ATTESTATION_SCHEMA.Late;
         const sig = await sendContribute({
           connection,
           sendTransaction: adapter.sendTransaction,
@@ -109,6 +121,7 @@ export function PayInstallmentModal({
           memberWallet: connectedWallet as PublicKey,
           cycle: onChainPool.pool.currentCycle,
           slotIndex: memberRecord.slotIndex,
+          schemaId,
         });
         setTxSig(sig);
         // Mirror the mock-mode session bookkeeping so the dial advances
@@ -118,8 +131,21 @@ export function PayInstallmentModal({
         setSubmitting(false);
         setDone(true);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        setChainError(message);
+        // Phantom + wallet-adapter often surface a generic "Unexpected
+        // error" while the actual program revert log lives on
+        // `err.logs` or `err.cause`. Concatenate everything we can
+        // reach so the modal banner is diagnosable instead of opaque.
+        const e = err as { message?: string; logs?: string[]; cause?: unknown };
+        const parts: string[] = [];
+        if (e.message) parts.push(e.message);
+        if (Array.isArray(e.logs) && e.logs.length > 0) {
+          parts.push("logs:\n" + e.logs.join("\n"));
+        }
+        if (e.cause) parts.push("cause: " + String(e.cause));
+        if (parts.length === 0) parts.push(String(err));
+        // eslint-disable-next-line no-console
+        console.error("[RoundFi] contribute failed:", err);
+        setChainError(parts.join("\n"));
         setSubmitting(false);
       }
       return;
