@@ -270,8 +270,11 @@ Initialize + seed txs:
   - Member 0 cycle 0 → [`ysSSQJh…6HHW`](https://solscan.io/tx/ysSSQJhk8Frn87ng4dPGvePaNeLGeU45GHkNY75XPw7ACMymmFDUvHLEeyaRFkkWbogHHqXqAYasNVhp22o6HHW?cluster=devnet)
   - Member 1 cycle 0 → [`3MwScoes…cMYJ`](https://solscan.io/tx/3MwScoes8KrzqWy3QUUeEhqmejKfN44kTXzkY41rYZqfoLFiEKK9yT2m3cQjh27FjJrCbDeHd8AoTSy4JAGicMYJ?cluster=devnet)
   - Member 2 cycle 0 → [`yTVakGw…iDT`](https://solscan.io/tx/yTVakGwDwvWUEXYpzCBuvW2t9D2XWsyLwr1eJN8weWgPGqcuhqHRyN7Vx871f3xHXVgVc6z41EW899bYT9x1iDT?cluster=devnet)
+- `claim_payout` cycle 0 / slot 0 — Pool PDA signs $30 USDC transfer to member 0, `pool.current_cycle` advances 0 → 1, `Member.paid_out=true`, `SCHEMA_CYCLE_COMPLETE` attestation minted:
+  - Pool float top-up [`4dEaTvFr…pKpe8`](https://solscan.io/tx/4dEaTvFrHnztJoK9GwM2E7rqnDFtxUSEgtc8iq4xoU1LGCNEGc97kUkAJQSuxJzXWFkwoye7Bq93YrjC2H7pKpe8?cluster=devnet) — deployer adds $7.80 USDC to `pool_usdc_vault` (proxy for the Yield Cascade LP-distribution flow that bridges this gap in production)
+  - Claim tx [`5fx4VLEt…qpab`](https://solscan.io/tx/5fx4VLEtgbVuXDrXs9rCcAmJarJx6UWWYoeVonQXLQ7JqC5HnMYTNqKNSzjKiroL8s6ZH1UpxpQBmETFKZxpqpab?cluster=devnet) — member 0 USDC ATA: 15 → 45 (+$30 received)
 
-> **End-to-end ROSCA on devnet — first cycle live.** Protocol init → pool create → vault inits → 3 members joined with USDC stakes + position NFTs → 3 contributions on cycle 0 → 3 reputation attestations. Next: `claim_payout` for slot 0, then cycle advance to 1. See [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
+> **End-to-end ROSCA on devnet — first cycle closed.** Protocol init → pool create → vault inits → 3 members joined with USDC stakes + position NFTs → 3 contributions on cycle 0 → slot 0 winner paid out + cycle advanced 0 → 1 → 4 reputation attestations on-chain. Next: drive cycles 1 + 2 (same contribute × 3 → claim_payout pattern) and exercise `release_escrow` at pool completion. See [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
 
 ### Mainnet (smoke deploy — presence only, **not** initialized for live users)
 

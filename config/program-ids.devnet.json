@@ -72,7 +72,21 @@
             "contributeTx": "yTVakGwDwvWUEXYpzCBuvW2t9D2XWsyLwr1eJN8weWgPGqcuhqHRyN7Vx871f3xHXVgVc6z41EW899bYT9x1iDT",
             "installmentUsdc": 10
           }
-        ]
+        ],
+        "claim": {
+          "slotIndex": 0,
+          "schemaId": 4,
+          "schemaName": "SCHEMA_CYCLE_COMPLETE",
+          "creditUsdc": 30,
+          "coreUpgradeBoxTx": "4LrahHnk2dE9uGnUph751ojobkzhKk8sMSun6ZdG3rzYgo9bRpni2rx83PQ4wyqVzbCeTUz47zc7pLo74vGKtc9P",
+          "topUpTx": "4dEaTvFrHnztJoK9GwM2E7rqnDFtxUSEgtc8iq4xoU1LGCNEGc97kUkAJQSuxJzXWFkwoye7Bq93YrjC2H7pKpe8",
+          "topUpUsdc": 7.800001,
+          "topUpFromDeployer": "64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm",
+          "claimTx": "5fx4VLEtgbVuXDrXs9rCcAmJarJx6UWWYoeVonQXLQ7JqC5HnMYTNqKNSzjKiroL8s6ZH1UpxpQBmETFKZxpqpab",
+          "memberUsdcPre": 15,
+          "memberUsdcPost": 45,
+          "advancedToCycle": 1
+        }
       }
     ]
   },
