@@ -183,19 +183,21 @@ async function main() {
       `    last_released_checkpoint = ${memberView.lastReleasedCheckpoint}`,
   );
 
-  if (memberView.onTimeCount >= TARGET_CHECKPOINT) {
+  const isPositivePath = memberView.onTimeCount >= TARGET_CHECKPOINT;
+  if (isPositivePath) {
     console.log(
-      `\n⚠  Member's on_time_count (${memberView.onTimeCount}) ` +
-        `>= checkpoint (${TARGET_CHECKPOINT}). The on-chain guard would NOT fire — ` +
-        `release would actually succeed. Aborting the negative-test driver.`,
+      `\n✓ POSITIVE-PATH mode: on_time_count (${memberView.onTimeCount}) >= ` +
+        `checkpoint (${TARGET_CHECKPOINT}). The on-chain guard will NOT fire — ` +
+        `release_escrow will SUCCEED and transfer the vested escrow portion ` +
+        `to the member's USDC ATA.`,
     );
-    process.exit(1);
+  } else {
+    console.log(
+      `\n✓ NEGATIVE-PATH mode: on_time_count (${memberView.onTimeCount}) < ` +
+        `checkpoint (${TARGET_CHECKPOINT}). The on-chain guard at release_escrow.rs:91 ` +
+        `WILL fire and revert with EscrowLocked (error code ${EXPECTED_ERROR_CODE}).`,
+    );
   }
-  console.log(
-    `\n✓ Pre-condition satisfied: on_time_count (${memberView.onTimeCount}) < ` +
-      `checkpoint (${TARGET_CHECKPOINT}). The on-chain guard at release_escrow.rs:91 ` +
-      `WILL fire and revert with EscrowLocked (error code ${EXPECTED_ERROR_CODE}).`,
-  );
 
   // ─── Build the ix ─────────────────────────────────────────────────────────
   const [protocolConfig] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgram);
@@ -241,67 +243,90 @@ async function main() {
   const cu = ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 });
   const tx = new Transaction().add(cu, ix);
 
-  // skipPreflight=true → the cluster will process the tx and emit a failed
-  // signature on chain (rather than rejecting at simulation). That gives us
-  // a durable Solscan-able tx receipt of the protocol guard firing.
-  console.log(`\n→ Submitting release_escrow(${TARGET_CHECKPOINT}) with skipPreflight=true ...`);
+  // For NEGATIVE-PATH: skipPreflight=true so the failed tx LANDS on chain
+  // and gives a Solscan-durable receipt of the guard firing. For
+  // POSITIVE-PATH: regular preflight — we want simulation to confirm
+  // before sending, just like a normal happy-path tx.
+  console.log(
+    `\n→ Submitting release_escrow(${TARGET_CHECKPOINT}) ` +
+      (isPositivePath ? "(positive path) ..." : "with skipPreflight=true (negative path) ..."),
+  );
   const signature = await connection.sendTransaction(tx, [member], {
     preflightCommitment: "confirmed",
-    skipPreflight: true,
+    skipPreflight: !isPositivePath,
   });
   console.log(`  signature: ${signature}`);
 
-  // Wait for the failed tx to land. confirmTransaction throws when a tx
-  // exits with an error — we expect that, and we want the signature.
   let landed = false;
   try {
     await connection.confirmTransaction(signature, "confirmed");
     landed = true;
   } catch (e) {
-    landed = true; // failed-tx errors are fine — the tx still lands
+    landed = true; // failed-tx errors are fine for the negative case
     void e;
   }
   void landed;
 
-  // Pull the on-chain log to confirm the EscrowLocked error code.
-  const txDetail = await connection.getTransaction(signature, {
-    commitment: "confirmed",
-    maxSupportedTransactionVersion: 0,
-  });
-  if (txDetail) {
-    const logs = txDetail.meta?.logMessages ?? [];
-    const errMatch = logs.find(
-      (l) => l.includes("Error Code:") || l.includes("custom program error"),
-    );
-    console.log(`\n→ On-chain log inspection:`);
-    console.log(`    err: ${txDetail.meta?.err ? JSON.stringify(txDetail.meta.err) : "(none)"}`);
-    if (errMatch) console.log(`    log: ${errMatch}`);
+  if (isPositivePath) {
+    // Read post-call balances to show the actual release amount.
+    const memberAtaPost = await getAccount(connection, memberAta, "confirmed");
+    const memberPdaPostInfo = await connection.getAccountInfo(memberPda, "confirmed");
+    const memberViewPost = memberPdaPostInfo ? decodeMember(memberPdaPostInfo.data) : null;
 
-    const expectedHex = `0x${EXPECTED_ERROR_CODE.toString(16)}`;
-    const matched =
-      JSON.stringify(txDetail.meta?.err ?? {}).includes(expectedHex) ||
-      logs.some(
-        (l) => l.includes(expectedHex) || l.includes(`Error Number: ${EXPECTED_ERROR_CODE}`),
-      );
-    if (matched) {
+    console.log(`\n✓ Positive test PASSED — release_escrow succeeded.`);
+    console.log(`  member ATA USDC : ${(Number(memberAtaPost.amount) / 1e6).toFixed(6)}`);
+    if (memberViewPost) {
+      const released =
+        memberView.escrowBalance > memberViewPost.escrowBalance
+          ? Number(memberView.escrowBalance - memberViewPost.escrowBalance) / 1e6
+          : 0;
       console.log(
-        `\n✓ Negative test PASSED — on-chain guard fired with EscrowLocked (${expectedHex}).`,
+        `  escrow_balance  : ${(Number(memberView.escrowBalance) / 1e6).toFixed(6)} → ` +
+          `${(Number(memberViewPost.escrowBalance) / 1e6).toFixed(6)} (released ${released.toFixed(6)} USDC)`,
       );
-      console.log(`  Triple Shield enforcement of on-time discipline confirmed on devnet.`);
-    } else {
       console.log(
-        `\n⚠ Tx landed as failed but the expected EscrowLocked code wasn't matched in the logs.`,
+        `  last_released   : ${memberView.lastReleasedCheckpoint} → ${memberViewPost.lastReleasedCheckpoint}`,
       );
-      console.log(`  Inspect the full log via Solscan and update this script's matcher if needed.`);
     }
   } else {
-    console.log(`\n⚠ Could not fetch tx detail. Check Solscan directly.`);
+    const txDetail = await connection.getTransaction(signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    });
+    if (txDetail) {
+      const logs = txDetail.meta?.logMessages ?? [];
+      const errMatch = logs.find(
+        (l) => l.includes("Error Code:") || l.includes("custom program error"),
+      );
+      console.log(`\n→ On-chain log inspection:`);
+      console.log(`    err: ${txDetail.meta?.err ? JSON.stringify(txDetail.meta.err) : "(none)"}`);
+      if (errMatch) console.log(`    log: ${errMatch}`);
+
+      const expectedHex = `0x${EXPECTED_ERROR_CODE.toString(16)}`;
+      const matched =
+        JSON.stringify(txDetail.meta?.err ?? {}).includes(expectedHex) ||
+        logs.some(
+          (l) => l.includes(expectedHex) || l.includes(`Error Number: ${EXPECTED_ERROR_CODE}`),
+        );
+      if (matched) {
+        console.log(
+          `\n✓ Negative test PASSED — on-chain guard fired with EscrowLocked (${expectedHex}).`,
+        );
+        console.log(`  Triple Shield enforcement of on-time discipline confirmed on devnet.`);
+      } else {
+        console.log(
+          `\n⚠ Tx landed as failed but the expected EscrowLocked code wasn't matched in the logs.`,
+        );
+      }
+    } else {
+      console.log(`\n⚠ Could not fetch tx detail. Check Solscan directly.`);
+    }
   }
 
   console.log(`\n━━━ done ━━━\n`);
   console.log(`Solscan (devnet):`);
-  console.log(`  failed tx: https://solscan.io/tx/${signature}?cluster=devnet`);
-  console.log(`  pool     : https://solscan.io/account/${pool.toBase58()}?cluster=devnet`);
+  console.log(`  release tx: https://solscan.io/tx/${signature}?cluster=devnet`);
+  console.log(`  pool      : https://solscan.io/account/${pool.toBase58()}?cluster=devnet`);
   console.log("");
 }
 
