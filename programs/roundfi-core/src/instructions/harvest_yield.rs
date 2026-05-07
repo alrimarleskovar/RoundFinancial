@@ -104,10 +104,14 @@ pub struct HarvestYield<'info> {
     // from the 1% das parcelas inside `contribute()`.
 
     /// Protocol treasury — pinned to config.treasury.
+    /// `config.treasury` is set at `initialize_protocol` time to the
+    /// treasury TOKEN ACCOUNT's pubkey (see `initialize_protocol.rs:75`),
+    /// not the wallet that owns it. The check is therefore `key() ==`,
+    /// not `owner ==`.
     #[account(
         mut,
-        constraint = treasury_usdc.owner == config.treasury @ RoundfiError::Unauthorized,
-        constraint = treasury_usdc.mint  == pool.usdc_mint   @ RoundfiError::InvalidMint,
+        constraint = treasury_usdc.key() == config.treasury @ RoundfiError::Unauthorized,
+        constraint = treasury_usdc.mint == pool.usdc_mint   @ RoundfiError::InvalidMint,
     )]
     pub treasury_usdc: Box<Account<'info, TokenAccount>>,
 
