@@ -47,12 +47,15 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 // Demo pool sizing — see file header for rationale.
-const POOL_SEED_ID = 1n;
+// Override via env: POOL_SEED_ID, CYCLE_DURATION_SEC.
+const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
 const MEMBERS_TARGET = 3;
 const CREDIT_AMOUNT = 30_000_000n; // 30 USDC (×1e6 base units)
 const INSTALLMENT_AMOUNT = 10_000_000n; // 10 USDC = credit / cycles
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION = 60n; // seconds — MIN_CYCLE_DURATION on chain
+const CYCLE_DURATION = process.env.CYCLE_DURATION_SEC
+  ? BigInt(process.env.CYCLE_DURATION_SEC)
+  : 60n; // default 60s — MIN_CYCLE_DURATION on chain
 const ESCROW_RELEASE_BPS = 2_500; // 25% per checkpoint (default)
 
 function loadKeypair(path: string): Keypair {

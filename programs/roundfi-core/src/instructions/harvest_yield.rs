@@ -72,7 +72,7 @@ pub struct HarvestYield<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         mut,
@@ -81,19 +81,19 @@ pub struct HarvestYield<'info> {
         constraint = pool.status == PoolStatus::Active as u8 @ RoundfiError::PoolNotActive,
         constraint = pool.yield_adapter != Pubkey::default() @ RoundfiError::YieldAdapterNotConfigured,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         associated_token::mint = usdc_mint,
         associated_token::authority = pool,
     )]
-    pub pool_usdc_vault: Account<'info, TokenAccount>,
+    pub pool_usdc_vault: Box<Account<'info, TokenAccount>>,
 
     // NOTE: pre-v1.1 this struct also pinned `solidarity_vault_authority`
     // and `solidarity_vault` because harvest_yield used to transfer the
@@ -104,12 +104,16 @@ pub struct HarvestYield<'info> {
     // from the 1% das parcelas inside `contribute()`.
 
     /// Protocol treasury — pinned to config.treasury.
+    /// `config.treasury` is set at `initialize_protocol` time to the
+    /// treasury TOKEN ACCOUNT's pubkey (see `initialize_protocol.rs:75`),
+    /// not the wallet that owns it. The check is therefore `key() ==`,
+    /// not `owner ==`.
     #[account(
         mut,
-        constraint = treasury_usdc.owner == config.treasury @ RoundfiError::Unauthorized,
-        constraint = treasury_usdc.mint  == pool.usdc_mint   @ RoundfiError::InvalidMint,
+        constraint = treasury_usdc.key() == config.treasury @ RoundfiError::Unauthorized,
+        constraint = treasury_usdc.mint == pool.usdc_mint   @ RoundfiError::InvalidMint,
     )]
-    pub treasury_usdc: Account<'info, TokenAccount>,
+    pub treasury_usdc: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Adapter-side vault holding the deposited principal +
     /// pending yield. Intentionally `UncheckedAccount` — we do NOT

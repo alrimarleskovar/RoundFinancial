@@ -49,7 +49,7 @@ import {
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 // Pool params must match what `seed-pool.ts` created.
-const POOL_SEED_ID = 1n;
+const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
 const DEPLOYMENT_CONFIG_PATH = resolve(process.cwd(), "config/program-ids.devnet.json");
 const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
 

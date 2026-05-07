@@ -54,7 +54,7 @@ import {
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 // Pool params must match what `seed-pool.ts` created.
-const POOL_SEED_ID = 1n;
+const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
 const CREDIT_AMOUNT_BASE = 30_000_000n; // 30 USDC ×1e6
 const REPUTATION_LEVEL = 1; // Lv1 — fresh wallets default to this
 const STAKE_BPS_LV1 = 5_000n; // 50% of credit
