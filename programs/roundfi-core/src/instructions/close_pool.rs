@@ -28,7 +28,7 @@ pub struct ClosePool<'info> {
         seeds = [SEED_CONFIG],
         bump = config.bump,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     /// Authority must match the pool's creator OR the protocol authority.
     #[account(
@@ -43,7 +43,7 @@ pub struct ClosePool<'info> {
         bump = pool.bump,
         constraint = pool.status == PoolStatus::Completed as u8 @ RoundfiError::PoolNotCompleted,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 }
 
 pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
