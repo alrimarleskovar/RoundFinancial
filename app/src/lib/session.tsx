@@ -70,6 +70,11 @@ export interface SessionState {
    *  + GroupRow overlay this onto the static fixture so the dial advances
    *  when the user pays an installment (capped at the group's total). */
   monthsPaidByGroup: Record<string, number>;
+  /** Groups whose payout has been claimed in this session (mock mode
+   *  only — real-tx flows talk straight to chain). FeaturedGroup +
+   *  GroupCard read this to hide the "Receber" CTA after a successful
+   *  claim. */
+  claimedGroups: string[];
   /** When the admin Demo Studio applies a preset to the live session,
    *  it ships a synthetic ActiveGroup (carta + months + currentMonth +
    *  contemplated state). FeaturedGroup checks this first and falls back
@@ -144,6 +149,7 @@ function computeLevel(score: number): {
 
 type Action =
   | { type: "PAY_INSTALLMENT"; group: ActiveGroup }
+  | { type: "CLAIM_PAYOUT"; group: ActiveGroup }
   | { type: "JOIN_GROUP"; group: CatalogGroup }
   | { type: "SELL_SHARE"; position: NftPosition; askPrice: number; discountPct: number }
   | { type: "CANCEL_LISTING"; listingId: string }
@@ -233,6 +239,7 @@ const INITIAL_STATE: SessionState = {
   acquiredPositions: [],
   joinedGroupNames: [],
   monthsPaidByGroup: {},
+  claimedGroups: [],
   demoGroup: null,
   listings: [],
 };
@@ -311,6 +318,31 @@ function reducer(state: SessionState, action: Action): SessionState {
           ...state.monthsPaidByGroup,
           [action.group.name]: prevPaid + 1,
         },
+      };
+    }
+    case "CLAIM_PAYOUT": {
+      // Mock-mode claim: user receives the group's prize amount, group
+      // is marked as claimed (records into claimedGroups so the
+      // Receber CTA disappears on subsequent renders). No reputation
+      // bump here — the +6/score lift fires from PAY_INSTALLMENT only.
+      // Real-tx flow (browser-signed claim_payout) bypasses this
+      // reducer; this branch is purely for Demo Studio scenarios that
+      // ship a contemplated preset.
+      if (state.claimedGroups.includes(action.group.name)) return state;
+      const ev: SessionEvent = {
+        id: makeId(),
+        kind: "yield",
+        ts: Date.now(),
+        txid: makeTxid(),
+        op: "claim.payout",
+        amountBrl: action.group.prize,
+        target: action.group.name,
+      };
+      return {
+        ...state,
+        user: { ...state.user, balance: state.user.balance + action.group.prize },
+        events: [ev, ...state.events],
+        claimedGroups: [...state.claimedGroups, action.group.name],
       };
     }
     case "JOIN_GROUP": {
@@ -535,9 +567,11 @@ interface SessionContextValue {
   acquiredPositions: NftPosition[];
   joinedGroupNames: string[];
   monthsPaidByGroup: Record<string, number>;
+  claimedGroups: string[];
   demoGroup: ActiveGroup | null;
   listings: ActiveListing[];
   payInstallment: (group: ActiveGroup) => void;
+  claimPayoutMock: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
   sellShare: (position: NftPosition, askPrice: number, discountPct: number) => void;
   cancelListing: (listingId: string) => void;
@@ -646,6 +680,10 @@ export function SessionProvider({
     (group: ActiveGroup) => dispatch({ type: "PAY_INSTALLMENT", group }),
     [],
   );
+  const claimPayoutMock = useCallback(
+    (group: ActiveGroup) => dispatch({ type: "CLAIM_PAYOUT", group }),
+    [],
+  );
   const joinGroup = useCallback(
     (group: CatalogGroup) => dispatch({ type: "JOIN_GROUP", group }),
     [],
@@ -696,9 +734,11 @@ export function SessionProvider({
       acquiredPositions: state.acquiredPositions,
       joinedGroupNames: state.joinedGroupNames,
       monthsPaidByGroup: state.monthsPaidByGroup,
+      claimedGroups: state.claimedGroups,
       demoGroup: state.demoGroup,
       listings: state.listings,
       payInstallment,
+      claimPayoutMock,
       joinGroup,
       sellShare,
       cancelListing,
@@ -710,6 +750,7 @@ export function SessionProvider({
     [
       state,
       payInstallment,
+      claimPayoutMock,
       joinGroup,
       sellShare,
       cancelListing,

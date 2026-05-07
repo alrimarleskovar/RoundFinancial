@@ -74,6 +74,7 @@ export function AdminClient() {
         ? `ganho no mês ${ctrl.state.group.contemplationMonth}`
         : `em ${remainingMonths} meses`,
       installment: ctrl.state.group.installment,
+      contemplated: ctrl.state.contemplated,
     };
     loadFromDemo(
       {

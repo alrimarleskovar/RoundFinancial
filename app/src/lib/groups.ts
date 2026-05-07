@@ -43,6 +43,8 @@ export interface CatalogGroup {
   category: Category;
   joined: boolean;
   devnetPool?: DevnetPoolKey;
+  /** Mirrors `ActiveGroup.contemplated` — set by Demo Studio presets. */
+  contemplated?: boolean;
 }
 
 export function fromActive(g: ActiveGroup): CatalogGroup {
@@ -60,6 +62,7 @@ export function fromActive(g: ActiveGroup): CatalogGroup {
     category: categorizeGroup(g),
     joined: true,
     devnetPool: g.devnetPool,
+    contemplated: g.contemplated,
   };
 }
 

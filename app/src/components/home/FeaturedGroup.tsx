@@ -26,7 +26,7 @@ export function FeaturedGroup() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { monthsPaidByGroup, demoGroup } = useSession();
+  const { monthsPaidByGroup, demoGroup, claimedGroups } = useSession();
   // ─── On-chain pool read (devnet) ────────────────────────────────────
   // Reads the live state of the on-chain pool tagged on g1
   // (`g1.devnetPool`, currently `pool3` because that's the only pool
@@ -93,6 +93,18 @@ export function FeaturedGroup() {
     connectedMember.slotIndex === onChain.pool.currentCycle &&
     !connectedMember.paidOut &&
     !connectedMember.defaulted;
+  // Demo Studio mock-mode detection. When a preset has flagged the
+  // user as the contemplated slot (`demoGroup.contemplated === true`)
+  // and the session hasn't yet recorded a claim for that group, the
+  // same Receber CTA appears — it just dispatches the mock reducer
+  // instead of a real tx. Mutually exclusive with `claimReady` since
+  // useChain is false whenever demoGroup is set.
+  const claimReadyDemo =
+    !claimReady &&
+    !!demoGroup &&
+    demoGroup.contemplated === true &&
+    !claimedGroups.includes(baseG.name);
+  const showClaim = claimReady || claimReadyDemo;
 
   const dialPct = g.month / g.total;
   // Tick count tracks total months but caps at 24 to keep the dial
@@ -337,7 +349,7 @@ export function FeaturedGroup() {
 
           {/* CTA row */}
           <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {claimReady ? (
+            {showClaim ? (
               <button
                 type="button"
                 onClick={() => setClaimOpen(true)}
@@ -360,9 +372,10 @@ export function FeaturedGroup() {
               >
                 <Icons.ticket size={14} stroke={tokens.text} sw={2} />
                 Receber{" "}
-                {fmtMoney((Number(onChain.pool!.creditAmount) / 1e6) * USDC_RATE, {
-                  noCents: true,
-                })}
+                {fmtMoney(
+                  claimReady ? (Number(onChain.pool!.creditAmount) / 1e6) * USDC_RATE : g.prize,
+                  { noCents: true },
+                )}
               </button>
             ) : null}
             <button
@@ -421,6 +434,8 @@ export function FeaturedGroup() {
           pool={onChain.pool}
           seedKey={fixtureG.devnetPool}
         />
+      ) : claimReadyDemo ? (
+        <ClaimPayoutModal group={baseG} open={claimOpen} onClose={() => setClaimOpen(false)} />
       ) : null}
     </div>
   );

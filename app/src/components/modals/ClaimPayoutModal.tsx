@@ -13,26 +13,30 @@ import { sendClaimPayout } from "@/lib/claim-payout";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
 import type { RawMemberView, RawPoolView } from "@roundfi/sdk";
 
 // Claim-payout modal — the symmetric companion to PayInstallmentModal.
-// Renders only when the connected wallet's `member.slot_index` equals
-// `pool.current_cycle` AND `!member.paid_out` (the natural "it's your
-// turn" state). Caller (FeaturedGroup) is responsible for the
-// gating; this component just renders the modal + dispatches the tx.
+// Dual mode:
+//   - **chain**: all of memberRecord/pool/seedKey are passed → fires
+//     a real claim_payout(cycle) tx via the wallet adapter.
+//   - **mock**: those props are omitted → fires `session.claimPayoutMock`
+//     (mock reducer) on a 1500ms timeout. Used by Demo Studio scenarios
+//     where the contemplated user clicks Receber but no wallet is
+//     connected to the matching on-chain member.
 
 export interface ClaimPayoutModalProps {
   group: ActiveGroup;
   open: boolean;
   onClose: () => void;
-  /** The connected member record (must equal pool.current_cycle's slot). */
-  memberRecord: RawMemberView;
-  /** The live pool view — credit amount + cycle metadata read from chain. */
-  pool: RawPoolView;
-  /** DEVNET_POOLS key (matches group.devnetPool). */
-  seedKey: keyof typeof DEVNET_POOLS;
+  /** Chain-mode: the connected member record (must equal current_cycle's slot). */
+  memberRecord?: RawMemberView;
+  /** Chain-mode: the live pool view. */
+  pool?: RawPoolView;
+  /** Chain-mode: DEVNET_POOLS key (matches group.devnetPool). */
+  seedKey?: keyof typeof DEVNET_POOLS;
 }
 
 export function ClaimPayoutModal({
@@ -48,14 +52,22 @@ export function ClaimPayoutModal({
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
   const { explorerTx } = useWallet();
+  const { claimPayoutMock } = useSession();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [txSig, setTxSig] = useState<string | null>(null);
   const [chainError, setChainError] = useState<string | null>(null);
 
   const connectedWallet = adapter.publicKey;
-  const creditUsdc = Number(pool.creditAmount) / 1e6;
-  const creditBrl = creditUsdc * USDC_RATE;
+  const chainMode = !!(pool && memberRecord && seedKey);
+  // Credit amount sourcing: chain mode reads from on-chain pool, mock
+  // mode falls back to the fixture's prize (already BRL) and converts
+  // back to USDC for the breakdown line.
+  const creditUsdc = chainMode ? Number(pool!.creditAmount) / 1e6 : group.prize / USDC_RATE;
+  const creditBrl = chainMode ? creditUsdc * USDC_RATE : group.prize;
+  const slotIndexDisplay = chainMode ? memberRecord!.slotIndex : "—";
+  const cycleDisplay = chainMode ? pool!.currentCycle : group.month;
+  const cyclesTotalDisplay = chainMode ? pool!.cyclesTotal : group.total;
 
   const reset = () => {
     setSubmitting(false);
@@ -66,36 +78,52 @@ export function ClaimPayoutModal({
   };
 
   const handleConfirm = async () => {
-    if (!connectedWallet || !adapter.sendTransaction) return;
     setSubmitting(true);
     setChainError(null);
 
-    try {
-      const sig = await sendClaimPayout({
-        connection,
-        sendTransaction: adapter.sendTransaction,
-        pool: DEVNET_POOLS[seedKey].pda,
-        memberWallet: connectedWallet as PublicKey,
-        cycle: pool.currentCycle,
-        slotIndex: memberRecord.slotIndex,
-      });
-      setTxSig(sig);
+    if (
+      chainMode &&
+      connectedWallet &&
+      adapter.sendTransaction &&
+      pool &&
+      memberRecord &&
+      seedKey
+    ) {
+      try {
+        const sig = await sendClaimPayout({
+          connection,
+          sendTransaction: adapter.sendTransaction,
+          pool: DEVNET_POOLS[seedKey].pda,
+          memberWallet: connectedWallet as PublicKey,
+          cycle: pool.currentCycle,
+          slotIndex: memberRecord.slotIndex,
+        });
+        setTxSig(sig);
+        setSubmitting(false);
+        setDone(true);
+      } catch (err) {
+        const e = err as { message?: string; logs?: string[]; cause?: unknown };
+        const parts: string[] = [];
+        if (e.message) parts.push(e.message);
+        if (Array.isArray(e.logs) && e.logs.length > 0) {
+          parts.push("logs:\n" + e.logs.join("\n"));
+        }
+        if (e.cause) parts.push("cause: " + String(e.cause));
+        if (parts.length === 0) parts.push(String(err));
+        // eslint-disable-next-line no-console
+        console.error("[RoundFi] claim_payout failed:", err);
+        setChainError(parts.join("\n"));
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Mock mode — Demo Studio scenarios + any non-chain caller.
+    setTimeout(() => {
+      claimPayoutMock(group);
       setSubmitting(false);
       setDone(true);
-    } catch (err) {
-      const e = err as { message?: string; logs?: string[]; cause?: unknown };
-      const parts: string[] = [];
-      if (e.message) parts.push(e.message);
-      if (Array.isArray(e.logs) && e.logs.length > 0) {
-        parts.push("logs:\n" + e.logs.join("\n"));
-      }
-      if (e.cause) parts.push("cause: " + String(e.cause));
-      if (parts.length === 0) parts.push(String(err));
-      // eslint-disable-next-line no-console
-      console.error("[RoundFi] claim_payout failed:", err);
-      setChainError(parts.join("\n"));
-      setSubmitting(false);
-    }
+    }, 1500);
   };
 
   return (
@@ -187,7 +215,7 @@ export function ClaimPayoutModal({
                   fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
-                slot {memberRecord.slotIndex} · ciclo {pool.currentCycle + 1}/{pool.cyclesTotal}
+                slot {slotIndexDisplay} · ciclo {cycleDisplay + 1}/{cyclesTotalDisplay}
               </div>
             </div>
           </div>
@@ -232,28 +260,52 @@ export function ClaimPayoutModal({
           </div>
 
           {/* On-chain banner */}
-          <div
-            style={{
-              marginBottom: 14,
-              padding: "10px 12px",
-              borderRadius: 10,
-              background: `${tokens.purple}14`,
-              border: `1px solid ${tokens.purple}33`,
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-start",
-            }}
-          >
-            <MonoLabel size={9} color={tokens.purple}>
-              ON-CHAIN
-            </MonoLabel>
-            <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
-              Wallet {shortAddr(connectedWallet?.toBase58() ?? "")} (slot {memberRecord.slotIndex})
-              é o slot contemplado do ciclo {pool.currentCycle}. Confirmar dispara{" "}
-              <code style={{ color: tokens.purple }}>claim_payout(cycle={pool.currentCycle})</code>{" "}
-              no devnet — Pool PDA assina a transferência USDC.
-            </span>
-          </div>
+          {chainMode ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.purple}14`,
+                border: `1px solid ${tokens.purple}33`,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.purple}>
+                ON-CHAIN
+              </MonoLabel>
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                Wallet {shortAddr(connectedWallet?.toBase58() ?? "")} (slot {slotIndexDisplay}) é o
+                slot contemplado do ciclo {cycleDisplay}. Confirmar dispara{" "}
+                <code style={{ color: tokens.purple }}>claim_payout(cycle={cycleDisplay})</code> no
+                devnet — Pool PDA assina a transferência USDC.
+              </span>
+            </div>
+          ) : (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: tokens.fillSoft,
+                border: `1px solid ${tokens.borderStr}`,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.purple}>
+                MODO DEMO
+              </MonoLabel>
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                Cenário do Demo Studio. Confirmar dispara o `claim_payout` mock — credita o prêmio
+                no saldo da sessão. A versão on-chain (com wallet conectada num pool deployed) envia
+                uma tx real assinada pelo Phantom.
+              </span>
+            </div>
+          )}
 
           {/* What happens (mini bullet list) */}
           <MonoLabel size={9}>O QUE ACONTECE</MonoLabel>
@@ -267,9 +319,12 @@ export function ClaimPayoutModal({
               lineHeight: 1.7,
             }}
           >
-            <li>{creditUsdc.toFixed(2)} USDC sai do pool float, vai para sua ATA</li>
             <li>
-              <code>pool.current_cycle</code> avança {pool.currentCycle} → {pool.currentCycle + 1}
+              {chainMode ? `${creditUsdc.toFixed(2)} USDC` : fmtMoney(creditBrl)} sai do pool float,
+              vai para a sua wallet
+            </li>
+            <li>
+              <code>pool.current_cycle</code> avança {cycleDisplay} → {cycleDisplay + 1}
             </li>
             <li>
               <code>member.paid_out</code> = true (não pode reclamar duas vezes)
