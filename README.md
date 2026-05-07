@@ -256,12 +256,14 @@ The post-deploy register lives at [`docs/devnet-deployment.md`](docs/devnet-depl
 | `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
 | `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | ✅ deployed | [view](https://solscan.io/account/GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ?cluster=devnet) |
 
-Initialize txs:
+Initialize + seed txs:
 
 - `initialize_protocol` → [`3gCY7M…fXNUz`](https://solscan.io/tx/3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz?cluster=devnet) · ProtocolConfig PDA = [`3c9MmoM…vJoTMV`](https://solscan.io/account/3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV?cluster=devnet)
 - `initialize_reputation` → [`59Sgz1…ALCn1`](https://solscan.io/tx/59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1?cluster=devnet) · ReputationConfig PDA = [`7RDWsSDc…aXo4`](https://solscan.io/account/7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4?cluster=devnet)
+- `create_pool` → [`2Emh1s…E8urS`](https://solscan.io/tx/2Emh1snRJgSRsypcwSgZUe21Duw6pKrQk4e16NJQh3CLi9ehaQGQPnj1RJvEAyPu3icjmThM4ehnk55sn8GE8urS?cluster=devnet) · Pool PDA = [`5APoECXz…c8ooa`](https://solscan.io/account/5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa?cluster=devnet) (demo, 3 members, $30 carta, 3 cycles)
+- `init_pool_vaults` → [`zmnoex…umnx`](https://solscan.io/tx/zmnoexdEA8VVwLDNQJPVh8eVPdiLK5EThEAh7rbWiVJNrjQCzyCExXpmDtQL73DdUKm1vpmNd5pNWqeVo3iumnx?cluster=devnet) (4 USDC vault ATAs: pool/escrow/solidarity/yield)
 
-> **State, not just bytecode.** Devnet has live `ProtocolConfig` + `ReputationConfig` singletons. Pool seeding (`scripts/devnet/seed-pool.ts`) remains a Step 4/8 stub — gated behind the M3 milestone (app ↔ on-chain wiring) per [`docs/status.md`](docs/status.md).
+> **State + first pool, not just bytecode.** Devnet has live `ProtocolConfig` + `ReputationConfig` singletons + a 3-member ROSCA pool with all four USDC vault ATAs ready to receive members. Member onboarding (`seed-members.ts` with USDC stake + Metaplex Core NFT mint per join) is the next M3 step — see [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
 
 ### Mainnet (smoke deploy — presence only, **not** initialized for live users)
 

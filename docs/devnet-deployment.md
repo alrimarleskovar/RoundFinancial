@@ -1,6 +1,6 @@
 # RoundFi — Devnet Deployment Record
 
-**Cluster:** Solana **Devnet** · **Status:** ✅ All 4 programs deployed + protocol singletons initialized (2026-05-07). `ProtocolConfig` + `ReputationConfig` PDAs live on-chain with state — devnet now has a working protocol, not just bytecode. Pool seeding (`scripts/devnet/seed-pool.ts`) remains an M3 stub until the app ↔ on-chain wiring lands per [`status.md`](./status.md).
+**Cluster:** Solana **Devnet** · **Status:** ✅ All 4 programs deployed + protocol singletons initialized + first ROSCA pool live (2026-05-07). `ProtocolConfig` + `ReputationConfig` + `Pool` PDAs hold real state on-chain with the four USDC vault ATAs (pool/escrow/solidarity/yield) all initialized. Member onboarding (`join_pool` + Metaplex Core NFT mint) remains an M3 step — see `seed-members.ts` placeholder.
 
 > This file is the **post-deploy register**: program IDs, transaction
 > signatures, deployer keypair, dates. It complements
@@ -63,16 +63,19 @@ Solana CLI's `--verbose` flag prints the `Signature:` line for each
 program upload. Capture the four signatures + the protocol initialization
 tx so reviewers can see the on-chain history without poking around.
 
-| Step                                | Tx Signature                                                                               | Solscan                                                                                                                               |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Deploy `reputation`                 | `TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM`  | [view](https://solscan.io/tx/TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM?cluster=devnet)  |
-| Deploy `core`                       | `3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV` | [view](https://solscan.io/tx/3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV?cluster=devnet) |
-| Deploy `yield-kamino`               | `21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3` | [view](https://solscan.io/tx/21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3?cluster=devnet) |
-| Deploy `yield-mock`                 | `3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY` | [view](https://solscan.io/tx/3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY?cluster=devnet) |
-| Create treasury ATA                 | `4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq` | [view](https://solscan.io/tx/4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq?cluster=devnet) |
-| `initialize_protocol`               | `3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz` | [view](https://solscan.io/tx/3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz?cluster=devnet) |
-| `initialize_reputation`             | `59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1` | [view](https://solscan.io/tx/59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1?cluster=devnet) |
-| Seed demo pool (`pnpm devnet:seed`) | _M3 scope — `scripts/devnet/seed-pool.ts` is a TODO stub (Step 4/8 placeholder)_           | _N/A until M3_                                                                                                                        |
+| Step                               | Tx Signature                                                                               | Solscan                                                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Deploy `reputation`                | `TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM`  | [view](https://solscan.io/tx/TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM?cluster=devnet)  |
+| Deploy `core`                      | `3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV` | [view](https://solscan.io/tx/3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV?cluster=devnet) |
+| Deploy `yield-kamino`              | `21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3` | [view](https://solscan.io/tx/21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3?cluster=devnet) |
+| Deploy `yield-mock`                | `3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY` | [view](https://solscan.io/tx/3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY?cluster=devnet) |
+| Create treasury ATA                | `4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq` | [view](https://solscan.io/tx/4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq?cluster=devnet) |
+| `initialize_protocol`              | `3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz` | [view](https://solscan.io/tx/3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz?cluster=devnet) |
+| `initialize_reputation`            | `59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1` | [view](https://solscan.io/tx/59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1?cluster=devnet) |
+| `roundfi_core` upgrade (split fix) | `56Fia9v3nYzhRTmYjwuwvdvcFmZYsCdXr8Nh4QicTE6pYyhCPMerYabuAtbrFYk9RVfv8moXkANFYYTE15KWSiwH` | [view](https://solscan.io/tx/56Fia9v3nYzhRTmYjwuwvdvcFmZYsCdXr8Nh4QicTE6pYyhCPMerYabuAtbrFYk9RVfv8moXkANFYYTE15KWSiwH?cluster=devnet) |
+| `create_pool`                      | `2Emh1snRJgSRsypcwSgZUe21Duw6pKrQk4e16NJQh3CLi9ehaQGQPnj1RJvEAyPu3icjmThM4ehnk55sn8GE8urS` | [view](https://solscan.io/tx/2Emh1snRJgSRsypcwSgZUe21Duw6pKrQk4e16NJQh3CLi9ehaQGQPnj1RJvEAyPu3icjmThM4ehnk55sn8GE8urS?cluster=devnet) |
+| `init_pool_vaults` (4 vault ATAs)  | `zmnoexdEA8VVwLDNQJPVh8eVPdiLK5EThEAh7rbWiVJNrjQCzyCExXpmDtQL73DdUKm1vpmNd5pNWqeVo3iumnx`  | [view](https://solscan.io/tx/zmnoexdEA8VVwLDNQJPVh8eVPdiLK5EThEAh7rbWiVJNrjQCzyCExXpmDtQL73DdUKm1vpmNd5pNWqeVo3iumnx?cluster=devnet)  |
+| Seed members (`seed-members.ts`)   | _M3 scope — Circle USDC faucet hits + 3× join_pool with Metaplex Core NFT mint_            | _N/A until M3_                                                                                                                        |
 
 ---
 
@@ -92,17 +95,27 @@ the M3 wiring in the app) gets the right IDs without env hand-rolling.
 
 ---
 
-## 4b · State accounts created post-init
+## 4b · State accounts created post-init / post-seed
 
-After `pnpm devnet:init`, three accounts now exist on-chain. Reviewers can fetch them via Solscan or `solana account show` to verify the protocol holds real state:
+After `pnpm devnet:init` and `pnpm devnet:seed`, the following accounts exist on-chain. Reviewers can fetch each one via Solscan or `solana account show` to verify the protocol holds real, structured state:
 
-| Account                | Address                                        | Type                        | Solscan                                                                                        |
-| ---------------------- | ---------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `ProtocolConfig` PDA   | `3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV` | Anchor account (core)       | [view](https://solscan.io/account/3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV?cluster=devnet) |
-| `ReputationConfig` PDA | `7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4` | Anchor account (reputation) | [view](https://solscan.io/account/7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4?cluster=devnet) |
-| Treasury USDC ATA      | `5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5` | SPL token account           | [view](https://solscan.io/account/5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5?cluster=devnet) |
+| Account                                    | Address                                        | Type                        | Solscan                                                                                        |
+| ------------------------------------------ | ---------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ProtocolConfig` PDA                       | `3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV` | Anchor account (core)       | [view](https://solscan.io/account/3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV?cluster=devnet) |
+| `ReputationConfig` PDA                     | `7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4` | Anchor account (reputation) | [view](https://solscan.io/account/7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4?cluster=devnet) |
+| Treasury USDC ATA                          | `5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5` | SPL token account           | [view](https://solscan.io/account/5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5?cluster=devnet) |
+| **`Pool` PDA** (demo, 3-member, $30 carta) | `5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa` | Anchor account (core)       | [view](https://solscan.io/account/5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa?cluster=devnet) |
 
-PDAs are deterministic — re-running `pnpm devnet:init` against the same cluster + program IDs is idempotent (script detects existing PDAs and prints "skipping").
+The pool's four USDC vault ATAs land in the same `init_pool_vaults` tx — they're derivable as `getAssociatedTokenAddress(USDC_MINT, <authority_pda>)` where the four authorities are PDAs from `[SEED_X, pool.key()]`:
+
+| Vault              | Authority seed prefix | Purpose                                                               |
+| ------------------ | --------------------- | --------------------------------------------------------------------- |
+| `pool_usdc_vault`  | `b"pool"` (Pool PDA)  | Active settlement pot — installments land here                        |
+| `escrow_vault`     | `b"escrow"`           | Member stake escrow — locked Lv2 stake (~$9 each at 30% × $30 credit) |
+| `solidarity_vault` | `b"solidarity"`       | Cofre Solidário — 1% of every installment (Triple Shield 1st cushion) |
+| `yield_vault`      | `b"yield"`            | Parked-USDC source for the Kamino-bound yield adapter                 |
+
+PDAs are deterministic — re-running `pnpm devnet:init` and `pnpm devnet:seed` against the same cluster + program IDs is idempotent (both scripts detect existing PDAs/ATAs and print "skipping").
 
 ---
 
@@ -147,9 +160,9 @@ Keep the most recent deploy at the top. Older entries get a `[ROTATED]`
 or `[DEPRECATED]` tag with a one-line explanation so the audit trail
 survives.
 
-| Date       | Build commit | Deployer                                       | Reason                                                                                                                                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------- | ------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-07 | `cef681b`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy + protocol initialization (TransferDelegate plugin + PDF-canonical waterfall + ProtocolConfig/ReputationConfig singletons) | All 4 programs deployed across two sessions on the same day. Session 1: `roundfi-reputation`, `roundfi-core`, `roundfi-yield-kamino`. Session 2 (after 8h faucet cooldown): `roundfi-yield-mock`. Session 3 (same day): `initialize_protocol` + `initialize_reputation` via the rewritten `init-protocol.ts` (#162) using manual instruction encoding — Anchor 0.30.1 IDL gen is broken on Rust 1.95+, SDK rewrite gated on toolchain bump to 0.31+. Pool seeding (`scripts/devnet/seed-pool.ts`) is the next M3 step. |
+| Date       | Build commit | Deployer                                       | Reason                                                                                                                                                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------- | ------------ | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | `67748ac`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy + protocol init + first pool seeded (TransferDelegate plugin + PDF-canonical waterfall + 3 PDA singletons + 1 demo Pool with 4 vault ATAs) | Four sessions on the same day. (1) `roundfi-reputation`, `roundfi-core`, `roundfi-yield-kamino` deploy. (2) `roundfi-yield-mock` deploy after 8h faucet cooldown. (3) `initialize_protocol` + `initialize_reputation` via rewritten `init-protocol.ts` (#162). (4) `create_pool` + `init_pool_vaults` for the demo 3-member pool (#164) — required splitting the original combined `create_pool` into two ixs to dodge a Solana 3.x stack frame overflow. Member onboarding (`seed-members.ts` with USDC stakes + Metaplex Core NFT mints) is the next M3 step. |
 
 ---
 
