@@ -32,14 +32,14 @@ pub struct EscapeValveList<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         seeds = [SEED_POOL, pool.authority.as_ref(), &pool.seed_id.to_le_bytes()],
         bump = pool.bump,
         constraint = pool.status == PoolStatus::Active as u8 @ RoundfiError::PoolNotActive,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         seeds = [SEED_MEMBER, pool.key().as_ref(), seller_wallet.key().as_ref()],
@@ -47,7 +47,7 @@ pub struct EscapeValveList<'info> {
         constraint = member.wallet == seller_wallet.key() @ RoundfiError::NotAMember,
         constraint = !member.defaulted @ RoundfiError::DefaultedMember,
     )]
-    pub member: Account<'info, Member>,
+    pub member: Box<Account<'info, Member>>,
 
     #[account(
         init,
@@ -56,7 +56,7 @@ pub struct EscapeValveList<'info> {
         seeds = [SEED_LISTING, pool.key().as_ref(), &[member.slot_index]],
         bump,
     )]
-    pub listing: Account<'info, EscapeValveListing>,
+    pub listing: Box<Account<'info, EscapeValveListing>>,
 
     pub system_program: Program<'info, System>,
 }

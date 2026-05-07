@@ -83,14 +83,14 @@ pub struct EscapeValveBuy<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         seeds = [SEED_POOL, pool.authority.as_ref(), &pool.seed_id.to_le_bytes()],
         bump = pool.bump,
         constraint = pool.status == PoolStatus::Active as u8 @ RoundfiError::PoolNotActive,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         mut,
@@ -100,7 +100,7 @@ pub struct EscapeValveBuy<'info> {
         constraint = listing.pool == pool.key() @ RoundfiError::ListingNotActive,
         constraint = listing.status == EscapeValveStatus::Active as u8 @ RoundfiError::ListingNotActive,
     )]
-    pub listing: Account<'info, EscapeValveListing>,
+    pub listing: Box<Account<'info, EscapeValveListing>>,
 
     #[account(
         mut,
@@ -111,7 +111,7 @@ pub struct EscapeValveBuy<'info> {
         constraint = !old_member.defaulted @ RoundfiError::DefaultedMember,
         constraint = old_member.slot_index == listing.slot_index @ RoundfiError::NotYourPayoutSlot,
     )]
-    pub old_member: Account<'info, Member>,
+    pub old_member: Box<Account<'info, Member>>,
 
     #[account(
         init,
@@ -120,26 +120,26 @@ pub struct EscapeValveBuy<'info> {
         seeds = [SEED_MEMBER, pool.key().as_ref(), buyer_wallet.key().as_ref()],
         bump,
     )]
-    pub new_member: Account<'info, Member>,
+    pub new_member: Box<Account<'info, Member>>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = buyer_wallet,
     )]
-    pub buyer_usdc: Account<'info, TokenAccount>,
+    pub buyer_usdc: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = seller_wallet,
     )]
-    pub seller_usdc: Account<'info, TokenAccount>,
+    pub seller_usdc: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Metaplex Core asset for this slot. Pinned to
     /// `old_member.nft_asset` so the buyer can't substitute someone
