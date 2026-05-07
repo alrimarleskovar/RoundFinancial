@@ -256,9 +256,12 @@ The post-deploy register lives at [`docs/devnet-deployment.md`](docs/devnet-depl
 | `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
 | `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | ✅ deployed | [view](https://solscan.io/account/GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ?cluster=devnet) |
 
-Initialize tx: _M3 scope — see [`docs/devnet-deployment.md` §3](docs/devnet-deployment.md#3--deployment-transactions)._
+Initialize txs:
 
-> **Why no `initialize_protocol` tx yet?** The `scripts/devnet/init-protocol.ts` and `scripts/devnet/seed-pool.ts` scripts ship as intentional **Step 4/8 stubs** — they print a TODO message and exit. Calling the real `initialize_protocol` / `initialize_reputation` instructions, plus the `create_pool` + `join_pool` seeding, is gated behind the M3 milestone (app ↔ on-chain wiring) per [`docs/status.md`](docs/status.md). The four programs are deployed and ready to be initialized when M3 lands.
+- `initialize_protocol` → [`3gCY7M…fXNUz`](https://solscan.io/tx/3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz?cluster=devnet) · ProtocolConfig PDA = [`3c9MmoM…vJoTMV`](https://solscan.io/account/3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV?cluster=devnet)
+- `initialize_reputation` → [`59Sgz1…ALCn1`](https://solscan.io/tx/59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1?cluster=devnet) · ReputationConfig PDA = [`7RDWsSDc…aXo4`](https://solscan.io/account/7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4?cluster=devnet)
+
+> **State, not just bytecode.** Devnet has live `ProtocolConfig` + `ReputationConfig` singletons. Pool seeding (`scripts/devnet/seed-pool.ts`) remains a Step 4/8 stub — gated behind the M3 milestone (app ↔ on-chain wiring) per [`docs/status.md`](docs/status.md).
 
 ### Mainnet (smoke deploy — presence only, **not** initialized for live users)
 
