@@ -3,6 +3,14 @@
   "rpcUrl": "https://api.devnet.solana.com",
   "deployedAt": "2026-05-07T01:39:00Z",
   "deployer": "64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm",
+  "initialized": {
+    "protocolConfigPda": "3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV",
+    "protocolConfigInitTx": "3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz",
+    "reputationConfigPda": "7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4",
+    "reputationConfigInitTx": "59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1",
+    "treasuryAta": "5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5",
+    "treasuryAtaCreateTx": "4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq"
+  },
   "programs": {
     "roundfi_core": {
       "programId": "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw",

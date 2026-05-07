@@ -1,6 +1,6 @@
 # RoundFi — Devnet Deployment Record
 
-**Cluster:** Solana **Devnet** · **Status:** ✅ All 4 programs deployed (2026-05-07). Protocol initialization (`initialize_protocol` / `initialize_reputation`) + pool seeding are M3 scope per [`status.md`](./status.md) — the `scripts/devnet/init-protocol.ts` and `scripts/devnet/seed-pool.ts` stubs are intentional placeholders from Step 4/8 of the original roadmap and remain TODO until the app↔on-chain wiring lands.
+**Cluster:** Solana **Devnet** · **Status:** ✅ All 4 programs deployed + protocol singletons initialized (2026-05-07). `ProtocolConfig` + `ReputationConfig` PDAs live on-chain with state — devnet now has a working protocol, not just bytecode. Pool seeding (`scripts/devnet/seed-pool.ts`) remains an M3 stub until the app ↔ on-chain wiring lands per [`status.md`](./status.md).
 
 > This file is the **post-deploy register**: program IDs, transaction
 > signatures, deployer keypair, dates. It complements
@@ -69,8 +69,9 @@ tx so reviewers can see the on-chain history without poking around.
 | Deploy `core`                       | `3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV` | [view](https://solscan.io/tx/3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV?cluster=devnet) |
 | Deploy `yield-kamino`               | `21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3` | [view](https://solscan.io/tx/21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3?cluster=devnet) |
 | Deploy `yield-mock`                 | `3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY` | [view](https://solscan.io/tx/3U4C4JVqxhrd2d343DQqgRGgqb1a8VdQXMBkFtqy148UnEBwrH8ia76PdG776qvxGNnMVqX62FVQGG6QVZ61RTGY?cluster=devnet) |
-| `initialize_protocol`               | _M3 scope — `scripts/devnet/init-protocol.ts` is a TODO stub (Step 4/8 placeholder)_       | _N/A until M3_                                                                                                                        |
-| `initialize_reputation`             | _M3 scope — same script_                                                                   | _N/A until M3_                                                                                                                        |
+| Create treasury ATA                 | `4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq` | [view](https://solscan.io/tx/4s5ESCkvapynecLDGpd9iSvBWEirtVuND9rxLsMa8kHNxowHZQAXwCQssb4SDdSH12eYtuGTQLvRUBabrTm8Hbfq?cluster=devnet) |
+| `initialize_protocol`               | `3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz` | [view](https://solscan.io/tx/3gCY7MpttUhiHejEgxA67FvkzEjrdRYZ99chcFDpbSKBrJAizZqkcuCVCgaC6ZHRCUrcvezGkhe3LN8uWUfrXNUz?cluster=devnet) |
+| `initialize_reputation`             | `59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1` | [view](https://solscan.io/tx/59Sgz1G59g2Q3usdk2qVxGVFcQSDU5RhAPSNypY5QJ8oqRRNBqq1VJbgBWh3ymVaBRLm1yJJE2bYYH3wP1PALCn1?cluster=devnet) |
 | Seed demo pool (`pnpm devnet:seed`) | _M3 scope — `scripts/devnet/seed-pool.ts` is a TODO stub (Step 4/8 placeholder)_           | _N/A until M3_                                                                                                                        |
 
 ---
@@ -88,6 +89,20 @@ must land in the same commit so the rest of the repo sees the new IDs:
 
 After committing, anyone running `pnpm test:bankrun` against devnet (or
 the M3 wiring in the app) gets the right IDs without env hand-rolling.
+
+---
+
+## 4b · State accounts created post-init
+
+After `pnpm devnet:init`, three accounts now exist on-chain. Reviewers can fetch them via Solscan or `solana account show` to verify the protocol holds real state:
+
+| Account                | Address                                        | Type                        | Solscan                                                                                        |
+| ---------------------- | ---------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ProtocolConfig` PDA   | `3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV` | Anchor account (core)       | [view](https://solscan.io/account/3c9MmoM8ZGQGCrKMFGvJcCtvD78jEPa2JZtLwTvJoTMV?cluster=devnet) |
+| `ReputationConfig` PDA | `7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4` | Anchor account (reputation) | [view](https://solscan.io/account/7RDWsSDcYYjn31E2dL2hbU3YQFFTvh2Wg8nxDsAXaXo4?cluster=devnet) |
+| Treasury USDC ATA      | `5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5` | SPL token account           | [view](https://solscan.io/account/5ggMVBCqCfjwzKegvwMs3dpJqYDYNxmgnpubb55CVQX5?cluster=devnet) |
+
+PDAs are deterministic — re-running `pnpm devnet:init` against the same cluster + program IDs is idempotent (script detects existing PDAs and prints "skipping").
 
 ---
 
@@ -132,9 +147,9 @@ Keep the most recent deploy at the top. Older entries get a `[ROTATED]`
 or `[DEPRECATED]` tag with a one-line explanation so the audit trail
 survives.
 
-| Date       | Build commit | Deployer                                       | Reason                                                                  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------- | ------------ | ---------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-07 | `3a05383`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy (TransferDelegate plugin + PDF-canonical waterfall) | All 4 programs deployed across two sessions on the same day. Session 1: `roundfi-reputation`, `roundfi-core`, `roundfi-yield-kamino`. Session 2 (after 8h faucet cooldown): `roundfi-yield-mock`. Protocol initialization is M3 scope — the init/seed scripts are intentional Step 4/8 stubs and stay TODO until app↔on-chain wiring lands. Build commit `d57bb43` was the build target; `3a05383` is the commit that recorded the first 3 deploys (#160). |
+| Date       | Build commit | Deployer                                       | Reason                                                                                                                                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------- | ------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | `cef681b`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy + protocol initialization (TransferDelegate plugin + PDF-canonical waterfall + ProtocolConfig/ReputationConfig singletons) | All 4 programs deployed across two sessions on the same day. Session 1: `roundfi-reputation`, `roundfi-core`, `roundfi-yield-kamino`. Session 2 (after 8h faucet cooldown): `roundfi-yield-mock`. Session 3 (same day): `initialize_protocol` + `initialize_reputation` via the rewritten `init-protocol.ts` (#162) using manual instruction encoding — Anchor 0.30.1 IDL gen is broken on Rust 1.95+, SDK rewrite gated on toolchain bump to 0.31+. Pool seeding (`scripts/devnet/seed-pool.ts`) is the next M3 step. |
 
 ---
 
