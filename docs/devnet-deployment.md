@@ -1,6 +1,6 @@
 # RoundFi — Devnet Deployment Record
 
-**Cluster:** Solana **Devnet** · **Status:** _Pending first deploy — fill this in after running the steps in `devnet-setup.md`._
+**Cluster:** Solana **Devnet** · **Status:** ✅ First deploy landed 2026-05-07 — 3 of 4 programs live, `roundfi_yield_mock` queued behind a faucet rate-limit (see §7).
 
 > This file is the **post-deploy register**: program IDs, transaction
 > signatures, deployer keypair, dates. It complements
@@ -22,16 +22,16 @@
 
 ## 1 · Latest deployment
 
-| Field                          | Value                                                              |
-| ------------------------------ | ------------------------------------------------------------------ |
-| **Date** (UTC)                 | _yyyy-mm-dd_                                                       |
-| **Anchor**                     | `0.30.1`                                                           |
-| **Solana CLI**                 | `1.18.17` (Anza Agave)                                             |
-| **Rust**                       | `1.79.0` (pinned by `rust-toolchain.toml`)                         |
-| **Workstation**                | _e.g. WSL2 Ubuntu 22.04 / macOS 14.5 / Linux native_               |
-| **Deployer pubkey**            | `_FILL_ME_` (from `solana-keygen pubkey ./keypairs/deployer.json`) |
-| **Deployer SOL balance after** | `_FILL_ME_` SOL (from `solana balance --keypair …`)                |
-| **Build commit**               | `_FILL_ME_` (`git rev-parse --short HEAD` at deploy time)          |
+| Field                          | Value                                          |
+| ------------------------------ | ---------------------------------------------- |
+| **Date** (UTC)                 | 2026-05-07                                     |
+| **Anchor**                     | `0.30.1`                                       |
+| **Solana CLI**                 | `3.1.14` (Anza Agave)                          |
+| **Rust**                       | `1.95.0` (host channel = `stable`)             |
+| **Workstation**                | WSL2 Ubuntu 22.04 (`LAPTOP-N7DHUF3R`)          |
+| **Deployer pubkey**            | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` |
+| **Deployer SOL balance after** | `0.53341092` SOL (faucet exhausted; see §7)    |
+| **Build commit**               | `d57bb43` (main @ time of deploy)              |
 
 ---
 
@@ -42,12 +42,12 @@ copy the four IDs below and link each to its Solscan page so reviewers
 can verify on chain. Devnet Solscan URL pattern:
 `https://solscan.io/account/<PROGRAM_ID>?cluster=devnet`
 
-| Program                | Program ID  | Solscan                                                     |
-| ---------------------- | ----------- | ----------------------------------------------------------- |
-| `roundfi-core`         | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
-| `roundfi-reputation`   | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
-| `roundfi-yield-mock`   | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
-| `roundfi-yield-kamino` | `_FILL_ME_` | [view](https://solscan.io/account/_FILL_ME_?cluster=devnet) |
+| Program                | Program ID                                     | Status                          | Solscan                                                                                        |
+| ---------------------- | ---------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed                     | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet) |
+| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed                     | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet) |
+| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed                     | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
+| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | 🟡 keypair-only, deploy pending | _will resolve once faucet limit clears (see §7)_                                               |
 
 > **Sanity check after filling:** `solana program show <PROGRAM_ID> --url devnet`
 > should print `Program Id: <PROGRAM_ID>` and a non-zero `Data Length`.
@@ -63,15 +63,15 @@ Solana CLI's `--verbose` flag prints the `Signature:` line for each
 program upload. Capture the four signatures + the protocol initialization
 tx so reviewers can see the on-chain history without poking around.
 
-| Step                                | Tx Signature | Solscan                                                |
-| ----------------------------------- | ------------ | ------------------------------------------------------ |
-| Deploy `core`                       | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
-| Deploy `reputation`                 | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
-| Deploy `yield-mock`                 | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
-| Deploy `yield-kamino`               | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
-| `initialize_protocol`               | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
-| `initialize_reputation`             | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
-| Seed demo pool (`pnpm devnet:seed`) | `_FILL_ME_`  | [view](https://solscan.io/tx/_FILL_ME_?cluster=devnet) |
+| Step                                | Tx Signature                                                                               | Solscan                                                                                                                               |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Deploy `reputation`                 | `TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM`  | [view](https://solscan.io/tx/TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM?cluster=devnet)  |
+| Deploy `core`                       | `3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV` | [view](https://solscan.io/tx/3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV?cluster=devnet) |
+| Deploy `yield-kamino`               | `21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3` | [view](https://solscan.io/tx/21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3?cluster=devnet) |
+| Deploy `yield-mock`                 | _pending — faucet rate-limited (see §7)_                                                   | _pending_                                                                                                                             |
+| `initialize_protocol`               | _pending — runs after `yield-mock` lands_                                                  | _pending_                                                                                                                             |
+| `initialize_reputation`             | _pending — runs alongside `initialize_protocol`_                                           | _pending_                                                                                                                             |
+| Seed demo pool (`pnpm devnet:seed`) | _pending — runs after the two `initialize_\*` calls\_                                      | _pending_                                                                                                                             |
 
 ---
 
@@ -132,9 +132,9 @@ Keep the most recent deploy at the top. Older entries get a `[ROTATED]`
 or `[DEPRECATED]` tag with a one-line explanation so the audit trail
 survives.
 
-| Date         | Build commit | Deployer    | Reason                                                                  | Notes                                                                                                            |
-| ------------ | ------------ | ----------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| _yyyy-mm-dd_ | `_FILL_ME_`  | `_FILL_ME_` | Initial v1.1 deploy (TransferDelegate plugin + PDF-canonical waterfall) | First deployment after the audit hardening cluster (#122-#127) and the listings/buys session integration (#156). |
+| Date       | Build commit | Deployer                                       | Reason                                                                  | Notes                                                                                                                                                                                                                                                                                                                           |
+| ---------- | ------------ | ---------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | `d57bb43`    | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` | Initial v1.1 deploy (TransferDelegate plugin + PDF-canonical waterfall) | First deployment after the audit hardening cluster (#122-#127), the level promotion + secondary-market integration (#153-#156), and the toolchain unblock (#138, #139). 3 of 4 programs landed; `roundfi-yield-mock` blocked on devnet faucet rate-limit (8h cooldown) — keypair generated, will be uploaded in a follow-up PR. |
 
 ---
 

@@ -25,10 +25,10 @@ roundfi_yield_mock  = "11111111111111111111111111111111"
 roundfi_yield_kamino = "11111111111111111111111111111111"
 
 [programs.devnet]
-roundfi_core        = "11111111111111111111111111111111"
-roundfi_reputation  = "11111111111111111111111111111111"
-roundfi_yield_mock  = "11111111111111111111111111111111"
-roundfi_yield_kamino = "11111111111111111111111111111111"
+roundfi_core         = "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw"
+roundfi_reputation   = "Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2"
+roundfi_yield_mock   = "GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ"
+roundfi_yield_kamino = "74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb"
 
 [registry]
 url = "https://api.apr.dev"

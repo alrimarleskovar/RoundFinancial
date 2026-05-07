@@ -1,0 +1,29 @@
+{
+  "cluster": "devnet",
+  "rpcUrl": "https://api.devnet.solana.com",
+  "deployedAt": "2026-05-07T01:39:00Z",
+  "deployer": "64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm",
+  "programs": {
+    "roundfi_core": {
+      "programId": "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw",
+      "deployTx": "3jbdE3u2bdmdzHKiWPa9j3wdo7QP1hJdeEUDzdX4ENWkXPkAYk5gcpBHuvn668XAY8WbwNxhPfhV6tkaKKN8ehRV",
+      "status": "deployed"
+    },
+    "roundfi_reputation": {
+      "programId": "Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2",
+      "deployTx": "TkT3pk6W7pED5BWGKYDMQGjwkg6M9xf8USpUkS5w4yweoyamdY1a4LzCAyWkbVi39KYCFs6evsMa6RZ9ctFScpM",
+      "status": "deployed"
+    },
+    "roundfi_yield_kamino": {
+      "programId": "74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb",
+      "deployTx": "21RmNi2PgZqs9TVaL8uxiqcZBQGkHCKUGS9EQDauEhWu6JWLmiHeR8JaW6KFnSCAKSqUpQagrGYW6iyy5TjWzyS3",
+      "status": "deployed"
+    },
+    "roundfi_yield_mock": {
+      "programId": "GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ",
+      "deployTx": null,
+      "status": "pending",
+      "reason": "Devnet faucet rate-limited at deploy time. Keypair generated locally at target/deploy/roundfi_yield_mock-keypair.json (committed to deployer authority); upload pending one more SOL airdrop. Mock adapter is dev/test-only — production uses roundfi_yield_kamino which IS deployed."
+    }
+  }
+}
