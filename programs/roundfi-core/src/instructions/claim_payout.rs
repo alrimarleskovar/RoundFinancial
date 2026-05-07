@@ -25,7 +25,7 @@ pub struct ClaimPayout<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         mut,
@@ -33,7 +33,7 @@ pub struct ClaimPayout<'info> {
         bump = pool.bump,
         constraint = pool.status == PoolStatus::Active as u8 @ RoundfiError::PoolNotActive,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         mut,
@@ -43,26 +43,26 @@ pub struct ClaimPayout<'info> {
         constraint = !member.defaulted @ RoundfiError::DefaultedMember,
         constraint = !member.paid_out @ RoundfiError::NotYourPayoutSlot,
     )]
-    pub member: Account<'info, Member>,
+    pub member: Box<Account<'info, Member>>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = member_wallet,
     )]
-    pub member_usdc: Account<'info, TokenAccount>,
+    pub member_usdc: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         associated_token::mint = usdc_mint,
         associated_token::authority = pool,
     )]
-    pub pool_usdc_vault: Account<'info, TokenAccount>,
+    pub pool_usdc_vault: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 
