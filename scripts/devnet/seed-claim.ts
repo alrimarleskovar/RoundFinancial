@@ -69,9 +69,7 @@ function loadKeypair(path: string): Keypair {
 function loadMemberKeypair(slot: number): Keypair {
   const path = resolve(KEYPAIRS_DIR, `member-${slot}.json`);
   if (!existsSync(path)) {
-    throw new Error(
-      `Missing keypairs/member-${slot}.json — run 'pnpm devnet:seed-members' first.`,
-    );
+    throw new Error(`Missing keypairs/member-${slot}.json — run 'pnpm devnet:seed-members' first.`);
   }
   return loadKeypair(path);
 }
@@ -258,10 +256,7 @@ async function callClaimPayout(
   memberUsdc: PublicKey,
   memberPda: PublicKey,
 ): Promise<string> {
-  const [protocolConfig] = PublicKey.findProgramAddressSync(
-    [Buffer.from("config")],
-    coreProgram,
-  );
+  const [protocolConfig] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgram);
   const poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, pool, true);
   const [reputationConfig] = PublicKey.findProgramAddressSync(
     [Buffer.from("rep-config")],
@@ -407,9 +402,7 @@ async function main() {
   // Claim is for the slot whose index == current cycle (slot rotation).
   const slotIndex = poolView.currentCycle;
   const winner = loadMemberKeypair(slotIndex);
-  console.log(
-    `→ Claimant     : member ${slotIndex} (${winner.publicKey.toBase58()})\n`,
-  );
+  console.log(`→ Claimant     : member ${slotIndex} (${winner.publicKey.toBase58()})\n`);
 
   const [memberPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("member"), pool.toBuffer(), winner.publicKey.toBuffer()],
@@ -423,9 +416,7 @@ async function main() {
     );
   }
   if (decodeMemberPaidOut(memberInfo.data)) {
-    console.log(
-      `✓ Slot ${slotIndex} already paid out (member.paid_out=true). Nothing to do.`,
-    );
+    console.log(`✓ Slot ${slotIndex} already paid out (member.paid_out=true). Nothing to do.`);
     return;
   }
 
