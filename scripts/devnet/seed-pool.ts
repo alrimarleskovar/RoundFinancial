@@ -38,7 +38,6 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
-  SYSVAR_RENT_PUBKEY,
   Transaction,
   TransactionInstruction,
   ComputeBudgetProgram,
@@ -125,12 +124,6 @@ async function callCreatePool(
     coreProgram,
   );
 
-  // ATAs for the four token accounts. Authority is the PDA, mint is USDC.
-  const poolUsdcVault = await deriveAta(usdcMint, poolPda);
-  const escrowVault = await deriveAta(usdcMint, escrowAuthority);
-  const solidarityVault = await deriveAta(usdcMint, solidarityAuthority);
-  const yieldVault = await deriveAta(usdcMint, yieldAuthority);
-
   // ix.data = [discriminator (8) | u64 seed_id | u8 members_target |
   //            u64 installment | u64 credit | u8 cycles_total |
   //            i64 cycle_duration | u16 escrow_release_bps]
@@ -145,8 +138,8 @@ async function callCreatePool(
     encodeU16LE(ESCROW_RELEASE_BPS),
   ]);
 
-  // Account list — order MUST match `CreatePool` in
-  // programs/roundfi-core/src/instructions/create_pool.rs:
+  // Account list — order matches `CreatePool` in
+  // programs/roundfi-core/src/instructions/create_pool.rs (post-split):
   //   1. authority                  (signer, mut)
   //   2. config                     (PDA, read)
   //   3. pool                       (PDA, mut, init)
@@ -155,14 +148,9 @@ async function callCreatePool(
   //   6. escrow_vault_authority     (PDA, read)
   //   7. solidarity_vault_authority (PDA, read)
   //   8. yield_vault_authority      (PDA, read)
-  //   9. pool_usdc_vault            (mut, init ATA)
-  //  10. escrow_vault               (mut, init ATA)
-  //  11. solidarity_vault           (mut, init ATA)
-  //  12. yield_vault                (mut, init ATA)
-  //  13. token_program              (read)
-  //  14. associated_token_program   (read)
-  //  15. system_program             (read)
-  //  16. rent sysvar                (read)
+  //   9. system_program             (read)
+  // Vault ATAs are created in a follow-up `init_pool_vaults` ix —
+  // see header for the stack-frame split rationale.
   const ix = new TransactionInstruction({
     programId: coreProgram,
     keys: [
@@ -174,6 +162,83 @@ async function callCreatePool(
       { pubkey: escrowAuthority, isSigner: false, isWritable: false },
       { pubkey: solidarityAuthority, isSigner: false, isWritable: false },
       { pubkey: yieldAuthority, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+
+  // 200k CU is enough for create_pool now (only 1 init).
+  const cu = ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 });
+  const tx = new Transaction().add(cu, ix);
+  const signature = await connection.sendTransaction(tx, [authority], {
+    preflightCommitment: "confirmed",
+  });
+  await connection.confirmTransaction(signature, "confirmed");
+  return { signature, poolPda };
+}
+
+async function callInitPoolVaults(
+  connection: Connection,
+  authority: Keypair,
+  coreProgram: PublicKey,
+  usdcMint: PublicKey,
+  poolPda: PublicKey,
+): Promise<{ signature: string } | { skipped: true }> {
+  const [escrowAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from("escrow"), poolPda.toBuffer()],
+    coreProgram,
+  );
+  const [solidarityAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from("solidarity"), poolPda.toBuffer()],
+    coreProgram,
+  );
+  const [yieldAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from("yield"), poolPda.toBuffer()],
+    coreProgram,
+  );
+
+  const poolUsdcVault = await deriveAta(usdcMint, poolPda);
+  const escrowVault = await deriveAta(usdcMint, escrowAuthority);
+  const solidarityVault = await deriveAta(usdcMint, solidarityAuthority);
+  const yieldVault = await deriveAta(usdcMint, yieldAuthority);
+
+  // Idempotency check: if the four ATAs already exist with the right
+  // mint + authority, skip. (`create_idempotent` on chain does the same
+  // — this is just to keep the script output legible on retries.)
+  const allExist = await Promise.all(
+    [poolUsdcVault, escrowVault, solidarityVault, yieldVault].map((a) =>
+      connection.getAccountInfo(a, "confirmed"),
+    ),
+  );
+  if (allExist.every((info) => info != null)) {
+    console.log(`→ all four vault ATAs already exist — skipping init_pool_vaults`);
+    return { skipped: true };
+  }
+
+  // Account list — order matches `InitPoolVaults` in
+  // programs/roundfi-core/src/instructions/init_pool_vaults.rs:
+  //   1. authority                  (signer, mut)
+  //   2. pool                       (PDA, read)
+  //   3. usdc_mint                  (read)
+  //   4. escrow_vault_authority     (PDA, read)
+  //   5. solidarity_vault_authority (PDA, read)
+  //   6. yield_vault_authority      (PDA, read)
+  //   7. pool_usdc_vault            (mut)
+  //   8. escrow_vault               (mut)
+  //   9. solidarity_vault           (mut)
+  //  10. yield_vault                (mut)
+  //  11. token_program              (read)
+  //  12. associated_token_program   (read)
+  //  13. system_program             (read)
+  const ix = new TransactionInstruction({
+    programId: coreProgram,
+    keys: [
+      { pubkey: authority.publicKey, isSigner: true, isWritable: true },
+      { pubkey: poolPda, isSigner: false, isWritable: false },
+      { pubkey: usdcMint, isSigner: false, isWritable: false },
+      { pubkey: escrowAuthority, isSigner: false, isWritable: false },
+      { pubkey: solidarityAuthority, isSigner: false, isWritable: false },
+      { pubkey: yieldAuthority, isSigner: false, isWritable: false },
       { pubkey: poolUsdcVault, isSigner: false, isWritable: true },
       { pubkey: escrowVault, isSigner: false, isWritable: true },
       { pubkey: solidarityVault, isSigner: false, isWritable: true },
@@ -181,19 +246,18 @@ async function callCreatePool(
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
     ],
-    data,
+    data: anchorIxDiscriminator("init_pool_vaults"),
   });
 
-  // Bump compute budget — create_pool inits 4 ATAs in one tx (~270k CU).
+  // 4 sequential SPL associated_token CPIs ~80k CU each at most.
   const cu = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
   const tx = new Transaction().add(cu, ix);
   const signature = await connection.sendTransaction(tx, [authority], {
     preflightCommitment: "confirmed",
   });
   await connection.confirmTransaction(signature, "confirmed");
-  return { signature, poolPda };
+  return { signature };
 }
 
 async function deriveAta(mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
@@ -246,21 +310,49 @@ async function main() {
     );
   }
 
+  // Step 1 — create the Pool PDA + record vault-authority bumps.
   console.log(`→ calling roundfi_core.create_pool(...)`);
-  const result = await callCreatePool(connection, authority, coreProgram, yieldAdapter, usdcMint);
-  if ("skipped" in result) {
-    console.log(`  Pool PDA: ${result.poolPda.toBase58()} (existing)\n`);
+  const poolResult = await callCreatePool(
+    connection,
+    authority,
+    coreProgram,
+    yieldAdapter,
+    usdcMint,
+  );
+  if ("skipped" in poolResult) {
+    console.log(`  Pool PDA: ${poolResult.poolPda.toBase58()} (existing)\n`);
   } else {
     console.log(`✓ create_pool confirmed`);
-    console.log(`  Pool PDA  : ${result.poolPda.toBase58()}`);
-    console.log(`  signature : ${result.signature}\n`);
+    console.log(`  Pool PDA  : ${poolResult.poolPda.toBase58()}`);
+    console.log(`  signature : ${poolResult.signature}\n`);
+  }
+
+  // Step 2 — initialize the four USDC vault ATAs via sequential CPIs.
+  // (Split out of create_pool to keep stack frame depth manageable on
+  // Solana 3.x — see init_pool_vaults.rs header.)
+  console.log(`→ calling roundfi_core.init_pool_vaults(...)`);
+  const vaultsResult = await callInitPoolVaults(
+    connection,
+    authority,
+    coreProgram,
+    usdcMint,
+    poolResult.poolPda,
+  );
+  if ("skipped" in vaultsResult) {
+    console.log(`  (4 vault ATAs already initialized)\n`);
+  } else {
+    console.log(`✓ init_pool_vaults confirmed`);
+    console.log(`  signature : ${vaultsResult.signature}\n`);
   }
 
   console.log(`━━━ done ━━━\n`);
   console.log(`Solscan (devnet):`);
-  console.log(`  https://solscan.io/account/${result.poolPda.toBase58()}?cluster=devnet`);
-  if (!("skipped" in result)) {
-    console.log(`  https://solscan.io/tx/${result.signature}?cluster=devnet`);
+  console.log(`  https://solscan.io/account/${poolResult.poolPda.toBase58()}?cluster=devnet`);
+  if (!("skipped" in poolResult)) {
+    console.log(`  https://solscan.io/tx/${poolResult.signature}?cluster=devnet`);
+  }
+  if (!("skipped" in vaultsResult)) {
+    console.log(`  https://solscan.io/tx/${vaultsResult.signature}?cluster=devnet`);
   }
   console.log(`\nNext step: join the pool via the (TBD) seed-members.ts script —`);
   console.log(`           creates ${MEMBERS_TARGET} member wallets, faucets USDC, and runs`);
