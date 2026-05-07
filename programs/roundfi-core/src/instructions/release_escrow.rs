@@ -23,14 +23,14 @@ pub struct ReleaseEscrow<'info> {
         bump = config.bump,
         constraint = !config.paused @ RoundfiError::ProtocolPaused,
     )]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
 
     #[account(
         mut,
         seeds = [SEED_POOL, pool.authority.as_ref(), &pool.seed_id.to_le_bytes()],
         bump = pool.bump,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
     #[account(
         mut,
@@ -39,19 +39,19 @@ pub struct ReleaseEscrow<'info> {
         constraint = member.wallet == member_wallet.key() @ RoundfiError::NotAMember,
         constraint = !member.defaulted @ RoundfiError::DefaultedMember,
     )]
-    pub member: Account<'info, Member>,
+    pub member: Box<Account<'info, Member>>,
 
     #[account(
         constraint = usdc_mint.key() == pool.usdc_mint @ RoundfiError::InvalidMint,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         token::mint = usdc_mint,
         token::authority = member_wallet,
     )]
-    pub member_usdc: Account<'info, TokenAccount>,
+    pub member_usdc: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Escrow vault authority PDA — signs the outbound transfer.
     #[account(
@@ -65,7 +65,7 @@ pub struct ReleaseEscrow<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = escrow_vault_authority,
     )]
-    pub escrow_vault: Account<'info, TokenAccount>,
+    pub escrow_vault: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }
