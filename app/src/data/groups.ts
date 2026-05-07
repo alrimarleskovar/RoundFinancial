@@ -43,10 +43,14 @@ export const ACTIVE_GROUPS: ActiveGroup[] = [
     members: 12,
     draw: "em 5 dias",
     installment: 892.4,
-    // Pool 2 (active, 1h cycles) is the live on-chain twin of this card —
-    // the FeaturedGroup on /home overrides counters when available. Cards
-    // in /grupos surface the link via an "on-chain" badge.
-    devnetPool: "pool2",
+    // Pool 3 (active, 60s cycle, contribute() write path validated end-to-end
+    // via Phantom) is the live on-chain twin of this card. Pool 2 is in a
+    // contribute-locked state (all members paid cycle 0, claim_payout
+    // blocked by SCHEMA_CYCLE_COMPLETE 6-day cooldown from pool 1), so
+    // pool 3 is the only one currently driveable from the front-end. The
+    // FeaturedGroup on /home overrides counters when available; cards in
+    // /grupos surface the link via an "on-chain" badge.
+    devnetPool: "pool3",
   },
   {
     id: "g2",

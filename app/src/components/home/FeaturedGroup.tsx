@@ -24,27 +24,28 @@ export function FeaturedGroup() {
   const t = useT();
   const { fmtMoney } = useI18n();
   const { monthsPaidByGroup, demoGroup } = useSession();
-  // ─── On-chain Pool 2 read (devnet) ─────────────────────────────────
-  // When the wallet adapter is pointed at devnet AND Pool 2 deserializes
-  // cleanly, override the mock fixture's membership / cycle / amount
-  // fields with the live values. The Demo Studio preset (`demoGroup`)
-  // takes precedence over the chain feed so the recording flow stays
-  // deterministic — chain data fills in only when no preset is active.
-  // If RPC is down, the cluster is wrong, or the pool is missing,
-  // `usePool` returns status="fallback" and we silently render the
-  // mock fixture exactly as before.
-  const onChain = usePool("pool2");
-  const onChainMembers = usePoolMembers("pool2");
+  // ─── On-chain pool read (devnet) ────────────────────────────────────
+  // Reads the live state of the on-chain pool tagged on g1
+  // (`g1.devnetPool`, currently `pool3` because that's the only pool
+  // currently driveable from the front-end — Pool 2's contribute path
+  // is locked behind a SCHEMA_CYCLE_COMPLETE 6-day cooldown). When the
+  // pool deserializes cleanly, override the mock fixture's membership /
+  // cycle / amount fields with the live values. The Demo Studio preset
+  // (`demoGroup`) takes precedence over the chain feed so the recording
+  // flow stays deterministic — chain data fills in only when no preset
+  // is active. If RPC is down, the cluster is wrong, or the pool is
+  // missing, `usePool` returns status="fallback" and we silently render
+  // the mock fixture exactly as before.
+  const fixtureG = demoGroup ?? ACTIVE_GROUPS[0];
+  const seedKey = fixtureG.devnetPool ?? "pool3";
+  const onChain = usePool(seedKey);
+  const onChainMembers = usePoolMembers(seedKey);
   const { explorerAddr } = useWallet();
   const useChain = onChain.status === "ok" && onChain.pool && !demoGroup;
-  // Demo Studio scenarios swap the featured group entirely; falls back
-  // to the static fixture when no preset has been applied to the live
-  // session.
-  const fixtureG = demoGroup ?? ACTIVE_GROUPS[0];
   const baseG = useChain
     ? {
         ...fixtureG,
-        name: `Pool 2 · ${onChain.pool!.membersJoined}/${onChain.pool!.membersTarget} members · $${
+        name: `Pool ${onChain.pool!.seedId} · ${onChain.pool!.membersJoined}/${onChain.pool!.membersTarget} members · $${
           Number(onChain.pool!.creditAmount) / 1e6
         } credit (devnet)`,
         month: onChain.pool!.currentCycle,
@@ -249,9 +250,10 @@ export function FeaturedGroup() {
             </span>
           </div>
 
-          {/* On-chain roster — only when reading pool2 live and at least
-              one member account is materialized. Shows real wallets so
-              the demo proves the membership is on-chain, not a fixture. */}
+          {/* On-chain roster — only when reading the live pool and at
+              least one member account is materialized. Shows real wallets
+              so the demo proves the membership is on-chain, not a fixture.
+              Currently sourced from pool3 via g1.devnetPool. */}
           {useChain && onChainMembers.status === "ok" && onChainMembers.members.length > 0 ? (
             <div
               style={{
