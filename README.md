@@ -266,8 +266,12 @@ Initialize + seed txs:
   - Member 0 → [`4r2Pd9qv…ADc5`](https://solscan.io/account/4r2Pd9qvL5iDyh7689rTsXVrAYoocoSsoR4bLZJhADc5?cluster=devnet) · join tx [`2UrRDG…dnLD`](https://solscan.io/tx/2UrRDG9f6Dq8rZE3h1t5decBPrSV5gLacHBNhbKUvEBCyjQDuC5htJNbkVxuHwD5srPu7xT6F7AGB3bJpAoddnLD?cluster=devnet)
   - Member 1 → [`3Sr4M88H…eEnm`](https://solscan.io/account/3Sr4M88HDY3f1hnWJR7dznSvjCoRB4bTwGMDvAVNeEnm?cluster=devnet) · join tx [`3GJUTi…wU8k`](https://solscan.io/tx/3GJUTibE3LEn9zaJT7BdqpHKnKy8ZnPzysbYUEo6b3uxV8bbypmvAgcKtTNsGbhjfhfPzWejiaTGhkoAEvPSwU8k?cluster=devnet)
   - Member 2 → [`6ymEiWiA…cYiaa`](https://solscan.io/account/6ymEiWiAU6oJT4i5MisJDCZTSqtuvbfBKccVfdocYiaa?cluster=devnet) · join tx [`3L7dtn…ceYSJ`](https://solscan.io/tx/3L7dtnuaR4arvAjMuAFSofJpuSLunxz8ajWWRDbUw3d9wdgzgBPEA5x1a1yvZh6cikPVHieUkbvkNaooDqhceYSJ?cluster=devnet)
+- `contribute` × 3 — cycle 0 fully paid; each $10 installment split across solidarity (1%) / escrow (25%) / pool float (74%); each call also init's a reputation `Attestation` PDA (`SCHEMA_LATE = 2`):
+  - Member 0 cycle 0 → [`ysSSQJh…6HHW`](https://solscan.io/tx/ysSSQJhk8Frn87ng4dPGvePaNeLGeU45GHkNY75XPw7ACMymmFDUvHLEeyaRFkkWbogHHqXqAYasNVhp22o6HHW?cluster=devnet)
+  - Member 1 cycle 0 → [`3MwScoes…cMYJ`](https://solscan.io/tx/3MwScoes8KrzqWy3QUUeEhqmejKfN44kTXzkY41rYZqfoLFiEKK9yT2m3cQjh27FjJrCbDeHd8AoTSy4JAGicMYJ?cluster=devnet)
+  - Member 2 cycle 0 → [`yTVakGw…iDT`](https://solscan.io/tx/yTVakGwDwvWUEXYpzCBuvW2t9D2XWsyLwr1eJN8weWgPGqcuhqHRyN7Vx871f3xHXVgVc6z41EW899bYT9x1iDT?cluster=devnet)
 
-> **End-to-end ROSCA on devnet.** The full flow — protocol init → pool create → vault inits → 3 members joined with USDC stakes + position NFTs — runs against the deployed programs at the addresses above. Live cycle progression (contribute / claim_payout / harvest_yield) is the next M3 step — see [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
+> **End-to-end ROSCA on devnet — first cycle live.** Protocol init → pool create → vault inits → 3 members joined with USDC stakes + position NFTs → 3 contributions on cycle 0 → 3 reputation attestations. Next: `claim_payout` for slot 0, then cycle advance to 1. See [`docs/status.md`](docs/status.md) and [`docs/devnet-deployment.md`](docs/devnet-deployment.md).
 
 ### Mainnet (smoke deploy — presence only, **not** initialized for live users)
 

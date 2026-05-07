@@ -49,6 +49,31 @@
         "reputationLevel": 1,
         "stakeUsdc": 15
       }
+    ],
+    "cycles": [
+      {
+        "cycle": 0,
+        "schemaId": 2,
+        "schemaName": "SCHEMA_LATE",
+        "coreUpgradeBoxTx": "5RdnRcov49bkjUMnddVDLRuaGfxDEd5dhAvr3jH6uMCw9vznwALUPAMooibSGtDwYZRUnCanGB6s89dJjDDBsqBG",
+        "contributions": [
+          {
+            "slotIndex": 0,
+            "contributeTx": "ysSSQJhk8Frn87ng4dPGvePaNeLGeU45GHkNY75XPw7ACMymmFDUvHLEeyaRFkkWbogHHqXqAYasNVhp22o6HHW",
+            "installmentUsdc": 10
+          },
+          {
+            "slotIndex": 1,
+            "contributeTx": "3MwScoes8KrzqWy3QUUeEhqmejKfN44kTXzkY41rYZqfoLFiEKK9yT2m3cQjh27FjJrCbDeHd8AoTSy4JAGicMYJ",
+            "installmentUsdc": 10
+          },
+          {
+            "slotIndex": 2,
+            "contributeTx": "yTVakGwDwvWUEXYpzCBuvW2t9D2XWsyLwr1eJN8weWgPGqcuhqHRyN7Vx871f3xHXVgVc6z41EW899bYT9x1iDT",
+            "installmentUsdc": 10
+          }
+        ]
+      }
     ]
   },
   "programs": {
