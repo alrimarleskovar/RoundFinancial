@@ -47,6 +47,14 @@ pub mod roundfi_core {
         instructions::create_pool::handler(ctx, args)
     }
 
+    /// Second half of pool creation — initializes the four USDC vault
+    /// ATAs (pool/escrow/solidarity/yield) via sequential CPIs to the
+    /// SPL Associated Token Program. Must be called after `create_pool`
+    /// and before any `join_pool`. Idempotent.
+    pub fn init_pool_vaults(ctx: Context<InitPoolVaults>) -> Result<()> {
+        instructions::init_pool_vaults::handler(ctx)
+    }
+
     pub fn join_pool(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
         instructions::join_pool::handler(ctx, args)
     }
