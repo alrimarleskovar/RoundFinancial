@@ -34,6 +34,7 @@
     "devnet:seed-yield-harvest": "tsx scripts/devnet/seed-yield-harvest.ts",
     "devnet:seed-evlist": "tsx scripts/devnet/seed-evlist.ts",
     "devnet:seed-evbuy": "tsx scripts/devnet/seed-evbuy.ts",
+    "devnet:seed-close": "tsx scripts/devnet/seed-close.ts",
     "test:parity": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/parity.spec.ts'",
     "test:events": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/events.spec.ts'",
     "test:economic-parity-l1": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",
