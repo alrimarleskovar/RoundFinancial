@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit -p .",
     "devnet:airdrop": "tsx scripts/devnet/airdrop.ts",
     "devnet:deploy": "tsx scripts/devnet/deploy.ts",
+    "devnet:export-pk": "tsx scripts/devnet/export-pk.ts",
     "devnet:init": "tsx scripts/devnet/init-protocol.ts",
     "devnet:seed": "tsx scripts/devnet/seed-pool.ts",
     "devnet:seed-members": "tsx scripts/devnet/seed-members.ts",
