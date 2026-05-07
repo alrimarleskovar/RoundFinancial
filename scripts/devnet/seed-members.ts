@@ -125,7 +125,10 @@ async function ensureMemberSol(
     lamports: Number(topUp),
   });
   const tx = new Transaction().add(ix);
-  await connection.sendTransaction(tx, [deployer], { preflightCommitment: "confirmed" });
+  const sig = await connection.sendTransaction(tx, [deployer], {
+    preflightCommitment: "confirmed",
+  });
+  await connection.confirmTransaction(sig, "confirmed");
 }
 
 async function ensureMemberUsdc(
@@ -147,7 +150,10 @@ async function ensureMemberUsdc(
         usdcMint,
       ),
     );
-    await connection.sendTransaction(tx, [deployer], { preflightCommitment: "confirmed" });
+    const sig = await connection.sendTransaction(tx, [deployer], {
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(sig, "confirmed");
   }
   const account = await getAccount(connection, memberAta, "confirmed");
   return { memberAta, balance: account.amount };
