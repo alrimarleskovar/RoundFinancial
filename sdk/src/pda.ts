@@ -16,6 +16,7 @@ export const SEED = {
   solidarity: Buffer.from("solidarity"),
   yield: Buffer.from("yield"),
   position: Buffer.from("position"),
+  listing: Buffer.from("listing"),
   reputation: Buffer.from("reputation"),
   reputationConfig: Buffer.from("rep-config"),
   attestation: Buffer.from("attestation"),
@@ -92,6 +93,17 @@ export function positionAuthorityPda(
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [SEED.position, pool.toBuffer(), u8le(slotIndex)],
+    coreProgram,
+  );
+}
+
+export function listingPda(
+  coreProgram: PublicKey,
+  pool: PublicKey,
+  slotIndex: number,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED.listing, pool.toBuffer(), u8le(slotIndex)],
     coreProgram,
   );
 }

@@ -5,7 +5,9 @@ import { useState } from "react";
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
+import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
+import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
@@ -19,15 +21,40 @@ import { useWallet } from "@/lib/wallet";
 // shows the locked state — explaining the gap and pointing at
 // `/insights` for the path to the next tier.
 
+// CatalogGroup → ActiveGroup adapter for the ClaimPayoutModal mock
+// path. The modal's chain mode reads everything from on-chain views;
+// mock mode only needs `name`, `prize`, `month`, `total`, `emoji` —
+// the rest are filled with reasonable defaults.
+function catalogGroupToActiveGroup(g: CatalogGroup): ActiveGroup {
+  return {
+    id: g.id,
+    name: g.name,
+    emoji: g.emoji,
+    tone: g.tone,
+    prize: g.prize,
+    month: 1,
+    total: g.months,
+    status: "drawn",
+    nextDue: 0,
+    progress: 0,
+    members: g.total,
+    draw: "ganho neste ciclo",
+    installment: g.installment,
+    level: g.level,
+    contemplated: g.contemplated,
+  };
+}
+
 export function GroupCard({ g }: { g: CatalogGroup }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { user, joinedGroupNames } = useSession();
+  const { user, joinedGroupNames, claimedGroups } = useSession();
   const { explorerAddr } = useWallet();
   const [joinOpen, setJoinOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
   const devnetMeta = g.devnetPool ? DEVNET_POOLS[g.devnetPool] : null;
 
   // Joined state overlays: static `g.joined` OR runtime session
@@ -37,6 +64,11 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
   // `roundfi-core::join_pool` (M2 of the grant roadmap). UI mirrors
   // the rule so users see the block before paying gas.
   const locked = !isJoined && g.level > user.level;
+  // Claim eligibility (Demo Studio mock-mode): the user has been
+  // flagged as the contemplated slot AND hasn't yet claimed in this
+  // session. The on-chain claim path lives in FeaturedGroup —
+  // GroupCard only handles the demo flow.
+  const claimReadyDemo = isJoined && !!g.contemplated && !claimedGroups.includes(g.name);
 
   const tc = ((): string => {
     switch (g.tone) {
@@ -244,41 +276,75 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
           }}
         />
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          if (isJoined) setDetailsOpen(true);
-          else setJoinOpen(true); // join modal handles its own locked-state explainer
-        }}
-        style={{
-          padding: "10px 14px",
-          borderRadius: 11,
-          border: locked ? `1px solid ${tokens.borderStr}` : `1px solid ${tokens.borderStr}`,
-          background: isJoined
-            ? tokens.fillSoft
+      {claimReadyDemo ? (
+        <button
+          type="button"
+          onClick={() => setClaimOpen(true)}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 11,
+            border: "none",
+            background: `linear-gradient(135deg, ${tokens.purple}, ${tokens.teal})`,
+            color: tokens.text,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+            boxShadow: `0 6px 18px ${tokens.purple}55`,
+          }}
+          title="Você é o slot contemplado deste ciclo"
+        >
+          <Icons.ticket size={13} stroke={tokens.text} sw={2} />
+          Receber {fmtMoney(g.prize, { noCents: true })}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            if (isJoined) setDetailsOpen(true);
+            else setJoinOpen(true); // join modal handles its own locked-state explainer
+          }}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 11,
+            border: locked ? `1px solid ${tokens.borderStr}` : `1px solid ${tokens.borderStr}`,
+            background: isJoined
+              ? tokens.fillSoft
+              : locked
+                ? tokens.fillMed
+                : `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
+            color: isJoined ? tokens.text : locked ? tokens.text2 : tokens.bgDeep,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+          }}
+        >
+          {locked && <Icons.lock size={13} stroke="currentColor" />}
+          {isJoined
+            ? t("groups.card.cta.view")
             : locked
-              ? tokens.fillMed
-              : `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
-          color: isJoined ? tokens.text : locked ? tokens.text2 : tokens.bgDeep,
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
-        }}
-      >
-        {locked && <Icons.lock size={13} stroke="currentColor" />}
-        {isJoined
-          ? t("groups.card.cta.view")
-          : locked
-            ? t("groups.card.cta.locked", { lv: g.level })
-            : t("groups.card.cta.join")}
-      </button>
+              ? t("groups.card.cta.locked", { lv: g.level })
+              : t("groups.card.cta.join")}
+        </button>
+      )}
       <JoinGroupModal group={g} open={joinOpen} onClose={() => setJoinOpen(false)} />
       <GroupDetailsModal group={g} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
+      {claimReadyDemo ? (
+        <ClaimPayoutModal
+          group={catalogGroupToActiveGroup(g)}
+          open={claimOpen}
+          onClose={() => setClaimOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

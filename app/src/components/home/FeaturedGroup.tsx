@@ -3,9 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { DeskMeta } from "@/components/home/DeskMeta";
+import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { ACTIVE_GROUPS } from "@/data/groups";
 import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
@@ -23,7 +26,7 @@ export function FeaturedGroup() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { monthsPaidByGroup, demoGroup } = useSession();
+  const { monthsPaidByGroup, demoGroup, claimedGroups } = useSession();
   // ─── On-chain pool read (devnet) ────────────────────────────────────
   // Reads the live state of the on-chain pool tagged on g1
   // (`g1.devnetPool`, currently `pool3` because that's the only pool
@@ -36,6 +39,7 @@ export function FeaturedGroup() {
   // is active. If RPC is down, the cluster is wrong, or the pool is
   // missing, `usePool` returns status="fallback" and we silently render
   // the mock fixture exactly as before.
+  const adapter = useAdapterWallet();
   const fixtureG = demoGroup ?? ACTIVE_GROUPS[0];
   const seedKey = fixtureG.devnetPool ?? "pool3";
   const onChain = usePool(seedKey);
@@ -65,6 +69,42 @@ export function FeaturedGroup() {
   const month = Math.min(baseG.total, baseG.month + paidExtra);
   const g = { ...baseG, month, progress: month / baseG.total };
   const [payOpen, setPayOpen] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
+
+  // ─── Claim eligibility detection ─────────────────────────────────────
+  // The contemplated slot for the current cycle is the slot whose
+  // index matches `pool.current_cycle` (slot N receives the pot in
+  // cycle N). The connected wallet can claim when:
+  //   - we're reading a real pool live (useChain),
+  //   - the wallet is one of the materialized members,
+  //   - that member's slot_index matches pool.current_cycle,
+  //   - and they haven't claimed already (`!member.paid_out`).
+  // The actual `pool float >= credit_amount` precondition is checked
+  // by the program itself; if it fails the modal renders a red TX
+  // FAILED banner with the WaterfallUnderflow log.
+  const connectedWalletPk = adapter.publicKey;
+  const connectedMember =
+    useChain && connectedWalletPk && onChainMembers.status === "ok"
+      ? (onChainMembers.members.find((m) => m.wallet.equals(connectedWalletPk)) ?? null)
+      : null;
+  const claimReady =
+    !!connectedMember &&
+    !!onChain.pool &&
+    connectedMember.slotIndex === onChain.pool.currentCycle &&
+    !connectedMember.paidOut &&
+    !connectedMember.defaulted;
+  // Demo Studio mock-mode detection. When a preset has flagged the
+  // user as the contemplated slot (`demoGroup.contemplated === true`)
+  // and the session hasn't yet recorded a claim for that group, the
+  // same Receber CTA appears — it just dispatches the mock reducer
+  // instead of a real tx. Mutually exclusive with `claimReady` since
+  // useChain is false whenever demoGroup is set.
+  const claimReadyDemo =
+    !claimReady &&
+    !!demoGroup &&
+    demoGroup.contemplated === true &&
+    !claimedGroups.includes(baseG.name);
+  const showClaim = claimReady || claimReadyDemo;
 
   const dialPct = g.month / g.total;
   // Tick count tracks total months but caps at 24 to keep the dial
@@ -309,6 +349,35 @@ export function FeaturedGroup() {
 
           {/* CTA row */}
           <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {showClaim ? (
+              <button
+                type="button"
+                onClick={() => setClaimOpen(true)}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 11,
+                  border: "none",
+                  cursor: "pointer",
+                  background: `linear-gradient(135deg, ${tokens.purple}, ${tokens.teal})`,
+                  color: tokens.text,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  boxShadow: `0 6px 18px ${tokens.purple}55`,
+                }}
+                title="Você é o slot contemplado neste ciclo"
+              >
+                <Icons.ticket size={14} stroke={tokens.text} sw={2} />
+                Receber{" "}
+                {fmtMoney(
+                  claimReady ? (Number(onChain.pool!.creditAmount) / 1e6) * USDC_RATE : g.prize,
+                  { noCents: true },
+                )}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setPayOpen(true)}
@@ -356,6 +425,18 @@ export function FeaturedGroup() {
       </div>
 
       <PayInstallmentModal group={baseG} open={payOpen} onClose={() => setPayOpen(false)} />
+      {claimReady && connectedMember && onChain.pool && fixtureG.devnetPool ? (
+        <ClaimPayoutModal
+          group={baseG}
+          open={claimOpen}
+          onClose={() => setClaimOpen(false)}
+          memberRecord={connectedMember}
+          pool={onChain.pool}
+          seedKey={fixtureG.devnetPool}
+        />
+      ) : claimReadyDemo ? (
+        <ClaimPayoutModal group={baseG} open={claimOpen} onClose={() => setClaimOpen(false)} />
+      ) : null}
     </div>
   );
 }

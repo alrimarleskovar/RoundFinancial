@@ -26,6 +26,15 @@ export interface ActiveGroup {
   // FeaturedGroup add an "on-chain" badge wired to Solscan. Pure
   // pointer — actual live state is fetched separately via usePool.
   devnetPool?: DevnetPoolKey;
+  /**
+   * The user is the contemplated slot for the current cycle and the
+   * payout hasn't been claimed yet. Set by Demo Studio presets via
+   * `LOAD_FROM_DEMO`. Surfaces a "Receber R$ X" CTA in FeaturedGroup
+   * + GroupCard. Different semantics from `status === "drawn"` —
+   * "drawn" means a past month, `contemplated` means *this* month is
+   * yours and the claim is available.
+   */
+  contemplated?: boolean;
 }
 
 export const ACTIVE_GROUPS: ActiveGroup[] = [
