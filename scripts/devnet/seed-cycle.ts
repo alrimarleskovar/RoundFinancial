@@ -39,11 +39,7 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import {
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  getAccount,
-} from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getAccount } from "@solana/spl-token";
 
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
@@ -67,9 +63,7 @@ function loadKeypair(path: string): Keypair {
 function loadMemberKeypair(slot: number): Keypair {
   const path = resolve(KEYPAIRS_DIR, `member-${slot}.json`);
   if (!existsSync(path)) {
-    throw new Error(
-      `Missing keypairs/member-${slot}.json — run 'pnpm devnet:seed-members' first.`,
-    );
+    throw new Error(`Missing keypairs/member-${slot}.json — run 'pnpm devnet:seed-members' first.`);
   }
   return loadKeypair(path);
 }
@@ -176,10 +170,7 @@ async function callContribute(
   memberUsdc: PublicKey,
   memberPda: PublicKey,
 ): Promise<string> {
-  const [protocolConfig] = PublicKey.findProgramAddressSync(
-    [Buffer.from("config")],
-    coreProgram,
-  );
+  const [protocolConfig] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgram);
   const poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, pool, true);
   const [solidarityAuthority] = PublicKey.findProgramAddressSync(
     [Buffer.from("solidarity"), pool.toBuffer()],
@@ -318,17 +309,19 @@ async function main() {
     );
   }
   const poolView = decodePool(poolInfo.data);
-  console.log(`→ Pool state   : status=${poolView.status} ` +
-    `members=${poolView.membersJoined}/${MEMBER_COUNT} ` +
-    `cycle=${poolView.currentCycle}/${poolView.cyclesTotal} ` +
-    `next_cycle_at=${poolView.nextCycleAt}`);
+  console.log(
+    `→ Pool state   : status=${poolView.status} ` +
+      `members=${poolView.membersJoined}/${MEMBER_COUNT} ` +
+      `cycle=${poolView.currentCycle}/${poolView.cyclesTotal} ` +
+      `next_cycle_at=${poolView.nextCycleAt}`,
+  );
   if (poolView.status !== 1) {
-    throw new Error(
-      `Pool is not Active (status=${poolView.status}). Need 3 members joined first.`,
-    );
+    throw new Error(`Pool is not Active (status=${poolView.status}). Need 3 members joined first.`);
   }
   if (poolView.currentCycle >= poolView.cyclesTotal) {
-    console.log(`✓ Pool already past final cycle (${poolView.currentCycle}/${poolView.cyclesTotal}). Nothing to do.`);
+    console.log(
+      `✓ Pool already past final cycle (${poolView.currentCycle}/${poolView.cyclesTotal}). Nothing to do.`,
+    );
     return;
   }
 
@@ -367,7 +360,9 @@ async function main() {
     }
     const contribsPaid = decodeMemberContributionsPaid(memberInfo.data);
     if (contribsPaid > targetCycle) {
-      console.log(`  ✓ already contributed for cycle ${targetCycle} (paid=${contribsPaid}) — skipping`);
+      console.log(
+        `  ✓ already contributed for cycle ${targetCycle} (paid=${contribsPaid}) — skipping`,
+      );
       results.push({ slot: i, sig: null, reason: "already-paid" });
       continue;
     }
