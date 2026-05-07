@@ -159,7 +159,28 @@
         }
       }
     ],
-    "completedAt": "2026-05-07T13:42:00Z"
+    "completedAt": "2026-05-07T13:42:00Z",
+    "negativeTests": {
+      "releaseEscrow": {
+        "description": "EscrowLocked guard fires when member.on_time_count < args.checkpoint",
+        "coreUpgradeBoxTx": "2ZdLfQ9tRLED1oWqg3FRbBX9SLdts3yjHKn4cqsZKCWfT3kSXVKkJr4aLMdTjjkcXhzNiB8xFigqa2CQvZBoMmvF",
+        "targetSlotIndex": 0,
+        "checkpoint": 1,
+        "expectedErrorCode": 6011,
+        "expectedErrorName": "EscrowLocked",
+        "memberStatePreCall": {
+          "stakeDepositedUsdc": 15,
+          "escrowBalanceUsdc": 22.5,
+          "onTimeCount": 0,
+          "lateCount": 3,
+          "paidOut": true,
+          "lastReleasedCheckpoint": 0
+        },
+        "failedTx": "4wB8RqiP57qQMNi6Vs6yLckkurm1pzqv2zoGev4duyaPWvCJoMdZEynfHTCjfitrGXenbUbsPRjdZG1xTZY8f5Mn",
+        "onChainErr": { "InstructionError": [1, { "Custom": 6011 }] },
+        "onChainLog": "AnchorError thrown in programs/roundfi-core/src/instructions/release_escrow.rs:91. Error Code: EscrowLocked. Error Number: 6011. Error Message: Escrow release schedule not yet vested."
+      }
+    }
   },
   "programs": {
     "roundfi_core": {
