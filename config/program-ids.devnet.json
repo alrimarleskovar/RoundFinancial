@@ -87,8 +87,79 @@
           "memberUsdcPost": 45,
           "advancedToCycle": 1
         }
+      },
+      {
+        "cycle": 1,
+        "schemaId": 2,
+        "schemaName": "SCHEMA_LATE",
+        "contributions": [
+          {
+            "slotIndex": 0,
+            "contributeTx": "3hqMZGBH4eosuuJ38PewMs1WMu8maUTuW6PP1a1qP1pE6aJzxHHJgPPtMorJtsYnzJ7WA83LsWoQjTHu7gBJGBdB",
+            "installmentUsdc": 10
+          },
+          {
+            "slotIndex": 1,
+            "contributeTx": "CFt7rHWnHY5AqMWCLPs9Rg3dgyjs8BYwUM4dRKm5yaUyPZARcygucnsa2f2EmdRvbgQ9xF49v5b52tfRgJBeY9G",
+            "installmentUsdc": 10
+          },
+          {
+            "slotIndex": 2,
+            "contributeTx": "P3iaunviiq5QXMiuochuorRApukMsk1TK3RUaCeftQ2TVkDN452phWxVkR4wmhtwuXWZXQEKqSsnkKu8WpsGRmM",
+            "installmentUsdc": 10
+          }
+        ],
+        "claim": {
+          "slotIndex": 1,
+          "schemaId": 4,
+          "schemaName": "SCHEMA_CYCLE_COMPLETE",
+          "creditUsdc": 30,
+          "topUpTx": "HwC3ZGd18Ss2HehP5STSaXZD8GDtS86tK4DyYiYQUUVAom8kWpYXNKHNfMFWhoJVignuEXHFeVeSf2goYC7gWgD",
+          "topUpUsdc": 7.8,
+          "topUpFromDeployer": "64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm",
+          "claimTx": "4KEmjibkqrTRxkcPQzP36qALiaRZqJXsr7EHMZqxnWyWQBWKTsBauivRxAUswBqboXyQc1v1kcorQeVZfBCyye1o",
+          "memberUsdcPre": 5,
+          "memberUsdcPost": 35,
+          "advancedToCycle": 2
+        }
+      },
+      {
+        "cycle": 2,
+        "schemaId": 2,
+        "schemaName": "SCHEMA_LATE",
+        "contributions": [
+          {
+            "slotIndex": 0,
+            "contributeTx": "4T1W7cBwJ8xV77dUK99qhgqB4fuadkaJa8yLcFUcavKchgHpwexvpseRgmygn6PtEFxd1tJfDPT1ERni5uz61mJ8",
+            "installmentUsdc": 10
+          },
+          {
+            "slotIndex": 1,
+            "contributeTx": "5PHr9Qn8daHWHXqW97YnrfP3J7Z123TdcxL8nGQU9g2V1dDN2t79FJnJHwp5n95mDUkTTz4F6gDy7kbhG2sxsfsQ",
+            "installmentUsdc": 10
+          },
+          {
+            "slotIndex": 2,
+            "contributeTx": "3AQ3jxvUA8Mf6JGDdU71NuMqQuZdsAyikpoGzwjfdHwcJANhzo2Au3oxtgdSRDCBNDuhahWi8hg7WQXXKPq6VvQj",
+            "installmentUsdc": 10
+          }
+        ],
+        "claim": {
+          "slotIndex": 2,
+          "schemaId": 4,
+          "schemaName": "SCHEMA_CYCLE_COMPLETE",
+          "creditUsdc": 30,
+          "topUpTx": "4MgZk1C1ToenQ9pgDtURnh8iefGvzr2bZ6ACXayPCdjZjZbEzzzQqAbpJkE13xNDtPxNu9fupEJgQdjkUwjkZJHH",
+          "topUpUsdc": 7.8,
+          "topUpFromDeployer": "64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm",
+          "claimTx": "4bjda3tX5p1tqQkRFKDnX2NbEGKqUqAadRiEE8LdTGStNmJCsnwHbxDop1Z5cJzpyT1XuhAtjV6ytXZm9gmMKfwc",
+          "memberUsdcPre": 15,
+          "memberUsdcPost": 45,
+          "poolStatusAfter": "Completed"
+        }
       }
-    ]
+    ],
+    "completedAt": "2026-05-07T13:42:00Z"
   },
   "programs": {
     "roundfi_core": {
