@@ -69,6 +69,55 @@ export function ClaimPayoutModal({
   const cycleDisplay = chainMode ? pool!.currentCycle : group.month;
   const cyclesTotalDisplay = chainMode ? pool!.cyclesTotal : group.total;
 
+  // ─── Payment progress + Triple Shield collateral ─────────────────────
+  // Surfaces the contract-social side of receiving the credit upfront:
+  //   - what the user has paid so far
+  //   - what they still owe (remaining installments × installment_amount)
+  //   - what's locked as collateral (stake_initial + total_escrow_deposited)
+  // Honors the protocol rule that the contemplated member receives
+  // credit_amount IN FULL — independent of level (level only affects the
+  // join-time stake_bps) and independent of installments-paid-so-far
+  // (the credit is anticipated; remaining installments are paid post-claim,
+  // gated by the Triple Shield against default).
+
+  // Stake bps by reputation level — mirrors `state/member.rs` defaults
+  // and the L1 simulator's stake ladder (50% / 30% / 10%).
+  const STAKE_BPS_BY_LEVEL: Record<1 | 2 | 3, number> = { 1: 5000, 2: 3000, 3: 1000 };
+  // Escrow split per installment — `pool.escrow_release_bps` default
+  // (25% in basis points). Real chain reads this from pool, mock uses
+  // the canonical default.
+  const ESCROW_BPS = chainMode ? pool!.escrowReleaseBps : 2500;
+
+  // Installments paid so far. Chain: contributions_paid is the source
+  // of truth. Mock: derived from group.month (assuming the user paid
+  // up to the current month — Demo Studio scenarios maintain this).
+  const installmentsPaid = chainMode ? memberRecord!.contributionsPaid : Math.max(0, group.month);
+  const installmentsTotal = cyclesTotalDisplay;
+  const installmentsRemaining = Math.max(0, installmentsTotal - installmentsPaid);
+
+  // Per-installment amount in BRL (for the mock side, group.installment
+  // is already BRL; for chain side, convert from USDC).
+  const installmentBrl = chainMode
+    ? (Number(pool!.installmentAmount) / 1e6) * USDC_RATE
+    : group.installment;
+
+  const paidSoFarBrl = installmentsPaid * installmentBrl;
+  const remainingDebtBrl = installmentsRemaining * installmentBrl;
+
+  // Collateral. Chain reads from member.stake_deposited_initial +
+  // total_escrow_deposited (the "_initial_" anchors that never mutate
+  // — the D/C invariant references them). Mock derives from
+  // (prize × stakeBps[level]) for stake and (paidSoFar × escrow_bps)
+  // for cumulative escrow.
+  const userLevel = (group.level ?? 2) as 1 | 2 | 3;
+  const stakeInitialBrl = chainMode
+    ? (Number(memberRecord!.stakeDepositedInitial) / 1e6) * USDC_RATE
+    : (group.prize * STAKE_BPS_BY_LEVEL[userLevel]) / 10_000;
+  const escrowDepositedBrl = chainMode
+    ? (Number(memberRecord!.totalEscrowDeposited) / 1e6) * USDC_RATE
+    : (paidSoFarBrl * ESCROW_BPS) / 10_000;
+  const totalCollateralBrl = stakeInitialBrl + escrowDepositedBrl;
+
   const reset = () => {
     setSubmitting(false);
     setDone(false);
@@ -256,6 +305,140 @@ export function ClaimPayoutModal({
               }}
             >
               {creditUsdc.toFixed(2)} USDC do `pool_usdc_vault` → sua ATA
+            </div>
+          </div>
+
+          {/* Payment progress — protocol rule: credit is anticipated.
+              Member receives credit_amount IN FULL regardless of how
+              many installments they've paid so far; remaining
+              installments are paid post-claim, secured by the Triple
+              Shield. */}
+          <div style={{ marginBottom: 14 }}>
+            <MonoLabel size={9}>PROGRESSO DE PAGAMENTO</MonoLabel>
+            <div
+              style={{
+                marginTop: 8,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: tokens.fillSoft,
+                border: `1px solid ${tokens.borderStr}`,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                fontSize: 11,
+                color: tokens.text2,
+              }}
+            >
+              <div>
+                <div style={{ color: tokens.muted, fontSize: 10, marginBottom: 2 }}>
+                  Pago até agora
+                </div>
+                <div style={{ color: tokens.text, fontWeight: 600 }}>
+                  {installmentsPaid} / {installmentsTotal} parcelas
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontSize: 10,
+                    color: tokens.muted,
+                    marginTop: 2,
+                  }}
+                >
+                  = {fmtMoney(paidSoFarBrl, { noCents: true })}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: tokens.muted, fontSize: 10, marginBottom: 2 }}>
+                  Restam pós-sorteio
+                </div>
+                <div style={{ color: tokens.amber, fontWeight: 600 }}>
+                  {installmentsRemaining} parcelas
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontSize: 10,
+                    color: tokens.muted,
+                    marginTop: 2,
+                  }}
+                >
+                  {fmtMoney(installmentBrl, { noCents: true })} × {installmentsRemaining} ={" "}
+                  {fmtMoney(remainingDebtBrl, { noCents: true })}
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 10,
+                color: tokens.muted,
+                lineHeight: 1.5,
+              }}
+            >
+              Crédito é <strong>antecipado</strong> — você recebe os{" "}
+              {fmtMoney(creditBrl, { noCents: true })} agora e continua pagando as parcelas
+              restantes até o ciclo fechar. Independe de level (afeta só o stake de entrada).
+            </div>
+          </div>
+
+          {/* Triple Shield collateral — what's locked securing the
+              remaining debt. Stake_initial + total_escrow_deposited
+              are the D/C invariant anchors that never mutate (until
+              settle_default seizes them). */}
+          <div style={{ marginBottom: 14 }}>
+            <MonoLabel size={9} color={tokens.green}>
+              TRIPLE SHIELD · GARANTIA BLOQUEADA
+            </MonoLabel>
+            <div
+              style={{
+                marginTop: 8,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.green}0d`,
+                border: `1px solid ${tokens.green}33`,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: 12,
+                fontSize: 11,
+                color: tokens.text2,
+              }}
+            >
+              <div>
+                <div style={{ color: tokens.muted, fontSize: 9, marginBottom: 2 }}>
+                  Stake (Lv{userLevel})
+                </div>
+                <div style={{ color: tokens.text, fontWeight: 600 }}>
+                  {fmtMoney(stakeInitialBrl, { noCents: true })}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: tokens.muted, fontSize: 9, marginBottom: 2 }}>
+                  Escrow acumulado
+                </div>
+                <div style={{ color: tokens.text, fontWeight: 600 }}>
+                  {fmtMoney(escrowDepositedBrl, { noCents: true })}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: tokens.muted, fontSize: 9, marginBottom: 2 }}>
+                  Total colateral
+                </div>
+                <div style={{ color: tokens.green, fontWeight: 700 }}>
+                  {fmtMoney(totalCollateralBrl, { noCents: true })}
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 10,
+                color: tokens.muted,
+                lineHeight: 1.5,
+              }}
+            >
+              Se você parar de pagar pós-sorteio, <code>settle_default</code> aciona o waterfall:
+              solidarity → escrow → stake. Invariante D/C garante que o protocolo nunca paga mais do
+              que o colateral cobre.
             </div>
           </div>
 
