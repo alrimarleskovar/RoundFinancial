@@ -177,6 +177,13 @@ type Action =
       groupName?: string;
       demoGroup?: ActiveGroup;
       tag: string;
+      /** Synthesize this many `payment` SessionEvents at the head of
+       *  the cleared events log so /insights factors + Activity feed
+       *  reflect the implied history of the preset. */
+      monthsPaid?: number;
+      /** Per-installment amount to use when synthesizing payment events.
+       *  Required if `monthsPaid > 0`. */
+      installment?: number;
     };
 
 // ── Helpers ────────────────────────────────────────────────
@@ -471,12 +478,15 @@ function reducer(state: SessionState, action: Action): SessionState {
     case "PUSH_EVENT":
       return { ...state, events: [action.event, ...state.events] };
     case "LOAD_FROM_DEMO": {
-      // Demo Studio → real session bridge. Overlays user fields the
-      // boss configured in /admin onto the production session and
-      // (optionally) marks a group as joined so /grupos reflects it.
-      // Pushes a single "synced from demo" event so the activity log
-      // shows the boundary.
-      const ev: SessionEvent = {
+      // Demo Studio → real session bridge. Acts as a "clean stage"
+      // load: fully resets transient session state (claimed groups,
+      // months paid overlays, secondary-market positions, listings,
+      // scoreDelta) so iterating between presets during a pitch is
+      // deterministic. Replaces — does not append to — events and
+      // joinedGroupNames so the surfaces that derive from them
+      // (/insights factors, Activity feed, /grupos catalog) reflect
+      // exactly the preset, with no residue from a prior run.
+      const syncEv: SessionEvent = {
         id: makeId(),
         kind: "join",
         ts: Date.now(),
@@ -485,14 +495,32 @@ function reducer(state: SessionState, action: Action): SessionState {
         amountBrl: 0,
         target: action.tag,
       };
-      const joinedAdd =
-        action.groupName && !state.joinedGroupNames.includes(action.groupName)
-          ? [...state.joinedGroupNames, action.groupName]
-          : state.joinedGroupNames;
+      // Synthesize implied payment history. Each preset declares how
+      // many installments the persona has paid this cycle; without
+      // these synthetic events, /insights would show punctuality at
+      // baseline (no payments) for a contemplated-mid-cycle persona —
+      // contradicting the score the preset injected. Stamps are
+      // back-dated by month so the Activity feed reads chronologically.
+      const monthsPaid = Math.max(0, action.monthsPaid ?? 0);
+      const installment = action.installment ?? 0;
+      const synthPayments: SessionEvent[] =
+        monthsPaid > 0 && installment > 0 && action.demoGroup
+          ? Array.from({ length: monthsPaid }, (_, i) => ({
+              id: makeId(),
+              kind: "payment" as const,
+              ts: Date.now() - (monthsPaid - i) * 30 * 24 * 60 * 60 * 1000,
+              txid: makeTxid(),
+              op: "payment.send",
+              amountBrl: -installment,
+              target: action.demoGroup!.name,
+            }))
+          : [];
       // Always derive level/levelLabel/nextLevel from the patched score
       // — that's the source of truth. Admin-side level chips are UI
       // hints; the threshold table makes (score, level) consistent.
-      const patchedUser = { ...state.user, ...action.userPatch };
+      // scoreDelta is force-reset to 0 (preset is a clean state, not a
+      // continuation of a prior reputation lift).
+      const patchedUser = { ...state.user, ...action.userPatch, scoreDelta: 0 };
       const tier = computeLevel(patchedUser.score);
       const leveledUp = tier.level > state.user.level;
       // If the admin patch crosses a tier (e.g. score 850 from a
@@ -510,10 +538,10 @@ function reducer(state: SessionState, action: Action): SessionState {
               amountBrl: 0,
               target: tier.label,
             },
-            ev,
-            ...state.events,
+            syncEv,
+            ...synthPayments,
           ]
-        : [ev, ...state.events];
+        : [syncEv, ...synthPayments];
       return {
         ...state,
         user: {
@@ -525,8 +553,16 @@ function reducer(state: SessionState, action: Action): SessionState {
           leverageX: tier.lev,
         },
         events,
-        joinedGroupNames: joinedAdd,
+        joinedGroupNames: action.groupName ? [action.groupName] : [],
         demoGroup: action.demoGroup ?? state.demoGroup,
+        // Transient per-session state — wiped so the preset is a clean
+        // stage, not a continuation of whatever the user was doing
+        // before applying it.
+        claimedGroups: [],
+        monthsPaidByGroup: {},
+        purchasedOfferIds: [],
+        acquiredPositions: [],
+        listings: [],
       };
     }
     case "HARVEST_YIELD": {
@@ -592,6 +628,8 @@ interface SessionContextValue {
     groupName: string | undefined,
     tag: string,
     demoGroup?: ActiveGroup,
+    monthsPaid?: number,
+    installment?: number,
   ) => void;
 }
 
@@ -722,7 +760,18 @@ export function SessionProvider({
       groupName: string | undefined,
       tag: string,
       demoGroup?: ActiveGroup,
-    ) => dispatch({ type: "LOAD_FROM_DEMO", userPatch, groupName, demoGroup, tag }),
+      monthsPaid?: number,
+      installment?: number,
+    ) =>
+      dispatch({
+        type: "LOAD_FROM_DEMO",
+        userPatch,
+        groupName,
+        demoGroup,
+        tag,
+        monthsPaid,
+        installment,
+      }),
     [],
   );
 
