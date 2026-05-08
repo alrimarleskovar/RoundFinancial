@@ -8,6 +8,7 @@ import { ConnectionCard, type ConnSpec } from "@/components/carteira/ConnectionC
 import { useConnections, type ConnId } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Conexões tab content. Composes the 5 ConnectionCards (Phantom real
@@ -21,6 +22,7 @@ export function WalletConnections() {
   const t = useT();
   const { lang, fmtMoney } = useI18n();
   const wallet = useWallet();
+  const isMobile = useIsMobile();
   const conns = useConnections();
   const [expanded, setExpanded] = useState<string | null>("phantom");
 
@@ -125,7 +127,7 @@ export function WalletConnections() {
       style={{
         marginTop: 20,
         display: "grid",
-        gridTemplateColumns: "1.3fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1.3fr 1fr",
         gap: 16,
       }}
     >
