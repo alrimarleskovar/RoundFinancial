@@ -196,7 +196,11 @@ export const DEMO_PRESETS: DemoPreset[] = [
         name: "Pedro Souza",
         avatar: "PS",
         level: 3,
-        score: 720,
+        // 750 is the level-3 ("Veterano") threshold in LEVEL_TABLE; the
+        // session reducer derives level from score (source of truth), so
+        // a score below 750 would render as level 2 even though this preset
+        // is positioned as a level-3 persona. Snap to threshold.
+        score: 750,
         balance: 24000,
         yield: 0,
       },

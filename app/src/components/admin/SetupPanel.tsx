@@ -107,11 +107,22 @@ export function SetupPanel({
               2: t("admin.setup.lvl.comprovado"),
               3: t("admin.setup.lvl.veterano"),
             };
+            // The session reducer derives level from score
+            // (LEVEL_TABLE in session.tsx — score is source of
+            // truth). For the toggle to have visible effect after
+            // applyToSession, snap the score into the matching tier
+            // when level is changed. Mid-tier scores chosen so a
+            // subsequent score edit still leaves room above/below.
+            const snapScore: Record<1 | 2 | 3, number> = {
+              1: 350,
+              2: 625,
+              3: 850,
+            };
             return (
               <button
                 key={lv}
                 type="button"
-                onClick={() => setUser({ level: lv })}
+                onClick={() => setUser({ level: lv, score: snapScore[lv] })}
                 style={{
                   flex: 1,
                   padding: "10px 0",
