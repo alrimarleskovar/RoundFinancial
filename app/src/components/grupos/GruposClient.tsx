@@ -34,12 +34,28 @@ export function GruposClient() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoneyThreshold } = useI18n();
-  const { user } = useSession();
+  const { user, demoGroup } = useSession();
 
-  const enriched: CatalogGroup[] = useMemo(
-    () => [...ACTIVE_GROUPS.map(fromActive), ...DISCOVER_GROUPS.map(fromDiscover)],
-    [],
-  );
+  // Catalog = static fixtures (joined ACTIVE_GROUPS + DISCOVER) plus
+  // any Demo Studio preset that propagated into `session.demoGroup`.
+  // Without this prepend, contemplated demo scenarios would show the
+  // Receber CTA on FeaturedGroup but not on /grupos — the user can't
+  // see "their group with the win" in the catalog. Including it here
+  // closes that surface.
+  const enriched: CatalogGroup[] = useMemo(() => {
+    const base: CatalogGroup[] = [
+      ...ACTIVE_GROUPS.map(fromActive),
+      ...DISCOVER_GROUPS.map(fromDiscover),
+    ];
+    if (demoGroup) {
+      // Avoid duplicating if a fixture already covers it (by id).
+      const alreadyThere = base.some((g) => g.id === demoGroup.id);
+      if (!alreadyThere) {
+        return [fromActive(demoGroup), ...base];
+      }
+    }
+    return base;
+  }, [demoGroup]);
 
   const [level, setLevel] = useState<LevelFilter>("all");
   const [category, setCategory] = useState<CategoryFilter>("all");
