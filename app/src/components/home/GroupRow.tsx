@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Icons } from "@/components/brand/icons";
+import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import type { ActiveGroup } from "@/data/groups";
 import { useI18n, useT } from "@/lib/i18n";
@@ -11,21 +12,35 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Compact row for the "Seus grupos" list under the FeaturedGroup card.
 // Whole row is clickable — opens PayInstallmentModal for this
-// group's next installment. The trailing → icon previously sat
-// orphan; now it has a real action behind it.
+// group's next installment. When the user is the contemplated slot
+// (`contemplated === true` AND not yet claimed in this session),
+// the row instead opens ClaimPayoutModal in mock mode and shows a
+// purple "🏆 Receber" chip to disambiguate from past-drawn groups.
 
 export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { monthsPaidByGroup } = useSession();
+  const { monthsPaidByGroup, claimedGroups } = useSession();
   // Same overlay pattern as FeaturedGroup — month advances live as the
   // user confirms payments this session.
   const paidExtra = monthsPaidByGroup[baseG.name] ?? 0;
   const month = Math.min(baseG.total, baseG.month + paidExtra);
   const g: ActiveGroup = { ...baseG, month, progress: month / baseG.total };
   const [payOpen, setPayOpen] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
+
+  // Demo Studio mock-mode claim eligibility. Mirrors GroupCard +
+  // FeaturedGroup detection so the same Receber CTA appears wherever
+  // the contemplated group is rendered.
+  const claimReadyDemo = !!g.contemplated && !claimedGroups.includes(g.name);
+  // Past-drawn vs current-contemplated semantic split. `status === "drawn"`
+  // by itself only says "user was drawn at SOME point" (could be past).
+  // Combined with `contemplated === true` it means "current cycle".
+  // Without contemplated, we surface "✓ Recebido" so users don't expect
+  // a claim button on past drawings (the prize was already disbursed).
+  const isPastDrawn = g.status === "drawn" && !claimReadyDemo;
 
   const tc = ((): string => {
     switch (g.tone) {
@@ -45,7 +60,7 @@ export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
   return (
     <button
       type="button"
-      onClick={() => setPayOpen(true)}
+      onClick={() => (claimReadyDemo ? setClaimOpen(true) : setPayOpen(true))}
       style={{
         ...glass,
         display: "grid",
@@ -96,9 +111,19 @@ export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
           }}
         >
           {t("home.month")} {String(g.month).padStart(2, "0")} / {g.total}
-          {g.status === "drawn" && (
-            <span style={{ color: tokens.green, marginLeft: 8 }}>✓ sorteado</span>
+          {claimReadyDemo && (
+            <span
+              style={{
+                color: tokens.purple,
+                marginLeft: 8,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+              }}
+            >
+              🏆 SORTEADO · CLIQUE PARA RECEBER
+            </span>
           )}
+          {isPastDrawn && <span style={{ color: tokens.green, marginLeft: 8 }}>✓ Recebido</span>}
         </div>
       </div>
       <div
@@ -126,22 +151,25 @@ export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
             fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
           }}
         >
-          {t("home.installment")}
+          {claimReadyDemo ? "Prêmio" : t("home.installment")}
         </div>
         <div
           style={{
             fontFamily: "var(--font-syne), Syne",
             fontSize: 13,
             fontWeight: 700,
-            color: tokens.text,
+            color: claimReadyDemo ? tokens.purple : tokens.text,
           }}
         >
-          {fmtMoney(g.installment, { noCents: true })}
+          {fmtMoney(claimReadyDemo ? g.prize : g.installment, { noCents: true })}
         </div>
       </div>
-      <Icons.arrow size={16} stroke={tokens.muted} />
+      <Icons.arrow size={16} stroke={claimReadyDemo ? tokens.purple : tokens.muted} />
 
       <PayInstallmentModal group={baseG} open={payOpen} onClose={() => setPayOpen(false)} />
+      {claimReadyDemo ? (
+        <ClaimPayoutModal group={baseG} open={claimOpen} onClose={() => setClaimOpen(false)} />
+      ) : null}
     </button>
   );
 }
