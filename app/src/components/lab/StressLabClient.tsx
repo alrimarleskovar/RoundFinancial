@@ -154,7 +154,7 @@ export function StressLabClient() {
       {/* Header */}
       <div>
         <Link
-          href="/home"
+          href="/"
           className="lab-back-btn"
           style={{
             display: "inline-flex",
