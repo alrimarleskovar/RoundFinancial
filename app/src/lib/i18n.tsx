@@ -589,9 +589,9 @@ export const DICT: Record<Lang, Dict> = {
     "admin.preset.mariaMidCycle.label": "Maria · Meio do ciclo (mês 8)",
     "admin.preset.mariaMidCycle.desc":
       "8 parcelas pagas, escrow majoritariamente liberado, yield acumulando. Bom pra mostrar a dinâmica pós-contemplação.",
-    "admin.preset.tripleDefault.label": "Pedro · Cenário Triplo Calote",
+    "admin.preset.tripleDefault.label": "Pedro · Veterano em pool 24-membros",
     "admin.preset.tripleDefault.desc":
-      "Veterano L3, carta R$ 30k em grupo de 24. Cenário alinhado com o whitepaper: dispare 3 calotes seguidos pra mostrar a cascata de garantias.",
+      'Pedro Lv3 Veterano contemplado no mês 6/24 — mesmo shape de pool que o whitepaper usa pro stress test de 3 calotes simultâneos. Pra ver o math da resiliência do protocolo (netSolvency ≥ 0 mesmo após 3 defaults pós-contemplação), abra /lab → preset "tripleVeteranDefault".',
     "admin.preset.escapeValve.label": "João · Saída via Válvula",
     "admin.preset.escapeValve.desc":
       'Contemplado mas precisa sair antes do ciclo terminar. Clique em "Vender cota" pra demonstrar a Válvula de Escape (88% da face, sem slashing).',
@@ -1457,9 +1457,9 @@ export const DICT: Record<Lang, Dict> = {
     "admin.preset.mariaMidCycle.label": "Maria · Mid-cycle (month 8)",
     "admin.preset.mariaMidCycle.desc":
       "8 installments paid, escrow mostly released, yield accruing. Good for showing the post-contemplation dynamic.",
-    "admin.preset.tripleDefault.label": "Pedro · Triple Default scenario",
+    "admin.preset.tripleDefault.label": "Pedro · Veteran in 24-member pool",
     "admin.preset.tripleDefault.desc":
-      "Veteran L3, R$ 30k credit letter in a 24-member pool. Whitepaper-aligned: trigger 3 sequential defaults to show the guarantee cascade.",
+      'Pedro Lv3 Veteran contemplated at month 6/24 — same pool shape the whitepaper uses for the 3-simultaneous-default stress test. To see the math of the protocol\'s resilience (netSolvency ≥ 0 even after 3 post-contemplation defaults), open /lab → preset "tripleVeteranDefault".',
     "admin.preset.escapeValve.label": "João · Exit via Escape Valve",
     "admin.preset.escapeValve.desc":
       'Contemplated but needs to exit before the cycle ends. Click "Sell share" to demo the Escape Valve (88% of face, no slashing).',
