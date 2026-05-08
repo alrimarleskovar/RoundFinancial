@@ -2,7 +2,7 @@
 
 **Status:** Internal audit (M3, hackathon submission). External audit deferred to mainnet migration phase.
 **Scope:** `programs/roundfi-core` (20 instructions) + `programs/roundfi-reputation` (attestation CPI surface) + `services/indexer/` schema.
-**Methodology:** Invariant-driven review. Each protocol guarantee is mapped to (a) the file/line where it's enforced and (b) the test that proves it holds. 162 test cases across 18 spec files (33 of which are security-specific) + the 4 Triple Shield guards captured firing on real funds during devnet exercising.
+**Methodology:** Invariant-driven review. Each protocol guarantee is mapped to (a) the file/line where it's enforced and (b) the test that proves it holds. 162 test cases across 18 spec files (53 of which are security-specific across 5 spec files) + the 4 Triple Shield guards captured firing on real funds during devnet exercising.
 
 ---
 
@@ -108,25 +108,25 @@ All PDAs use deterministic seeds bound to the actor (wallet, pool, slot). Any ac
 
 ## 4. Test coverage by invariant
 
-162 test cases across 18 spec files. The 33 security-specific tests below are the audit-layer evidence; the remaining 129 cover lifecycle, edge cases, parity, reputation, and yield integration.
+162 test cases across 18 spec files. The 53 security-specific tests below are the audit-layer evidence; the remaining 109 cover lifecycle, edge cases, parity, reputation, and yield integration.
 
-### 4.1 Security specs (33 tests)
+### 4.1 Security specs (53 tests)
 
-#### `tests/security_economic.spec.ts` (11 tests)
+#### `tests/security_economic.spec.ts` (11 tests · count verified)
 
 - Wrong-slot, wrong-cycle, double-claim, underfunded-pool: `claim_payout` ordering invariants
 - `deposit_idle_to_yield` zero/overflow/exact-tracking
 - Harvest waterfall conservation + idempotency on zero realized yield
 - u64::MAX overflow protection
 
-#### `tests/security_inputs.spec.ts` (15 tests)
+#### `tests/security_inputs.spec.ts` (14 tests · count verified)
 
 - Foreign Pool/Member/vault-authority PDAs → seeds constraint rejection
 - Wrong USDC mint, attacker-owned vault, wrong-mint ATA, cross-pool ATA → mint constraint rejection
 - SystemProgram-owned, uninitialized, attacker-owned member ATAs → ownership constraint rejection
 - **Post-attack state immutability:** no attestation PDAs leaked, pool accepts legitimate `contribute` after rejected attacks (no state poisoning)
 
-#### `tests/security_lifecycle.spec.ts` (13 tests)
+#### `tests/security_lifecycle.spec.ts` (14 tests · count verified)
 
 - `contribute` on Forming pool → `PoolNotActive`
 - `join_pool` on full pool → `PoolNotForming`
@@ -138,7 +138,7 @@ All PDAs use deterministic seeds bound to the actor (wallet, pool, slot). Any ac
 - `escape_valve_list/buy` price/seller mismatch → `InvalidListingPrice`, `EscapeValvePriceMismatch`, `Unauthorized`
 - `escape_valve_buy` happy → atomic re-anchor
 
-#### `tests/security_cpi.spec.ts` (11 tests)
+#### `tests/security_cpi.spec.ts` (10 tests · count verified)
 
 - Wrong yield adapter program → `YieldAdapterMismatch`
 - Harvest on empty vault → idempotent no-op
