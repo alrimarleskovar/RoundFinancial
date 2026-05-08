@@ -13,21 +13,42 @@ import { useSession } from "@/lib/session";
 
 // /home — Bento dashboard. Hero on top, then a 4-col asymmetric
 // grid: 3 KPIs + tall radial Score on the right; FeaturedGroup
-// spans 3 cols below; on-chain devnet status row spans full width;
-// YourGroups + TripleShield split the next row; Activity terminal
-// log spans the full width at the bottom.
+// spans 3 cols below; on-chain devnet status row spans full width
+// (only when no Demo Studio preset is active — keeps the demo stage
+// clean for jurors); YourGroups + TripleShield split the next row;
+// Activity terminal log spans the full width at the bottom.
 //
 //   row 1:  [ hero  hero  hero  hero ]
 //   row 2:  [ saldo  yield  colat  score ]
 //   row 3:  [ feat   feat   feat   score ]
-//   row 4:  [ devnet devnet devnet devnet ]
+//   row 4:  [ devnet devnet devnet devnet ]   ← hidden when demoGroup active
 //   row 5:  [ groups groups triplo triplo ]
 //   row 6:  [ act    act    act    act   ]
 
 export default function HomePage() {
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { user } = useSession();
+  const { user, demoGroup } = useSession();
+  // When the Demo Studio applies a preset, hide the live devnet
+  // showcase row. The whole point of the Demo Studio is a clean
+  // stage: replacing the FeaturedGroup carta is enough — the
+  // 3-pool grid below adds noise that distracts from the scenario
+  // being demoed. Recording / juror flows want this off.
+  const showDevnetRow = !demoGroup;
+  const gridTemplateAreas = showDevnetRow
+    ? `
+        "saldo yield colat score"
+        "feat  feat  feat  score"
+        "devnet devnet devnet devnet"
+        "groups groups triplo triplo"
+        "act    act    act    act"
+      `
+    : `
+        "saldo yield colat score"
+        "feat  feat  feat  score"
+        "groups groups triplo triplo"
+        "act    act    act    act"
+      `;
   return (
     <div
       style={{
@@ -44,13 +65,7 @@ export default function HomePage() {
           display: "grid",
           gridTemplateColumns: "1fr 1fr 1fr 1fr",
           gridAutoRows: "auto",
-          gridTemplateAreas: `
-              "saldo yield colat score"
-              "feat  feat  feat  score"
-              "devnet devnet devnet devnet"
-              "groups groups triplo triplo"
-              "act    act    act    act"
-            `,
+          gridTemplateAreas,
           gap: 16,
         }}
       >
@@ -95,9 +110,11 @@ export default function HomePage() {
           <FeaturedGroup />
         </div>
 
-        <div style={{ gridArea: "devnet" }}>
-          <DevnetPoolStatus />
-        </div>
+        {showDevnetRow ? (
+          <div style={{ gridArea: "devnet" }}>
+            <DevnetPoolStatus />
+          </div>
+        ) : null}
 
         <div style={{ gridArea: "groups" }}>
           <YourGroups />
