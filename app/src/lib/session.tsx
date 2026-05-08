@@ -170,6 +170,7 @@ type Action =
     }
   | { type: "YIELD_TICK"; amount: number; source: string }
   | { type: "HARVEST_YIELD" }
+  | { type: "SEND_PAYMENT"; amount: number; recipient: string }
   | { type: "PUSH_EVENT"; event: SessionEvent }
   | {
       type: "LOAD_FROM_DEMO";
@@ -475,6 +476,29 @@ function reducer(state: SessionState, action: Action): SessionState {
         events: [ev, ...state.events],
       };
     }
+    case "SEND_PAYMENT": {
+      // Generic outbound transfer (used by /carteira SendModal). Decrements
+      // user.balance + emits a payment event with negative amountBrl, mirroring
+      // the PAY_INSTALLMENT shape so Activity feed + balance stay coherent.
+      // Defensive: refuse to overdraft. The modal already disables the submit
+      // button when amount > balance, but the reducer guards too.
+      if (action.amount <= 0) return state;
+      if (state.user.balance < action.amount) return state;
+      const ev: SessionEvent = {
+        id: makeId(),
+        kind: "payment",
+        ts: Date.now(),
+        txid: makeTxid(),
+        op: "wallet.send",
+        amountBrl: -action.amount,
+        target: action.recipient,
+      };
+      return {
+        ...state,
+        user: { ...state.user, balance: state.user.balance - action.amount },
+        events: [ev, ...state.events],
+      };
+    }
     case "PUSH_EVENT":
       return { ...state, events: [action.event, ...state.events] };
     case "LOAD_FROM_DEMO": {
@@ -623,6 +647,7 @@ interface SessionContextValue {
   }) => void;
   pushYield: (amount: number, source?: string) => void;
   harvestYield: () => void;
+  sendPayment: (amount: number, recipient: string) => void;
   loadFromDemo: (
     userPatch: Partial<User>,
     groupName: string | undefined,
@@ -754,6 +779,10 @@ export function SessionProvider({
     [],
   );
   const harvestYield = useCallback(() => dispatch({ type: "HARVEST_YIELD" }), []);
+  const sendPayment = useCallback(
+    (amount: number, recipient: string) => dispatch({ type: "SEND_PAYMENT", amount, recipient }),
+    [],
+  );
   const loadFromDemo = useCallback(
     (
       userPatch: Partial<User>,
@@ -794,6 +823,7 @@ export function SessionProvider({
       buyShare,
       pushYield,
       harvestYield,
+      sendPayment,
       loadFromDemo,
     }),
     [
@@ -806,6 +836,7 @@ export function SessionProvider({
       buyShare,
       pushYield,
       harvestYield,
+      sendPayment,
       loadFromDemo,
     ],
   );

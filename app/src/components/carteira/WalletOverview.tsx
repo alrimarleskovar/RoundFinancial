@@ -10,6 +10,7 @@ import { CountUp } from "@/components/ui/CountUp";
 import { useSession } from "@/lib/session";
 import { useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 // Visão geral — balance hero + composition bar + Kamino vault card
 // + preview rows. The "Sacar" CTA opens WithdrawYieldModal; the
@@ -23,6 +24,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney } = useI18n();
   const { user } = useSession();
+  const isMobile = useIsMobile();
 
   const composition = [
     { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%" },
@@ -43,7 +45,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.4fr 1fr",
+          gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr",
           gap: 16,
         }}
       >
@@ -128,7 +130,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                 style={{
                   marginTop: 12,
                   display: "grid",
-                  gridTemplateColumns: "repeat(4,1fr)",
+                  gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
                   gap: 8,
                 }}
               >
@@ -261,7 +263,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
       </div>
 
       {/* Preview rows: 2 positions + 3 recent txs */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <PositionsList limit={2} />
         <TransactionsList limit={3} onSeeAll={onSeeAllTx} />
       </div>

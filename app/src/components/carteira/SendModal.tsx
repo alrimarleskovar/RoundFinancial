@@ -24,7 +24,7 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { user } = useSession();
+  const { user, sendPayment } = useSession();
   const [phase, setPhase] = useState<Phase>("form");
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState("");
@@ -222,7 +222,14 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
               type="button"
               onClick={() => {
                 setSubmitting(true);
+                // Mock confirm (900ms) mirroring the Phantom signing UX
+                // window. After the timeout, dispatch SEND_PAYMENT —
+                // this decrements user.balance and emits a payment
+                // event with negative amountBrl, so the Activity feed
+                // and balance KPIs across /home + /carteira reflect
+                // the transfer. Real Phantom signing wires in M3.
                 setTimeout(() => {
+                  sendPayment(numericAmount, address.trim());
                   setSubmitting(false);
                   setPhase("success");
                 }, 900);
