@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { MemberInfoModal } from "@/components/lab/MemberInfoModal";
+import { TripleShieldCard } from "@/components/lab/TripleShieldCard";
 import { Icons } from "@/components/brand/icons";
 import {
   ALL_NAMES,
@@ -204,6 +205,38 @@ export function StressLabClient() {
           {t("lab.title")}
         </div>
         <div style={{ fontSize: 13, color: tokens.text2, marginTop: 4 }}>{t("lab.subtitle")}</div>
+
+        {/* Parity status — discrete disclosure for technical jurors.
+            Maps "what L1 simulates" to "what L2 verifies" so the
+            difference between the math reference and the on-chain
+            implementation is honest, not implicit. Source:
+            tests/economic_parity.spec.ts (40 L1 tests + Healthy
+            canary + 4 describe.skip awaiting bankrun harness). */}
+        <div
+          style={{
+            marginTop: 12,
+            display: "inline-flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+            padding: "6px 12px",
+            borderRadius: 999,
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontSize: 10,
+            letterSpacing: "0.04em",
+          }}
+        >
+          <span style={{ color: tokens.green, fontWeight: 700 }}>◆ L1</span>
+          <span style={{ color: tokens.text2 }}>{t("lab.parity.l1")}</span>
+          <span style={{ color: tokens.muted }}>·</span>
+          <span style={{ color: tokens.green, fontWeight: 700 }}>◆ L2</span>
+          <span style={{ color: tokens.text2 }}>{t("lab.parity.l2Canary")}</span>
+          <span style={{ color: tokens.muted }}>·</span>
+          <span style={{ color: tokens.amber, fontWeight: 700 }}>⏳</span>
+          <span style={{ color: tokens.text2 }}>{t("lab.parity.l2Pending")}</span>
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -905,6 +938,11 @@ export function StressLabClient() {
           >
             {/* LEFT: Audit + KPIs */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Triple Shield card — surfaces whitepaper's 3 structural
+                  shields (Sorteio Semente / Escrow Adaptativo / Cofre
+                  Solidário + Cascata) so jurors can map audit panel
+                  buckets back to the protocol narrative. */}
+              <TripleShieldCard metrics={m} level={level} maturity={maturity} finished={finished} />
               {finished && (
                 <div
                   style={{
