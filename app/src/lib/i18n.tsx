@@ -321,6 +321,10 @@ export const DICT: Record<Lang, Dict> = {
     "lab.matrix.cellHint": "Click pra alternar P/C/X · Shift+click pra Válvula de Escape (E)",
     "lab.matrix.head.members": "Membros",
     "lab.matrix.cyclePrefix": "M",
+    "lab.parity.l1": "40 testes verdes",
+    "lab.parity.l2Canary": "canário Healthy verde em bankrun",
+    "lab.parity.l2Pending":
+      "4 cenários scaffolded (preDefault, postDefault, cascade, tripleVeteranDefault)",
     "lab.shields.title": "Triple Shield ativo",
     "lab.shields.s1.title": "Sorteio Semente",
     "lab.shields.s1.rule":
@@ -1202,6 +1206,10 @@ export const DICT: Record<Lang, Dict> = {
     "lab.matrix.cellHint": "Click to cycle P/C/X · Shift+click for Escape Valve (E)",
     "lab.matrix.head.members": "Members",
     "lab.matrix.cyclePrefix": "M",
+    "lab.parity.l1": "40 tests green",
+    "lab.parity.l2Canary": "Healthy canary green in bankrun",
+    "lab.parity.l2Pending":
+      "4 scenarios scaffolded (preDefault, postDefault, cascade, tripleVeteranDefault)",
     "lab.shields.title": "Triple Shield active",
     "lab.shields.s1.title": "Seed Draw",
     "lab.shields.s1.rule":
