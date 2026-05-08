@@ -321,6 +321,19 @@ export const DICT: Record<Lang, Dict> = {
     "lab.matrix.cellHint": "Click pra alternar P/C/X · Shift+click pra Válvula de Escape (E)",
     "lab.matrix.head.members": "Membros",
     "lab.matrix.cyclePrefix": "M",
+    "lab.shields.title": "Triple Shield ativo",
+    "lab.shields.s1.title": "Sorteio Semente",
+    "lab.shields.s1.rule":
+      "Mês 1 mantém ~91.6% do capital no cofre — contemplado recebe só 2× parcela. Cap assimétrico previne drenagem precoce (claim_payout.rs cycle=1 special case).",
+    "lab.shields.s1.target": "Retenção alvo",
+    "lab.shields.s2.title": "Escrow Adaptativo + Stake",
+    "lab.shields.s2.rule":
+      "Lv {stake}/{payout}/{escrow} — stake/payout/escrow split + janela de release de {months}m. Reputação aumenta → menos colateral, mais payout (50-30-10 rule).",
+    "lab.shields.s2.outstanding": "Escrow trancado",
+    "lab.shields.s3.title": "Cofre Solidário + Cascata Yield",
+    "lab.shields.s3.rule":
+      "1% de cada parcela → Cofre Solidário segregado. Yield Kamino → admin fee → Fundo Garantido (cap 150% × crédito) → 65% LPs → 35% participantes.",
+    "lab.shields.s3.buckets": "Solidário + Garantido / cap",
     "lab.audit.title": "Auditoria Final de Solvência",
     "lab.audit.grossCash": "Caixa Bruto (float)",
     "lab.audit.solidarityVault": "Cofre Solidário (1% × parcelas)",
@@ -1189,6 +1202,19 @@ export const DICT: Record<Lang, Dict> = {
     "lab.matrix.cellHint": "Click to cycle P/C/X · Shift+click for Escape Valve (E)",
     "lab.matrix.head.members": "Members",
     "lab.matrix.cyclePrefix": "M",
+    "lab.shields.title": "Triple Shield active",
+    "lab.shields.s1.title": "Seed Draw",
+    "lab.shields.s1.rule":
+      "Month 1 retains ~91.6% of capital in the vault — winner receives only 2× installment. Asymmetric upfront cap prevents early drain (claim_payout.rs cycle=1 special case).",
+    "lab.shields.s1.target": "Retention target",
+    "lab.shields.s2.title": "Adaptive Escrow + Stake",
+    "lab.shields.s2.rule":
+      "Lv {stake}/{payout}/{escrow} — stake/payout/escrow split + {months}-month release window. Higher reputation → less collateral, more payout (50-30-10 rule).",
+    "lab.shields.s2.outstanding": "Locked escrow",
+    "lab.shields.s3.title": "Solidarity Vault + Yield Cascade",
+    "lab.shields.s3.rule":
+      "1% of every installment → segregated Solidarity Vault. Kamino yield → admin fee → Guarantee Fund (cap 150% × credit) → 65% LPs → 35% participants.",
+    "lab.shields.s3.buckets": "Solidarity + Guarantee / cap",
     "lab.audit.title": "Final solvency audit",
     "lab.audit.grossCash": "Gross cash (float)",
     "lab.audit.solidarityVault": "Solidarity vault (1% × installments)",

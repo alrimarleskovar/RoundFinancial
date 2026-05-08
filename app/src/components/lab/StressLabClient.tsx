@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { MemberInfoModal } from "@/components/lab/MemberInfoModal";
+import { TripleShieldCard } from "@/components/lab/TripleShieldCard";
 import { Icons } from "@/components/brand/icons";
 import {
   ALL_NAMES,
@@ -905,6 +906,11 @@ export function StressLabClient() {
           >
             {/* LEFT: Audit + KPIs */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Triple Shield card — surfaces whitepaper's 3 structural
+                  shields (Sorteio Semente / Escrow Adaptativo / Cofre
+                  Solidário + Cascata) so jurors can map audit panel
+                  buckets back to the protocol narrative. */}
+              <TripleShieldCard metrics={m} level={level} maturity={maturity} finished={finished} />
               {finished && (
                 <div
                   style={{
