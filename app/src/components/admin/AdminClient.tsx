@@ -89,6 +89,8 @@ export function AdminClient() {
       groupName,
       `Demo Studio · ${ctrl.state.user.name}`,
       demoGroup,
+      ctrl.state.monthsPaid,
+      ctrl.state.group.installment,
     );
     router.push("/home");
   };
