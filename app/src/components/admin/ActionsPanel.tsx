@@ -31,12 +31,30 @@ export function ActionsPanel({ ctrl }: { ctrl: DemoController }) {
       <ActionBtn
         glyph="💰"
         label={t("admin.actions.payInstallment")}
-        sub={t("admin.actions.payInstallmentSub", {
-          v: state.group.installment,
-        })}
+        sub={(() => {
+          // Dynamic sub-label: explains why the button is disabled when
+          // applicable so jurors understand the state (cycle complete /
+          // balance insufficient). Mirrors the reducer guards in
+          // demoState.ts PAY_INSTALLMENT.
+          if (state.monthsPaid >= state.group.months)
+            return t("admin.actions.payInstallmentCycleComplete", {
+              paid: state.monthsPaid,
+              total: state.group.months,
+            });
+          if (state.user.balance < state.group.installment)
+            return t("admin.actions.payInstallmentInsufficient", {
+              v: state.group.installment,
+            });
+          return t("admin.actions.payInstallmentSub", { v: state.group.installment });
+        })()}
         tone={tokens.green}
         onClick={ctrl.payInstallment}
-        disabled={state.defaulted || state.exitedViaValve}
+        disabled={
+          state.defaulted ||
+          state.exitedViaValve ||
+          state.monthsPaid >= state.group.months ||
+          state.user.balance < state.group.installment
+        }
       />
       <ActionBtn
         glyph="🎯"
