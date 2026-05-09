@@ -135,14 +135,18 @@ RoundFinancial/
 - [3-min Pitch · PT](docs/pitch/pitch-3min.html) — 12-slide short-form deck (Portuguese)
 - [Long-form Deck · EN](docs/pitch/pitch-deck-en.html) — 15-slide Colosseum deck
 
-**English (strategy + technical)**
+**English (strategy + technical)** — full index in [`docs/en/`](docs/en/README.md)
 
-- [`docs/en/` index](docs/en/README.md) — full English documentation index
+- [Overview](docs/en/overview.pdf) — entry point, 60-second pitch in document form
 - [Architecture Spec](docs/en/architecture-spec.pdf) — program topology, account model, instruction surface
-- [Devnet Status & Proof](docs/en/devnet-status-and-proof.pdf) — Solscan receipts + Triple Shield enforcement evidence
 - [Behavioral Reputation Score](docs/en/behavioral-reputation-score.pdf) — 50/30/10 ladder + attestation schemas
+- [Stress Lab & Economic Model](docs/en/stress-lab-and-economic-model.pdf) — L1 actuarial simulator + Triple Shield invariants
+- [Devnet Status & Proof](docs/en/devnet-status-and-proof.pdf) — Solscan receipts + Triple Shield enforcement evidence
 - [Business Model & B2B Reputation Oracle](docs/en/business-model-and-b2b-reputation-oracle.pdf) — 3-phase revenue + Phase 3 endgame
+- [Market & GTM Strategy](docs/en/market-and-gtm-strategy.pdf) — market sizing + ICP + go-to-market motion
 - [Competitive Analysis](docs/en/competitive-analysis.pdf) — honest positioning vs Aave, Kamino, Maple, TrueFi, Goldfinch, Credix, RociFi, ARCx, WeTrust
+- [Risks, Regulation & Compliance](docs/en/risks-regulation-and-compliance.pdf) — risk taxonomy + regulatory framing + compliance posture
+- [Documentation Index](docs/en/documentation-index.pdf) — formal strategic index of the package
 
 **Grant bundle (Superteam · Agentic Engineering)**
 

@@ -2,13 +2,44 @@
 
 Strategic + technical documentation for the RoundFi protocol, in English. The Portuguese counterpart lives at [`../pt/`](../pt/).
 
-| File                                                                                             | Topic                                                                                                             |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| [`architecture-spec.pdf`](./architecture-spec.pdf)                                               | Program topology, account model, instruction surface, PDA conventions, reputation design                          |
-| [`devnet-status-and-proof.pdf`](./devnet-status-and-proof.pdf)                                   | Devnet deployment status + Solscan receipts + Triple Shield enforcement evidence                                  |
-| [`behavioral-reputation-score.pdf`](./behavioral-reputation-score.pdf)                           | Reputation ladder (50/30/10), score generation mechanism, attestation schemas                                     |
-| [`business-model-and-b2b-reputation-oracle.pdf`](./business-model-and-b2b-reputation-oracle.pdf) | 3-phase revenue model + B2B reputation API endgame                                                                |
-| [`competitive-analysis.pdf`](./competitive-analysis.pdf)                                         | Honest competitive positioning vs Aave, Kamino, Maple, TrueFi, Goldfinch, Credix, RociFi, ARCx, Spectral, WeTrust |
+Read in this order — entry point first, then technical foundation, then commercial layers, then operational concerns, then the meta-index.
+
+## 1. Entry point
+
+| File                             | Topic                                                   |
+| -------------------------------- | ------------------------------------------------------- |
+| [`overview.pdf`](./overview.pdf) | Project overview — the 60-second pitch in document form |
+
+## 2. Technical foundation
+
+| File                                                                       | Topic                                                                                    |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [`architecture-spec.pdf`](./architecture-spec.pdf)                         | Program topology, account model, instruction surface, PDA conventions, reputation design |
+| [`behavioral-reputation-score.pdf`](./behavioral-reputation-score.pdf)     | Reputation ladder (50/30/10), score generation mechanism, attestation schemas            |
+| [`stress-lab-and-economic-model.pdf`](./stress-lab-and-economic-model.pdf) | L1 actuarial simulator, Triple Shield invariants, solvency proofs                        |
+| [`devnet-status-and-proof.pdf`](./devnet-status-and-proof.pdf)             | Devnet deployment status + Solscan receipts + Triple Shield enforcement evidence         |
+
+## 3. Commercial layers
+
+| File                                                                                             | Topic                                                                                                 |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| [`business-model-and-b2b-reputation-oracle.pdf`](./business-model-and-b2b-reputation-oracle.pdf) | 3-phase revenue model + B2B reputation API endgame                                                    |
+| [`market-and-gtm-strategy.pdf`](./market-and-gtm-strategy.pdf)                                   | Market sizing, ICP, go-to-market motion                                                               |
+| [`competitive-analysis.pdf`](./competitive-analysis.pdf)                                         | Honest positioning vs Aave, Kamino, Maple, TrueFi, Goldfinch, Credix, RociFi, ARCx, Spectral, WeTrust |
+
+## 4. Operational
+
+| File                                                                           | Topic                                                 |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| [`risks-regulation-and-compliance.pdf`](./risks-regulation-and-compliance.pdf) | Risk taxonomy, regulatory framing, compliance posture |
+
+## 5. Meta
+
+| File                                                   | Topic                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------ |
+| [`documentation-index.pdf`](./documentation-index.pdf) | Formal strategic index document — canonical map of the doc package |
+
+---
 
 ## Companion technical docs (root `docs/`)
 
