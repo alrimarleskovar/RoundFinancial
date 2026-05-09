@@ -554,6 +554,8 @@ export const DICT: Record<Lang, Dict> = {
     "admin.actions.title": "◆ Ações",
     "admin.actions.payInstallment": "Pagar parcela",
     "admin.actions.payInstallmentSub": "Debita R$ {v} · score +6",
+    "admin.actions.payInstallmentCycleComplete": "Ciclo completo · {paid}/{total} parcelas pagas",
+    "admin.actions.payInstallmentInsufficient": "Saldo insuficiente · precisa de R$ {v}",
     "admin.actions.contemplate": "Contemplar agora",
     "admin.actions.contemplateSub": "Libera 35% upfront (R$ {v})",
     "admin.actions.contemplateAlready": "Já contemplado",
@@ -1439,6 +1441,9 @@ export const DICT: Record<Lang, Dict> = {
     "admin.actions.title": "◆ Actions",
     "admin.actions.payInstallment": "Pay installment",
     "admin.actions.payInstallmentSub": "Debits R$ {v} · score +6",
+    "admin.actions.payInstallmentCycleComplete":
+      "Cycle complete · {paid}/{total} installments paid",
+    "admin.actions.payInstallmentInsufficient": "Insufficient balance · need R$ {v}",
     "admin.actions.contemplate": "Contemplate now",
     "admin.actions.contemplateSub": "Releases 35% upfront (R$ {v})",
     "admin.actions.contemplateAlready": "Already contemplated",

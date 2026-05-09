@@ -368,6 +368,14 @@ function reducer(state: DemoState, action: Action): DemoState {
 
     case "PAY_INSTALLMENT": {
       const amount = state.group.installment;
+      // Defensive guards mirroring session.tsx's PAY_INSTALLMENT —
+      // no-op when the cycle is fully paid (monthsPaid hit the cap)
+      // OR when the balance can't cover the installment. Without
+      // these the Demo Studio accepts unbounded clicks past the
+      // cycle end, drives balance negative, and corrupts the
+      // narrative jurors see in the activity log.
+      if (state.monthsPaid >= state.group.months) return state;
+      if (state.user.balance < amount) return state;
       return {
         ...state,
         user: {
