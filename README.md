@@ -137,18 +137,18 @@ RoundFinancial/
 
 **English (strategy + technical)** — full index in [`docs/en/`](docs/en/README.md)
 
-- [Overview](docs/en/overview.pdf) — entry point, 60-second pitch in document form
-- [User Guide](docs/en/user-guide.pdf) — end-user onboarding guide, step by step
-- [Technical Whitepaper](docs/en/technical-whitepaper.pdf) — protocol whitepaper, source of truth for mechanics
-- [Architecture Spec](docs/en/architecture-spec.pdf) — program topology, account model, instruction surface
-- [Behavioral Reputation Score](docs/en/behavioral-reputation-score.pdf) — 50/30/10 ladder + attestation schemas
-- [Stress Lab & Economic Model](docs/en/stress-lab-and-economic-model.pdf) — L1 actuarial simulator + Triple Shield invariants
-- [Devnet Status & Proof](docs/en/devnet-status-and-proof.pdf) — Solscan receipts + Triple Shield enforcement evidence
-- [Business Model & B2B Reputation Oracle](docs/en/business-model-and-b2b-reputation-oracle.pdf) — 3-phase revenue + Phase 3 endgame
-- [Market & GTM Strategy](docs/en/market-and-gtm-strategy.pdf) — market sizing + ICP + go-to-market motion
-- [Competitive Analysis](docs/en/competitive-analysis.pdf) — honest positioning vs Aave, Kamino, Maple, TrueFi, Goldfinch, Credix, RociFi, ARCx, WeTrust
-- [Risks, Regulation & Compliance](docs/en/risks-regulation-and-compliance.pdf) — risk taxonomy + regulatory framing + compliance posture
-- [Documentation Index](docs/en/documentation-index.pdf) — formal strategic index of the package
+- [00 · Documentation Index](docs/en/00-documentation-index.pdf) — formal strategic index of the package
+- [01 · Overview](docs/en/01-roundfi-overview.pdf) — entry point, 60-second pitch in document form
+- [02 · Technical Whitepaper](docs/en/02-technical-whitepaper.pdf) — protocol whitepaper, source of truth for mechanics
+- [03 · Architecture Spec](docs/en/03-architecture-spec.pdf) — program topology, account model, instruction surface
+- [04 · Behavioral Reputation Score](docs/en/04-behavioral-reputation-score.pdf) — 50/30/10 ladder + attestation schemas
+- [05 · Stress Lab & Economic Model](docs/en/05-stress-lab-economic-model.pdf) — L1 actuarial simulator + Triple Shield invariants
+- [06 · Market & GTM](docs/en/06-market-and-gtm.pdf) — market sizing + ICP + go-to-market motion
+- [07 · Business Model & B2B Oracle](docs/en/07-business-model-b2b-oracle.pdf) — 3-phase revenue + Phase 3 endgame
+- [08 · Competitive Analysis](docs/en/08-competitive-analysis.pdf) — honest positioning vs Aave, Kamino, Maple, TrueFi, Goldfinch, Credix, RociFi, ARCx, WeTrust
+- [09 · Risk & Compliance](docs/en/09-risk-and-compliance.pdf) — risk taxonomy + regulatory framing + compliance posture
+- [10 · User Guide](docs/en/10-user-guide.pdf) — end-user onboarding, step by step
+- [11 · Devnet Status & Proof](docs/en/11-devnet-status-and-proof.pdf) — Solscan receipts + Triple Shield enforcement evidence
 
 **Grant bundle (Superteam · Agentic Engineering)**
 
