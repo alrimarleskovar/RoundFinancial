@@ -138,6 +138,8 @@ RoundFinancial/
 **English (strategy + technical)** — full index in [`docs/en/`](docs/en/README.md)
 
 - [Overview](docs/en/overview.pdf) — entry point, 60-second pitch in document form
+- [User Guide](docs/en/user-guide.pdf) — end-user onboarding guide, step by step
+- [Technical Whitepaper](docs/en/technical-whitepaper.pdf) — protocol whitepaper, source of truth for mechanics
 - [Architecture Spec](docs/en/architecture-spec.pdf) — program topology, account model, instruction surface
 - [Behavioral Reputation Score](docs/en/behavioral-reputation-score.pdf) — 50/30/10 ladder + attestation schemas
 - [Stress Lab & Economic Model](docs/en/stress-lab-and-economic-model.pdf) — L1 actuarial simulator + Triple Shield invariants

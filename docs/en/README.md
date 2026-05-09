@@ -2,18 +2,20 @@
 
 Strategic + technical documentation for the RoundFi protocol, in English. The Portuguese counterpart lives at [`../pt/`](../pt/).
 
-Read in this order — entry point first, then technical foundation, then commercial layers, then operational concerns, then the meta-index.
+Read in this order — entry points first, then technical foundation, then commercial layers, then operational concerns, then the meta-index.
 
-## 1. Entry point
+## 1. Entry points
 
-| File                             | Topic                                                   |
-| -------------------------------- | ------------------------------------------------------- |
-| [`overview.pdf`](./overview.pdf) | Project overview — the 60-second pitch in document form |
+| File                                 | Topic                                                            |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| [`overview.pdf`](./overview.pdf)     | Project overview — the 60-second pitch in document form          |
+| [`user-guide.pdf`](./user-guide.pdf) | End-user onboarding guide — how to use the protocol step by step |
 
 ## 2. Technical foundation
 
 | File                                                                       | Topic                                                                                    |
 | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [`technical-whitepaper.pdf`](./technical-whitepaper.pdf)                   | Protocol whitepaper — source of truth for protocol mechanics                             |
 | [`architecture-spec.pdf`](./architecture-spec.pdf)                         | Program topology, account model, instruction surface, PDA conventions, reputation design |
 | [`behavioral-reputation-score.pdf`](./behavioral-reputation-score.pdf)     | Reputation ladder (50/30/10), score generation mechanism, attestation schemas            |
 | [`stress-lab-and-economic-model.pdf`](./stress-lab-and-economic-model.pdf) | L1 actuarial simulator, Triple Shield invariants, solvency proofs                        |
