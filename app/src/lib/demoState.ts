@@ -376,6 +376,15 @@ function reducer(state: DemoState, action: Action): DemoState {
       // narrative jurors see in the activity log.
       if (state.monthsPaid >= state.group.months) return state;
       if (state.user.balance < amount) return state;
+      // In a single-user demo flow, paying an installment IS the
+      // monthly progression — couple the two so each click advances
+      // both `monthsPaid` and `currentMonth`. The TimelinePanel's
+      // standalone "Advance month" button still exists for the
+      // edge case of progressing time without paying (simulating
+      // a member who fell behind). Without this coupling, the log
+      // shows "1/10" on every payment because state.currentMonth
+      // never moves when paying.
+      const nextMonth = Math.min(state.group.months, state.currentMonth + 1);
       return {
         ...state,
         user: {
@@ -384,10 +393,11 @@ function reducer(state: DemoState, action: Action): DemoState {
           score: state.user.score + 6, // SAS +6 per on-time payment
         },
         monthsPaid: state.monthsPaid + 1,
+        currentMonth: nextMonth,
         events: pushEvent(
           state,
           "installment",
-          `Parcela paga · mês ${state.currentMonth || 1}/${state.group.months}`,
+          `Parcela paga · mês ${nextMonth}/${state.group.months}`,
           -amount,
         ),
       };
