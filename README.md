@@ -135,6 +135,15 @@ RoundFinancial/
 - [3-min Pitch · PT](docs/pitch/pitch-3min.html) — 12-slide short-form deck (Portuguese)
 - [Long-form Deck · EN](docs/pitch/pitch-deck-en.html) — 15-slide Colosseum deck
 
+**English (strategy + technical)**
+
+- [`docs/en/` index](docs/en/README.md) — full English documentation index
+- [Architecture Spec](docs/en/architecture-spec.pdf) — program topology, account model, instruction surface
+- [Devnet Status & Proof](docs/en/devnet-status-and-proof.pdf) — Solscan receipts + Triple Shield enforcement evidence
+- [Behavioral Reputation Score](docs/en/behavioral-reputation-score.pdf) — 50/30/10 ladder + attestation schemas
+- [Business Model & B2B Reputation Oracle](docs/en/business-model-and-b2b-reputation-oracle.pdf) — 3-phase revenue + Phase 3 endgame
+- [Competitive Analysis](docs/en/competitive-analysis.pdf) — honest positioning vs Aave, Kamino, Maple, TrueFi, Goldfinch, Credix, RociFi, ARCx, WeTrust
+
 **Grant bundle (Superteam · Agentic Engineering)**
 
 - [Grant index](grant/00_README.md) — 7-file response bundle
