@@ -226,6 +226,35 @@ export function defaultMatrix(N: number): MatrixCell[][] {
   );
 }
 
+// Resize an existing matrix to a new N, preserving as much of the
+// user's scenario as fits inside the new bounds. Lets the Lab user
+// load a preset (e.g. Triplo Calote @ 12 members) and then tweak the
+// member slider to explore the same scenario with a different group
+// size, instead of having the matrix nuked back to identity every
+// time the slider moves.
+//
+// - Shrink (N_old > N_new): keeps the top-left N_new × N_new submatrix.
+//   Cells outside the new bounds are dropped.
+// - Extend (N_old < N_new): keeps the original top-left block and
+//   fills the new rows/columns with default cells (diagonal C, rest P).
+// - Same N: returns a deep copy unchanged.
+//
+// Edge case: a row whose existing C sat in a column that's now out of
+// bounds will lose its C. That's the same legal state the user can
+// already produce by manually toggling C → P, so the simulator handles
+// it without invariant violations.
+export function resizeMatrix(old: MatrixCell[][], newN: number): MatrixCell[][] {
+  const oldN = old.length;
+  const next = defaultMatrix(newN);
+  const minN = Math.min(oldN, newN);
+  for (let r = 0; r < minN; r++) {
+    for (let c = 0; c < minN; c++) {
+      next[r]![c] = old[r]![c]!;
+    }
+  }
+  return next;
+}
+
 // Row m, col c. Position-aware click semantics so the UI can
 // reproduce every scenario the whitepaper describes — including the
 // load-bearing one: a member contemplated at cycle c₀ who then
