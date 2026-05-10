@@ -14,6 +14,7 @@ import {
   LEVEL_PARAMS,
   PRESETS,
   PRESET_ORDER,
+  resizeMatrix,
   runSimulation,
   toggleCell,
   toggleCellEscape,
@@ -83,7 +84,12 @@ export function StressLabClient() {
 
   const handleMembersChange = (n: number) => {
     setMembers(n);
-    setMatrix(defaultMatrix(n));
+    // Preserve the user's scenario where it fits inside the new bounds
+    // — shrinks keep the top-left N×N submatrix, extends fill the new
+    // rows/cols with default cells. Lets the user load a preset (e.g.
+    // Triplo Calote) and then tweak the member slider to explore the
+    // same scenario at a different group size.
+    setMatrix((prev) => resizeMatrix(prev, n));
     setActivePreset(null);
   };
 

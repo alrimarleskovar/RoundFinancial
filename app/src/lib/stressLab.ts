@@ -11,6 +11,7 @@ export {
   PRESETS,
   PRESET_ORDER,
   ALL_NAMES,
+  resizeMatrix,
   runSimulation,
   toggleCell,
   toggleCellEscape,
