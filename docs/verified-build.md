@@ -44,22 +44,20 @@ Compares each local build hash (`solana-verify get-executable-hash target/deploy
 
 ### Step 3 — Redeploy (only if Step 2 reports mismatches)
 
-For each mismatched program:
-
 ```bash
-solana program deploy \
-  --url https://api.devnet.solana.com \
-  --keypair ~/.config/solana/id.json \
-  --program-id <upgrade-authority-keypair-of-prog> \
-  target/deploy/<prog>.so
+solana airdrop 5 --url devnet     # if balance < ~8 SOL
+pnpm devnet:verify-redeploy       # all 4 programs
+# or per-program:
+pnpm devnet:verify-redeploy roundfi_core
 ```
 
 Notes:
 
-- **Program IDs stay the same** — `--program-id` references your upgrade authority keypair, address is preserved.
+- **Program IDs stay the same** — addresses preserved, only bytecode replaced.
 - **State is preserved** — pools, members, attestations, all PDAs survive.
-- **Cost** — ~0.5-2 SOL per program (free on devnet).
-- **You need the upgrade authority keypair** — should be `~/.config/solana/id.json` if you deployed originally.
+- **Cost** — ~0.5-2 SOL per program (free on devnet via `solana airdrop` or [faucet.solana.com](https://faucet.solana.com)).
+- **`~/.config/solana/id.json` must be the upgrade authority** for each program (default if you ran the original `anchor deploy`).
+- **Idempotent** — re-running on a successful program is a no-op upload (Solana skips identical bytecode).
 
 After redeploying, re-run `pnpm devnet:verify-check` to confirm hashes now match.
 
@@ -95,6 +93,12 @@ Update the README's "Live on devnet" section / pitch slide to reflect verified s
 
 **`solana-verify build` fails with Docker permission denied**
 → Linux: add user to `docker` group (`sudo usermod -aG docker $USER`) and re-login. Mac/Windows: ensure Docker Desktop is running.
+
+**`solana-verify build` fails with `lock file version 4 requires -Znext-lockfile-bump`**
+→ The Solana 1.18.26 verifiable-build image ships Cargo too old for `Cargo.lock` v4 (Cargo 1.78+ default). Fix: `sed -i 's/^version = 4$/version = 3/' Cargo.lock` and re-run. The repo already commits v3; this only happens after a local `cargo update` regenerates v4.
+
+**`solana-verify build` fails with `borsh v1.6.1 ... requires rustc 1.77.0 or newer`**
+→ Solana 1.18.26 platform-tools ships rustc 1.75. Fix: `cargo update -p borsh@1.6.1 --precise 1.5.7 && sed -i 's/^version = 4$/version = 3/' Cargo.lock`. The repo already pins borsh 1.5.7 in `Cargo.lock`; this only happens after a local `cargo update -p borsh` bumps it.
 
 **Hashes still mismatch after redeploy**
 → Confirm `solana program deploy` used the `target/deploy/<prog>.so` from `solana-verify build`, NOT a fresh `anchor build` (which produces different bytecode). Run `pnpm devnet:verify-build` immediately before deploying.
