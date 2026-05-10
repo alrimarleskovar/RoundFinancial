@@ -1837,6 +1837,12 @@ export interface FmtOptions {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 // ── Provider ───────────────────────────────────────────────
+const LANG_STORAGE_KEY = "roundfi.lang";
+const CURRENCY_STORAGE_KEY = "roundfi.currency";
+
+const isLang = (v: unknown): v is Lang => v === "pt" || v === "en";
+const isCurrency = (v: unknown): v is Currency => v === "BRL" || v === "USDC";
+
 export function I18nProvider({
   initialLang = "pt",
   initialCurrency = "BRL",
@@ -1849,9 +1855,32 @@ export function I18nProvider({
   const [lang, setLangState] = useState<Lang>(initialLang);
   const [currency, setCurrencyState] = useState<Currency>(initialCurrency);
 
+  // Hydrate from localStorage once on mount. Server render uses
+  // `initialLang` (so SSR markup stays deterministic); the effect
+  // then upgrades to the user's persisted choice.
+  useEffect(() => {
+    try {
+      const storedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
+      if (isLang(storedLang)) setLangState(storedLang);
+      const storedCurrency = window.localStorage.getItem(CURRENCY_STORAGE_KEY);
+      if (isCurrency(storedCurrency)) setCurrencyState(storedCurrency);
+    } catch {
+      // localStorage unavailable (private mode, SSR fallback) — ignore.
+    }
+  }, []);
+
   useEffect(() => {
     document.documentElement.setAttribute("lang", lang === "pt" ? "pt-BR" : "en");
+    try {
+      window.localStorage.setItem(LANG_STORAGE_KEY, lang);
+    } catch {}
   }, [lang]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
+    } catch {}
+  }, [currency]);
 
   const setLang = useCallback((l: Lang) => setLangState(l), []);
   const setCurrency = useCallback((c: Currency) => setCurrencyState(c), []);

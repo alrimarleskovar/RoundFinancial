@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import type { IconProps } from "@/components/brand/icons";
@@ -66,9 +67,9 @@ export function DeskBtn({
 
   if (href) {
     return (
-      <a href={href} style={style as React.CSSProperties}>
+      <Link href={href} style={style as React.CSSProperties}>
         {inner}
-      </a>
+      </Link>
     );
   }
   return (
