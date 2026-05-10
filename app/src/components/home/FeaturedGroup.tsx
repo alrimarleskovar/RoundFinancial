@@ -61,17 +61,7 @@ export function FeaturedGroup() {
         members: onChain.pool!.membersJoined,
       }
     : fixtureG;
-  // Overlay session-tracked installments paid this round on top of the
-  // static fixture so the dial advances live when the user confirms a
-  // payment. Capped at the group's total. Skipped when reading on-chain
-  // data — the dial reflects pool.currentCycle directly there.
-  const paidExtra = useChain ? 0 : (monthsPaidByGroup[baseG.name] ?? 0);
-  const month = Math.min(baseG.total, baseG.month + paidExtra);
-  const g = { ...baseG, month, progress: month / baseG.total };
-  const [payOpen, setPayOpen] = useState(false);
-  const [claimOpen, setClaimOpen] = useState(false);
-
-  // ─── Claim eligibility detection ─────────────────────────────────────
+  // ─── Connected member (used by both the dial and claim eligibility) ──
   // The contemplated slot for the current cycle is the slot whose
   // index matches `pool.current_cycle` (slot N receives the pot in
   // cycle N). The connected wallet can claim when:
@@ -87,6 +77,23 @@ export function FeaturedGroup() {
     useChain && connectedWalletPk && onChainMembers.status === "ok"
       ? (onChainMembers.members.find((m) => m.wallet.equals(connectedWalletPk)) ?? null)
       : null;
+  // Dial value: in on-chain mode with a connected member, prefer the
+  // member's own `contributionsPaid` over the pool-level `currentCycle`.
+  // The pool counter only advances when the whole cycle closes (every
+  // member paid OR claim_payout fired), so right after a single user
+  // pays their last installment, currentCycle stays put and the dial
+  // would otherwise look stuck. Member-aware mode shows YOUR progress
+  // (3/3 immediately after you pay) which is what the demo wants.
+  // Off-chain modes overlay session-tracked installments on top of the
+  // static fixture so the dial still advances live in mock flows.
+  const paidExtra = useChain ? 0 : (monthsPaidByGroup[baseG.name] ?? 0);
+  const month =
+    useChain && connectedMember
+      ? Math.min(baseG.total, Number(connectedMember.contributionsPaid))
+      : Math.min(baseG.total, baseG.month + paidExtra);
+  const g = { ...baseG, month, progress: month / baseG.total };
+  const [payOpen, setPayOpen] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
   const claimReady =
     !!connectedMember &&
     !!onChain.pool &&
@@ -424,7 +431,17 @@ export function FeaturedGroup() {
         </div>
       </div>
 
-      <PayInstallmentModal group={baseG} open={payOpen} onClose={() => setPayOpen(false)} />
+      <PayInstallmentModal
+        group={baseG}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        onSuccess={() => {
+          // Eager re-fetch so the dial flips from N/T → (N+1)/T in ~1s
+          // instead of waiting up to a full 30s usePool poll cycle.
+          void onChain.refresh();
+          void onChainMembers.refresh();
+        }}
+      />
       {claimReady && connectedMember && onChain.pool && fixtureG.devnetPool ? (
         <ClaimPayoutModal
           group={baseG}
