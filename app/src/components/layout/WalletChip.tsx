@@ -29,6 +29,17 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
     { kind: "ok"; sig: string } | { kind: "err"; reason: string } | null
   >(null);
   const ref = useRef<HTMLDivElement | null>(null);
+  // `wallet.isInstalled` flips from false (SSR — no window.solana) to
+  // true (client — adapter detected Phantom) on hydration. Branching
+  // the button label on it directly produces a hydration mismatch and
+  // causes Next to fall back to client rendering for the Suspense
+  // boundary. Gate the dependent text behind a `mounted` flag so the
+  // first client render still matches the server, then upgrade to the
+  // real label once mounted.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // When the hook reports completion (success or error) AFTER we've
   // pinged it from this chip, capture the outcome and auto-clear
@@ -101,7 +112,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
         )}
         {connecting
           ? t("top.connecting")
-          : wallet.isInstalled
+          : !mounted || wallet.isInstalled
             ? t("top.connect")
             : t("conn.phantom.installCTA")}
       </button>
