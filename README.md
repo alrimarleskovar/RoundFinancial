@@ -457,7 +457,7 @@ The `ignoreCommand` in `app/vercel.json` skips rebuilds when only docs/grant/pro
 
 ## License
 
-TBD (recommend Apache-2.0 for the core + BUSL-1.1 for the commercial score API).
+**Apache-2.0** — full text in [`LICENSE`](./LICENSE). Covers the four Anchor programs (`programs/roundfi-core`, `roundfi-reputation`, `roundfi-yield-mock`, `roundfi-yield-kamino`), the IDL-free SDK (`sdk/`), and the Next.js app (`app/`). Reputation scoring methodology is documented openly in [`docs/en/04-behavioral-reputation-score.pdf`](./docs/en/04-behavioral-reputation-score.pdf) so any third party can audit how the score is generated. A future hosted B2B scoring service (Phase 3) may ship under a separate license; not yet released.
 
 ## Links
 
