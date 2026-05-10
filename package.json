@@ -40,6 +40,7 @@
     "devnet:seed-default": "tsx scripts/devnet/seed-default.ts",
     "devnet:verify-build": "bash scripts/devnet/verify-build.sh",
     "devnet:verify-check": "bash scripts/devnet/verify-check.sh",
+    "devnet:verify-redeploy": "bash scripts/devnet/verify-redeploy.sh",
     "devnet:verify-onchain": "bash scripts/devnet/verify-onchain.sh",
     "test:parity": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/parity.spec.ts'",
     "test:events": "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 60000 'tests/events.spec.ts'",
