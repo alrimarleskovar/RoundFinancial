@@ -55,6 +55,7 @@ solana program deploy \
 ```
 
 Notes:
+
 - **Program IDs stay the same** — `--program-id` references your upgrade authority keypair, address is preserved.
 - **State is preserved** — pools, members, attestations, all PDAs survive.
 - **Cost** — ~0.5-2 SOL per program (free on devnet).
@@ -69,6 +70,7 @@ pnpm devnet:verify-onchain
 ```
 
 Runs `solana-verify verify-from-repo` for each program, pointing at:
+
 - `--program-id` — the deployed program address
 - `--library-name` — the Cargo crate name (e.g. `roundfi_core`)
 - `--commit-hash` — the current `git rev-parse HEAD`
