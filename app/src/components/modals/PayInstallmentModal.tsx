@@ -33,10 +33,16 @@ export function PayInstallmentModal({
   group,
   open,
   onClose,
+  onSuccess,
 }: {
   group: ActiveGroup;
   open: boolean;
   onClose: () => void;
+  // Fired right after a successful contribute() tx. Parents pass this
+  // to trigger an eager re-fetch of their own usePool/usePoolMembers
+  // so the dial advances in ~1s instead of waiting for the next 30s
+  // poll. The modal also refreshes its own hooks unconditionally.
+  onSuccess?: () => void;
 }) {
   const { tokens } = useTheme();
   const t = useT();
@@ -124,10 +130,15 @@ export function PayInstallmentModal({
           schemaId,
         });
         setTxSig(sig);
-        // Mirror the mock-mode session bookkeeping so the dial advances
-        // immediately — usePool will catch up to the on-chain truth on
-        // its next 30s poll.
+        // Mirror the mock-mode session bookkeeping so any UI piece
+        // reading session state advances immediately.
         payInstallment(group);
+        // Eager on-chain re-fetch — both the modal's own copy and the
+        // parent's (via onSuccess). Without this the FeaturedGroup dial
+        // stays stale for up to 30s after a successful pay.
+        void onChainPool.refresh();
+        void onChainMembers.refresh();
+        onSuccess?.();
         setSubmitting(false);
         setDone(true);
       } catch (err) {
