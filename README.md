@@ -265,12 +265,24 @@ The post-deploy register lives at [`docs/devnet-deployment.md`](docs/devnet-depl
 
 ### Devnet (`?cluster=devnet`)
 
-| Program                | Program ID                                     | Status      | Solscan                                                                                        |
-| ---------------------- | ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet) |
-| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet) |
-| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
-| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | ✅ deployed | [view](https://solscan.io/account/GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ?cluster=devnet) |
+| Program                | Program ID                                     | Status                    | Solscan                                                                                        |
+| ---------------------- | ---------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `roundfi-core`         | `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` | ✅ deployed · 🔐 attested | [view](https://solscan.io/account/8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw?cluster=devnet) |
+| `roundfi-reputation`   | `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` | ✅ deployed · 🔐 attested | [view](https://solscan.io/account/Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2?cluster=devnet) |
+| `roundfi-yield-kamino` | `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb` | ✅ deployed · 🔐 attested | [view](https://solscan.io/account/74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb?cluster=devnet) |
+| `roundfi-yield-mock`   | `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` | ✅ deployed · 🔐 attested | [view](https://solscan.io/account/GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ?cluster=devnet) |
+
+> **🔐 Reproducible build, attested on-chain.** Every byte at the program addresses above is bound to commit [`5f1673b`](https://github.com/alrimarleskovar/RoundFinancial/commit/5f1673bb65a300d2188a737e20f03c59c6f8b10e) of this repo via an OtterSec verify-build attestation PDA on devnet. Bytecode is reproducible from source: rebuilding inside the official `solanafoundation/solana-verifiable-build:1.18.26` Docker image produces a `.so` whose hash matches the deployed program account. Audit yourself in 30 seconds:
+>
+> ```bash
+> solana-verify -u https://api.devnet.solana.com get-program-pda \
+>   --program-id 8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw \
+>   --signer 64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm
+> ```
+>
+> Returns the bound `git_url` + `commit` + `executable_hash`. Compare against `solana-verify -u devnet get-program-hash <pid>` (deployed bytecode) and `solana-verify get-executable-hash target/deploy/<prog>.so` (your local rebuild) — all three match. Full flow including the Docker build + redeploy step: [`docs/verified-build.md`](docs/verified-build.md).
+>
+> The green "Verified Build" tile on Solscan is gated on OtterSec's remote build queue, which is mainnet-only by design — out of scope while RoundFi runs on devnet. The on-chain attestation here gives the same hash-binding guarantee, just CLI-checked instead of UI-rendered.
 
 Initialize + seed txs:
 
