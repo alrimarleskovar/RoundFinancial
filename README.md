@@ -5,14 +5,16 @@
 <p>
   <a href="https://github.com/alrimarleskovar/RoundFinancial/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alrimarleskovar/RoundFinancial/actions/workflows/ci.yml/badge.svg?branch=main"/></a>
   <a href="https://roundfinancial.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/Live_demo-roundfinancial.vercel.app-14F195?style=for-the-badge&logo=vercel&logoColor=06090F"/></a>
-  <a href="https://www.youtube.com/watch?v=-_Fger2kNOo"><img alt="2-min pitch video" src="https://img.shields.io/badge/Pitch_video-2_min-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
+  <a href="https://www.youtube.com/watch?v=mQMoh7BMf8E"><img alt="Demo video" src="https://img.shields.io/badge/Demo-video-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
+  <a href="https://youtu.be/aWh-0FOuN4o"><img alt="Pitch video" src="https://img.shields.io/badge/Pitch-video-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
   <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-186+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
   <a href="docs/devnet-deployment.md"><img alt="Devnet · 3 pools + browser writes" src="https://img.shields.io/badge/Devnet-3_pools_%2B_browser_writes-00C8FF?style=for-the-badge&logo=solana&logoColor=06090F"/></a>
 </p>
 
 <p>
   <a href="https://roundfinancial.vercel.app">🚀 Live demo</a> ·
-  <a href="https://www.youtube.com/watch?v=-_Fger2kNOo">🎬 2-min pitch (video)</a> ·
+  <a href="https://www.youtube.com/watch?v=mQMoh7BMf8E">🎬 Demo (video)</a> ·
+  <a href="https://youtu.be/aWh-0FOuN4o">🎙️ Pitch (video)</a> ·
   <a href="docs/status.md">📋 Status (shipped vs roadmap)</a> ·
   <a href="docs/pitch/pitch-3min-en.html">📊 3-min Pitch (EN)</a> ·
   <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
