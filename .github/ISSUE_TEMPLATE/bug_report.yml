@@ -1,0 +1,68 @@
+name: Bug report
+description: A reproducible defect in on-chain logic, SDK, frontend, or indexer.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening: search existing issues to avoid duplicates. For **security vulnerabilities**, do NOT use this form — see [SECURITY.md](https://github.com/alrimarleskovar/RoundFinancial/blob/main/SECURITY.md).
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the bug.
+      placeholder: "claim_payout fails when pool.current_cycle == 0 and slot_index > pool.size"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      description: Which layer is affected?
+      options:
+        - On-chain program (programs/)
+        - SDK (@roundfi/sdk)
+        - Frontend (apps/web)
+        - Indexer (services/indexer)
+        - Tests (tests/)
+        - CI / tooling
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps. Include exact command, RPC URL, program IDs, and tx signatures if applicable.
+      placeholder: |
+        1. `pnpm devnet:seed-default`
+        2. Member 0 calls `contribute` for cycle 1
+        3. Expected: tx succeeds. Actual: panics with `WaterfallUnderflow`.
+        4. Failing tx: https://solscan.io/tx/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What you expected to happen, vs what did happen.
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node version, Solana CLI version, anchor version, RPC cluster.
+      placeholder: "Ubuntu 24.04 · Node 20.19 · Solana 1.18.26 · Anchor 0.30.1 · devnet"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Paste relevant output. Fenced code blocks please.
+      render: shell
