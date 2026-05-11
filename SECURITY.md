@@ -6,7 +6,7 @@
 
 ### Preferred channel
 
-Email: **security@roundfi.dev** (PGP key on request).
+Email: **roundfinance.sol@gmail.com** (PGP key on request).
 
 ### What to include
 
