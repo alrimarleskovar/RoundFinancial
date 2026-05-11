@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a new capability or enhancement.
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For open-ended ideas or design discussion, prefer [Discussions](https://github.com/alrimarleskovar/RoundFinancial/discussions). Use this form when the request is concrete enough to scope into an issue.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user-facing or protocol-level problem does this solve?
+      placeholder: "Members joining mid-cycle currently can't catch up on previous installments, which blocks the late-onboarding flow described in docs/architecture.md."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed solution
+      description: How would you address it? On-chain change? SDK helper? UI?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you ruled out, and why.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Estimated scope
+      options:
+        - "Small (single file, no schema change)"
+        - "Medium (multi-file, no account layout change)"
+        - "Large (on-chain account layout / breaking IDL change)"
+        - "Unsure"
+    validations:
+      required: true
