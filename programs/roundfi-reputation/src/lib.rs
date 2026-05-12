@@ -32,7 +32,7 @@ pub use error::ReputationError;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2");
 
 #[program]
 pub mod roundfi_reputation {
