@@ -1,0 +1,41 @@
+# RoundFi CODEOWNERS
+#
+# Routes auto-review requests on PRs that touch specific paths. Single-
+# owner skeleton for now; team usernames go here as the team expands.
+#
+# Syntax: <pattern> <@user-or-team>
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ─── Default ──────────────────────────────────────────────────────────
+# Catches anything not matched by a more specific rule below.
+*                                       @alrimarleskovar
+
+# ─── On-chain programs (protocol security) ───────────────────────────
+# Highest scrutiny — any change here may require a redeploy + verify-
+# build re-attestation cycle (see docs/verified-build.md).
+/programs/                              @alrimarleskovar
+/programs/roundfi-core/                 @alrimarleskovar
+/programs/roundfi-reputation/           @alrimarleskovar
+/programs/roundfi-yield-kamino/         @alrimarleskovar
+/programs/roundfi-yield-mock/           @alrimarleskovar
+
+# ─── Audit / security artifacts ──────────────────────────────────────
+# Changes to disclosure policy or scope statements need explicit sign-
+# off — these are the documents external auditors and bounty
+# researchers anchor on.
+/AUDIT_SCOPE.md                         @alrimarleskovar
+/SECURITY.md                            @alrimarleskovar
+/docs/security/                         @alrimarleskovar
+
+# ─── Build / verification flow ───────────────────────────────────────
+# Changes here can invalidate the on-chain OtterSec attestation PDAs
+# placed for all 4 devnet programs. Review every touch.
+/docs/verified-build.md                 @alrimarleskovar
+/scripts/devnet/verify-*                @alrimarleskovar
+/Cargo.lock                             @alrimarleskovar
+/deny.toml                              @alrimarleskovar
+
+# ─── CI / repo workflows ─────────────────────────────────────────────
+/.github/workflows/                     @alrimarleskovar
+/.github/CODEOWNERS                     @alrimarleskovar
+/.github/dependabot.yml                 @alrimarleskovar
