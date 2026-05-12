@@ -105,7 +105,7 @@ Current date: **May 2026**. Hackathon submission complete (Colosseum 2026). Adev
 | Mainnet smoke (canary pool, capped TVL)                  | Q3–Q4 2026 | 🔵 Planned                                                                           |
 | Mainnet GA + bug-bounty program (Immunefi, $50k initial) | Q4 2026    | 🔵 Planned                                                                           |
 
-The bug-bounty program is **planned for mainnet launch**, not now. See [`SECURITY.md`](./SECURITY.md) for interim disclosure rewards (Hall of Fame + swag).
+The bug-bounty program is **planned for mainnet launch**, not now. Full policy drafted at [`docs/security/bug-bounty.md`](./docs/security/bug-bounty.md) — USD 50k initial pool, 5-tier severity, USDC-on-Solana payouts, 90-day coordinated disclosure. See [`SECURITY.md`](./SECURITY.md) for interim devnet/smoke-phase rewards.
 
 ---
 

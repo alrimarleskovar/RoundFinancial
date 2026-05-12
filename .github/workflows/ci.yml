@@ -122,6 +122,38 @@ jobs:
         # 0.30 + Agave 2.x are validated end-to-end, drop the `|| true`
         # and add `--ignore RUSTSEC-...` for any persistently-flagged ID.
 
+  # ─── 3b. Supply-chain lane (advisory) ────────────────────────────────
+  # cargo-deny extends cargo-audit's RustSec coverage with licence
+  # policy + dependency-source policy + ban list. Config lives at
+  # repo-root `deny.toml`. Advisory-only for the same reason cargo
+  # audit is — the Solana 1.18 transient CVE set isn't fixable from
+  # our side until Anza Agave 2.x lands.
+  deny:
+    name: deny · supply-chain (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cargo-deny
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
+      - name: cargo deny check (advisory-only on day 1)
+        run: cargo deny check --hide-inclusion-graph || true
+        # First-pass: warn-only mirroring the cargo-audit lane above.
+        # Flip the `|| true` off once Anza Agave 2.x retires the
+        # Solana 1.18 transient advisories. Until then, `deny.toml`
+        # already documents the ignore policy so this lane stays
+        # readable rather than red.
+
   # ─── 4. Anchor lane (required) ───────────────────────────────────────
   # `anchor build --no-idl` against Agave 3.0.0 + Anchor 0.30.1.
   # Toolchain alignment landed in PR #138 (Anchor.toml + Cargo.lock pins);
