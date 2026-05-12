@@ -1,0 +1,79 @@
+# Dependabot configuration — RoundFi
+#
+# Strategy: weekly, security-priority. We deliberately avoid daily / hourly
+# noise because the dev cadence (~3 PRs/day) already turns the tree over fast.
+# Security advisories are picked up via the open-vuln window regardless of
+# the weekly cadence.
+
+version: 2
+updates:
+  # Rust / Anchor workspace (programs/*, services/indexer math, etc.)
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Group patch-level cargo bumps so the queue stays clean.
+    groups:
+      cargo-patch:
+        update-types:
+          - "patch"
+    # Block the Solana / Anchor / mpl-core stack — bumps require a
+    # coordinated migration (CI lane pins, Cargo.lock rebuild, redeploy).
+    # Major bumps land via dedicated PRs, not Dependabot auto-PRs.
+    ignore:
+      - dependency-name: "solana-program"
+      - dependency-name: "anchor-lang"
+      - dependency-name: "anchor-spl"
+      - dependency-name: "mpl-core"
+      - dependency-name: "borsh" # Cargo.lock v3 pin (see docs/verified-build.md)
+
+  # Node / pnpm workspace (apps/web, services/indexer, packages/sdk, tests)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      npm-patch:
+        update-types:
+          - "patch"
+    ignore:
+      # Solana JS stack pins — bumps need coordinated SDK/IDL refresh.
+      - dependency-name: "@solana/web3.js"
+      - dependency-name: "@coral-xyz/anchor"
+      - dependency-name: "@solana/wallet-adapter-*"
+
+  # GitHub Actions — keep CI runner pinned versions fresh.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"

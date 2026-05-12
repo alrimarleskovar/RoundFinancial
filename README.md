@@ -8,6 +8,7 @@
   <a href="https://www.youtube.com/watch?v=mQMoh7BMf8E"><img alt="Demo video" src="https://img.shields.io/badge/Demo-video-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
   <a href="https://youtu.be/aWh-0FOuN4o"><img alt="Pitch video" src="https://img.shields.io/badge/Pitch-video-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
   <a href="https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged"><img alt="PRs merged" src="https://img.shields.io/badge/PRs_merged-186+-9945FF?style=for-the-badge&logo=github&logoColor=white"/></a>
+  <a href="docs/security/audit-readiness.md"><img alt="Audit-ready · self-audit + threat model" src="https://img.shields.io/badge/Audit_ready-self_audit_%2B_threat_model-FF7A45?style=for-the-badge&logo=rust&logoColor=white"/></a>
   <a href="docs/devnet-deployment.md"><img alt="Devnet · 3 pools + browser writes" src="https://img.shields.io/badge/Devnet-3_pools_%2B_browser_writes-00C8FF?style=for-the-badge&logo=solana&logoColor=06090F"/></a>
 </p>
 
@@ -20,6 +21,7 @@
   <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
   <a href="docs/pitch/pitch-deck-en.html">📊 Long-form Deck (EN)</a> ·
   <a href="docs/architecture.md">🧱 Architecture</a> ·
+  <a href="docs/security/audit-readiness.md">🛡️ Audit-Readiness</a> ·
   <a href="grant/">📦 Grant bundle</a>
 </p>
 
