@@ -45,12 +45,13 @@ Out of scope (please report to upstream maintainers instead):
 
 ### Bug bounty
 
-A formal bounty program is **planned for mainnet migration** (post-hackathon). Suggested platforms: Immunefi or HackenProof. Initial pool sizing TBD.
+A full bounty policy is drafted and versioned at [`docs/security/bug-bounty.md`](docs/security/bug-bounty.md): scope, 5-tier severity classification with the Immunefi v2.3 rubric, USD 25k–50k reward bands at the top, USD 50k initial pool, USDC-on-Solana payouts, 90-day coordinated disclosure, explicit safe-harbor clauses. The program **activates at mainnet GA** (Q4 2026 — see [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md#mainnet-timeline)) via Immunefi (or HackenProof) syndication.
 
-In the interim, we offer:
+In the interim (devnet through mainnet smoke), valid reports go through the channel at the top of this file and qualify for:
 
 - Public credit in `docs/security/self-audit.md` and the fix-PR description (with permission)
 - A handwritten thank-you + RoundFi swag (T-shirt / sticker pack) for valid reports
+- Up to USD 1,000 per Critical finding at team discretion during the mainnet-smoke phase
 
 ### Audit status
 

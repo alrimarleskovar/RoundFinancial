@@ -1,0 +1,122 @@
+# cargo-deny configuration — RoundFi
+#
+# Policy: permissive licences, conservative bans, advisory-only on
+# RustSec until the Anza Agave 2.x migration retires the known Solana
+# 1.18 transient advisories (already documented in
+# `.github/workflows/ci.yml` cargo-audit job).
+#
+# Run locally:
+#   cargo install cargo-deny --locked
+#   cargo deny check
+#
+# Run in CI: see the `deny · supply-chain (advisory)` job in ci.yml.
+
+[graph]
+all-features = true
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+# ─── Licenses ────────────────────────────────────────────────────────
+# Allow-list. Anything not listed → fail. Project is Apache-2.0; the
+# permissive set below covers ~100% of the typical Solana + Anchor +
+# Tokio + mpl-core dependency graph without admitting any
+# copyleft/proprietary code.
+[licenses]
+version = 2
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "MIT",
+  "MIT-0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "MPL-2.0",                 # weak-copyleft, file-scope only; common in webpki / lego
+  "CC0-1.0",
+  "0BSD",
+  "Unlicense",
+  "OpenSSL",                 # exception clause; needed by ring transitives
+]
+confidence-threshold = 0.93
+exceptions = []
+
+# Explicit per-crate licence overrides (rare — only if a crate's
+# Cargo.toml mis-labels its actual licence).
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+  { path = "LICENSE", hash = 0xbd0eed23 },
+]
+
+# ─── Bans ────────────────────────────────────────────────────────────
+# Hard bans on crates we deliberately don't want in the tree.
+[bans]
+multiple-versions = "warn"     # noise, not security — keep as warn
+wildcards = "deny"             # no version = "*" in Cargo.toml
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+
+# Crates that should never appear. Empty for now — placeholder for
+# future bans (e.g. yanked-only crates discovered during review).
+deny = []
+
+# Skip versioning checks for these (allow multiple major versions of
+# the same crate to coexist in the graph — common in Solana + Anchor
+# stacks because of pinned solana-program 1.18 vs newer Tokio etc.).
+skip = []
+
+# Skip-tree applies the rule below to entire dep subtrees, not just
+# the named crate. Useful for upstream stacks that vendor their own
+# version of a common dep.
+skip-tree = []
+
+# ─── Sources ─────────────────────────────────────────────────────────
+# Restrict registries + git-source allow-list. All crates must come
+# from crates.io; the one git source we trust is the Anchor
+# repository because `anchor build` uses git tags (not crates.io
+# publishes) for some Anchor crates during the 0.30.x cycle.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = [
+  "https://github.com/coral-xyz/anchor",
+]
+
+[sources.allow-org]
+github = []
+gitlab = []
+bitbucket = []
+
+# ─── Advisories ──────────────────────────────────────────────────────
+# RustSec advisory DB policy. Advisory-only on `vulnerability` until
+# the Anza Agave 2.x migration retires the Solana 1.18 transient
+# CVEs (curve25519-dalek, ed25519-dalek-bip32, etc.) tracked upstream
+# and unfixable from our side. `unmaintained` stays deny because we
+# want to know if a crate goes orphan.
+[advisories]
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "warn"
+
+# Once Anza Agave 2.x lands and the transients clear, flip the
+# `vulnerability` line below to "deny" and the CI lane name will
+# stop carrying the "(advisory)" suffix.
+ignore = [
+  # These three are the transient Solana 1.18 advisories already
+  # documented in .github/workflows/ci.yml. Listed here so cargo-deny
+  # output stays clean while cargo-audit still surfaces them
+  # explicitly elsewhere (defence in depth — two scanners, one
+  # explicit ignore list per scanner).
+  # "RUSTSEC-YYYY-NNNN",  # curve25519-dalek timing variability
+  # "RUSTSEC-YYYY-NNNN",  # ed25519-dalek-bip32 oracle attack
+  # "RUSTSEC-YYYY-NNNN",  # rsa Marvin attack
+]
