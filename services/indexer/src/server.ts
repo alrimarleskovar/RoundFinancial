@@ -27,8 +27,10 @@
  *
  * This file is the **scaffold**: the webhook handler decodes a
  * placeholder shape. The on-chain log parser lives in `decoder.ts`
- * and is exercised by a unit test in `decoder.test.ts` (TODO; gated
- * on the bankrun harness migration).
+ * and will be exercised by a unit test in `decoder.test.ts` once the
+ * bankrun harness migration lands (gated on Anchor 0.31+ via issue
+ * #230 — Anza Agave 2.x migration unblocks the IDL generation that
+ * the bankrun harness loads at startup).
  */
 
 import Fastify, { type FastifyInstance } from "fastify";

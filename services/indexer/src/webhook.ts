@@ -15,7 +15,8 @@
  * What this scaffold does NOT do yet:
  *   - upsert Pool/Member rows from on-chain account state (requires
  *     a follow-up RPC call per affected account; the backfiller does
- *     this and an event-driven version lives in TODO).
+ *     this; an event-driven equivalent is tracked in issue #234 —
+ *     indexer reconciler hardening).
  *   - resolve the `Pool` and `Member` rows for events. The current
  *     impl writes to `unresolved_*` placeholder fields and a periodic
  *     reconciler ties them to canonical rows.
@@ -120,7 +121,11 @@ export async function handleHeliusWebhook(
           poolId: "_unresolved",
           defaultedWallet: evt.member,
           cycle: evt.cycle,
-          slotIndex: 0, // TODO: log-line doesn't carry slot — derive from member→slot
+          // slotIndex resolution: log-line doesn't carry slot; resolved
+          // by the reconciler via member→slot lookup (tracked in #234).
+          // Placeholder 0 here is intentional and joined to canonical
+          // state post-confirmation, never read on the fund-movement path.
+          slotIndex: 0,
           seizedSolidarity: evt.seizedSolidarity,
           seizedEscrow: evt.seizedEscrow,
           seizedStake: evt.seizedStake,
