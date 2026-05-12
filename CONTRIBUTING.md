@@ -38,6 +38,9 @@ anchor test                     # Anchor lane — proptest invariants under SBF
 
 If any of these fail locally, they will fail in CI.
 
+For user-visible changes, add a short entry under `## [Unreleased]`
+in `CHANGELOG.md` so release notes stay current.
+
 ## Branch + commit conventions
 
 - **Branch name**: `feat/<scope>`, `fix/<scope>`, `docs/<scope>`, `chore/<scope>`. Existing `claude/<scope>` branches are AI-authored, follow the same pattern.

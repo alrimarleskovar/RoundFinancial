@@ -1,0 +1,24 @@
+# Default review for all changes.
+* @alrimarleskovar
+
+# On-chain programs.
+/programs/ @alrimarleskovar
+/programs/roundfi-core/ @alrimarleskovar
+/programs/roundfi-reputation/ @alrimarleskovar
+
+# Yield adapters.
+/programs/roundfi-yield-kamino/ @alrimarleskovar
+/programs/roundfi-yield-mock/ @alrimarleskovar
+
+# Review-sensitive project documents.
+/AUDIT_SCOPE.md @alrimarleskovar
+/SECURITY.md @alrimarleskovar
+/docs/security/ @alrimarleskovar
+
+# Build and verification flow.
+/docs/verified-build.md @alrimarleskovar
+/scripts/devnet/verify-* @alrimarleskovar
+/deny.toml @alrimarleskovar
+
+# CI configuration.
+/.github/workflows/ @alrimarleskovar
