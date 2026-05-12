@@ -61,6 +61,34 @@ The protocol consists of **3 programs + Metaplex Core CPI**:
 - `yield-adapter` is a **program-level trait**: two distinct programs (`yield-mock`, `yield-kamino`) that share the exact same instruction discriminators and account layouts. `PoolConfig.yield_adapter: Pubkey` dictates which one core CPIs into. No compile-time coupling.
 - Metaplex Core is used directly via CPI for the position NFT — no custom NFT program needed.
 
+**Asset flow per pool — the 4 USDC vault PDAs and what moves between them:**
+
+```mermaid
+flowchart LR
+    M((Member<br/>wallet)) -->|stake at<br/>join_pool| E[escrow_usdc_vault<br/>PDA]
+    M -->|installments at<br/>contribute| P[pool_usdc_vault<br/>PDA]
+    P -->|1% per<br/>contribute| SV[solidarity_usdc_vault<br/>PDA]
+    P -->|deposit_idle_<br/>to_yield| Y[yield_usdc_vault<br/>PDA]
+    Y -->|harvest_yield<br/>realized| WF{waterfall}
+    WF -->|protocol_fee_bps| T[treasury]
+    WF -->|gf_target_bps| GF[Guarantee<br/>Fund]
+    WF -->|65%| LP[LP shares]
+    WF -->|35%| MP[participants]
+    P -->|claim_payout| W((Winner<br/>wallet))
+    E -->|release_escrow<br/>vesting tranches| M
+    SV -.->|settle_default<br/>Shield 2| RC[loss recovery]
+    E -.->|settle_default<br/>Shield 3| RC
+
+    classDef vault fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
+    classDef wallet fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef terminal fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    class E,P,SV,Y vault
+    class M,W wallet
+    class T,GF,LP,MP,RC terminal
+```
+
+Solid arrows are happy-path movements; dashed arrows fire only when `settle_default` activates a Shield. No instruction can move funds outside this graph — `roundfi-core` is the sole signer authority on every vault PDA.
+
 ---
 
 ## 3. Account Model
@@ -352,6 +380,38 @@ The product narrative refers to a "Triple Shield" security architecture. The can
 
 **On-chain seizure order — implementation note.** When a default occurs, `settle_default.rs` draws capital in a _different_ order than the Shield build sequence above: solidarity vault first → escrow second → stake third, capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`). This recovery sequence is orthogonal to the structural narrative; pitch / public-facing copy should always use the Shield 1 → 2 → 3 build order from the table above. The seizure order matters only for technical / due-diligence audiences.
 
+**Cascade flow when a default fires:**
+
+```mermaid
+flowchart TB
+    DEF[Default detected<br/>after 7-day grace] --> SH1{Cycle == 0?<br/>Shield 1 gate}
+    SH1 -->|yes| S1F[Seed Draw invariant<br/>pool+escrow ≥ 91.6% × members × installment]
+    S1F -->|fail| E1[Revert:<br/>SeedDrawShortfall]
+    S1F -->|pass| OK1[Cycle-1 payout proceeds]
+    SH1 -->|cycle > 0| SH2{Shield 2 gate<br/>spendable ≥ credit?}
+    SH2 -->|no| E2[Revert:<br/>WaterfallUnderflow]
+    SH2 -->|yes| SH3[Shield 3 — settle_default cascade]
+    SH3 --> A[1. Drain solidarity_vault]
+    A --> B{Loss<br/>covered?}
+    B -->|yes| OK2[Stop — escrow + stake intact]
+    B -->|no| C[2. Seize member.escrow_balance]
+    C --> D{Loss<br/>covered?}
+    D -->|yes| OK3[Stop — stake retained]
+    D -->|no| ST[3. Slash member.stake_deposited<br/>capped by D/C invariant]
+    ST --> ATT[Write SCHEMA_DEFAULT<br/>attestation PDA]
+
+    classDef gate fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef shield fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef error fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef ok fill:#e3f2fd,stroke:#1565c0,stroke-width:1px
+    class SH1,SH2,B,D gate
+    class S1F,A,C,ST shield
+    class E1,E2 error
+    class OK1,OK2,OK3,ATT ok
+```
+
+All 4 firing paths shown were **captured live on devnet** during M3 testing — see [`docs/devnet-deployment.md`](./devnet-deployment.md) for the Pool 3 default exercise that fired Shield 1 only (D/C invariant held at first cascade step) and the cumulative `WaterfallUnderflow ×2` + `EscrowLocked` guards observed during the multi-cycle stress runs.
+
 **Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The **"10× leverage"** wording is canonical (per the whitepaper + B2B plan): a Veteran deposits 10% of the credit and accesses 100% of it — `MAX_BPS / STAKE_BPS_LEVEL_3 = 10`. This is _not_ leveraged lending in the DeFi margin/liquidation sense (the member also commits to N-1 future installments), but the headline ratio is real and matches the pitch. The "Serasa da Web3 / on-chain behavior oracle" framing is the central thesis (per the [B2B plan](pt/plano-b2b.pdf)), with the ROSCA acting as the data-acquisition engine.
 
 See [pitch-alignment.md](./pitch-alignment.md) §3 for the full Triple Shield narrative + script, and [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md) for the yield-waterfall explainer.
@@ -397,6 +457,35 @@ This section freezes the behavior contracts for the Step 4c instructions. Any ch
   4. Transfer NFT asset ownership to buyer via Metaplex Core CPI (escrow-frozen remains, it's soulbound to the _position_ not the wallet).
   5. Close the listing account; rent returns to seller.
 - **Irrelevant to invariants:** The escape valve does NOT change pool totals (`total_contributed`, `solidarity_balance`, `escrow_balance`) — only the wallet pointer moves.
+
+**Atomic sequence on `escape_valve_buy` — including the post-CPI invariant added in [PR #123](https://github.com/alrimarleskovar/RoundFinancial/pull/123) after the live mpl-core `TransferV1` plugin-reset bug was found:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Buyer
+    participant Core as roundfi-core
+    participant USDC as USDC token program
+    participant Mpl as mpl-core
+    participant Old as old Member PDA
+    participant New as new Member PDA
+
+    Buyer->>Core: escape_valve_buy(pool, slot, price)
+    Core->>USDC: transfer buyer→seller (listed price)
+    Core->>Old: snapshot member state
+    Core->>Mpl: thaw FreezeDelegate
+    Core->>Mpl: TransferV1 asset → buyer
+    Core->>Mpl: re-approve FreezeDelegate to position PDA
+    Core->>Mpl: re-approve TransferDelegate to position PDA
+    Core->>Mpl: freeze (FreezeDelegate flip)
+    Note over Core,Mpl: Post-CPI invariant (PR #123):<br/>require asset.owner == buyer<br/>require FreezeDelegate.frozen == true<br/>→ AssetTransferIncomplete / AssetNotRefrozen
+    Core->>Old: close PDA (rent → seller)
+    Core->>New: create PDA seeds=[member,pool,buyer]
+    Note over New: Member state ported<br/>except wallet + joined_at
+    Core->>Buyer: Listing PDA closed (rent → seller)
+```
+
+The 3 `re-approve` steps are the **fix** for the `TransferV1` plugin-authority reset: without them, the new buyer would own an unfrozen asset that could be moved outside the protocol. The post-CPI invariant block catches the case where mpl-core itself silently no-ops a CPI (defence-in-depth — if any CPI returns Ok without state change, the assertion reverts the whole transaction). See [self-audit §6.1](./security/self-audit.md#61-mpl-core-transferv1-plugin-authority-reset) for the bug's full story.
 
 #### 4.5.3 Yield adapter — adapter-is-untrusted contract
 
