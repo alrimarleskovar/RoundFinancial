@@ -38,6 +38,7 @@
     "devnet:seed-evbuy": "tsx scripts/devnet/seed-evbuy.ts",
     "devnet:seed-close": "tsx scripts/devnet/seed-close.ts",
     "devnet:seed-default": "tsx scripts/devnet/seed-default.ts",
+    "devnet:pause-rehearsal": "tsx scripts/devnet/pause-rehearsal.ts",
     "devnet:verify-build": "bash scripts/devnet/verify-build.sh",
     "devnet:verify-check": "bash scripts/devnet/verify-check.sh",
     "devnet:verify-redeploy": "bash scripts/devnet/verify-redeploy.sh",
