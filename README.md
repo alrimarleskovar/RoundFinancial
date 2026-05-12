@@ -25,6 +25,8 @@
   <a href="grant/">📦 Grant bundle</a>
 </p>
 
+<sub>**Status:** M3 shipped · 4 programs live on devnet · reproducible-build attestation on-chain · 162 tests / 53 security-specific · seeking external audit (Adevar Labs track). _Last updated: May 2026._</sub>
+
 Built for the **Colosseum Hackathon 2026**.
 
 ---

@@ -23,7 +23,7 @@ This document is the single source of truth for RoundFi's on-chain and off-chain
 
 **Non-goals (this phase)**
 
-- KYC / Proof-of-Personhood (Civic, Fractal) — skipped, wallet-only identity.
+- KYC / Proof-of-Personhood — wallet-only for v1; an optional PoP integration is scaffolded against the legacy Civic Pass account format (sunset 31 Jul 2025) and is being migrated to **VeryAI** (Colosseum 2026 PoP partner) for mainnet. See §4.4.
 - Governance / token. No `$RFI` token this phase; revenue accrues to `treasury` account.
 - L2 / cross-chain bridging.
 - Fiat on-ramp — assume user already holds USDC.
@@ -282,7 +282,9 @@ pub struct YieldVaultState {
 
 **Kamino implementation:** thin wrapper that CPIs into Kamino Lend's `deposit_reserve_liquidity` / `redeem_reserve_collateral` / `refresh_reserve`. The wrapper normalizes cToken ↔ liquidity math back to USDC before returning, so the core program sees the same interface regardless of cluster.
 
-### 4.4 Identity Layer (added v0.2 — 2026-04-22)
+### 4.4 Identity Layer (added v0.2 — 2026-04-22 · provider transition v0.4 — 2026-05)
+
+> **Provider transition note.** The PoP slot was originally scaffolded against **Civic Pass (Civic Gateway Tokens)**. Civic Pass was discontinued by Civic on **31 July 2025**. The active migration target is **VeryAI** (Colosseum 2026 Solana PoP partner); the `link_civic_identity` instruction + `IdentityProvider::Civic` enum variant + Civic-network config in `ReputationConfig` remain in the codebase as the working gateway-token scaffold and will be renamed / re-pointed to VeryAI's account format during the mainnet-migration PR (tracked separately — no on-chain account-layout change needed since the `provider: u8` discriminant already reserves `3..=255` for future providers).
 
 **Design principle: optional + modular.** Identity is never a gate for `join_pool`; it's an enrichment signal that the reputation program and the B2B score API can opt into. Providers are plugged in without program-upgrade:
 
@@ -295,9 +297,9 @@ pub struct YieldVaultState {
              ▼                         ▼                         ▼
    ┌──────────────────┐   ┌────────────────────────┐   ┌──────────────────┐
    │ IdentityProvider │   │ IdentityProvider       │   │ IdentityProvider │
-   │ = SAS            │   │ = Civic Pass (Gateway) │   │ = <future…>      │
-   │ (in-house Dev,   │   │ (optional, opt-in)     │   │                  │
-   │  official Main)  │   │                        │   │                  │
+   │ = SAS            │   │ = VeryAI (gateway)     │   │ = <future…>      │
+   │ (in-house Dev,   │   │ (Colosseum partner;    │   │                  │
+   │  official Main)  │   │ ex-Civic Pass scaffold)│   │                  │
    └──────────────────┘   └────────────────────────┘   └──────────────────┘
 ```
 
@@ -316,7 +318,7 @@ pub struct IdentityRecord {
     pub bump:           u8,
 }
 
-#[repr(u8)] pub enum IdentityProvider { None=0, Sas=1, Civic=2 /* 3..=255 reserved */ }
+#[repr(u8)] pub enum IdentityProvider { None=0, Sas=1, Civic=2 /* legacy name — VeryAI re-points this slot post-mainnet; 3..=255 reserved */ }
 #[repr(u8)] pub enum IdentityStatus   { Unverified=0, Verified=1, Expired=2, Revoked=3 }
 ```
 
@@ -332,9 +334,9 @@ pub struct IdentityRecord {
 1. **Never a gate.** `join_pool` does NOT read `IdentityRecord`. Reputation-level logic (`promote_level`, stake bps snapshot) continues to derive from on-chain behavior alone.
 2. **Additive only.** Absence of an `IdentityRecord` is indistinguishable from `IdentityStatus::Unverified` — no existing wallet is affected when this layer ships.
 3. **Scoring hint, not auth.** The B2B score API MAY weigh verified identities higher; the on-chain protocol MUST not.
-4. **Provider-agnostic.** Civic is the first non-SAS provider; the `provider: u8` enum reserves codes for future additions (WorldID, Sumsub-on-chain, etc.) with no account migration needed.
+4. **Provider-agnostic.** VeryAI (re-pointing the Civic scaffold post-mainnet) is the first non-SAS provider; the `provider: u8` enum reserves codes for future additions (WorldID, Sumsub-on-chain, etc.) with no account migration needed.
 
-**Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. Civic's Gateway Program ID is identical across clusters; only the Civic Network pubkey (e.g. `uniqueness`, `kyc`) changes via env config.
+**Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. The Civic gateway-token scaffold currently in `programs/roundfi-reputation/src/identity/civic.rs` will be re-pointed to **VeryAI**'s gateway-token account format during mainnet migration — same untrusted-provider validator pattern (§4.6.2), same `IdentityRecord` writes, new account parser. No on-chain account-layout change.
 
 ### 4.5 Step 4c mechanics — defaults, escape valve, yield (added v0.3 — 2026-04-22)
 
