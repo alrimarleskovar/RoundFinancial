@@ -1,6 +1,10 @@
 # Audit-Readiness — RoundFi
 
-> **One-pager for security firms.** This is the "why we are audit-ready in 2 weeks, not 6" summary. Companion to the full [Self-Audit & Threat Model](./self-audit.md) (228 lines, asset inventory, invariants mapped to file:line, 53 security-specific tests catalogued).
+> **One-pager for security firms.** The "why we are audit-ready in 2 weeks, not 6" summary. Companion to:
+>
+> - [`../../AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md) — formal scope (in/out + LoC + prior hardening PR list + mainnet timeline)
+> - [`./self-audit.md`](./self-audit.md) — full 228-line self-audit + threat model
+> - [`../../SECURITY.md`](../../SECURITY.md) — disclosure channel + SLAs
 
 ---
 
