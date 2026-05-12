@@ -113,7 +113,7 @@ The bug-bounty program is **planned for mainnet launch**, not now. Full policy d
 
 - **Duration:** 2-week scoped engagement (8,341 LoC is comfortably auditable in 2 weeks given the pre-documented invariants)
 - **Channels:** Single point of contact `roundfinance.sol@gmail.com` · private GitHub repo access available on request · responsible-disclosure SLAs in [`SECURITY.md`](./SECURITY.md)
-- **Deliverables we ship pre-kickoff:** self-audit doc + threat model + reproducible-build attestation + CI green on `main` + this scope doc
+- **Deliverables we ship pre-kickoff:** self-audit doc + threat model + reproducible-build attestation + CI green on `main` + this scope doc + [operations runbooks](./docs/operations/) (deploy, key-rotation, emergency-response, incident postmortem template)
 - **Deliverables we need from auditor:** standard severity-classified findings report + remediation review pass after fixes land
 - **Findings disclosure:** coordinated 90-day standard, or sooner if mutually agreed
 
