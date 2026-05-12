@@ -56,8 +56,10 @@ pub const SEED_STATE: &[u8] = b"yield-state";
 /// is the official Kamino Lend `klend` build under the Kamino
 /// governance multisig.
 ///
-/// TODO(audit): re-verify against Kamino's published deploy address
-/// before the live mainnet pool first goes Active. The constant MUST
+/// Pre-mainnet verification: re-verify against Kamino's published
+/// deploy address before the live mainnet pool first goes Active.
+/// Tracked under issue #233 (harvest-path completion) — same review
+/// pass should sanity-check this pubkey one last time. The constant MUST
 /// be const-eval `pubkey!()` so a future re-pin is a single-line PR
 /// rather than runtime config — adapter swaps go through
 /// `Pool.yield_adapter`, not through reading config-account bytes.
