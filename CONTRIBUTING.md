@@ -44,6 +44,7 @@ If any of these fail locally, they will fail in CI.
 - **Commit message**: imperative mood, ≤ 72 chars first line. Use the Conventional Commits prefix (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
 - **PR title**: matches the commit subject of the squash-merge.
 - **PR description**: short summary, optional test plan checklist. See `.github/PULL_REQUEST_TEMPLATE.md`.
+- **CHANGELOG**: PRs that ship user-visible behavior (new features, breaking changes, fixed bugs) add a single line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md). Internal refactors, test additions, and doc-only PRs don't need an entry — keep the changelog signal-dense.
 
 ## Code style
 
