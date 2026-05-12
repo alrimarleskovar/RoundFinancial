@@ -30,7 +30,7 @@ pub use error::RoundfiError;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
 
 #[program]
 pub mod roundfi_core {

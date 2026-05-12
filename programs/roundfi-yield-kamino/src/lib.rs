@@ -46,7 +46,7 @@ use anchor_lang::solana_program::{
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb");
 
 /// Matches `@roundfi/sdk::SEED.yieldState` = `b"yield-state"`. Kept
 /// byte-equal to the mock so the Rust↔TS parity test catches drift.

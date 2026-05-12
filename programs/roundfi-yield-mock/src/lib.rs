@@ -23,7 +23,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ");
 
 /// Matches `@roundfi/sdk::SEED.yieldState` = `b"yield-state"`.
 /// Keep this string-identical to the TS constant — the Rust↔TS parity
