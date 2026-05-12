@@ -19,18 +19,18 @@
 
 ## Manual verification
 
-| Instruction              | Expected           | Observed |
-| ------------------------ | ------------------ | -------- |
-| `create_pool`            | ProtocolPaused     | ✓ fired error 6024 / 0x1788 on `POOL_SEED_ID=99 pnpm devnet:seed` |
-| `join_pool`              | ProtocolPaused     | — not tested |
-| `contribute`             | ProtocolPaused     | — not tested |
-| `claim_payout`           | ProtocolPaused     | — not tested |
-| `release_escrow`         | ProtocolPaused     | — not tested |
-| `deposit_idle_to_yield`  | ProtocolPaused     | — not tested |
-| `harvest_yield`          | ProtocolPaused     | — not tested |
-| `escape_valve_list`      | ProtocolPaused     | — not tested |
-| `escape_valve_buy`       | ProtocolPaused     | — not tested |
-| `settle_default`         | NOT ProtocolPaused | — not tested |
+| Instruction             | Expected           | Observed                                                          |
+| ----------------------- | ------------------ | ----------------------------------------------------------------- |
+| `create_pool`           | ProtocolPaused     | ✓ fired error 6024 / 0x1788 on `POOL_SEED_ID=99 pnpm devnet:seed` |
+| `join_pool`             | ProtocolPaused     | — not tested                                                      |
+| `contribute`            | ProtocolPaused     | — not tested                                                      |
+| `claim_payout`          | ProtocolPaused     | — not tested                                                      |
+| `release_escrow`        | ProtocolPaused     | — not tested                                                      |
+| `deposit_idle_to_yield` | ProtocolPaused     | — not tested                                                      |
+| `harvest_yield`         | ProtocolPaused     | — not tested                                                      |
+| `escape_valve_list`     | ProtocolPaused     | — not tested                                                      |
+| `escape_valve_buy`      | ProtocolPaused     | — not tested                                                      |
+| `settle_default`        | NOT ProtocolPaused | — not tested                                                      |
 
 ## Notes
 
