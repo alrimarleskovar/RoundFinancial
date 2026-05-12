@@ -80,7 +80,7 @@ The 5 canonical presets are the **named regression scenarios** that ship in test
 
 This lets a reviewer (or a judge) reproduce any of the canonical presets, plus generate arbitrary new scenarios. The same `runSimulation()` powers both the UI and the test harness, so any scenario the user can poke into the UI is one PR away from being a regression test.
 
-> The "33 scenarios" figure cited in some pitch material aggregates the 5 canonical presets with the 28 dedicated matrix-toggle stress combinations exercised during the whitepaper-prep manual review (default-at-cycle-N for every plausible N across the 4 default-pattern archetypes: pre-contemplation, post-contemplation, rolling-cascade, terminal). Those manual matrix runs are not codified as named tests yet — they are reproducible from the `/lab` UI by a reviewer in under a minute each. Codifying the 28 into named regression tests is a tracked follow-up (see [self-audit §8 recommendation 3](./security/self-audit.md#8-recommendations-before-mainnet)).
+> Codifying additional matrix runs as named regression tests is a tracked follow-up (see [self-audit §8 recommendation 3](./security/self-audit.md#8-recommendations-before-mainnet)). Today the canonical regression suite is the 5 named presets above driving 34 invariant tests — custom scenarios are reviewer-driven via the UI.
 
 ---
 
