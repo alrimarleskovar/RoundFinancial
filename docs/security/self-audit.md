@@ -208,7 +208,15 @@ The following are explicitly **out of scope** for this internal audit. They are 
 - **Formal verification of D/C invariant** — current proof is in-test (`security_economic.spec.ts` + `dc.rs` math module). Worth a model-checked proof (Coq/Lean) before mainnet given the asymmetric loss function.
 - **Indexer reconciler hardening** — current scaffold trusts Helius webhook ordering. Reconciler that joins event rows ↔ canonical pool/member rows under reorg + replay scenarios is post-hackathon.
 - **Bug bounty program** — recommended at mainnet launch. Suggested platform: Immunefi. Suggested initial pool: $50k.
-- **Economic stress-tests under adversarial conditions** — current parity tests cover happy and named-failure paths. A fuzzer (proptest / quickcheck-style) over the full state space would be valuable.
+- **Economic stress-tests under adversarial conditions** — current parity tests cover happy and named-failure paths (5 canonical presets, 34 invariants — see [`docs/stress-lab.md`](../stress-lab.md)). Adversarial scenarios deliberately deferred:
+  - **Strategic-behavior simulation** — members coordinating tx ordering, partial defaults, gaming the cycle rotation, etc.
+  - **Sybil attacks** — same human spinning N wallets to game reputation (mitigated long-term by the PoP provider — see [§4.4](../architecture.md#44-identity-layer-added-v02--2026-04-22--provider-transition-v04--2026-05); not enforced today since identity layer is optional)
+  - **Malicious pool leaders / Community Pool spam** — when Community Pool variant ships post-mainnet, leader-side attack surface (refusing to settle defaults, withholding payouts) needs separate threat modeling
+  - **Reputation farming** — minimum-cost-to-mint-attestation arbitrage; today bounded by stake floor + USDC installments but a $1 ROSCA variant would change the calculus
+  - **Fuzzer over full state space** — proptest / quickcheck-style harness against the on-chain handlers, not just the L1 simulator
+
+  These are tracked under issue [#228](https://github.com/alrimarleskovar/RoundFinancial/issues/228) (codify additional regression tests) for the codifiable subset, and as pre-mainnet research items for the open-ended adversarial-creativity subset.
+
 - **Front-end attack surface** — wallet adapter, RPC trust, phishing-resistant flows. Currently relies on Phantom + Solana wallet adapter defaults.
 - **MEV / front-running** — `claim_payout` and `escape_valve_buy` could be front-run. Mitigation strategies (commit-reveal, jito bundles) deferred to mainnet.
 

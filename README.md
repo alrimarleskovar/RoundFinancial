@@ -52,7 +52,7 @@ DeFi solved trading. DeFi solved liquidity. DeFi never solved **credit**. The tw
 The boxes alone don't make us right — Aave, Goldfinch, and Credix are real businesses with billions of TVL between them. **What separates RoundFi from the projects that sunset is structural, not feature-list:**
 
 - **Phase 3 is the revenue model from day 1, not an afterthought.** WeTrust's protocol _was_ the product, so when retention slipped there was nothing left to sell. RociFi's NFT score didn't read outside their pools, so there was no B2B moat. RoundFi treats Phase 1 (ROSCAs) explicitly as the data-acquisition engine for Phase 3 (per-call B2B oracle subscriptions to neobanks + DeFi protocols). The Triple Shield + Yield Cascade exist to keep Phase 1 solvent **while** the on-chain dataset compounds.
-- **Score is SAS-compatible from the first attestation.** Every paid installment mints against the Solana Attestation Service schema, so the score reads from any wallet, any protocol — Web3-native portability instead of vendor lock-in. RociFi's score died with RociFi.
+- **Score is SAS-compatible from the first attestation.** Every paid installment mints against the Solana Attestation Service schema — the protocol shipped this end-to-end (see `roundfi-reputation` program + `tests/reputation_cpi.spec.ts`). On the user-facing side, the `/reputacao` surface today mixes on-chain reads (real devnet attestations from member-3's contribute and others) with a session-reducer reflection used in Demo Studio mock mode. The portability infrastructure is on-chain; B2B subscription consumers are roadmap (Phase 3). RociFi's score died with RociFi — SAS-compatible attestations exist independent of any front-end going forward.
 - **Solvency is mathematical, not aspirational.** WeTrust's retention model was "members keep paying because trust." RoundFi's Triple Shield gives a **91.6% Month-1 retention floor** as a deterministic property of the contract — encoded in [`programs/roundfi-core/src/math/waterfall.rs`](programs/roundfi-core/src/math/waterfall.rs) and parity-tested against the [Stress Lab L1 simulator](sdk/src/stressLab.ts). Stake decays 50% → 30% → 10% but only after on-chain attestations confirm cycle completion — no honor system.
 
 ## Thesis (per the whitepaper)
@@ -75,7 +75,7 @@ RoundFi is a **behavioral-credit primitive disguised as a savings protocol**. Th
   1. **Seed Draw** — Month-1 retention of 91.6% of capital.
   2. **Adaptive Escrow** — locks reward portions so debt decreases faster than collateral returns.
   3. **Solidarity Vault** — 1% of each installment, redistributed as Good Faith Bonus.
-- **Yield Waterfall (Kamino, 5–8% APY):** Protocol → Guarantee Fund → LP Angels → Participants.
+- **Yield Waterfall (Kamino adapter, 5–8% APY mainnet target):** Protocol → Guarantee Fund → LP Angels → Participants. The Kamino adapter ships with a real `deposit_reserve_liquidity` CPI for the deposit path ([`programs/roundfi-yield-kamino`](programs/roundfi-yield-kamino)); the `harvest` path is staged behind audit clearance (tracked in [#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233)). Devnet uses the **mock adapter** (`programs/roundfi-yield-mock`) for deterministic test cycles. Adapter is swap-via-`Pool.yield_adapter` Pubkey — no core redeploy needed.
 - **Escape Valve:** positions are dynamic NFTs. Distressed users sell instead of defaulting.
 - **Behavioral oracle:** every payment is an on-chain attestation (SAS-compatible) — a portable credit identity, the _"Serasa of Web3"_.
 
