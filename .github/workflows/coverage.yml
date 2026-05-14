@@ -10,9 +10,13 @@ name: Coverage
 # Once #230 lands, drop the `--packages roundfi-math --exclude-files`
 # filter and run against the full workspace.
 #
-# Advisory-only on day 1 — matches the pattern from `audit · cargo-audit
-# (advisory)` + `deny · supply-chain (advisory)`. Flip to required once
-# the lane has run green on 2-3 PRs.
+# Required lane (flipped 2026-05-14 — was advisory through PR #269).
+# The lane ran green on every PR since introduction, with ~6% headroom
+# (90.91% actual vs 85% threshold). Any regression below threshold now
+# blocks the build instead of warning silently.
+#
+# To raise the threshold once the math layer grows + retains coverage,
+# bump `COVERAGE_THRESHOLD` below.
 #
 # Tracked under: issue #269.
 
@@ -42,11 +46,13 @@ env:
 
 jobs:
   tarpaulin:
-    name: coverage · roundfi-math (tarpaulin, advisory)
+    name: coverage · roundfi-math (tarpaulin)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Advisory-only on day 1.
-    continue-on-error: true
+    # FLIPPED to required 2026-05-14 — passing on every PR run since
+    # the lane was introduced (#269). Headroom is large: 90.91% actual
+    # vs 85% threshold. Any future regression below threshold blocks
+    # the build instead of warning silently.
     permissions:
       contents: read
       pull-requests: write # for the PR comment
@@ -65,7 +71,6 @@ jobs:
 
       - name: Run tarpaulin (roundfi-math only)
         id: tarpaulin
-        continue-on-error: true
         run: |
           set +e
           mkdir -p coverage/math
@@ -93,23 +98,25 @@ jobs:
           echo "## Coverage Summary"
           echo "$summary"
           echo "tarpaulin exit code: $tarpaulin_exit"
-          # Always exit 0 from this step — advisory on day 1.
-          exit 0
+          # Propagate the tarpaulin exit code — if the run itself failed
+          # (parse error, panic, etc.), the lane should fail too.
+          exit "$tarpaulin_exit"
 
-      - name: Report threshold status (advisory)
+      - name: Enforce threshold
         run: |
           pct="${{ steps.tarpaulin.outputs.pct }}"
           threshold="${COVERAGE_THRESHOLD}"
           echo "Coverage: ${pct}% · Threshold: ${threshold}%"
           if [ -z "$pct" ] || [ "$pct" = "0" ]; then
-            echo "::warning::Tarpaulin produced no coverage number (run failed or output format changed)"
-            exit 0
+            echo "::error::Tarpaulin produced no coverage number (run failed or output format changed)"
+            exit 1
           fi
           meets=$(python3 -c "print(int(float('$pct') >= float('$threshold')))" 2>/dev/null || echo "0")
           if [ "$meets" = "1" ]; then
             echo "::notice::Coverage ${pct}% meets threshold ${threshold}%"
           else
-            echo "::warning::Coverage ${pct}% is below threshold ${threshold}% (advisory only — not blocking)"
+            echo "::error::Coverage ${pct}% is below threshold ${threshold}% — failing build"
+            exit 1
           fi
 
       - name: Comment coverage on PR
@@ -122,7 +129,7 @@ jobs:
             const threshold = process.env.COVERAGE_THRESHOLD || '85';
             const meets = parseFloat(pct) >= parseFloat(threshold);
             const emoji = meets ? '🟢' : '🟡';
-            const status = meets ? '✅ meets threshold' : '⚠️ below threshold (advisory)';
+            const status = meets ? '✅ meets threshold' : '❌ below threshold (blocking)';
 
             const lines = [
               '## ' + emoji + ' Coverage Report — `roundfi-math`',

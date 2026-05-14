@@ -1,18 +1,19 @@
 name: Fuzz
 
-# cargo-fuzz lane on `roundfi-math`. Foundation under issue #284 —
-# advisory-only, runs each target for a short time-box so CI stays
-# under 5 minutes per PR. A longer-running scheduled job (weekly,
-# ~30min per target) is the natural follow-up once the lane is stable.
+# cargo-fuzz lane on `roundfi-math`. 6 targets matrix-parallel, each
+# bounded to 60s on PR. A longer-running scheduled job (weekly, ~30min
+# per target) lives at `.github/workflows/fuzz-scheduled.yml`.
 #
 # Why a separate workflow (not inside `ci.yml`):
 #   1. Needs **nightly** toolchain (cargo-fuzz / libfuzzer-sys
 #      requirement); the main lanes run on stable.
 #   2. `crates/math/fuzz` is intentionally excluded from the workspace
 #      so the rest of the build doesn't pull in libfuzzer-sys.
-#   3. Failures are advisory-only until we've collected enough green
-#      runs to flip the gate — matches the pattern from coverage.yml +
-#      e2e.yml.
+#
+# Required lane (flipped 2026-05-14 — was advisory through PRs #286 +
+# #288 + #302). Every PR run since introduction has been green across
+# all 6 targets; flipping to required means a new fuzz-discovered
+# crash blocks the PR instead of warning silently.
 #
 # Tracked under: issue #284.
 
@@ -47,11 +48,9 @@ env:
 
 jobs:
   cargo-fuzz:
-    name: fuzz · roundfi-math (libfuzzer, advisory)
+    name: fuzz · roundfi-math (libfuzzer)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Advisory-only on day 1. Flip after 2-3 green runs.
-    continue-on-error: true
     permissions:
       contents: read
 
@@ -77,36 +76,21 @@ jobs:
 
       - name: Run fuzz target — ${{ matrix.target }}
         id: fuzz
-        continue-on-error: true
         working-directory: crates/math/fuzz
         run: |
-          set +e
           mkdir -p artifacts
           # `-max_total_time` bounds the run; `-print_final_stats=1`
           # gives us coverage + executions in the log; `-rss_limit_mb`
           # caps memory so a runaway corpus doesn't OOM the runner.
+          # Exit code propagates — required lane fails on any crash.
           cargo +nightly fuzz run ${{ matrix.target }} \
             -- \
             -max_total_time=${DURATION_PER_TARGET} \
             -print_final_stats=1 \
             -rss_limit_mb=2048 \
             2>&1 | tee "artifacts/${{ matrix.target }}.log"
-          exit_code=${PIPESTATUS[0]}
-          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
-          echo "Fuzz exit code: $exit_code"
-          # Always exit 0 — advisory on day 1. Crashes still surface
-          # because libfuzzer writes them to fuzz/artifacts/<target>/.
-          exit 0
-
-      - name: Report status (advisory)
-        run: |
-          outcome="${{ steps.fuzz.outputs.exit_code }}"
-          echo "Fuzz target ${{ matrix.target }} exit code: $outcome"
-          if [ "$outcome" = "0" ]; then
-            echo "::notice::Fuzz target ${{ matrix.target }} completed without crashes"
-          else
-            echo "::warning::Fuzz target ${{ matrix.target }} found a crash or panicked (advisory — not blocking)"
-          fi
+          # PIPESTATUS preserves the cargo-fuzz exit even through tee.
+          exit "${PIPESTATUS[0]}"
 
       - name: Upload fuzz logs + crash artifacts
         if: always()
