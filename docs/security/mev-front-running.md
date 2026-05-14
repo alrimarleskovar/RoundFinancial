@@ -1,6 +1,6 @@
 # RoundFi — MEV & Front-Running Review
 
-> **Scope:** ordering-dependent attacks on RoundFi instructions — `claim_payout`, `escape_valve_buy`, `settle_default`, `harvest_yield`, `deposit_idle_to_yield`, `join_pool`. Explicitly **deferred to mainnet** per [`self-audit.md §7`](./self-audit.md#7-out-of-scope-future-work) + [`AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md) "Out of scope". This doc consolidates MEV-specific threats previously summarized in [`adversarial-threat-model.md §6`](./adversarial-threat-model.md#6-mev--front-running) and tracked under [Issue #232](https://github.com/alrimarleskovar/RoundFinancial/issues/232).
+> **Scope:** ordering-dependent attacks on **all 9 user-facing RoundFi instructions** — `contribute`, `claim_payout`, `release_escrow`, `escape_valve_list`, `escape_valve_buy`, `settle_default`, `harvest_yield`, `deposit_idle_to_yield`, `join_pool`. Originally deferred to mainnet per [`self-audit.md §7`](./self-audit.md#7-out-of-scope-future-work) + [`AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md); per-instruction surface analysis + mitigations now **complete** and committed (issues #232 + #293). This doc consolidates MEV-specific threats previously summarized in [`adversarial-threat-model.md §6`](./adversarial-threat-model.md#6-mev--front-running) and adds a consolidated mitigations × tests cross-reference table (§3.1) + MEV severity sub-tiering for the bug bounty ([`bug-bounty.md §4.1`](./bug-bounty.md)).
 >
 > **Why this doc exists:** Solana doesn't have a public mempool the way Ethereum does, but it has Jito searchers, leader-rotated block production, and parallel scheduling — enough to create ordering-dependent extraction vectors. The on-chain audit will look at this code; this doc gives auditors the **pre-analyzed MEV surface** so audit hours focus on creative ordering attacks, not enumeration.
 
@@ -215,20 +215,130 @@ Unlike Ethereum's public mempool, Solana ordering is determined by:
 
 **Mitigation status:** 🟡 **Acceptable today (admin-seeded pools).** Becomes relevant when Community Pool variant ships post-mainnet.
 
+### 2.6 `contribute` — on-time vs late attestation race
+
+**Vector:** A member's `contribute(cycle)` mints an attestation flagged either **on-time** (`clock.unix_timestamp <= pool.next_cycle_at`) or **late** (`SCHEMA_LATE`). The reputation weight differs materially. A member at the boundary can attempt to bribe a Jito searcher to land their tx in a slot that crosses (or doesn't cross) the deadline boundary.
+
+**Source path:**
+
+- `contribute.rs:181` — `let on_time = clock.unix_timestamp <= pool.next_cycle_at;` — single source of truth for the on-time bit
+- `contribute.rs:126-127` — `args.cycle == pool.current_cycle` + `args.cycle == member.contributions_paid` constraints
+- The reputation schema written (`SCHEMA_PAYMENT` vs `SCHEMA_LATE`) follows from `on_time`
+
+**Attack model:**
+
+| Step | Attacker action                                                      | What they want                                                    |
+| ---- | -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1    | Member observes that `pool.next_cycle_at` is `T + 200ms`             | Decide whether to submit at T-100ms (on-time) or T+100ms (late)   |
+| 2    | Submit with a high Jito tip to land in a leader's block **before** T | Force the on-time branch even when wall-clock submission is at T+ |
+
+**Why this is mostly fine today:**
+
+- The on-time bit is computed from **the validator's `Clock` sysvar**, not the wall clock or any off-chain signal. Searchers can influence **landing slot** but not the recorded timestamp once landed. A tx that lands in slot S sees `clock.unix_timestamp` corresponding to slot S — they can't fake an earlier time.
+- The window for "bribe my way to on-time" is at most one slot (~400ms). Members who care about on-time status would just submit earlier.
+- On-time vs late affects **reputation weight**, not direct fund movement. The economic value of a single on-time attestation is small (long-run reputation effect over many cycles).
+
+**Residual risk on mainnet:**
+
+- **Reputation-grade snipe.** A Veteran-track member could systematically bid Jito tips to land contributions just before the cycle boundary every cycle. Cost-benefit favors the protocol — the tips exceed the marginal reputation value — so this is **bounded griefing of the attacker's own wallet**, not extraction from RoundFi.
+- **Pool-wide grace exploitation.** Cycle boundary precision (~400ms) means in a 30-day cycle, the on-time window has <2 ppm precision risk. Negligible.
+
+**Mitigation status:** 🟢 **Already-mitigated.** No active mitigation needed — the `Clock` sysvar dependency makes the timestamp un-spoofable post-landing, and the economic incentive is self-aligned. Monitor on mainnet via attestation-rate-by-tip-amount correlation (post-launch analytics).
+
+### 2.7 `release_escrow` — front-run by `settle_default`
+
+**Vector:** A member with non-zero `escrow_balance` who is about to be flagged `defaulted` by an incoming `settle_default(cycle)` tries to race a `release_escrow(checkpoint=K)` ahead of the seizure cascade to extract their escrow before it's seized.
+
+**Source path:**
+
+- `release_escrow.rs:84-92` — checkpoint validation: `checkpoint > 0`, `<= pool_cycles`, `> last_released_checkpoint`, `<= pool_current + 1`, AND `member.on_time_count >= checkpoint`
+- `settle_default.rs::handler` — cascades seizure from solidarity → escrow → stake
+
+**Attack model:**
+
+| Step | Attacker action                                                                                              | What they want                              |
+| ---- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| 1    | Member observes `pool.next_cycle_at + GRACE_PERIOD_SECS` has elapsed + their cycle's contribution is missing | They know `settle_default` is imminent      |
+| 2    | Submit `release_escrow` for their highest reachable checkpoint, racing the cranker's `settle_default` tx     | Extract escrow before the cascade seizes it |
+
+**Why this is mostly fine today:**
+
+- **`on_time_count` gate.** `release_escrow` requires `member.on_time_count >= checkpoint`. A member who failed to contribute (the trigger for `settle_default`) by definition has a low `on_time_count` — they can only release escrow up to the number of cycles they actually paid on-time. The "race window" is limited to **already-vested escrow**, not future vesting.
+- **`last_released_checkpoint` monotonic.** Each `release_escrow` advances `member.last_released_checkpoint`; replay is impossible.
+- **Triple Shield D/C invariant.** Even if the member successfully extracts vested escrow before seizure, the protocol's D/C invariant holds because `release_escrow` only releases **previously-earned** vesting that's already accounted for in `c_remaining`. The seizure cascade's job is to seize **un-released** escrow + stake. There's no double-counting.
+
+**Residual risk on mainnet:**
+
+- **Atomic race timing.** A searcher acting on the defaulter's behalf could bundle `release_escrow + settle_default` atomically with the release first. The protocol allows this — the defaulter loses nothing they were entitled to, and the protocol seizes only the remaining escrow + stake per cascade rules.
+- **Cranker-driven race.** A community cranker who watches `release_escrow` events could choose to delay `settle_default` to maximize their crank reward (if any). Today there is **no crank reward**, so the incentive is zero.
+
+**Mitigation status:** 🟢 **Already-mitigated.** No active mitigation needed — the `on_time_count` gate + D/C invariant make pre-seizure extraction non-extractive (member only releases what they already earned). Re-review when crank-reward economics ship (post-mainnet).
+
+### 2.8 `escape_valve_list` — listing-snipe by stale price
+
+**Vector:** A seller updates their listing price upward (raise price); a buyer who saw the old price races their `escape_valve_buy` to hit the listing at the cached price. Inverse of §2.2.
+
+**Source path:**
+
+- `escape_valve_list.rs:64+` — init's or updates Listing PDA; rejects re-list unless prior closed
+- The Listing PDA's `price_usdc` field is mutable across list-update transitions (relist after cancel/buy)
+
+**Attack model:**
+
+| Step | Attacker action                                                            | What they want                          |
+| ---- | -------------------------------------------------------------------------- | --------------------------------------- |
+| 1    | Seller submits `escape_valve_list(new_price)` to raise the listing price   | Reflect new market price                |
+| 2    | A buyer (acting as searcher) front-runs with `escape_valve_buy(old_price)` | Acquire the slot at the stale low price |
+
+**Why this is mostly fine today:**
+
+- **`escape_valve_buy` already commits the buyer to a specific price.** Per §2.2, `args.price_usdc == listing.price_usdc` is required — a buyer with the OLD price will hit a price mismatch if the seller's update lands first. So the race is "first-listed-wins-on-current-price," not "old-price-wins."
+- **Listing PDA initialization is a single-write event.** Anchor's `init` constraint rejects double-init. Updates to an existing listing require closing the listing first, then re-init — atomic from the protocol's perspective.
+
+**Residual risk on mainnet:**
+
+- **List → cancel → list race.** A seller listing twice in adjacent slots (cancel-and-relist) creates a window for an aware buyer to commit to the lower historical price. Today: `escape_valve_list` doesn't have a cancel path — listings close only via `escape_valve_buy` success. So this risk is **not present** in the current implementation.
+- **Future relist primitive (post-mainnet).** When `escape_valve_relist(new_price)` ships (planned), it must be a **single atomic instruction** that updates price in-place, not a close + re-init. Otherwise the same listing-race surface as #232.
+
+**Mitigation status:** 🟢 **Already-mitigated (current implementation).** No active mitigation needed. **Mainnet caveat:** the future `escape_valve_relist` must be atomic-update, not close-and-re-init. Track under #232 alongside the `escape_valve_buy` mitigation work.
+
 ---
 
 ## 3. Summary — MEV surface vs mitigation
 
-| Instruction             | Vector class                | Extractable today? | Mainnet mitigation                                             |
-| ----------------------- | --------------------------- | :----------------: | -------------------------------------------------------------- |
-| `claim_payout`          | Bounded griefing (rational) |         ❌         | Monitoring + alerting; Jito bundle batching long-term          |
-| `escape_valve_buy`      | Sniper / listing-race       |  ⚠️ Yes — bounded  | Commit-reveal listings + Jito bundles for cancel/relist (#232) |
-| `settle_default`        | Reputation grief            |         ❌         | Cranker bond + cooldown (post-canary)                          |
-| `harvest_yield`         | Kamino sandwich             |     ❌ (stub)      | Slippage guard ✅ + Jito-bundled harvest read (with #233)      |
-| `deposit_idle_to_yield` | Kamino sandwich             |     ❌ (stub)      | Same as harvest                                                |
-| `join_pool`             | Slot-0 race                 | ❌ (admin-seeded)  | Random slot assignment (Community Pool variant)                |
+| Instruction             | Vector class                    | Extractable today? | On-chain mitigation already present                                                     | Mainnet mitigation                                             |
+| ----------------------- | ------------------------------- | :----------------: | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `contribute`            | On-time / late reputation snipe |         ❌         | `Clock` sysvar timestamp (un-spoofable); economic incentive self-aligned                | Monitor attestation-rate-by-tip-amount post-launch             |
+| `claim_payout`          | Bounded griefing (rational)     |         ❌         | `member.slot_index == args.cycle` binds claimer; Solvency Guard atomic                  | Monitoring + alerting; Jito bundle batching long-term          |
+| `release_escrow`        | Pre-seizure escrow extraction   |         ❌         | `on_time_count >= checkpoint` gate; D/C invariant; `last_released_checkpoint` monotonic | Re-review when crank-reward economics ship                     |
+| `escape_valve_list`     | Stale-price race                |         ❌         | `escape_valve_buy` already commits buyer to specific price; no relist primitive today   | Future `escape_valve_relist` must be atomic-update (#232)      |
+| `escape_valve_buy`      | Sniper / listing-race           |  ⚠️ Yes — bounded  | `args.price_usdc == listing.price_usdc` + buyer-balance check                           | Commit-reveal listings + Jito bundles for cancel/relist (#232) |
+| `settle_default`        | Reputation grief                |         ❌         | Deterministic cascade order; `args.cycle == pool.current_cycle - 1` binding             | Cranker bond + cooldown (post-canary)                          |
+| `harvest_yield`         | Kamino sandwich                 |     ❌ (stub)      | `min_realized_usdc` slippage guard (PR #124) + post-CPI delta assertion                 | Slippage guard ✅ + Jito-bundled harvest read (with #233)      |
+| `deposit_idle_to_yield` | Kamino sandwich                 |     ❌ (stub)      | Permissionless crank; deterministic transfer amount                                     | Same as harvest                                                |
+| `join_pool`             | Slot-0 race                     | ❌ (admin-seeded)  | Slot bitmap deterministic; admin-seeded today (no open enrollment)                      | Random slot assignment (Community Pool variant)                |
 
 **Big picture:** the Triple Shield design **already constrains** the extraction surface to bounded griefing on most instructions. The exception is `escape_valve_buy` listing-race, which is the **single non-bounded extraction vector** in the protocol and the priority mitigation work for mainnet.
+
+### 3.1 Consolidated mitigations + test coverage
+
+For each mitigation present in code today, the corresponding negative-path test that exercises it:
+
+| Instruction        | Mitigation (file:line)                                                      | Test that exercises it                                                                              |
+| ------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `contribute`       | `contribute.rs:181` — `Clock` sysvar on-time bit                            | `tests/lifecycle.spec.ts` (on-time path) + `tests/edge_grace_default.spec.ts` (late path)           |
+| `contribute`       | `contribute.rs:126-127` — `args.cycle == pool.current_cycle`                | `tests/security_inputs.spec.ts` (wrong cycle → `WrongCycle`)                                        |
+| `claim_payout`     | `claim_payout.rs:93-95` — slot/cycle binding                                | `tests/security_lifecycle.spec.ts` (claim for wrong slot → revert)                                  |
+| `claim_payout`     | `claim_payout.rs:120-131` — Solvency Guard (atomic check + transfer)        | `tests/security_economic.spec.ts` (underfunded pool → `WaterfallUnderflow`)                         |
+| `release_escrow`   | `release_escrow.rs:88,92` — `on_time_count >= checkpoint` + monotonic       | `tests/security_lifecycle.spec.ts` `EscrowLocked` negative                                          |
+| `escape_valve_buy` | `escape_valve_buy.rs:174-177` — `price_usdc == listing.price_usdc`          | `tests/security_lifecycle.spec.ts` (price mismatch → `EscapeValvePriceMismatch`)                    |
+| `escape_valve_buy` | `escape_valve_buy.rs:357` — post-CPI freeze re-anchor assertion             | Pool 2 devnet round-trip (`docs/devnet-deployment.md`)                                              |
+| `settle_default`   | `settle_default.rs:166` — `clock >= pool.next_cycle_at + GRACE_PERIOD_SECS` | `tests/edge_grace_default.spec.ts` (premature settle → `SettleDefaultGracePeriodNotElapsed`)        |
+| `settle_default`   | `settle_default.rs` cascade (uses `crates/math/cascade.rs`)                 | `tests/security_default.spec.ts` + cascade fuzz target (`crates/math/fuzz/fuzz_targets/cascade.rs`) |
+| `harvest_yield`    | `harvest_yield.rs:243` — `realized >= args.min_realized_usdc` slippage      | `tests/security_cpi.spec.ts` (slippage trip → `YieldSlippage`)                                      |
+| Math invariants    | `crates/math/waterfall.rs` proptest                                         | `cargo test -p roundfi-math` (6 proptest invariants ~1500 cases) + cargo-fuzz scheduled lane        |
+
+**Coverage gap:** no test today crosses bundle boundaries (e.g., `escape_valve_list + escape_valve_buy` in one Jito bundle). Captured under "Methodology gaps" §5 below.
 
 ---
 
@@ -269,4 +379,4 @@ These are the post-audit research items. The on-chain audit firm should not be e
 
 ---
 
-_Last updated: May 2026. Cross-ref: [Issue #232](https://github.com/alrimarleskovar/roundfinancial/issues/232), [`MAINNET_READINESS.md §5.4`](../../MAINNET_READINESS.md), [`adversarial-threat-model.md §6`](./adversarial-threat-model.md#6-mev--front-running), [`self-audit.md §7`](./self-audit.md#7-out-of-scope-future-work)._
+_Last updated: May 2026. Cross-ref: [Issue #232](https://github.com/alrimarleskovar/roundfinancial/issues/232) (commit-reveal mitigation track), [Issue #293](https://github.com/alrimarleskovar/roundfinancial/issues/293) (9-instruction extension + severity tiering), [`MAINNET_READINESS.md §5.4`](../../MAINNET_READINESS.md), [`adversarial-threat-model.md §6`](./adversarial-threat-model.md#6-mev--front-running), [`bug-bounty.md §4.1`](./bug-bounty.md) MEV severity sub-tiering, [`self-audit.md §7`](./self-audit.md#7-out-of-scope-future-work)._
