@@ -1,0 +1,120 @@
+name: E2E
+
+# Playwright smoke tests for the Next.js front-end. Foundation lane
+# under issue #270 — covers the public landing + the 7 dashboard
+# routes in unconnected-wallet state. Wallet-connected flows
+# (contribute, claim_payout, escape valve buy, allowlist) are deferred
+# to a follow-up PR because they need a mock-wallet fixture + pinned
+# devnet pool state — see `app/tests/e2e/README.md`.
+#
+# Advisory-only on day 1 — same pattern as `coverage.yml` and the
+# `cargo-audit / deny` lanes. Flip to required (`continue-on-error:
+# false`) once the lane has run green on 2-3 PRs and the deeper
+# flows land.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "sdk/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/e2e.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "sdk/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/e2e.yml"
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: e2e · playwright (smoke, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Advisory-only on day 1.
+    continue-on-error: true
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+          pnpm --version
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('app/package.json') }}
+
+      - name: Install Playwright browsers (chromium only)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @roundfi/app exec playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @roundfi/app exec playwright install-deps chromium
+
+      - name: Build the Next.js app
+        run: pnpm --filter @roundfi/app build
+        env:
+          # Build in production mode so we run E2E against `next start`,
+          # which matches what Vercel serves. `E2E_USE_BUILD=1` flips
+          # playwright.config.ts's webServer command from `dev` to
+          # `start`.
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Run Playwright tests
+        id: playwright
+        continue-on-error: true
+        run: pnpm --filter @roundfi/app test:e2e
+        env:
+          CI: "true"
+          E2E_USE_BUILD: "1"
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Report status (advisory)
+        run: |
+          outcome="${{ steps.playwright.outcome }}"
+          echo "Playwright outcome: $outcome"
+          if [ "$outcome" = "success" ]; then
+            echo "::notice::E2E smoke tests passed"
+          else
+            echo "::warning::E2E smoke tests failed (advisory only — not blocking)"
+          fi
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: app/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Playwright traces + screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: app/test-results/
+          if-no-files-found: warn
+          retention-days: 14
