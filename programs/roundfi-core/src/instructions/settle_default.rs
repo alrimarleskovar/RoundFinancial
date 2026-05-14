@@ -30,7 +30,7 @@ use roundfi_reputation::constants::SCHEMA_DEFAULT;
 use crate::constants::*;
 use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
-use crate::math::dc::{dc_invariant_holds, max_seizure_respecting_dc};
+use crate::math::{dc_invariant_holds, max_seizure_respecting_dc};
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

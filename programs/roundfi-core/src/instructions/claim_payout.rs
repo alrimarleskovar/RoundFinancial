@@ -6,7 +6,7 @@ use roundfi_reputation::constants::SCHEMA_CYCLE_COMPLETE;
 use crate::constants::*;
 use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
-use crate::math::seed_draw::retained_meets_seed_draw;
+use crate::math::retained_meets_seed_draw;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/math",
     "programs/roundfi-core",
     "programs/roundfi-reputation",
     "programs/roundfi-yield-mock",

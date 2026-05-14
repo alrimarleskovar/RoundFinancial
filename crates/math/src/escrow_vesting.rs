@@ -1,25 +1,22 @@
-use anchor_lang::prelude::*;
+//! Linear escrow-vesting schedule for `release_escrow`.
 
-use crate::error::RoundfiError;
+use crate::error::MathError;
 
 /// Linear vesting schedule: of `principal` units, return how much is
 /// cumulatively vested once `checkpoint` of `total_checkpoints` milestones
 /// have passed. Floor rounding; the final checkpoint always returns
 /// exactly `principal` (no rounding dust left behind).
-///
-/// Used by `release_escrow` to compute how much stake a member is entitled
-/// to pull back after N on-time cycles, given a total horizon of
-/// `cycles_total` cycles.
 pub fn cumulative_vested(
-    principal:         u64,
-    checkpoint:        u8,
+    principal: u64,
+    checkpoint: u8,
     total_checkpoints: u8,
-) -> Result<u64> {
-    require!(total_checkpoints > 0, RoundfiError::InvalidPoolParams);
-    require!(
-        checkpoint <= total_checkpoints,
-        RoundfiError::EscrowLocked,
-    );
+) -> Result<u64, MathError> {
+    if total_checkpoints == 0 {
+        return Err(MathError::InvalidPoolParams);
+    }
+    if checkpoint > total_checkpoints {
+        return Err(MathError::EscrowLocked);
+    }
 
     if checkpoint == 0 {
         return Ok(0);
@@ -28,13 +25,12 @@ pub fn cumulative_vested(
         return Ok(principal);
     }
 
-    // principal * checkpoint / total — u128 intermediate to avoid overflow.
     let scaled = (principal as u128)
         .checked_mul(checkpoint as u128)
-        .ok_or_else(|| error!(RoundfiError::MathOverflow))?
+        .ok_or(MathError::Overflow)?
         .checked_div(total_checkpoints as u128)
-        .ok_or_else(|| error!(RoundfiError::MathOverflow))?;
-    u64::try_from(scaled).map_err(|_| error!(RoundfiError::MathOverflow))
+        .ok_or(MathError::Overflow)?;
+    u64::try_from(scaled).map_err(|_| MathError::Overflow)
 }
 
 /// Amount releasable on the *current* call — the delta between the
@@ -42,20 +38,17 @@ pub fn cumulative_vested(
 /// `last_checkpoint`. Checked subtraction guards against monotonicity
 /// violations elsewhere in the stack.
 pub fn releasable_delta(
-    principal:         u64,
-    last_checkpoint:   u8,
-    new_checkpoint:    u8,
+    principal: u64,
+    last_checkpoint: u8,
+    new_checkpoint: u8,
     total_checkpoints: u8,
-) -> Result<u64> {
-    require!(
-        new_checkpoint > last_checkpoint,
-        RoundfiError::EscrowNothingToRelease,
-    );
-    let vested_now  = cumulative_vested(principal, new_checkpoint,  total_checkpoints)?;
+) -> Result<u64, MathError> {
+    if new_checkpoint <= last_checkpoint {
+        return Err(MathError::EscrowNothingToRelease);
+    }
+    let vested_now = cumulative_vested(principal, new_checkpoint, total_checkpoints)?;
     let vested_prev = cumulative_vested(principal, last_checkpoint, total_checkpoints)?;
-    vested_now
-        .checked_sub(vested_prev)
-        .ok_or_else(|| error!(RoundfiError::MathOverflow))
+    vested_now.checked_sub(vested_prev).ok_or(MathError::Overflow)
 }
 
 #[cfg(test)]
@@ -69,20 +62,18 @@ mod tests {
 
     #[test]
     fn vest_full_at_end() {
-        // Final checkpoint returns principal, regardless of division dust.
         assert_eq!(cumulative_vested(10_001, 24, 24).unwrap(), 10_001);
     }
 
     #[test]
     fn vest_linear_midpoint() {
-        // 24-cycle pool, checkpoint 12 = half of principal.
         assert_eq!(cumulative_vested(10_000, 12, 24).unwrap(), 5_000);
     }
 
     #[test]
     fn releasable_delta_monotonic() {
-        let d1 = releasable_delta(10_000, 0, 1,  24).unwrap();
-        let d2 = releasable_delta(10_000, 1, 2,  24).unwrap();
+        let d1 = releasable_delta(10_000, 0, 1, 24).unwrap();
+        let d2 = releasable_delta(10_000, 1, 2, 24).unwrap();
         let d3 = releasable_delta(10_000, 2, 24, 24).unwrap();
         assert_eq!(d1 + d2 + d3, 10_000);
     }
@@ -95,10 +86,6 @@ mod tests {
 
     #[test]
     fn vest_final_returns_exact_principal_without_dust() {
-        // principal=10_001 / total=24 would round floor at each step →
-        // dust. The final-checkpoint special-case must return exactly
-        // principal. This is what keeps the releasable_delta sum
-        // equal to principal.
         assert_eq!(cumulative_vested(10_001, 24, 24).unwrap(), 10_001);
         assert_eq!(cumulative_vested(u64::MAX, 24, 24).unwrap(), u64::MAX);
     }
@@ -117,14 +104,12 @@ mod tests {
 
     #[test]
     fn releasable_delta_sum_equals_principal_across_full_horizon() {
-        // Stepping 1 at a time from 0 to 24 must sum exactly to principal
-        // for any principal, including values that don't divide evenly.
         for principal in [1u64, 24, 10_000, 10_001, 999_999, u64::MAX] {
             let mut sum: u64 = 0;
             for c in 1u8..=24 {
-                sum = sum.checked_add(
-                    releasable_delta(principal, c - 1, c, 24).unwrap(),
-                ).expect("sum overflow");
+                sum = sum
+                    .checked_add(releasable_delta(principal, c - 1, c, 24).unwrap())
+                    .expect("sum overflow");
             }
             assert_eq!(sum, principal, "releasable sum != principal for {principal}");
         }
@@ -132,9 +117,8 @@ mod tests {
 
     #[test]
     fn vest_at_boundary_checkpoint_matches_proportion() {
-        // Every intermediate checkpoint is floor(principal * c / total).
-        assert_eq!(cumulative_vested(240, 1,  24).unwrap(), 10);
-        assert_eq!(cumulative_vested(240, 6,  24).unwrap(), 60);
+        assert_eq!(cumulative_vested(240, 1, 24).unwrap(), 10);
+        assert_eq!(cumulative_vested(240, 6, 24).unwrap(), 60);
         assert_eq!(cumulative_vested(240, 12, 24).unwrap(), 120);
         assert_eq!(cumulative_vested(240, 23, 24).unwrap(), 230);
         assert_eq!(cumulative_vested(240, 24, 24).unwrap(), 240);
