@@ -32,7 +32,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 
-import { listingPda, memberPda, protocolConfigPda } from "@roundfi/sdk";
+import { listingPda, memberPda, protocolConfigPda } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS } from "./devnet";
 

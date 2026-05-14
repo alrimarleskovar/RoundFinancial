@@ -33,6 +33,7 @@ import { BN, Program } from "@coral-xyz/anchor";
 
 import { ATTESTATION_SCHEMA } from "./constants.js";
 import {
+  attestationNonce,
   attestationPda,
   escrowVaultAuthorityPda,
   memberPda,
@@ -44,6 +45,14 @@ import {
   solidarityVaultAuthorityPda,
   yieldVaultAuthorityPda,
 } from "./pda.js";
+
+// Re-export `attestationNonce` from its new canonical home in `./pda` so
+// existing call sites that `import { attestationNonce } from "@roundfi/sdk/actions"`
+// (or via the barrel) keep working. Moved to `pda.ts` because it's a
+// pure derivation helper — no Solana RPC, no Anchor program, just bit
+// shifts on (cycle, slot). Front-end encoders use the lean PDA module
+// directly to keep the browser bundle tight.
+export { attestationNonce };
 import type { AnyIdl, RoundFiClient } from "./client.js";
 
 // Anchor's `Program<AnyIdl>.methods.<ix>` typing is union-of-undefined
@@ -65,11 +74,6 @@ export interface ActionResult<Context> {
 
 /** Metaplex Core program ID — same on every cluster. */
 export const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
-
-/** Cross-program attestation nonce: (cycle << 32) | slot. Mirrors reputation::cpi. */
-export function attestationNonce(cycle: number, slot: number): bigint {
-  return (BigInt(cycle) << 32n) | BigInt(slot);
-}
 
 /** Sentinel for "no IdentityRecord linked" — pass reputation_program itself. */
 function noIdentityRecord(client: RoundFiClient): PublicKey {

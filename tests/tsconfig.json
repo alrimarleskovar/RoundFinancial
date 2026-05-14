@@ -9,6 +9,6 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["./**/*.ts", "../sdk/src/**/*.ts", "../config/**/*.ts"],
+  "include": ["./**/*.ts", "../sdk/src/**/*.ts", "../config/**/*.ts", "../app/src/lib/**/*.ts"],
   "exclude": ["../node_modules", "../target", "../dist", "**/generated/**"]
 }
