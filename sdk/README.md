@@ -1,6 +1,14 @@
 # `@roundfi/sdk`
 
-> **Status:** `0.1.0-alpha.0` — **pre-mainnet alpha**. Not for production use.
+> ## ⚠️ PRE-MAINNET ALPHA — DEVNET ONLY
+>
+> - **Version:** `0.1.0-alpha.0` (npm `@alpha` tag)
+> - **Cluster:** **Solana Devnet only.** No mainnet program IDs ship until 1.0.
+> - **Audit:** External third-party audit is **pending** (tracked under [`MAINNET_READINESS.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/MAINNET_READINESS.md) §1.6/§1.7). **Do not move real value through this SDK.**
+> - **Stability:** Breaking changes allowed in any minor (`0.x.y`) release. Pin exact versions if you depend on the surface.
+> - **Production use:** **Not supported.** This SDK targets the RoundFi devnet deployment for developer integration testing only.
+>
+> The 1.0 release is gated on: external audit clear + treasury multi-sig migration + Agave 2.x toolchain + legal counsel sign-off. Track [`MAINNET_READINESS.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/MAINNET_READINESS.md) for live status.
 
 TypeScript SDK for [RoundFi](https://github.com/alrimarleskovar/RoundFinancial) — behavioral-credit infrastructure on Solana.
 
