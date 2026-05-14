@@ -35,9 +35,12 @@
 Documented out-of-scope items (do **not** spend audit hours here, tracked for follow-up):
 
 - **Formal verification of D/C invariant** — currently proven in-test only ([`tests/economic_parity.spec.ts`](./tests/economic_parity.spec.ts) + [`tests/security_economic.spec.ts`](./tests/security_economic.spec.ts)); Coq/Lean proof is post-audit
-- **MEV / front-running review** — `claim_payout` and `escape_valve_buy` ordering; mitigation strategies (commit-reveal, jito bundles) deferred to mainnet
-- **Indexer reconciler under hostile RPC reorg** — off-chain consistency only, not fund-movement
-- **Front-end attack surface** — phishing-resistant wallet flows; separate UX-security pass
+- **Indexer reconciler under hostile RPC reorg** — off-chain consistency only, not fund-movement; threat model at [`docs/security/indexer-threat-model.md`](./docs/security/indexer-threat-model.md), reconciler implementation tracked in [#234](https://github.com/alrimarleskovar/RoundFinancial/issues/234)
+- **Front-end attack surface** — phishing-resistant wallet flows; separate UX-security pass; checklist at [`docs/security/frontend-security-checklist.md`](./docs/security/frontend-security-checklist.md)
+
+Items moved from out-of-scope to **addressed** (pre-engagement deliverables):
+
+- **MEV / front-running review** — done. Pre-audit MEV analysis covering all 6 ordering-sensitive instructions (`claim_payout`, `escape_valve_buy`, `settle_default`, `harvest_yield`, `deposit_idle_to_yield`, `join_pool`) at [`docs/security/mev-front-running.md`](./docs/security/mev-front-running.md). Big-picture finding: Triple Shield constrains extraction to bounded griefing on all instructions except `escape_valve_buy` listing-race (recommended pre-mainnet mitigation: commit-reveal listings + Jito bundles for cancel/relist). Closes [#232](https://github.com/alrimarleskovar/RoundFinancial/issues/232).
 
 See [`docs/security/self-audit.md` §7](./docs/security/self-audit.md#7-out-of-scope-future-work) for the full out-of-scope register.
 
