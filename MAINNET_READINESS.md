@@ -1,0 +1,121 @@
+# RoundFi — Mainnet Readiness
+
+> **Single-source checklist for the path from devnet (M3 shipped) to mainnet GA.** Each item declares status, owner-side dependency, and where to verify. Companion to:
+>
+> - [`AUDIT_SCOPE.md`](./AUDIT_SCOPE.md) — formal audit scope + mainnet timeline
+> - [`docs/security/audit-readiness.md`](./docs/security/audit-readiness.md) — strategic one-pager for security firms
+> - [`docs/security/self-audit.md`](./docs/security/self-audit.md) — full 228-line self-audit + threat model
+> - [`docs/status.md`](./docs/status.md) — shipped vs roadmap (product surface)
+> - [`SECURITY.md`](./SECURITY.md) — disclosure channel + SLAs
+
+**Today:** M3 shipped on devnet · 4 programs live with reproducible-build attestation · 162 tests / 53 security-specific · self-audit + threat model + adversarial threat model + auditor self-attestation matrix shipped · seeking external audit (Adevar Labs track applied May 2026).
+
+**Mainnet GA target:** Q4 2026. Hard-gated on external audit + multisig rotation + canary smoke + bug-bounty live.
+
+---
+
+## Legend
+
+| Symbol | Meaning                                                         |
+| :----: | --------------------------------------------------------------- |
+|   ✅   | **Done** — verifiable on devnet / in repo today                 |
+|   🟡   | **In progress** — partially shipped or under active work        |
+|   🔵   | **Pending** — explicitly planned, dependency known, not started |
+|   ⛔   | **Blocker for mainnet** — cannot ship without it                |
+
+---
+
+## 1. Security audit
+
+| #   | Item                                                                                | Status | Verify / dependency                                                                                                                                                                                        |
+| --- | ----------------------------------------------------------------------------------- | :----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1 | Internal self-audit + threat model                                                  |   ✅   | [`docs/security/self-audit.md`](./docs/security/self-audit.md) — 228 lines, file:line refs, 10 PDA seed conventions, per-instruction privilege table for 20 ix                                             |
+| 1.2 | Adversarial threat model (Sybil / ordering / griefing / MEV / Community Pool / DoS) |   ✅   | [`docs/security/adversarial-threat-model.md`](./docs/security/adversarial-threat-model.md) — 6 scenarios, cost tables, mitigation status                                                                   |
+| 1.3 | Auditor self-attestation matrix (§10)                                               |   ✅   | [`docs/security/self-audit.md#10`](./docs/security/self-audit.md#10-external-auditor-self-attestation-matrix) — 10 auditor-first-pass concerns mapped to source + tests                                    |
+| 1.4 | Triple Shield captured firing on real funds (devnet)                                |   ✅   | [`docs/devnet-deployment.md`](./docs/devnet-deployment.md) — 4/4 guards captured (`WaterfallUnderflow` ×2, `EscrowLocked`, shield-1-only seizure)                                                          |
+| 1.5 | Pitch-vs-shipped honest framing                                                     |   ✅   | [`docs/security/audit-readiness.md#pitch-vs-shipped`](./docs/security/audit-readiness.md#pitch-vs-shipped--honest-framing-for-the-audit-firm) — Kamino deposit ≠ harvest, Switchboard roadmap, B2B Phase 3 |
+| 1.6 | External third-party audit (Halborn / Ottersec / Sec3 / Adevar)                     |  🟡⛔  | Adevar Labs audit-credit application submitted May 2026. Q2–Q3 2026 window. **Hard mainnet blocker.**                                                                                                      |
+| 1.7 | Audit remediation review pass                                                       |  🔵⛔  | Lands after 1.6 findings report. Re-audit on fixes. **Hard mainnet blocker.**                                                                                                                              |
+| 1.8 | Bug bounty program live                                                             |  🔵⛔  | Policy drafted at [`docs/security/bug-bounty.md`](./docs/security/bug-bounty.md). $50k initial pool, Immunefi or HackenProof. **Goes live at mainnet, not before.**                                        |
+| 1.9 | Formal verification of D/C invariant (Coq / Lean)                                   |   🔵   | Today proven in-test ([`tests/economic_parity.spec.ts`](./tests/economic_parity.spec.ts) + `dc.rs:40-50` u128 saturating math). Post-audit, pre-GA if budget allows.                                       |
+
+## 2. On-chain hardening (already shipped pre-audit)
+
+| #   | Item                                                                              | Status | Verify                                                                                                                                                                                                          |
+| --- | --------------------------------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.1 | Treasury rotation (7-day timelock + permissionless commit + lock_treasury)        |   ✅   | [`PR #122`](https://github.com/alrimarleskovar/RoundFinancial/pull/122) — `propose / cancel / commit / lock_treasury` 4-instruction cluster                                                                     |
+| 2.2 | mpl-core `TransferV1` plugin re-approval fix (production bug surfaced)            |   ✅   | [`PR #123`](https://github.com/alrimarleskovar/RoundFinancial/pull/123) + Self-Audit §6.1 — `AssetTransferIncomplete`, `AssetNotRefrozen`                                                                       |
+| 2.3 | Harvest slippage guard (`min_realized_usdc`)                                      |   ✅   | [`PR #124`](https://github.com/alrimarleskovar/RoundFinancial/pull/124) — `HarvestSlippageExceeded`                                                                                                             |
+| 2.4 | Trusted reputation_level from on-chain profile (no client-trusted args)           |   ✅   | [`PR #127`](https://github.com/alrimarleskovar/RoundFinancial/pull/127) — `ReputationLevelMismatch`                                                                                                             |
+| 2.5 | Batched defensive hardening (metadata URI allow-list, GF overrun, reinit-defense) |   ✅   | [`PR #125`](https://github.com/alrimarleskovar/RoundFinancial/pull/125) — `MetadataUriInvalidScheme`                                                                                                            |
+| 2.6 | Pause kill-switch + drill                                                         |   ✅   | 9 ix gated by `!config.paused`, settle_default exempt. Live drill 2026-05-12 → [`docs/operations/rehearsal-logs/2026-05-12-pause-rehearsal.md`](./docs/operations/rehearsal-logs/2026-05-12-pause-rehearsal.md) |
+
+## 3. Operational readiness
+
+| #   | Item                                                                   | Status | Verify / dependency                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3.1 | Deploy runbook                                                         |   ✅   | [`docs/operations/deploy-runbook.md`](./docs/operations/deploy-runbook.md)                                                                                                                          |
+| 3.2 | Key rotation procedure                                                 |   ✅   | [`docs/operations/key-rotation.md`](./docs/operations/key-rotation.md)                                                                                                                              |
+| 3.3 | Emergency response procedure                                           |   ✅   | [`docs/operations/emergency-response.md`](./docs/operations/emergency-response.md)                                                                                                                  |
+| 3.4 | Incident postmortem template                                           |   ✅   | [`docs/operations/incident-template.md`](./docs/operations/incident-template.md)                                                                                                                    |
+| 3.5 | Pause rehearsal procedure + log                                        |   ✅   | [`docs/operations/pause-rehearsal-procedure.md`](./docs/operations/pause-rehearsal-procedure.md) + rehearsal log 2026-05-12                                                                         |
+| 3.6 | Upgrade authority on Squads multisig (rotate from single deployer key) |  🔵⛔  | Today: single-signer `64XM177V...` on all 4 programs. Plan: 3-of-5 Squads multisig before mainnet smoke. **Hard mainnet blocker.** See `docs/operations/key-rotation.md`.                           |
+| 3.7 | Treasury authority on multisig                                         |  🔵⛔  | Same rotation as 3.6 covers `config.treasury` post `commit_new_treasury` cycle. **Hard mainnet blocker.**                                                                                           |
+| 3.8 | Reproducible-build attestation (OtterSec verify-build PDA)             |   ✅   | All 4 programs carry on-chain attestation PDA. CLI verifiable via `solana-verify get-program-pda`. See [`docs/verified-build.md`](./docs/verified-build.md) + [`AUDIT_SCOPE.md`](./AUDIT_SCOPE.md). |
+| 3.9 | Disclosure channel + SLAs                                              |   ✅   | [`SECURITY.md`](./SECURITY.md) — `roundfinance.sol@gmail.com`, severity-based SLAs                                                                                                                  |
+
+## 4. Mainnet smoke (canary phase)
+
+| #   | Item                                                                  | Status | Verify / dependency                                                                                                                                                                                     |
+| --- | --------------------------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1 | Canary pool design (capped TVL, capped credit, controlled member set) |   🔵   | Not started. Q3–Q4 2026 window per [`AUDIT_SCOPE.md`](./AUDIT_SCOPE.md#mainnet-timeline). Recommended: 1 pool, 6 members, $50 installment, $100 credit.                                                 |
+| 4.2 | Per-pool TVL cap enforcement                                          |   🔵   | Not implemented. Today `Pool.credit_amount` is configured at create but no per-pool TVL hard ceiling. Needs config-level cap (suggested: `config.max_pool_tvl_usdc`) before canary.                     |
+| 4.3 | Protocol-wide TVL cap                                                 |   🔵   | Not implemented. Suggested: `config.max_protocol_tvl_usdc` checked in `init_pool_vaults` + `contribute`. Phase-out as audit findings + canary data justify ramp.                                        |
+| 4.4 | Mainnet Kamino reserve allowlist                                      |   🔵   | Today: `yield_adapter` is a Pubkey on Pool (swappable). Mainnet needs canonical Kamino USDC reserve pinned + verified. Tracked in [#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233). |
+| 4.5 | Harvest path lands (`roundfi-yield-kamino.harvest`)                   |  🟡⛔  | Today deposit path shipped, harvest = stub returning realized=0. Tracked in [#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233). **Hard mainnet blocker** for yield revenue.           |
+| 4.6 | Devnet → mainnet network confusion guards                             |   🟡   | Front-end has `network` lib but no big visual `MAINNET` / `DEVNET` banner. See [`docs/security/frontend-security-checklist.md`](./docs/security/frontend-security-checklist.md) (planned).              |
+| 4.7 | Canary smoke runbook (kill criteria, success criteria)                |   🔵   | Not started. Should define: max time-in-canary, default-rate threshold for halt, exit criteria to ramp.                                                                                                 |
+
+## 5. Off-chain surfaces
+
+| #   | Item                                                                         | Status | Verify / dependency                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5.1 | Indexer scaffold (Fastify + Helius webhook + Prisma + Postgres)              |   ✅   | [`services/indexer/`](./services/indexer/) — pools/members/attestations schema + getProgramAccounts backfill                                                                                        |
+| 5.2 | Indexer threat model + reconciler design                                     |   🔵   | Today: webhook trust + best-effort delivery. Reconciler under hostile RPC reorg = post-hackathon. See [`docs/security/indexer-threat-model.md`](./docs/security/indexer-threat-model.md) (planned). |
+| 5.3 | Front-end security checklist (phishing, RPC trust, devnet/mainnet confusion) |   🔵   | See [`docs/security/frontend-security-checklist.md`](./docs/security/frontend-security-checklist.md) (planned).                                                                                     |
+| 5.4 | MEV / front-running review (claim_payout, escape_valve_buy)                  |   🔵   | Today: deferred. See [`docs/security/mev-front-running.md`](./docs/security/mev-front-running.md) (planned). Mitigation candidates: commit-reveal, Jito bundles.                                    |
+| 5.5 | `/reputacao` page on-chain vs Demo Studio label                              |   🔵   | Today: mixes on-chain reads with session-reducer reflection without visual label. Tracked under Item 4 of this readiness sweep.                                                                     |
+
+## 6. Legal & business
+
+| #   | Item                                                | Status | Verify / dependency                                                                                                                                                                                                                                                                  |
+| --- | --------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 6.1 | Legal counsel review (US + BR jurisdictions)        |  🔵⛔  | Q3 2026 per [`AUDIT_SCOPE.md`](./AUDIT_SCOPE.md). Topics: ROSCA classification, attestation as "credit data" under LGPD/GDPR, B2B oracle data-sharing agreements. **Hard mainnet blocker.**                                                                                          |
+| 6.2 | Terms of service + user agreement                   |   🔵   | Not drafted. Needs: stake forfeiture rules, default consequences, dispute resolution, jurisdiction.                                                                                                                                                                                  |
+| 6.3 | Privacy policy + LGPD/GDPR posture for attestations |   🔵   | Attestations are on-chain (public). Privacy policy needs to be explicit: wallet ≠ KYC identity unless PoP layer enabled.                                                                                                                                                             |
+| 6.4 | Identity / PoP provider selected                    |   🟡   | Civic gateway-token validator integrated in `roundfi-reputation`; provider switch path documented in [`docs/architecture.md#44`](./docs/architecture.md#44-identity-layer-added-v02--2026-04-22--provider-transition-v04--2026-05). Decision deferred pending mainnet PoP economics. |
+
+## 7. Critical path summary
+
+The shortest path to mainnet GA, in dependency order:
+
+1. **External audit complete** (1.6) + **remediation pass** (1.7)
+2. **Squads multisig rotation** (3.6 + 3.7) — can run in parallel with audit
+3. **Kamino harvest path** (4.5) — required for yield economics; can run during audit
+4. **Per-pool + protocol TVL caps** (4.2 + 4.3) — required for canary safety
+5. **Canary smoke** (4.1 + 4.7) — capped pool with kill criteria
+6. **Legal counsel review** (6.1) — can run in parallel with audit
+7. **Bug bounty live** (1.8) — at GA
+8. **Mainnet GA**
+
+The 5 "🔵 pending" items not on the critical path (1.9 Coq/Lean proof, 5.2–5.5 off-chain hardening, 6.2–6.4 legal docs) are **mainnet-recommended, not GA-blocking**. They land between canary and GA or in the first 90 days post-GA.
+
+## 8. What this doc is **not**
+
+- **Not a project status register.** That's [`docs/status.md`](./docs/status.md).
+- **Not an audit scope.** That's [`AUDIT_SCOPE.md`](./AUDIT_SCOPE.md).
+- **Not a marketing artifact.** Items here are honest gates, not aspirational features. If a pitch / README implies mainnet readiness on something marked 🔵 or 🟡, that's a doc bug — file or correct against this register.
+
+---
+
+_Last updated: May 2026._

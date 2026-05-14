@@ -23,6 +23,7 @@
   <a href="docs/architecture.md">🧱 Architecture</a> ·
   <a href="docs/security/audit-readiness.md">🛡️ Audit-Readiness</a> ·
   <a href="AUDIT_SCOPE.md">📋 Audit Scope</a> ·
+  <a href="MAINNET_READINESS.md">🚦 Mainnet Readiness</a> ·
   <a href="grant/">📦 Grant bundle</a>
 </p>
 
