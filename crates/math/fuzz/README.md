@@ -82,8 +82,10 @@ Runs each target for 60 seconds on every PR touching `crates/math/**`.
 Catches regressions / new crashes against the **existing committed
 corpus**. Per-target results land as workflow artifacts (14d).
 
-Advisory-only on day 1 (`continue-on-error: true`) — flip to required
-after 2-3 green PR runs. Same pattern as `coverage.yml` + `e2e.yml`.
+**Required** as of 2026-05-14 — was advisory through PRs #286 + #288 +
+#302. Every PR run was green across all 6 targets; flipping to required
+means a new fuzz-discovered crash blocks the PR instead of warning
+silently. Same pattern as `coverage.yml` (also flipped 2026-05-14).
 
 ### Lane 2 — scheduled long-run (`fuzz-scheduled.yml`)
 
@@ -148,4 +150,4 @@ and have the fuzz lane install nightly + cargo-fuzz on its own runner.
 - ADR [0004](../../../docs/adr/0004-extract-roundfi-math-crate.md) — math crate extraction (proptest already integrated)
 - Issue [#284](https://github.com/alrimarleskovar/RoundFinancial/issues/284) — original proposal
 - [cargo-fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
-- Sister advisory lanes: `coverage.yml`, `e2e.yml`
+- Sister required lanes: `coverage.yml` (flipped same day). Advisory-mode pattern reference: `e2e.yml`

@@ -233,4 +233,36 @@ mod tests {
         assert!(dc_invariant_holds(7, 3, 20, 9));
         assert!(!dc_invariant_holds(7, 3, 20, 8));
     }
+
+    /// Regression: pin the documented "pre-existing violation" contract.
+    ///
+    /// When the invariant is already violated before the call (e.g.
+    /// `c_init == 0` but `d_rem > 0`), the helper does NOT attempt to
+    /// repair it — it just caps down honestly. The caller (settle_default)
+    /// is responsible for never reaching this branch (join_pool enforces
+    /// it), and for a defensive final `require!(dc_invariant_holds(…))`
+    /// after seizure as defense in depth.
+    ///
+    /// This case surfaced once via the `dc_invariant` cargo-fuzz target
+    /// flipping from advisory to required on 2026-05-14.
+    #[test]
+    fn pre_violation_still_caps_down_and_does_not_repair() {
+        // c_init == 0 with d_rem > 0 → invariant violated before any call.
+        let d_init = 1_000u64;
+        let d_rem = 1_000u64;
+        let c_init = 0u64;
+        let c_before = 1_000u64;
+        let proposed = 1_000u64;
+
+        assert!(!dc_invariant_holds(d_init, d_rem, c_init, c_before));
+
+        let k = max_seizure_respecting_dc(d_init, d_rem, c_init, c_before, proposed).unwrap();
+        // Contract: cap-down still respected (k <= proposed).
+        assert!(k <= proposed);
+        // Contract: helper does not magically repair the pre-violation —
+        // the post-state is allowed to remain violated. settle_default's
+        // final require!() catches this case and reverts the tx.
+        let c_after = c_before.saturating_sub(k);
+        assert!(!dc_invariant_holds(d_init, d_rem, c_init, c_after));
+    }
 }
