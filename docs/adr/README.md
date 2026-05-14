@@ -6,13 +6,14 @@
 
 ## Index
 
-| #                                            | Status      | Title                                                      |
-| -------------------------------------------- | ----------- | ---------------------------------------------------------- |
-| [0001](./0001-license-apache-2-0.md)         | ✅ Accepted | Apache 2.0 license                                         |
-| [0002](./0002-idl-free-sdk-encoders.md)      | ✅ Accepted | Hand-rolled IDL-free SDK encoders (vs Anchor IDL bindings) |
-| [0003](./0003-mpl-core-position-nft.md)      | ✅ Accepted | `mpl-core` for position NFTs (vs custom token mint)        |
-| [0004](./0004-extract-roundfi-math-crate.md) | ✅ Accepted | Extract `roundfi-math` as standalone workspace crate       |
-| [0005](./0005-indexer-finality-gate.md)      | ✅ Accepted | Indexer reconciler finality gate at 32 slots               |
+| #                                             | Status      | Title                                                      |
+| --------------------------------------------- | ----------- | ---------------------------------------------------------- |
+| [0001](./0001-license-apache-2-0.md)          | ✅ Accepted | Apache 2.0 license                                         |
+| [0002](./0002-idl-free-sdk-encoders.md)       | ✅ Accepted | Hand-rolled IDL-free SDK encoders (vs Anchor IDL bindings) |
+| [0003](./0003-mpl-core-position-nft.md)       | ✅ Accepted | `mpl-core` for position NFTs (vs custom token mint)        |
+| [0004](./0004-extract-roundfi-math-crate.md)  | ✅ Accepted | Extract `roundfi-math` as standalone workspace crate       |
+| [0005](./0005-indexer-finality-gate.md)       | ✅ Accepted | Indexer reconciler finality gate at 32 slots               |
+| [0006](./0006-app-encoder-coverage-layers.md) | ✅ Accepted | Three-layer coverage for front-end IDL-free encoders       |
 
 **Future ADRs land alongside their implementing PR.** PR author writes the ADR as part of the PR (template below).
 
