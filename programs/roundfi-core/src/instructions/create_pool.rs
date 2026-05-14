@@ -107,6 +107,24 @@ pub fn handler(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
         RoundfiError::InvalidPoolParams,
     );
 
+    // ─── Yield-adapter allowlist (item 4.4 of MAINNET_READINESS) ─────
+    //
+    // When `config.approved_yield_adapter` is set (non-default), the
+    // pool's chosen yield_adapter program MUST match. Default
+    // (Pubkey::default()) disables the check — devnet back-compat.
+    //
+    // The `#[account(executable)]` constraint on `yield_adapter`
+    // already guarantees the account is a program. This check adds
+    // the protocol-level pin: even if a pool creator passes a valid
+    // (executable) but unapproved program, the create reverts here
+    // before any state is allocated.
+    if ctx.accounts.config.approved_yield_adapter != Pubkey::default() {
+        require!(
+            ctx.accounts.yield_adapter.key() == ctx.accounts.config.approved_yield_adapter,
+            RoundfiError::InvalidYieldAdapter,
+        );
+    }
+
     let pool = &mut ctx.accounts.pool;
 
     pool.authority          = ctx.accounts.authority.key();

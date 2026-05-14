@@ -36,6 +36,11 @@ pub struct UpdateProtocolConfigArgs {
     /// Protocol-wide TVL cap, USDC base units. Same convention as
     /// `new_max_pool_tvl_usdc`.
     pub new_max_protocol_tvl_usdc:    Option<u64>,
+    /// Yield-adapter allowlist pin (item 4.4 of MAINNET_READINESS).
+    /// `Some(Pubkey::default())` disables the allowlist (back-compat).
+    /// `Some(<program_id>)` requires `create_pool` to match.
+    /// `None` leaves the field unchanged.
+    pub new_approved_yield_adapter: Option<Pubkey>,
 }
 
 #[derive(Accounts)]
@@ -90,11 +95,23 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
         // running counter naturally rebases as pools close.
         cfg.max_protocol_tvl_usdc = cap;
     }
+    if let Some(pubkey) = args.new_approved_yield_adapter {
+        // No further validation here: a Pubkey is just 32 bytes, and
+        // we can't verify it points at an executable program without
+        // forwarding the account (which would bloat this admin ix).
+        // create_pool will independently enforce
+        // `args.yield_adapter.executable == true` via the existing
+        // Anchor `#[account(executable)]` constraint, so the worst a
+        // misconfigured allowlist can do is reject all pools — a
+        // recoverable misconfiguration, not a fund-loss surface.
+        cfg.approved_yield_adapter = pubkey;
+    }
 
     msg!(
-        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={}",
+        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={}",
         cfg.fee_bps_yield, cfg.guarantee_fund_bps,
         cfg.max_pool_tvl_usdc, cfg.max_protocol_tvl_usdc,
+        cfg.approved_yield_adapter,
     );
 
     Ok(())

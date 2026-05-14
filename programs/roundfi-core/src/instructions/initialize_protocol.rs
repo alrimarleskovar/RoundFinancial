@@ -93,15 +93,21 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     config.pending_treasury      = Pubkey::default();
     config.pending_treasury_eta  = 0;
 
-    // TVL caps (mainnet canary safety): start disabled (0 = no cap)
-    // so existing devnet flows keep working. Mainnet authority calls
-    // `update_protocol_config` after deploy to set the canary values
-    // per the rampup plan in docs/operations/mainnet-canary-plan.md.
+    // TVL caps (mainnet canary safety, items 4.2 + 4.3): start disabled
+    // (0 = no cap) so existing devnet flows keep working. Mainnet
+    // authority sets canary values via `update_protocol_config` per the
+    // rampup plan in docs/operations/mainnet-canary-plan.md.
     // `committed_protocol_tvl_usdc` always starts at 0; gets tracked
     // by init_pool_vaults / close_pool whether caps are enforced or not.
     config.max_pool_tvl_usdc          = 0;
     config.max_protocol_tvl_usdc      = 0;
     config.committed_protocol_tvl_usdc = 0;
+
+    // Yield-adapter allowlist (item 4.4): start disabled
+    // (Pubkey::default()) so existing devnet pools can keep pointing
+    // at mock or kamino freely. Mainnet authority pins the canary
+    // adapter via `update_protocol_config` post-deploy.
+    config.approved_yield_adapter = Pubkey::default();
 
     msg!("roundfi-core: protocol initialized");
     Ok(())
