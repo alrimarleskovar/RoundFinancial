@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn new_member_at_cycle_zero_satisfies_invariant() {
-        use crate::math::dc::dc_invariant_holds;
+        use crate::math::dc_invariant_holds;
         // Brand-new member: no contributions yet, full collateral posted.
         // D_init = 10_000, D_rem = 24 × 416 = 9_984 (24 cycles).
         // C_init = stake_initial + total_escrow_deposited.
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn member_after_many_on_time_contributions_still_holds_invariant() {
-        use crate::math::dc::dc_invariant_holds;
+        use crate::math::dc_invariant_holds;
         // 12 of 24 cycles paid + full escrow contributions → invariant
         // strengthens (debt ratio drops, collateral ratio held steady).
         let installment = 416_000_000u64;
