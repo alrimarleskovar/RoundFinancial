@@ -9,10 +9,8 @@
 //! The floor is floor-rounded (via `apply_bps`) and the comparison is
 //! inclusive (`>=`), so exactly-at-floor is accepted.
 
-use anchor_lang::prelude::*;
-
-use crate::error::RoundfiError;
-use crate::math::apply_bps;
+use crate::bps::apply_bps;
+use crate::error::MathError;
 
 /// Required USDC floor (in base units) for the cycle-0 payout.
 ///
@@ -20,27 +18,26 @@ use crate::math::apply_bps;
 /// floor rounding. `u128` intermediate survives the `u64::MAX` extreme.
 #[inline]
 pub fn seed_draw_floor(
-    members_target:     u8,
+    members_target: u8,
     installment_amount: u64,
-    seed_draw_bps:      u16,
-) -> Result<u64> {
+    seed_draw_bps: u16,
+) -> Result<u64, MathError> {
     let max_month1 = (members_target as u128)
         .checked_mul(installment_amount as u128)
         .and_then(|v| u64::try_from(v).ok())
-        .ok_or(error!(RoundfiError::MathOverflow))?;
+        .ok_or(MathError::Overflow)?;
     apply_bps(max_month1, seed_draw_bps)
 }
 
 /// `true` iff retained balance (vault + escrow) satisfies the seed-draw
-/// floor for this pool. Cycle-0 callers must short-circuit on `false`
-/// with [`RoundfiError::SeedDrawShortfall`].
+/// floor for this pool.
 #[inline]
 pub fn retained_meets_seed_draw(
-    members_target:     u8,
+    members_target: u8,
     installment_amount: u64,
-    seed_draw_bps:      u16,
-    retained_balance:   u64,
-) -> Result<bool> {
+    seed_draw_bps: u16,
+    retained_balance: u64,
+) -> Result<bool, MathError> {
     let floor = seed_draw_floor(members_target, installment_amount, seed_draw_bps)?;
     Ok(retained_balance >= floor)
 }
@@ -49,20 +46,16 @@ pub fn retained_meets_seed_draw(
 mod tests {
     use super::*;
 
-    // Whitepaper reference numbers: 24 members × 416 USDC installment
-    // × 91.6% = 9_159.936 USDC → 9_159_936_000 USDC base units.
-    const MEMBERS:  u8  = 24;
-    const INST:     u64 = 416_000_000; // 416 USDC (6 decimals)
-    const BPS:      u16 = 9_160;       // 91.6%
-    const MAX_M1:   u64 = 9_984_000_000; // 24 * 416_000_000
-    const FLOOR_91_6: u64 = 9_984_000_000u64 * 9_160 / 10_000; // floor_bps
+    const MEMBERS: u8 = 24;
+    const INST: u64 = 416_000_000;
+    const BPS: u16 = 9_160;
+    const MAX_M1: u64 = 9_984_000_000;
+    const FLOOR_91_6: u64 = 9_984_000_000u64 * 9_160 / 10_000;
 
     #[test]
     fn floor_matches_whitepaper_reference() {
         let floor = seed_draw_floor(MEMBERS, INST, BPS).unwrap();
-        // 9_984_000_000 * 9_160 / 10_000 = 9_145_344_000
         assert_eq!(floor, 9_145_344_000);
-        // Cross-check the tiny const arithmetic.
         assert_eq!(FLOOR_91_6, 9_145_344_000);
     }
 
@@ -96,40 +89,32 @@ mod tests {
 
     #[test]
     fn bps_zero_floor_is_zero() {
-        // 0 bps → any retained balance is acceptable, including 0.
         assert_eq!(seed_draw_floor(MEMBERS, INST, 0).unwrap(), 0);
         assert!(retained_meets_seed_draw(MEMBERS, INST, 0, 0).unwrap());
     }
 
     #[test]
     fn bps_ten_thousand_requires_full_max() {
-        // 100% bps → floor == max_month1; one less fails, exactly-max passes.
         assert_eq!(seed_draw_floor(MEMBERS, INST, 10_000).unwrap(), MAX_M1);
-        assert!( retained_meets_seed_draw(MEMBERS, INST, 10_000, MAX_M1).unwrap());
+        assert!(retained_meets_seed_draw(MEMBERS, INST, 10_000, MAX_M1).unwrap());
         assert!(!retained_meets_seed_draw(MEMBERS, INST, 10_000, MAX_M1 - 1).unwrap());
     }
 
     #[test]
     fn members_zero_floor_is_zero() {
-        // Pathological pool with no members (shouldn't happen, but helper
-        // stays defensive).
         assert_eq!(seed_draw_floor(0, INST, BPS).unwrap(), 0);
     }
 
     #[test]
     fn single_member_single_unit_rounds_down() {
-        // 1 member × 1 unit × 9_160 / 10_000 = 0.916 → floor rounds to 0.
         assert_eq!(seed_draw_floor(1, 1, BPS).unwrap(), 0);
         assert!(retained_meets_seed_draw(1, 1, BPS, 0).unwrap());
     }
 
     #[test]
     fn overflow_when_max_month1_exceeds_u64() {
-        // members_target * installment exceeds u64::MAX → MathOverflow.
         assert!(seed_draw_floor(u8::MAX, u64::MAX, BPS).is_err());
     }
-
-    // ─── Exhaustive fine-grain boundary around 91.6% (±10 base units) ───
 
     #[test]
     fn retained_boundary_sweep_around_floor() {
