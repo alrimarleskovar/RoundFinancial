@@ -5,6 +5,7 @@
 > - [`SECURITY.md`](./SECURITY.md) — disclosure channel + SLAs
 > - [`docs/security/self-audit.md`](./docs/security/self-audit.md) — full 228-line self-audit + threat model
 > - [`docs/security/audit-readiness.md`](./docs/security/audit-readiness.md) — strategic one-pager (TL;DR, fund-flow, ranked focus areas)
+> - [`MAINNET_READINESS.md`](./MAINNET_READINESS.md) — single-source checklist for the path from M3 (devnet) → mainnet GA
 > - [`docs/verified-build.md`](./docs/verified-build.md) — reproducible-build flow and on-chain attestation
 
 ---
