@@ -34,13 +34,45 @@ pub struct ProtocolConfig {
     /// at the moment of proposal. Gives users a public window to
     /// detect a malicious authority and migrate before the swap.
     pub pending_treasury_eta:   i64,
+
+    // ─── TVL caps (mainnet canary safety, items 4.2 + 4.3 of MAINNET_READINESS) ───
+    /// Maximum TVL allowed for a single pool, in USDC base units.
+    /// Enforced at `init_pool_vaults` against the pool's max committed
+    /// flow = `credit_amount * cycles_total`. A pool is the discrete
+    /// unit of trust — capping per-pool bounds blast radius if a
+    /// single pool turns adversarial.
+    ///
+    /// `0` means **disabled** (no cap) for back-compat with existing
+    /// devnet pools. Mainnet canary plan sets a low value (e.g. $5)
+    /// and ramps via `update_protocol_config` as canary data justifies.
+    pub max_pool_tvl_usdc:        u64,
+    /// Maximum TVL allowed across all pools combined, in USDC base
+    /// units. Enforced at `init_pool_vaults` against
+    /// `committed_protocol_tvl_usdc + new_pool_committed`. Caps the
+    /// protocol's total exposure during canary roll-out.
+    ///
+    /// `0` means **disabled** (no cap). Mainnet canary plan starts at
+    /// a small bound (e.g. $5–50) and ramps in 4 waves per the plan
+    /// in `docs/operations/mainnet-canary-plan.md` §7.
+    pub max_protocol_tvl_usdc:    u64,
+    /// Running total of committed TVL across active pools.
+    ///   - Incremented at `init_pool_vaults` by
+    ///     `credit_amount * cycles_total` of the new pool.
+    ///   - Decremented at `close_pool` by the same amount when the
+    ///     pool reaches Completed/Liquidated.
+    /// This is "max possible flow" not "current outstanding". The
+    /// conservative bound is what canary safety asks for.
+    pub committed_protocol_tvl_usdc: u64,
 }
 
 impl ProtocolConfig {
     // disc(8) + 6*Pubkey(32) + 5*u16(2) + 2*bool(1) + u8(1)
     //  + Pubkey(32) for pending_treasury + i64(8) for eta
-    //  + 64 byte tail-padding (was 64 in v0.1; pre-rotation fields
-    //    consume 41 bytes → leaves 23 bytes of forward-compat slack).
+    //  + 3*u64(8) for TVL caps (max_pool, max_protocol, committed)
+    //  + 64 byte tail-padding. TVL caps consume 24 of the existing
+    //    forward-compat slack — there were 23 bytes of margin in v0.1
+    //    so we grow the padding total to keep ≥24 bytes free for next
+    //    field additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -50,5 +82,8 @@ impl ProtocolConfig {
         + 1                      // treasury_locked
         + 32                     // pending_treasury
         + 8                      // pending_treasury_eta
-        + 64;                    // forward-compat padding
+        + 8                      // max_pool_tvl_usdc
+        + 8                      // max_protocol_tvl_usdc
+        + 8                      // committed_protocol_tvl_usdc
+        + 64;                    // forward-compat padding (was 64; TVL fields claimed dedicated space above)
 }

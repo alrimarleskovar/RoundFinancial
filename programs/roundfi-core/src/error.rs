@@ -124,4 +124,9 @@ pub enum RoundfiError {
     ReputationProgramMismatch,
     #[msg("Asserted reputation_level does not match the on-chain ReputationProfile")]
     ReputationLevelMismatch,
+    // ─── TVL caps (canary safety, items 4.2 + 4.3 of MAINNET_READINESS) ──
+    #[msg("Pool max committed flow (credit_amount × cycles_total) exceeds config.max_pool_tvl_usdc")]
+    PoolTvlCapExceeded,
+    #[msg("Protocol-wide committed TVL would exceed config.max_protocol_tvl_usdc")]
+    ProtocolTvlCapExceeded,
 }

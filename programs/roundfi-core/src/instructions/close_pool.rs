@@ -24,7 +24,12 @@ use crate::state::{Pool, PoolStatus, ProtocolConfig};
 
 #[derive(Accounts)]
 pub struct ClosePool<'info> {
+    /// Protocol singleton. Mutable so the handler can decrement the
+    /// running `committed_protocol_tvl_usdc` total when the pool's
+    /// max-flow contribution leaves the active set (TVL caps —
+    /// items 4.2 + 4.3 of `MAINNET_READINESS.md`).
     #[account(
+        mut,
         seeds = [SEED_CONFIG],
         bump = config.bump,
     )]
@@ -54,14 +59,37 @@ pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
         RoundfiError::OutstandingDefaults,
     );
 
+    // ─── Decrement committed TVL (symmetric with init_pool_vaults) ───
+    // Use the same computation: pool's max committed flow is
+    // `credit_amount × cycles_total`. `saturating_sub` is a safety net
+    // against an underflow from inconsistent state — a Completed pool
+    // should always have its committed total tracked, but on devnet
+    // there are pre-cap pools whose committed values were never
+    // incremented. Saturating to 0 is correct in either case.
+    let pool_committed = (pool.credit_amount as u128)
+        .checked_mul(pool.cycles_total as u128)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
+    let pool_committed: u64 = pool_committed
+        .try_into()
+        .map_err(|_| error!(RoundfiError::MathOverflow))?;
+
+    let config = &mut ctx.accounts.config;
+    let committed_before = config.committed_protocol_tvl_usdc;
+    config.committed_protocol_tvl_usdc = config
+        .committed_protocol_tvl_usdc
+        .saturating_sub(pool_committed);
+
     msg!(
-        "roundfi-core: close_pool pool={} total_contributed={} total_paid_out={} yield_accrued={} gf_balance={} protocol_fees={}",
+        "roundfi-core: close_pool pool={} total_contributed={} total_paid_out={} yield_accrued={} gf_balance={} protocol_fees={} committed_tvl_released={} committed_tvl_total={}→{}",
         pool.key(),
         pool.total_contributed,
         pool.total_paid_out,
         pool.yield_accrued,
         pool.guarantee_fund_balance,
         pool.total_protocol_fee_accrued,
+        pool_committed,
+        committed_before,
+        config.committed_protocol_tvl_usdc,
     );
 
     Ok(())

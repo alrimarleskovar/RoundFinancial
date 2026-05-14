@@ -221,22 +221,28 @@ async function callInitPoolVaults(
   // Account list — order matches `InitPoolVaults` in
   // programs/roundfi-core/src/instructions/init_pool_vaults.rs:
   //   1. authority                  (signer, mut)
-  //   2. pool                       (PDA, read)
-  //   3. usdc_mint                  (read)
-  //   4. escrow_vault_authority     (PDA, read)
-  //   5. solidarity_vault_authority (PDA, read)
-  //   6. yield_vault_authority      (PDA, read)
-  //   7. pool_usdc_vault            (mut)
-  //   8. escrow_vault               (mut)
-  //   9. solidarity_vault           (mut)
-  //  10. yield_vault                (mut)
-  //  11. token_program              (read)
-  //  12. associated_token_program   (read)
-  //  13. system_program             (read)
+  //   2. config                     (PDA, mut — TVL caps committed total)
+  //   3. pool                       (PDA, read)
+  //   4. usdc_mint                  (read)
+  //   5. escrow_vault_authority     (PDA, read)
+  //   6. solidarity_vault_authority (PDA, read)
+  //   7. yield_vault_authority      (PDA, read)
+  //   8. pool_usdc_vault            (mut)
+  //   9. escrow_vault               (mut)
+  //  10. solidarity_vault           (mut)
+  //  11. yield_vault                (mut)
+  //  12. token_program              (read)
+  //  13. associated_token_program   (read)
+  //  14. system_program             (read)
+  const [protocolConfig] = PublicKey.findProgramAddressSync(
+    [Buffer.from("config")],
+    coreProgram,
+  );
   const ix = new TransactionInstruction({
     programId: coreProgram,
     keys: [
       { pubkey: authority.publicKey, isSigner: true, isWritable: true },
+      { pubkey: protocolConfig, isSigner: false, isWritable: true },
       { pubkey: poolPda, isSigner: false, isWritable: false },
       { pubkey: usdcMint, isSigner: false, isWritable: false },
       { pubkey: escrowAuthority, isSigner: false, isWritable: false },
