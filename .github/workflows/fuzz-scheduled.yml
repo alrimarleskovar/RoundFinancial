@@ -36,7 +36,7 @@ on:
         required: false
         default: "1800"
       target_filter:
-        description: "Run only this target (cascade|waterfall|dc_invariant|escrow_vesting); empty = all"
+        description: "Run only this target (cascade|waterfall|dc_invariant|escrow_vesting|bps|seed_draw); empty = all"
         required: false
         default: ""
 
@@ -66,16 +66,16 @@ jobs:
             # Validate against the known target set so a typo doesn't
             # silently skip everything.
             case "$filter" in
-              cascade|waterfall|dc_invariant|escrow_vesting)
+              cascade|waterfall|dc_invariant|escrow_vesting|bps|seed_draw)
                 echo "targets=[\"$filter\"]" >> "$GITHUB_OUTPUT"
                 ;;
               *)
-                echo "::error::Unknown target_filter '$filter' (valid: cascade|waterfall|dc_invariant|escrow_vesting)"
+                echo "::error::Unknown target_filter '$filter' (valid: cascade|waterfall|dc_invariant|escrow_vesting|bps|seed_draw)"
                 exit 1
                 ;;
             esac
           else
-            echo 'targets=["cascade","waterfall","dc_invariant","escrow_vesting"]' >> "$GITHUB_OUTPUT"
+            echo 'targets=["cascade","waterfall","dc_invariant","escrow_vesting","bps","seed_draw"]' >> "$GITHUB_OUTPUT"
           fi
 
   cargo-fuzz-long:
