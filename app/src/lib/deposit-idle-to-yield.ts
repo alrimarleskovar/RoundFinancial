@@ -43,6 +43,11 @@ export interface BuildDepositIdleToYieldIxArgs {
   yieldVault: PublicKey;
   /** Adapter program ID — must match `pool.yield_adapter`. */
   yieldAdapterProgram: PublicKey;
+  /** Optional program ID override — for tests against a bankrun-deployed
+   *  program set. Defaults to `DEVNET_PROGRAM_IDS`. */
+  programIds?: { core: PublicKey };
+  /** Optional USDC mint override — pairs with `programIds` for tests. */
+  usdcMint?: PublicKey;
 }
 
 /**
@@ -62,8 +67,8 @@ export interface BuildDepositIdleToYieldIxArgs {
 export function buildDepositIdleToYieldIx(
   args: BuildDepositIdleToYieldIxArgs,
 ): TransactionInstruction {
-  const core = DEVNET_PROGRAM_IDS.core;
-  const usdcMint = DEVNET_USDC_MINT;
+  const core = args.programIds?.core ?? DEVNET_PROGRAM_IDS.core;
+  const usdcMint = args.usdcMint ?? DEVNET_USDC_MINT;
 
   const [config] = protocolConfigPda(core);
   const poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, args.pool, true);
