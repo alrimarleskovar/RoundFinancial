@@ -33,6 +33,7 @@
     "./client": "./src/client.ts",
     "./actions": "./src/actions.ts",
     "./reads": "./src/reads.ts",
+    "./onchain-raw": "./src/onchain-raw.ts",
     "./stressLab": "./src/stressLab.ts",
     "./events": "./src/events.ts"
   },
@@ -64,6 +65,10 @@
       "./reads": {
         "types": "./dist/reads.d.ts",
         "default": "./dist/reads.js"
+      },
+      "./onchain-raw": {
+        "types": "./dist/onchain-raw.d.ts",
+        "default": "./dist/onchain-raw.js"
       },
       "./stressLab": {
         "types": "./dist/stressLab.d.ts",
