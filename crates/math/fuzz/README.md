@@ -23,14 +23,16 @@ different bug classes:
 Mature financial / crypto Rust projects (`subtle`, `ring`,
 `solana-program`'s borsh decode) ship both for this reason.
 
-## Targets (4)
+## Targets (6)
 
-| Target           | Module                                                      | Invariants asserted                                                            |
-| ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `cascade`        | `cascade.rs::seize_for_default`                             | `total <= missed`; per-source caps; solidarity-before-escrow ordering          |
-| `waterfall`      | `waterfall.rs::waterfall`                                   | strict conservation; GF cap; no bucket > yield                                 |
-| `dc_invariant`   | `dc.rs::dc_invariant_holds` + `max_seizure_respecting_dc`   | post-seizure D/C still holds; cap-down only; never panics                      |
-| `escrow_vesting` | `escrow_vesting.rs::cumulative_vested` + `releasable_delta` | monotonicity in k; exact-principal rule at final checkpoint; delta consistency |
+| Target           | Module                                                       | Invariants asserted                                                            |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `cascade`        | `cascade.rs::seize_for_default`                              | `total <= missed`; per-source caps; solidarity-before-escrow ordering          |
+| `waterfall`      | `waterfall.rs::waterfall`                                    | strict conservation; GF cap; no bucket > yield                                 |
+| `dc_invariant`   | `dc.rs::dc_invariant_holds` + `max_seizure_respecting_dc`    | post-seizure D/C still holds; cap-down only; never panics                      |
+| `escrow_vesting` | `escrow_vesting.rs::cumulative_vested` + `releasable_delta`  | monotonicity in k; exact-principal rule at final checkpoint; delta consistency |
+| `bps`            | `bps.rs::apply_bps` + `split_installment`                    | result <= amount; conservation in split (sol+esc+pool == installment); caps    |
+| `seed_draw`      | `seed_draw.rs::seed_draw_floor` + `retained_meets_seed_draw` | floor <= members × installment; inequality agreement; bps=0 / inst=0 → 0       |
 
 ## Run locally
 
@@ -47,7 +49,7 @@ cd crates/math/fuzz
 cargo +nightly fuzz run cascade -- -max_total_time=60
 
 # Run all targets, longer
-for t in cascade waterfall dc_invariant escrow_vesting; do
+for t in cascade waterfall dc_invariant escrow_vesting bps seed_draw; do
   cargo +nightly fuzz run $t -- -max_total_time=300
 done
 ```
@@ -99,8 +101,8 @@ of coverage-guided mutation against an **evolving corpus**:
 
 The two lanes together give us:
 
-- **Fast feedback** on every PR (60s × 4 = 4 min total)
-- **Cumulative coverage** across weeks (30 min × 4 = 2h per week,
+- **Fast feedback** on every PR (60s × 6 = 6 min total)
+- **Cumulative coverage** across weeks (30 min × 6 = 3h per week,
   starting fresh corpora that grow over time)
 - **Bounded CI cost** — the long lane only runs once per week
 

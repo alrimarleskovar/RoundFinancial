@@ -59,7 +59,7 @@ jobs:
       # Each target runs in parallel — failures are isolated per target.
       fail-fast: false
       matrix:
-        target: [cascade, waterfall, dc_invariant, escrow_vesting]
+        target: [cascade, waterfall, dc_invariant, escrow_vesting, bps, seed_draw]
 
     steps:
       - uses: actions/checkout@v4
