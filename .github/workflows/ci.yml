@@ -19,13 +19,18 @@ env:
 
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
-  # Six checks:
+  # Seven checks:
   #   - prettier --check (lint) — gated by .prettierignore
   #   - TypeScript typecheck (`tsc --noEmit -p .`) — entire workspace
+  #   - Next.js app build (`pnpm --filter @roundfi/app build`) —
+  #     catches build-time tsc errors stricter than workspace tsc
+  #     (Next.js runs its own typecheck pass that detected a missed
+  #     PublicKey→string type drift in PR #299; we surface that here
+  #     instead of in the slower e2e advisory lane)
   #   - Rust ↔ TS constants/seeds parity (test:parity) — 7 tests
-  #   - App ↔ chain encoder structural parity (test:app-encoders) — 38
+  #   - App ↔ chain encoder structural parity (test:app-encoders) — 58
   #     tests covering discriminators, account counts, signer positions,
-  #     PDA derivations on the 5 front-end IDL-free encoders (#283).
+  #     PDA derivations on the 6 front-end IDL-free encoders (#283 + #291).
   #   - LifecycleEvent shape contract (test:events) — 2 tests
   #   - Stress Lab L1 economic-parity (test:economic-parity-l1) — 34
   #     tests, includes the "Triple Veteran Default" whitepaper scenario.
@@ -58,6 +63,17 @@ jobs:
 
       - name: TypeScript typecheck (workspace)
         run: pnpm typecheck
+
+      - name: Next.js app build (catches build-time tsc errors)
+        # Workspace `tsc --noEmit` and Next.js's build-time typecheck are
+        # configured differently — Next runs its own pass that's stricter
+        # in places (PR #299 surfaced a `PublicKey` vs `string` mismatch
+        # that workspace tsc missed). Surfacing app build failures here
+        # is ~2 min faster + clearer than chasing them via the e2e
+        # advisory lane.
+        run: pnpm --filter @roundfi/app build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Rust ↔ TS constants/seeds parity (7 tests)
         run: pnpm test:parity
