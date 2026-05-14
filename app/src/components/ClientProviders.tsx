@@ -13,6 +13,7 @@ import { NetworkContextProvider, useNetwork } from "@/lib/network";
 import { SessionProvider } from "@/lib/session";
 import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
+import { PhishingBanner } from "@/components/ui/PhishingBanner";
 
 function InnerProviders({ children }: { children: ReactNode }) {
   const { endpoint } = useNetwork();
@@ -37,7 +38,13 @@ export function ClientProviders({ children }: { children: ReactNode }) {
           <ConnectionsProvider>
             <SessionProvider>
               <NetworkContextProvider>
-                <InnerProviders>{children}</InnerProviders>
+                <InnerProviders>
+                  {/* Phishing-resistance banner (#249 W3) — renders at
+                      top of every page when hostname is unknown. SSR-safe
+                      (renders nothing during SSR; classifies post-hydration). */}
+                  <PhishingBanner />
+                  {children}
+                </InnerProviders>
               </NetworkContextProvider>
             </SessionProvider>
           </ConnectionsProvider>

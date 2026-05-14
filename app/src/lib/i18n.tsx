@@ -850,6 +850,35 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.menu.explorer": "Ver no Explorer",
     "wallet.menu.disconnect": "Desconectar",
     "wallet.error.title": "Erro na carteira",
+    // IntentPanel + Phishing banner (#249 W3)
+    "intent.regionLabel": "Resumo da transação antes de assinar",
+    "intent.title": "Confirmar intenção",
+    "intent.networkDevnet": "DEVNET",
+    "intent.networkMainnet": "MAINNET — FUNDOS REAIS",
+    "intent.bodySend":
+      "Você vai pagar {amount} USDC ao executar {action} no pool '{pool}'. Confirme no prompt da carteira.",
+    "intent.bodyReceive":
+      "Você vai receber {amount} USDC ao executar {action} no pool '{pool}'. Confirme no prompt da carteira.",
+    "intent.bodyCrank":
+      "Você vai executar a operação permissionless {action} no pool '{pool}'. Não há transferência de USDC para sua carteira; apenas a taxa de rede.",
+    "intent.row.amount": "Valor",
+    "intent.row.fee": "Taxa de rede",
+    "intent.row.wallet": "Carteira",
+    "intent.row.walletUnknown": "(não conectada)",
+    "intent.mainnetWarning":
+      "Esta operação move FUNDOS REAIS na mainnet. Verifique cada campo antes de confirmar.",
+    "intent.action.contribute": "pagar parcela",
+    "intent.action.claim_payout": "receber carta contemplada",
+    "intent.action.release_escrow": "liberar cashback de stake",
+    "intent.action.escape_valve_list": "listar cota no mercado",
+    "intent.action.escape_valve_buy": "comprar cota",
+    "intent.action.harvest_yield": "colher rendimento",
+    "intent.action.deposit_idle_to_yield": "depositar float no adapter",
+    "intent.action.settle_default": "resolver default (cranker)",
+    "phishing.previewBanner":
+      "Deploy de preview detectado ({host}). URL canônica: roundfinancial.vercel.app",
+    "phishing.unknownBanner":
+      "⚠ ATENÇÃO: domínio desconhecido ({host}). Verifique se você está em roundfinancial.vercel.app antes de assinar qualquer transação.",
     // faucet
     "wallet.faucet.title": "Faucet · Devnet",
     "wallet.faucet.sub": "Peça SOL de teste pra executar transações em devnet.",
@@ -1744,6 +1773,35 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.menu.explorer": "View on Explorer",
     "wallet.menu.disconnect": "Disconnect",
     "wallet.error.title": "Wallet error",
+    // IntentPanel + Phishing banner (#249 W3)
+    "intent.regionLabel": "Transaction summary before signing",
+    "intent.title": "Confirm intent",
+    "intent.networkDevnet": "DEVNET",
+    "intent.networkMainnet": "MAINNET — REAL FUNDS",
+    "intent.bodySend":
+      "You will pay {amount} USDC to execute {action} on pool '{pool}'. Confirm at the wallet prompt.",
+    "intent.bodyReceive":
+      "You will receive {amount} USDC by executing {action} on pool '{pool}'. Confirm at the wallet prompt.",
+    "intent.bodyCrank":
+      "You are about to dispatch the permissionless {action} on pool '{pool}'. No USDC flow to your wallet; only the network fee.",
+    "intent.row.amount": "Amount",
+    "intent.row.fee": "Network fee",
+    "intent.row.wallet": "Wallet",
+    "intent.row.walletUnknown": "(not connected)",
+    "intent.mainnetWarning":
+      "This operation moves REAL FUNDS on mainnet. Verify every field before confirming.",
+    "intent.action.contribute": "pay installment",
+    "intent.action.claim_payout": "claim payout (carta)",
+    "intent.action.release_escrow": "release stake cashback",
+    "intent.action.escape_valve_list": "list slot on marketplace",
+    "intent.action.escape_valve_buy": "buy slot",
+    "intent.action.harvest_yield": "harvest yield",
+    "intent.action.deposit_idle_to_yield": "deposit float to adapter",
+    "intent.action.settle_default": "settle default (cranker)",
+    "phishing.previewBanner":
+      "Preview deployment detected ({host}). Canonical URL: roundfinancial.vercel.app",
+    "phishing.unknownBanner":
+      "⚠ WARNING: unknown domain ({host}). Verify you are on roundfinancial.vercel.app before signing any transaction.",
     "wallet.faucet.title": "Faucet · Devnet",
     "wallet.faucet.sub": "Get test SOL to run transactions on devnet.",
     "wallet.faucet.btn": "Request 1 SOL",
