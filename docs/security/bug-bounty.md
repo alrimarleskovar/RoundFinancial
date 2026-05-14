@@ -66,6 +66,25 @@ Reward **scales with TVL at time of report** — a Critical reported when TVL is
 
 Payment in **USDC on Solana mainnet** within 30 days of fix verification.
 
+### 4.1 MEV-specific severity sub-tiering
+
+MEV / front-running findings get an explicit sub-tier inside the main severity table because the per-instruction analysis in [`mev-front-running.md`](./mev-front-running.md) bounds most MEV vectors to "griefing" rather than "extraction." A flat severity scale would over-reward bounded griefing or under-reward novel extraction vectors.
+
+| MEV class                                                                                                                            | Maps to severity  | Reward band       | Example                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ----------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Extraction breaking Triple Shield invariants** — searcher orders txs to violate D/C, Seed Draw, or solvency guard                  | **Critical**      | USD 25,000–50,000 | A Jito-bundle that lands `claim_payout` + `escape_valve_buy` and ends the slot with `c_after < d_remaining`             |
+| **Targeted MEV at a specific user funds** — extraction > 1% of victim's principal or > $1k absolute (whichever is greater)           | **High**          | USD 5,000–25,000  | `escape_valve_buy` race that consistently lands a sniper ahead of a known buyer across multiple listings ($1k/race × N) |
+| **Pool-level MEV degrading APR** — searcher consistently captures > 25% of `harvest_yield` realized value via Kamino-side ordering   | **High**          | USD 5,000–25,000  | Kamino sandwich on `harvest_yield` that materially affects participant APR over a measurement window                    |
+| **Cranker race that materially advantages one party** — `settle_default` ordered to disadvantage a specific member's escrow recovery | **High**          | USD 5,000–25,000  | Cranker withholding `settle_default` until they've staged a counter-`release_escrow` against the defaulter              |
+| **Reputation-grade MEV** — manipulation of on-time/late bits beyond what the `Clock` sysvar allows in good faith                     | **Medium**        | USD 1,000–5,000   | Pattern of Jito-tipped contributions consistently crossing cycle boundary in the user's favor                           |
+| **Information leak through ordering** — observing tx ordering reveals private member data (slot assignment, etc.)                    | **Medium**        | USD 1,000–5,000   | Pre-`join_pool` slot prediction that survives random-slot-assignment mitigation                                         |
+| **Bounded griefing only — attacker pays > 0 to be annoying** (no extraction)                                                         | **Low**           | USD 250–1,000     | `claim_payout` race that forces a victim into the `WaterfallUnderflow` failure path; attacker pays late-fee equivalent  |
+| **Theoretical MEV with no demonstrated path** — uses speculative assumptions about future Solana behavior                            | **Informational** | HoF + swag        | "A bundle with X tx ordering could theoretically extract value if Jito changes behavior" without a working repro        |
+
+**Why this matters:** the existing protocol design (per [`mev-front-running.md §3`](./mev-front-running.md#3-summary--mev-surface-vs-mitigation)) bounds most ordering attacks to **griefing**, not extraction. Researchers reporting bounded griefing should not expect Critical-band payouts; conversely, a researcher who finds a real **extraction** path that survives Triple Shield invariants should expect Critical-band payouts even if the absolute extracted value is small (any extraction breaking the Triple Shield is structurally severe).
+
+Reports involving Jito-bundle or multi-tx ordering attacks must include a **working reproduction** on devnet using `solana-bankrun` or a fork — speculative tx-ordering theories don't qualify above Informational.
+
 ---
 
 ## 5. Submission process

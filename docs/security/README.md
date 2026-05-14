@@ -10,7 +10,7 @@
 | 10 min        | `audit-readiness.md`             | Strategic context                           |
 | 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees            |
 | 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface         |
-| 10 min        | `mev-front-running.md`           | Solana-specific ordering attacks            |
+| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)     |
 | 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope) |
 | 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)  |
 | 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers            |
@@ -79,11 +79,13 @@ Qualitative threat model beyond direct default:
 Solana-specific ordering analysis:
 
 - §1 Solana ordering model (Jito searchers, leader rotation, parallel scheduling — differs from Ethereum mempool)
-- §2 Per-instruction surface enumeration (6 ix × attack model × mitigations)
+- §2 Per-instruction surface enumeration (**9 user-facing ix** × attack model × mitigations) — covers `contribute`, `claim_payout`, `release_escrow`, `escape_valve_list`, `escape_valve_buy`, `settle_default`, `harvest_yield`, `deposit_idle_to_yield`, `join_pool`
 - §3 Summary — bounded griefing vs latent extraction
+- §3.1 **Consolidated mitigations × tests table** — every code-level mitigation cross-referenced with the negative-path test that exercises it
 - §4 Recommended audit focus
 - §5 Methodology gaps
 - Big-picture finding: Triple Shield constrains extraction to bounded griefing on all instructions except `escape_valve_buy` listing-race
+- Companion: [`bug-bounty.md §4.1`](./bug-bounty.md) MEV severity sub-tiering (Critical → Informational)
 
 **Why fifth:** deep on ordering-dependent attacks the on-chain audit will look at.
 
