@@ -1,0 +1,176 @@
+name: Coverage
+
+# Runs `cargo tarpaulin` against the `roundfi-math` workspace member on
+# every PR + push to main. Today the lane is scoped to the pure-Rust
+# math crate (90.91% baseline per PR #265) because that's the only
+# workspace crate that compiles on host x86_64 — `programs/roundfi-core`
+# is blocked by the mpl-core ↔ solana-pubkey type conflict until #230
+# (Agave 2.x migration) lands.
+#
+# Once #230 lands, drop the `--packages roundfi-math --exclude-files`
+# filter and run against the full workspace.
+#
+# Advisory-only on day 1 — matches the pattern from `audit · cargo-audit
+# (advisory)` + `deny · supply-chain (advisory)`. Flip to required once
+# the lane has run green on 2-3 PRs.
+#
+# Tracked under: issue #269.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/math/**"
+      - ".github/workflows/coverage.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/math/**"
+      - ".github/workflows/coverage.yml"
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  # Threshold above which the lane reports green. Advisory until flipped
+  # to required (see file header).
+  COVERAGE_THRESHOLD: 85
+
+jobs:
+  tarpaulin:
+    name: coverage · roundfi-math (tarpaulin, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Advisory-only on day 1.
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write # for the PR comment
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cargo-tarpaulin
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Run tarpaulin (roundfi-math only)
+        id: tarpaulin
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p coverage/math
+          cargo tarpaulin \
+            --packages roundfi-math \
+            --exclude-files "programs/**/*" \
+            --out Lcov \
+            --output-dir coverage/math \
+            --skip-clean \
+            2>&1 | tee coverage/math/run.log
+          tarpaulin_exit=${PIPESTATUS[0]}
+
+          # Extract the "X.XX% coverage, A/B lines covered" line.
+          summary=$(grep -E "^[0-9]+\.[0-9]+% coverage" coverage/math/run.log | head -1 || echo "")
+          pct=$(echo "$summary" | grep -oE "^[0-9]+\.[0-9]+" || echo "0")
+          covered_total=$(echo "$summary" | grep -oE "[0-9]+/[0-9]+ lines covered" || echo "n/a")
+
+          {
+            echo "summary=$summary"
+            echo "pct=$pct"
+            echo "covered_total=$covered_total"
+            echo "exit_code=$tarpaulin_exit"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "## Coverage Summary"
+          echo "$summary"
+          echo "tarpaulin exit code: $tarpaulin_exit"
+          # Always exit 0 from this step — advisory on day 1.
+          exit 0
+
+      - name: Report threshold status (advisory)
+        run: |
+          pct="${{ steps.tarpaulin.outputs.pct }}"
+          threshold="${COVERAGE_THRESHOLD}"
+          echo "Coverage: ${pct}% · Threshold: ${threshold}%"
+          if [ -z "$pct" ] || [ "$pct" = "0" ]; then
+            echo "::warning::Tarpaulin produced no coverage number (run failed or output format changed)"
+            exit 0
+          fi
+          meets=$(python3 -c "print(int(float('$pct') >= float('$threshold')))" 2>/dev/null || echo "0")
+          if [ "$meets" = "1" ]; then
+            echo "::notice::Coverage ${pct}% meets threshold ${threshold}%"
+          else
+            echo "::warning::Coverage ${pct}% is below threshold ${threshold}% (advisory only — not blocking)"
+          fi
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request' && steps.tarpaulin.outputs.pct != '0' && steps.tarpaulin.outputs.pct != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pct = `${{ steps.tarpaulin.outputs.pct }}`;
+            const covered = `${{ steps.tarpaulin.outputs.covered_total }}`;
+            const threshold = process.env.COVERAGE_THRESHOLD || '85';
+            const meets = parseFloat(pct) >= parseFloat(threshold);
+            const emoji = meets ? '🟢' : '🟡';
+            const status = meets ? '✅ meets threshold' : '⚠️ below threshold (advisory)';
+
+            const lines = [
+              '## ' + emoji + ' Coverage Report — `roundfi-math`',
+              '',
+              '| Metric | Value |',
+              '|---|---|',
+              '| **Coverage** | **' + pct + '%** |',
+              '| Lines | ' + covered + ' |',
+              '| Threshold | ' + threshold + '% |',
+              '| Status | ' + status + ' |',
+              '',
+              '> Scope: `roundfi-math` only. Full-workspace coverage gated on Agave 2.x migration (#230).',
+            ];
+            const body = lines.join('\n');
+
+            const existing = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const ours = existing.data.find(c =>
+              c.user?.type === 'Bot' && (
+                c.body?.startsWith('## 🟢 Coverage Report') ||
+                c.body?.startsWith('## 🟡 Coverage Report') ||
+                c.body?.startsWith('## 🔴 Coverage Report')
+              ),
+            );
+            if (ours) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: ours.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload LCOV artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/math/lcov.info
+          if-no-files-found: warn
+          retention-days: 14
