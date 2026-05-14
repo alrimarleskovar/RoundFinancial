@@ -1,0 +1,120 @@
+name: Fuzz
+
+# cargo-fuzz lane on `roundfi-math`. Foundation under issue #284 —
+# advisory-only, runs each target for a short time-box so CI stays
+# under 5 minutes per PR. A longer-running scheduled job (weekly,
+# ~30min per target) is the natural follow-up once the lane is stable.
+#
+# Why a separate workflow (not inside `ci.yml`):
+#   1. Needs **nightly** toolchain (cargo-fuzz / libfuzzer-sys
+#      requirement); the main lanes run on stable.
+#   2. `crates/math/fuzz` is intentionally excluded from the workspace
+#      so the rest of the build doesn't pull in libfuzzer-sys.
+#   3. Failures are advisory-only until we've collected enough green
+#      runs to flip the gate — matches the pattern from coverage.yml +
+#      e2e.yml.
+#
+# Tracked under: issue #284.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/math/**"
+      - ".github/workflows/fuzz.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/math/**"
+      - ".github/workflows/fuzz.yml"
+  workflow_dispatch:
+    inputs:
+      duration_per_target:
+        description: "Seconds per fuzz target (default 60)"
+        required: false
+        default: "60"
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  # Per-target time-box. PR runs use 60s; workflow_dispatch can override.
+  DURATION_PER_TARGET: ${{ github.event.inputs.duration_per_target || '60' }}
+
+jobs:
+  cargo-fuzz:
+    name: fuzz · roundfi-math (libfuzzer, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Advisory-only on day 1. Flip after 2-3 green runs.
+    continue-on-error: true
+    permissions:
+      contents: read
+
+    strategy:
+      # Each target runs in parallel — failures are isolated per target.
+      fail-fast: false
+      matrix:
+        target: [cascade, waterfall, dc_invariant, escrow_vesting]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cargo-fuzz
+          workspaces: crates/math/fuzz -> target
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Run fuzz target — ${{ matrix.target }}
+        id: fuzz
+        continue-on-error: true
+        working-directory: crates/math/fuzz
+        run: |
+          set +e
+          mkdir -p artifacts
+          # `-max_total_time` bounds the run; `-print_final_stats=1`
+          # gives us coverage + executions in the log; `-rss_limit_mb`
+          # caps memory so a runaway corpus doesn't OOM the runner.
+          cargo +nightly fuzz run ${{ matrix.target }} \
+            -- \
+            -max_total_time=${DURATION_PER_TARGET} \
+            -print_final_stats=1 \
+            -rss_limit_mb=2048 \
+            2>&1 | tee "artifacts/${{ matrix.target }}.log"
+          exit_code=${PIPESTATUS[0]}
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "Fuzz exit code: $exit_code"
+          # Always exit 0 — advisory on day 1. Crashes still surface
+          # because libfuzzer writes them to fuzz/artifacts/<target>/.
+          exit 0
+
+      - name: Report status (advisory)
+        run: |
+          outcome="${{ steps.fuzz.outputs.exit_code }}"
+          echo "Fuzz target ${{ matrix.target }} exit code: $outcome"
+          if [ "$outcome" = "0" ]; then
+            echo "::notice::Fuzz target ${{ matrix.target }} completed without crashes"
+          else
+            echo "::warning::Fuzz target ${{ matrix.target }} found a crash or panicked (advisory — not blocking)"
+          fi
+
+      - name: Upload fuzz logs + crash artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-${{ matrix.target }}
+          path: |
+            crates/math/fuzz/artifacts/
+            crates/math/fuzz/fuzz/artifacts/
+          if-no-files-found: warn
+          retention-days: 14
