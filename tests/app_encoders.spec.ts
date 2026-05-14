@@ -68,6 +68,7 @@ import { buildReleaseEscrowIx } from "../app/src/lib/release-escrow";
 import { buildEscapeValveListIx } from "../app/src/lib/escape-valve-list";
 import { buildDepositIdleToYieldIx } from "../app/src/lib/deposit-idle-to-yield";
 import { buildEscapeValveBuyIx } from "../app/src/lib/escape-valve-buy";
+import { buildSettleDefaultIx } from "../app/src/lib/settle-default";
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "../app/src/lib/devnet";
 import type { TransactionInstruction } from "@solana/web3.js";
 
@@ -439,6 +440,96 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
     });
   });
 
+  describe("buildSettleDefaultIx", () => {
+    const ix = buildSettleDefaultIx({
+      pool: POOL,
+      caller: BUYER,
+      defaultedMemberWallet: MEMBER,
+      slotIndex: 2,
+      cycle: 1,
+    });
+
+    it("uses sha256(global:settle_default)[:8] as discriminator", () => {
+      const expected = expectedDiscriminator("settle_default");
+      expect(ix.data.subarray(0, 8).toString("hex")).to.equal(expected.toString("hex"));
+    });
+
+    it("encodes [discriminator | cycle u8] = 9 bytes", () => {
+      expect(ix.data.length).to.equal(9);
+      expect(ix.data[8]).to.equal(1);
+    });
+
+    it("targets the roundfi-core program", () => {
+      expect(ix.programId.toBase58()).to.equal(CORE.toBase58());
+    });
+
+    it("has 18 accounts in the program-mandated order", () => {
+      // Mirrors SettleDefault<'info> in settle_default.rs.
+      expect(ix.keys.length).to.equal(18);
+    });
+
+    it("places the caller as signer at index 0 (permissionless crank)", () => {
+      expect(key(ix, 0).pubkey.toBase58()).to.equal(BUYER.toBase58());
+      expect(key(ix, 0).isSigner).to.equal(true);
+      expect(key(ix, 0).isWritable).to.equal(true);
+    });
+
+    it("places the defaulted member wallet (read-only, non-signer) at index 4", () => {
+      // The defaulter does NOT sign — settle_default is permissionless.
+      // Wallet is included only so the program can identify the Member PDA.
+      expect(key(ix, 4).pubkey.toBase58()).to.equal(MEMBER.toBase58());
+      expect(key(ix, 4).isSigner).to.equal(false);
+      expect(key(ix, 4).isWritable).to.equal(false);
+    });
+
+    it("derives the canonical Member + ProtocolConfig PDAs", () => {
+      const [config] = protocolConfigPda(CORE);
+      const [member] = memberPda(CORE, POOL, MEMBER);
+      expect(key(ix, 1).pubkey.toBase58()).to.equal(config.toBase58());
+      expect(key(ix, 3).pubkey.toBase58()).to.equal(member.toBase58());
+    });
+
+    it("derives the Solidarity + Escrow vault authority PDAs (cascade sources)", () => {
+      const [solidarityAuth] = solidarityVaultAuthorityPda(CORE, POOL);
+      const [escrowAuth] = escrowVaultAuthorityPda(CORE, POOL);
+      expect(key(ix, 7).pubkey.toBase58()).to.equal(solidarityAuth.toBase58());
+      expect(key(ix, 9).pubkey.toBase58()).to.equal(escrowAuth.toBase58());
+    });
+
+    it("uses SCHEMA_DEFAULT (id=3) for the attestation PDA", () => {
+      const nonce = attestationNonce(1, 2);
+      const [attestation] = attestationPda(
+        REPUTATION,
+        POOL,
+        MEMBER,
+        ATTESTATION_SCHEMA.Default,
+        nonce,
+      );
+      expect(key(ix, 16).pubkey.toBase58()).to.equal(attestation.toBase58());
+    });
+
+    it("rejects cycles outside u8 range", () => {
+      expect(() =>
+        buildSettleDefaultIx({
+          pool: POOL,
+          caller: BUYER,
+          defaultedMemberWallet: MEMBER,
+          slotIndex: 0,
+          cycle: 256,
+        }),
+      ).to.throw();
+      expect(() =>
+        buildSettleDefaultIx({
+          pool: POOL,
+          caller: BUYER,
+          defaultedMemberWallet: MEMBER,
+          slotIndex: 0,
+          cycle: -1,
+        }),
+      ).to.throw();
+    });
+  });
+
   describe("cross-encoder invariants", () => {
     function allIxs() {
       return [
@@ -460,6 +551,13 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
           slotIndex: 0,
           nftAsset: NFT_ASSET,
           priceUsdc: 1,
+        }),
+        buildSettleDefaultIx({
+          pool: POOL,
+          caller: BUYER,
+          defaultedMemberWallet: MEMBER,
+          slotIndex: 0,
+          cycle: 1,
         }),
       ];
     }
@@ -493,6 +591,13 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
           amount: 1,
           yieldVault: YIELD_VAULT,
           yieldAdapterProgram: YIELD_ADAPTER_PROGRAM,
+        }),
+        buildSettleDefaultIx({
+          pool: POOL,
+          caller: BUYER,
+          defaultedMemberWallet: MEMBER,
+          slotIndex: 0,
+          cycle: 1,
         }),
       ];
       for (const ix of configAtOne) {
