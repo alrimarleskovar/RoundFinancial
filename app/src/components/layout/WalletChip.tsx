@@ -170,6 +170,46 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
         >
           {shortAddr(addr, 4, 4)}
         </span>
+        {/* Wallet allowlist badges (issue #249 workstream 1).
+            Hardware = "🔒 HW" pill (green, confidence signal).
+            Unknown wallet on devnet = "⚠ ?" pill (amber, soft warning).
+            Mainnet blocks unknown wallets before connect, so this badge
+            should never appear on mainnet — its visibility on mainnet
+            would be a regression flag. */}
+        {wallet.isHardware && (
+          <span
+            title={t("wallet.chip.hardwareTitle")}
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              padding: "1px 5px",
+              borderRadius: 5,
+              background: `${tokens.green}1A`,
+              color: tokens.green,
+              border: `1px solid ${tokens.green}55`,
+              letterSpacing: "0.06em",
+            }}
+          >
+            {t("wallet.chip.hwBadge")}
+          </span>
+        )}
+        {wallet.isUnknownWallet && !wallet.isHardware && (
+          <span
+            title={t("wallet.chip.unknownTitle")}
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              padding: "1px 5px",
+              borderRadius: 5,
+              background: `${tokens.amber}1A`,
+              color: tokens.amber,
+              border: `1px solid ${tokens.amber}55`,
+              letterSpacing: "0.06em",
+            }}
+          >
+            {t("wallet.chip.unknownBadge")}
+          </span>
+        )}
         <span
           style={{
             color: tokens.muted,
