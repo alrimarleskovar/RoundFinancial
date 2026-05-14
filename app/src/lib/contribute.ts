@@ -31,8 +31,8 @@ import {
 } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
+import { ATTESTATION_SCHEMA } from "@roundfi/sdk/constants";
 import {
-  ATTESTATION_SCHEMA,
   attestationNonce,
   attestationPda,
   escrowVaultAuthorityPda,
@@ -41,7 +41,7 @@ import {
   reputationConfigPda,
   reputationProfilePda,
   solidarityVaultAuthorityPda,
-} from "@roundfi/sdk";
+} from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
 

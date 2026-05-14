@@ -1,0 +1,66 @@
+[package]
+name = "roundfi-math-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+authors = ["RoundFi"]
+license = "Apache-2.0"
+
+# Standalone workspace — cargo would otherwise climb up to the repo root
+# and reject this crate (we exclude it from the root workspace, but
+# cargo still needs an explicit signal that this is its own workspace).
+[workspace]
+
+# Fuzz crate is intentionally NOT a workspace member — cargo-fuzz needs
+# nightly toolchain + libfuzzer-sys with custom build flags. Keeping it
+# out of the workspace lets `cargo build`, `cargo test`, `cargo clippy`
+# on the main workspace stay on stable Rust and skip libfuzzer-sys
+# entirely. The fuzz lane in CI installs nightly + cargo-fuzz separately.
+#
+# Tracked under issue #284.
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.roundfi-math]
+path = ".."
+
+# Each target is a separate binary. cargo-fuzz uses libFuzzer's
+# coverage-guided mutator under the hood.
+[[bin]]
+name = "cascade"
+path = "fuzz_targets/cascade.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "waterfall"
+path = "fuzz_targets/waterfall.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dc_invariant"
+path = "fuzz_targets/dc_invariant.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "escrow_vesting"
+path = "fuzz_targets/escrow_vesting.rs"
+test = false
+doc = false
+bench = false
+
+# Release profile mirroring workspace settings — overflow-checks ON so
+# any unintended u64 wraparound shows up as a libfuzzer-detected panic.
+[profile.release]
+overflow-checks = true
+debug = 1

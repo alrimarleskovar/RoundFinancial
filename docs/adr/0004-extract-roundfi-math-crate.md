@@ -83,3 +83,4 @@ Call-site code in `instructions/*.rs` is **unchanged byte-for-byte** — only 4 
 - Issue [#229](https://github.com/alrimarleskovar/RoundFinancial/issues/229) — original proposal
 - Coverage report: [`docs/operations/test-coverage.md`](../operations/test-coverage.md)
 - ADR [0002](./0002-idl-free-sdk-encoders.md) — companion pure-function philosophy on the TS side
+- **Follow-up** — issue [#284](https://github.com/alrimarleskovar/RoundFinancial/issues/284) layered a `cargo-fuzz` lane (`crates/math/fuzz/`, 4 targets, advisory CI) on top of the existing proptest invariants. proptest stays as the uniform-sample invariant verifier; cargo-fuzz adds coverage-guided mutation to find edge cases at branch boundaries the uniform sampler rarely hits.

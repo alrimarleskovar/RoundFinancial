@@ -6,6 +6,11 @@ members = [
     "programs/roundfi-yield-mock",
     "programs/roundfi-yield-kamino",
 ]
+# `crates/math/fuzz` is intentionally excluded — cargo-fuzz needs
+# nightly + libfuzzer-sys with custom build flags that we don't want
+# leaking into the rest of the workspace. The fuzz lane installs the
+# nightly toolchain separately (see .github/workflows/fuzz.yml).
+exclude = ["crates/math/fuzz"]
 resolver = "2"
 
 [workspace.package]

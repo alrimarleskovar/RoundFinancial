@@ -19,10 +19,13 @@ env:
 
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
-  # Five checks:
+  # Six checks:
   #   - prettier --check (lint) — gated by .prettierignore
   #   - TypeScript typecheck (`tsc --noEmit -p .`) — entire workspace
   #   - Rust ↔ TS constants/seeds parity (test:parity) — 7 tests
+  #   - App ↔ chain encoder structural parity (test:app-encoders) — 38
+  #     tests covering discriminators, account counts, signer positions,
+  #     PDA derivations on the 5 front-end IDL-free encoders (#283).
   #   - LifecycleEvent shape contract (test:events) — 2 tests
   #   - Stress Lab L1 economic-parity (test:economic-parity-l1) — 34
   #     tests, includes the "Triple Veteran Default" whitepaper scenario.
@@ -58,6 +61,9 @@ jobs:
 
       - name: Rust ↔ TS constants/seeds parity (7 tests)
         run: pnpm test:parity
+
+      - name: App ↔ chain encoder structural parity (38 tests)
+        run: pnpm test:app-encoders
 
       - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events
