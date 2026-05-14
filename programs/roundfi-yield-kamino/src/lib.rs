@@ -21,21 +21,38 @@
 //!   if the caller passes mismatched accounts (defence-in-depth on top
 //!   of the on-chain Kamino-side validation).
 //!
-//! ## What is still pending
+//! - `harvest()` performs a **redeem-all + redeposit-principal**
+//!   round-trip via real Kamino CPI:
 //!
-//! - `harvest()` is a **stub** that returns realized=0 with a clear
-//!   `msg!`. The full redemption path
-//!   (`withdraw_obligation_collateral_and_redeem_reserve_collateral`
-//!   CPI to Kamino, c-tokens → USDC + accrued interest, transfer
-//!   surplus to pool vault) lands in the next PR. Until then the
-//!   adapter operates in "park-only" mode — capital flows in and
-//!   compounds inside Kamino, but no surplus is realized back to the
-//!   pool. Conservative for early Mainnet roll-out.
+//!     1. CPI to Kamino's `redeem_reserve_collateral` burning ALL
+//!        c-tokens we hold, receiving `total_redeemed` USDC in the
+//!        state-owned shadow vault (principal + accrued interest).
+//!     2. Transfer `realized = total_redeemed − tracked_principal`
+//!        from the shadow vault to the pool vault (this is the
+//!        surplus the core program's `harvest_yield` waterfall then
+//!        splits into protocol fee / GF / LP / participants).
+//!     3. CPI to Kamino's `deposit_reserve_liquidity` redepositing
+//!        `tracked_principal` so the position keeps compounding.
+//!
+//!   Two-CPI flow over a one-shot partial redeem is intentional —
+//!   we never need to deserialize Kamino's `Reserve` account to
+//!   read the live exchange rate, which keeps audit surface small.
+//!   The CU cost is acceptable for a per-cycle crank (not
+//!   high-frequency). Tracked under issue #233.
+//!
+//! ## What is still pending
 //!
 //! - The hardcoded `KAMINO_LEND_PROGRAM_ID` matches the canonical
 //!   mainnet program at the time of writing. Final mainnet deploy must
 //!   re-verify against Kamino's published deploy address — comment
 //!   below tracks the verification step.
+//!
+//! - Bankrun coverage of the harvest path requires a Kamino-mock
+//!   harness (Kamino's program is not loadable in the existing
+//!   bankrun fixtures). Mirroring the deposit-side precedent: unit
+//!   tests pin the discriminator + account-list invariants here, and
+//!   the round-trip is exercised end-to-end on devnet against the
+//!   real Kamino reserve before mainnet deploy.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
@@ -72,6 +89,20 @@ pub const KAMINO_LEND_PROGRAM_ID: Pubkey =
 /// unit test below pins the result so a Kamino-side rename fails loud.
 fn kamino_deposit_disc() -> [u8; 8] {
     let h = hash::hash(b"global:deposit_reserve_liquidity");
+    let mut out = [0u8; 8];
+    out.copy_from_slice(&h.to_bytes()[..8]);
+    out
+}
+
+/// Discriminator for Kamino's `redeem_reserve_collateral` ix —
+/// sha256("global:redeem_reserve_collateral")[..8]. Burns c-tokens
+/// and credits USDC back. Caller specifies the c-token amount to
+/// redeem; we redeem the full balance every harvest cycle.
+///
+/// Pinned by a unit test so a Kamino-side rename fails the build
+/// rather than silently rejecting at runtime.
+fn kamino_redeem_disc() -> [u8; 8] {
+    let h = hash::hash(b"global:redeem_reserve_collateral");
     let mut out = [0u8; 8];
     out.copy_from_slice(&h.to_bytes()[..8]);
     out
@@ -212,24 +243,235 @@ pub mod roundfi_yield_kamino {
         Ok(())
     }
 
-    /// Harvest stub — full redemption logic lands in the next PR.
-    /// Mock-compatible signature so `roundfi-core::harvest_yield` works
-    /// against this adapter unchanged. Reports realized=0 + tracked
-    /// principal in the program log so off-chain monitoring sees the
-    /// adapter operating in "park-only" mode.
-    pub fn harvest(ctx: Context<Harvest>) -> Result<()> {
+    /// Harvest accrued yield from Kamino via a redeem-all +
+    /// redeposit-principal round-trip. See module docs for the
+    /// rationale; one-shot partial redeem would require deserializing
+    /// the Kamino reserve account to read the live exchange rate,
+    /// which expands audit surface for no operational benefit at
+    /// per-cycle crank frequency.
+    ///
+    /// Steps:
+    ///   1. CPI `redeem_reserve_collateral(c_token_balance)` — burns
+    ///      all c-tokens we hold; USDC credited to shadow vault.
+    ///   2. Transfer `realized = total_redeemed − tracked_principal`
+    ///      from shadow vault → pool vault. Core's `harvest_yield`
+    ///      sees this as the post-CPI vault delta and routes it
+    ///      through the protocol-fee / GF / LP / participants
+    ///      waterfall.
+    ///   3. CPI `deposit_reserve_liquidity(tracked_principal)` —
+    ///      redeposits principal so the position keeps compounding.
+    ///
+    /// `state.tracked_principal` is invariant across this ix (a
+    /// clean round-trip). Failure modes:
+    ///   - `tracked_principal == 0` → log + Ok (nothing to harvest).
+    ///   - `c_token_balance == 0`   → log + Ok (no position open).
+    ///   - `total_redeemed < tracked_principal` → `PrincipalLoss`
+    ///     error; defends against an exchange-rate regression in
+    ///     Kamino (shouldn't happen — c-token rate is monotone — but
+    ///     fail loud rather than silently mutate `tracked_principal`).
+    pub fn harvest<'info>(
+        ctx: Context<'_, '_, '_, 'info, Harvest<'info>>,
+    ) -> Result<()> {
+        // ─── Auth checks ────────────────────────────────────────────
         let state = &ctx.accounts.state;
         require!(
             ctx.accounts.authority.key() == state.pool,
             YieldKaminoError::UnauthorizedPool,
         );
+        require!(
+            ctx.accounts.source.key() == state.vault,
+            YieldKaminoError::VaultMismatch,
+        );
+        require!(
+            ctx.accounts.destination.owner == state.pool,
+            YieldKaminoError::DestinationNotPoolOwned,
+        );
+        require!(
+            ctx.accounts.destination.mint == state.underlying_mint,
+            YieldKaminoError::MintMismatch,
+        );
+
+        let tracked = state.tracked_principal;
+        if tracked == 0 {
+            msg!("yield-kamino: harvest realized=0 (no tracked principal)");
+            return Ok(());
+        }
+
+        let c_token_balance = ctx.accounts.c_token_account.amount;
+        if c_token_balance == 0 {
+            // Defensive: tracked > 0 but no c-tokens means an
+            // out-of-band redemption already happened. Don't fabricate
+            // yield; force operator intervention.
+            msg!(
+                "yield-kamino: harvest realized=0 — tracked_principal={} but c-token balance=0",
+                tracked,
+            );
+            return Ok(());
+        }
+
+        let signer_seeds: &[&[u8]] = &[
+            SEED_STATE,
+            state.pool.as_ref(),
+            std::slice::from_ref(&state.bump),
+        ];
+        let signer_seeds_arr: &[&[&[u8]]] = &[signer_seeds];
+
+        // ─── Step 1: redeem ALL c-tokens via Kamino CPI ─────────────
+        let shadow_before = ctx.accounts.source.amount;
+        kamino_cpi_redeem(&ctx, c_token_balance, signer_seeds_arr)?;
+        ctx.accounts.source.reload()?;
+        let shadow_after_redeem = ctx.accounts.source.amount;
+        let total_redeemed = shadow_after_redeem.saturating_sub(shadow_before);
+
+        // Principal-loss guard: Kamino's c-token exchange rate is
+        // monotonically non-decreasing under normal operation. If
+        // total_redeemed < tracked, something is wrong — fail loud.
+        require!(
+            total_redeemed >= tracked,
+            YieldKaminoError::PrincipalLoss,
+        );
+
+        let realized = total_redeemed - tracked;
+
+        // ─── Step 2: transfer realized surplus to pool vault ────────
+        if realized > 0 {
+            token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from:      ctx.accounts.source.to_account_info(),
+                        to:        ctx.accounts.destination.to_account_info(),
+                        authority: ctx.accounts.state.to_account_info(),
+                    },
+                    signer_seeds_arr,
+                ),
+                realized,
+            )?;
+        }
+
+        // ─── Step 3: redeposit tracked_principal back into Kamino ───
+        kamino_cpi_deposit(&ctx, tracked, signer_seeds_arr)?;
+
         msg!(
-            "yield-kamino: harvest stub — Kamino redeem CPI ships next PR; \
-             realized=0 principal_kept={}",
-            state.tracked_principal,
+            "yield-kamino: harvest realized={} principal_redeposited={} c_tokens_burned={}",
+            realized, tracked, c_token_balance,
         );
         Ok(())
     }
+}
+
+// ─── CPI helpers ────────────────────────────────────────────────────────
+//
+// Kamino's account ordering is reproduced from the on-chain
+// `klend` program. Both helpers build the same account list (modulo
+// source/destination on the SPL-token side) so reading the deposit
+// CPI in `deposit()` and `kamino_cpi_deposit()` side-by-side surfaces
+// any drift. Final mainnet deploy MUST re-verify the exact ordering
+// against Kamino's published IDL — flagged in the module-level "What
+// is still pending" comment.
+
+fn kamino_cpi_redeem<'info>(
+    ctx: &Context<'_, '_, '_, 'info, Harvest<'info>>,
+    c_token_amount: u64,
+    signer_seeds: &[&[&[u8]]],
+) -> Result<()> {
+    let mut data = Vec::with_capacity(8 + 8);
+    data.extend_from_slice(&kamino_redeem_disc());
+    data.extend_from_slice(&c_token_amount.to_le_bytes());
+
+    // Kamino's `redeem_reserve_collateral` ordering. Position 0 is the
+    // signer (our state PDA, owner of source_collateral + destination
+    // _liquidity); subsequent positions mirror the on-chain klend
+    // account list. The `kamino_market_authority` is the
+    // lending-market PDA Kamino derives off-chain — passed through.
+    let metas = vec![
+        AccountMeta::new_readonly(ctx.accounts.state.key(), true),
+        AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
+        AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
+        AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
+        AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
+        // user_source_collateral — our c-token ATA (debited).
+        AccountMeta::new(ctx.accounts.c_token_account.key(), false),
+        // user_destination_liquidity — our shadow USDC vault (credited).
+        AccountMeta::new(ctx.accounts.source.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+    ];
+
+    let infos = [
+        ctx.accounts.state.to_account_info(),
+        ctx.accounts.kamino_market.to_account_info(),
+        ctx.accounts.kamino_market_authority.to_account_info(),
+        ctx.accounts.kamino_reserve.to_account_info(),
+        ctx.accounts.kamino_reserve_liquidity_supply.to_account_info(),
+        ctx.accounts.kamino_reserve_collateral_mint.to_account_info(),
+        ctx.accounts.c_token_account.to_account_info(),
+        ctx.accounts.source.to_account_info(),
+        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.kamino_program.to_account_info(),
+    ];
+
+    let ix = Instruction {
+        program_id: KAMINO_LEND_PROGRAM_ID,
+        accounts:   metas,
+        data,
+    };
+
+    invoke_signed(&ix, &infos, signer_seeds).map_err(|e| {
+        msg!("yield-kamino: Kamino redeem CPI failed: {:?}", e);
+        error!(YieldKaminoError::KaminoCpiFailed)
+    })?;
+    Ok(())
+}
+
+fn kamino_cpi_deposit<'info>(
+    ctx: &Context<'_, '_, '_, 'info, Harvest<'info>>,
+    amount: u64,
+    signer_seeds: &[&[&[u8]]],
+) -> Result<()> {
+    let mut data = Vec::with_capacity(8 + 8);
+    data.extend_from_slice(&kamino_deposit_disc());
+    data.extend_from_slice(&amount.to_le_bytes());
+
+    // Mirrors the ordering used in `deposit()` above.
+    let metas = vec![
+        AccountMeta::new_readonly(ctx.accounts.state.key(), true),
+        AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
+        AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
+        AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
+        // user_source_liquidity — our shadow USDC vault.
+        AccountMeta::new(ctx.accounts.source.key(), false),
+        // user_destination_collateral — our c-token ATA.
+        AccountMeta::new(ctx.accounts.c_token_account.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+    ];
+
+    let infos = [
+        ctx.accounts.state.to_account_info(),
+        ctx.accounts.kamino_reserve.to_account_info(),
+        ctx.accounts.kamino_market.to_account_info(),
+        ctx.accounts.kamino_market_authority.to_account_info(),
+        ctx.accounts.kamino_reserve_liquidity_supply.to_account_info(),
+        ctx.accounts.kamino_reserve_collateral_mint.to_account_info(),
+        ctx.accounts.source.to_account_info(),
+        ctx.accounts.c_token_account.to_account_info(),
+        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.kamino_program.to_account_info(),
+    ];
+
+    let ix = Instruction {
+        program_id: KAMINO_LEND_PROGRAM_ID,
+        accounts:   metas,
+        data,
+    };
+
+    invoke_signed(&ix, &infos, signer_seeds).map_err(|e| {
+        msg!("yield-kamino: Kamino redeposit CPI failed: {:?}", e);
+        error!(YieldKaminoError::KaminoCpiFailed)
+    })?;
+    Ok(())
 }
 
 // ─── Account structs ────────────────────────────────────────────────────
@@ -328,9 +570,14 @@ pub struct Deposit<'info> {
     pub kamino_program: UncheckedAccount<'info>,
 }
 
-/// Same positional layout as `roundfi-core::harvest_yield`. The handler
-/// is a stub today; the account list anticipates the redeem CPI so the
-/// next PR is a body-only change.
+/// Same positional layout as `roundfi-core::harvest_yield`:
+///   [source(shadow_vault), destination(pool_vault),
+///    authority(signer, readonly), token_program, ...remaining]
+///
+/// `remaining_accounts` carries: state, then the Kamino-specific
+/// accounts in the order Kamino's `redeem_reserve_collateral` and
+/// `deposit_reserve_liquidity` ixs expect (we share the same list
+/// between both CPIs, modulo SPL-side source/destination).
 #[derive(Accounts)]
 pub struct Harvest<'info> {
     #[account(mut)]
@@ -349,6 +596,46 @@ pub struct Harvest<'info> {
         bump = state.bump,
     )]
     pub state: Account<'info, YieldVaultState>,
+
+    // ─── Kamino-specific (forwarded as remaining_accounts from core) ─
+
+    /// CHECK: pinned to state.kamino_reserve at init time.
+    #[account(mut, address = state.kamino_reserve @ YieldKaminoError::KaminoAccountMismatch)]
+    pub kamino_reserve: UncheckedAccount<'info>,
+
+    /// CHECK: pinned to state.kamino_market at init time.
+    #[account(address = state.kamino_market @ YieldKaminoError::KaminoAccountMismatch)]
+    pub kamino_market: UncheckedAccount<'info>,
+
+    /// CHECK: Kamino-derived PDA (lending_market_authority).
+    pub kamino_market_authority: UncheckedAccount<'info>,
+
+    /// CHECK: Kamino's reserve liquidity supply ATA — credited on
+    /// redeposit, debited on redeem.
+    #[account(mut)]
+    pub kamino_reserve_liquidity_supply: UncheckedAccount<'info>,
+
+    /// CHECK: Kamino's c-token mint for this reserve. Authority is
+    /// Kamino's reserve PDA, mutated by Kamino's redeem/deposit ixs.
+    #[account(mut)]
+    pub kamino_reserve_collateral_mint: UncheckedAccount<'info>,
+
+    /// State-owned c-token ATA. Anchor-enforced derivation pins the
+    /// `(state, kamino_reserve_collateral_mint)` ATA — the same
+    /// account `deposit()` minted c-tokens into. Without this
+    /// constraint a caller could pass a different c-token account
+    /// (e.g. someone else's position) and we'd burn from the wrong
+    /// balance.
+    #[account(
+        mut,
+        associated_token::mint = kamino_reserve_collateral_mint,
+        associated_token::authority = state,
+    )]
+    pub c_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: Kamino Lend program — pinned to KAMINO_LEND_PROGRAM_ID.
+    #[account(address = KAMINO_LEND_PROGRAM_ID @ YieldKaminoError::InvalidKaminoProgram)]
+    pub kamino_program: UncheckedAccount<'info>,
 }
 
 // ─── State ──────────────────────────────────────────────────────────────
@@ -394,12 +681,16 @@ pub enum YieldKaminoError {
     VaultMismatch,
     #[msg("mint does not match state.underlying_mint")]
     MintMismatch,
+    #[msg("destination token account is not owned by the bound pool")]
+    DestinationNotPoolOwned,
     #[msg("Kamino account does not match the one pinned in state")]
     KaminoAccountMismatch,
     #[msg("kamino_program does not match expected Kamino Lend program ID")]
     InvalidKaminoProgram,
-    #[msg("Kamino CPI rejected the deposit_reserve_liquidity call")]
+    #[msg("Kamino CPI rejected the call")]
     KaminoCpiFailed,
+    #[msg("Kamino returned less USDC than tracked principal — exchange rate regressed or out-of-band redemption occurred")]
+    PrincipalLoss,
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────
@@ -438,5 +729,26 @@ mod tests {
         // Sanity: it's 8 non-zero bytes.
         assert_eq!(d1.len(), 8);
         assert_ne!(d1, [0u8; 8]);
+    }
+
+    /// Same pinning for `redeem_reserve_collateral` — the harvest-path
+    /// counterpart. Same Kamino-rename guarantee as the deposit disc.
+    #[test]
+    fn kamino_redeem_disc_is_stable() {
+        let d1 = kamino_redeem_disc();
+        let d2 = kamino_redeem_disc();
+        assert_eq!(d1, d2);
+        assert_eq!(d1.len(), 8);
+        assert_ne!(d1, [0u8; 8]);
+    }
+
+    /// Deposit and redeem must use DIFFERENT discriminators (else a
+    /// confused-deputy attack could feed a redeem-shaped account list
+    /// to the deposit ix or vice-versa). Anchor-Kamino encoding
+    /// guarantees this by construction, but the assertion makes the
+    /// guarantee local and locally-failing.
+    #[test]
+    fn kamino_deposit_and_redeem_discs_differ() {
+        assert_ne!(kamino_deposit_disc(), kamino_redeem_disc());
     }
 }
