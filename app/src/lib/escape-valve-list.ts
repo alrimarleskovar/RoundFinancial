@@ -51,6 +51,9 @@ export interface BuildEscapeValveListIxArgs {
   slotIndex: number;
   /** Listing price in USDC base units (6 decimals). u64 LE on the wire. */
   priceUsdc: bigint | number;
+  /** Optional program ID override — for tests against a bankrun-deployed
+   *  program set. Defaults to `DEVNET_PROGRAM_IDS`. */
+  programIds?: { core: PublicKey };
 }
 
 /**
@@ -60,7 +63,7 @@ export interface BuildEscapeValveListIxArgs {
  * `programs/roundfi-core/src/instructions/escape_valve_list.rs` (6 accounts).
  */
 export function buildEscapeValveListIx(args: BuildEscapeValveListIxArgs): TransactionInstruction {
-  const core = DEVNET_PROGRAM_IDS.core;
+  const core = args.programIds?.core ?? DEVNET_PROGRAM_IDS.core;
 
   const [config] = protocolConfigPda(core);
   const [member] = memberPda(core, args.pool, args.sellerWallet);
