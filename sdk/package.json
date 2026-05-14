@@ -1,9 +1,29 @@
 {
   "name": "@roundfi/sdk",
-  "version": "0.1.0",
-  "private": true,
-  "description": "RoundFi TypeScript SDK — PDA seeds, fee schedule, generated IDL clients",
+  "version": "0.1.0-alpha.0",
+  "description": "RoundFi TypeScript SDK — PDA seeds, IDL-free encoders, on-chain decoders, stress-lab actuarial simulator. Pre-mainnet alpha.",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/alrimarleskovar/RoundFinancial#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alrimarleskovar/RoundFinancial.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/alrimarleskovar/RoundFinancial/issues"
+  },
+  "keywords": [
+    "solana",
+    "roundfi",
+    "rosca",
+    "credit",
+    "behavioral-credit",
+    "sas",
+    "attestation",
+    "anchor",
+    "sdk",
+    "defi"
+  ],
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -16,9 +36,54 @@
     "./stressLab": "./src/stressLab.ts",
     "./events": "./src/events.ts"
   },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./constants": {
+        "types": "./dist/constants.d.ts",
+        "default": "./dist/constants.js"
+      },
+      "./pda": {
+        "types": "./dist/pda.d.ts",
+        "default": "./dist/pda.js"
+      },
+      "./client": {
+        "types": "./dist/client.d.ts",
+        "default": "./dist/client.js"
+      },
+      "./actions": {
+        "types": "./dist/actions.d.ts",
+        "default": "./dist/actions.js"
+      },
+      "./reads": {
+        "types": "./dist/reads.d.ts",
+        "default": "./dist/reads.js"
+      },
+      "./stressLab": {
+        "types": "./dist/stressLab.d.ts",
+        "default": "./dist/stressLab.js"
+      },
+      "./events": {
+        "types": "./dist/events.d.ts",
+        "default": "./dist/events.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
