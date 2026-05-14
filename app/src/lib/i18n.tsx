@@ -115,6 +115,11 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondModal.demoBody":
       "Hash da transação Solana ficará disponível quando o indexer entrar (M3 do roadmap).",
     "score.bondModal.close": "Fechar",
+    "score.dataSource.title": "Fonte dos dados",
+    "score.dataSource.body":
+      "Score e atestados nesta tela refletem o session reducer do Demo Studio. A infraestrutura SAS on-chain (programa roundfi-reputation) está implantada no devnet — atestações reais são mintadas a cada contribute() pelo CPI. O caminho de leitura on-chain do passport entra com o wiring app↔chain pós-hackathon.",
+    "score.dataSource.devnetBadge": "DEVNET · SAS schema implantado",
+    "score.dataSource.demoBadge": "DEMO STUDIO · reflexo da sessão local",
     // mercado / secondary market
     "market.badge": "◆ Mercado secundário",
     "market.title": "Compre posições com desconto",
@@ -1007,6 +1012,11 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondModal.demoBody":
       "Solana transaction hash will be available once the indexer ships (M3 of the roadmap).",
     "score.bondModal.close": "Close",
+    "score.dataSource.title": "Data source",
+    "score.dataSource.body":
+      "Score and attestation data on this screen reflect the Demo Studio session reducer. On-chain SAS infrastructure (roundfi-reputation program) is deployed on devnet — real attestations are minted on every contribute() via CPI. The on-chain read path for this passport lands with the app↔chain wiring post-hackathon.",
+    "score.dataSource.devnetBadge": "DEVNET · SAS schema deployed",
+    "score.dataSource.demoBadge": "DEMO STUDIO · local session reflection",
     // mercado / secondary market
     "market.badge": "◆ Secondary market",
     "market.title": "Buy positions at a discount",

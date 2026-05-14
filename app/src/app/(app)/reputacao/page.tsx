@@ -2,6 +2,7 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import { BondsList } from "@/components/score/BondsList";
+import { DataSourceNote } from "@/components/score/DataSourceNote";
 import { LevelsList } from "@/components/score/LevelsList";
 import { ReputationPassport } from "@/components/score/ReputationPassport";
 import { useT } from "@/lib/i18n";
@@ -33,6 +34,8 @@ function ScoreContent() {
       >
         {t("score.title")}
       </div>
+
+      <DataSourceNote />
 
       <div
         style={{
