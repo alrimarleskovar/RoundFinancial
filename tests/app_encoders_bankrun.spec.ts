@@ -53,6 +53,7 @@ import {
   protocolConfigPda,
   solidarityVaultAuthorityPda,
   yieldVaultAuthorityPda,
+  yieldVaultStatePda,
 } from "@roundfi/sdk/pda";
 
 import {
@@ -69,6 +70,7 @@ import { buildClaimPayoutIx } from "../app/src/lib/claim-payout";
 import { buildReleaseEscrowIx } from "../app/src/lib/release-escrow";
 import { buildEscapeValveListIx } from "../app/src/lib/escape-valve-list";
 import { buildSettleDefaultIx } from "../app/src/lib/settle-default";
+import { buildDepositIdleToYieldIx } from "../app/src/lib/deposit-idle-to-yield";
 
 // ─── Scenario parameters ─────────────────────────────────────────────
 
@@ -1002,5 +1004,205 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
     // confirm the integration).
     const escrowAfter = await readTokenBalance(env, escrowVault);
     expect(escrowAfter <= escrowBefore, "escrow vault may decrease via Shield 2").to.equal(true);
+  });
+});
+
+// ─── deposit_idle_to_yield — separate fixture ─────────────────────────
+//
+// `deposit_idle_to_yield` is a permissionless crank that moves USDC
+// from the pool's USDC vault into the yield adapter's vault. It does
+// NOT touch Member state. On the on-chain side it CPIs into the
+// adapter program's `deposit` instruction; for the mock adapter
+// (`roundfi-yield-mock`), the CPI just transfers + bumps the
+// `tracked_principal` field on the YieldVaultState PDA.
+//
+// Fixture needs:
+//   1. Pool with `yield_adapter == env.ids.yieldMock`, status = Active
+//   2. Pool USDC vault funded with some amount to deposit
+//   3. YieldVaultState PDA (yield-mock-owned) seeded with `pool` = our pool
+//   4. Yield-mock vault ATA (owner = YieldVaultState PDA) seeded empty
+//
+// #290 W3 (continued).
+
+describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function () {
+  this.timeout(60_000);
+
+  let env: BankrunEnv;
+  const DEPOSIT_POOL_SEED_ID = 8888n;
+  const poolAuthority = Keypair.generate();
+  const cranker = Keypair.generate();
+  const treasury = Keypair.generate();
+  const usdcMint = Keypair.generate().publicKey;
+  const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
+
+  const POOL_VAULT_FUND = 5_000_000n; // $5 — enough to deposit $3 and leave $2 behind
+  const DEPOSIT_AMOUNT = 3_000_000n; // $3 — the amount we'll move to yield
+
+  let configPk: PublicKey;
+  let poolPk: PublicKey;
+  let poolUsdcVault: PublicKey;
+  let yieldStatePk: PublicKey;
+  let yieldVault: PublicKey;
+
+  before(async function () {
+    env = await setupBankrunEnv();
+
+    env.context.setAccount(cranker.publicKey, {
+      lamports: 10_000_000_000,
+      data: new Uint8Array(0),
+      owner: SystemProgram.programId,
+      executable: false,
+      rentEpoch: 0,
+    });
+
+    [configPk] = protocolConfigPda(env.ids.core);
+    [poolPk] = poolPda(env.ids.core, poolAuthority.publicKey, DEPOSIT_POOL_SEED_ID);
+    [yieldStatePk] = yieldVaultStatePda(env.ids.yieldMock, poolPk);
+    const [escrowVaultAuth, escrowBump] = escrowVaultAuthorityPda(env.ids.core, poolPk);
+    const [solidarityVaultAuth, solidarityBump] = solidarityVaultAuthorityPda(env.ids.core, poolPk);
+    const [, yieldVaultBump] = yieldVaultAuthorityPda(env.ids.core, poolPk);
+    const [, configBump] = protocolConfigPda(env.ids.core);
+    const [, poolBump] = poolPda(env.ids.core, poolAuthority.publicKey, DEPOSIT_POOL_SEED_ID);
+
+    poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, poolPk, true);
+    // The yield-mock vault is the ATA owned by the YieldVaultState PDA
+    // (NOT the pool). The mock's `init_vault` instruction creates this
+    // ATA with the state PDA as owner.
+    yieldVault = getAssociatedTokenAddressSync(usdcMint, yieldStatePk, true);
+    // Core-side escrow + solidarity vaults — required by Pool's
+    // account constraints even though deposit_idle_to_yield doesn't
+    // touch them. We seed them empty to satisfy ATA existence.
+    const escrowVault = getAssociatedTokenAddressSync(usdcMint, escrowVaultAuth, true);
+    const solidarityVault = getAssociatedTokenAddressSync(usdcMint, solidarityVaultAuth, true);
+
+    writeMintAccount(env.context, usdcMint, {
+      mintAuthority: env.payer.publicKey,
+      decimals: 6,
+    });
+
+    writeTokenAccount(env.context, poolUsdcVault, {
+      mint: usdcMint,
+      owner: poolPk,
+      amount: POOL_VAULT_FUND,
+    });
+    writeTokenAccount(env.context, escrowVault, {
+      mint: usdcMint,
+      owner: escrowVaultAuth,
+      amount: 0n,
+    });
+    writeTokenAccount(env.context, solidarityVault, {
+      mint: usdcMint,
+      owner: solidarityVaultAuth,
+      amount: 0n,
+    });
+    // Yield-mock vault: owner is the state PDA, balance starts at 0.
+    writeTokenAccount(env.context, yieldVault, {
+      mint: usdcMint,
+      owner: yieldStatePk,
+      amount: 0n,
+    });
+
+    await writeAnchorAccount(env.context, env.programs.core, "protocolConfig", configPk, {
+      authority: env.payer.publicKey,
+      treasury: treasury.publicKey,
+      usdcMint,
+      metaplexCore,
+      defaultYieldAdapter: env.ids.yieldMock,
+      reputationProgram: PublicKey.default,
+      feeBpsYield: 2_000,
+      feeBpsCycleL1: 200,
+      feeBpsCycleL2: 100,
+      feeBpsCycleL3: 0,
+      guaranteeFundBps: 15_000,
+      paused: false,
+      bump: configBump,
+    });
+
+    // Pool: yieldAdapter pinned to yield-mock, status Active.
+    await writeAnchorAccount(env.context, env.programs.core, "pool", poolPk, {
+      authority: poolAuthority.publicKey,
+      seedId: new BN(DEPOSIT_POOL_SEED_ID.toString()),
+      usdcMint,
+      yieldAdapter: env.ids.yieldMock,
+      membersTarget: 3,
+      installmentAmount: new BN("1000000"),
+      creditAmount: new BN("3000000"),
+      cyclesTotal: 3,
+      cycleDuration: new BN(60),
+      seedDrawBps: 9_160,
+      solidarityBps: 100,
+      escrowReleaseBps: 2_500,
+      membersJoined: 3,
+      status: 1, // Active
+      startedAt: new BN(1_799_999_000),
+      currentCycle: 0,
+      nextCycleAt: new BN(1_800_000_000),
+      totalContributed: new BN(0),
+      totalPaidOut: new BN(0),
+      solidarityBalance: new BN(0),
+      escrowBalance: new BN(0),
+      yieldAccrued: new BN(0),
+      guaranteeFundBalance: new BN(0),
+      totalProtocolFeeAccrued: new BN(0),
+      yieldPrincipalDeposited: new BN(0),
+      defaultedMembers: 0,
+      slotsBitmap: Buffer.from([0x07, 0, 0, 0, 0, 0, 0, 0]),
+      bump: poolBump,
+      escrowVaultBump: escrowBump,
+      solidarityVaultBump: solidarityBump,
+      yieldVaultBump: yieldVaultBump,
+    });
+
+    // YieldVaultState — what `init_vault` on yield-mock would have written.
+    // Seeded directly so we don't need to run init_vault as a setup tx.
+    const [, yieldStateBump] = yieldVaultStatePda(env.ids.yieldMock, poolPk);
+    await writeAnchorAccount(env.context, env.programs.yieldMock, "yieldVaultState", yieldStatePk, {
+      pool: poolPk,
+      underlyingMint: usdcMint,
+      vault: yieldVault,
+      trackedPrincipal: new BN(0),
+      bump: yieldStateBump,
+    });
+  });
+
+  it("the app-built deposit_idle_to_yield($3) instruction is accepted + USDC flows pool → yield-vault", async function () {
+    // ─── Snapshot pre-state ──────────────────────────────────────
+    const poolVaultBefore = await readTokenBalance(env, poolUsdcVault);
+    const yieldVaultBefore = await readTokenBalance(env, yieldVault);
+    const poolBefore = await (env.programs.core.account as any).pool.fetch(poolPk);
+
+    expect(poolVaultBefore).to.equal(POOL_VAULT_FUND);
+    expect(yieldVaultBefore).to.equal(0n);
+    expect(poolBefore.yieldPrincipalDeposited.toString()).to.equal("0");
+
+    // ─── Build via the APP ENCODER + send ────────────────────────
+    const ix = buildDepositIdleToYieldIx({
+      pool: poolPk,
+      caller: cranker.publicKey,
+      amount: DEPOSIT_AMOUNT,
+      yieldVault,
+      yieldAdapterProgram: env.ids.yieldMock,
+      programIds: { core: env.ids.core },
+      usdcMint,
+    });
+
+    const tx = new Transaction().add(ix);
+    tx.feePayer = cranker.publicKey;
+    tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+    tx.sign(cranker);
+
+    await env.context.banksClient.processTransaction(tx);
+
+    // ─── Snapshot post-state ─────────────────────────────────────
+    const poolVaultAfter = await readTokenBalance(env, poolUsdcVault);
+    const yieldVaultAfter = await readTokenBalance(env, yieldVault);
+    const poolAfter = await (env.programs.core.account as any).pool.fetch(poolPk);
+
+    // Invariant 1: USDC flowed pool vault → yield-mock vault by `amount`
+    expect(poolVaultBefore - poolVaultAfter).to.equal(DEPOSIT_AMOUNT);
+    expect(yieldVaultAfter - yieldVaultBefore).to.equal(DEPOSIT_AMOUNT);
+
+    // Invariant 2: pool.yield_principal_deposited += amount
+    expect(poolAfter.yieldPrincipalDeposited.toString()).to.equal(DEPOSIT_AMOUNT.toString());
   });
 });
