@@ -1,0 +1,123 @@
+name: Publish SDK
+
+# Publishes `@roundfi/sdk` to npm on tag push matching `sdk-v*`.
+#
+# Tag pattern: `sdk-v<semver>` (e.g., `sdk-v0.1.0-alpha.0`, `sdk-v1.0.0`).
+# Pre-1.0 versions ship under the `alpha` dist-tag (`npm install @roundfi/sdk@alpha`).
+# 1.0+ versions ship under `latest`.
+#
+# Provenance: enabled (`npm publish --provenance`) so consumers can verify
+# the package came from this repo + this workflow.
+#
+# Prereqs (off-protocol, one-time):
+#   1. Register the `@roundfi` npm organization
+#   2. Create an npm automation token with publish access
+#   3. Store it as `NPM_TOKEN` repo secret
+#
+# Tracked under: issue #273.
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+
+  # Manual trigger for dry-run or initial publish before the first tag.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run only (don't actually publish)"
+        type: boolean
+        default: false
+      dist_tag:
+        description: "npm dist-tag (alpha / beta / latest)"
+        type: string
+        default: "alpha"
+
+concurrency:
+  group: publish-sdk-${{ github.ref }}
+  cancel-in-progress: false # don't cancel publish mid-flight
+
+jobs:
+  publish:
+    name: publish · @roundfi/sdk
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Enable Corepack (pnpm)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build SDK (produces sdk/dist/)
+        run: pnpm --filter @roundfi/sdk build
+
+      - name: Typecheck SDK
+        run: pnpm --filter @roundfi/sdk typecheck
+
+      - name: Verify sdk/dist/ exists
+        run: |
+          test -f sdk/dist/index.js
+          test -f sdk/dist/index.d.ts
+          echo "sdk/dist/ artifacts present:"
+          ls -la sdk/dist/ | head -20
+
+      - name: Resolve dist-tag from version
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.dist_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            # Tag-driven release. Inspect the package version for a
+            # prerelease identifier (alpha/beta/rc) → dist-tag matches.
+            version=$(node -p "require('./sdk/package.json').version")
+            echo "Version from package.json: $version"
+            case "$version" in
+              *-alpha*) echo "tag=alpha" >> "$GITHUB_OUTPUT" ;;
+              *-beta*) echo "tag=beta" >> "$GITHUB_OUTPUT" ;;
+              *-rc*) echo "tag=rc" >> "$GITHUB_OUTPUT" ;;
+              *) echo "tag=latest" >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+      - name: Publish (dry-run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: |
+          cd sdk
+          npm publish --access=public --tag=${{ steps.tag.outputs.tag }} --provenance --dry-run
+
+      - name: Publish to npm
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd sdk
+          npm publish --access=public --tag=${{ steps.tag.outputs.tag }} --provenance
+
+      - name: Summary
+        if: always()
+        run: |
+          version=$(node -p "require('./sdk/package.json').version")
+          tag=${{ steps.tag.outputs.tag }}
+          echo "### SDK release summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | \`@roundfi/sdk\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`$version\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| dist-tag | \`$tag\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Provenance | enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| Install | \`npm install @roundfi/sdk@$tag\` |" >> $GITHUB_STEP_SUMMARY
