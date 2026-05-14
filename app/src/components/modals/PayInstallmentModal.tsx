@@ -9,6 +9,7 @@ import { ATTESTATION_SCHEMA } from "@roundfi/sdk";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
+import { IntentPanel } from "@/components/ui/IntentPanel";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendContribute } from "@/lib/contribute";
@@ -50,7 +51,8 @@ export function PayInstallmentModal({
   const { payInstallment, user, monthsPaidByGroup } = useSession();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
-  const { explorerTx } = useWallet();
+  const wallet = useWallet();
+  const { explorerTx } = wallet;
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [txSig, setTxSig] = useState<string | null>(null);
@@ -449,8 +451,25 @@ export function PayInstallmentModal({
             </div>
           )}
 
+          {/* Pre-sign intent panel (#249 W3) — gated on on-chain mode.
+              Renders authoritative tx summary inside our UI so the user
+              has a reference to cross-check Phantom's prompt against
+              (phishing-resistance). Hidden in mock mode since no real
+              tx fires. */}
+          {onChainReady && !blocked && (
+            <IntentPanel
+              action="contribute"
+              amountUsdc={Number(onChainPool.pool!.installmentAmount) / 1e6}
+              poolLabel={group.name}
+              network={wallet.network}
+              walletLabel={wallet.walletLabel}
+              isHardware={wallet.isHardware}
+              isUnknownWallet={wallet.isUnknownWallet}
+            />
+          )}
+
           {/* Footer */}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
             <button type="button" onClick={reset} style={ghostBtn(tokens)}>
               {t("modal.cancel")}
             </button>
