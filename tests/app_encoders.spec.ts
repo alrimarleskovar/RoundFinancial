@@ -62,6 +62,7 @@ import { buildClaimPayoutIx } from "../app/src/lib/claim-payout";
 import { buildReleaseEscrowIx } from "../app/src/lib/release-escrow";
 import { buildEscapeValveListIx } from "../app/src/lib/escape-valve-list";
 import { buildDepositIdleToYieldIx } from "../app/src/lib/deposit-idle-to-yield";
+import { buildEscapeValveBuyIx } from "../app/src/lib/escape-valve-buy";
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "../app/src/lib/devnet";
 import type { TransactionInstruction } from "@solana/web3.js";
 
@@ -93,6 +94,8 @@ function key(ix: TransactionInstruction, idx: number) {
 const POOL = Keypair.generate().publicKey;
 const MEMBER = Keypair.generate().publicKey;
 const BUYER = Keypair.generate().publicKey;
+const SELLER = Keypair.generate().publicKey;
+const NFT_ASSET = Keypair.generate().publicKey;
 const YIELD_VAULT = Keypair.generate().publicKey;
 const YIELD_ADAPTER_PROGRAM = Keypair.generate().publicKey;
 const CORE = DEVNET_PROGRAM_IDS.core;
@@ -341,9 +344,99 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
     });
   });
 
+  describe("buildEscapeValveBuyIx", () => {
+    const priceUsdc = BigInt(14_000_000); // $14 USDC, 6 decimals
+    const slotIndex = 1;
+    const ix = buildEscapeValveBuyIx({
+      pool: POOL,
+      buyerWallet: BUYER,
+      sellerWallet: SELLER,
+      slotIndex,
+      nftAsset: NFT_ASSET,
+      priceUsdc,
+    });
+
+    it("uses sha256(global:escape_valve_buy)[:8] as discriminator", () => {
+      const expected = expectedDiscriminator("escape_valve_buy");
+      expect(ix.data.subarray(0, 8).toString("hex")).to.equal(expected.toString("hex"));
+    });
+
+    it("encodes [discriminator | price_usdc u64 LE] = 16 bytes", () => {
+      expect(ix.data.length).to.equal(16);
+      expect(ix.data.readBigUInt64LE(8)).to.equal(priceUsdc);
+    });
+
+    it("has 15 accounts in the program-mandated order", () => {
+      // Mirrors EscapeValveBuy<'info> in escape_valve_buy.rs.
+      expect(ix.keys.length).to.equal(15);
+    });
+
+    it("places the buyer wallet as signer at index 0", () => {
+      expect(key(ix, 0).pubkey.toBase58()).to.equal(BUYER.toBase58());
+      expect(key(ix, 0).isSigner).to.equal(true);
+      expect(key(ix, 0).isWritable).to.equal(true);
+    });
+
+    it("places the seller wallet (writable, non-signer) at index 1", () => {
+      // Seller receives the listing-rent refund + USDC payment, so it's
+      // writable. It's a non-signer because the buyer is the only
+      // signer in this tx — the seller pre-signed by listing.
+      expect(key(ix, 1).pubkey.toBase58()).to.equal(SELLER.toBase58());
+      expect(key(ix, 1).isSigner).to.equal(false);
+      expect(key(ix, 1).isWritable).to.equal(true);
+    });
+
+    it("derives the canonical Listing + old/new Member PDAs", () => {
+      const [listing] = listingPda(CORE, POOL, slotIndex);
+      const [oldMember] = memberPda(CORE, POOL, SELLER);
+      const [newMember] = memberPda(CORE, POOL, BUYER);
+      expect(key(ix, 4).pubkey.toBase58()).to.equal(listing.toBase58());
+      expect(key(ix, 5).pubkey.toBase58()).to.equal(oldMember.toBase58());
+      expect(key(ix, 6).pubkey.toBase58()).to.equal(newMember.toBase58());
+    });
+
+    it("places the NFT asset (writable) + position authority PDA in the mpl-core block", () => {
+      expect(key(ix, 10).pubkey.toBase58()).to.equal(NFT_ASSET.toBase58());
+      expect(key(ix, 10).isWritable).to.equal(true);
+      // Position authority is read-only — it's the signing PDA on the
+      // freeze/transfer/approve CPIs, not a balance-holding account.
+      expect(key(ix, 11).isWritable).to.equal(false);
+    });
+
+    it("references mpl-core, SPL Token, and System programs in the trailing block", () => {
+      // mpl-core program ID is constant across clusters
+      // (CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d).
+      expect(key(ix, 12).pubkey.toBase58()).to.equal(
+        "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
+      );
+      expect(key(ix, 13).pubkey.toBase58()).to.equal(TOKEN_PROGRAM_ID.toBase58());
+      expect(key(ix, 14).pubkey.toBase58()).to.equal(SystemProgram.programId.toBase58());
+    });
+
+    it("derives the buyer + seller USDC ATAs at indices 8 + 9", () => {
+      const buyerUsdc = getAssociatedTokenAddressSync(USDC, BUYER);
+      const sellerUsdc = getAssociatedTokenAddressSync(USDC, SELLER);
+      expect(key(ix, 8).pubkey.toBase58()).to.equal(buyerUsdc.toBase58());
+      expect(key(ix, 9).pubkey.toBase58()).to.equal(sellerUsdc.toBase58());
+    });
+
+    it("accepts both bigint and number for priceUsdc", () => {
+      // Number conversion path — under 2^53 so no precision loss.
+      const ixNum = buildEscapeValveBuyIx({
+        pool: POOL,
+        buyerWallet: BUYER,
+        sellerWallet: SELLER,
+        slotIndex,
+        nftAsset: NFT_ASSET,
+        priceUsdc: 14_000_000,
+      });
+      expect(ixNum.data.readBigUInt64LE(8)).to.equal(priceUsdc);
+    });
+  });
+
   describe("cross-encoder invariants", () => {
-    it("all encoders embed the canonical roundfi-core program ID", () => {
-      const ixs = [
+    function allIxs() {
+      return [
         buildContributeIx({ pool: POOL, memberWallet: MEMBER, cycle: 0 }),
         buildClaimPayoutIx({ pool: POOL, memberWallet: MEMBER, cycle: 0, slotIndex: 0 }),
         buildReleaseEscrowIx({ pool: POOL, memberWallet: MEMBER, checkpoint: 1 }),
@@ -355,47 +448,36 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
           yieldVault: YIELD_VAULT,
           yieldAdapterProgram: YIELD_ADAPTER_PROGRAM,
         }),
+        buildEscapeValveBuyIx({
+          pool: POOL,
+          buyerWallet: BUYER,
+          sellerWallet: SELLER,
+          slotIndex: 0,
+          nftAsset: NFT_ASSET,
+          priceUsdc: 1,
+        }),
       ];
-      for (const ix of ixs) {
+    }
+
+    it("all encoders embed the canonical roundfi-core program ID", () => {
+      for (const ix of allIxs()) {
         expect(ix.programId.toBase58()).to.equal(CORE.toBase58());
       }
     });
 
     it("all encoders' discriminators are byte-distinct (no copy-paste collisions)", () => {
-      const discriminators = [
-        buildContributeIx({ pool: POOL, memberWallet: MEMBER, cycle: 0 }).data.subarray(0, 8),
-        buildClaimPayoutIx({
-          pool: POOL,
-          memberWallet: MEMBER,
-          cycle: 0,
-          slotIndex: 0,
-        }).data.subarray(0, 8),
-        buildReleaseEscrowIx({ pool: POOL, memberWallet: MEMBER, checkpoint: 1 }).data.subarray(
-          0,
-          8,
-        ),
-        buildEscapeValveListIx({
-          pool: POOL,
-          sellerWallet: MEMBER,
-          slotIndex: 0,
-          priceUsdc: 1,
-        }).data.subarray(0, 8),
-        buildDepositIdleToYieldIx({
-          pool: POOL,
-          caller: BUYER,
-          amount: 1,
-          yieldVault: YIELD_VAULT,
-          yieldAdapterProgram: YIELD_ADAPTER_PROGRAM,
-        }).data.subarray(0, 8),
-      ];
-      const hex = discriminators.map((d) => d.toString("hex"));
-      const unique = new Set(hex);
+      const discriminators = allIxs().map((ix) => ix.data.subarray(0, 8).toString("hex"));
+      const unique = new Set(discriminators);
       expect(unique.size).to.equal(discriminators.length);
     });
 
     it("each encoder uses the same ProtocolConfig PDA derivation", () => {
       const [canonicalConfig] = protocolConfigPda(CORE);
-      const ixs = [
+      // Most encoders place config at index 1 (right after the signer
+      // at 0). `escape_valve_buy` is the exception — it puts the seller
+      // at index 1 (recipient of the USDC transfer + rent refund) and
+      // shifts config to index 2.
+      const configAtOne = [
         buildContributeIx({ pool: POOL, memberWallet: MEMBER, cycle: 0 }),
         buildClaimPayoutIx({ pool: POOL, memberWallet: MEMBER, cycle: 0, slotIndex: 0 }),
         buildReleaseEscrowIx({ pool: POOL, memberWallet: MEMBER, checkpoint: 1 }),
@@ -408,10 +490,18 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
           yieldAdapterProgram: YIELD_ADAPTER_PROGRAM,
         }),
       ];
-      // Config sits at index 1 in every encoder (after the signer at 0).
-      for (const ix of ixs) {
+      for (const ix of configAtOne) {
         expect(key(ix, 1).pubkey.toBase58()).to.equal(canonicalConfig.toBase58());
       }
+      const ixBuy = buildEscapeValveBuyIx({
+        pool: POOL,
+        buyerWallet: BUYER,
+        sellerWallet: SELLER,
+        slotIndex: 0,
+        nftAsset: NFT_ASSET,
+        priceUsdc: 1,
+      });
+      expect(key(ixBuy, 2).pubkey.toBase58()).to.equal(canonicalConfig.toBase58());
     });
   });
 });

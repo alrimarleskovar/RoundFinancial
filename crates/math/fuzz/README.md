@@ -72,15 +72,61 @@ initial corpus seeds (one per target) live in `corpus/` already.
 
 ## CI
 
-`.github/workflows/fuzz.yml` runs each target for 60 seconds on every
-PR touching `crates/math/**`. Per-target results land as artifacts.
+**Two lanes** — short on every PR, long once a week.
+
+### Lane 1 — PR-time smoke (`fuzz.yml`)
+
+Runs each target for 60 seconds on every PR touching `crates/math/**`.
+Catches regressions / new crashes against the **existing committed
+corpus**. Per-target results land as workflow artifacts (14d).
 
 Advisory-only on day 1 (`continue-on-error: true`) — flip to required
 after 2-3 green PR runs. Same pattern as `coverage.yml` + `e2e.yml`.
 
-A longer scheduled job (weekly, ~30min per target) is the natural
-follow-up — pushes new corpus inputs back to the repo for cross-
-run coverage gain. Tracked as W2 under #284.
+### Lane 2 — scheduled long-run (`fuzz-scheduled.yml`)
+
+Runs every Monday at 06:00 UTC (`workflow_dispatch` for manual triggers
+with a duration / target-filter override). Each target gets **30 min**
+of coverage-guided mutation against an **evolving corpus**:
+
+1. Downloads the previous scheduled run's `merged-corpus-<target>`
+   artifact (if any) and uses it as the starting corpus
+2. Runs `cargo fuzz run` for 30 min
+3. Runs `cargo fuzz cmin` to minimize (deduplicate) the corpus
+4. Uploads the new merged corpus as `merged-corpus-<target>` for the
+   next run (90d retention — never expires while the schedule is live)
+5. Uploads logs + any crash artifacts (`fuzz-scheduled-<target>`, 30d)
+
+The two lanes together give us:
+
+- **Fast feedback** on every PR (60s × 4 = 4 min total)
+- **Cumulative coverage** across weeks (30 min × 4 = 2h per week,
+  starting fresh corpora that grow over time)
+- **Bounded CI cost** — the long lane only runs once per week
+
+### Promoting corpus inputs to the repo
+
+The scheduled lane's `merged-corpus-<target>` artifact is **ephemeral**
+(re-uploaded each run, 90d expiry). To make a corpus input permanent,
+pull it down and commit it to `crates/math/fuzz/corpus/<target>/`:
+
+```bash
+# Pull the latest merged corpus from the most recent scheduled run
+gh run download --name merged-corpus-cascade -D /tmp/cascade-corpus
+
+# Manually inspect the corpus — keep the most "interesting" inputs
+# (the ones that triggered new coverage in the last run)
+ls -la /tmp/cascade-corpus
+
+# Copy selectively into the repo
+cp /tmp/cascade-corpus/<input-hash> crates/math/fuzz/corpus/cascade/
+git add crates/math/fuzz/corpus/cascade/
+git commit -m "fuzz: add scheduled-lane corpus inputs for cascade target"
+```
+
+Manual rather than auto-commit by design: the repo doesn't need every
+mutation, and auto-commit by a bot would add noise + risk runaway
+corpus growth.
 
 ## Why `crates/math/fuzz` is NOT a workspace member
 
