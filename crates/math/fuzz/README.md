@@ -1,0 +1,103 @@
+# `roundfi-math` fuzz lane
+
+Coverage-guided fuzzing for the pure-Rust actuarial math crate, using
+[`cargo-fuzz`](https://rust-fuzz.github.io/book/cargo-fuzz.html) +
+libFuzzer. Foundation under issue
+[#284](https://github.com/alrimarleskovar/RoundFinancial/issues/284).
+
+## Why fuzz on top of existing proptest
+
+`crates/math/src/waterfall.rs` already ships 6 proptest invariants
+(~1500 random cases per `cargo test`) per ADR
+[0004](../../../docs/adr/0004-extract-roundfi-math-crate.md).
+proptest samples the input space **uniformly** — fine for invariant
+verification, but libFuzzer is **coverage-guided**: it preferentially
+mutates inputs that exercise new code paths. The two layers find
+different bug classes:
+
+| Layer        | Catches                                             | Sampling                 |
+| ------------ | --------------------------------------------------- | ------------------------ |
+| `proptest`   | Invariant violations under uniform input            | Random within strategy   |
+| `cargo-fuzz` | Crashes, overflows, edge cases at branch boundaries | Coverage-guided mutation |
+
+Mature financial / crypto Rust projects (`subtle`, `ring`,
+`solana-program`'s borsh decode) ship both for this reason.
+
+## Targets (4)
+
+| Target           | Module                                                      | Invariants asserted                                                            |
+| ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `cascade`        | `cascade.rs::seize_for_default`                             | `total <= missed`; per-source caps; solidarity-before-escrow ordering          |
+| `waterfall`      | `waterfall.rs::waterfall`                                   | strict conservation; GF cap; no bucket > yield                                 |
+| `dc_invariant`   | `dc.rs::dc_invariant_holds` + `max_seizure_respecting_dc`   | post-seizure D/C still holds; cap-down only; never panics                      |
+| `escrow_vesting` | `escrow_vesting.rs::cumulative_vested` + `releasable_delta` | monotonicity in k; exact-principal rule at final checkpoint; delta consistency |
+
+## Run locally
+
+Needs the **nightly** toolchain — cargo-fuzz / libfuzzer-sys
+requirement (the workspace crate itself stays on stable).
+
+```bash
+# One-time setup
+rustup toolchain install nightly
+cargo install cargo-fuzz --locked
+
+# Run a single target for 60 seconds
+cd crates/math/fuzz
+cargo +nightly fuzz run cascade -- -max_total_time=60
+
+# Run all targets, longer
+for t in cascade waterfall dc_invariant escrow_vesting; do
+  cargo +nightly fuzz run $t -- -max_total_time=300
+done
+```
+
+cargo-fuzz writes crashes to `crates/math/fuzz/fuzz/artifacts/<target>/`
+and adds interesting inputs to `corpus/<target>/` automatically. The
+initial corpus seeds (one per target) live in `corpus/` already.
+
+## How to triage a crash
+
+1. cargo-fuzz prints a path like `crashes/crash-<sha>` on a finding.
+2. Reproduce: `cargo +nightly fuzz run <target> crashes/crash-<sha>`
+   — re-runs the target with just that single input.
+3. The input is interpreted by `arbitrary` per the target's
+   `FuzzXxxInput` struct — read it back with `Arbitrary::arbitrary`
+   from the same struct to inspect the field values.
+4. If it's a real bug: write a regression test in
+   `crates/math/src/<module>.rs::tests` first, then fix.
+5. If it's a fuzzing artifact (e.g., a wraparound that's intentional
+   and bounded elsewhere): document why it's not a bug, and add it
+   to `corpus/<target>/` so future fuzz runs deprioritize it.
+
+## CI
+
+`.github/workflows/fuzz.yml` runs each target for 60 seconds on every
+PR touching `crates/math/**`. Per-target results land as artifacts.
+
+Advisory-only on day 1 (`continue-on-error: true`) — flip to required
+after 2-3 green PR runs. Same pattern as `coverage.yml` + `e2e.yml`.
+
+A longer scheduled job (weekly, ~30min per target) is the natural
+follow-up — pushes new corpus inputs back to the repo for cross-
+run coverage gain. Tracked as W2 under #284.
+
+## Why `crates/math/fuzz` is NOT a workspace member
+
+cargo-fuzz needs:
+
+- nightly toolchain (for `-Cinstrument-coverage` flags)
+- `libfuzzer-sys` linker setup (custom build script)
+- different release profile
+
+Including it as a workspace member would force the rest of the
+workspace to deal with these settings. Cleaner to exclude it (see
+`Cargo.toml` `workspace.exclude`), keep stable Rust everywhere else,
+and have the fuzz lane install nightly + cargo-fuzz on its own runner.
+
+## References
+
+- ADR [0004](../../../docs/adr/0004-extract-roundfi-math-crate.md) — math crate extraction (proptest already integrated)
+- Issue [#284](https://github.com/alrimarleskovar/RoundFinancial/issues/284) — original proposal
+- [cargo-fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
+- Sister advisory lanes: `coverage.yml`, `e2e.yml`
