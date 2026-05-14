@@ -17,6 +17,55 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ---
 
+## [0.4.0] — 2026-05-14 (Audit-readiness consolidation + app↔chain wiring)
+
+Post-Colosseum sprint focused on external-auditor pre-engagement docs, app↔chain encoder coverage, and security infrastructure (wallet allowlist, RPC quorum, phishing-resistance, indexer reconciler). 4 issues closed (#228, #229, #232, #234); 5 issues with partial progress (#235, #249, #227, #230, #233).
+
+### Added
+
+- **`MAINNET_READINESS.md`** at repo root — single-source devnet→GA checklist; 7 sections × status flags (✅/🟡/🔵/⛔); 9 hard blockers explicitly marked (#250).
+- **`docs/security/README.md`** — navigation index for the 7 security docs (reading order, time estimates, cross-refs).
+- **`docs/security/adversarial-threat-model.md`** — 6 adversarial scenarios beyond direct default: Sybil cost tables (N=10/100/1000), reputation farming, strategic ordering, malicious Community Pool leader, pool spam, MEV cross-ref (#248).
+- **`docs/security/frontend-security-checklist.md`** — 10-threat UX-side checklist (T1-T10); explicit mainnet blockers + 8 already-shipped items with file:line evidence (#251).
+- **`docs/security/indexer-threat-model.md`** — 19-threat off-chain consistency analysis (ingestion / reorg / storage / privacy) (#252).
+- **`docs/security/mev-front-running.md`** — Solana ordering model + 6-instruction surface enumeration; closes #232 (#254, #255).
+- **`docs/architecture/pop-provider-evaluation.md`** — 4-candidate PoP evaluation (VeryAI / WorldID / Sumsub / Privado ID) with 9-criterion matrix (#262, towards #227).
+- **`docs/operations/agave-2x-migration-plan.md`** — risk register (R1-R7) + 4-phase sequencing for Solana 1.18 → Agave 2.x toolchain bump (#262, towards #230).
+- **`docs/operations/indexer-reorg-recovery.md`** — on-call runbook for indexer reorg events; P1-P3 triage (#258).
+- **`crates/math/` workspace member** — pure-Rust math extracted from `programs/roundfi-core/src/math/` (1233 LoC, 6 modules, 66 unit tests + 6 proptest invariants, zero Solana deps); closes #229 (#257).
+- **`services/indexer/src/reconciler.ts`** — finality gate (32 slots) + RPC quorum + cross-validation via `getSignaturesForAddress`; closes #234 (#258).
+- **`app/src/lib/walletAllowlist.ts`** — Phantom/Solflare/Backpack/Glow/Nightly/Ledger/Trezor allowlist with hardware-wallet detection (#249 W1, #259).
+- **`app/src/lib/domainPinning.ts` + `PhishingBanner`** — canonical domains allowlist with red banner for unknown hostnames; SSR-safe (#249 W3, #263).
+- **`app/src/components/ui/IntentPanel.tsx`** — human-readable transaction summary before wallet prompt; 8 actions supported (#249 W3, #263).
+- **`app/src/lib/rpcAllowlist.ts`** — RPC endpoint allowlist + quorum scaffolding (`readAccountQuorum`) (#249 W2, #264).
+- **SDK encoders** (app↔chain wiring towards #235):
+  - `app/src/lib/release-escrow.ts` (#260)
+  - `app/src/lib/escape-valve-list.ts` (#261)
+  - `app/src/lib/deposit-idle-to-yield.ts` (#261)
+- **Stress-lab extended presets** — 11 new presets (pool-size, tier-mix, default-position, yield-extreme dimensions); test count 34 → 45; closes #228 (#256).
+- **`/reputacao` Devnet/Demo data-source banner** — visual disclosure of on-chain vs session-reducer reflection (#253).
+- **README + AUDIT_SCOPE softening** — pitch-vs-shipped honest framing pass (#246).
+- **External auditor self-attestation matrix** — `self-audit.md §10` with 10 auditor-first-pass concerns mapped to source + tests (#247).
+
+### Changed
+
+- **`AUDIT_SCOPE.md`** — MEV review row moved from out-of-scope to addressed (closes #232) (#255).
+- **`programs/roundfi-core/src/math/mod.rs`** — now a thin adapter layer; re-exports from `roundfi-math` crate; maps `MathError` → `anchor_lang::error::Error` (#257).
+- **`programs/roundfi-core/Cargo.toml`** — adds `roundfi-math = { path = "../../crates/math" }`; `proptest` moved to roundfi-math dev-deps.
+- **`tests/economic_parity.spec.ts`** — adds 11 new per-preset smoke tests under "L1 stress-lab sanity — extended presets (Issue #228)" describe block.
+- **`MAINNET_READINESS.md §5.2`** — indexer reconciler row moved from `🔵 Pending` to `🟡 Partial` after #258 ships.
+- **`docs/security/indexer-threat-model.md §2.2`** — R1/R2/R3 moved from `🔵 Pending` to `🟡 Partial` with file:line refs to `reconciler.ts`.
+
+### Fixed
+
+- **D/C invariant exhaustive grid test** — pre-existing test bug surfaced when math crate moved to host execution; gate added to skip pre-violation states the helper can't fix (#257).
+
+### Reference branches (not merged to main)
+
+- **`chore/riptide-spike`** — Riptide v0.9.1 evaluation. Engine boots, loads `roundfi_core.so`, but 864 dispatches fail with `Custom(3002)` because no setup harness. Concluded: 4 architectural walls (no custom semantic class, no [setup] block, no mpl-core support, schema fragility). Issue #228 covers the quantitative-stress goal instead. Reference branch preserved for future revisit if Riptide ships a `generic.v2` class.
+
+---
+
 ## [0.3.0] — 2026-05-12 (M3 — Colosseum hackathon submission)
 
 Snapshot of the protocol state at hackathon submission: 4 Anchor programs on Solana devnet, browser-signed user flows for `contribute` + `claim_payout`, full audit-readiness pack, OtterSec verify-build attestation PDAs for every deployed program.
