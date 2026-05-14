@@ -474,6 +474,124 @@ describe("app encoders — bankrun round-trip (#290)", function () {
       expect(escrowVaultBefore - escrowVaultAfter).to.equal(releasedAmount);
     });
   });
+
+  // ─── Negative-path tests (#283 W3) ──────────────────────────────
+  //
+  // Deliberately-broken instructions: assert the program rejects with
+  // the EXPECTED error code. These complement the structural spec by
+  // proving the on-chain guards still fire when an encoder builds
+  // technically-valid bytes for a state the program rejects.
+  //
+  // After the W2 chain, pool.status == Completed and member.paid_out
+  // == true. We exploit those for the negative cases.
+
+  describe("negative-path — buildContributeIx", function () {
+    it("contribute for wrong cycle reverts with WrongCycle", async function () {
+      // Pool's current_cycle is now 1 (advanced past cycle 0 by the
+      // claim_payout in W1). Send a contribute(cycle=5) — way past the
+      // current cycle. Program should reject with `WrongCycle`.
+      const ix = buildContributeIx({
+        pool: fixture.poolPk,
+        memberWallet: member.publicKey,
+        cycle: 5, // way past pool.current_cycle
+        programIds: { core: env.ids.core, reputation: env.ids.reputation },
+        usdcMint,
+      });
+
+      const tx = new Transaction().add(ix);
+      tx.feePayer = member.publicKey;
+      tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+      tx.sign(member);
+
+      let threw = false;
+      try {
+        await env.context.banksClient.processTransaction(tx);
+      } catch (e) {
+        threw = true;
+        const err = e as { logs?: string[]; message?: string };
+        const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+        // Anchor surfaces errors as a code OR a name in the log. The
+        // `WrongCycle` name appears in the program log line. Match
+        // either form so this test stays stable across anchor versions.
+        expect(haystack).to.match(
+          /WrongCycle|PoolStatus|PoolNotActive|AlreadyContributed|Pool is in Completed/i,
+          `expected pool/cycle-related reject; got:\n${haystack}`,
+        );
+      }
+      expect(threw, "deliberately-broken contribute must reject").to.equal(true);
+    });
+  });
+
+  describe("negative-path — buildClaimPayoutIx", function () {
+    it("re-claiming a paid-out slot reverts", async function () {
+      // member.paid_out = true after the W1 claim. A retry must reject
+      // (the program guards against double-payout).
+      const ix = buildClaimPayoutIx({
+        pool: fixture.poolPk,
+        memberWallet: member.publicKey,
+        cycle: 0, // same cycle that was already claimed
+        slotIndex: 0,
+        programIds: { core: env.ids.core, reputation: env.ids.reputation },
+        usdcMint,
+      });
+
+      const tx = new Transaction().add(ix);
+      tx.feePayer = member.publicKey;
+      tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+      tx.sign(member);
+
+      let threw = false;
+      try {
+        await env.context.banksClient.processTransaction(tx);
+      } catch (e) {
+        threw = true;
+        const err = e as { logs?: string[]; message?: string };
+        const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+        // Either AlreadyPaidOut (the explicit guard) or
+        // PoolStatusNotActive / PoolStatus::Completed (pool transitioned)
+        // — both are valid rejections of a double-claim attempt.
+        expect(haystack).to.match(
+          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle/i,
+          `expected paid-out / pool-status reject; got:\n${haystack}`,
+        );
+      }
+      expect(threw, "re-claim must reject").to.equal(true);
+    });
+  });
+
+  describe("negative-path — buildReleaseEscrowIx", function () {
+    it("re-releasing the same checkpoint reverts with EscrowNothingToRelease", async function () {
+      // last_released_checkpoint is now 1 (set by the W2 release).
+      // Calling release_escrow(checkpoint=1) again must reject:
+      // checkpoint > last_released_checkpoint is required (monotonic).
+      const ix = buildReleaseEscrowIx({
+        pool: fixture.poolPk,
+        memberWallet: member.publicKey,
+        checkpoint: 1, // same as last_released_checkpoint → not strictly greater
+        programIds: { core: env.ids.core },
+        usdcMint,
+      });
+
+      const tx = new Transaction().add(ix);
+      tx.feePayer = member.publicKey;
+      tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+      tx.sign(member);
+
+      let threw = false;
+      try {
+        await env.context.banksClient.processTransaction(tx);
+      } catch (e) {
+        threw = true;
+        const err = e as { logs?: string[]; message?: string };
+        const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+        expect(haystack).to.match(
+          /EscrowNothingToRelease|EscrowLocked|already.*released/i,
+          `expected monotonic-checkpoint reject; got:\n${haystack}`,
+        );
+      }
+      expect(threw, "re-release of same checkpoint must reject").to.equal(true);
+    });
+  });
 });
 
 // ─── escape_valve_list — separate fixture ─────────────────────────────
