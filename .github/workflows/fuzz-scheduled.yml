@@ -1,0 +1,194 @@
+name: Fuzz · scheduled long-run
+
+# Long-running coverage-guided fuzz on `roundfi-math`. Companion to
+# `.github/workflows/fuzz.yml` (the PR-time 60s smoke). This workflow
+# runs each target for 30 min by default and uploads any new corpus
+# inputs + crash artifacts for human triage.
+#
+# Why a separate workflow:
+#   - PR fuzz lane runs every PR (must stay fast — <5 min total)
+#   - Scheduled lane runs once a week (can spend 30 min × 4 targets =
+#     2h of CPU); finds bugs the 60s smoke misses
+#   - Different success criteria — PR lane is "doesn't crash on the
+#     existing corpus"; scheduled lane is "doesn't crash on 30 min of
+#     coverage-guided mutation against an EVOLVING corpus"
+#
+# Corpus management:
+#   - Each scheduled run downloads the previous run's corpus artifact
+#     (`merged-corpus-<target>`) and uses it as the starting point —
+#     this gives cross-run coverage gain
+#   - At the end, the new merged corpus is uploaded as a fresh artifact
+#     (90d retention) for the next run
+#   - Humans can pull the artifact and commit interesting inputs to
+#     `crates/math/fuzz/corpus/<target>/` for permanent retention
+#
+# Tracked under: issue #284 (W2).
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC — off-peak for both US and EU contributors,
+    # gives a fresh report on each week's start. Adjust if needed.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      duration_per_target:
+        description: "Seconds per fuzz target (default 1800 = 30 min)"
+        required: false
+        default: "1800"
+      target_filter:
+        description: "Run only this target (cascade|waterfall|dc_invariant|escrow_vesting); empty = all"
+        required: false
+        default: ""
+
+concurrency:
+  # Only ONE scheduled fuzz at a time per ref. A new schedule + a
+  # manual dispatch back-to-back queues instead of clobbering.
+  group: fuzz-scheduled-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  DURATION_PER_TARGET: ${{ github.event.inputs.duration_per_target || '1800' }}
+
+jobs:
+  list-targets:
+    name: list targets
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.set.outputs.targets }}
+    steps:
+      - id: set
+        run: |
+          filter="${{ github.event.inputs.target_filter }}"
+          if [ -n "$filter" ]; then
+            # Validate against the known target set so a typo doesn't
+            # silently skip everything.
+            case "$filter" in
+              cascade|waterfall|dc_invariant|escrow_vesting)
+                echo "targets=[\"$filter\"]" >> "$GITHUB_OUTPUT"
+                ;;
+              *)
+                echo "::error::Unknown target_filter '$filter' (valid: cascade|waterfall|dc_invariant|escrow_vesting)"
+                exit 1
+                ;;
+            esac
+          else
+            echo 'targets=["cascade","waterfall","dc_invariant","escrow_vesting"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  cargo-fuzz-long:
+    name: fuzz · ${{ matrix.target }} (30min)
+    needs: list-targets
+    runs-on: ubuntu-latest
+    # 30 min run + ~5 min for setup / cargo-fuzz install / artifact
+    # upload. Pad to 45 to absorb runner variance.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read # for downloading the previous run's corpus
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.list-targets.outputs.targets) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cargo-fuzz-scheduled
+          workspaces: crates/math/fuzz -> target
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      # Download the previous scheduled-run's merged corpus, if any.
+      # `continue-on-error` because the first run won't have one.
+      - name: Download previous merged corpus
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: fuzz-scheduled.yml
+          workflow_conclusion: success
+          name: merged-corpus-${{ matrix.target }}
+          path: crates/math/fuzz/corpus/${{ matrix.target }}
+          if_no_artifact_found: warn
+
+      - name: Run fuzz target — ${{ matrix.target }} (30 min)
+        id: fuzz
+        continue-on-error: true
+        working-directory: crates/math/fuzz
+        run: |
+          set +e
+          mkdir -p artifacts
+          cargo +nightly fuzz run ${{ matrix.target }} \
+            -- \
+            -max_total_time=${DURATION_PER_TARGET} \
+            -print_final_stats=1 \
+            -rss_limit_mb=2048 \
+            2>&1 | tee "artifacts/${{ matrix.target }}-run.log"
+          exit_code=${PIPESTATUS[0]}
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "Fuzz exit code: $exit_code"
+          # Always exit 0 from the run step itself — crashes still
+          # land in fuzz/artifacts/<target>/ for the upload step.
+          exit 0
+
+      # `cargo-fuzz cmin` removes redundant inputs (corpus minimization).
+      # Cuts size roughly in half on a typical week's growth without
+      # losing coverage.
+      - name: Minimize corpus
+        if: steps.fuzz.outputs.exit_code == '0'
+        continue-on-error: true
+        working-directory: crates/math/fuzz
+        run: |
+          set +e
+          cargo +nightly fuzz cmin ${{ matrix.target }} 2>&1 | tee "artifacts/${{ matrix.target }}-cmin.log"
+          echo "Corpus after cmin: $(ls corpus/${{ matrix.target }} 2>/dev/null | wc -l) inputs"
+
+      - name: Upload merged corpus (for next scheduled run)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-corpus-${{ matrix.target }}
+          path: crates/math/fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: warn
+          # 90d > weekly cron + a couple of misses — never expires while
+          # the schedule is live.
+          retention-days: 90
+
+      - name: Upload run logs + crash artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-scheduled-${{ matrix.target }}
+          path: |
+            crates/math/fuzz/artifacts/
+            crates/math/fuzz/fuzz/artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Fuzz run summary — \`${{ matrix.target }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Duration | ${DURATION_PER_TARGET}s |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Exit code | ${{ steps.fuzz.outputs.exit_code }} |" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "crates/math/fuzz/artifacts/${{ matrix.target }}-run.log" ]; then
+            stats=$(grep -E "^stat::|cov:|exec/s" "crates/math/fuzz/artifacts/${{ matrix.target }}-run.log" | tail -10)
+            if [ -n "$stats" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              echo "$stats" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
