@@ -840,6 +840,13 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.chip.airdropRate": "Rate-limited · use o faucet",
     "wallet.chip.airdropFailed": "Falhou · tente o faucet",
     "wallet.chip.viewTx": "ver tx ↗",
+    // Wallet allowlist badges (issue #249 workstream 1)
+    "wallet.chip.hwBadge": "🔒 HW",
+    "wallet.chip.hardwareTitle":
+      "Carteira de hardware detectada. Confirme cada transação no dispositivo físico.",
+    "wallet.chip.unknownBadge": "⚠ ?",
+    "wallet.chip.unknownTitle":
+      "Carteira não está na allowlist curada. Devnet permite com aviso; mainnet bloqueia.",
     "wallet.menu.explorer": "Ver no Explorer",
     "wallet.menu.disconnect": "Desconectar",
     "wallet.error.title": "Erro na carteira",
@@ -1728,6 +1735,12 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.chip.airdropRate": "Rate-limited · use the faucet",
     "wallet.chip.airdropFailed": "Failed · try the faucet",
     "wallet.chip.viewTx": "view tx ↗",
+    "wallet.chip.hwBadge": "🔒 HW",
+    "wallet.chip.hardwareTitle":
+      "Hardware wallet detected. Confirm each transaction on the physical device.",
+    "wallet.chip.unknownBadge": "⚠ ?",
+    "wallet.chip.unknownTitle":
+      "Wallet not on the curated allowlist. Devnet allows with warning; mainnet blocks.",
     "wallet.menu.explorer": "View on Explorer",
     "wallet.menu.disconnect": "Disconnect",
     "wallet.error.title": "Wallet error",

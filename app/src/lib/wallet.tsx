@@ -6,6 +6,7 @@ import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-ada
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 
 import { useNetwork } from "@/lib/network";
+import { decideWalletAllowlist, isHardwareWallet } from "@/lib/walletAllowlist";
 
 // RoundFi wallet hook — wraps @solana/wallet-adapter-react to give screens
 // the same shape as the prototype's useWallet(). Covers connect/disconnect,
@@ -24,6 +25,14 @@ export interface WalletView {
   airdropping: boolean;
   isInstalled: boolean;
   walletLabel: string | null;
+  /** `true` iff the connected wallet is a known hardware wallet
+   *  (Ledger, Trezor). UI surfaces a "🔒 Hardware" badge for these.
+   *  Source-of-truth: `walletAllowlist.ts`. */
+  isHardware: boolean;
+  /** `true` iff the connected wallet is NOT on the curated allowlist.
+   *  On devnet this is a soft warning (banner). On mainnet the connect
+   *  would have been blocked before we got here. Issue #249 workstream 1. */
+  isUnknownWallet: boolean;
   connect: () => Promise<{ ok: boolean; reason?: string }>;
   disconnect: () => Promise<{ ok: boolean }>;
   airdrop: (lamports?: number) => Promise<{ ok: boolean; signature?: string; reason?: string }>;
@@ -99,12 +108,32 @@ export function useWallet(): WalletView {
   const connect = useCallback(async (): Promise<{ ok: boolean; reason?: string }> => {
     if (!adapter.wallet) {
       // No wallet selected yet — try picking the first installed one.
-      const installed = adapter.wallets.find((w) => w.readyState === "Installed");
-      if (!installed) {
+      // Issue #249 workstream 1: filter through the wallet allowlist
+      // before auto-selecting. On mainnet, non-allowlisted wallets are
+      // blocked outright; on devnet they're warned (but we still prefer
+      // an allowlisted one when one is available).
+      const installedAllowlisted = adapter.wallets.find(
+        (w) =>
+          w.readyState === "Installed" &&
+          decideWalletAllowlist(w.adapter.name, net.id).kind === "allowed",
+      );
+      const installedAny = adapter.wallets.find((w) => w.readyState === "Installed");
+
+      const chosen = installedAllowlisted ?? installedAny;
+      if (!chosen) {
         setLastError("phantom_not_installed");
         return { ok: false, reason: "phantom_not_installed" };
       }
-      adapter.select(installed.adapter.name);
+
+      // If we fell back to a non-allowlisted wallet on mainnet, refuse
+      // the connect with a typed reason the UI can surface clearly.
+      const decision = decideWalletAllowlist(chosen.adapter.name, net.id);
+      if (decision.kind === "block") {
+        setLastError(decision.reason);
+        return { ok: false, reason: decision.reason };
+      }
+
+      adapter.select(chosen.adapter.name);
       // select() is sync; connecting happens via autoConnect or next call.
     }
     try {
@@ -117,7 +146,7 @@ export function useWallet(): WalletView {
       setLastError(reason);
       return { ok: false, reason };
     }
-  }, [adapter]);
+  }, [adapter, net.id]);
 
   const disconnect = useCallback(async (): Promise<{ ok: boolean }> => {
     try {
@@ -173,6 +202,13 @@ export function useWallet(): WalletView {
     [net.id],
   );
 
+  // Derived allowlist signals — refreshed whenever the wallet selection
+  // changes. These drive the "🔒 Hardware" / "⚠ Unknown wallet" badges
+  // in WalletChip + warning banners around sign actions.
+  const isHardware = isHardwareWallet(walletLabel);
+  const isUnknownWallet =
+    walletLabel != null && decideWalletAllowlist(walletLabel, net.id).kind !== "allowed";
+
   return useMemo<WalletView>(
     () => ({
       status,
@@ -185,6 +221,8 @@ export function useWallet(): WalletView {
       airdropping,
       isInstalled,
       walletLabel,
+      isHardware,
+      isUnknownWallet,
       connect,
       disconnect,
       airdrop,
@@ -202,6 +240,8 @@ export function useWallet(): WalletView {
       airdropping,
       isInstalled,
       walletLabel,
+      isHardware,
+      isUnknownWallet,
       connect,
       disconnect,
       airdrop,
