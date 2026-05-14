@@ -132,6 +132,11 @@ export function attestationPda(
   );
 }
 
+/** Cross-program attestation nonce: (cycle << 32) | slot. Mirrors reputation::cpi. */
+export function attestationNonce(cycle: number, slot: number): bigint {
+  return (BigInt(cycle) << 32n) | BigInt(slot);
+}
+
 export function yieldVaultStatePda(yieldProgram: PublicKey, owner: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([SEED.yieldState, owner.toBuffer()], yieldProgram);
 }
