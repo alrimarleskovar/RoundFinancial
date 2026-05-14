@@ -35,6 +35,11 @@
  * as a follow-up under issue #283.
  *
  * Runs under `pnpm test:app-encoders` (~1s, no validator).
+ *
+ * Companion spec: `tests/app_encoders_bankrun.spec.ts` (issue #290)
+ * sends app-built instructions through bankrun's `BanksClient` and
+ * asserts the on-chain program accepts them + state delta lands.
+ * That spec is the integration gate; this one is the structural gate.
  */
 
 import { expect } from "chai";

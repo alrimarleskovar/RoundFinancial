@@ -65,6 +65,11 @@ export interface BuildClaimPayoutIxArgs {
   cycle: number;
   /** Slot index for the attestation nonce — usually equals cycle. */
   slotIndex: number;
+  /** Optional program ID override — for tests that run against a
+   *  bankrun-deployed program set. Defaults to `DEVNET_PROGRAM_IDS`. */
+  programIds?: { core: PublicKey; reputation: PublicKey };
+  /** Optional USDC mint override — pairs with `programIds` for tests. */
+  usdcMint?: PublicKey;
 }
 
 /**
@@ -72,9 +77,9 @@ export interface BuildClaimPayoutIxArgs {
  * the declaration order from `claim_payout.rs::ClaimPayout<'info>`.
  */
 export function buildClaimPayoutIx(args: BuildClaimPayoutIxArgs): TransactionInstruction {
-  const core = DEVNET_PROGRAM_IDS.core;
-  const reputation = DEVNET_PROGRAM_IDS.reputation;
-  const usdcMint = DEVNET_USDC_MINT;
+  const core = args.programIds?.core ?? DEVNET_PROGRAM_IDS.core;
+  const reputation = args.programIds?.reputation ?? DEVNET_PROGRAM_IDS.reputation;
+  const usdcMint = args.usdcMint ?? DEVNET_USDC_MINT;
 
   const [config] = protocolConfigPda(core);
   const [member] = memberPda(core, args.pool, args.memberWallet);

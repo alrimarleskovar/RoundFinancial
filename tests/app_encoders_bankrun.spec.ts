@@ -1,0 +1,416 @@
+/**
+ * App-encoder bankrun round-trip — closes the deferred W3 of #283.
+ *
+ * The W1+W2 structural spec at `tests/app_encoders.spec.ts` (48 tests,
+ * 60 ms) catches discriminator / account-count / PDA-derivation drift
+ * at zero infra cost. It does NOT catch cases where the encoder
+ * produces a syntactically-correct instruction that the on-chain
+ * program nonetheless rejects (e.g., subtle account-order drift the
+ * structural test missed, or a future Anchor-side `<Accounts>`
+ * constraint that the encoder doesn't satisfy).
+ *
+ * This spec covers that gap by:
+ *
+ *   1. Booting a bankrun environment with all 3 RoundFi programs
+ *      pre-deployed (via `setupBankrunEnv()` — requires `anchor build`)
+ *   2. Seeding ProtocolConfig with `reputation_program = default` so
+ *      the contribute / claim_payout handlers skip the reputation CPI
+ *      branch (the reputation program is loaded in bankrun but its
+ *      CPI surface is exercised by separate `tests/reputation_cpi.spec.ts`
+ *      — we want isolated coverage here, not a re-run of that spec)
+ *   3. Seeding Pool + Member + 4 vault ATAs + member USDC ATA via
+ *      `writeAnchorAccount` / `writeTokenAccount`
+ *   4. Building the contribute / claim_payout instruction via the
+ *      **app encoder** (`buildContributeIx` / `buildClaimPayoutIx` from
+ *      `app/src/lib/`) with `programIds: env.ids` + `usdcMint:` overrides
+ *   5. Sending via `BankrunProvider`-backed `provider.sendAndConfirm`
+ *   6. Asserting:
+ *      - No transaction revert
+ *      - Member state delta matches expected (e.g., contributions_paid++)
+ *      - Pool state delta matches expected (e.g., total_contributed +=)
+ *
+ * Runs under `pnpm test:bankrun` (not the default PR lane — bankrun
+ * requires the IDL files in `target/idl/`, which only exist after a
+ * full `anchor build`). The structural spec at `app_encoders.spec.ts`
+ * remains the fast PR-time gate; this spec is the deeper integration
+ * gate that runs less frequently.
+ *
+ * Tracks issue #290. The original ask:
+ *   "Send app-built instructions via BanksClient and validate the
+ *    program accepts them."
+ */
+
+import { expect } from "chai";
+import { BN } from "@coral-xyz/anchor";
+import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { AccountLayout, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+
+import {
+  escrowVaultAuthorityPda,
+  memberPda,
+  poolPda,
+  protocolConfigPda,
+  solidarityVaultAuthorityPda,
+  yieldVaultAuthorityPda,
+} from "@roundfi/sdk/pda";
+
+import {
+  setupBankrunEnv,
+  writeAnchorAccount,
+  writeMintAccount,
+  writeTokenAccount,
+  type BankrunEnv,
+} from "./_harness/bankrun.js";
+
+import { buildContributeIx } from "../app/src/lib/contribute";
+import { buildClaimPayoutIx } from "../app/src/lib/claim-payout";
+
+// ─── Scenario parameters ─────────────────────────────────────────────
+
+const POOL_SEED_ID = 4242n;
+const MEMBERS_TARGET = 1;
+const CYCLES_TOTAL = 1;
+const CYCLE_DURATION_SEC = 3600n;
+const INSTALLMENT = 5_000_000n; // $5 USDC
+const CREDIT = 5_000_000n; // $5 — solo pool, credit == installment
+const STAKE_INITIAL = 2_500_000n; // 50% of credit (Lv1)
+const SOLIDARITY_PRESEED = 0n;
+const ESCROW_PRESEED = 0n;
+const POOL_VAULT_PRESEED = 0n;
+const MEMBER_USDC_BAL = 10_000_000n; // $10 — plenty for one $5 contribution
+
+const NEXT_CYCLE_AT = 1_800_000_000n;
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+async function readTokenBalance(env: BankrunEnv, ata: PublicKey): Promise<bigint> {
+  const info = await env.context.banksClient.getAccount(ata);
+  if (!info) throw new Error(`token account not found: ${ata.toBase58()}`);
+  return AccountLayout.decode(Buffer.from(info.data)).amount;
+}
+
+interface FixtureKeys {
+  configPk: PublicKey;
+  poolPk: PublicKey;
+  memberPk: PublicKey;
+  escrowVaultAuth: PublicKey;
+  solidarityVaultAuth: PublicKey;
+  poolUsdcVault: PublicKey;
+  escrowVault: PublicKey;
+  solidarityVault: PublicKey;
+  memberUsdc: PublicKey;
+}
+
+/**
+ * Seed a minimal, complete fixture: 1-member solo pool at cycle 0 with
+ * member fully funded, ready to contribute. Mirrors the pattern from
+ * `edge_grace_default.spec.ts` but scoped to the contribute happy path.
+ */
+async function seedFixture(
+  env: BankrunEnv,
+  poolAuthority: Keypair,
+  member: Keypair,
+  usdcMint: PublicKey,
+  treasury: PublicKey,
+  metaplexCore: PublicKey,
+  nftAsset: PublicKey,
+): Promise<FixtureKeys> {
+  const [configPk, configBump] = protocolConfigPda(env.ids.core);
+  const [poolPk, poolBump] = poolPda(env.ids.core, poolAuthority.publicKey, POOL_SEED_ID);
+  const [memberPk, memberBump] = memberPda(env.ids.core, poolPk, member.publicKey);
+  const [escrowVaultAuth, escrowBump] = escrowVaultAuthorityPda(env.ids.core, poolPk);
+  const [solidarityVaultAuth, solidarityBump] = solidarityVaultAuthorityPda(env.ids.core, poolPk);
+  const [, yieldBump] = yieldVaultAuthorityPda(env.ids.core, poolPk);
+
+  const poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, poolPk, true);
+  const escrowVault = getAssociatedTokenAddressSync(usdcMint, escrowVaultAuth, true);
+  const solidarityVault = getAssociatedTokenAddressSync(usdcMint, solidarityVaultAuth, true);
+  const memberUsdc = getAssociatedTokenAddressSync(usdcMint, member.publicKey);
+
+  // ─── USDC mint ────────────────────────────────────────────────────
+  writeMintAccount(env.context, usdcMint, {
+    mintAuthority: env.payer.publicKey,
+    decimals: 6,
+  });
+
+  // ─── Vaults + member ATA ──────────────────────────────────────────
+  writeTokenAccount(env.context, poolUsdcVault, {
+    mint: usdcMint,
+    owner: poolPk,
+    amount: POOL_VAULT_PRESEED,
+  });
+  writeTokenAccount(env.context, escrowVault, {
+    mint: usdcMint,
+    owner: escrowVaultAuth,
+    amount: ESCROW_PRESEED,
+  });
+  writeTokenAccount(env.context, solidarityVault, {
+    mint: usdcMint,
+    owner: solidarityVaultAuth,
+    amount: SOLIDARITY_PRESEED,
+  });
+  writeTokenAccount(env.context, memberUsdc, {
+    mint: usdcMint,
+    owner: member.publicKey,
+    amount: MEMBER_USDC_BAL,
+  });
+
+  // ─── ProtocolConfig (reputation_program = default → CPI skipped) ──
+  await writeAnchorAccount(env.context, env.programs.core, "protocolConfig", configPk, {
+    authority: env.payer.publicKey,
+    treasury,
+    usdcMint,
+    metaplexCore,
+    defaultYieldAdapter: env.ids.yieldMock,
+    reputationProgram: PublicKey.default,
+    feeBpsYield: 2_000,
+    feeBpsCycleL1: 200,
+    feeBpsCycleL2: 100,
+    feeBpsCycleL3: 0,
+    guaranteeFundBps: 15_000,
+    paused: false,
+    bump: configBump,
+  });
+
+  // ─── Pool — Active, cycle 0, ready for contribute ─────────────────
+  await writeAnchorAccount(env.context, env.programs.core, "pool", poolPk, {
+    authority: poolAuthority.publicKey,
+    seedId: new BN(POOL_SEED_ID.toString()),
+    usdcMint,
+    yieldAdapter: env.ids.yieldMock,
+    membersTarget: MEMBERS_TARGET,
+    installmentAmount: new BN(INSTALLMENT.toString()),
+    creditAmount: new BN(CREDIT.toString()),
+    cyclesTotal: CYCLES_TOTAL,
+    cycleDuration: new BN(CYCLE_DURATION_SEC.toString()),
+    seedDrawBps: 9_160,
+    solidarityBps: 100,
+    escrowReleaseBps: 2_500,
+    membersJoined: MEMBERS_TARGET,
+    status: 1, // Active
+    startedAt: new BN((NEXT_CYCLE_AT - CYCLE_DURATION_SEC).toString()),
+    currentCycle: 0,
+    nextCycleAt: new BN(NEXT_CYCLE_AT.toString()),
+    totalContributed: new BN(0),
+    totalPaidOut: new BN(0),
+    solidarityBalance: new BN(0),
+    escrowBalance: new BN(0),
+    yieldAccrued: new BN(0),
+    guaranteeFundBalance: new BN(0),
+    totalProtocolFeeAccrued: new BN(0),
+    yieldPrincipalDeposited: new BN(0),
+    defaultedMembers: 0,
+    // Bit 0 set — slot 0 is occupied.
+    slotsBitmap: Buffer.from([0x01, 0, 0, 0, 0, 0, 0, 0]),
+    bump: poolBump,
+    escrowVaultBump: escrowBump,
+    solidarityVaultBump: solidarityBump,
+    yieldVaultBump: yieldBump,
+  });
+
+  // ─── Member — slot 0, not paid out, not defaulted ─────────────────
+  await writeAnchorAccount(env.context, env.programs.core, "member", memberPk, {
+    pool: poolPk,
+    wallet: member.publicKey,
+    nftAsset,
+    slotIndex: 0,
+    reputationLevel: 1,
+    stakeBps: 5_000,
+    stakeDeposited: new BN(STAKE_INITIAL.toString()),
+    contributionsPaid: 0,
+    totalContributed: new BN(0),
+    totalReceived: new BN(0),
+    escrowBalance: new BN(0),
+    onTimeCount: 0,
+    lateCount: 0,
+    defaulted: false,
+    paidOut: false,
+    lastReleasedCheckpoint: 0,
+    joinedAt: new BN((NEXT_CYCLE_AT - CYCLE_DURATION_SEC).toString()),
+    stakeDepositedInitial: new BN(STAKE_INITIAL.toString()),
+    totalEscrowDeposited: new BN(0),
+    lastTransferredAt: new BN(0),
+    bump: memberBump,
+  });
+
+  return {
+    configPk,
+    poolPk,
+    memberPk,
+    escrowVaultAuth,
+    solidarityVaultAuth,
+    poolUsdcVault,
+    escrowVault,
+    solidarityVault,
+    memberUsdc,
+  };
+}
+
+// ─── Spec ────────────────────────────────────────────────────────────
+
+describe("app encoders — bankrun round-trip (#290)", function () {
+  this.timeout(60_000);
+
+  let env: BankrunEnv;
+  const poolAuthority = Keypair.generate();
+  const member = Keypair.generate();
+  const treasury = Keypair.generate();
+  const nftAsset = Keypair.generate();
+  const usdcMint = Keypair.generate().publicKey;
+  // mpl-core mainnet ID — same on devnet + mainnet, irrelevant for
+  // contribute/claim_payout (these instructions don't touch mpl-core).
+  const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
+
+  let fixture: FixtureKeys;
+
+  before(async function () {
+    env = await setupBankrunEnv();
+
+    // Fund member's SOL so they can sign transactions.
+    env.context.setAccount(member.publicKey, {
+      lamports: 10_000_000_000,
+      data: new Uint8Array(0),
+      owner: SystemProgram.programId,
+      executable: false,
+      rentEpoch: 0,
+    });
+
+    fixture = await seedFixture(
+      env,
+      poolAuthority,
+      member,
+      usdcMint,
+      treasury.publicKey,
+      metaplexCore,
+      nftAsset.publicKey,
+    );
+  });
+
+  describe("buildContributeIx — round-trip", function () {
+    it("the app-built contribute(cycle=0) instruction is accepted by the program", async function () {
+      // ─── Snapshot pre-state ──────────────────────────────────────
+      const memberBefore = await (env.programs.core.account as any).member.fetch(fixture.memberPk);
+      const poolBefore = await (env.programs.core.account as any).pool.fetch(fixture.poolPk);
+      const memberUsdcBefore = await readTokenBalance(env, fixture.memberUsdc);
+      const poolVaultBefore = await readTokenBalance(env, fixture.poolUsdcVault);
+      const solidarityVaultBefore = await readTokenBalance(env, fixture.solidarityVault);
+      const escrowVaultBefore = await readTokenBalance(env, fixture.escrowVault);
+
+      expect(memberBefore.contributionsPaid).to.equal(0);
+      expect(memberBefore.paidOut).to.equal(false);
+      expect(poolBefore.currentCycle).to.equal(0);
+      expect(memberUsdcBefore).to.equal(MEMBER_USDC_BAL);
+
+      // ─── Build via the APP ENCODER + send through bankrun ────────
+      const ix = buildContributeIx({
+        pool: fixture.poolPk,
+        memberWallet: member.publicKey,
+        cycle: 0,
+        programIds: { core: env.ids.core, reputation: env.ids.reputation },
+        usdcMint,
+      });
+
+      const tx = new Transaction().add(ix);
+      tx.feePayer = member.publicKey;
+      tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+      tx.sign(member);
+
+      await env.context.banksClient.processTransaction(tx);
+
+      // ─── Snapshot post-state ─────────────────────────────────────
+      const memberAfter = await (env.programs.core.account as any).member.fetch(fixture.memberPk);
+      const poolAfter = await (env.programs.core.account as any).pool.fetch(fixture.poolPk);
+
+      // Invariant 1: member state advanced
+      expect(memberAfter.contributionsPaid).to.equal(1);
+      expect(memberAfter.totalContributed.toString()).to.equal(INSTALLMENT.toString());
+      expect(memberAfter.defaulted).to.equal(false);
+
+      // Invariant 2: pool total advanced by INSTALLMENT
+      expect(poolAfter.totalContributed.toString()).to.equal(INSTALLMENT.toString());
+
+      // Invariant 3: USDC flowed out of member ATA
+      const memberUsdcAfter = await readTokenBalance(env, fixture.memberUsdc);
+      expect(memberUsdcAfter).to.equal(memberUsdcBefore - INSTALLMENT);
+
+      // Invariant 4: contribution split lands in the 3 vaults
+      //   - solidarity vault gets 1% (50_000 lamports of 5_000_000)
+      //   - escrow vault gets 25% (1_250_000)
+      //   - pool vault gets the remainder (3_700_000 = 74%)
+      const solidarityVaultAfter = await readTokenBalance(env, fixture.solidarityVault);
+      const escrowVaultAfter = await readTokenBalance(env, fixture.escrowVault);
+      const poolVaultAfter = await readTokenBalance(env, fixture.poolUsdcVault);
+
+      const expectedSolidarity = (INSTALLMENT * 100n) / 10_000n; // 1%
+      const expectedEscrow = (INSTALLMENT * 2_500n) / 10_000n; // 25%
+      const expectedPool = INSTALLMENT - expectedSolidarity - expectedEscrow; // 74%
+
+      expect(solidarityVaultAfter - solidarityVaultBefore).to.equal(expectedSolidarity);
+      expect(escrowVaultAfter - escrowVaultBefore).to.equal(expectedEscrow);
+      expect(poolVaultAfter - poolVaultBefore).to.equal(expectedPool);
+    });
+  });
+
+  describe("buildClaimPayoutIx — round-trip", function () {
+    it("the app-built claim_payout(cycle=0) instruction is accepted by the program", async function () {
+      // Pre-condition: pool float must cover credit_amount. The
+      // contribute test above moved 74% of the installment into the
+      // pool vault ($3.70). Top up the missing $1.30 so the solvency
+      // guard passes.
+      const credit = CREDIT;
+      const poolVaultBalance = await readTokenBalance(env, fixture.poolUsdcVault);
+      const topUp = credit - poolVaultBalance;
+      if (topUp > 0n) {
+        // Add the missing amount directly to the pool USDC vault.
+        // This mirrors what `seed-topup.ts` does on devnet (deployer
+        // pre-funds the pool to satisfy the solvency guard).
+        writeTokenAccount(env.context, fixture.poolUsdcVault, {
+          mint: usdcMint,
+          owner: fixture.poolPk,
+          amount: credit, // overwrite to exactly cover credit
+        });
+      }
+
+      // ─── Snapshot pre-state ──────────────────────────────────────
+      const memberUsdcBefore = await readTokenBalance(env, fixture.memberUsdc);
+      const memberBefore = await (env.programs.core.account as any).member.fetch(fixture.memberPk);
+      expect(memberBefore.paidOut).to.equal(false);
+
+      // ─── Build via the APP ENCODER + send ────────────────────────
+      const ix = buildClaimPayoutIx({
+        pool: fixture.poolPk,
+        memberWallet: member.publicKey,
+        cycle: 0,
+        slotIndex: 0,
+        programIds: { core: env.ids.core, reputation: env.ids.reputation },
+        usdcMint,
+      });
+
+      const tx = new Transaction().add(ix);
+      tx.feePayer = member.publicKey;
+      tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+      tx.sign(member);
+
+      await env.context.banksClient.processTransaction(tx);
+
+      // ─── Snapshot post-state ─────────────────────────────────────
+      const memberAfter = await (env.programs.core.account as any).member.fetch(fixture.memberPk);
+      const poolAfter = await (env.programs.core.account as any).pool.fetch(fixture.poolPk);
+
+      // Invariant 1: member.paid_out flipped
+      expect(memberAfter.paidOut).to.equal(true);
+      expect(memberAfter.totalReceived.toString()).to.equal(CREDIT.toString());
+
+      // Invariant 2: pool.total_paid_out += credit
+      expect(poolAfter.totalPaidOut.toString()).to.equal(CREDIT.toString());
+
+      // Invariant 3: pool advances — cycles_total = 1, so it transitions Completed
+      // (PoolStatus::Completed = 2)
+      expect(poolAfter.status).to.equal(2);
+
+      // Invariant 4: member's USDC ATA gained `credit`
+      const memberUsdcAfter = await readTokenBalance(env, fixture.memberUsdc);
+      expect(memberUsdcAfter - memberUsdcBefore).to.equal(CREDIT);
+    });
+  });
+});
