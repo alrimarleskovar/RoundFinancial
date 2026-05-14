@@ -359,7 +359,17 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   const apy = config.kaminoApy;
   const adminFee = config.yieldFeePct;
 
-  const names = (config.memberNames ?? ALL_NAMES).slice(0, N);
+  // Pad with generic names if N exceeds the curated list — keeps the
+  // simulator flexible for stress runs at Community Pool scale (issue
+  // #228 added a `healthyMax36` preset which crosses the 24-name limit).
+  const baseNames = config.memberNames ?? ALL_NAMES;
+  const names =
+    N <= baseNames.length
+      ? baseNames.slice(0, N)
+      : [
+          ...baseNames,
+          ...Array.from({ length: N - baseNames.length }, (_, i) => `M${baseNames.length + i + 1}`),
+        ];
 
   const ledger: MemberLedger[] = names.map((name) => ({
     name,
@@ -670,7 +680,22 @@ export type PresetId =
   | "preDefault"
   | "postDefault"
   | "cascade"
-  | "tripleVeteranDefault";
+  | "tripleVeteranDefault"
+  // ── Pool-size variations ──
+  | "healthyMin4"
+  | "healthySmall8"
+  | "healthyLarge24"
+  | "healthyMax36"
+  // ── Tier-mix variations ──
+  | "iniciantePostDefault"
+  | "veteranoPostDefault"
+  // ── Default-position variations ──
+  | "earlyCycleDefault"
+  | "lateCycleDefault"
+  | "terminalDefault"
+  // ── Yield-extreme variations ──
+  | "zeroYieldTripleDefault"
+  | "highYieldTripleDefault";
 
 export interface ScenarioPreset {
   id: PresetId;
@@ -760,6 +785,145 @@ export const PRESETS: Record<PresetId, ScenarioPreset> = {
       { row: 3, cycle: 5 },
     ]),
   },
+
+  // ── Pool-size variations ──────────────────────────────────
+  // Same healthy pattern across pool-size dimensions. Closes the gap
+  // flagged in issue #228 — the canonical 5 presets only cover N=12
+  // and N=24. Smaller pools stress the seed-draw threshold; larger
+  // pools stress per-member economics under higher cycle counts.
+
+  healthyMin4: {
+    id: "healthyMin4",
+    config: {
+      level: "Comprovado",
+      members: 4,
+      creditAmountUsdc: 4_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
+    matrix: defaultMatrix(4),
+  },
+  healthySmall8: {
+    id: "healthySmall8",
+    config: {
+      level: "Comprovado",
+      members: 8,
+      creditAmountUsdc: 8_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
+    matrix: defaultMatrix(8),
+  },
+  healthyLarge24: {
+    id: "healthyLarge24",
+    // Comprovado at 24 members — different from tripleVeteranDefault
+    // (which is Veterano + 3 defaults). This isolates pool-size shape
+    // from tier-shape, so a regression on one dimension doesn't
+    // confound a regression on the other.
+    config: {
+      level: "Comprovado",
+      members: 24,
+      creditAmountUsdc: 24_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
+    matrix: defaultMatrix(24),
+  },
+  healthyMax36: {
+    id: "healthyMax36",
+    config: {
+      level: "Comprovado",
+      members: 36,
+      creditAmountUsdc: 36_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
+    matrix: defaultMatrix(36),
+  },
+
+  // ── Tier-mix variations ───────────────────────────────────
+  // The canonical postDefault uses Comprovado (30% stake). These
+  // variants use the extremes of the ladder so the D/C invariant
+  // is exercised at both ends of the stake range.
+
+  iniciantePostDefault: {
+    id: "iniciantePostDefault",
+    config: { ...BASE_CONFIG, level: "Iniciante" },
+    matrix: withDefaults(12, [{ row: 1, cycle: 5 }]),
+  },
+  veteranoPostDefault: {
+    id: "veteranoPostDefault",
+    config: { ...BASE_CONFIG, level: "Veterano" },
+    matrix: withDefaults(12, [{ row: 1, cycle: 5 }]),
+  },
+
+  // ── Default-position variations ───────────────────────────
+  // Where in the cycle the default lands matters for Shield 1
+  // (seed-draw, cycle 0 only) and for the recovery waterfall (later
+  // defaults have more accumulated solidarity vault to drain first).
+
+  earlyCycleDefault: {
+    id: "earlyCycleDefault",
+    config: BASE_CONFIG,
+    // Member 0 (first slot) is contemplated at cycle 1 (column 0
+    // diagonal) and defaults at cycle 2 (one cycle after receiving
+    // upfront). Earliest possible post-contemplation default — tests
+    // the "first to receive, first to skip" attack pattern.
+    matrix: withDefaults(12, [{ row: 0, cycle: 2 }]),
+  },
+  lateCycleDefault: {
+    id: "lateCycleDefault",
+    config: BASE_CONFIG,
+    // Member 10 (second-to-last slot) defaults at cycle 11 (penultimate
+    // cycle). Tests the cascade in a near-terminal state where most
+    // recovery options have already been consumed by the schedule.
+    matrix: withDefaults(12, [{ row: 10, cycle: 11 }]),
+  },
+  terminalDefault: {
+    id: "terminalDefault",
+    config: BASE_CONFIG,
+    // Member 11 (last slot, contemplated at cycle 12) defaults at cycle
+    // 12 — the final cycle. Boundary case: terminal default has zero
+    // future installments to seize, only escrow + stake.
+    matrix: withDefaults(12, [{ row: 11, cycle: 12 }]),
+  },
+
+  // ── Yield-extreme variations ──────────────────────────────
+  // The triple-Veteran scenario at the extremes of the yield axis.
+  // Zero yield removes the Solidarity + Yield contribution to the
+  // cascade; high yield amplifies it. Solvency must hold in both
+  // bounds.
+
+  zeroYieldTripleDefault: {
+    id: "zeroYieldTripleDefault",
+    config: {
+      level: "Veterano",
+      members: 24,
+      creditAmountUsdc: 10_000,
+      kaminoApy: 0,
+      yieldFeePct: 20,
+    },
+    matrix: withDefaults(24, [
+      { row: 1, cycle: 3 },
+      { row: 2, cycle: 4 },
+      { row: 3, cycle: 5 },
+    ]),
+  },
+  highYieldTripleDefault: {
+    id: "highYieldTripleDefault",
+    config: {
+      level: "Veterano",
+      members: 24,
+      creditAmountUsdc: 10_000,
+      kaminoApy: 20,
+      yieldFeePct: 20,
+    },
+    matrix: withDefaults(24, [
+      { row: 1, cycle: 3 },
+      { row: 2, cycle: 4 },
+      { row: 3, cycle: 5 },
+    ]),
+  },
 };
 
 export const PRESET_ORDER: PresetId[] = [
@@ -768,4 +932,15 @@ export const PRESET_ORDER: PresetId[] = [
   "postDefault",
   "cascade",
   "tripleVeteranDefault",
+  "healthyMin4",
+  "healthySmall8",
+  "healthyLarge24",
+  "healthyMax36",
+  "iniciantePostDefault",
+  "veteranoPostDefault",
+  "earlyCycleDefault",
+  "lateCycleDefault",
+  "terminalDefault",
+  "zeroYieldTripleDefault",
+  "highYieldTripleDefault",
 ];
