@@ -43,6 +43,11 @@ export interface BuildReleaseEscrowIxArgs {
   /** Milestone index 1..=cycles_total. Must be strictly greater than
    *  `member.last_released_checkpoint` (the on-chain monotonic guard). */
   checkpoint: number;
+  /** Optional program ID override — for tests against a bankrun-deployed
+   *  program set. Defaults to `DEVNET_PROGRAM_IDS`. */
+  programIds?: { core: PublicKey };
+  /** Optional USDC mint override — pairs with `programIds` for tests. */
+  usdcMint?: PublicKey;
 }
 
 /**
@@ -54,8 +59,8 @@ export interface BuildReleaseEscrowIxArgs {
  * programs/roundfi-core/src/instructions/release_escrow.rs (9 accounts).
  */
 export function buildReleaseEscrowIx(args: BuildReleaseEscrowIxArgs): TransactionInstruction {
-  const core = DEVNET_PROGRAM_IDS.core;
-  const usdcMint = DEVNET_USDC_MINT;
+  const core = args.programIds?.core ?? DEVNET_PROGRAM_IDS.core;
+  const usdcMint = args.usdcMint ?? DEVNET_USDC_MINT;
 
   const [config] = protocolConfigPda(core);
   const [member] = memberPda(core, args.pool, args.memberWallet);
