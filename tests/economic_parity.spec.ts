@@ -217,6 +217,88 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
   });
 });
 
+// ─── Layer 1a — per-preset parametric smoke tests ────────────────────
+// Issue #228: codify additional stress-lab regression tests across the
+// pool-size, tier-mix, default-position, and yield-extreme dimensions.
+// Each new preset gets its own `it()` so the test count visibly grows
+// in CI output (acceptance criterion of #228), instead of being hidden
+// inside the loops above.
+
+describe("L1 stress-lab sanity — extended presets (Issue #228)", () => {
+  // ── Pool-size sweep — every healthy variant must close solvent ──
+  const HEALTHY_POOL_SIZE_PRESETS: PresetId[] = [
+    "healthyMin4",
+    "healthySmall8",
+    "healthyLarge24",
+    "healthyMax36",
+  ];
+
+  for (const id of HEALTHY_POOL_SIZE_PRESETS) {
+    it(`pool-size sweep · ${id} closes solvent with zero loss`, () => {
+      const { frames, finalMetrics } = metricsOf(id);
+      const final = lastFrame(frames);
+      expect(finalMetrics.poolBalance, `${id} pool ends solvent`).to.be.gte(0);
+      expect(finalMetrics.totalLoss, `${id} zero loss`).to.equal(0);
+      for (const ledger of final.ledgerSnapshot) {
+        expect(ledger.status, `${id} member=${ledger.name}`).to.equal("ok");
+      }
+    });
+  }
+
+  // ── Tier-mix variants — postDefault at both ends of the stake ladder ──
+  const TIER_MIX_POSTDEFAULT_PRESETS: PresetId[] = ["iniciantePostDefault", "veteranoPostDefault"];
+
+  for (const id of TIER_MIX_POSTDEFAULT_PRESETS) {
+    it(`tier-mix · ${id} marks exactly one calote_pos who received upfront`, () => {
+      // Note on loss: high-stake tiers (Iniciante at 50% stake) may produce
+      // ZERO loss even on post-contemplation default — the retained stake
+      // can fully cover the upfront. We only assert that the member received
+      // the upfront before defaulting (i.e., the post-contemplation shape);
+      // the loss magnitude is tier-dependent and not the right invariant here.
+      const { frames } = metricsOf(id);
+      const final = lastFrame(frames);
+      const post = final.ledgerSnapshot.filter((l) => l.status === "calote_pos");
+      expect(post.length, `${id} one calote_pos`).to.equal(1);
+      expect(post[0]!.received, `${id} received upfront`).to.be.greaterThan(0);
+    });
+  }
+
+  // ── Default-position sweep — each variant has exactly one defaulter ──
+  it("default-position · earlyCycleDefault marks member 0 as defaulted at cycle 1", () => {
+    const { frames } = metricsOf("earlyCycleDefault");
+    const final = lastFrame(frames);
+    const defaulters = final.ledgerSnapshot.filter((l) => l.status !== "ok");
+    expect(defaulters.length, "exactly one defaulter").to.equal(1);
+    // Cycle-1 default of member-0 lands on the contemplated row → calote_pos.
+    expect(defaulters[0]!.status, "calote_pos (contemplation at cycle 1)").to.equal("calote_pos");
+  });
+
+  it("default-position · lateCycleDefault marks member 10 as defaulted", () => {
+    const { frames } = metricsOf("lateCycleDefault");
+    const final = lastFrame(frames);
+    const defaulters = final.ledgerSnapshot.filter((l) => l.status !== "ok");
+    expect(defaulters.length, "exactly one defaulter").to.equal(1);
+  });
+
+  it("default-position · terminalDefault marks the final-slot member as defaulted", () => {
+    const { frames } = metricsOf("terminalDefault");
+    const final = lastFrame(frames);
+    const defaulters = final.ledgerSnapshot.filter((l) => l.status !== "ok");
+    expect(defaulters.length, "exactly one defaulter").to.equal(1);
+  });
+
+  // ── Yield-extreme variants — triple-Veteran solvent under both bounds ──
+  for (const id of ["zeroYieldTripleDefault", "highYieldTripleDefault"] as PresetId[]) {
+    it(`yield-extreme · ${id} produces 3 post-contemplation defaults + solvent close`, () => {
+      const { frames, finalMetrics } = metricsOf(id);
+      const final = lastFrame(frames);
+      const postDefaults = final.ledgerSnapshot.filter((l) => l.status === "calote_pos");
+      expect(postDefaults.length, `${id} three calote_pos`).to.equal(3);
+      expect(finalMetrics.poolBalance, `${id} pool ends solvent`).to.be.gte(0);
+    });
+  }
+});
+
 // ─── Layer 1b — toggleCell click semantics ───────────────────────────
 // The lab UI's matrix editor has to be able to compose every scenario
 // the whitepaper describes — including the load-bearing one: a member

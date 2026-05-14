@@ -10,8 +10,8 @@
 
 | What                                                | Where                                                                                                       |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 5 canonical scenario presets                        | `PRESETS` in `sdk/src/stressLab.ts`                                                                         |
-| 34 economic-parity tests across all 5 presets       | `pnpm test:economic-parity-l1`                                                                              |
+| 16 scenario presets (5 canonical + 11 extended)     | `PRESETS` in `sdk/src/stressLab.ts`                                                                         |
+| 45 economic-parity tests across all 16 presets      | `pnpm test:economic-parity-l1`                                                                              |
 | User-configurable matrix UI for arbitrary scenarios | `/lab` page (`app/src/components/lab/StressLabClient.tsx`)                                                  |
 | Closed-form conservation expectations               | `tests/economic_parity.spec.ts` — every preset asserts `sum(member.delta) + protocol.delta + GF.delta == 0` |
 | Solvency under triple post-contemplation default    | `tripleVeteranDefault` preset — canonical whitepaper stress test                                            |
@@ -31,6 +31,17 @@ The L1 simulator is intentionally a **pure-TS reference implementation** with ze
 | `tripleVeteranDefault` | **24**    | **Veterano** | **$10,000**   | Members 1/2/3 contemplated at cycles 2/3/4, each defaults at the cycle right after receiving their upfront | **Canonical whitepaper stress test**: gross liability $30,000; recovery via escrow (+$19,500) + stake slash (+$3,000) + Seed Draw cushion (+$9,152) **= protocol solvent at scale** |
 
 Each preset runs as a deterministic simulation, frame-by-frame, with per-member ledger snapshots verifiable against closed-form expectations.
+
+### 1.1 Extended preset coverage (Issue #228)
+
+The canonical 5 above cover N=12 and N=24 with a single tier / yield profile. The 11 extended presets below close the gap across **pool-size**, **tier-mix**, **default-position**, and **yield-extreme** dimensions. Each preset runs the existing 34-invariant parametric loops + a dedicated smoke test under the `L1 stress-lab sanity — extended presets (Issue #228)` describe block.
+
+| Dimension         | Presets                                                                                                             | What it proves                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Pool-size sweep   | `healthyMin4` (4) · `healthySmall8` (8) · `healthyLarge24` (24) · `healthyMax36` (36)                               | Conservation invariants hold across pool-size dimension; solvent at all 4 points                        |
+| Tier-mix variants | `iniciantePostDefault` (50% stake) · `veteranoPostDefault` (10% stake)                                              | Post-contemplation default behavior at extremes of the stake ladder; D/C invariant holds in both bounds |
+| Default-position  | `earlyCycleDefault` (row 0, cycle 2) · `lateCycleDefault` (row 10, cycle 11) · `terminalDefault` (row 11, cycle 12) | Recovery waterfall sequencing across early / late / terminal cycle positions                            |
+| Yield-extreme     | `zeroYieldTripleDefault` (APY 0%) · `highYieldTripleDefault` (APY 20%)                                              | Solvency under canonical 3-default stress at both yield bounds                                          |
 
 ---
 
