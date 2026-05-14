@@ -47,6 +47,7 @@ import { AccountLayout, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "
 
 import {
   escrowVaultAuthorityPda,
+  listingPda,
   memberPda,
   poolPda,
   protocolConfigPda,
@@ -64,6 +65,8 @@ import {
 
 import { buildContributeIx } from "../app/src/lib/contribute";
 import { buildClaimPayoutIx } from "../app/src/lib/claim-payout";
+import { buildReleaseEscrowIx } from "../app/src/lib/release-escrow";
+import { buildEscapeValveListIx } from "../app/src/lib/escape-valve-list";
 
 // ─── Scenario parameters ─────────────────────────────────────────────
 
@@ -412,5 +415,227 @@ describe("app encoders — bankrun round-trip (#290)", function () {
       const memberUsdcAfter = await readTokenBalance(env, fixture.memberUsdc);
       expect(memberUsdcAfter - memberUsdcBefore).to.equal(CREDIT);
     });
+  });
+
+  describe("buildReleaseEscrowIx — round-trip", function () {
+    it("the app-built release_escrow(checkpoint=1) instruction is accepted", async function () {
+      // Pre-condition: the member has on_time_count >= 1 (set by the
+      // contribute test above) and escrow_balance > 0 (25% of installment
+      // was routed to the escrow vault). The member's
+      // last_released_checkpoint is still 0, so checkpoint=1 is the
+      // first valid release.
+
+      // ─── Snapshot pre-state ──────────────────────────────────────
+      const memberBefore = await (env.programs.core.account as any).member.fetch(fixture.memberPk);
+      expect(memberBefore.lastReleasedCheckpoint).to.equal(0);
+      expect(memberBefore.onTimeCount).to.equal(1);
+      expect(memberBefore.escrowBalance.gt(new BN(0))).to.equal(true);
+
+      const memberUsdcBefore = await readTokenBalance(env, fixture.memberUsdc);
+      const escrowVaultBefore = await readTokenBalance(env, fixture.escrowVault);
+      const escrowBalanceBefore = BigInt(memberBefore.escrowBalance.toString());
+
+      // ─── Build via the APP ENCODER + send ────────────────────────
+      const ix = buildReleaseEscrowIx({
+        pool: fixture.poolPk,
+        memberWallet: member.publicKey,
+        checkpoint: 1,
+        programIds: { core: env.ids.core },
+        usdcMint,
+      });
+
+      const tx = new Transaction().add(ix);
+      tx.feePayer = member.publicKey;
+      tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+      tx.sign(member);
+
+      await env.context.banksClient.processTransaction(tx);
+
+      // ─── Snapshot post-state ─────────────────────────────────────
+      const memberAfter = await (env.programs.core.account as any).member.fetch(fixture.memberPk);
+
+      // Invariant 1: last_released_checkpoint advanced 0 → 1
+      expect(memberAfter.lastReleasedCheckpoint).to.equal(1);
+
+      // Invariant 2: escrow_balance decreased by the released amount.
+      // Single-cycle pool → checkpoint=1 / cycles_total=1 = 100% vested,
+      // so the full escrow_balance is released.
+      const escrowBalanceAfter = BigInt(memberAfter.escrowBalance.toString());
+      const releasedAmount = escrowBalanceBefore - escrowBalanceAfter;
+      expect(
+        releasedAmount > 0n,
+        `released amount should be positive, got ${releasedAmount}`,
+      ).to.equal(true);
+
+      // Invariant 3: USDC flowed escrow_vault → member_usdc_ata
+      const memberUsdcAfter = await readTokenBalance(env, fixture.memberUsdc);
+      const escrowVaultAfter = await readTokenBalance(env, fixture.escrowVault);
+      expect(memberUsdcAfter - memberUsdcBefore).to.equal(releasedAmount);
+      expect(escrowVaultBefore - escrowVaultAfter).to.equal(releasedAmount);
+    });
+  });
+});
+
+// ─── escape_valve_list — separate fixture ─────────────────────────────
+//
+// `escape_valve_list` requires `pool.status == Active` AND
+// `!member.paid_out` AND `!member.defaulted`. The shared fixture above
+// runs claim_payout which transitions the pool to Completed AND flips
+// member.paid_out = true, so listing is impossible there. We spin up a
+// FRESH pool (different seedId) for this case.
+
+describe("app encoders — escape_valve_list round-trip", function () {
+  this.timeout(60_000);
+
+  let env: BankrunEnv;
+  const LIST_POOL_SEED_ID = 9999n;
+  const poolAuthority = Keypair.generate();
+  const seller = Keypair.generate();
+  const treasury = Keypair.generate();
+  const nftAsset = Keypair.generate();
+  const usdcMint = Keypair.generate().publicKey;
+  const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
+
+  let configPk: PublicKey;
+  let poolPk: PublicKey;
+  let memberPk: PublicKey;
+
+  before(async function () {
+    env = await setupBankrunEnv();
+
+    // Fund seller's SOL
+    env.context.setAccount(seller.publicKey, {
+      lamports: 10_000_000_000,
+      data: new Uint8Array(0),
+      owner: SystemProgram.programId,
+      executable: false,
+      rentEpoch: 0,
+    });
+
+    [configPk] = protocolConfigPda(env.ids.core);
+    [poolPk] = poolPda(env.ids.core, poolAuthority.publicKey, LIST_POOL_SEED_ID);
+    [memberPk] = memberPda(env.ids.core, poolPk, seller.publicKey);
+    const [escrowVaultAuth, escrowBump] = escrowVaultAuthorityPda(env.ids.core, poolPk);
+    const [solidarityVaultAuth, solidarityBump] = solidarityVaultAuthorityPda(env.ids.core, poolPk);
+    const [, yieldBump] = yieldVaultAuthorityPda(env.ids.core, poolPk);
+    const [, configBump] = protocolConfigPda(env.ids.core);
+    const [, poolBump] = poolPda(env.ids.core, poolAuthority.publicKey, LIST_POOL_SEED_ID);
+    const [, memberBump] = memberPda(env.ids.core, poolPk, seller.publicKey);
+
+    writeMintAccount(env.context, usdcMint, {
+      mintAuthority: env.payer.publicKey,
+      decimals: 6,
+    });
+
+    await writeAnchorAccount(env.context, env.programs.core, "protocolConfig", configPk, {
+      authority: env.payer.publicKey,
+      treasury: treasury.publicKey,
+      usdcMint,
+      metaplexCore,
+      defaultYieldAdapter: env.ids.yieldMock,
+      reputationProgram: PublicKey.default,
+      feeBpsYield: 2_000,
+      feeBpsCycleL1: 200,
+      feeBpsCycleL2: 100,
+      feeBpsCycleL3: 0,
+      guaranteeFundBps: 15_000,
+      paused: false,
+      bump: configBump,
+    });
+
+    await writeAnchorAccount(env.context, env.programs.core, "pool", poolPk, {
+      authority: poolAuthority.publicKey,
+      seedId: new BN(LIST_POOL_SEED_ID.toString()),
+      usdcMint,
+      yieldAdapter: env.ids.yieldMock,
+      membersTarget: 1,
+      installmentAmount: new BN("5000000"),
+      creditAmount: new BN("5000000"),
+      cyclesTotal: 1,
+      cycleDuration: new BN(3600),
+      seedDrawBps: 9_160,
+      solidarityBps: 100,
+      escrowReleaseBps: 2_500,
+      membersJoined: 1,
+      status: 1, // Active
+      startedAt: new BN(0),
+      currentCycle: 0,
+      nextCycleAt: new BN(1_800_000_000),
+      totalContributed: new BN(0),
+      totalPaidOut: new BN(0),
+      solidarityBalance: new BN(0),
+      escrowBalance: new BN(0),
+      yieldAccrued: new BN(0),
+      guaranteeFundBalance: new BN(0),
+      totalProtocolFeeAccrued: new BN(0),
+      yieldPrincipalDeposited: new BN(0),
+      defaultedMembers: 0,
+      slotsBitmap: Buffer.from([0x01, 0, 0, 0, 0, 0, 0, 0]),
+      bump: poolBump,
+      escrowVaultBump: escrowBump,
+      solidarityVaultBump: solidarityBump,
+      yieldVaultBump: yieldBump,
+    });
+
+    await writeAnchorAccount(env.context, env.programs.core, "member", memberPk, {
+      pool: poolPk,
+      wallet: seller.publicKey,
+      nftAsset: nftAsset.publicKey,
+      slotIndex: 0,
+      reputationLevel: 1,
+      stakeBps: 5_000,
+      stakeDeposited: new BN("2500000"),
+      contributionsPaid: 0,
+      totalContributed: new BN(0),
+      totalReceived: new BN(0),
+      escrowBalance: new BN(0),
+      onTimeCount: 0,
+      lateCount: 0,
+      defaulted: false,
+      paidOut: false,
+      lastReleasedCheckpoint: 0,
+      joinedAt: new BN(0),
+      stakeDepositedInitial: new BN("2500000"),
+      totalEscrowDeposited: new BN(0),
+      lastTransferredAt: new BN(0),
+      bump: memberBump,
+    });
+  });
+
+  it("the app-built escape_valve_list($14) instruction is accepted + Listing PDA exists", async function () {
+    const priceUsdc = BigInt(14_000_000);
+
+    // ─── Pre-state: Listing PDA does NOT exist yet ───────────────
+    const [listingAddr] = listingPda(env.ids.core, poolPk, 0);
+    const listingBefore = await env.context.banksClient.getAccount(listingAddr);
+    expect(listingBefore, "Listing PDA should not exist before list").to.equal(null);
+
+    // ─── Build via the APP ENCODER + send ────────────────────────
+    const ix = buildEscapeValveListIx({
+      pool: poolPk,
+      sellerWallet: seller.publicKey,
+      slotIndex: 0,
+      priceUsdc,
+      programIds: { core: env.ids.core },
+    });
+
+    const tx = new Transaction().add(ix);
+    tx.feePayer = seller.publicKey;
+    tx.recentBlockhash = (await env.context.banksClient.getLatestBlockhash())![0];
+    tx.sign(seller);
+
+    await env.context.banksClient.processTransaction(tx);
+
+    // ─── Post-state: Listing PDA EXISTS, with the price + status ───
+    const listingAfter = await env.context.banksClient.getAccount(listingAddr);
+    expect(listingAfter, "Listing PDA must exist after list").to.not.equal(null);
+
+    const listing = await (env.programs.core.account as any).listing.fetch(listingAddr);
+    expect(listing.pool.toBase58()).to.equal(poolPk.toBase58());
+    expect(listing.seller.toBase58()).to.equal(seller.publicKey.toBase58());
+    expect(listing.slotIndex).to.equal(0);
+    expect(listing.priceUsdc.toString()).to.equal(priceUsdc.toString());
+    // Listing status enum: 0 = Active.
+    expect(listing.status).to.equal(0);
   });
 });
