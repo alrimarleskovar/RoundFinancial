@@ -1,0 +1,156 @@
+name: Coverage
+
+# Runs `cargo tarpaulin` against the `roundfi-math` workspace member on
+# every PR + push to main. Today the lane is scoped to the pure-Rust
+# math crate (90.91% baseline per PR #265) because that's the only
+# workspace crate that compiles on host x86_64 — `programs/roundfi-core`
+# is blocked by the mpl-core ↔ solana-pubkey type conflict until #230
+# (Agave 2.x migration) lands.
+#
+# Once #230 lands, drop the `--packages roundfi-math --exclude-files`
+# filter and run against the full workspace.
+#
+# Threshold (initial): 85% on roundfi-math.
+# Tracked under: issue #269.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/math/**"
+      - ".github/workflows/coverage.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/math/**"
+      - ".github/workflows/coverage.yml"
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  # Threshold below which the lane fails. Mirrors the snapshot in
+  # docs/operations/test-coverage.md.
+  COVERAGE_THRESHOLD: 85
+
+jobs:
+  tarpaulin:
+    name: coverage · roundfi-math (tarpaulin)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write # for the PR comment
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cargo-tarpaulin
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Run tarpaulin (roundfi-math only)
+        id: tarpaulin
+        run: |
+          set -e
+          # tee both to stdout + a file so we can parse the percentage.
+          cargo tarpaulin \
+            --packages roundfi-math \
+            --exclude-files "programs/**/*" \
+            --out Lcov \
+            --output-dir coverage/math \
+            --skip-clean \
+            2>&1 | tee coverage/math/run.log
+
+          # Extract the "X.XX% coverage, A/B lines covered" line.
+          summary=$(grep -E "^[0-9]+\.[0-9]+% coverage" coverage/math/run.log | head -1)
+          pct=$(echo "$summary" | grep -oE "^[0-9]+\.[0-9]+")
+          covered_total=$(echo "$summary" | grep -oE "[0-9]+/[0-9]+ lines covered")
+
+          echo "summary=$summary" >> $GITHUB_OUTPUT
+          echo "pct=$pct" >> $GITHUB_OUTPUT
+          echo "covered_total=$covered_total" >> $GITHUB_OUTPUT
+          echo "## Coverage Summary"
+          echo "$summary"
+
+      - name: Enforce threshold
+        run: |
+          pct="${{ steps.tarpaulin.outputs.pct }}"
+          threshold="${COVERAGE_THRESHOLD}"
+          echo "Coverage: ${pct}% · Threshold: ${threshold}%"
+          # Bash float compare — multiply by 100 to integer-compare.
+          pct_int=$(echo "$pct * 100" | awk '{printf "%d\n", $1*100}')
+          th_int=$(echo "$threshold * 100" | awk '{printf "%d\n", $1*100}')
+          if [ "$pct_int" -lt "$th_int" ]; then
+            echo "::error::Coverage ${pct}% is below threshold ${threshold}%"
+            exit 1
+          fi
+          echo "::notice::Coverage ${pct}% meets threshold ${threshold}%"
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `${{ steps.tarpaulin.outputs.summary }}`;
+            const pct = `${{ steps.tarpaulin.outputs.pct }}`;
+            const covered = `${{ steps.tarpaulin.outputs.covered_total }}`;
+            const threshold = process.env.COVERAGE_THRESHOLD || '85';
+            const meets = parseFloat(pct) >= parseFloat(threshold);
+            const emoji = meets ? '🟢' : '🔴';
+
+            const body = [
+              `## ${emoji} Coverage Report — \`roundfi-math\``,
+              '',
+              `| Metric | Value |`,
+              `|---|---|`,
+              `| **Coverage** | **${pct}%** |`,
+              `| Lines | ${covered} |`,
+              `| Threshold | ${threshold}% |`,
+              `| Status | ${meets ? '✅ meets threshold' : '❌ below threshold'} |`,
+              '',
+              `> Scope: \`roundfi-math\` only. Full-workspace coverage gated on Agave 2.x migration (#230) per [\`docs/operations/test-coverage.md\`](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/operations/test-coverage.md).`,
+            ].join('\n');
+
+            // Find existing comment to edit (idempotent — avoid spamming the PR).
+            const existing = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const ours = existing.data.find(c =>
+              c.user?.type === 'Bot' &&
+              c.body?.startsWith('## 🟢 Coverage Report') ||
+              c.body?.startsWith('## 🔴 Coverage Report'),
+            );
+            if (ours) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: ours.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload LCOV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/math/lcov.info
+          retention-days: 14
