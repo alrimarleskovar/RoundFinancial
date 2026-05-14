@@ -10,18 +10,22 @@
 
 ## TL;DR
 
-| Signal                               | Value                                                  | Where to verify                                                                     |
-| ------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Test count                           | **162 tests** across 18 spec files                     | `tests/` · `pnpm test:parity` / `pnpm test:events` / `pnpm test:economic-parity-l1` |
-| Security-specific tests              | **53 tests** across 5 spec files                       | `tests/security_*.spec.ts` + `reputation_*.spec.ts`                                 |
-| Typed protocol errors                | **28+ named errors** with negative-path tests for each | `programs/roundfi-core/src/error.rs`                                                |
-| Triple Shield guards captured firing | **4/4 on real funds** on devnet                        | `docs/devnet-deployment.md`                                                         |
-| Self-audit + threat model            | 228 lines, file:line refs                              | [`docs/security/self-audit.md`](./self-audit.md)                                    |
-| CI required gates                    | **4 green pipelines** per PR                           | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)                        |
-| Open source                          | Apache-2.0                                             | [`LICENSE`](../../LICENSE)                                                          |
-| Dependency surveillance              | Dependabot (cargo + npm + actions)                     | [`.github/dependabot.yml`](../../.github/dependabot.yml)                            |
-| Reproducible build                   | OtterSec verify-build PDA on-chain                     | [`docs/verified-build.md`](../verified-build.md)                                    |
-| Disclosure channel                   | `roundfinance.sol@gmail.com`                           | [`SECURITY.md`](../../SECURITY.md)                                                  |
+| Signal                               | Value                                                  | Where to verify                                                                                                |
+| ------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Test count                           | **227 tests** across 20 spec files                     | `tests/` · `pnpm test:parity` / `pnpm test:events` / `pnpm test:economic-parity-l1` / `pnpm test:app-encoders` |
+| Security-specific tests              | **53 tests** across 5 bankrun spec files               | `tests/security_*.spec.ts` + `reputation_*.spec.ts`                                                            |
+| App-encoder structural tests         | **58 tests** (discriminator + account + PDA parity)    | `tests/app_encoders.spec.ts` · 6 IDL-free encoders covered (#283, #287, #291)                                  |
+| App-encoder bankrun round-trips      | **7 tests** (4 happy-path + 3 negative-path)           | `tests/app_encoders_bankrun.spec.ts` · #290 W1+W2 + #283 W3                                                    |
+| Math fuzz coverage                   | **6 cargo-fuzz targets** on `roundfi-math`             | `crates/math/fuzz/` · 60s PR smoke + 30min weekly long-run (#284)                                              |
+| Math test coverage (tarpaulin)       | **90.91%** on `roundfi-math` (110/121 lines)           | `pnpm coverage` · CI advisory lane (#269)                                                                      |
+| Typed protocol errors                | **28+ named errors** with negative-path tests for each | `programs/roundfi-core/src/error.rs`                                                                           |
+| Triple Shield guards captured firing | **4/4 on real funds** on devnet                        | `docs/devnet-deployment.md`                                                                                    |
+| Self-audit + threat model            | 228 lines, file:line refs                              | [`docs/security/self-audit.md`](./self-audit.md)                                                               |
+| CI required gates                    | **4 green pipelines** per PR                           | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)                                                   |
+| Open source                          | Apache-2.0                                             | [`LICENSE`](../../LICENSE)                                                                                     |
+| Dependency surveillance              | Dependabot (cargo + npm + actions)                     | [`.github/dependabot.yml`](../../.github/dependabot.yml)                                                       |
+| Reproducible build                   | OtterSec verify-build PDA on-chain                     | [`docs/verified-build.md`](../verified-build.md)                                                               |
+| Disclosure channel                   | `roundfinance.sol@gmail.com`                           | [`SECURITY.md`](../../SECURITY.md)                                                                             |
 
 ## What's the protocol doing with funds
 

@@ -8,7 +8,7 @@
 > - [`docs/status.md`](./docs/status.md) — shipped vs roadmap (product surface)
 > - [`SECURITY.md`](./SECURITY.md) — disclosure channel + SLAs
 
-**Today:** M3 shipped on devnet · 4 programs live with reproducible-build attestation · 162 tests / 53 security-specific · self-audit + threat model + adversarial threat model + auditor self-attestation matrix shipped · seeking external audit (Adevar Labs track applied May 2026).
+**Today:** M3 shipped on devnet · 4 programs live with reproducible-build attestation · **227 tests across 20 spec files** (53 security-specific bankrun + 58 app-encoder structural + 7 bankrun round-trips + 109 lifecycle/edge/parity) · **6 cargo-fuzz targets** on `roundfi-math` (90.91% line coverage) · self-audit + threat model + adversarial threat model + auditor self-attestation matrix shipped · seeking external audit (Adevar Labs track applied May 2026).
 
 **Mainnet GA target:** Q4 2026. Hard-gated on external audit + multisig rotation + canary smoke + bug-bounty live.
 
