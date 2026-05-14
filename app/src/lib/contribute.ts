@@ -67,6 +67,14 @@ export interface BuildContributeIxArgs {
    *  because nonce only needs uniqueness within a cycle, and the
    *  contribute path uses (cycle, slot) without colliding with claim. */
   slotIndex?: number;
+  /** Optional program ID override — for tests that run against a
+   *  bankrun-deployed program set. Defaults to `DEVNET_PROGRAM_IDS`.
+   *  Production callers do NOT pass this; the encoder picks devnet
+   *  by default. */
+  programIds?: { core: PublicKey; reputation: PublicKey };
+  /** Optional USDC mint override — pairs with `programIds` for tests
+   *  that use a freshly-minted local USDC. Defaults to `DEVNET_USDC_MINT`. */
+  usdcMint?: PublicKey;
 }
 
 /**
@@ -78,9 +86,9 @@ export interface BuildContributeIxArgs {
  * `sendTransaction`.
  */
 export function buildContributeIx(args: BuildContributeIxArgs): TransactionInstruction {
-  const core = DEVNET_PROGRAM_IDS.core;
-  const reputation = DEVNET_PROGRAM_IDS.reputation;
-  const usdcMint = DEVNET_USDC_MINT;
+  const core = args.programIds?.core ?? DEVNET_PROGRAM_IDS.core;
+  const reputation = args.programIds?.reputation ?? DEVNET_PROGRAM_IDS.reputation;
+  const usdcMint = args.usdcMint ?? DEVNET_USDC_MINT;
 
   const [config] = protocolConfigPda(core);
   const [member] = memberPda(core, args.pool, args.memberWallet);
