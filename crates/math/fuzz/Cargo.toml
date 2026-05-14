@@ -59,6 +59,20 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "bps"
+path = "fuzz_targets/bps.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "seed_draw"
+path = "fuzz_targets/seed_draw.rs"
+test = false
+doc = false
+bench = false
+
 # Release profile mirroring workspace settings — overflow-checks ON so
 # any unintended u64 wraparound shows up as a libfuzzer-detected panic.
 [profile.release]
