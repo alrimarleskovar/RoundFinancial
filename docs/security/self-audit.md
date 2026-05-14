@@ -2,7 +2,7 @@
 
 **Status:** Internal audit (M3, hackathon submission). External audit deferred to mainnet migration phase.
 **Scope:** `programs/roundfi-core` (20 instructions) + `programs/roundfi-reputation` (attestation CPI surface) + `services/indexer/` schema.
-**Methodology:** Invariant-driven review. Each protocol guarantee is mapped to (a) the file/line where it's enforced and (b) the test that proves it holds. 162 test cases across 18 spec files (53 of which are security-specific across 5 spec files) + the 4 Triple Shield guards captured firing on real funds during devnet exercising.
+**Methodology:** Invariant-driven review. Each protocol guarantee is mapped to (a) the file/line where it's enforced and (b) the test that proves it holds. **227 test cases across 20 spec files** (53 security-specific bankrun + 58 app-encoder structural + 7 app-encoder bankrun round-trips + 109 lifecycle/edge/parity/reputation/yield) + the **4 Triple Shield guards captured firing on real funds** during devnet exercising + **6 cargo-fuzz targets** on `roundfi-math` (coverage-guided mutation, 90.91% line coverage measured).
 
 ---
 
@@ -108,7 +108,16 @@ All PDAs use deterministic seeds bound to the actor (wallet, pool, slot). Any ac
 
 ## 4. Test coverage by invariant
 
-162 test cases across 18 spec files. The 53 security-specific tests below are the audit-layer evidence; the remaining 109 cover lifecycle, edge cases, parity, reputation, and yield integration.
+**227 test cases across 20 spec files.** Layered coverage:
+
+| Layer                     | Count     | Spec files                                                                                                          | Lane               |
+| ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Security-specific         | 53 tests  | `tests/security_*.spec.ts` + `reputation_*.spec.ts`                                                                 | bankrun            |
+| Lifecycle / edge / parity | 109 tests | `lifecycle.spec.ts` + `edge_*.spec.ts` + `economic_parity.spec.ts` + `events.spec.ts` + `yield_integration.spec.ts` | bankrun + ts-mocha |
+| App-encoder structural    | 58 tests  | `tests/app_encoders.spec.ts` (6 IDL-free encoders, no validator)                                                    | ts-mocha (PR lane) |
+| App-encoder bankrun       | 7 tests   | `tests/app_encoders_bankrun.spec.ts` (4 happy-path + 3 negative)                                                    | bankrun            |
+
+Plus the 4 Triple Shield guards captured firing on real devnet funds (per §3.1) + 6 cargo-fuzz targets on `roundfi-math` (~1500 random cases per `cargo test`, plus 60s coverage-guided runs per PR).
 
 ### 4.1 Security specs (53 tests)
 

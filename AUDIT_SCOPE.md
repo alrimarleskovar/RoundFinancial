@@ -17,7 +17,7 @@
 | `programs/roundfi-core`         | **6,157**     | Pool lifecycle (create / join / contribute / claim_payout / settle_default / close), escrow + solidarity + yield vault PDAs, escape valve secondary market (list/buy), treasury timelock + lock, harvest waterfall, Triple Shield invariants                                                        |
 | `programs/roundfi-reputation`   | **1,744**     | SAS-compatible attestations, level promotion (1→2→3), CPI surface from roundfi-core, identity scaffold (Civic gateway-token validator — provider TBD post-mainnet, see [§4.4 of architecture.md](./docs/architecture.md#44-identity-layer-added-v02--2026-04-22--provider-transition-v04--2026-05)) |
 | `programs/roundfi-yield-kamino` | **440**       | Real Kamino Lend CPI — `deposit_idle_to_yield` path (production target)                                                                                                                                                                                                                             |
-| **Total in scope**              | **8,341 LoC** | 28+ typed errors, 53 security-specific tests, Triple Shield economic invariants                                                                                                                                                                                                                     |
+| **Total in scope**              | **8,341 LoC** | 28+ typed errors, **227 tests** (53 security-specific bankrun + 58 app-encoder structural + 7 bankrun round-trips + 109 lifecycle/edge/parity) + **6 cargo-fuzz targets** on `roundfi-math`, Triple Shield economic invariants                                                                      |
 
 ---
 
