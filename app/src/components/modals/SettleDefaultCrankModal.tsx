@@ -126,10 +126,11 @@ export function SettleDefaultCrankModal({
       .filter((m) => !m.defaulted)
       .map<CandidateMember>((m) => {
         const graceSecsRemaining = Number(graceDeadline - now);
+        const walletStr = m.wallet.toBase58();
         return {
           slotIndex: m.slotIndex,
-          wallet: m.wallet.toBase58(),
-          shortWallet: shortAddr(m.wallet),
+          wallet: walletStr,
+          shortWallet: shortAddr(walletStr),
           contributionsPaid: m.contributionsPaid,
           onTimeCount: m.onTimeCount,
           lateCount: m.lateCount,
@@ -199,6 +200,19 @@ export function SettleDefaultCrankModal({
       return;
     }
 
+    // Resolve the on-chain PublicKey for the selected candidate. The
+    // CandidateMember struct holds the base58 string for display; the
+    // tx encoder needs the PublicKey, so we look it back up from the
+    // hook's live member list.
+    const memberRecord =
+      onChainMembers.status === "ok"
+        ? onChainMembers.members.find((m) => m.slotIndex === selectedSlot)
+        : null;
+    if (!memberRecord) {
+      setChainError(t("modal.settleDefault.error.memberNotFound"));
+      return;
+    }
+
     setSubmitting(true);
     setChainError(null);
 
@@ -208,12 +222,7 @@ export function SettleDefaultCrankModal({
         sendTransaction: adapter.sendTransaction,
         pool: DEVNET_POOLS[selectedPool].pda,
         caller: adapter.publicKey,
-        defaultedMemberWallet: candidates.find((c) => c.slotIndex === selectedSlot)!.wallet
-          ? // resolve to PublicKey
-            onChainMembers.status === "ok"
-            ? onChainMembers.members.find((m) => m.slotIndex === selectedSlot)!.wallet
-            : adapter.publicKey
-          : adapter.publicKey,
+        defaultedMemberWallet: memberRecord.wallet,
         slotIndex: selectedCandidate.slotIndex,
         cycle: settleCycle,
       });
