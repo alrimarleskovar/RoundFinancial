@@ -1,0 +1,24 @@
+[package]
+name = "roundfi-math"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pure-Rust actuarial math for the RoundFi protocol (Triple Shield, waterfall, D/C invariant, seed-draw, escrow vesting). Zero Solana/Anchor/mpl-core dependencies — runs on host x86_64 for clippy + cargo test, and links into programs/roundfi-core via path dependency for the SBF target."
+
+[lib]
+name = "roundfi_math"
+path = "src/lib.rs"
+
+[dependencies]
+# Intentionally empty. This crate must compile on host x86_64 without
+# any Solana / Anchor / mpl-core dependency — that is the entire point
+# of the extraction. Future host-side proptest may add `proptest` here
+# as a dev-dependency only.
+
+[dev-dependencies]
+proptest = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
