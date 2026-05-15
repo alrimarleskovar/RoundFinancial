@@ -173,6 +173,7 @@ async function resolveCanonicalIds(
   connection: Connection,
   txSignature: string,
   walletBase58: string | null,
+  slotIndex: number | null = null,
 ): Promise<{ poolId: string; memberId: string | null } | null> {
   const tx = await connection.getTransaction(txSignature, {
     maxSupportedTransactionVersion: 0,
@@ -192,29 +193,44 @@ async function resolveCanonicalIds(
   );
   const allKeys = [...staticKeys, ...loadedWritable, ...loadedReadonly];
 
-  // Intersect with canonical Pool PDAs in the DB. A single tx should
-  // touch at most one Pool PDA — but if it touches multiple (rare,
-  // e.g. cross-pool admin ix), `findFirst` returns one canonically and
-  // the event's poolId binding is the right one for *that* event row
-  // because the webhook splits per-event from logMessages.
+  // Intersect with canonical Pool PDAs in the DB.
   const pool = await prisma.pool.findFirst({
     where: { pda: { in: allKeys } },
   });
   if (!pool) return null;
 
-  // Default events carry no Member FK in the schema (see
-  // DefaultEvent.defaultedWallet rationale on the model). Caller
-  // passes null for those, and we short-circuit the member lookup.
-  if (walletBase58 === null) {
-    return { poolId: pool.id, memberId: null };
+  // Member resolution — Adevar SEV-014 fix added the slotIndex fallback.
+  //
+  // Preferred path: slotIndex (the program emits this in every
+  // contribute/payout log, and Member has @@unique([poolId, slotIndex])).
+  // This is the only path that works for events written by the
+  // SEV-014-aligned webhook (contributorWallet/recipientWallet are
+  // null for new rows).
+  //
+  // Legacy path: walletBase58 (pre-SEV-014 rows + DefaultEvent rows
+  // where the cranker's tx signer != the defaulted member, so the
+  // defaultedWallet column carries the member).
+  //
+  // Default events with no wallet AND no slot resolve to memberId:null
+  // — DefaultEvent has no Member FK in the schema anyway.
+  if (slotIndex !== null) {
+    const member = await prisma.member.findFirst({
+      where: { poolId: pool.id, slotIndex },
+    });
+    if (member) return { poolId: pool.id, memberId: member.id };
   }
-
-  const member = await prisma.member.findFirst({
-    where: { poolId: pool.id, wallet: walletBase58 },
-  });
-  if (!member) return null;
-
-  return { poolId: pool.id, memberId: member.id };
+  if (walletBase58 !== null) {
+    const member = await prisma.member.findFirst({
+      where: { poolId: pool.id, wallet: walletBase58 },
+    });
+    if (member) return { poolId: pool.id, memberId: member.id };
+  }
+  // No identifier yielded a Member — short-circuit. For DefaultEvent
+  // (no memberId in schema) callers accept memberId:null and proceed;
+  // for ContributeEvent / ClaimEvent the caller leaves the row
+  // unresolved + retries next pass when canonical Pool/Member rows
+  // are present.
+  return { poolId: pool.id, memberId: null };
 }
 
 // ─── Reconciler loop ────────────────────────────────────────────────────
@@ -318,11 +334,15 @@ async function reconcileContributeEvents(
     }
 
     if (status === "finalized") {
+      // Adevar SEV-014: pass slotIndex as the primary identifier (the
+      // program emits it on every contribute log). contributorWallet is
+      // null for new rows + carried for pre-fix rows.
       const canonical = await resolveCanonicalIds(
         prisma,
         connections[0]!,
         evt.txSignature,
         evt.contributorWallet,
+        evt.slotIndex,
       );
       if (canonical === null || canonical.memberId === null) {
         // Canonical Pool/Member row not in DB yet — backfill is
@@ -384,11 +404,14 @@ async function reconcileClaimEvents(
     }
 
     if (status === "finalized") {
+      // SEV-014: same fallback as contribute — slotIndex is the
+      // primary identifier (the program emits it on every payout log).
       const canonical = await resolveCanonicalIds(
         prisma,
         connections[0]!,
         evt.txSignature,
         evt.recipientWallet,
+        evt.slotIndex,
       );
       if (canonical === null || canonical.memberId === null) {
         counters.pending += 1;

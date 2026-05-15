@@ -155,17 +155,40 @@ model ContributeEvent {
   poolId          String
   member          Member   @relation(fields: [memberId], references: [id])
   memberId        String
-  /// Raw wallet pubkey from the on-chain log (`member=<base58>`).
-  /// Persisted at webhook time so the reconciler (issue #234) can
-  /// resolve `memberId` against canonical Member rows without
-  /// re-fetching + re-parsing the tx logs.
-  contributorWallet String
+  /// Raw wallet pubkey from the on-chain log. **Nullable since
+  /// Adevar Labs SEV-014 fix** — the program's actual `msg!` emission
+  /// does NOT include the member wallet (only the slot_index, see
+  /// `contribute.rs:226`). For new events, this stays null and the
+  /// reconciler resolves the canonical memberId via `(poolId, slotIndex)`
+  /// instead. Existing rows from pre-#321 still carry the wallet.
+  contributorWallet String?
+  /// Slot index from the on-chain log. Used by the reconciler to
+  /// resolve canonical memberId via the `@@unique([poolId, slotIndex])`
+  /// constraint on Member.
+  ///
+  /// **Note:** column was named `installment` in the pre-SEV-014
+  /// schema (mistakenly — the program never emitted installment).
+  /// Repurposed as the slot index. New event rows write slot_index
+  /// here; pre-fix rows carry the old (incorrect) installment value.
   cycle           Int
   schemaId        Int
+  /// **Note:** column kept for back-compat with pre-SEV-014 rows.
+  /// New events write 0 — the program never emitted installment
+  /// per-event (it's a Pool-level constant, not a contribute log
+  /// field).
   installment     BigInt
   solidarityAmt   BigInt
   escrowAmt       BigInt
+  /// **Renamed from `pool_float`** — program emits `pool=` (the
+  /// portion routed to pool_usdc_vault after solidarity + escrow).
+  /// Column name kept for backward compatibility with pre-SEV-014
+  /// rows.
   poolFloatAmt    BigInt
+  /// Slot index — Adevar SEV-014: program emits `slot=`, the
+  /// reconciler uses this to resolve canonical Member via
+  /// `(poolId, slotIndex)` instead of the previously-fictional
+  /// `contributorWallet` field.
+  slotIndex       Int      @default(0)
   onTime          Boolean
   blockTime       BigInt
   slot            BigInt
@@ -191,10 +214,12 @@ model ClaimEvent {
   poolId        String
   member        Member   @relation(fields: [memberId], references: [id])
   memberId      String
-  /// Raw wallet pubkey of the payout recipient from the on-chain
-  /// log (`recipient=<base58>`). See ContributeEvent.contributorWallet
-  /// for rationale.
-  recipientWallet String
+  /// Raw wallet pubkey of the payout recipient. **Nullable since
+  /// Adevar Labs SEV-014 fix** — the program's `payout` msg (NOT
+  /// `claim_payout`, which was a decoder fiction) does NOT include
+  /// recipient. Reconciler resolves canonical memberId via
+  /// (poolId, slotIndex) instead.
+  recipientWallet String?
   cycle         Int
   slotIndex     Int
   amountPaid    BigInt

@@ -28,32 +28,63 @@
  *   - it works without the IDL (which is the whole point).
  */
 
+// Adevar Labs SEV-014 fix — prefixes aligned with what the program
+// actually emits (was previously aliased to the ix names, but
+// `claim_payout` emits `roundfi-core: payout ...`).
 const PREFIX_CONTRIBUTE = "Program log: roundfi-core: contribute";
-const PREFIX_CLAIM = "Program log: roundfi-core: claim_payout";
+const PREFIX_CLAIM = "Program log: roundfi-core: payout";
 const PREFIX_DEFAULT = "Program log: roundfi-core: settle_default";
 
 export type CoreEvent = ContributeEventLog | ClaimEventLog | SettleDefaultEventLog;
 
+/**
+ * Adevar Labs SEV-014: field set aligned to the program's actual
+ * `msg!` emissions in `programs/roundfi-core/src/instructions/contribute.rs:226`:
+ *
+ *   "roundfi-core: contribute cycle={} slot={} on_time={} solidarity={} escrow={} pool={}"
+ *
+ * Member wallet is NOT in the log — recover from `tx.signatures[0]`
+ * at the webhook layer (the member is always the signer of `contribute`).
+ */
 export interface ContributeEventLog {
   kind: "contribute";
   cycle: number;
-  member: string;
-  installment: bigint;
+  slotIndex: number;
   solidarityAmt: bigint;
   escrowAmt: bigint;
-  poolFloatAmt: bigint;
+  /** Renamed from `poolFloatAmt` — program emits `pool=`. */
+  poolAmt: bigint;
   onTime: boolean;
 }
 
+/**
+ * Adevar Labs SEV-014: aligned to `claim_payout.rs:184`:
+ *
+ *   "roundfi-core: payout cycle={} slot={} credit={} retained_at_payout={}"
+ *
+ * Recipient wallet is NOT in the log — recover from `tx.signatures[0]`
+ * at the webhook layer.
+ */
 export interface ClaimEventLog {
   kind: "claim";
   cycle: number;
   slotIndex: number;
-  recipient: string;
-  amount: bigint;
-  nextCycle: number | null;
+  /** Renamed from `amount` — program emits `credit=`. */
+  credit: bigint;
+  /** Vault USDC balance right after the payout transfer (program's
+   *  retained_at_payout field). Useful for off-chain solvency monitors. */
+  retainedAtPayout: bigint;
 }
 
+/**
+ * Adevar Labs SEV-014: aligned to `settle_default.rs`:
+ *
+ *   "roundfi-core: settle_default cycle={} member={} seized_total={} solidarity={} escrow={} stake={} d_rem={} c_init={} c_after={}"
+ *
+ * Member wallet IS in the log (cranker != defaulted member, so the
+ * defaulted wallet must be on the log explicitly). `d_init` was
+ * never emitted — removed from the typed shape.
+ */
 export interface SettleDefaultEventLog {
   kind: "settle_default";
   cycle: number;
@@ -62,7 +93,6 @@ export interface SettleDefaultEventLog {
   seizedSolidarity: bigint;
   seizedEscrow: bigint;
   seizedStake: bigint;
-  dInit: bigint;
   dRem: bigint;
   cInit: bigint;
   cAfter: bigint;
@@ -129,11 +159,10 @@ function parseContribute(line: string): ContributeEventLog {
   return {
     kind: "contribute",
     cycle: readNumber(kv, "cycle"),
-    member: readString(kv, "member"),
-    installment: readBigInt(kv, "installment"),
+    slotIndex: readNumber(kv, "slot"),
     solidarityAmt: readBigInt(kv, "solidarity"),
     escrowAmt: readBigInt(kv, "escrow"),
-    poolFloatAmt: readBigInt(kv, "pool_float"),
+    poolAmt: readBigInt(kv, "pool"),
     onTime: readString(kv, "on_time") === "true",
   };
 }
@@ -144,9 +173,8 @@ function parseClaim(line: string): ClaimEventLog {
     kind: "claim",
     cycle: readNumber(kv, "cycle"),
     slotIndex: readNumber(kv, "slot"),
-    recipient: readString(kv, "recipient"),
-    amount: readBigInt(kv, "amount"),
-    nextCycle: kv.has("next_cycle") ? readNumber(kv, "next_cycle") : null,
+    credit: readBigInt(kv, "credit"),
+    retainedAtPayout: readBigInt(kv, "retained_at_payout"),
   };
 }
 
@@ -160,7 +188,6 @@ function parseSettleDefault(line: string): SettleDefaultEventLog {
     seizedSolidarity: readBigInt(kv, "solidarity"),
     seizedEscrow: readBigInt(kv, "escrow"),
     seizedStake: readBigInt(kv, "stake"),
-    dInit: kv.has("d_init") ? readBigInt(kv, "d_init") : 0n,
     dRem: readBigInt(kv, "d_rem"),
     cInit: readBigInt(kv, "c_init"),
     cAfter: readBigInt(kv, "c_after"),
