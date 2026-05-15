@@ -127,6 +127,13 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     config.pending_authority     = Pubkey::default();
     config.pending_authority_eta = 0;
 
+    // Adevar Labs SEV-003 fix: LP/participant split is now authoritative
+    // protocol policy, not caller-controlled. Initialized to the
+    // whitepaper default (65% LP earmark / 35% participant prize);
+    // mutable post-deploy via update_protocol_config as canary data
+    // justifies.
+    config.lp_share_bps = DEFAULT_LP_SHARE_BPS;
+
     msg!("roundfi-core: protocol initialized");
     Ok(())
 }

@@ -46,6 +46,11 @@ pub struct UpdateProtocolConfigArgs {
     /// it. `None` leaves unchanged. Mainnet flips to `Some(true)`
     /// after canary validates the commit-reveal flow.
     pub new_commit_reveal_required: Option<bool>,
+    /// Yield waterfall LP/participant split (Adevar Labs SEV-003 fix).
+    /// `Some(bps)` updates `config.lp_share_bps` — the authoritative
+    /// value harvest_yield reads (the args field there is now
+    /// deprecated). Capped at MAX_BPS (10_000). `None` leaves unchanged.
+    pub new_lp_share_bps: Option<u16>,
 }
 
 #[derive(Accounts)]
@@ -148,13 +153,27 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
         }
         cfg.commit_reveal_required = flag;
     }
+    if let Some(bps) = args.new_lp_share_bps {
+        // Adevar Labs SEV-003 fix: lp_share_bps is now authoritative
+        // protocol policy. The on-chain harvest_yield handler reads
+        // from this field, NOT from caller-supplied args. Capped at
+        // MAX_BPS (100%); same convention as fee_bps_yield etc.
+        require!(bps <= MAX_BPS, RoundfiError::InvalidBps);
+        if cfg.lp_share_bps != bps {
+            msg!(
+                "roundfi-core: lp_share_bps changed old={} new={}",
+                cfg.lp_share_bps, bps,
+            );
+        }
+        cfg.lp_share_bps = bps;
+    }
 
     msg!(
-        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={} adapter_locked={} commit_reveal_required={}",
+        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={} adapter_locked={} commit_reveal_required={} lp_share_bps={}",
         cfg.fee_bps_yield, cfg.guarantee_fund_bps,
         cfg.max_pool_tvl_usdc, cfg.max_protocol_tvl_usdc,
         cfg.approved_yield_adapter, cfg.approved_yield_adapter_locked,
-        cfg.commit_reveal_required,
+        cfg.commit_reveal_required, cfg.lp_share_bps,
     );
 
     Ok(())

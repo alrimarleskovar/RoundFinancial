@@ -76,6 +76,7 @@ enum PoolStatus {
   Active
   Completed
   Liquidated
+  Closed
 }
 
 // ─── Members ─────────────────────────────────────────────────────────

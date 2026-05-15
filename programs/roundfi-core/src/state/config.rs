@@ -106,6 +106,21 @@ pub struct ProtocolConfig {
     /// trust-surface change).
     pub commit_reveal_required: bool,
 
+    // ─── Adevar Labs SEV-003 fix — yield waterfall policy ─────────────
+    /// Share of the post-fee-and-GF residual that routes to LPs /
+    /// Anjos de Liquidez. **Authoritative protocol policy** — was
+    /// previously caller-controlled via `HarvestYieldArgs.lp_share_bps`,
+    /// which let any permissionless cranker rotate the LP/participant
+    /// split arbitrarily per call. The harvest_yield handler now
+    /// reads this field and ignores the args value (the args field
+    /// is retained for SDK back-compat but deprecated).
+    ///
+    /// Default initialized to `DEFAULT_LP_SHARE_BPS` (6_500 = 65%) per
+    /// the whitepaper. Mutable via `update_protocol_config` (capped
+    /// at MAX_BPS = 10_000). No lock-flag — LP economics may need
+    /// adjustment over time as canary-driven calibration progresses.
+    pub lp_share_bps: u16,
+
     // ─── Protocol-authority rotation (mainnet Squads ceremony, #3.6) ──
     /// Pending authority rotation. `Pubkey::default()` (all-zero) when
     /// no rotation is queued. Set by `propose_new_authority`, cleared
@@ -143,15 +158,11 @@ impl ProtocolConfig {
     //  + 1 byte for approved_yield_adapter_locked (governance hardening)
     //  + 1 byte for commit_reveal_required (#232)
     //  + 32 bytes for pending_authority + 8 bytes for eta (Squads ceremony, #3.6)
-    //  + 30 byte tail-padding.
+    //  + 2 bytes for lp_share_bps (Adevar Labs SEV-003 fix)
+    //  + 28 byte tail-padding.
     //
-    // Note: the original 64-byte padding allocation has been fully
-    // consumed (TVL caps 24 + allowlist+lock 33 + commit-reveal 1 +
-    // authority rotation 40 = 98 > 64). SIZE grew by 40 in this PR
-    // (the authority-rotation overflow). Existing devnet ProtocolConfig
-    // accounts need a fresh init since Anchor sizes accounts at create
-    // time; documented in the PR body. Future additions either grow
-    // SIZE further or consume the fresh 30-byte forward-compat pad.
+    // Note: SEV-003 consumed 2 of the 30 forward-compat pad bytes
+    // (lp_share_bps as u16). 28 bytes remain for future additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -169,5 +180,6 @@ impl ProtocolConfig {
         + 1                      // commit_reveal_required (#232)
         + 32                     // pending_authority (#3.6 Squads ceremony)
         + 8                      // pending_authority_eta
-        + 30;                    // forward-compat padding (preserved)
+        + 2                      // lp_share_bps (Adevar SEV-003)
+        + 28;                    // forward-compat padding (was 30)
 }
