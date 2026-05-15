@@ -107,6 +107,15 @@ pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
     // Caps of `0` mean **disabled** (back-compat with devnet pools
     // that pre-date this enforcement). Mainnet canary starts both
     // caps tight and ramps via `update_protocol_config`.
+    //
+    // **Dual-check pattern**: the same caps are ALSO checked at
+    // `create_pool` (fail-fast before Pool PDA allocation) to avoid
+    // orphan Pool PDAs from a rejected init. The check here is the
+    // authoritative race-free reservation point — between create_pool
+    // and init_pool_vaults another pool can consume the headroom, so
+    // we re-check with the current `committed_protocol_tvl_usdc`
+    // value before committing. See `create_pool.rs` for the
+    // fail-fast rationale.
     let pool_committed = (ctx.accounts.pool.credit_amount as u128)
         .checked_mul(ctx.accounts.pool.cycles_total as u128)
         .ok_or(error!(RoundfiError::MathOverflow))?;
