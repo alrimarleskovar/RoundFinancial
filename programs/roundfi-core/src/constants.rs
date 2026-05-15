@@ -37,6 +37,26 @@ pub const GRACE_PERIOD_SECS: i64 = 60;
 /// for full post-deployment immutability when the team is confident.
 pub const TREASURY_TIMELOCK_SECS: i64 = 604_800;
 
+/// Anti-snipe cooldown applied to commit-reveal escape-valve listings
+/// (#232). After `escape_valve_list_reveal` publishes the price, the
+/// listing is **not buyable** for this many seconds.
+///
+/// Rationale: commit-reveal hides the listing price during the commit
+/// phase. At reveal time the price becomes public — a searcher
+/// monitoring the chain can race a legitimate buyer's tx at the
+/// newly-public price. The cooldown gives the buyer (who knows the
+/// price off-chain because the seller shared the salt) a fixed
+/// head-start to land their `escape_valve_buy` tx before the public
+/// race window opens. Pairs with operator-side Jito bundling for
+/// stronger protection (see docs/security/mev-front-running.md § 2.2).
+///
+/// 30s is the canary default — about 75 slots, generous enough for a
+/// human buyer to react via the UI without making the listing feel
+/// dead. Tunable post-canary by changing this constant + a redeploy
+/// (the value isn't in `ProtocolConfig` because it's a global
+/// timing parameter, not an authority decision).
+pub const REVEAL_COOLDOWN_SECS: i64 = 30;
+
 /// Share of the post-fee-and-GF residual that routes to LPs / Anjos de
 /// Liquidez (step 3 of the PDF-canonical yield waterfall). Default 65%
 /// — matches the whitepaper's §6 distribution table:

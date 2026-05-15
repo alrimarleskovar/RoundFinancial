@@ -132,4 +132,14 @@ pub enum RoundfiError {
     // ─── Adapter allowlist governance (item 9 of post-#311 review) ─────
     #[msg("approved_yield_adapter is permanently locked — `lock_approved_yield_adapter()` was called")]
     AdapterAllowlistLocked,
+
+    // ─── #232: commit-reveal MEV mitigation for escape_valve_list ─────
+    #[msg("Legacy single-step escape_valve_list disabled by config.commit_reveal_required — use the commit + reveal flow")]
+    CommitRevealRequired,
+    #[msg("Listing is not in Pending status (reveal only valid on a committed-but-not-yet-revealed listing)")]
+    ListingNotPending,
+    #[msg("Reveal price/salt does not match the stored commit_hash")]
+    InvalidCommitHash,
+    #[msg("Listing is not yet buyable — wait for REVEAL_COOLDOWN_SECS to elapse past buyable_after")]
+    ListingNotBuyableYet,
 }

@@ -273,22 +273,26 @@ export async function fetchPoolMembers(
 
 // ─── EscapeValveListing offsets (declaration-order Borsh, no padding) ──
 //
-//   off  8: pool         Pubkey (32)
-//   off 40: seller       Pubkey (32)
-//   off 72: slot_index   u8     ( 1)
-//   off 73: price_usdc   u64    ( 8)
-//   off 81: status       u8     ( 1)   // 0=Active, 1=Filled, 2=Cancelled
-//   off 82: listed_at    i64    ( 8)
-//   off 90: bump         u8     ( 1)
+//   off   8: pool          Pubkey (32)
+//   off  40: seller        Pubkey (32)
+//   off  72: slot_index    u8     ( 1)
+//   off  73: price_usdc    u64    ( 8)
+//   off  81: status        u8     ( 1)   // 0=Active, 1=Filled, 2=Cancelled, 3=Pending
+//   off  82: listed_at     i64    ( 8)
+//   off  90: bump          u8     ( 1)
+//   off  91: commit_hash   [u8;32]( 32)  // #232 — commit-reveal hash
+//   off 123: buyable_after i64    ( 8)   // #232 — cooldown end
 //
-// Total size = 99 bytes (matches `EscapeValveListing::SIZE` in
+// Total size = 139 bytes (matches `EscapeValveListing::SIZE` in
 // listing.rs after the +8 reserved-padding tail).
 
-const LISTING_ACCOUNT_SIZE = 99;
+const LISTING_ACCOUNT_SIZE = 139;
 
-export type LocalListingStatus = "active" | "filled" | "cancelled";
+export type LocalListingStatus = "active" | "filled" | "cancelled" | "pending";
 
-const LISTING_STATUS: LocalListingStatus[] = ["active", "filled", "cancelled"];
+// Index matches EscapeValveStatus repr in `state/listing.rs`:
+// Active=0, Filled=1, Cancelled=2, Pending=3.
+const LISTING_STATUS: LocalListingStatus[] = ["active", "filled", "cancelled", "pending"];
 
 export interface RawListingView {
   address: PublicKey;
@@ -298,6 +302,12 @@ export interface RawListingView {
   priceUsdc: bigint;
   status: LocalListingStatus;
   listedAt: bigint;
+  /// #232 — commit-reveal additions. `commitHash` is all-zero for
+  /// legacy single-step listings. `buyableAfter` equals `listedAt`
+  /// for legacy listings (no cooldown) and `revealTs + 30s` for
+  /// commit-revealed listings.
+  commitHash: Buffer;
+  buyableAfter: bigint;
 }
 
 /** Decode an EscapeValveListing account's raw bytes into a view. */
@@ -311,6 +321,8 @@ export function decodeListingRaw(address: PublicKey, data: Buffer): RawListingVi
     priceUsdc: data.readBigUInt64LE(73),
     status: LISTING_STATUS[statusByte] ?? "active",
     listedAt: data.readBigInt64LE(82),
+    commitHash: Buffer.from(data.subarray(91, 123)),
+    buyableAfter: data.readBigInt64LE(123),
   };
 }
 

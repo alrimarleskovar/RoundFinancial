@@ -101,7 +101,16 @@ Unlike Ethereum's public mempool, Solana ordering is determined by:
 | 4   | **Jito-bundle preference** — buyer pays a tip to land in the same bundle as the seller's listing        | Doesn't solve the steady-state problem (existing listings remain exploitable); helps for the cancel/relist sandwich |
 | 5   | **Listing fee** — small fee discourages spam listings + sniper-friendly low prices                      | Already partially covered by SOL rent on the PDA; effective for spam but not for sniping mispriced listings         |
 
-**Mitigation status:** 🔵 **Pending — pre-mainnet research item.** Recommend **#1 (commit-reveal)** + **#4 (Jito bundles for cancel/relist)**. Tracked under [#232](https://github.com/alrimarleskovar/RoundFinancial/issues/232).
+**Mitigation status:** 🟡 **Mitigation #1 (commit-reveal) shipped on-chain; mitigation #4 (Jito bundling) is operator-side and recommended for mainnet.**
+
+Commit-reveal flow (closes the on-chain half of [#232](https://github.com/alrimarleskovar/RoundFinancial/issues/232)):
+
+- New `escape_valve_list_commit(commit_hash)` ix creates the listing in `Pending` status. Only `SHA-256(price || salt)` is on chain; price stays hidden.
+- New `escape_valve_list_reveal(price, salt)` validates the (price, salt) pair against the stored hash, transitions to `Active`, and sets `listing.buyable_after = now + REVEAL_COOLDOWN_SECS` (30s default).
+- `escape_valve_buy` now requires `now >= listing.buyable_after` (new error: `ListingNotBuyableYet`). Searchers reacting to the reveal cannot land a buy inside the cooldown window — the legitimate buyer (who already knows `(price, salt)` off-chain) has the head-start.
+- Legacy single-step `escape_valve_list` remains for devnet/demo UX; gated by `config.commit_reveal_required` so mainnet ops can disable it post-canary.
+
+Residual surface for mitigation #4 (Jito): the cooldown shrinks the searcher window but doesn't close it. Pairing reveal + buy in a single Jito bundle (operator-side, not on-chain) hardens further — recommended at mainnet rampup but not strictly required given the cooldown already enforces a deterministic head-start.
 
 ### 2.3 `settle_default` — crank race
 
@@ -306,19 +315,19 @@ Unlike Ethereum's public mempool, Solana ordering is determined by:
 
 ## 3. Summary — MEV surface vs mitigation
 
-| Instruction             | Vector class                    | Extractable today? | On-chain mitigation already present                                                     | Mainnet mitigation                                             |
-| ----------------------- | ------------------------------- | :----------------: | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `contribute`            | On-time / late reputation snipe |         ❌         | `Clock` sysvar timestamp (un-spoofable); economic incentive self-aligned                | Monitor attestation-rate-by-tip-amount post-launch             |
-| `claim_payout`          | Bounded griefing (rational)     |         ❌         | `member.slot_index == args.cycle` binds claimer; Solvency Guard atomic                  | Monitoring + alerting; Jito bundle batching long-term          |
-| `release_escrow`        | Pre-seizure escrow extraction   |         ❌         | `on_time_count >= checkpoint` gate; D/C invariant; `last_released_checkpoint` monotonic | Re-review when crank-reward economics ship                     |
-| `escape_valve_list`     | Stale-price race                |         ❌         | `escape_valve_buy` already commits buyer to specific price; no relist primitive today   | Future `escape_valve_relist` must be atomic-update (#232)      |
-| `escape_valve_buy`      | Sniper / listing-race           |  ⚠️ Yes — bounded  | `args.price_usdc == listing.price_usdc` + buyer-balance check                           | Commit-reveal listings + Jito bundles for cancel/relist (#232) |
-| `settle_default`        | Reputation grief                |         ❌         | Deterministic cascade order; `args.cycle == pool.current_cycle - 1` binding             | Cranker bond + cooldown (post-canary)                          |
-| `harvest_yield`         | Kamino sandwich                 |     ❌ (stub)      | `min_realized_usdc` slippage guard (PR #124) + post-CPI delta assertion                 | Slippage guard ✅ + Jito-bundled harvest read (with #233)      |
-| `deposit_idle_to_yield` | Kamino sandwich                 |     ❌ (stub)      | Permissionless crank; deterministic transfer amount                                     | Same as harvest                                                |
-| `join_pool`             | Slot-0 race                     | ❌ (admin-seeded)  | Slot bitmap deterministic; admin-seeded today (no open enrollment)                      | Random slot assignment (Community Pool variant)                |
+| Instruction             | Vector class                    |   Extractable today?   | On-chain mitigation already present                                                                                                          | Mainnet mitigation                                                                                                  |
+| ----------------------- | ------------------------------- | :--------------------: | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `contribute`            | On-time / late reputation snipe |           ❌           | `Clock` sysvar timestamp (un-spoofable); economic incentive self-aligned                                                                     | Monitor attestation-rate-by-tip-amount post-launch                                                                  |
+| `claim_payout`          | Bounded griefing (rational)     |           ❌           | `member.slot_index == args.cycle` binds claimer; Solvency Guard atomic                                                                       | Monitoring + alerting; Jito bundle batching long-term                                                               |
+| `release_escrow`        | Pre-seizure escrow extraction   |           ❌           | `on_time_count >= checkpoint` gate; D/C invariant; `last_released_checkpoint` monotonic                                                      | Re-review when crank-reward economics ship                                                                          |
+| `escape_valve_list`     | Stale-price race                |           ❌           | `escape_valve_buy` already commits buyer to specific price; no relist primitive today                                                        | Future `escape_valve_relist` must be atomic-update (#232)                                                           |
+| `escape_valve_buy`      | Sniper / listing-race           | ⚠️ Bounded by cooldown | `args.price_usdc == listing.price_usdc` + buyer-balance check + **`now >= listing.buyable_after` (30s cooldown after commit-reveal — #232)** | Operator-side Jito bundle (reveal + buy) for stronger anti-snipe; not strictly required given the on-chain cooldown |
+| `settle_default`        | Reputation grief                |           ❌           | Deterministic cascade order; `args.cycle == pool.current_cycle - 1` binding                                                                  | Cranker bond + cooldown (post-canary)                                                                               |
+| `harvest_yield`         | Kamino sandwich                 |       ❌ (stub)        | `min_realized_usdc` slippage guard (PR #124) + post-CPI delta assertion                                                                      | Slippage guard ✅ + Jito-bundled harvest read (with #233)                                                           |
+| `deposit_idle_to_yield` | Kamino sandwich                 |       ❌ (stub)        | Permissionless crank; deterministic transfer amount                                                                                          | Same as harvest                                                                                                     |
+| `join_pool`             | Slot-0 race                     |   ❌ (admin-seeded)    | Slot bitmap deterministic; admin-seeded today (no open enrollment)                                                                           | Random slot assignment (Community Pool variant)                                                                     |
 
-**Big picture:** the Triple Shield design **already constrains** the extraction surface to bounded griefing on most instructions. The exception is `escape_valve_buy` listing-race, which is the **single non-bounded extraction vector** in the protocol and the priority mitigation work for mainnet.
+**Big picture:** the Triple Shield design **already constrains** the extraction surface to bounded griefing on every instruction. The previously-flagged `escape_valve_buy` listing-race is now bounded by the on-chain commit-reveal flow + 30s `buyable_after` cooldown (#232). No non-bounded extraction vectors remain in the user-facing surface.
 
 ### 3.1 Consolidated mitigations + test coverage
 

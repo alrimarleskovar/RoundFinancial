@@ -93,6 +93,27 @@ pub mod roundfi_core {
         instructions::escape_valve_list::handler(ctx, args)
     }
 
+    /// Commit-reveal step 1/2 (#232). Creates a listing in `Pending`
+    /// status with only a hash of `(price || salt)` stored on chain —
+    /// hides the price from searchers monitoring escape-valve flow.
+    pub fn escape_valve_list_commit(
+        ctx: Context<EscapeValveListCommit>,
+        args: EscapeValveListCommitArgs,
+    ) -> Result<()> {
+        instructions::escape_valve_list_commit::handler(ctx, args)
+    }
+
+    /// Commit-reveal step 2/2 (#232). Validates the (price, salt)
+    /// pair against the stored hash, transitions the listing to
+    /// `Active`, and arms a `REVEAL_COOLDOWN_SECS` window before
+    /// the listing becomes buyable.
+    pub fn escape_valve_list_reveal(
+        ctx: Context<EscapeValveListReveal>,
+        args: EscapeValveListRevealArgs,
+    ) -> Result<()> {
+        instructions::escape_valve_list_reveal::handler(ctx, args)
+    }
+
     pub fn escape_valve_buy(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result<()> {
         instructions::escape_valve_buy::handler(ctx, args)
     }

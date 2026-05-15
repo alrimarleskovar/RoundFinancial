@@ -88,6 +88,23 @@ pub struct ProtocolConfig {
     /// the production yield-adapter program ID is final. Idempotent
     /// (calling twice is a no-op, not an error).
     pub approved_yield_adapter_locked: bool,
+
+    // ─── #232: commit-reveal MEV mitigation for escape_valve_list ─────
+    /// Gates the legacy single-step `escape_valve_list` path.
+    /// When `true`, the legacy ix rejects with `CommitRevealRequired`
+    /// and sellers must use `escape_valve_list_commit` +
+    /// `escape_valve_list_reveal` (which apply the
+    /// `REVEAL_COOLDOWN_SECS` anti-snipe window). When `false`, both
+    /// paths coexist and the legacy listing is immediately buyable
+    /// (`buyable_after = listed_at`).
+    ///
+    /// Mainnet flip path: authority sets to `true` after the canary
+    /// validates the commit-reveal UX. Devnet stays `false` so demo
+    /// flows keep their single-step ergonomics. Mutable via
+    /// `update_protocol_config`; no lock-flag because flipping back
+    /// to permissive is a recoverable operator decision (not a
+    /// trust-surface change).
+    pub commit_reveal_required: bool,
 }
 
 impl ProtocolConfig {
@@ -96,10 +113,11 @@ impl ProtocolConfig {
     //  + 3*u64(8) for TVL caps (items 4.2 + 4.3 of MAINNET_READINESS)
     //  + Pubkey(32) for approved_yield_adapter (item 4.4)
     //  + 1 byte for approved_yield_adapter_locked (governance hardening)
-    //  + 31 byte tail-padding. Combined: TVL caps claimed 24 bytes,
-    //    allowlist + lock-flag claimed 33 bytes, of the original
-    //    64-byte padding allocation — leaves 31 bytes for further
-    //    forward-compat additions.
+    //  + 1 byte for commit_reveal_required (#232)
+    //  + 30 byte tail-padding. Combined: TVL caps claimed 24 bytes,
+    //    allowlist + lock-flag claimed 33 bytes, commit-reveal flag
+    //    claimed 1 byte, of the original 64-byte padding allocation —
+    //    leaves 30 bytes for further forward-compat additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -114,5 +132,6 @@ impl ProtocolConfig {
         + 8                      // committed_protocol_tvl_usdc
         + 32                     // approved_yield_adapter
         + 1                      // approved_yield_adapter_locked
-        + 31;                    // forward-compat padding (was 32)
+        + 1                      // commit_reveal_required (#232)
+        + 30;                    // forward-compat padding (was 31)
 }
