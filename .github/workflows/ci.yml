@@ -217,23 +217,20 @@ jobs:
       - name: Verify solana CLI
         run: solana --version
 
-      - name: Install Anchor 0.30.1
-        # `--locked` fails on Rust 1.85+ because anchor's pinned `time`
-        # crate doesn't compile (E0282 type inference). Without
-        # `--locked`, cargo resolves a compatible newer `time`.
+      - name: Install Anchor 1.0.2
+        # Agave 2.x migration (#230): bumped from 0.30.1 → 1.0.2.
+        # Anchor 1.0 fully migrated to borsh 1.x (closes the mpl-core
+        # transitive-borsh conflict that blocked 0.31 attempt). Full
+        # IDL generation works (no more `--no-idl` workaround).
         run: |
           cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+            --tag v1.0.2 anchor-cli
 
-      - name: anchor build (--no-idl)
-        # `--no-idl` skips the IDL build step. anchor-syn 0.30.1's
-        # IDL builder calls `Span::source_file()` which was removed
-        # from stable rustc; until Anchor 0.31 lands the fix, IDL
-        # generation can't run. The committed Cargo.lock pins
-        # solana-program 1.18.26 + blake3 1.5.0 + mpl-core 0.8.0 so
-        # the SBF target compile itself is reproducible against
-        # platform-tools v1.51 cargo 1.84.
-        run: anchor build --no-idl
+      - name: anchor build
+        # Full IDL build is back as of Anchor 0.31.1. SBF target compiles
+        # against the platform-tools shipped with Agave 3.0.0; host-side
+        # deps target Solana 2.x via anchor-lang 0.31.
+        run: anchor build
 
       # NOTE: `pnpm test:bankrun` is intentionally not in this lane.
       # The bankrun harness loads `target/idl/*.json`, which `--no-idl`

@@ -56,6 +56,15 @@ impl borsh::BorshDeserialize for Payload {
     }
 }
 
+// Anchor 0.31 requires `IdlBuild` for custom types used in `#[account]`
+// structs (replaces the old `Span::source_file()` IDL path from 0.30).
+// Default methods return None/empty so the IDL emits Payload as an opaque
+// type — matches the actual on-chain layout (a fixed 96-byte buffer with
+// no further field decomposition), and matches the previous behaviour
+// under the old `--no-idl` workaround.
+#[cfg(feature = "idl-build")]
+impl anchor_lang::IdlBuild for Payload {}
+
 #[account]
 #[derive(Debug)]
 pub struct Attestation {
