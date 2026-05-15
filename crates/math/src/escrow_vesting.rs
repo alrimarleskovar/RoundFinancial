@@ -126,6 +126,19 @@ mod tests {
 
     // ─── SEV-029 regression coverage ────────────────────────────────────
     //
+    // ⚠ **METHODOLOGICAL NOTE (SEV-034 retrospective):** the simulator
+    // below (`simulate_release_sequence`) tracks `cumulative_paid` as
+    // an *independent* `u64` counter. That structure proves the
+    // *abstract* conservation property (sum of releases ≤ principal)
+    // but does NOT mirror the on-chain code, which derives
+    // `cumulative_paid` from `(stake_deposited_initial +
+    // total_escrow_deposited - escrow_balance)`. Because the on-chain
+    // derivation depends on state mutated by `contribute()`, and this
+    // simulator never models contribute, the SEV-029 tests passed
+    // while the on-chain code was still wrong. SEV-034 caught the
+    // gap; the new `lifecycle::*` tests below close it by modeling
+    // the full state shape the on-chain handler sees.
+    //
     // The on-chain `release_escrow` ix uses the
     //   owed_now = cumulative_vested(checkpoint) - cumulative_paid
     // recurrence to compute the per-call payout under partial-pay
@@ -256,6 +269,232 @@ mod tests {
         let principal = 1_000u64;
         let err = simulate_release_sequence(principal, 24, &[(24, 0)]).unwrap_err();
         assert!(matches!(err, MathError::EscrowNothingToRelease));
+    }
+
+    // ─── SEV-034 regression coverage (lifecycle simulator) ──────────────
+    //
+    // The SEV-029 simulator above tracks `cumulative_paid` as a
+    // standalone `u64` counter. That structure cannot exercise the
+    // bug the W4 pre-audit pass surfaced: the on-chain handler
+    // *derives* cumulative_paid from `(stake_deposited_initial +
+    // total_escrow_deposited - escrow_balance)`, and that derivation
+    // breaks when `contribute()` increments `escrow_balance` between
+    // releases.
+    //
+    // These tests model the FULL on-chain state shape and use the
+    // on-chain derivation. Any change to the handler's derivation
+    // must be mirrored here, or the tests stop catching regressions.
+
+    /// State the on-chain `release_escrow` handler reads + writes.
+    /// Mirror of the fields the handler touches on `Member`.
+    #[derive(Debug, Clone, Copy)]
+    struct LifecycleState {
+        stake_deposited_initial: u64,
+        total_escrow_deposited: u64,
+        escrow_balance: u64,
+        last_released_checkpoint: u8,
+        cycles_total: u8,
+    }
+
+    impl LifecycleState {
+        fn new(stake: u64, cycles_total: u8) -> Self {
+            Self {
+                stake_deposited_initial: stake,
+                total_escrow_deposited: 0,
+                escrow_balance: stake, // on join_pool, stake is deposited into escrow accounting
+                last_released_checkpoint: 0,
+                cycles_total,
+            }
+        }
+
+        /// Mirrors `contribute()` — adds escrow_amount to both the
+        /// monotonic counter and the current balance.
+        fn contribute(&mut self, escrow_amount: u64) {
+            self.total_escrow_deposited = self
+                .total_escrow_deposited
+                .checked_add(escrow_amount)
+                .expect("ted overflow");
+            self.escrow_balance = self
+                .escrow_balance
+                .checked_add(escrow_amount)
+                .expect("balance overflow");
+        }
+
+        /// Mirrors `release_escrow` handler. Returns the delta paid,
+        /// or Err mirroring the on-chain require! failures.
+        fn release_escrow(&mut self, checkpoint: u8, vault_amount: u64) -> Result<u64, MathError> {
+            // Checkpoint guards (release_escrow.rs:84-88).
+            if checkpoint == 0 || checkpoint > self.cycles_total {
+                return Err(MathError::EscrowLocked);
+            }
+            if checkpoint <= self.last_released_checkpoint {
+                return Err(MathError::EscrowLocked);
+            }
+
+            // SEV-034 derivation: ever_deposited = stake_initial + total_escrow_deposited.
+            let ever_deposited = self
+                .stake_deposited_initial
+                .checked_add(self.total_escrow_deposited)
+                .ok_or(MathError::Overflow)?;
+            let total_already_paid = ever_deposited.saturating_sub(self.escrow_balance);
+            let total_due = cumulative_vested(
+                self.stake_deposited_initial,
+                checkpoint,
+                self.cycles_total,
+            )?;
+            let delta_target = total_due.saturating_sub(total_already_paid);
+            if delta_target == 0 {
+                return Err(MathError::EscrowNothingToRelease);
+            }
+            if delta_target > self.escrow_balance {
+                return Err(MathError::EscrowNothingToRelease);
+            }
+            let delta = delta_target.min(vault_amount);
+            if delta == 0 {
+                return Err(MathError::EscrowNothingToRelease);
+            }
+
+            self.escrow_balance = self
+                .escrow_balance
+                .checked_sub(delta)
+                .ok_or(MathError::Overflow)?;
+            self.last_released_checkpoint = checkpoint;
+            Ok(delta)
+        }
+
+        fn derived_total_released(&self) -> u64 {
+            let ever_deposited = self
+                .stake_deposited_initial
+                .saturating_add(self.total_escrow_deposited);
+            ever_deposited.saturating_sub(self.escrow_balance)
+        }
+    }
+
+    #[test]
+    fn sev_034_auditor_scenario_no_overpay() {
+        // The exact trace the auditor used to disclose SEV-034:
+        //   stake=750, cycles=3, installment=1000, escrow_bps=25%
+        //
+        // Pre-SEV-034 (broken derivation): chk=2 returned delta=500
+        //   and chk=3 returned delta=750, total received = 1500 against
+        //   stake 750 → 100% overpay.
+        //
+        // Post-SEV-034: each release returns exactly 250 (one third of
+        //   the 750 stake per checkpoint, as the linear vesting schedule
+        //   demands), total = 750 = stake. No overpay.
+        let mut state = LifecycleState::new(750, 3);
+        let escrow_per_cycle = 250u64;
+        let vault = u64::MAX; // unlimited so we test the math, not the vault cap
+
+        // c0 contribute → release chk=1
+        state.contribute(escrow_per_cycle);
+        let r1 = state.release_escrow(1, vault).unwrap();
+
+        // c1 contribute → release chk=2 (THE bug site)
+        state.contribute(escrow_per_cycle);
+        let r2 = state.release_escrow(2, vault).unwrap();
+
+        // c2 contribute → release chk=3 (final)
+        state.contribute(escrow_per_cycle);
+        let r3 = state.release_escrow(3, vault).unwrap();
+
+        assert_eq!(r1, 250, "chk=1 must release 750/3 = 250");
+        assert_eq!(r2, 250, "chk=2 must release 250 (pre-SEV-034 was 500)");
+        assert_eq!(r3, 250, "chk=3 must release 250 (pre-SEV-034 was 750)");
+
+        let total_received = r1 + r2 + r3;
+        assert_eq!(total_received, 750, "total released must equal stake exactly");
+        assert_eq!(state.derived_total_released(), 750);
+    }
+
+    #[test]
+    fn sev_034_realistic_pool_no_overpay() {
+        // Closer to a real pool: stake=5_000 USDC (50% of 10_000 credit
+        // = L1 stake_bps), 24 cycles, 600 USDC installment, 25% escrow
+        // deposit per cycle.
+        let stake = 5_000_000_000u64;
+        let cycles = 24u8;
+        let installment = 600_000_000u64;
+        let escrow_bps = 2_500u64;
+        let escrow_per_cycle = installment * escrow_bps / 10_000;
+        let vault = u64::MAX;
+
+        let mut state = LifecycleState::new(stake, cycles);
+        let mut total_received = 0u64;
+        for c in 1u8..=cycles {
+            state.contribute(escrow_per_cycle);
+            let delta = state.release_escrow(c, vault).unwrap();
+            total_received = total_received.checked_add(delta).unwrap();
+        }
+
+        // After 24 contribute+release cycles, total released = stake.
+        assert_eq!(total_received, stake, "lifecycle total must equal stake");
+        // Per-call delta is the linear share (stake / cycles) modulo
+        // floor-rounding dust on the final checkpoint.
+        assert_eq!(state.derived_total_released(), stake);
+        // Final escrow_balance retains only the per-cycle contributions
+        // not yet vested into the linear ladder — but since we walked
+        // every checkpoint, vesting consumed the full stake.
+        // Remaining: just the accumulated contribute deposits that
+        // weren't "stake-shaped".
+        assert_eq!(state.escrow_balance, 24 * escrow_per_cycle);
+    }
+
+    #[test]
+    fn sev_034_partial_pay_still_works() {
+        // Compose SEV-016 (partial pay when vault is short) with the
+        // contribute lifecycle. Vault transient shortfall at chk=1
+        // means we get partial; chk=2 (after refill) collects the
+        // remaining vested portion. No overpay.
+        let mut state = LifecycleState::new(1_000, 4);
+        state.contribute(100);
+
+        // chk=1: total_due=250 (1000/4), released_so_far=0, owed=250.
+        // Vault has only 60 → partial 60.
+        let r1 = state.release_escrow(1, 60).unwrap();
+        assert_eq!(r1, 60);
+
+        // chk=2 (vault refilled): total_due=500, derived released = 60.
+        // Owed = 500 - 60 = 440. Vault unlimited → delta = 440.
+        let r2 = state.release_escrow(2, u64::MAX).unwrap();
+        assert_eq!(r2, 440);
+
+        // chk=3: total_due=750, derived released = 500. delta = 250.
+        let r3 = state.release_escrow(3, u64::MAX).unwrap();
+        assert_eq!(r3, 250);
+
+        // chk=4 (final): total_due=1000, derived released = 750. delta = 250.
+        let r4 = state.release_escrow(4, u64::MAX).unwrap();
+        assert_eq!(r4, 250);
+
+        assert_eq!(r1 + r2 + r3 + r4, 1_000, "partial+catch-up must total stake");
+    }
+
+    #[test]
+    fn sev_034_no_contribute_calls_still_work() {
+        // Sanity: if contribute is never called (degenerate pool),
+        // the derivation still works — total_escrow_deposited stays 0,
+        // escrow_balance stays at stake_initial until releases.
+        let mut state = LifecycleState::new(900, 3);
+        // No contribute calls.
+        let r1 = state.release_escrow(1, u64::MAX).unwrap();
+        let r2 = state.release_escrow(2, u64::MAX).unwrap();
+        let r3 = state.release_escrow(3, u64::MAX).unwrap();
+        assert_eq!(r1, 300);
+        assert_eq!(r2, 300);
+        assert_eq!(r3, 300);
+        assert_eq!(r1 + r2 + r3, 900);
+    }
+
+    #[test]
+    fn sev_034_replay_same_checkpoint_blocked() {
+        // The strictly-increasing checkpoint guard still works — even
+        // with the new derivation. A second call at the same chk
+        // returns EscrowLocked.
+        let mut state = LifecycleState::new(1_000, 4);
+        let _ = state.release_escrow(1, u64::MAX).unwrap();
+        let err = state.release_escrow(1, u64::MAX).unwrap_err();
+        assert!(matches!(err, MathError::EscrowLocked));
     }
 }
 
