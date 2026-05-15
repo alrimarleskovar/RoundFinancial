@@ -82,30 +82,44 @@ const OFFSETS = {
 
 const EXPECTED_SIZE = 363 + 18; // last field + 18 padding bytes
 
-function pk(data: Buffer, offset: number): string {
+// Bounds-check helpers — devnet may run a config initialized before
+// the SEV-021 / SEV-024 follow-up extended ProtocolConfig. Fields
+// added in those PRs (pending_authority, lp_share_bps,
+// pending_fee_bps_yield) live past byte 311 of the new layout but
+// don't exist in the old layout. Read attempts past `data.length`
+// would otherwise crash with "offset out of range" — we degrade
+// gracefully to "n/a (pre-Fase-5 config)" instead.
+type DecodedValue = string | number | bigint;
+
+function pk(data: Buffer, offset: number): DecodedValue {
+  if (offset + 32 > data.length) return "n/a (pre-Fase-5 config)";
   return new PublicKey(data.subarray(offset, offset + 32)).toBase58();
 }
 
-function bool(data: Buffer, offset: number): string {
+function bool(data: Buffer, offset: number): DecodedValue {
+  if (offset >= data.length) return "n/a (pre-Fase-5 config)";
   const b = data[offset];
   if (b === 0) return "false";
   if (b === 1) return "true";
   return `?? raw=${b}`;
 }
 
-function u16(data: Buffer, offset: number): number {
+function u16(data: Buffer, offset: number): DecodedValue {
+  if (offset + 2 > data.length) return "n/a (pre-Fase-5 config)";
   return data.readUInt16LE(offset);
 }
 
-function u64(data: Buffer, offset: number): bigint {
+function u64(data: Buffer, offset: number): DecodedValue {
+  if (offset + 8 > data.length) return "n/a (pre-Fase-5 config)";
   return data.readBigUInt64LE(offset);
 }
 
-function i64(data: Buffer, offset: number): bigint {
+function i64(data: Buffer, offset: number): DecodedValue {
+  if (offset + 8 > data.length) return "n/a (pre-Fase-5 config)";
   return data.readBigInt64LE(offset);
 }
 
-function row(label: string, offset: number, value: string | number | bigint): void {
+function row(label: string, offset: number, value: DecodedValue): void {
   console.log(`  [${String(offset).padStart(3, " ")}] ${label.padEnd(34, " ")} ${value}`);
 }
 
@@ -217,42 +231,66 @@ async function main(): Promise<void> {
   console.log("\n─── Sanity assertions ─────────────────────────────────");
 
   // Hard assertions on values that have well-known expected ranges.
-  // Each one prints PASS/FAIL so the operator can scan quickly.
-  const checks: Array<{ name: string; pass: boolean; got: string; expected: string }> = [];
+  // Each one prints PASS/FAIL/SKIP so the operator can scan quickly.
+  // SKIP = field is past the end of the account data (pre-Fase-5
+  // config — re-init devnet to see this assertion).
+  type CheckResult = "PASS" | "FAIL" | "SKIP";
+  const checks: Array<{ name: string; result: CheckResult; got: string; expected: string }> = [];
 
-  checks.push({
-    name: "bump is non-zero (PDA bump)",
-    pass: (data[OFFSETS.bump] ?? 0) !== 0,
-    got: String(data[OFFSETS.bump] ?? 0),
-    expected: "1..255",
-  });
+  function assertNumeric(
+    name: string,
+    value: DecodedValue,
+    range: { min: number; max: number; expected: string },
+  ): void {
+    if (typeof value === "string") {
+      checks.push({ name, result: "SKIP", got: value, expected: range.expected });
+      return;
+    }
+    const n = Number(value);
+    checks.push({
+      name,
+      result: n >= range.min && n <= range.max ? "PASS" : "FAIL",
+      got: String(value),
+      expected: range.expected,
+    });
+  }
 
-  const feeYield = u16(data, OFFSETS.fee_bps_yield);
-  checks.push({
-    name: "fee_bps_yield in [0, MAX_FEE_BPS_YIELD=3000]",
-    pass: feeYield <= 3000,
-    got: String(feeYield),
+  // bump is read directly off the byte (not via a helper), so handle
+  // its bounds check inline.
+  if (OFFSETS.bump < data.length) {
+    checks.push({
+      name: "bump is non-zero (PDA bump)",
+      result: (data[OFFSETS.bump] ?? 0) !== 0 ? "PASS" : "FAIL",
+      got: String(data[OFFSETS.bump] ?? 0),
+      expected: "1..255",
+    });
+  } else {
+    checks.push({
+      name: "bump is non-zero (PDA bump)",
+      result: "SKIP",
+      got: "n/a (pre-Fase-5 config)",
+      expected: "1..255",
+    });
+  }
+
+  assertNumeric("fee_bps_yield in [0, MAX_FEE_BPS_YIELD=3000]", u16(data, OFFSETS.fee_bps_yield), {
+    min: 0,
+    max: 3000,
     expected: "0..3000",
   });
-
-  const lpBps = u16(data, OFFSETS.lp_share_bps);
-  checks.push({
-    name: "lp_share_bps in [0, 10000]",
-    pass: lpBps <= 10000,
-    got: String(lpBps),
+  assertNumeric("lp_share_bps in [0, 10000]", u16(data, OFFSETS.lp_share_bps), {
+    min: 0,
+    max: 10000,
     expected: "0..10000",
   });
-
-  const guaranteeBps = u16(data, OFFSETS.guarantee_fund_bps);
-  checks.push({
-    name: "guarantee_fund_bps in [0, 50000]",
-    pass: guaranteeBps <= 50000,
-    got: String(guaranteeBps),
+  assertNumeric("guarantee_fund_bps in [0, 50000]", u16(data, OFFSETS.guarantee_fund_bps), {
+    min: 0,
+    max: 50000,
     expected: "0..50000",
   });
 
   for (const c of checks) {
-    const tag = c.pass ? "✅ PASS" : "❌ FAIL";
+    const tag = c.result === "PASS" ? "✅ PASS" : c.result === "FAIL" ? "❌ FAIL" : "⏭️  SKIP";
     console.log(`  ${tag}  ${c.name.padEnd(50, " ")} got=${c.got} expected=${c.expected}`);
   }
 
