@@ -42,6 +42,52 @@ pub fn retained_meets_seed_draw(
     Ok(retained_balance >= floor)
 }
 
+/// Pool viability check — **SEV-031 runtime guard**.
+///
+/// A pool is viable when the per-cycle pool float (member contributions
+/// minus solidarity routing and escrow withholding) is at least the
+/// credit amount due to each cycle's recipient. If the math doesn't
+/// close, cycle-0 `claim_payout` always fails the Seed Draw retention
+/// guard and the pool traps member contributions in the vaults until
+/// the authority manually winds the pool down.
+///
+/// SEV-025 (W2) bumped the protocol defaults to satisfy this invariant;
+/// SEV-031 (W3) lifts the same invariant into `create_pool` runtime so
+/// custom pool args are also gated.
+///
+/// Formula:
+///   pool_float = members × installment × (MAX_BPS − solidarity − escrow)
+///              / MAX_BPS
+///   viable ⇔ pool_float ≥ credit
+///
+/// Returns:
+///   - `Ok(true)` if the pool would be viable
+///   - `Ok(false)` if the math closes but the float is below credit
+///   - `Err(InvalidPoolParams)` if `solidarity + escrow > MAX_BPS` (the
+///     pool is trivially inviable; treat as bad args)
+#[inline]
+pub fn pool_is_viable(
+    members_target: u8,
+    installment_amount: u64,
+    credit_amount: u64,
+    solidarity_bps: u16,
+    escrow_release_bps: u16,
+) -> Result<bool, MathError> {
+    let max_bps = crate::constants::MAX_BPS as u32;
+    let retention = max_bps
+        .checked_sub(solidarity_bps as u32)
+        .and_then(|x| x.checked_sub(escrow_release_bps as u32))
+        .ok_or(MathError::InvalidPoolParams)?;
+    let pool_float = (members_target as u128)
+        .checked_mul(installment_amount as u128)
+        .ok_or(MathError::Overflow)?
+        .checked_mul(retention as u128)
+        .ok_or(MathError::Overflow)?
+        .checked_div(max_bps as u128)
+        .ok_or(MathError::Overflow)?;
+    Ok(pool_float >= credit_amount as u128)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +137,79 @@ mod tests {
     fn bps_zero_floor_is_zero() {
         assert_eq!(seed_draw_floor(MEMBERS, INST, 0).unwrap(), 0);
         assert!(retained_meets_seed_draw(MEMBERS, INST, 0, 0).unwrap());
+    }
+
+    // ─── SEV-031 viability check ────────────────────────────────────────
+
+    /// Whitepaper default: 24 × 600 USDC × 0.74 = 10_656 ≥ 10_000 credit.
+    /// Mirrors `programs/roundfi-core/src/constants.rs::pool_defaults_match_product_spec`.
+    #[test]
+    fn sev_031_protocol_defaults_are_viable() {
+        let viable = pool_is_viable(
+            24,            // members
+            600_000_000,   // 600 USDC
+            10_000_000_000, // 10_000 USDC credit
+            100,           // 1% solidarity
+            2_500,         // 25% escrow
+        ).unwrap();
+        assert!(viable, "protocol defaults must remain viable");
+    }
+
+    /// Pre-SEV-025 defaults: 24 × 416 USDC × 0.74 = 7388 < 10_000 credit.
+    /// Test pins the failure case the W3 audit asked us to gate at runtime.
+    #[test]
+    fn sev_031_pre_sev_025_defaults_rejected_as_inviable() {
+        let viable = pool_is_viable(
+            24,
+            416_000_000,    // old installment
+            10_000_000_000,
+            100,
+            2_500,
+        ).unwrap();
+        assert!(!viable, "old (pre-SEV-025) defaults must now be rejected");
+    }
+
+    /// Single-member pool with 1 USDC installment cannot fund 1 USDC
+    /// credit because solidarity + escrow take a slice.
+    #[test]
+    fn sev_031_tiny_pool_inviable() {
+        let viable = pool_is_viable(1, 1_000_000, 1_000_000, 100, 2_500).unwrap();
+        assert!(!viable);
+    }
+
+    /// Edge: zero installment is trivially inviable (no float).
+    #[test]
+    fn sev_031_zero_installment_inviable() {
+        let viable = pool_is_viable(24, 0, 1, 100, 2_500).unwrap();
+        assert!(!viable);
+    }
+
+    /// Edge: zero credit is trivially viable (any positive float clears it).
+    #[test]
+    fn sev_031_zero_credit_viable() {
+        let viable = pool_is_viable(24, 600_000_000, 0, 100, 2_500).unwrap();
+        assert!(viable);
+    }
+
+    /// solidarity + escrow > MAX_BPS would underflow — must error out.
+    #[test]
+    fn sev_031_underflow_rejected() {
+        let result = pool_is_viable(24, 600_000_000, 10_000_000_000, 6_000, 6_000);
+        assert!(result.is_err(), "underflow must surface as MathError::InvalidPoolParams");
+    }
+
+    /// Boundary: just-above-credit pool float is accepted.
+    #[test]
+    fn sev_031_just_above_credit_accepted() {
+        // 1 member × 13_513 USDC × 0.74 ≈ 9_999.62 — round to integer.
+        // Use exact match: members=1, installment=13_514_000_000 → float = 9_999.36 < 10_000
+        // Try installment=13_513_514_000 → 0.74 × that = 9_999_900_360 < 10_000_000_000
+        // Try installment=13_513_514_000 + epsilon: just make the test cover the >= boundary.
+        // For simplicity, use the floor math directly:
+        let credit = 10_000_000_000u64;
+        let installment = 13_514_000_000u64; // > credit / 0.74
+        let viable = pool_is_viable(1, installment, credit, 100, 2_500).unwrap();
+        assert!(viable, "installment chosen to exceed credit / retention");
     }
 
     #[test]

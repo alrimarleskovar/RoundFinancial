@@ -156,18 +156,63 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
   return app;
 }
 
+/**
+ * Determine whether this process is running in a "production-like"
+ * environment that must NOT accept unauthenticated webhook POSTs.
+ *
+ * Production-like = any of:
+ *   - `NODE_ENV=production` (standard Node convention)
+ *   - `INDEXER_ENV` set to `mainnet`, `production`, or `staging`
+ *
+ * Conservative: anything else (unset, `development`, `test`, `local`)
+ * is treated as **not** production-like and allows the fail-open
+ * webhook for the local-dev loop. Explicit list rather than negation
+ * to avoid future env values silently downgrading the check.
+ */
+function isProductionLikeEnv(): boolean {
+  if (process.env.NODE_ENV === "production") return true;
+  const tier = process.env.INDEXER_ENV?.toLowerCase();
+  return tier === "mainnet" || tier === "production" || tier === "staging";
+}
+
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   const app = await buildServer(prisma);
 
-  // Adevar Labs SEV-009 — startup gap warning when HELIUS_WEBHOOK_SECRET
-  // is unset. The webhook handler skips auth in that case (frictionless
-  // local-dev loop), but production deploys MUST set the env var. A
-  // visible warning at startup makes the gap auditable in logs.
+  // Adevar Labs SEV-009 (W2) — startup gap warning when
+  // HELIUS_WEBHOOK_SECRET is unset. The webhook handler skips auth in
+  // that case (frictionless local-dev loop), with a visible warning at
+  // startup so the gap is auditable in logs.
+  //
+  // Adevar Labs SEV-033 (W3) — fail-OPEN is not safe in production.
+  // The W3 re-audit flagged that an operator could deploy the indexer
+  // to staging/mainnet, forget to set the env var, and end up with an
+  // unauthenticated webhook surface in production — exactly the SEV-009
+  // shape that SEV-009 was supposed to close. Auditor recommended
+  // fail-CLOSED on production deploys: refuse to start if the env var
+  // is unset AND the process is running in a production-like
+  // environment (NODE_ENV=production or INDEXER_ENV in {mainnet,
+  // production, staging}).
+  //
+  // Local dev (NODE_ENV unset / development / test) still gets the
+  // frictionless path with a warning — the dev loop is preserved.
   if (!process.env.HELIUS_WEBHOOK_SECRET) {
+    if (isProductionLikeEnv()) {
+      app.log.error(
+        {
+          NODE_ENV: process.env.NODE_ENV,
+          INDEXER_ENV: process.env.INDEXER_ENV,
+        },
+        "HELIUS_WEBHOOK_SECRET is unset in production-like environment — " +
+          "refusing to start. Set HELIUS_WEBHOOK_SECRET or run with " +
+          "NODE_ENV=development for local-dev. (SEV-033 / Adevar audit)",
+      );
+      await prisma.$disconnect();
+      process.exit(1);
+    }
     app.log.warn(
       "HELIUS_WEBHOOK_SECRET is unset — webhook auth disabled. " +
-        "Required for any non-local deploy (SEV-009 / Adevar audit).",
+        "Required for any non-local deploy (SEV-009 / SEV-033 / Adevar audit).",
     );
   }
 
