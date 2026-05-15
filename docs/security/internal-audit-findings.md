@@ -8,20 +8,27 @@
 >
 > **Engagement format:** whiteglove audit of `roundfi-core`,
 > `roundfi-reputation`, `roundfi-yield-kamino`, indexer, and SDK by
-> Adevar Labs. Initial report (2026-05 W1) catalogued 20 findings;
-> re-audit (2026-05 W2) against an updated snapshot added 8 more for
-> a total of 28.
+> Adevar Labs. Three passes:
+>
+> - **W1 (2026-05):** initial report — 20 findings (SEV-001..SEV-020).
+> - **W2 (2026-05):** re-audit against the W1 fixes — 8 new findings (SEV-021..SEV-028).
+> - **W3 (2026-05):** re-audit against the W2 fixes — 5 new findings (SEV-029..SEV-033), including **one regression** of a W2 fix (SEV-029 ← SEV-016).
+>
+> **Total: 33 findings across all 3 passes.**
 >
 > **Audit report (full text):** [`ADEVAR_AUDIT_REPORT.md`](../../ADEVAR_AUDIT_REPORT.md) in repo root (history at commit `03f8030`).
 
 ## Status legend
 
-| Status           | Meaning                                                                                              |
-| ---------------- | ---------------------------------------------------------------------------------------------------- |
-| 🟢 **Closed**    | Fix merged to `main`, validated, and either covered by a regression test or pinned by an invariant.  |
-| 🟡 **Deferred**  | Acknowledged and scheduled — work item exists, but not a launch blocker per current risk assessment. |
-| 🟠 **Blocked**   | Fix path identified but waiting on an upstream dependency to clear.                                  |
-| 🔵 **Won't fix** | Intentional design, documented as such; reviewer signed off on the trade-off.                        |
+| Status              | Meaning                                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🟢 **Closed**       | Fix merged to `main`, validated, and either covered by a regression test or pinned by an invariant.                                            |
+| 🟡 **Partial**      | A fix shipped that closes part of the finding, but a successor SEV-ID tracks the remainder. Commit message is tagged `fix(security, partial)`. |
+| 🟡 **Open**         | Scheduled in an upcoming Fase — work item exists but no PR yet. Not a launch blocker per current risk assessment.                              |
+| 🟡 **Deferred**     | Acknowledged and scheduled later — typically a maintenance refactor with no fund-loss vector.                                                  |
+| 🟠 **Blocked**      | Fix path identified but waiting on an upstream dependency to clear.                                                                            |
+| 🔵 **Won't fix**    | Intentional design, documented as such; reviewer signed off on the trade-off.                                                                  |
+| 🔵 **Acknowledged** | Design constraint observed by the auditor; no action required, but documented so future contributors know the trade-off.                       |
 
 ## Findings
 
@@ -58,43 +65,57 @@
 
 ### Low
 
-| SEV     | Status      | PR                                                                 | Title                                                       | Note                                                                                                                                                      |
-| ------- | ----------- | ------------------------------------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SEV-013 | 🟢 Closed   | [#330](https://github.com/alrimarleskovar/roundfinancial/pull/330) | Commit-reveal salt is `u64` — seller can compromise privacy | Added entropy floor check on the salt; `escape_valve_list_commit` rejects low-entropy salts.                                                              |
-| SEV-014 | 🟢 Closed   | [#336](https://github.com/alrimarleskovar/roundfinancial/pull/336) | Indexer decoder de-synced from `msg!` emissions             | Decoder + schema realigned to program's actual emission format; regression test added.                                                                    |
-| SEV-015 | 🟢 Closed   | [#335](https://github.com/alrimarleskovar/roundfinancial/pull/335) | Commit-reveal listing has no cancel-path for `Pending` slot | Added `cancel_pending_listing` instruction — seller-only abort, slot freed atomically.                                                                    |
-| SEV-016 | 🟢 Closed   | [#334](https://github.com/alrimarleskovar/roundfinancial/pull/334) | Shared escrow vault — partial-pay edge in `release_escrow`  | Partial-pay path now correctly checkpoints; SEV-016 specifically called out in release_escrow comment.                                                    |
-| SEV-025 | 🟢 Closed   | [#339](https://github.com/alrimarleskovar/roundfinancial/pull/339) | Pool defaults made the pool inviable                        | `DEFAULT_INSTALLMENT_AMOUNT` bumped 416 → 600 USDC. Pool float now `24×600×0.74 = 10_656 >= 10_000 credit`. Viability invariant pinned by test.           |
-| SEV-026 | 🟡 Deferred | —                                                                  | `settle_default` cascade duplication                        | Drift-risk maintenance refactor. Not a fund-loss vector — duplicate logic across two settle paths produces same state. Scheduled for a Fase 5 cleanup PR. |
-| SEV-027 | 🟢 Closed   | [#339](https://github.com/alrimarleskovar/roundfinancial/pull/339) | Admin-direct `SCHEMA_PAYMENT` had no cooldown               | 60s `MIN_ADMIN_ATTEST_COOLDOWN_SECS` floor added. Anti-spam against trivial-loop score-pumping.                                                           |
+| SEV     | Status                           | PR                                                                                                                                      | Title                                                         | Note                                                                                                                                                                                                                                                                                 |
+| ------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SEV-013 | 🟢 Closed                        | [#330](https://github.com/alrimarleskovar/roundfinancial/pull/330)                                                                      | Commit-reveal salt is `u64` — seller can compromise privacy   | Added entropy floor check on the salt; `escape_valve_list_commit` rejects low-entropy salts.                                                                                                                                                                                         |
+| SEV-014 | 🟢 Closed                        | [#336](https://github.com/alrimarleskovar/roundfinancial/pull/336)                                                                      | Indexer decoder de-synced from `msg!` emissions               | Decoder + schema realigned to program's actual emission format; regression test added.                                                                                                                                                                                               |
+| SEV-015 | 🟢 Closed                        | [#335](https://github.com/alrimarleskovar/roundfinancial/pull/335)                                                                      | Commit-reveal listing has no cancel-path for `Pending` slot   | Added `cancel_pending_listing` instruction — seller-only abort, slot freed atomically.                                                                                                                                                                                               |
+| SEV-016 | 🟢 Closed (regressed → SEV-029)  | [#334](https://github.com/alrimarleskovar/roundfinancial/pull/334) → [#342](https://github.com/alrimarleskovar/roundfinancial/pull/342) | Shared escrow vault — partial-pay edge in `release_escrow`    | Original partial-release fix (#334) introduced an overpay regression (SEV-029) caught by the W3 re-audit. Final fix in #342 rewrites the vesting math to track `cumulative_paid = stake - escrow_balance` so partial pays no longer double-pay on the next call.                     |
+| SEV-025 | 🟢 Closed                        | [#339](https://github.com/alrimarleskovar/roundfinancial/pull/339)                                                                      | Pool defaults made the pool inviable                          | `DEFAULT_INSTALLMENT_AMOUNT` bumped 416 → 600 USDC. Pool float now `24×600×0.74 = 10_656 >= 10_000 credit`. Viability invariant pinned by test.                                                                                                                                      |
+| SEV-026 | 🟡 Deferred                      | —                                                                                                                                       | `settle_default` cascade duplication                          | Drift-risk maintenance refactor. Not a fund-loss vector — duplicate logic across two settle paths produces same state. Scheduled for a Fase 5 cleanup PR.                                                                                                                            |
+| SEV-027 | 🟡 Partial (extended by SEV-030) | [#339](https://github.com/alrimarleskovar/roundfinancial/pull/339)                                                                      | Admin-direct `SCHEMA_PAYMENT` had no cooldown                 | 60s `MIN_ADMIN_ATTEST_COOLDOWN_SECS` floor added on `SCHEMA_PAYMENT` only. W3 re-audit (SEV-030) flagged that `SCHEMA_LATE` and `SCHEMA_DEFAULT` remain unrate-limited; extension scheduled for the SEV-030 PR.                                                                      |
+| SEV-030 | 🟡 Open (Fase 5)                 | —                                                                                                                                       | Admin cooldown only covers `SCHEMA_PAYMENT` (SEV-027 partial) | W3 re-audit. `SCHEMA_LATE` and `SCHEMA_DEFAULT` (negative-score schemas) admit unrate-limited admin grief. Extension to all schemas scheduled.                                                                                                                                       |
+| SEV-031 | 🟡 Open (Fase 5)                 | —                                                                                                                                       | `create_pool` lacks runtime viability check                   | W3 re-audit. SEV-025 updated the **defaults** but a pool authority can still create custom pools where `members × installment × (1 − sol − escrow) < credit`, failing the cycle-0 Seed Draw guard. Runtime check scheduled.                                                          |
+| SEV-029 | 🟢 Closed                        | [#342](https://github.com/alrimarleskovar/roundfinancial/pull/342)                                                                      | `release_escrow` partial-pay overpay (regression of SEV-016)  | **High — fund-leak regression.** Surfaced by the W3 re-audit. Vesting math now uses `cumulative_paid = stake − escrow_balance` recurrence; checkpoint always advances. Ships with 4 negative regression tests + 2 proptest invariants per the new "negative test before merge" gate. |
 
 ### Informational
 
-| SEV     | Status       | PR                                                                 | Title                                                          | Note                                                                                                                                                                                                                                   |
-| ------- | ------------ | ------------------------------------------------------------------ | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SEV-017 | 🟢 Closed    | [#334](https://github.com/alrimarleskovar/roundfinancial/pull/334) | `join_pool` accepts `nft_asset` as arbitrary `Signer`          | Documented in nft_asset comment; the signer is the asset-issuer authority, not a member wallet. Doc-only clarification.                                                                                                                |
-| SEV-018 | 🔵 Won't fix | —                                                                  | `settle_default` bypasses `paused` flag                        | **Intentional design.** Documented in `settle_default.rs:N` — pause must not block default settlement, otherwise an attacker could pause to grief honest members past their grace deadline. Acknowledged by auditor as design-correct. |
-| SEV-019 | 🟢 Closed    | [#328](https://github.com/alrimarleskovar/roundfinancial/pull/328) | CHANGELOG missed yield-kamino `c_token_account` fix            | Honest-framing update to `docs/security/audit-readiness.md` and changelog.                                                                                                                                                             |
-| SEV-020 | 🟢 Closed    | [#328](https://github.com/alrimarleskovar/roundfinancial/pull/328) | `approved_yield_adapter` could be locked at vulnerable adapter | Added `lock_approved_yield_adapter()` op-guard with explicit warning + ceremony procedure documented.                                                                                                                                  |
-| SEV-028 | 🟢 Closed    | [#339](https://github.com/alrimarleskovar/roundfinancial/pull/339) | `refresh_identity` swallowed the underlying error              | Captured `Err(e)` and `msg!`-logged it before flipping status to `Revoked`. Improves operator forensics on revocations.                                                                                                                |
+| SEV     | Status           | PR                                                                 | Title                                                          | Note                                                                                                                                                                                                                                                                                  |
+| ------- | ---------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEV-017 | 🟢 Closed        | [#334](https://github.com/alrimarleskovar/roundfinancial/pull/334) | `join_pool` accepts `nft_asset` as arbitrary `Signer`          | Documented in nft_asset comment; the signer is the asset-issuer authority, not a member wallet. Doc-only clarification.                                                                                                                                                               |
+| SEV-018 | 🔵 Won't fix     | —                                                                  | `settle_default` bypasses `paused` flag                        | **Intentional design.** Documented in `settle_default.rs:N` — pause must not block default settlement, otherwise an attacker could pause to grief honest members past their grace deadline. Acknowledged by auditor as design-correct.                                                |
+| SEV-019 | 🟢 Closed        | [#328](https://github.com/alrimarleskovar/roundfinancial/pull/328) | CHANGELOG missed yield-kamino `c_token_account` fix            | Honest-framing update to `docs/security/audit-readiness.md` and changelog.                                                                                                                                                                                                            |
+| SEV-020 | 🟢 Closed        | [#328](https://github.com/alrimarleskovar/roundfinancial/pull/328) | `approved_yield_adapter` could be locked at vulnerable adapter | Added `lock_approved_yield_adapter()` op-guard with explicit warning + ceremony procedure documented.                                                                                                                                                                                 |
+| SEV-028 | 🟢 Closed        | [#339](https://github.com/alrimarleskovar/roundfinancial/pull/339) | `refresh_identity` swallowed the underlying error              | Captured `Err(e)` and `msg!`-logged it before flipping status to `Revoked`. Improves operator forensics on revocations.                                                                                                                                                               |
+| SEV-032 | 🔵 Acknowledged  | —                                                                  | `ReputationConfig` padding exhausted by SEV-021                | W3 re-audit observation. The 30-byte padding budget was fully consumed by the SEV-021 `pending_authority` + `pending_authority_eta` additions. Future field additions require an explicit migration (re-init or `realloc`). Documented as a design constraint; no action this sprint. |
+| SEV-033 | 🟡 Open (Fase 5) | —                                                                  | Webhook auth fails open when env var unset                     | W3 re-audit. The HMAC verification path returns "no signature configured → accept all" when `WEBHOOK_HMAC_SECRET` is unset, instead of failing closed. Indexer-side fix scheduled to refuse to start when the env is unset in production mode.                                        |
 
 ## Summary
 
-| Severity      | Total  | 🟢 Closed | 🟡 Deferred | 🟠 Blocked | 🔵 Won't fix |
-| ------------- | ------ | --------- | ----------- | ---------- | ------------ |
-| Critical      | 2      | 2         | 0           | 0          | 0            |
-| High          | 5      | 5         | 0           | 0          | 0            |
-| Medium        | 9      | 8         | 0           | 1          | 0            |
-| Low           | 7      | 6         | 1           | 0          | 0            |
-| Informational | 5      | 4         | 0           | 0          | 1            |
-| **Total**     | **28** | **25**    | **1**       | **1**      | **1**        |
+| Severity      | Total  | 🟢 Closed | 🟡 Deferred / Partial / Open | 🟠 Blocked | 🔵 Won't fix / Ack |
+| ------------- | ------ | --------- | ---------------------------- | ---------- | ------------------ |
+| Critical      | 2      | 2         | 0                            | 0          | 0                  |
+| High          | 6      | 6         | 0                            | 0          | 0                  |
+| Medium        | 9      | 8         | 0                            | 1          | 0                  |
+| Low           | 10     | 6         | 4                            | 0          | 0                  |
+| Informational | 6      | 4         | 0                            | 0          | 2                  |
+| **Total**     | **33** | **26**    | **4**                        | **1**      | **2**              |
 
-**Mainnet-blocker status:** the only Critical / High findings are 🟢 Closed.
-The remaining 🟠 Blocked entry (SEV-012, bankrun-in-CI) is a coverage-gap finding,
-not a vulnerability — the underlying tests run locally. The 🟡 Deferred entry
-(SEV-026, cascade duplication) is a maintenance-refactor with no fund-loss
-shape. The 🔵 Won't-fix entry (SEV-018, settle_default bypass) is design-correct
-and acknowledged by the auditor.
+**Mainnet-blocker status:** all 🟢 Closed for Critical / High (8 of 8).
+The 🟠 Blocked entry (SEV-012, bankrun-in-CI) is a coverage-gap finding — tests
+run locally. The 🟡 Partial / Open entries (SEV-026 cascade duplication, SEV-027
+partial admin cooldown, SEV-030 cooldown extension, SEV-031 viability check,
+SEV-033 webhook fail-closed) are Low-severity defense-in-depth items scheduled
+for Fase 5; none carry a fund-loss vector beyond what the canary TVL cap
+bounds. The 🔵 entries (SEV-018 design-intentional, SEV-032 design-constraint)
+are acknowledged by the auditor.
+
+**Regression note:** SEV-029 ([PR #342](https://github.com/alrimarleskovar/roundfinancial/pull/342))
+was a fund-leak regression introduced by the SEV-016 partial-release fix
+in [PR #334](https://github.com/alrimarleskovar/roundfinancial/pull/334).
+Caught by the W3 re-audit. Per the auditor's process recommendation, every
+subsequent Critical / High PR now ships with a negative regression test
+**before** merge.
 
 ## Methodology notes
 
@@ -112,17 +133,29 @@ on a deeper second pass. The score dropping from 6.5 → 6.0 between reports
 reflects auditor confidence-calibration, not new bugs introduced by the W1
 fixes.
 
+**W3 re-audit deltas:** 5 new findings (SEV-029..SEV-033). **One is a regression
+of a prior fix** — SEV-029 is the partial-release overpay introduced by the
+SEV-016 fix in #334. The other 4 (SEV-030..SEV-033) are independent surface
+area. The auditor's process recommendation — "Critical/High needs a negative
+regression test before merge" — was adopted starting with SEV-029 ([PR #342](https://github.com/alrimarleskovar/roundfinancial/pull/342)),
+which ships 4 unit tests + 2 proptest invariants demonstrating the conservation
+property holds under partial-pay sequences. Partial fixes are now tagged
+`fix(security, partial)` in the commit message so the tracker can mark them
+as 🟡 Partial rather than 🟢 Closed.
+
 ## Disclosure timeline
 
-| Date       | Event                                                                        |
-| ---------- | ---------------------------------------------------------------------------- |
-| 2026-05-W1 | Adevar Labs initial report (SEV-001..SEV-020). 20 findings.                  |
-| 2026-05-W1 | Critical fixes shipped (SEV-001, SEV-002). PRs #326, #327.                   |
-| 2026-05-W1 | High fixes shipped (SEV-003..SEV-005). PR #329.                              |
-| 2026-05-W2 | Medium + Low + Informational batch (SEV-006..SEV-020). PRs #328 .. #336.     |
-| 2026-05-W2 | Adevar Labs re-audit report (SEV-021..SEV-028). 8 new findings.              |
-| 2026-05-W2 | Re-audit fixes shipped (SEV-021..SEV-025, SEV-027, SEV-028). PRs #337..#339. |
-| 2026-05-15 | Pattern-fingerprint sweep + this tracker page published. PR #340.            |
+| Date       | Event                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------ |
+| 2026-05-W1 | Adevar Labs initial report (SEV-001..SEV-020). 20 findings.                                            |
+| 2026-05-W1 | Critical fixes shipped (SEV-001, SEV-002). PRs #326, #327.                                             |
+| 2026-05-W1 | High fixes shipped (SEV-003..SEV-005). PR #329.                                                        |
+| 2026-05-W2 | Medium + Low + Informational batch (SEV-006..SEV-020). PRs #328 .. #336.                               |
+| 2026-05-W2 | Adevar Labs re-audit report (SEV-021..SEV-028). 8 new findings.                                        |
+| 2026-05-W2 | Re-audit fixes shipped (SEV-021..SEV-025, SEV-027, SEV-028). PRs #337..#339.                           |
+| 2026-05-15 | Pattern-fingerprint sweep + this tracker page published. PR #340.                                      |
+| 2026-05-W3 | Adevar Labs W3 re-audit (SEV-029..SEV-033). SEV-029 flagged as regression of SEV-016. Score 7.5 → 7.0. |
+| 2026-05-15 | SEV-029 fix shipped (math rewrite + 6 regression tests). PR #342.                                      |
 
 ## See also
 
