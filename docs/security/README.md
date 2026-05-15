@@ -4,18 +4,18 @@
 
 ## TL;DR
 
-| What you have | Time to read                     | When to read                                |
-| ------------- | -------------------------------- | ------------------------------------------- |
-| 5 min         | `../../AUDIT_SCOPE.md` (1-pager) | Before everything else                      |
-| 10 min        | `audit-readiness.md`             | Strategic context                           |
+| What you have | Time to read                     | When to read                                                       |
+| ------------- | -------------------------------- | ------------------------------------------------------------------ |
+| 5 min         | `../../AUDIT_SCOPE.md` (1-pager) | Before everything else                                             |
+| 10 min        | `audit-readiness.md`             | Strategic context                                                  |
 | 5 min         | `internal-audit-findings.md`     | Adevar Labs audit — public findings tracker (28 SEVs, status, PRs) |
-| 5 min         | `constants-audit-2026-05.md`     | Post-audit pattern sweep (SEV-002 / SEV-023 family) |
-| 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees            |
-| 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface         |
-| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)     |
-| 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope) |
-| 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)  |
-| 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers            |
+| 5 min         | `constants-audit-2026-05.md`     | Post-audit pattern sweep (SEV-002 / SEV-023 family)                |
+| 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees                                   |
+| 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface                                |
+| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)                            |
+| 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope)                        |
+| 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)                         |
+| 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers                                   |
 
 **Total first-pass: ~2 hours.**
 
