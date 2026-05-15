@@ -32,6 +32,20 @@ pub struct EscapeValveListCommitArgs {
     /// `SHA-256(price_usdc.to_le_bytes() || salt.to_le_bytes())`.
     /// 32 bytes. Hash format is fixed — the reveal handler
     /// recomputes it byte-for-byte from the (price, salt) args.
+    ///
+    /// **Salt entropy requirement (Adevar Labs SEV-013):** the `salt`
+    /// half of the pre-image MUST be cryptographically random. SDK
+    /// helpers should use `crypto.randomBytes(8)` and BigInt-decode.
+    /// `salt = 0` or predictable patterns (timestamps, slot numbers,
+    /// counters) let a searcher brute-force the commit_hash by
+    /// enumerating prices in the expected range, breaking the
+    /// commit-reveal privacy property.
+    ///
+    /// The reveal handler rejects `salt = 0` outright with
+    /// `SaltMustBeNonZero` as a minimal trivially-broken-case guard.
+    /// Beyond that, salt-quality enforcement is the SDK's
+    /// responsibility — we cannot verify entropy from a single
+    /// 64-bit observation on chain.
     pub commit_hash: [u8; 32],
 }
 
