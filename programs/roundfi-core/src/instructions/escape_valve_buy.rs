@@ -180,6 +180,22 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
         RoundfiError::InsufficientStake,
     );
 
+    // ─── Commit-reveal cooldown (#232 MEV mitigation) ───────────────────
+    // For commit-reveal listings, `buyable_after = reveal_ts +
+    // REVEAL_COOLDOWN_SECS` — gives the legitimate buyer (who knows
+    // the price + salt off-chain) a fixed head-start to land this tx
+    // before a searcher reacting to the now-public reveal-tx logs can
+    // race them at the same price.
+    //
+    // For legacy single-step listings, `buyable_after = listed_at`,
+    // so this check is a cheap no-op (`now >= listed_at` is always
+    // true post-listing).
+    let now = Clock::get()?.unix_timestamp;
+    require!(
+        now >= listing.buyable_after,
+        RoundfiError::ListingNotBuyableYet,
+    );
+
     // ─── Pay seller ─────────────────────────────────────────────────────
     // Straight SPL transfer buyer → seller; buyer signs for their own ATA.
     token::transfer(

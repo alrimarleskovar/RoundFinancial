@@ -41,6 +41,11 @@ pub struct UpdateProtocolConfigArgs {
     /// `Some(<program_id>)` requires `create_pool` to match.
     /// `None` leaves the field unchanged.
     pub new_approved_yield_adapter: Option<Pubkey>,
+    /// Commit-reveal gate (#232). `Some(true)` disables the legacy
+    /// single-step `escape_valve_list` path; `Some(false)` re-enables
+    /// it. `None` leaves unchanged. Mainnet flips to `Some(true)`
+    /// after canary validates the commit-reveal flow.
+    pub new_commit_reveal_required: Option<bool>,
 }
 
 #[derive(Accounts)]
@@ -129,12 +134,27 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
         // recoverable misconfiguration, not a fund-loss surface.
         cfg.approved_yield_adapter = pubkey;
     }
+    if let Some(flag) = args.new_commit_reveal_required {
+        // Audit trail: log the transition so off-chain monitors can
+        // alert when ops toggles the gate. Mainnet expectation is a
+        // one-way `false → true` flip post-canary; a reverse flip is
+        // explicitly allowed (it's a recoverable UX choice, not a
+        // trust-surface change) but should still be visible.
+        if cfg.commit_reveal_required != flag {
+            msg!(
+                "roundfi-core: commit_reveal_required toggled old={} new={}",
+                cfg.commit_reveal_required, flag,
+            );
+        }
+        cfg.commit_reveal_required = flag;
+    }
 
     msg!(
-        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={} adapter_locked={}",
+        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={} adapter_locked={} commit_reveal_required={}",
         cfg.fee_bps_yield, cfg.guarantee_fund_bps,
         cfg.max_pool_tvl_usdc, cfg.max_protocol_tvl_usdc,
         cfg.approved_yield_adapter, cfg.approved_yield_adapter_locked,
+        cfg.commit_reveal_required,
     );
 
     Ok(())

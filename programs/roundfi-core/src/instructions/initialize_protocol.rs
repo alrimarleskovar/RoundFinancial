@@ -114,6 +114,12 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     // adapter is final. Mirrors `treasury_locked` (#122).
     config.approved_yield_adapter_locked = false;
 
+    // Commit-reveal flag (#232): starts permissive so devnet single-
+    // step `escape_valve_list` keeps working. Mainnet flips to `true`
+    // via `update_protocol_config` after the canary validates the
+    // commit-reveal UX.
+    config.commit_reveal_required = false;
+
     msg!("roundfi-core: protocol initialized");
     Ok(())
 }
