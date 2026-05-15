@@ -41,11 +41,22 @@ use crate::state::{Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct HarvestYieldArgs {
-    /// Share of the post-fee-and-GF residual routed to LPs / Anjos de
-    /// Liquidez. Defaults to DEFAULT_LP_SHARE_BPS (6_500 = 65%).
-    /// Capped at 10_000 (100%). The caller (typically the pool creator
-    /// or a protocol crank) provides this; the on-chain check rejects
-    /// anything > 10_000.
+    /// **DEPRECATED — ignored at the handler level (Adevar Labs SEV-003 fix).**
+    ///
+    /// Previously controlled the LP/participant split in the yield
+    /// waterfall. Was caller-controlled and unbound by any authoritative
+    /// policy — a permissionless cranker could rotate the split between
+    /// 0% and 100% per call, breaking the contract with LP subscribers
+    /// (Anjos de Liquidez). The auditor flagged this as High severity.
+    ///
+    /// The handler now reads `config.lp_share_bps` and IGNORES whatever
+    /// value the caller passes here. The field is retained in the args
+    /// struct for SDK back-compat — old SDKs continue to encode a u16
+    /// at this offset; the handler silently overrides it. A future SDK
+    /// version drops this field entirely (tracked as a Fase 3 cleanup).
+    ///
+    /// Authoritative policy now lives at `ProtocolConfig.lp_share_bps`,
+    /// mutable via `update_protocol_config { new_lp_share_bps }`.
     pub lp_share_bps: u16,
     /// Slippage guard: minimum realized USDC the caller is willing to
     /// accept on this harvest. If the adapter returns less, the tx
@@ -150,10 +161,19 @@ pub fn handler<'info>(
     ctx: Context<'_, '_, '_, 'info, HarvestYield<'info>>,
     args: HarvestYieldArgs,
 ) -> Result<()> {
-    require!(
-        args.lp_share_bps as u32 <= MAX_BPS as u32,
-        RoundfiError::InvalidBps,
-    );
+    // Adevar Labs SEV-003 fix: `lp_share_bps` is no longer caller-
+    // controlled. We read the authoritative value from
+    // `config.lp_share_bps` and IGNORE whatever value the caller
+    // passed via args. If the args value differs, log a warning so
+    // a stale SDK is visible in monitoring — but the tx still
+    // proceeds with the authoritative config value.
+    let lp_share_bps = ctx.accounts.config.lp_share_bps;
+    if args.lp_share_bps != lp_share_bps {
+        msg!(
+            "roundfi-core: harvest_yield ignoring caller lp_share_bps={} (config authoritative={})",
+            args.lp_share_bps, lp_share_bps,
+        );
+    }
 
     let pool = &mut ctx.accounts.pool;
 
@@ -262,7 +282,7 @@ pub fn handler<'info>(
         realized,
         gf_room,
         ctx.accounts.config.fee_bps_yield,
-        args.lp_share_bps,
+        lp_share_bps, // Authoritative — see Adevar SEV-003 note at top of handler.
     )?;
 
     // ─── Step 1: Protocol fee — transfer to treasury (FIRST on gross) ──

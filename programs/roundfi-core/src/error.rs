@@ -150,4 +150,8 @@ pub enum RoundfiError {
     AuthorityTimelockActive,
     #[msg("An authority rotation is already pending — cancel it first")]
     AuthorityProposalAlreadyPending,
+
+    // ─── Adevar Labs SEV-004 — init_pool_vaults idempotence guard ─────
+    #[msg("Pool vaults are already initialized — init_pool_vaults is one-shot")]
+    VaultsAlreadyInitialized,
 }

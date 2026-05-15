@@ -50,6 +50,7 @@ pub struct InitPoolVaults<'info> {
     /// authority PDAs are read from here so this ix doesn't have to
     /// re-derive them at compute cost.
     #[account(
+        mut,
         seeds = [SEED_POOL, pool.authority.as_ref(), &pool.seed_id.to_le_bytes()],
         bump = pool.bump,
         constraint = pool.authority == authority.key() @ RoundfiError::Unauthorized,
@@ -94,6 +95,23 @@ pub struct InitPoolVaults<'info> {
 }
 
 pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
+    // ─── Adevar Labs SEV-004 fix — idempotence guard ─────────────────
+    //
+    // Before this guard, `create_idempotent` ATAs were no-op on a
+    // second call but the TVL counter increment was UNCONDITIONAL —
+    // a hostile (or just retrying) pool authority could double-count
+    // `config.committed_protocol_tvl_usdc` and DoS the canary's
+    // `max_protocol_tvl_usdc` cap. `close_pool` could only decrement
+    // once per pool, so the inflation was sticky.
+    //
+    // Now: the entire init flow (TVL increment + 4 × ATA creates) is
+    // gated on `pool.vaults_initialized`, set to `true` at end of
+    // handler. Anchor's mutable Pool account makes the flag durable.
+    require!(
+        !ctx.accounts.pool.vaults_initialized,
+        RoundfiError::VaultsAlreadyInitialized,
+    );
+
     // ─── TVL cap enforcement (items 4.2 + 4.3 of MAINNET_READINESS) ──
     //
     // The pool's max committed flow is `credit_amount × cycles_total`.
@@ -201,6 +219,13 @@ pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
             token_program:     ctx.accounts.token_program.to_account_info(),
         },
     ))?;
+
+    // Adevar Labs SEV-004 fix: mark vaults initialized so a future
+    // call short-circuits at the require! above. Set AFTER all 4
+    // create_idempotent CPIs succeed — if any fails, the tx reverts
+    // and the flag stays false (state rolls back), so retries after
+    // a partial-failure correctly re-attempt.
+    ctx.accounts.pool.vaults_initialized = true;
 
     msg!(
         "roundfi-core: init_pool_vaults pool={} (4 ATAs ready) committed_tvl_added={} committed_tvl_total={}",

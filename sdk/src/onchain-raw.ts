@@ -54,7 +54,7 @@ import { poolPda as derivePoolPda } from "./pda.js";
 
 // Re-uses the PoolStatusName from reads.ts (same enum, exported from
 // there as the shared type). Kept here as a local alias for clarity.
-type LocalPoolStatusName = "forming" | "active" | "completed" | "liquidated";
+type LocalPoolStatusName = "forming" | "active" | "completed" | "liquidated" | "closed";
 
 export interface RawPoolView {
   address: PublicKey;
@@ -88,7 +88,13 @@ export interface RawPoolView {
   occupiedSlots: number[];
 }
 
-const STATUS_NAMES: LocalPoolStatusName[] = ["forming", "active", "completed", "liquidated"];
+const STATUS_NAMES: LocalPoolStatusName[] = [
+  "forming",
+  "active",
+  "completed",
+  "liquidated",
+  "closed", // Adevar Labs SEV-005 — terminal post-close_pool state
+];
 
 /** Decode a Pool account's raw bytes into the shared view shape. */
 export function decodePoolRaw(address: PublicKey, data: Buffer): RawPoolView {
