@@ -99,13 +99,19 @@ Repeat for all 4 programs. Once all 4 are rotated, the deployer key has **zero o
 
 This is the `ProtocolConfig.authority` field — different surface from the upgrade authority (see [`key-rotation.md` §(a)](./key-rotation.md#a-protocol-authority-rotation)).
 
-Today's `update_protocol_config` does not directly support changing the authority field (intentional — authority rotation should be a deliberate, separate concern). The procedure is:
+Authority rotation flows through a dedicated 3-step timelock pattern that mirrors the treasury rotation (PR #122). All three instructions live in `programs/roundfi-core/src/instructions/`:
 
-1. **Propose the change via Squads**: build an `update_protocol_config` ix with `new_authority: Some(<VAULT_PDA>)` (once that field exists — tracked as follow-up: extend `UpdateProtocolConfigArgs` with `new_authority: Option<Pubkey>`).
-2. **Threshold members approve the proposal** in the Squads UI.
-3. **Execute** — Squads CPIs into `roundfi-core` with the multisig vault as the signer; the `authority == config.authority` constraint passes because the vault was set as authority at protocol init (or rotated via a prior `update_protocol_config` from a former single-deployer authority).
+1. **Propose** — deployer signs `propose_new_authority(new_authority: <VAULT_PDA>)`. Stages the vault PDA on `config.pending_authority` and sets `config.pending_authority_eta = now + 7d`. Live `config.authority` is **not touched yet** — this is the public-window stage where any user/auditor/multisig member can detect a malicious authority rotation and react.
 
-> **Bootstrap quirk:** at `initialize_protocol` the deployer's wallet is the initial `authority`. To hand off to the Squads multisig, the deployer signs ONE final `update_protocol_config` ix with `new_authority = <VAULT_PDA>`. After that, every future `update_protocol_config` requires a Squads threshold signature.
+2. **Wait 7 days** (`TREASURY_TIMELOCK_SECS = 604_800`). Reuses the same constant the treasury rotation does — authority is at least as sensitive a surface, so the window matches.
+
+3. **Commit** — anyone calls `commit_new_authority()` after the eta elapses (permissionless crank, identical pattern to `commit_new_treasury`). Atomically: `config.authority = config.pending_authority`, clears the pending fields. The Squads vault PDA is now the authority.
+
+If the proposal is wrong (typo, malicious, etc.) before commit, the deployer can call `cancel_new_authority()` to abort and re-propose.
+
+> **Bootstrap quirk:** at `initialize_protocol` the deployer's wallet is the initial `authority`, and `pending_authority = Pubkey::default()`. The deployer signs ONE `propose_new_authority` ix with the vault PDA, waits 7 days, then anyone (including the deployer or a third-party cranker) calls `commit_new_authority`. After commit, all authority-gated ix (including future `propose_new_authority` calls for Squads-A → Squads-B rotations) require a Squads threshold signature CPI'd through the vault PDA.
+
+> **Why 7 days for the bootstrap?** The deployer can't be malicious to themselves, so the window is operational friction for THIS rotation. But the public-window assurance is what gives auditors confidence that NO surprise authority changes can happen on this protocol — the gate is uniform across deployer-bootstrap and Squads-A → Squads-B cases. One-time annoyance, durable trust property.
 
 ### Step 4 — Rotate the treasury (if applicable)
 

@@ -105,6 +105,34 @@ pub struct ProtocolConfig {
     /// to permissive is a recoverable operator decision (not a
     /// trust-surface change).
     pub commit_reveal_required: bool,
+
+    // ─── Protocol-authority rotation (mainnet Squads ceremony, #3.6) ──
+    /// Pending authority rotation. `Pubkey::default()` (all-zero) when
+    /// no rotation is queued. Set by `propose_new_authority`, cleared
+    /// by `cancel_new_authority` or finalized by `commit_new_authority`.
+    /// Mirrors the treasury rotation pattern (#122): authority signs
+    /// the propose, anyone can crank the commit after the timelock —
+    /// so the rotation eventually completes even if the old authority
+    /// key goes offline mid-window.
+    ///
+    /// Use case: bootstrap deployer → Squads multisig vault PDA at
+    /// mainnet ceremony time. Once the vault is the authority, ongoing
+    /// rotations (Squads-A → Squads-B) flow through the same instructions.
+    pub pending_authority:       Pubkey,
+    /// Earliest unix-ts at which `commit_new_authority` may execute.
+    /// `0` when no rotation is pending. Equals
+    /// `now + TREASURY_TIMELOCK_SECS` (7d) at the moment of proposal —
+    /// the same window the treasury rotation uses, since authority is
+    /// at least as sensitive a surface (authority controls treasury,
+    /// fees, pause, allowlists, the whole config).
+    ///
+    /// No `authority_locked` kill-switch counterpart: locking authority
+    /// permanently would break future Squads-A → Squads-B rotations
+    /// (e.g. if a member key is compromised and the multisig needs to
+    /// re-form with new members). Treasury has lock_treasury because
+    /// "freeze the fee sink forever" is a coherent end-state; authority
+    /// has no equivalent end-state.
+    pub pending_authority_eta:   i64,
 }
 
 impl ProtocolConfig {
@@ -114,10 +142,16 @@ impl ProtocolConfig {
     //  + Pubkey(32) for approved_yield_adapter (item 4.4)
     //  + 1 byte for approved_yield_adapter_locked (governance hardening)
     //  + 1 byte for commit_reveal_required (#232)
-    //  + 30 byte tail-padding. Combined: TVL caps claimed 24 bytes,
-    //    allowlist + lock-flag claimed 33 bytes, commit-reveal flag
-    //    claimed 1 byte, of the original 64-byte padding allocation —
-    //    leaves 30 bytes for further forward-compat additions.
+    //  + 32 bytes for pending_authority + 8 bytes for eta (Squads ceremony, #3.6)
+    //  + 30 byte tail-padding.
+    //
+    // Note: the original 64-byte padding allocation has been fully
+    // consumed (TVL caps 24 + allowlist+lock 33 + commit-reveal 1 +
+    // authority rotation 40 = 98 > 64). SIZE grew by 40 in this PR
+    // (the authority-rotation overflow). Existing devnet ProtocolConfig
+    // accounts need a fresh init since Anchor sizes accounts at create
+    // time; documented in the PR body. Future additions either grow
+    // SIZE further or consume the fresh 30-byte forward-compat pad.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -133,5 +167,7 @@ impl ProtocolConfig {
         + 32                     // approved_yield_adapter
         + 1                      // approved_yield_adapter_locked
         + 1                      // commit_reveal_required (#232)
-        + 30;                    // forward-compat padding (was 31)
+        + 32                     // pending_authority (#3.6 Squads ceremony)
+        + 8                      // pending_authority_eta
+        + 30;                    // forward-compat padding (preserved)
 }

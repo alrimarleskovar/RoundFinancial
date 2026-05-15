@@ -12,37 +12,55 @@
 
 The `authority` field on `ProtocolConfig` controls:
 
-- `update_protocol_config` (fee bps, GF target, paused flag)
+- `update_protocol_config` (fee bps, GF target, paused flag, TVL caps, adapter allowlist, commit-reveal gate)
 - `propose_new_treasury` / `cancel_new_treasury` / `lock_treasury`
+- `propose_new_authority` / `cancel_new_authority` (this surface itself)
+- `lock_approved_yield_adapter`
 - `pause` (immediate, no timelock — see [`emergency-response.md`](./emergency-response.md))
 
-**Authority rotation is NOT timelocked in the current implementation** — the rotation is direct via `update_protocol_config { new_authority }`. This is by design for devnet but should harden before mainnet.
+**Authority rotation IS timelocked** — flows through a dedicated 3-step pattern mirroring treasury rotation (PR #122):
 
-### Happy path (planned rotation)
+```
+propose_new_authority(new_authority) → wait 7 days → commit_new_authority()
+```
 
-1. **Generate the new authority keypair** offline. Multisig (Squads) recommended for mainnet.
-2. **Pre-announce in #announcements** with the new public key 7+ days ahead. Reviewers and integrators verify off-chain.
-3. **Sign + send `update_protocol_config`** with the current authority and `new_authority` set:
-   ```bash
-   # (Example — actual CLI may differ; today's path is via the SDK)
-   solana-keygen pubkey new-authority.json
-   # → <new-authority-pubkey>
-   # … invoke update_protocol_config with new_authority = <new-pubkey>
+This gives the user community / auditors / multisig members a 7-day public window to detect a malicious authority rotation and react before the swap finalizes.
+
+### Happy path (planned rotation, e.g. mainnet Squads ceremony)
+
+1. **Generate the new authority** offline. For mainnet bootstrap: derive the Squads multisig vault PDA. For Squads-A → Squads-B rotations: derive the new vault PDA.
+2. **Pre-announce in #announcements** with the new public key. Reviewers and integrators verify off-chain.
+3. **Propose** — current authority signs `propose_new_authority(new_authority: <new-pubkey>)`:
+   ```rust
+   propose_new_authority({ new_authority: <new-pubkey> })
+   // → writes pending_authority + pending_authority_eta = now + 7d
+   // → config.authority still equals the OLD authority
    ```
-4. **Verify on-chain** via `getAccountInfo` decoded against `ProtocolConfig` layout (see `packages/sdk/src/onchain-raw.ts`):
-   ```bash
-   # The authority field should now equal the new pubkey
+4. **Wait 7 days.** During this window, all authority-gated ix continue to require the OLD authority — predictable behavior. Anyone can watch the pending state via decoded `ProtocolConfig`.
+5. **Commit** — anyone (deployer, partner, monitoring crank, even the new authority itself) calls `commit_new_authority()` after the eta:
+   ```rust
+   commit_new_authority()
+   // → atomically: config.authority = pending_authority;
+   //   clears pending_authority + pending_authority_eta
    ```
-5. **Update internal docs**: `AUDIT_SCOPE.md` mainnet timeline + `SECURITY.md` contact (if comms email also changes) + CHANGELOG entry.
+6. **Verify on-chain** via `getAccountInfo` decoded against `ProtocolConfig` layout (see `packages/sdk/src/onchain-raw.ts`). The `authority` field should now equal the new pubkey.
+7. **Update internal docs**: `AUDIT_SCOPE.md` mainnet timeline + `SECURITY.md` contact (if comms email also changes) + CHANGELOG entry.
+
+If the proposal is wrong (typo, wrong PDA, malicious) before commit, the current authority calls `cancel_new_authority()` to abort. Resets `pending_authority` to `Pubkey::default()` so a fresh propose can run.
 
 ### Compromised-key path
 
 If the **current** authority key is suspected compromised:
 
 1. **Immediate `pause`** with the compromised key (last legitimate action before rotation; freezes all fund movements except `settle_default`). See [`emergency-response.md`](./emergency-response.md).
-2. **Race the attacker to the rotation** — they can also call `update_protocol_config`, so first-write-wins. Likelihood low if you're checking on a high-tip RPC + the attacker is exploiting via a different vector.
-3. **If you lose the race** and the authority is now hostile, the on-chain protocol is functionally captured. There is **no on-chain recovery** without the original key. Mitigation: multisig before mainnet so the attacker needs ≥ N keys; HSM custody so the keys aren't directly compromise-able.
-4. **Public disclosure** via SECURITY.md and a post on the project's official channel. Mark the affected program IDs as compromised in `docs/devnet-deployment.md` / mainnet ledger.
+2. **Propose the rotation** to a clean key:
+   ```rust
+   propose_new_authority({ new_authority: <fresh-pubkey> })
+   ```
+3. **Race the attacker on the propose** — they can also call `propose_new_authority`, so first-write-wins on the pending slot. If you can win the propose, the 7-day timelock locks in YOUR rotation; the attacker can `cancel_new_authority` to override it, but each cancel resets the slot and you can re-propose. This is a back-and-forth war until one of you exhausts.
+4. **Worst case** — if the attacker also wins the propose race AND commits 7 days later before you can cancel, the on-chain protocol is functionally captured. **Important:** the 7-day timelock GIVES YOU SEVEN DAYS to escalate (public disclosure, RPC blacklisting, frontend warning banners) before the capture finalizes. This is the auditor-facing assurance over the old direct-rotation model.
+5. **Mitigation against the race:** multisig (Squads) before mainnet so the attacker needs ≥ N keys; HSM custody so the keys aren't directly compromise-able.
+6. **Public disclosure** via SECURITY.md and a post on the project's official channel. Mark the affected program IDs as compromised in `docs/devnet-deployment.md` / mainnet ledger.
 
 ---
 
