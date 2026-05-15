@@ -54,7 +54,6 @@ pub struct Attest<'info> {
     #[account(
         seeds = [SEED_REP_CONFIG],
         bump = config.bump,
-        constraint = !config.paused @ ReputationError::Unauthorized,
     )]
     pub config: Account<'info, ReputationConfig>,
 
@@ -126,6 +125,36 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // For pool-PDA issuance, `args.pool` must match the issuer.
     if is_pool_pda {
         require_keys_eq!(args.pool, issuer_key, ReputationError::InvalidIssuer);
+    }
+
+    // ─── Adevar Labs SEV-022 fix — selective pause ──────────────────────
+    //
+    // Before: `constraint = !config.paused` on the config account
+    // blocked attest UNCONDITIONALLY when the reputation authority
+    // toggled `paused = true`. Because roundfi-core's contribute /
+    // claim_payout / settle_default ALL CPI to attest mandatorily,
+    // pausing reputation halted those core flows in every pool —
+    // breaking the explicitly-documented core property
+    // "settle_default never locks funds" (settle_default deliberately
+    // bypasses core's pause flag, but the reputation pause caught it
+    // through the back door of the CPI).
+    //
+    // After: pause is checked HERE, after issuer determination, and
+    // ONLY blocks admin-direct attests. Pool-PDA-signed CPI from core
+    // continues regardless of reputation pause. Operational meaning:
+    //   - Reputation pause: stops admin write surface (manual attest /
+    //     revoke / identity ops).
+    //   - To halt core flows too, operator pauses BOTH protocols
+    //     explicitly via `update_protocol_config { paused: true }`
+    //     AND `update_reputation_config { paused: true }`. The two
+    //     are now independent; coordinated pause is an operator
+    //     action, not a free side-effect.
+    //
+    // Settle_default's "never lock funds" property is restored: it
+    // deliberately bypasses core's pause AND now also bypasses
+    // reputation's pause through this carve-out.
+    if !is_pool_pda {
+        require!(!cfg.paused, ReputationError::Unauthorized);
     }
 
     // ─── 2. Schema validity ─────────────────────────────────────────────

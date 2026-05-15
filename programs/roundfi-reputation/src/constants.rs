@@ -39,6 +39,14 @@ pub const LEVEL_3_THRESHOLD: u64 = 2_000;
 pub const LEVEL_MIN: u8 = 1;
 pub const LEVEL_MAX: u8 = 3;
 
+/// Authority rotation timelock for the reputation program (Adevar Labs
+/// SEV-021 fix). Same 7-day window used by roundfi-core's
+/// TREASURY_TIMELOCK_SECS. Was previously zero (direct rotation via
+/// `update_reputation_config`), asymmetric with core's protection;
+/// auditor flagged a compromised key + 1 tx = irreversible attack.
+/// 604_800 = 7 * 24 * 60 * 60 seconds.
+pub const REPUTATION_AUTHORITY_TIMELOCK_SECS: i64 = 604_800;
+
 /// Passport attestation account size — 83 bytes.
 ///
 /// Layout reused from the original Civic Gateway-Token v1 shape so the
