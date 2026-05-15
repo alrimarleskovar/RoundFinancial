@@ -15,6 +15,24 @@
 //! to have drained leftover dust to treasury. That drain is a
 //! follow-up chore; for the hackathon demo a Completed pool is
 //! effectively closed.
+//!
+//! **Adevar Labs SEV-039 (Informational, deferred):** the auditor's
+//! W5 pass flagged that close_pool does not close the Pool PDA, the
+//! Member PDAs, or the four vault ATAs (escrow / solidarity / yield /
+//! pool_usdc). Consequence: rent stays locked in the closed pool's
+//! accounts forever; sub-MIN_RENT-EXEMPT dust in the vaults becomes
+//! inaccessible. Per-pool rent waste is ~0.0035 SOL on the Pool PDA
+//! plus the ATAs; cumulative across the protocol's lifetime, real but
+//! bounded.
+//!
+//! Why deferred: a true close needs (a) drain-to-treasury for any
+//! lingering vault USDC dust, (b) close_account on each ATA + Pool
+//! PDA + Member PDAs (typically dozens), (c) rent return to a
+//! designated wallet. That's a multi-tx ceremony that doesn't fit the
+//! single-ix close_pool shape. Tracked as future operational work;
+//! NOT a fund-loss vector (the dust was never claimable beyond the
+//! rounding it represents). Documented in the public tracker as
+//! 🔵 Acknowledged design constraint.
 
 use anchor_lang::prelude::*;
 
