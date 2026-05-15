@@ -63,7 +63,8 @@ pub struct InitializeProtocol<'info> {
 }
 
 pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -> Result<()> {
-    require!(args.fee_bps_yield    <= MAX_BPS, RoundfiError::InvalidBps);
+    // Adevar Labs SEV-024 fix: tightened from MAX_BPS to MAX_FEE_BPS_YIELD (30%).
+    require!(args.fee_bps_yield    <= MAX_FEE_BPS_YIELD, RoundfiError::InvalidBps);
     require!(args.fee_bps_cycle_l1 <= MAX_BPS, RoundfiError::InvalidBps);
     require!(args.fee_bps_cycle_l2 <= MAX_BPS, RoundfiError::InvalidBps);
     require!(args.fee_bps_cycle_l3 <= MAX_BPS, RoundfiError::InvalidBps);
