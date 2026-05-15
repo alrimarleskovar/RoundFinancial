@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::constants::*;
 use crate::error::RoundfiError;
-use crate::math::cumulative_vested;
+use crate::math::compute_release_delta_target;
 use crate::state::{Member, Pool, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -93,83 +93,52 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
         RoundfiError::EscrowLocked,
     );
 
-    // ─── Vesting math — linear over cycles_total ────────────────────────
+    // ─── Vesting math — single source of truth via math crate ──────────
     //
-    // **Adevar Labs SEV-034 fix** — regression-of-regression. The
-    // SEV-029 fix (PR #342) used `total_already_paid = stake_deposited
-    // - escrow_balance` as a derived counter. The accompanying comment
-    // claimed: "escrow_balance starts at stake_deposited and is **only**
-    // decremented by release_escrow on non-defaulted members."
+    // **Adevar Labs SEV-034 fix** — regression-of-regression chain:
     //
-    // **That claim was false.** `contribute()` INCREMENTS
-    // `member.escrow_balance` by the per-cycle escrow_deposit (25% of
-    // installment by default) at every contribution. So in the natural
-    // contribute-release-contribute-release lifecycle, escrow_balance
-    // oscillates above `stake_deposited`, and the `saturating_sub`
-    // returns 0 even when releases have already happened. Trace:
+    //   SEV-016 (#334): partial-pay handling on vault shortfall.
+    //   SEV-029 (#342): introduced "total_paid = stake - escrow_balance"
+    //                   derivation. False invariant — contribute() also
+    //                   increments escrow_balance.
+    //   SEV-034 (#349): correct derivation uses
+    //                   "total_paid = (stake_initial + total_escrow_deposited)
+    //                                 - escrow_balance"
     //
-    //   stake=750, cycles=3, installment=1000, escrow_bps=25%
-    //   start:               esc=750
-    //   c0 contribute(+250): esc=1000
-    //   release(chk=1):      due=250, paid_derived=sat_sub(750,1000)=0,
-    //                        delta=250 ✓ (correct first call)
-    //   c1 contribute(+250): esc=1000 (back up after release)
-    //   release(chk=2):      due=500, paid_derived=0,
-    //                        delta=500 ✗ (SHOULD BE 250; OVERPAY 250)
-    //   c2 contribute(+250): esc=1000
-    //   release(chk=3):      due=750, paid_derived=0,
-    //                        delta=750 ✗ (SHOULD BE 250; OVERPAY 500)
-    //   total paid: 1500 vs stake 750 — 100% leak from shared vault.
+    // Final refactor (this PR): the derivation now lives in the math
+    // crate as `compute_release_delta_target`. Both the on-chain handler
+    // AND the test-only `LifecycleState` simulator delegate to the same
+    // crate function — no inline copy, no drift surface. This is the
+    // pattern SEV-026 established (avoid duplicated financial math); the
+    // SEV-029 → SEV-034 chain re-validated why it matters: when the
+    // derivation lives in two places, one can be wrong while tests on
+    // the other pass.
     //
-    // The auditor's pre-audit W4 caught this. The SEV-029 unit + proptest
-    // suite did NOT — because the test simulator (escrow_vesting.rs::
-    // simulate_release_sequence) tracked `cumulative_paid` as a separate
-    // u64 and didn't model `contribute()` between releases. The tests
-    // proved the *simulator* was correct, not the on-chain code.
+    // Soundness note (encoded in `derive_total_released` docstring):
+    // the derivation is correct only for **non-defaulted members**.
+    // `settle_default` seizes from `escrow_balance` without bumping a
+    // "seized" counter, which would conflate seizures with releases.
+    // The `!member.defaulted` constraint above gates this path.
     //
-    // **Correct invariant** (derivable from existing state, no new field):
-    //
-    //   For non-defaulted members (the only callers of release_escrow):
-    //     stake_deposited        == stake_deposited_initial  (no seizures)
-    //     escrow_balance changes only via own contribute (+) and own
-    //         release_escrow (-) — settle_default cannot touch a
-    //         non-defaulted member's escrow_balance.
-    //
-    //   Therefore:
-    //     ever_deposited_on_member_account = stake_deposited_initial
-    //                                      + total_escrow_deposited
-    //     total_released = ever_deposited_on_member_account - escrow_balance
-    //
-    // Both `stake_deposited_initial` and `total_escrow_deposited` already
-    // exist on the Member struct (state/member.rs:27-31) and are both
-    // monotonic — exactly the building blocks the SEV-029 fix needed but
-    // didn't use.
-    //
-    // **Trace post-SEV-034 (auditor's scenario):**
-    //
-    //   start:                s_init=750 ted=0  esc=750  → released=0
-    //   c0 contribute(+250):  s_init=750 ted=250 esc=1000 → released=0
-    //   release(chk=1):       due=250 released=0 delta=250
-    //                         post: esc=750, derived released = 750+250-750 = 250 ✓
-    //   c1 contribute(+250):  ted=500 esc=1000 → derived released = 750+500-1000 = 250
-    //   release(chk=2):       due=500 released=250 delta=250 ✓
-    //                         post: esc=750, derived released = 750+500-750 = 500 ✓
-    //   c2 contribute(+250):  ted=750 esc=1000 → derived released = 500
-    //   release(chk=3):       due=750 released=500 delta=250 ✓
-    //                         post: esc=750, derived released = 750 ✓
-    //
-    //   Total released = stake = 750. No overpay. Math closes.
-    let ever_deposited = member
-        .stake_deposited_initial
-        .checked_add(member.total_escrow_deposited)
-        .ok_or(error!(RoundfiError::MathOverflow))?;
-    let total_already_paid = ever_deposited.saturating_sub(member.escrow_balance);
-    let total_due_at_checkpoint = cumulative_vested(
+    // Trace under the auditor's W4 scenario (stake=750, cycles=3):
+    //   start:                s_init=750 ted=0   esc=750  → derived paid=0
+    //   c0 contribute(+250):  s_init=750 ted=250 esc=1000 → paid=0
+    //   release(chk=1):       due=250  delta=250 (= 250-0) ✓
+    //                         post: esc=750
+    //   c1 contribute(+250):  ted=500 esc=1000   → paid=250
+    //   release(chk=2):       due=500  delta=250 (= 500-250) ✓
+    //                         post: esc=750
+    //   c2 contribute(+250):  ted=750 esc=1000   → paid=500
+    //   release(chk=3):       due=750  delta=250 (= 750-500) ✓
+    //                         post: esc=750  paid=750 = stake
+    //   total released = 750 = stake. No overpay.
+    let delta_target = compute_release_delta_target(
         member.stake_deposited_initial,
+        member.total_escrow_deposited,
+        member.escrow_balance,
         args.checkpoint,
         pool_cycles,
     )?;
-    let delta_target = total_due_at_checkpoint.saturating_sub(total_already_paid);
     require!(delta_target > 0, RoundfiError::EscrowNothingToRelease);
 
     // Defensive: vesting math cannot owe more than the remaining

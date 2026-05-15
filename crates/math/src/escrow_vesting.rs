@@ -51,6 +51,87 @@ pub fn releasable_delta(
     vested_now.checked_sub(vested_prev).ok_or(MathError::Overflow)
 }
 
+// ─── SEV-034 derivation helpers ─────────────────────────────────────────
+//
+// Single source of truth for the cumulative-paid derivation used by
+// `release_escrow`. Extracted from inline copies in:
+//   - programs/roundfi-core/src/instructions/release_escrow.rs (handler)
+//   - this file's test-only LifecycleState simulator
+//
+// Both call sites previously held independent (but identical) copies of
+// the formula. The SEV-029 → SEV-034 chain showed why that's dangerous:
+// any change to one copy without the other ships a broken release_escrow
+// while tests still pass. Centralizing here closes the drift surface.
+//
+// **Soundness scope:** `derive_total_released` is correct only for
+// non-defaulted members. `settle_default` seizes from `escrow_balance`
+// of the defaulting member; that path bypasses these helpers because
+// release_escrow is gated by `!member.defaulted`. The handler's
+// `!member.defaulted` constraint preserves the invariant.
+
+/// Derive the cumulative amount released to a member via
+/// `release_escrow` so far, from their three monotonic state fields.
+///
+/// Invariant (non-defaulted members only):
+///   `escrow_balance` changes only via `contribute` (+) and
+///   `release_escrow` (−). `stake_deposited_initial` is set once at
+///   `join_pool`. `total_escrow_deposited` is monotonic, incremented
+///   by every `contribute`. Therefore:
+///
+///     total_released = (stake_deposited_initial + total_escrow_deposited)
+///                    − escrow_balance
+///
+/// **NOT valid for defaulted members** (settle_default seizes
+/// escrow_balance without bumping a "seized" counter; the derivation
+/// would conflate seizures with releases). On-chain callers must
+/// gate on `!member.defaulted` before invoking — same gate
+/// `release_escrow.rs` already enforces.
+#[inline]
+pub fn derive_total_released(
+    stake_deposited_initial: u64,
+    total_escrow_deposited: u64,
+    escrow_balance: u64,
+) -> Result<u64, MathError> {
+    let ever_deposited = stake_deposited_initial
+        .checked_add(total_escrow_deposited)
+        .ok_or(MathError::Overflow)?;
+    Ok(ever_deposited.saturating_sub(escrow_balance))
+}
+
+/// Compute the amount `release_escrow` should pay out on the current
+/// call. Composes [`cumulative_vested`] (vesting schedule at the
+/// requested checkpoint) with [`derive_total_released`] (cumulative
+/// paid so far).
+///
+///   delta_target = cumulative_vested(stake_initial, chk, cycles)
+///                − derive_total_released(stake_initial, total_esc_dep, esc_bal)
+///
+/// Returns 0 if the caller has already received the full vested amount
+/// for this checkpoint (degenerate but legal). On-chain callers reject
+/// `delta_target == 0` with `EscrowNothingToRelease`.
+///
+/// **Caller responsibilities** (the handler enforces these — encoded
+/// here for documentation):
+///   - `!member.defaulted` (see soundness note on [`derive_total_released`])
+///   - `checkpoint > 0 && checkpoint <= cycles_total`
+///   - `checkpoint > member.last_released_checkpoint` (strictly advancing)
+#[inline]
+pub fn compute_release_delta_target(
+    stake_deposited_initial: u64,
+    total_escrow_deposited: u64,
+    escrow_balance: u64,
+    checkpoint: u8,
+    cycles_total: u8,
+) -> Result<u64, MathError> {
+    let total_due = cumulative_vested(stake_deposited_initial, checkpoint, cycles_total)?;
+    let total_paid = derive_total_released(
+        stake_deposited_initial,
+        total_escrow_deposited,
+        escrow_balance,
+    )?;
+    Ok(total_due.saturating_sub(total_paid))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,6 +203,113 @@ mod tests {
         assert_eq!(cumulative_vested(240, 12, 24).unwrap(), 120);
         assert_eq!(cumulative_vested(240, 23, 24).unwrap(), 230);
         assert_eq!(cumulative_vested(240, 24, 24).unwrap(), 240);
+    }
+
+    // ─── SEV-034 derivation helper unit tests ───────────────────────────
+    //
+    // Direct unit tests on `derive_total_released` and
+    // `compute_release_delta_target` — independent of any lifecycle
+    // simulator. These prove the helpers themselves; the lifecycle
+    // tests below prove the full sequence; both the on-chain handler
+    // AND the simulator call THIS same function. No drift surface.
+
+    #[test]
+    fn derive_total_released_initial_state_is_zero() {
+        // At join_pool: stake_initial=S, total_escrow_deposited=0,
+        // escrow_balance=S (stake is the initial deposit). Derived
+        // total_released = (S + 0) - S = 0. Correct (no releases yet).
+        let s = 1_000u64;
+        let r = derive_total_released(s, 0, s).unwrap();
+        assert_eq!(r, 0);
+    }
+
+    #[test]
+    fn derive_total_released_after_contribute_only_is_zero() {
+        // Contribute adds to BOTH escrow_balance AND total_escrow_deposited
+        // by the same amount. Released stays 0: (S + E) - (S + E) = 0.
+        let s = 1_000u64;
+        let e = 250u64;
+        let r = derive_total_released(s, e, s + e).unwrap();
+        assert_eq!(r, 0);
+    }
+
+    #[test]
+    fn derive_total_released_after_release_only_is_delta() {
+        // After a release of `delta`, escrow_balance drops by delta but
+        // total_escrow_deposited and stake_deposited_initial are
+        // unchanged. Derived = (S + 0) - (S - delta) = delta.
+        let s = 1_000u64;
+        let delta = 250u64;
+        let r = derive_total_released(s, 0, s - delta).unwrap();
+        assert_eq!(r, delta);
+    }
+
+    #[test]
+    fn derive_total_released_after_mixed_lifecycle() {
+        // Auditor's W4 scenario at end of cycle 1:
+        //   start                  s=750  ted=0    esc=750
+        //   c0 contribute(+250):   s=750  ted=250  esc=1000
+        //   release(250):          s=750  ted=250  esc=750
+        // Derived: (750 + 250) - 750 = 250 ✓
+        let r = derive_total_released(750, 250, 750).unwrap();
+        assert_eq!(r, 250);
+    }
+
+    #[test]
+    fn derive_total_released_overflow_rejected() {
+        // stake_initial + total_escrow_deposited would overflow u64.
+        let r = derive_total_released(u64::MAX, 1, 0);
+        assert!(r.is_err(), "checked_add must surface overflow");
+    }
+
+    #[test]
+    fn derive_total_released_saturates_when_balance_exceeds_deposits() {
+        // Defensive: escrow_balance > stake_initial + total_escrow_deposited
+        // is impossible by the invariant (would mean money appeared) but
+        // saturating_sub returns 0 instead of underflowing. Any state-shape
+        // bug that produced this would yield 0 released — under-pays, never
+        // over-pays. Conservative direction.
+        let r = derive_total_released(100, 50, 1_000).unwrap();
+        assert_eq!(r, 0);
+    }
+
+    #[test]
+    fn compute_release_delta_target_auditor_scenario_chk2() {
+        // Auditor's exact pre-fix bug point: cycle 1, chk=2.
+        // State at this point (post-fix derivation):
+        //   stake_initial=750, total_escrow_deposited=500, escrow_balance=1000
+        // (after c0 contribute → release chk=1 → c1 contribute)
+        let target = compute_release_delta_target(750, 500, 1_000, 2, 3).unwrap();
+        // total_due = cumulative_vested(750, 2, 3) = 500
+        // total_paid = (750 + 500) - 1000 = 250
+        // delta_target = 500 - 250 = 250 ✓
+        // Pre-fix the broken derivation would have returned 500 here.
+        assert_eq!(target, 250);
+    }
+
+    #[test]
+    fn compute_release_delta_target_first_call_full_vest() {
+        // First release call (no prior releases). All vested amount is owed.
+        // stake=900, cycles=3, chk=1 → vested=300, paid=0, delta=300.
+        let target = compute_release_delta_target(900, 0, 900, 1, 3).unwrap();
+        assert_eq!(target, 300);
+    }
+
+    #[test]
+    fn compute_release_delta_target_returns_zero_when_fully_paid() {
+        // If escrow_balance has been drained to (S - vested(chk)) already,
+        // there's nothing left to release at this checkpoint.
+        // stake=900, cycles=3, chk=2 → vested=600. If 600 already paid,
+        // escrow_balance = 900 - 600 = 300 (assuming ted=0 for the test).
+        let target = compute_release_delta_target(900, 0, 300, 2, 3).unwrap();
+        assert_eq!(target, 0);
+    }
+
+    #[test]
+    fn compute_release_delta_target_invalid_checkpoint_errors() {
+        // checkpoint > cycles_total is rejected by cumulative_vested.
+        let target = compute_release_delta_target(1_000, 0, 1_000, 25, 24);
+        assert!(target.is_err());
     }
 
     // ─── SEV-029 regression coverage ────────────────────────────────────
@@ -331,18 +519,17 @@ mod tests {
                 return Err(MathError::EscrowLocked);
             }
 
-            // SEV-034 derivation: ever_deposited = stake_initial + total_escrow_deposited.
-            let ever_deposited = self
-                .stake_deposited_initial
-                .checked_add(self.total_escrow_deposited)
-                .ok_or(MathError::Overflow)?;
-            let total_already_paid = ever_deposited.saturating_sub(self.escrow_balance);
-            let total_due = cumulative_vested(
+            // **Single source of truth** — both the on-chain handler
+            // AND this simulator delegate to the same crate helper.
+            // No drift surface; any change to the derivation flows
+            // through one function call from both sides.
+            let delta_target = compute_release_delta_target(
                 self.stake_deposited_initial,
+                self.total_escrow_deposited,
+                self.escrow_balance,
                 checkpoint,
                 self.cycles_total,
             )?;
-            let delta_target = total_due.saturating_sub(total_already_paid);
             if delta_target == 0 {
                 return Err(MathError::EscrowNothingToRelease);
             }
@@ -363,10 +550,15 @@ mod tests {
         }
 
         fn derived_total_released(&self) -> u64 {
-            let ever_deposited = self
-                .stake_deposited_initial
-                .saturating_add(self.total_escrow_deposited);
-            ever_deposited.saturating_sub(self.escrow_balance)
+            // Mirrors the on-chain derivation. Test-only helper; the
+            // real implementation lives at `derive_total_released`
+            // above and is what the on-chain handler calls.
+            derive_total_released(
+                self.stake_deposited_initial,
+                self.total_escrow_deposited,
+                self.escrow_balance,
+            )
+            .unwrap_or(0)
         }
     }
 
