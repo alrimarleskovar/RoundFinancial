@@ -45,17 +45,40 @@ pub struct ReputationConfig {
     pub passport_network: Pubkey,
 
     /// Emergency stop — short-circuits write-path instructions.
+    /// **Adevar Labs SEV-022 carve-out:** pool-PDA-signed CPI from
+    /// roundfi-core continues even when paused (so core's
+    /// settle_default / contribute / claim_payout never lock-up via
+    /// the back door of a paused reputation). See attest.rs handler.
     pub paused: bool,
 
     /// PDA bump.
     pub bump: u8,
 
-    /// Reserved for future fields without a migration.
-    pub _padding: [u8; 30],
+    // ─── Adevar Labs SEV-021 fix — timelocked authority rotation ──────
+    /// Pending authority rotation. `Pubkey::default()` (all-zero) when
+    /// no rotation queued. Set by `propose_new_reputation_authority`,
+    /// cleared by `cancel_new_reputation_authority` or finalized by
+    /// `commit_new_reputation_authority`. Mirrors the core program's
+    /// authority rotation pattern (PR #323) — was originally a
+    /// no-timelock rotation via `update_reputation_config`, which
+    /// the auditor flagged as asymmetric with core's protection.
+    pub pending_authority:     Pubkey,
+    /// Earliest unix-ts at which `commit_new_reputation_authority`
+    /// may execute. `0` when no rotation pending. Equals
+    /// `now + REPUTATION_AUTHORITY_TIMELOCK_SECS` (7d) at proposal
+    /// time. Same window as core's authority + treasury rotations.
+    pub pending_authority_eta: i64,
+
+    /// Reserved for future fields without a migration. Adevar SEV-021
+    /// consumed 30 of the original 30 pad bytes (Pubkey 32 + i64 8 =
+    /// 40, exceeded pad by 10) — LEN grew by 10 to 170. Pre-PR
+    /// devnet `ReputationConfig` accounts need re-init since Anchor
+    /// sizes accounts at create time.
+    pub _padding: [u8; 0],
 }
 
 impl ReputationConfig {
     /// Anchor discriminator (8) + fields.
-    /// 32*4 + 1 + 1 + 30 = 160.
-    pub const LEN: usize = 8 + 32 * 4 + 1 + 1 + 30;
+    /// 32*4 + 1 + 1 + 32 + 8 + 0 = 170.
+    pub const LEN: usize = 8 + 32 * 4 + 1 + 1 + 32 + 8 + 0;
 }

@@ -47,7 +47,10 @@ pub fn handler(ctx: Context<InitializeReputation>, args: InitializeReputationArg
     cfg.passport_network               = args.passport_network;
     cfg.paused                         = false;
     cfg.bump                           = ctx.bumps.config;
-    cfg._padding                       = [0; 30];
+    // Adevar Labs SEV-021 — authority rotation starts empty.
+    cfg.pending_authority              = Pubkey::default();
+    cfg.pending_authority_eta          = 0;
+    cfg._padding                       = [];
 
     msg!(
         "roundfi-reputation: initialized authority={} core={} passport_authority={} passport_net={}",
