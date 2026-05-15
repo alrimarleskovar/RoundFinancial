@@ -879,6 +879,12 @@ export const DICT: Record<Lang, Dict> = {
       "Deploy de preview detectado ({host}). URL canônica: roundfinancial.vercel.app",
     "phishing.unknownBanner":
       "⚠ ATENÇÃO: domínio desconhecido ({host}). Verifique se você está em roundfinancial.vercel.app antes de assinar qualquer transação.",
+    // Network identity banner (item 4.6 of MAINNET_READINESS)
+    "network.banner.localnet": "LOCALNET · validador local ({url})",
+    "network.banner.devnet":
+      "DEVNET · APENAS fundos de teste — esta rede não movimenta dinheiro real ({url})",
+    "network.banner.unknown":
+      "⚠ RPC DESCONHECIDO ({url}) — não é possível verificar o cluster. Confirme manualmente antes de assinar.",
     // faucet
     "wallet.faucet.title": "Faucet · Devnet",
     "wallet.faucet.sub": "Peça SOL de teste pra executar transações em devnet.",
@@ -1802,6 +1808,12 @@ export const DICT: Record<Lang, Dict> = {
       "Preview deployment detected ({host}). Canonical URL: roundfinancial.vercel.app",
     "phishing.unknownBanner":
       "⚠ WARNING: unknown domain ({host}). Verify you are on roundfinancial.vercel.app before signing any transaction.",
+    // Network identity banner (item 4.6 of MAINNET_READINESS)
+    "network.banner.localnet": "LOCALNET · local validator ({url})",
+    "network.banner.devnet":
+      "DEVNET · TEST funds only — this network does NOT move real money ({url})",
+    "network.banner.unknown":
+      "⚠ UNKNOWN RPC ({url}) — cluster cannot be verified. Confirm manually before signing.",
     "wallet.faucet.title": "Faucet · Devnet",
     "wallet.faucet.sub": "Get test SOL to run transactions on devnet.",
     "wallet.faucet.btn": "Request 1 SOL",
