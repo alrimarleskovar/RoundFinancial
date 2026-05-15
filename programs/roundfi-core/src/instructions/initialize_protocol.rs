@@ -120,6 +120,13 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     // commit-reveal UX.
     config.commit_reveal_required = false;
 
+    // Protocol-authority rotation (Squads ceremony, #3.6): starts
+    // empty. Authority calls `propose_new_authority` when ready to
+    // hand off to the multisig vault PDA; permissionless
+    // `commit_new_authority` finalizes after the 7-day timelock.
+    config.pending_authority     = Pubkey::default();
+    config.pending_authority_eta = 0;
+
     msg!("roundfi-core: protocol initialized");
     Ok(())
 }
