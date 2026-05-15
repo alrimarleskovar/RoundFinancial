@@ -43,6 +43,11 @@ pub use cascade::{seize_for_default, CascadeInputs, CascadeOutcome};
 pub use constants::MAX_BPS;
 pub use dc::{dc_invariant_holds, max_seizure_respecting_dc};
 pub use error::MathError;
-pub use escrow_vesting::{cumulative_vested, releasable_delta};
+pub use escrow_vesting::{
+    compute_release_delta_target,
+    cumulative_vested,
+    derive_total_released,
+    releasable_delta,
+};
 pub use seed_draw::{pool_is_viable, retained_meets_seed_draw, seed_draw_floor};
 pub use waterfall::{guarantee_fund_cap, guarantee_fund_room, waterfall, Waterfall};

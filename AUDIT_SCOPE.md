@@ -4,17 +4,17 @@
 >
 > - [`SECURITY.md`](./SECURITY.md) — disclosure channel + SLAs
 > - [`docs/security/self-audit.md`](./docs/security/self-audit.md) — full 228-line self-audit + threat model
-> - [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md) — **internal pre-audit tracker (33 findings, 30 closed)** — read this first to see what the team's own red-team already surfaced
+> - [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md) — **internal pre-audit tracker (34 findings, 31 closed; Critical/High 9/9)** — read this first to see what the team's own red-team already surfaced
 > - [`docs/security/audit-readiness.md`](./docs/security/audit-readiness.md) — strategic one-pager (TL;DR, fund-flow, ranked focus areas)
 > - [`MAINNET_READINESS.md`](./MAINNET_READINESS.md) — single-source checklist for the path from M3 (devnet) → mainnet GA
 > - [`docs/verified-build.md`](./docs/verified-build.md) — reproducible-build flow and on-chain attestation
 >
-> **Pre-audit state (May 2026):** the team ran an internal 3-pass
+> **Pre-audit state (May 2026):** the team ran an internal 4-pass
 > red-team exercise modeled on Adevar Labs' methodology before
-> commissioning the formal engagement — 33 findings catalogued, 30
-> closed, 1 upstream-blocked, 2 acknowledged design constraints. The
-> formal audit's surface area starts from main HEAD post-remediation,
-> not from the original W1 baseline.
+> commissioning the formal engagement — 34 findings catalogued, 31
+> closed (Critical/High 9/9), 1 upstream-blocked, 2 acknowledged
+> design constraints. The formal audit's surface area starts from
+> main HEAD post-remediation, not from the original W1 baseline.
 
 ---
 

@@ -138,6 +138,28 @@ pub fn releasable_delta(
         .map_err(map_err)
 }
 
+/// SEV-034 derivation — see `roundfi_math::escrow_vesting::compute_release_delta_target`
+/// for math + audit context. **Single source of truth** shared with
+/// the math crate's LifecycleState simulator — no inline copy in the
+/// handler.
+#[inline]
+pub fn compute_release_delta_target(
+    stake_deposited_initial: u64,
+    total_escrow_deposited: u64,
+    escrow_balance: u64,
+    checkpoint: u8,
+    cycles_total: u8,
+) -> Result<u64> {
+    roundfi_math::compute_release_delta_target(
+        stake_deposited_initial,
+        total_escrow_deposited,
+        escrow_balance,
+        checkpoint,
+        cycles_total,
+    )
+    .map_err(map_err)
+}
+
 // ─── cascade ────────────────────────────────────────────────────────────
 
 #[inline]
