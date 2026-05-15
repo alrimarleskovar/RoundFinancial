@@ -136,6 +136,16 @@ pub mod roundfi_core {
         instructions::lock_treasury::handler(ctx)
     }
 
+    /// One-way kill switch — once called, `approved_yield_adapter`
+    /// cannot be changed (mirrors `lock_treasury` for the adapter
+    /// allowlist). Authority-only, idempotent. Governance hardening
+    /// for the canary-rampup → mainnet-pinned transition.
+    pub fn lock_approved_yield_adapter(
+        ctx: Context<LockApprovedYieldAdapter>,
+    ) -> Result<()> {
+        instructions::lock_approved_yield_adapter::handler(ctx)
+    }
+
     pub fn pause(ctx: Context<Pause>, args: PauseArgs) -> Result<()> {
         instructions::pause::handler(ctx, args)
     }

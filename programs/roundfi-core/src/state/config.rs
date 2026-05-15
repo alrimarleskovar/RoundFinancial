@@ -79,6 +79,15 @@ pub struct ProtocolConfig {
     /// `default_yield_adapter` above, which is informational metadata
     /// that's frozen at init.
     pub approved_yield_adapter: Pubkey,
+    /// One-way kill switch for the adapter allowlist. Mirrors
+    /// `treasury_locked` (#122) — once `true`, the
+    /// `approved_yield_adapter` Pubkey is permanently frozen:
+    /// `update_protocol_config` rejects further changes with
+    /// `AdapterAllowlistLocked`. Authority calls
+    /// `lock_approved_yield_adapter()` post-canary when confident
+    /// the production yield-adapter program ID is final. Idempotent
+    /// (calling twice is a no-op, not an error).
+    pub approved_yield_adapter_locked: bool,
 }
 
 impl ProtocolConfig {
@@ -86,10 +95,11 @@ impl ProtocolConfig {
     //  + Pubkey(32) for pending_treasury + i64(8) for eta
     //  + 3*u64(8) for TVL caps (items 4.2 + 4.3 of MAINNET_READINESS)
     //  + Pubkey(32) for approved_yield_adapter (item 4.4)
-    //  + 32 byte tail-padding. Combined: TVL caps claimed 24 bytes,
-    //    allowlist claimed 32 bytes, of the original 64-byte padding
-    //    allocation — leaves 32 bytes for further forward-compat
-    //    additions.
+    //  + 1 byte for approved_yield_adapter_locked (governance hardening)
+    //  + 31 byte tail-padding. Combined: TVL caps claimed 24 bytes,
+    //    allowlist + lock-flag claimed 33 bytes, of the original
+    //    64-byte padding allocation — leaves 31 bytes for further
+    //    forward-compat additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -103,5 +113,6 @@ impl ProtocolConfig {
         + 8                      // max_protocol_tvl_usdc
         + 8                      // committed_protocol_tvl_usdc
         + 32                     // approved_yield_adapter
-        + 32;                    // forward-compat padding (was 64)
+        + 1                      // approved_yield_adapter_locked
+        + 31;                    // forward-compat padding (was 32)
 }
