@@ -24,6 +24,18 @@ pub const ATTESTATION_PAYLOAD_LEN: usize = 96;
 /// ladder-jumping to level 3.
 pub const MIN_CYCLE_COOLDOWN_SECS: i64 = 518_400;
 
+/// **Adevar Labs SEV-027 fix** — anti-spam cooldown for admin-issued
+/// SCHEMA_PAYMENT attestations. Pool-PDA-issued attests are naturally
+/// rate-limited by the cycle structure (one PAYMENT per member per
+/// cycle), but admin-direct attests had no cooldown — admin could
+/// pump score arbitrarily by issuing PAYMENT in a tight loop.
+///
+/// 60s minimum between admin-issued PAYMENT attestations for the
+/// same subject. Tracked via `ReputationProfile.last_admin_attest_at`.
+/// Conservative floor; not strict enough to block legitimate manual
+/// corrections but enough to defeat trivial-loop score-pumping.
+pub const MIN_ADMIN_ATTEST_COOLDOWN_SECS: i64 = 60;
+
 /// Score deltas (v1 schedule — see architecture.md §4.2).
 pub const SCORE_PAYMENT:        i64 =  10;
 pub const SCORE_CYCLE_COMPLETE: i64 =  50;

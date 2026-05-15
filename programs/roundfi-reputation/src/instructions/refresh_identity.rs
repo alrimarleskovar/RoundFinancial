@@ -78,12 +78,23 @@ pub fn handler(ctx: Context<RefreshIdentity>) -> Result<()> {
                 rec.status = IdentityStatus::Revoked as u8;
             }
         },
-        Err(_) => {
-            // Structural failure (e.g. bridge service revoked the
-            // attestation or its layout changed). Mark Revoked
-            // conservatively rather than propagating the error —
-            // we don't want a torn state where an indexer can never
-            // reach the failure path.
+        Err(e) => {
+            // Adevar Labs SEV-028 fix: log the underlying error
+            // before flipping to Revoked. Previously the error was
+            // discarded as `Err(_)` — operators / monitoring couldn't
+            // distinguish between "user was actually revoked" and
+            // "bridge service had a config drift" (e.g. network
+            // pubkey mismatch, layout shift, owner spoof attempt).
+            // Both ended up flipping the record to Revoked silently.
+            //
+            // Now: emit the error code via msg! so off-chain monitors
+            // can alert on structural failures vs. genuine revocations.
+            // Behavior unchanged — Revoked is still the conservative
+            // outcome; the diff is observability.
+            msg!(
+                "roundfi-reputation: refresh_identity validation failed subject={} reason={:?} — flipping Revoked",
+                rec.wallet, e,
+            );
             rec.status = IdentityStatus::Revoked as u8;
         }
     };

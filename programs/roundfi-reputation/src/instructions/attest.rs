@@ -109,7 +109,8 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         profile.level         = LEVEL_MIN;
         profile.first_seen_at = now;
         profile.bump          = ctx.bumps.profile;
-        profile._padding      = [0; 15];
+        profile.last_admin_attest_at = 0; // SEV-027: init field
+        profile._padding             = [0; 7];
     }
 
     // ─── 1. Issuer authorization ────────────────────────────────────────
@@ -195,6 +196,18 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         require!(elapsed >= MIN_CYCLE_COOLDOWN_SECS, ReputationError::CooldownActive);
     }
 
+    // ─── 4b. Admin SCHEMA_PAYMENT cooldown (Adevar Labs SEV-027) ────────
+    //
+    // Pool-PDA-issued PAYMENT is rate-limited by the cycle structure
+    // (one per member per cycle). Admin-direct PAYMENT had no cooldown
+    // — admin could pump score arbitrarily by issuing PAYMENT in a
+    // tight loop. Now: enforce MIN_ADMIN_ATTEST_COOLDOWN_SECS (60s)
+    // between admin-issued PAYMENT for the same subject.
+    if is_admin && args.schema_id == SCHEMA_PAYMENT {
+        let elapsed = now.saturating_sub(profile.last_admin_attest_at);
+        require!(elapsed >= MIN_ADMIN_ATTEST_COOLDOWN_SECS, ReputationError::CooldownActive);
+    }
+
     // ─── 5. Sybil-hint weighting (anti-gaming rule #3) ──────────────────
     let verified = matches!(
         ctx.accounts.identity.as_ref(),
@@ -266,6 +279,11 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     };
 
     profile.last_updated_at = now;
+    // SEV-027: track admin-issued attests separately so the cooldown
+    // (rule 4b above) only fires on admin spam, not pool-PDA flow.
+    if is_admin {
+        profile.last_admin_attest_at = now;
+    }
 
     // ─── 7. Persist the attestation ─────────────────────────────────────
     let a = &mut ctx.accounts.attestation;
