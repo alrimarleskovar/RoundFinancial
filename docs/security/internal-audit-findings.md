@@ -1,22 +1,47 @@
-# Internal Security Audit — Findings Tracker
+# Internal Pre-Audit — Findings Tracker
 
-> **Purpose:** public-facing accountability record for the Adevar Labs
-> security audit of the RoundFi protocol. One row per finding, with a
-> stable SEV ID, severity, current status, the PR that closed it (or
-> the rationale if intentionally left open), and a one-line technical
-> note. This document is updated as findings are resolved.
+> **Important framing:** this is **NOT** an Adevar Labs attestation. It
+> is the RoundFi team's own **internal red-team exercise**, run by the
+> team in May 2026 _before_ commissioning a formal Adevar Labs
+> engagement. The methodology was deliberately modeled on Adevar's
+> issue-template + severity-tiering shape so the paid auditor can
+> re-validate quickly against a clean baseline.
 >
-> **Engagement format:** whiteglove audit of `roundfi-core`,
-> `roundfi-reputation`, `roundfi-yield-kamino`, indexer, and SDK by
-> Adevar Labs. Three passes:
+> **Why we did this ourselves first:** an external audit's clock is
+> expensive. By running the methodology in-house and closing 30 of 33
+> findings against a public tracker first, the formal Adevar
+> engagement (scoping in progress) can spend its hours on the harder
+> questions a competent paid red-team will reach. The commit history
+> is the audit trail; the formal Adevar review will re-validate
+> against main HEAD.
 >
-> - **W1 (2026-05):** initial report — 20 findings (SEV-001..SEV-020).
-> - **W2 (2026-05):** re-audit against the W1 fixes — 8 new findings (SEV-021..SEV-028).
-> - **W3 (2026-05):** re-audit against the W2 fixes — 5 new findings (SEV-029..SEV-033), including **one regression** of a W2 fix (SEV-029 ← SEV-016).
+> **Purpose of this document:** public-facing accountability record
+> for the pre-audit findings. One row per finding, with a stable SEV
+> ID, severity, current status, the PR that closed it (or rationale
+> if intentionally left open), and a one-line technical note. Updated
+> as findings are resolved.
+>
+> **Methodology (3 passes, May 2026):**
+>
+> - **W1:** initial pass over `roundfi-core`, `roundfi-reputation`,
+>   `roundfi-yield-kamino`, indexer, and SDK — 20 findings
+>   (SEV-001..SEV-020).
+> - **W2:** re-audit against the W1 fixes — 8 new findings
+>   (SEV-021..SEV-028) surfaced in surface area not reached on the
+>   first pass.
+> - **W3:** re-audit against the W2 fixes — 5 new findings
+>   (SEV-029..SEV-033), including **one regression** of a W2 fix
+>   (SEV-029 ← SEV-016) that motivated the new "negative regression
+>   test before merge" gate for any Critical / High fix going forward.
 >
 > **Total: 33 findings across all 3 passes.**
 >
-> **Audit report (full text):** [`ADEVAR_AUDIT_REPORT.md`](../../ADEVAR_AUDIT_REPORT.md) in repo root (history at commit `03f8030`).
+> **Pre-audit transcript (full text):** [`ADEVAR_AUDIT_REPORT.md`](../../ADEVAR_AUDIT_REPORT.md)
+> in repo root (history at commit `03f8030`). The filename uses the
+> "ADEVAR" tag because the issue templates mirror Adevar's published
+> format — not because Adevar themselves wrote it. The formal audit,
+> when engaged, will produce a separate report under Adevar's own
+> letterhead.
 
 ## Status legend
 
@@ -145,17 +170,19 @@ as 🟡 Partial rather than 🟢 Closed.
 
 ## Disclosure timeline
 
-| Date       | Event                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------ |
-| 2026-05-W1 | Adevar Labs initial report (SEV-001..SEV-020). 20 findings.                                            |
-| 2026-05-W1 | Critical fixes shipped (SEV-001, SEV-002). PRs #326, #327.                                             |
-| 2026-05-W1 | High fixes shipped (SEV-003..SEV-005). PR #329.                                                        |
-| 2026-05-W2 | Medium + Low + Informational batch (SEV-006..SEV-020). PRs #328 .. #336.                               |
-| 2026-05-W2 | Adevar Labs re-audit report (SEV-021..SEV-028). 8 new findings.                                        |
-| 2026-05-W2 | Re-audit fixes shipped (SEV-021..SEV-025, SEV-027, SEV-028). PRs #337..#339.                           |
-| 2026-05-15 | Pattern-fingerprint sweep + this tracker page published. PR #340.                                      |
-| 2026-05-W3 | Adevar Labs W3 re-audit (SEV-029..SEV-033). SEV-029 flagged as regression of SEV-016. Score 7.5 → 7.0. |
-| 2026-05-15 | SEV-029 fix shipped (math rewrite + 6 regression tests). PR #342.                                      |
+| Date       | Event                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-W1 | Internal pre-audit W1 (Adevar-methodology simulation) — 20 findings catalogued (SEV-001..SEV-020).                                                        |
+| 2026-05-W1 | Critical fixes shipped (SEV-001, SEV-002). PRs #326, #327.                                                                                                |
+| 2026-05-W1 | High fixes shipped (SEV-003..SEV-005). PR #329.                                                                                                           |
+| 2026-05-W2 | Medium + Low + Informational batch (SEV-006..SEV-020). PRs #328 .. #336.                                                                                  |
+| 2026-05-W2 | Internal pre-audit W2 (re-audit against W1 fixes) — 8 new findings (SEV-021..SEV-028).                                                                    |
+| 2026-05-W2 | Re-audit fixes shipped (SEV-021..SEV-025, SEV-027, SEV-028). PRs #337..#339.                                                                              |
+| 2026-05-15 | Pattern-fingerprint sweep + this tracker page published. PR #340.                                                                                         |
+| 2026-05-W3 | Internal pre-audit W3 — 5 new findings (SEV-029..SEV-033). SEV-029 flagged as regression of SEV-016.                                                      |
+| 2026-05-15 | SEV-029 fix shipped (math rewrite + 6 regression tests). PR #342.                                                                                         |
+| 2026-05-15 | Fase 5 batch shipped — constants floor guard CI (#343), SEV-030/031/033 (#344), SEV-026 refactor (#345), docs trio (#346), fee_bps_yield timelock (#347). |
+| TBD        | Formal Adevar Labs engagement begins (scoping in progress).                                                                                               |
 
 ## See also
 
