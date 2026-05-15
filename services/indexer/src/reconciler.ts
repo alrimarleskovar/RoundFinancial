@@ -54,7 +54,7 @@
  */
 
 import type { PrismaClient } from "@prisma/client";
-import { Connection, type Commitment } from "@solana/web3.js";
+import { Connection, PublicKey, type Commitment } from "@solana/web3.js";
 
 // ─── Configuration ──────────────────────────────────────────────────────
 
@@ -143,6 +143,80 @@ async function checkFinalizedQuorum(
   return null;
 }
 
+// ─── Canonical-PDA join ────────────────────────────────────────────────
+
+/**
+ * Resolve canonical Pool + Member row IDs for an event row.
+ *
+ * The on-chain log lines emitted by roundfi-core (parsed by
+ * `decoder.ts`) carry the subject wallet but NOT the pool PDA — we
+ * recover the pool by looking at the tx's account list (any roundfi-core
+ * tx that mutates pool state must touch the Pool PDA among its
+ * accounts) and intersecting with `pools.pda` in the DB. Once we have
+ * the canonical pool, the (poolId, wallet) tuple uniquely identifies a
+ * Member row via the `@@unique([poolId, slotIndex])` constraint plus
+ * the `@@index([wallet])` covering query.
+ *
+ * Returns `null` when:
+ *   - The tx couldn't be fetched (RPC transient, will retry next pass).
+ *   - No Pool row in the DB matches any account in the tx (the
+ *     canonical-state upsert hasn't run yet — backfill or webhook
+ *     state-snapshot ingestion is behind the event ingest).
+ *   - No Member row exists for the (pool, wallet) pair (member may
+ *     have been closed via escape_valve_buy and never re-opened).
+ *
+ * In all three null cases the caller leaves the row as `_unresolved`
+ * for the next pass, with the same finality + grace-window semantics.
+ */
+async function resolveCanonicalIds(
+  prisma: PrismaClient,
+  connection: Connection,
+  txSignature: string,
+  walletBase58: string | null,
+): Promise<{ poolId: string; memberId: string | null } | null> {
+  const tx = await connection.getTransaction(txSignature, {
+    maxSupportedTransactionVersion: 0,
+    commitment: "finalized",
+  });
+  if (!tx) return null;
+
+  // Account-key surface: static keys + writable/readonly lookup-table
+  // entries. Solana programs that read a Pool PDA include it in one
+  // of these three buckets depending on whether an ALT was used.
+  const staticKeys = tx.transaction.message.staticAccountKeys.map((k) => k.toBase58());
+  const loadedWritable = (tx.meta?.loadedAddresses?.writable ?? []).map((k) =>
+    typeof k === "string" ? k : k.toString(),
+  );
+  const loadedReadonly = (tx.meta?.loadedAddresses?.readonly ?? []).map((k) =>
+    typeof k === "string" ? k : k.toString(),
+  );
+  const allKeys = [...staticKeys, ...loadedWritable, ...loadedReadonly];
+
+  // Intersect with canonical Pool PDAs in the DB. A single tx should
+  // touch at most one Pool PDA — but if it touches multiple (rare,
+  // e.g. cross-pool admin ix), `findFirst` returns one canonically and
+  // the event's poolId binding is the right one for *that* event row
+  // because the webhook splits per-event from logMessages.
+  const pool = await prisma.pool.findFirst({
+    where: { pda: { in: allKeys } },
+  });
+  if (!pool) return null;
+
+  // Default events carry no Member FK in the schema (see
+  // DefaultEvent.defaultedWallet rationale on the model). Caller
+  // passes null for those, and we short-circuit the member lookup.
+  if (walletBase58 === null) {
+    return { poolId: pool.id, memberId: null };
+  }
+
+  const member = await prisma.member.findFirst({
+    where: { poolId: pool.id, wallet: walletBase58 },
+  });
+  if (!member) return null;
+
+  return { poolId: pool.id, memberId: member.id };
+}
+
 // ─── Reconciler loop ────────────────────────────────────────────────────
 
 /**
@@ -151,6 +225,12 @@ async function checkFinalizedQuorum(
  * Loops through every `_unresolved` event row (across the 3 event tables)
  * and runs the finality gate + canonical-join logic. Returns counters
  * for the caller's logging / metrics.
+ *
+ * Rows already marked `orphaned = true` are skipped — the orphan flag
+ * is terminal (no recovery path), so re-checking them is wasted RPC.
+ * If a tx legitimately re-finalizes after orphaning (extremely rare —
+ * implies a >256-slot reorg) the backfill flow is the recovery path,
+ * not the reconciler.
  */
 export async function reconcileOnce(
   prisma: PrismaClient,
@@ -169,57 +249,246 @@ export async function reconcileOnce(
   // eligible for the finality gate.
   const currentSlot = BigInt(await connections[0]!.getSlot("finalized"));
 
-  let reconciled = 0;
-  let orphaned = 0;
-  let pending = 0;
-  let divergences = 0;
+  const counters = { reconciled: 0, orphaned: 0, pending: 0, divergences: 0 };
 
-  // Sweep contribute events.
-  const contributeEvents = await prisma.contributeEvent.findMany({
-    where: { poolId: "_unresolved" },
+  await reconcileContributeEvents(
+    prisma,
+    connections,
+    currentSlot,
+    finalityGate,
+    orphanGrace,
+    counters,
+    logger,
+  );
+  await reconcileClaimEvents(
+    prisma,
+    connections,
+    currentSlot,
+    finalityGate,
+    orphanGrace,
+    counters,
+    logger,
+  );
+  await reconcileDefaultEvents(
+    prisma,
+    connections,
+    currentSlot,
+    finalityGate,
+    orphanGrace,
+    counters,
+    logger,
+  );
+
+  return counters;
+}
+
+interface Counters {
+  reconciled: number;
+  orphaned: number;
+  pending: number;
+  divergences: number;
+}
+
+async function reconcileContributeEvents(
+  prisma: PrismaClient,
+  connections: Connection[],
+  currentSlot: bigint,
+  finalityGate: number,
+  orphanGrace: number,
+  counters: Counters,
+  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+): Promise<void> {
+  const rows = await prisma.contributeEvent.findMany({
+    where: { poolId: "_unresolved", orphaned: false },
     take: 100,
   });
 
-  for (const evt of contributeEvents) {
+  for (const evt of rows) {
     const ageSlots = currentSlot - evt.slot;
     if (ageSlots < BigInt(finalityGate)) {
-      pending += 1;
+      counters.pending += 1;
       continue;
     }
 
     const status = await checkFinalizedQuorum(connections, evt.txSignature, logger);
     if (status === null) {
-      divergences += 1;
-      pending += 1;
+      counters.divergences += 1;
+      counters.pending += 1;
       continue;
     }
+
     if (status === "finalized") {
-      // TODO: resolve the actual pool / member PDAs from the event
-      // payload + program ID. For now, mark as reconciled in the cursor
-      // so we don't re-check next pass. The full canonical-join logic
-      // requires the on-chain PDA derivation helpers from @roundfi/sdk
-      // which lands in a follow-up commit on this branch.
-      reconciled += 1;
+      const canonical = await resolveCanonicalIds(
+        prisma,
+        connections[0]!,
+        evt.txSignature,
+        evt.contributorWallet,
+      );
+      if (canonical === null || canonical.memberId === null) {
+        // Canonical Pool/Member row not in DB yet — backfill is
+        // behind. Leave row unresolved + retry next pass.
+        counters.pending += 1;
+        continue;
+      }
+      await prisma.contributeEvent.update({
+        where: { id: evt.id },
+        data: {
+          poolId: canonical.poolId,
+          memberId: canonical.memberId,
+          resolvedAt: new Date(),
+        },
+      });
+      counters.reconciled += 1;
     } else if (status === "missing" && ageSlots > BigInt(orphanGrace)) {
-      // Tx never finalized within grace window → orphaned. We don't
-      // delete the row (audit trail) but mark for the cross-validation
-      // sweep to ignore. Schema extension for `orphaned: bool` lands
-      // in a sibling Prisma migration.
-      orphaned += 1;
+      await prisma.contributeEvent.update({
+        where: { id: evt.id },
+        data: { orphaned: true },
+      });
+      counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString() },
-        "event tx never finalized — marking orphaned",
+        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "contribute_events" },
+        "event tx never finalized — marked orphaned",
       );
     } else {
-      pending += 1;
+      counters.pending += 1;
     }
   }
+}
 
-  // Same loops for claim + default events would go here. Pattern is
-  // identical so omitted in the spike scope; lands when the schema
-  // migration for `orphaned: bool` is shipped (separate PR).
+async function reconcileClaimEvents(
+  prisma: PrismaClient,
+  connections: Connection[],
+  currentSlot: bigint,
+  finalityGate: number,
+  orphanGrace: number,
+  counters: Counters,
+  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+): Promise<void> {
+  const rows = await prisma.claimEvent.findMany({
+    where: { poolId: "_unresolved", orphaned: false },
+    take: 100,
+  });
 
-  return { reconciled, orphaned, pending, divergences };
+  for (const evt of rows) {
+    const ageSlots = currentSlot - evt.slot;
+    if (ageSlots < BigInt(finalityGate)) {
+      counters.pending += 1;
+      continue;
+    }
+
+    const status = await checkFinalizedQuorum(connections, evt.txSignature, logger);
+    if (status === null) {
+      counters.divergences += 1;
+      counters.pending += 1;
+      continue;
+    }
+
+    if (status === "finalized") {
+      const canonical = await resolveCanonicalIds(
+        prisma,
+        connections[0]!,
+        evt.txSignature,
+        evt.recipientWallet,
+      );
+      if (canonical === null || canonical.memberId === null) {
+        counters.pending += 1;
+        continue;
+      }
+      await prisma.claimEvent.update({
+        where: { id: evt.id },
+        data: {
+          poolId: canonical.poolId,
+          memberId: canonical.memberId,
+          resolvedAt: new Date(),
+        },
+      });
+      counters.reconciled += 1;
+    } else if (status === "missing" && ageSlots > BigInt(orphanGrace)) {
+      await prisma.claimEvent.update({
+        where: { id: evt.id },
+        data: { orphaned: true },
+      });
+      counters.orphaned += 1;
+      logger?.warn(
+        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "claim_events" },
+        "event tx never finalized — marked orphaned",
+      );
+    } else {
+      counters.pending += 1;
+    }
+  }
+}
+
+async function reconcileDefaultEvents(
+  prisma: PrismaClient,
+  connections: Connection[],
+  currentSlot: bigint,
+  finalityGate: number,
+  orphanGrace: number,
+  counters: Counters,
+  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+): Promise<void> {
+  const rows = await prisma.defaultEvent.findMany({
+    where: { poolId: "_unresolved", orphaned: false },
+    take: 100,
+  });
+
+  for (const evt of rows) {
+    const ageSlots = currentSlot - evt.slot;
+    if (ageSlots < BigInt(finalityGate)) {
+      counters.pending += 1;
+      continue;
+    }
+
+    const status = await checkFinalizedQuorum(connections, evt.txSignature, logger);
+    if (status === null) {
+      counters.divergences += 1;
+      counters.pending += 1;
+      continue;
+    }
+
+    if (status === "finalized") {
+      // Default events carry no Member FK on the schema — pass null
+      // wallet so resolveCanonicalIds short-circuits the member lookup.
+      const canonical = await resolveCanonicalIds(prisma, connections[0]!, evt.txSignature, null);
+      if (canonical === null) {
+        counters.pending += 1;
+        continue;
+      }
+
+      // Also resolve slotIndex from the canonical Member row (the
+      // webhook wrote 0 as a placeholder — log line doesn't carry
+      // slot, only the wallet). If the member row was closed by a
+      // later escape_valve_buy we leave slotIndex at 0; the
+      // defaultedWallet column is the authoritative subject anyway.
+      const member = await prisma.member.findFirst({
+        where: { poolId: canonical.poolId, wallet: evt.defaultedWallet },
+        select: { slotIndex: true },
+      });
+
+      await prisma.defaultEvent.update({
+        where: { id: evt.id },
+        data: {
+          poolId: canonical.poolId,
+          slotIndex: member?.slotIndex ?? evt.slotIndex,
+          resolvedAt: new Date(),
+        },
+      });
+      counters.reconciled += 1;
+    } else if (status === "missing" && ageSlots > BigInt(orphanGrace)) {
+      await prisma.defaultEvent.update({
+        where: { id: evt.id },
+        data: { orphaned: true },
+      });
+      counters.orphaned += 1;
+      logger?.warn(
+        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "default_events" },
+        "event tx never finalized — marked orphaned",
+      );
+    } else {
+      counters.pending += 1;
+    }
+  }
 }
 
 /**
@@ -235,7 +504,6 @@ export async function crossValidateOnce(
   logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
 ): Promise<{ scanned: number; gaps: number }> {
   const connection = new Connection(config.primaryRpcUrl, "finalized" as Commitment);
-  const { PublicKey } = await import("@solana/web3.js");
   const programPk = new PublicKey(config.programId);
 
   // Walk the last 1000 signatures for the program.

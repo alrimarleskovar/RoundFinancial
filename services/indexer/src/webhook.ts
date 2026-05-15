@@ -81,11 +81,14 @@ export async function handleHeliusWebhook(
         where: { txSignature: tx.signature },
         create: {
           txSignature: tx.signature,
-          // Placeholder relations — reconciler fills these. A full
-          // implementation would resolve these inline; the scaffold
-          // accepts dangling FK targets for write speed.
+          // Placeholder relations — reconciler (issue #234) fills these
+          // by resolving the canonical Pool + Member from the tx's
+          // account list at finality time. The raw wallet from the log
+          // (`evt.member`) is persisted on `contributorWallet` so the
+          // reconciler doesn't need to re-fetch + re-parse the tx logs.
           poolId: "_unresolved",
           memberId: "_unresolved",
+          contributorWallet: evt.member,
           cycle: evt.cycle,
           schemaId: evt.onTime ? 1 : 2,
           installment: evt.installment,
@@ -105,6 +108,7 @@ export async function handleHeliusWebhook(
           txSignature: tx.signature,
           poolId: "_unresolved",
           memberId: "_unresolved",
+          recipientWallet: evt.recipient,
           cycle: evt.cycle,
           slotIndex: evt.slotIndex,
           amountPaid: evt.amount,
@@ -122,7 +126,7 @@ export async function handleHeliusWebhook(
           defaultedWallet: evt.member,
           cycle: evt.cycle,
           // slotIndex resolution: log-line doesn't carry slot; resolved
-          // by the reconciler via member→slot lookup (tracked in #234).
+          // by the reconciler via member→slot lookup (issue #234).
           // Placeholder 0 here is intentional and joined to canonical
           // state post-confirmation, never read on the fund-movement path.
           slotIndex: 0,
