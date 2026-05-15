@@ -74,14 +74,29 @@ pub struct Attestation {
 
     pub bump: u8,
 
-    pub _padding: [u8; 14],
+    /// Whether the subject had a verified `IdentityRecord` at the
+    /// moment this attestation was issued. Snapshotted at attest time
+    /// and immutable thereafter — `revoke` uses this stored value
+    /// (not the CURRENT identity status) to determine the score
+    /// reversal weight, ensuring `apply + revoke` is exactly
+    /// zero-sum.
+    ///
+    /// Adevar Labs SEV-008 fix: without this snapshot, a subject who
+    /// passed unverified→verified between attest and revoke would
+    /// have their score over-reversed (apply with weight 1/2, revoke
+    /// with weight 2/2 → score goes negative).
+    pub verified_at_attest: bool,
+
+    pub _padding: [u8; 13],
 }
 
 impl Attestation {
     /// discriminator(8) + issuer(32) + subject(32) + schema(2) + nonce(8)
-    ///   + payload(96) + issued_at(8) + revoked(1) + bump(1) + pad(14).
+    ///   + payload(96) + issued_at(8) + revoked(1) + bump(1)
+    ///   + verified_at_attest(1) + pad(13).
+    /// Total unchanged on disk — SEV-008 consumed 1 byte of pad.
     pub const LEN: usize =
-        8 + 32 + 32 + 2 + 8 + ATTESTATION_PAYLOAD_LEN + 8 + 1 + 1 + 14;
+        8 + 32 + 32 + 2 + 8 + ATTESTATION_PAYLOAD_LEN + 8 + 1 + 1 + 1 + 13;
 }
 
 /// Reusable zero payload for emit sites that don't need the slot.

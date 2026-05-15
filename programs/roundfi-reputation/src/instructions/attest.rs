@@ -190,6 +190,38 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         SCHEMA_DEFAULT => {
             profile.apply_score_delta(SCORE_DEFAULT);
             profile.defaults = profile.defaults.saturating_add(1);
+            // Adevar Labs SEV-007 fix: demote level when score drops.
+            //
+            // Before this fix, `promote_level` was monotonic-UP and
+            // `SCHEMA_DEFAULT` only touched score + counter — so a
+            // Veteran (L3, stake 10%) defaulter retained tier and
+            // re-entered the next pool with the cheaper stake_bps
+            // despite the documented "1× = 50%, 10× = veteran"
+            // premise. Combined with the on-chain trusted-level
+            // lookup in `roundfi-core::join_pool` reading
+            // `profile.level` directly (not re-deriving from score),
+            // the defaulter could keep the cheap collateral for
+            // subsequent pools and amplify the loss on a second
+            // default.
+            //
+            // Now: a default attestation immediately re-derives the
+            // level from the post-delta score, clamped at LEVEL_MIN.
+            // This aligns the on-chain behavior with the comment in
+            // promote_level that always claimed "the next join_pool
+            // re-snapshots whatever the current level is, which IS
+            // allowed to be lower if the score has dropped".
+            let demoted_level = ReputationProfile::resolve_level(
+                profile.score,
+                LEVEL_2_THRESHOLD,
+                LEVEL_3_THRESHOLD,
+            ).max(LEVEL_MIN);
+            if demoted_level < profile.level {
+                msg!(
+                    "roundfi-reputation: SCHEMA_DEFAULT level demotion subject={} {} -> {} (score={})",
+                    profile.wallet, profile.level, demoted_level, profile.score,
+                );
+                profile.level = demoted_level;
+            }
         }
         SCHEMA_CYCLE_COMPLETE => {
             let delta = SCORE_CYCLE_COMPLETE * weight_num / weight_den;
@@ -216,7 +248,11 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     a.issued_at = now;
     a.revoked   = false;
     a.bump      = ctx.bumps.attestation;
-    a._padding  = [0; 14];
+    // Adevar Labs SEV-008 fix: snapshot the at-attest-time verified
+    // status so a future `revoke` can apply the correct weight even
+    // if the subject's identity verification state has changed.
+    a.verified_at_attest = verified;
+    a._padding  = [0; 13];
 
     msg!(
         "roundfi-reputation: attest schema={} subject={} score={} level={}",
