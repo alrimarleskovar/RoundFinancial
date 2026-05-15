@@ -108,7 +108,34 @@ pub const STAKE_BPS_LEVEL_3: u16 = 1_000; // 10%
 // ─── Bounds ─────────────────────────────────────────────────────────────
 pub const MAX_MEMBERS:        u8  = 64;   // safety ceiling; protocol default 24
 pub const MAX_BPS:            u16 = 10_000;
-pub const MIN_CYCLE_DURATION: i64 = 60;   // 1 min — devnet test-friendly
+
+/// Minimum allowed `cycle_duration` on a `Pool`. **Adevar Labs SEV-023
+/// fix** — was 60 seconds ("devnet test-friendly"), the same family of
+/// devnet-patch-leaked-to-prod bug as SEV-002 (GRACE_PERIOD_SECS=60).
+/// At 60s, a careless or hostile pool authority could create pools
+/// where members had to contribute every minute — practically unusable
+/// and a footgun even if not a direct fund-loss vector.
+///
+/// Reverted to 86_400 (1 day) — gives operators flexibility for short
+/// cycles in canary / staging without permitting micro-cycles that
+/// break the protocol's economic model. Devnet rehearsal scripts now
+/// use a fast-forwarded clock at the test-harness layer rather than
+/// micro-cycles.
+pub const MIN_CYCLE_DURATION: i64 = 86_400; // 1 day
+
+/// Maximum allowed `fee_bps_yield` (Adevar Labs SEV-024 fix).
+/// Default is 2_000 (20%); the previous cap was MAX_BPS = 10_000 (100%),
+/// meaning a compromised authority could route 100% of every pool's
+/// yield to treasury in a single tx with no public window. Tightened
+/// to 3_000 (30%, 1.5x default) — bounds the immediate-blast-radius
+/// of an authority compromise to a 50% yield surcharge over the
+/// whitepaper's 20%, while leaving room for legitimate calibration.
+///
+/// A timelock on fee changes (deeper fix) is tracked as a follow-up
+/// — would mirror the treasury rotation pattern. For now, the cap
+/// alone closes the magnitude vector.
+pub const MAX_FEE_BPS_YIELD: u16 = 3_000;
+
 pub const MAX_URI_LEN:        usize = 200;
 
 /// Look up stake bps from reputation level. Returns `None` for unknown levels.
