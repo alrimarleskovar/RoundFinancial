@@ -119,7 +119,12 @@ jobs:
   # tokio, axum, prisma, etc.), this gate will fire and surface the
   # CVE on PR review — exactly the visibility we lost before.
   audit:
-    name: audit · cargo-audit (required)
+    # Note: lane name kept as "(advisory)" for branch-protection compat
+    # (the rule pins the exact check name). Semantics are now required —
+    # see `cargo audit --deny warnings ...` below, no `|| true` wrap.
+    # When branch protection updates the rule name, this can flip to
+    # "(required)" to match the gate's actual posture.
+    name: audit · cargo-audit (advisory)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -181,7 +186,10 @@ jobs:
   # repo-root `deny.toml`. Adevar SEV-011 fix: flipped from advisory
   # to REQUIRED, same approach as the cargo-audit lane.
   deny:
-    name: deny · supply-chain (required)
+    # Note: lane name kept as "(advisory)" for branch-protection compat.
+    # See note on cargo-audit lane above — semantics are required, name
+    # matches the existing protection rule.
+    name: deny · supply-chain (advisory)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
