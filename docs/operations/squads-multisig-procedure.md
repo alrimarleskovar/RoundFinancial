@@ -1,0 +1,221 @@
+# Squads Multisig Procedure — RoundFi mainnet
+
+> **Scope:** the one-time bootstrap that rotates RoundFi's **upgrade authority** (Solana program-loader) and **protocol authority** (`ProtocolConfig.authority`) from a single deployer keypair to a Squads v4 multisig. Closes items 3.6 + 3.7 of [`MAINNET_READINESS.md`](../../MAINNET_READINESS.md).
+>
+> **Companion:**
+>
+> - [`key-rotation.md`](./key-rotation.md) — generic rotation runbook covering all three key surfaces (protocol authority, treasury, upgrade authority). This doc is the **Squads-specific** drill-down for the upgrade + protocol authority surfaces.
+> - [`emergency-response.md`](./emergency-response.md) — what to do if a key (multisig or otherwise) is suspected compromised mid-flight.
+> - [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts) — utility for previewing the multisig PDA from candidate member keys before the real ceremony.
+
+---
+
+## Why multisig
+
+A single deployer keypair on mainnet is a **point of total compromise** for the protocol: leak the key (HSM failure, social engineering, host compromise) and an attacker can:
+
+- Ship a malicious program upgrade that drains every pool's vaults
+- Call `update_protocol_config` to redirect fees or unpause the protocol after an emergency stop
+- Race the legitimate authority to rotate the on-chain authority into hostile territory (see compromised-key path in [`key-rotation.md`](./key-rotation.md))
+
+A 3-of-5 Squads multisig collapses every one of those single-key failure modes into a 3-key correlated compromise — exponentially harder. It's the **default expectation** of every external auditor we've talked to.
+
+---
+
+## What Squads gives us
+
+[Squads Protocol v4](https://github.com/Squads-Protocol/v4) is the standard Solana multisig program. The v4 mainnet deployment lives at:
+
+```
+Mainnet program ID: SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf
+Devnet program ID:  SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf  (same — Squads ships the same binary)
+```
+
+For each multisig you create, Squads derives:
+
+| PDA      | Seed                                        | Purpose                                                                                                                      |
+| -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Multisig | `["multisig", create_key]`                  | Stores the member list + threshold + bump                                                                                    |
+| Vault    | `["multisig", multisig, "vault", index_le]` | One PDA per vault index. **This is the address that should hold protocol authority + receive upgrade-authority delegation.** |
+
+The vault PDA is what counts on-chain — it's the address that signs transactions on behalf of the multisig once the threshold of members approve a proposed instruction.
+
+> **Always re-verify the Squads program ID against the published deploy** before running the procedure below. Squads v4 has been stable since 2024 but a re-pin pre-mainnet costs nothing.
+
+---
+
+## Procedure (one-time, mainnet ceremony)
+
+### Step 0 — Pre-flight
+
+1. **Hardware wallets for every member**. Ledger Nano X or equivalent. No software-keystore members for mainnet.
+2. **Member list locked down** — the 5 members signed off, public keys recorded, threshold = 3 chosen.
+3. **Out-of-band comms channel established** — 1Password/Signal/etc., NOT the same channel as the project's public Discord/Twitter.
+4. **Pre-rehearsal on devnet** — at least one full dry-run via the Squads UI on devnet using throwaway members; see [§ Devnet rehearsal](#devnet-rehearsal) below.
+5. **Squads program verified** against the canonical program ID above (compare against [Squads' deploys page](https://github.com/Squads-Protocol/v4/blob/main/deploys.md)).
+
+### Step 1 — Create the multisig
+
+Via the [Squads web app](https://app.squads.so):
+
+1. Connect a member's hardware wallet (any member — the connecting wallet pays creation rent, ~0.05 SOL).
+2. "Create Multisig" → "Custom" → set:
+   - **Threshold:** 3
+   - **Members:** add all 5 member pubkeys
+   - **Time lock:** 0 hours (RoundFi treasury rotation already has its own 7-day on-chain timelock — adding another at the Squads layer is duplicative friction)
+3. Sign + send. Squads creates the multisig PDA + a vault PDA at index 0.
+4. **Record both PDA addresses** in `docs/devnet-deployment.md` (or the mainnet equivalent) as the canonical "protocol multisig" addresses. Treat these as if they were program IDs — never change after recording.
+
+### Step 2 — Rotate the upgrade authority
+
+> **Critical:** this rotation is **one-way at the Solana runtime level**. If you set the wrong address (wrong PDA, typo, etc.), the program is locked under a wrong key with no recovery. Triple-check the target pubkey.
+
+For each of the 4 RoundFi programs (`roundfi-core`, `roundfi-reputation`, `roundfi-yield-kamino`, `roundfi-yield-mock`):
+
+```bash
+# Substitute <VAULT_PDA> with the Squads vault PDA from Step 1.
+# Substitute <PROGRAM_ID> with each program ID in turn.
+solana program set-upgrade-authority \
+  --url https://api.mainnet-beta.solana.com \
+  --keypair ~/.config/solana/mainnet-deployer.json \
+  <PROGRAM_ID> \
+  --new-upgrade-authority <VAULT_PDA> \
+  --skip-new-upgrade-authority-signer-check
+```
+
+The `--skip-new-upgrade-authority-signer-check` flag is **required** when transferring authority to a PDA (the PDA cannot sign at rotation time; it signs future upgrades through Squads' invoke).
+
+After each call:
+
+```bash
+# Verify the rotation landed
+solana program show <PROGRAM_ID> --url https://api.mainnet-beta.solana.com
+# → "Upgrade Authority: <VAULT_PDA>"  ← must match the address from Step 1
+```
+
+Repeat for all 4 programs. Once all 4 are rotated, the deployer key has **zero on-chain authority** over upgrades — every future upgrade must flow through a Squads proposal.
+
+### Step 3 — Rotate the protocol authority
+
+This is the `ProtocolConfig.authority` field — different surface from the upgrade authority (see [`key-rotation.md` §(a)](./key-rotation.md#a-protocol-authority-rotation)).
+
+Today's `update_protocol_config` does not directly support changing the authority field (intentional — authority rotation should be a deliberate, separate concern). The procedure is:
+
+1. **Propose the change via Squads**: build an `update_protocol_config` ix with `new_authority: Some(<VAULT_PDA>)` (once that field exists — tracked as follow-up: extend `UpdateProtocolConfigArgs` with `new_authority: Option<Pubkey>`).
+2. **Threshold members approve the proposal** in the Squads UI.
+3. **Execute** — Squads CPIs into `roundfi-core` with the multisig vault as the signer; the `authority == config.authority` constraint passes because the vault was set as authority at protocol init (or rotated via a prior `update_protocol_config` from a former single-deployer authority).
+
+> **Bootstrap quirk:** at `initialize_protocol` the deployer's wallet is the initial `authority`. To hand off to the Squads multisig, the deployer signs ONE final `update_protocol_config` ix with `new_authority = <VAULT_PDA>`. After that, every future `update_protocol_config` requires a Squads threshold signature.
+
+### Step 4 — Rotate the treasury (if applicable)
+
+If the treasury also needs to move to a Squads-controlled ATA:
+
+1. Create a USDC ATA under the vault PDA: `getAssociatedTokenAddressSync(USDC_MINT, <VAULT_PDA>, true /* allowOwnerOffCurve */)`
+2. From the **current authority** (which is now the Squads multisig after Step 3), propose `propose_new_treasury(new_treasury: <new_ata>)`. Members approve, Squads executes.
+3. Wait **7 days** (the on-chain timelock on treasury rotation — see [`key-rotation.md` §(b)](./key-rotation.md#b-treasury-address-rotation)).
+4. **Anyone** can then call `commit_new_treasury()` (permissionless ix — no Squads needed for this step). Future `harvest_yield` calls route protocol fees to the new ATA.
+
+This is the only step in the whole sequence that involves an on-chain timelock; Squads doesn't add anything on top.
+
+### Step 5 — Verification matrix
+
+After all rotations, run all four checks:
+
+| Surface                                  | Verification command                                                                            | Expected                                                               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `roundfi-core` upgrade authority         | `solana program show 8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw -u mainnet-beta`              | "Upgrade Authority" = `<VAULT_PDA>`                                    |
+| `roundfi-reputation` upgrade authority   | `solana program show Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2 -u mainnet-beta`              | Same                                                                   |
+| `roundfi-yield-kamino` upgrade authority | `solana program show 74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb -u mainnet-beta`              | Same                                                                   |
+| Protocol authority                       | `solana account <ProtocolConfig-PDA> --output json` then decode `authority` field               | `<VAULT_PDA>`                                                          |
+| Reproducible-build attestation           | `solana-verify -u mainnet-beta get-program-pda --program-id <PID> --signer <ORIGINAL_DEPLOYER>` | Still returns the original attestation (signer-bound, doesn't refresh) |
+
+If any verification fails, **DO NOT PROCEED** with the mainnet smoke (item 4.1 of `MAINNET_READINESS.md`). The protocol cannot run safely with a half-rotated authority surface.
+
+---
+
+## Devnet rehearsal
+
+Before the mainnet ceremony, run the rotation end-to-end on devnet to catch any procedural surprises. The recommended sequence:
+
+1. **Deploy a fresh devnet protocol instance** if you haven't already (see [`docs/devnet-setup.md`](../devnet-setup.md)).
+2. **Create a real Squads multisig on devnet** via [app.squads.so](https://app.squads.so) → switch to devnet → "Create Multisig". Use throwaway member keypairs. Threshold = 2-of-3 to keep the rehearsal fast.
+3. **Run the rotation procedure** above against the devnet programs + devnet protocol.
+4. **Write the rehearsal log** to `docs/operations/rehearsal-logs/YYYY-MM-DD-squads-rotation.md` capturing every tx signature.
+
+The `scripts/devnet/squads-derive-pda.ts` utility derives the Squads PDA addresses deterministically from a member-key list — useful for sanity-checking the address you're about to set as the new upgrade authority. Run it:
+
+```bash
+pnpm tsx scripts/devnet/squads-derive-pda.ts \
+  --member <pubkey-1> \
+  --member <pubkey-2> \
+  --member <pubkey-3> \
+  --threshold 2 \
+  --create-key <unique-create-key-pubkey>
+```
+
+Output:
+
+```
+Squads v4 program ID: SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf
+Members: 3
+Threshold: 2-of-3
+Multisig PDA: <derived-multisig-pda>
+Vault PDA (index 0): <derived-vault-pda>
+```
+
+Compare the printed `Vault PDA` against the one shown in the Squads UI after multisig creation. If they don't match, **STOP** — the procedure has drifted from the published Squads v4 derivation and you'd be transferring authority to a wrong/unknown address.
+
+---
+
+## What can go wrong (and rollback)
+
+### Upgrade authority transfer fails
+
+Most common cause: missing `--skip-new-upgrade-authority-signer-check` flag when targeting a PDA. The CLI will print a signer-check error and reject the tx. Re-run with the flag.
+
+### Upgrade authority transferred to wrong address
+
+**This is irrecoverable** if the wrong address is unknown / unsigned-by-multisig. Mitigations BEFORE the rotation:
+
+1. Use `squads-derive-pda.ts` to compute the expected PDA offline and visually compare 5+ characters with the Squads UI's displayed address.
+2. Run on devnet first against the same member set.
+3. Have a second team member independently derive + verify the target PDA.
+
+After the rotation, if the address is wrong but you control the destination (e.g. you derived for the wrong multisig but it's still a Squads PDA you can control through the UI), you can chain another `set-upgrade-authority` from inside that Squads to the correct one. But this only works if you can sign with the wrongly-targeted multisig — otherwise the program is permanently locked.
+
+### Protocol authority transferred to wrong address
+
+If `update_protocol_config { new_authority: <wrong-pda> }` ships and is wrong, the only way back is the wrong authority signing another `update_protocol_config { new_authority: <correct-pda> }`. If you don't control the wrong PDA, the protocol is functionally captured — see [`key-rotation.md` § Compromised-key path](./key-rotation.md#compromised-key-path).
+
+### Squads multisig is itself compromised
+
+3-of-5 threshold + hardware wallets + out-of-band comms make this extremely unlikely without a coordinated 3-member attack. If it does happen:
+
+1. The compromised multisig signs `update_protocol_config { new_authority: <attacker-pda> }` first.
+2. We have no recovery — the protocol is captured.
+3. Best mitigation: **threshold > 50% of members** (3-of-5 satisfies this) + **dispersed key custody** (no two members share a physical location / device manufacturer / cloud provider).
+4. See [`emergency-response.md`](./emergency-response.md) for the public-disclosure procedure if this happens.
+
+---
+
+## Cost summary
+
+| Step                                        | Approx cost (SOL) | Notes                                                      |
+| ------------------------------------------- | ----------------- | ---------------------------------------------------------- |
+| Squads multisig creation                    | ~0.05             | Includes multisig account + vault PDA rent                 |
+| Upgrade authority rotation × 4              | ~0.001            | Tx fees only; the program data account size doesn't change |
+| Protocol authority rotation                 | ~0.001            | Single `update_protocol_config` tx                         |
+| Treasury rotation (optional)                | ~0.002            | `propose` + `commit` txs (7-day gap between them)          |
+| **Total** (excluding cold-storage hardware) | **~0.06 SOL**     | Plus the rehearsal-on-devnet equivalent                    |
+
+---
+
+## References
+
+- [Squads v4 GitHub](https://github.com/Squads-Protocol/v4) — protocol source, IDL, audit reports
+- [Squads v4 documentation](https://docs.squads.so/main/) — UI flows + SDK reference
+- [`key-rotation.md`](./key-rotation.md) — generic rotation runbook (this doc is the Squads-specific drill-down)
+- [`emergency-response.md`](./emergency-response.md) — incident response for key compromise
+- [`MAINNET_READINESS.md` § 3.6 + 3.7](../../MAINNET_READINESS.md) — readiness checklist this procedure closes
+- [`AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md) — context on which authorities are in audit scope
