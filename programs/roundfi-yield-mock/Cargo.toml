@@ -5,6 +5,7 @@ edition.workspace = true
 description = "RoundFi yield adapter (mock) — simulated APY for Devnet; interface-compatible with the Kamino adapter"
 license.workspace = true
 repository.workspace = true
+publish.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]
