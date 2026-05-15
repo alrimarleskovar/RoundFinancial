@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+publish.workspace = true
 description = "Pure-Rust actuarial math for the RoundFi protocol (Triple Shield, waterfall, D/C invariant, seed-draw, escrow vesting). Zero Solana/Anchor/mpl-core dependencies — runs on host x86_64 for clippy + cargo test, and links into programs/roundfi-core via path dependency for the SBF target."
 
 [lib]

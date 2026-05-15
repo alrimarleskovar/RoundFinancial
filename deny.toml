@@ -54,11 +54,34 @@ license-files = [
   { path = "LICENSE", hash = 0xbd0eed23 },
 ]
 
+# Adevar Labs SEV-011 follow-up: mpl-core 0.8.1 ships a LICENSE file
+# (Apache-2.0) but doesn't declare a `license` field in Cargo.toml.
+# cargo-deny's text-fingerprint heuristic gets 0.80 confidence —
+# below the 0.93 threshold — so it can't auto-resolve. This clarify
+# entry pins the resolution explicitly. Retire when we move to a
+# version of mpl-core that declares its license field properly
+# (tracked via the Agave 2.x / mpl-core 0.12 upgrade in PR #319).
+[[licenses.clarify]]
+name = "mpl-core"
+version = "0.8.1"
+expression = "Apache-2.0"
+license-files = [
+  { path = "LICENSE", hash = 0xd3dacb8e },
+]
+
 # ─── Bans ────────────────────────────────────────────────────────────
 # Hard bans on crates we deliberately don't want in the tree.
 [bans]
 multiple-versions = "warn"     # noise, not security — keep as warn
 wildcards = "deny"             # no version = "*" in Cargo.toml
+# Adevar Labs SEV-011 follow-up: intra-workspace `path = "..."` deps
+# (e.g. roundfi-core depending on roundfi-math via `path = "../math"`)
+# are treated as "wildcard" by cargo-deny because they don't carry an
+# explicit `version`. Allow these — they're not crates.io supply-chain
+# risk, they're internal monorepo references. The same flag is the
+# canonical solution recommended by the cargo-deny docs for workspace
+# repos.
+allow-wildcard-paths = true
 highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"

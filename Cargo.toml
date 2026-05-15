@@ -19,6 +19,12 @@ edition = "2021"
 authors = ["RoundFi"]
 license = "Apache-2.0"
 repository = "https://github.com/alrimarleskovar/RoundFinancial"
+# Adevar Labs SEV-011 follow-up: these crates are Solana programs +
+# math lib, never intended for crates.io publication. `publish = false`
+# is the declared-intent flag that also tells cargo-deny it's safe to
+# accept intra-workspace `path = "../..."` deps under
+# `bans.allow-wildcard-paths`.
+publish = false
 
 [profile.release]
 overflow-checks = true
