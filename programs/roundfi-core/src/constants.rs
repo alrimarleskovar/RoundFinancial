@@ -302,3 +302,128 @@ mod tests {
         assert!(MAX_MEMBERS <= 64);
     }
 }
+
+// ─── Mainnet floor guard (constants-audit follow-up) ────────────────────
+//
+// **Why a separate module from the pinning tests above:**
+//
+// The tests above use `assert_eq!(GRACE_PERIOD_SECS, 604_800)` — a pinning
+// shape that fails loudly on **any** change, even legitimate ones (a
+// governance decision to extend grace to 14 days would need both the
+// constant and its pinning test edited in the same commit). That's by
+// design: pinning forces deliberate, audit-trail-friendly changes to
+// production-economic values.
+//
+// **However:** the Adevar SEV-002 / SEV-023 family showed that pinning
+// alone is not enough — a "MUST revert before mainnet" devnet patch was
+// shipped to main together with its pinning test (`assert_eq!(..., 60)`).
+// The pinning test happily passed CI while embedding the wrong value.
+// The 2026-05 constants audit (`docs/security/constants-audit-2026-05.md`)
+// recommends a **second**, weaker check that asserts production floors
+// independent of the exact pinned value:
+//
+//   - Pinning test: "this is the canonical value, change deliberately"
+//   - Floor guard:  "regardless of canonical value, never below mainnet floor"
+//
+// A regression to 60s now fails BOTH tests; a legitimate bump from 7d to
+// 14d only fails the pinning (loud signal, expected) — the floor stays
+// silent because 14d > 1d floor. This is the "if the pinning ever drifts
+// again, the floor catches it" net.
+#[cfg(test)]
+mod floor_guards {
+    use super::*;
+
+    /// Grace window cannot be shorter than 1 day on mainnet — would
+    /// permit settle_default flood under any operator connectivity
+    /// lapse. The 60s devnet patch (SEV-002) is well below this floor.
+    #[test]
+    fn grace_period_above_mainnet_floor() {
+        const FLOOR_SECS: i64 = 86_400; // 1 day
+        assert!(
+            GRACE_PERIOD_SECS >= FLOOR_SECS,
+            "GRACE_PERIOD_SECS = {} below mainnet floor {} (SEV-002 regression shape)",
+            GRACE_PERIOD_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Treasury rotation lock window — anything below 1 day reduces the
+    /// user "detect malicious authority change and migrate funds" window
+    /// to below practical reaction time. 7d is current; floor at 1d.
+    #[test]
+    fn treasury_timelock_above_mainnet_floor() {
+        const FLOOR_SECS: i64 = 86_400;
+        assert!(
+            TREASURY_TIMELOCK_SECS >= FLOOR_SECS,
+            "TREASURY_TIMELOCK_SECS = {} below mainnet floor {}",
+            TREASURY_TIMELOCK_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Reveal cooldown — must stay above ~10 slots (≈4s on Solana) to
+    /// give the legitimate buyer a real head-start. Floor at 10s; 30s
+    /// is the canary default per SEV/MEV reveal-front-running analysis.
+    #[test]
+    fn reveal_cooldown_above_floor() {
+        const FLOOR_SECS: i64 = 10;
+        assert!(
+            REVEAL_COOLDOWN_SECS >= FLOOR_SECS,
+            "REVEAL_COOLDOWN_SECS = {} below floor {}",
+            REVEAL_COOLDOWN_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// `MIN_CYCLE_DURATION` is itself the floor against pool authority
+    /// misconfiguration — but the constant value can drift downward
+    /// the same way `GRACE_PERIOD_SECS` did (SEV-023 was exactly the
+    /// "MIN_CYCLE_DURATION = 60s" version of SEV-002). Floor the floor.
+    #[test]
+    fn min_cycle_duration_above_mainnet_floor() {
+        const FLOOR_SECS: i64 = 3_600; // 1 hour absolute minimum
+        assert!(
+            MIN_CYCLE_DURATION >= FLOOR_SECS,
+            "MIN_CYCLE_DURATION = {} below mainnet floor {} (SEV-023 regression shape)",
+            MIN_CYCLE_DURATION, FLOOR_SECS,
+        );
+    }
+
+    /// `DEFAULT_CYCLE_DURATION` must respect `MIN_CYCLE_DURATION`
+    /// (defaults cannot drift below the on-chain floor).
+    #[test]
+    fn default_cycle_duration_above_min() {
+        assert!(
+            DEFAULT_CYCLE_DURATION >= MIN_CYCLE_DURATION,
+            "DEFAULT_CYCLE_DURATION = {} below MIN_CYCLE_DURATION {}",
+            DEFAULT_CYCLE_DURATION, MIN_CYCLE_DURATION,
+        );
+    }
+
+    /// `MAX_FEE_BPS_YIELD` is itself a ceiling but cannot drift above
+    /// 50% — beyond that any authority compromise routes the majority
+    /// of yield to treasury. The 30% canonical (SEV-024) is well below.
+    #[test]
+    fn max_fee_bps_yield_below_ceiling() {
+        const CEILING_BPS: u16 = 5_000; // 50%
+        assert!(
+            MAX_FEE_BPS_YIELD <= CEILING_BPS,
+            "MAX_FEE_BPS_YIELD = {} above ceiling {} (would permit majority-yield exfil)",
+            MAX_FEE_BPS_YIELD, CEILING_BPS,
+        );
+    }
+
+    /// Default product pool must remain viable: per-cycle pool float
+    /// (`members × installment × (1 - sol - escrow)`) must clear the
+    /// credit. SEV-025 lifted the installment to make this hold; the
+    /// floor guard pins the invariant separately from the value-pin.
+    #[test]
+    fn default_pool_viability_holds() {
+        let pool_float = (DEFAULT_MEMBERS_TARGET as u128)
+            * (DEFAULT_INSTALLMENT_AMOUNT as u128)
+            * ((MAX_BPS - SOLIDARITY_BPS - DEFAULT_ESCROW_RELEASE_BPS) as u128)
+            / (MAX_BPS as u128);
+        assert!(
+            pool_float >= DEFAULT_CREDIT_AMOUNT as u128,
+            "pool_float {} < credit {} (SEV-025 viability)",
+            pool_float, DEFAULT_CREDIT_AMOUNT,
+        );
+    }
+}
