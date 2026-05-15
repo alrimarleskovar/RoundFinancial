@@ -7,8 +7,9 @@
 > - [`key-rotation.md`](./key-rotation.md) — generic rotation runbook covering all three key surfaces (protocol authority, treasury, upgrade authority). This doc is the **Squads-specific** drill-down for the upgrade + protocol authority surfaces.
 > - [`emergency-response.md`](./emergency-response.md) — what to do if a key (multisig or otherwise) is suspected compromised mid-flight.
 > - [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts) — utility for previewing the multisig PDA from candidate member keys before the real ceremony.
-> - [`scripts/devnet/squads-rehearsal-*.ts`](../../scripts/devnet/) — `verify` / `propose-authority` / `cancel-authority` / `commit-authority` wrappers around the on-chain authority-rotation ix trio (PR #323). Used end-to-end during the devnet rehearsal; refuse to run against mainnet.
+> - [`scripts/devnet/squads-rehearsal-*.ts`](../../scripts/devnet/) — `verify` / `propose-authority` / `cancel-authority` / `commit-authority` wrappers around the on-chain authority-rotation ix trio. Used end-to-end during the devnet rehearsal; refuse to run against mainnet.
 > - [`docs/operations/rehearsal-logs/TEMPLATE-squads-rotation.md`](./rehearsal-logs/TEMPLATE-squads-rotation.md) — fill-in-the-blank rehearsal log capturing every tx signature, PDA, and verification check from the dry-run.
+> - [`squads-mainnet-ceremony-checklist.md`](./squads-mainnet-ceremony-checklist.md) — **the day-of operational artifact**. Printable A4 with checkbox-per-line, blank lines for tx sigs/PDAs, explicit kill-switches in §K, sign-off block. Use this checklist at the ceremony; use this procedure doc for context + rationale 24h before.
 
 ---
 
