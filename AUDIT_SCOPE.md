@@ -10,27 +10,26 @@
 
 ---
 
-## In scope — 3 Anchor programs · ~8,341 lines of Rust
+## In scope — 3 Anchor programs · ~8,655 lines of Rust
 
 | Program                         | LoC (`*.rs`)  | Surface                                                                                                                                                                                                                                                                                             |
 | ------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `programs/roundfi-core`         | **6,157**     | Pool lifecycle (create / join / contribute / claim_payout / settle_default / close), escrow + solidarity + yield vault PDAs, escape valve secondary market (list/buy), treasury timelock + lock, harvest waterfall, Triple Shield invariants                                                        |
 | `programs/roundfi-reputation`   | **1,744**     | SAS-compatible attestations, level promotion (1→2→3), CPI surface from roundfi-core, identity scaffold (Civic gateway-token validator — provider TBD post-mainnet, see [§4.4 of architecture.md](./docs/architecture.md#44-identity-layer-added-v02--2026-04-22--provider-transition-v04--2026-05)) |
-| `programs/roundfi-yield-kamino` | **440**       | Real Kamino Lend CPI — `deposit_idle_to_yield` path (production target)                                                                                                                                                                                                                             |
-| **Total in scope**              | **8,341 LoC** | 28+ typed errors, **227 tests** (53 security-specific bankrun + 58 app-encoder structural + 7 bankrun round-trips + 109 lifecycle/edge/parity) + **6 cargo-fuzz targets** on `roundfi-math`, Triple Shield economic invariants                                                                      |
+| `programs/roundfi-yield-kamino` | **754**       | Real Kamino Lend CPI — `deposit_reserve_liquidity` (deposit path) + `redeem_reserve_collateral` (harvest path, **redeem-all + redeposit-principal** round-trip; see module comment) — production target                                                                                             |
+| **Total in scope**              | **8,655 LoC** | 30+ typed errors, **227 tests** (53 security-specific bankrun + 58 app-encoder structural + 7 bankrun round-trips + 109 lifecycle/edge/parity) + **6 cargo-fuzz targets** on `roundfi-math`, Triple Shield economic invariants                                                                      |
 
 ---
 
 ## Out of scope
 
-| Component                                  | Reason                                                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `programs/roundfi-yield-mock` (348 LoC)    | Devnet-only test adapter; never deployed to mainnet                                                                                                           |
-| `harvest()` path in `roundfi-yield-kamino` | Staged behind the deposit path; lands in a follow-up PR after kamino-deposit clears audit                                                                     |
-| `app/` (Next.js frontend)                  | Wallet adapter trust, RPC connection, UI flows — different threat model (UI/UX security review, not on-chain)                                                 |
-| `services/indexer/`                        | Off-chain Helius webhook + Postgres backfiller; never on the fund-movement trust path                                                                         |
-| `packages/sdk/`                            | TypeScript encoders / decoders; correctness already gated by Rust↔TS parity tests (see [`tests/parity.spec.ts`](./tests/parity.spec.ts), 7 tests, runs in CI) |
-| `tests/`                                   | Test code itself (the assertions are the audit artifact, not auditable code)                                                                                  |
+| Component                               | Reason                                                                                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `programs/roundfi-yield-mock` (348 LoC) | Devnet-only test adapter; never deployed to mainnet                                                                                                           |
+| `app/` (Next.js frontend)               | Wallet adapter trust, RPC connection, UI flows — different threat model (UI/UX security review, not on-chain)                                                 |
+| `services/indexer/`                     | Off-chain Helius webhook + Postgres backfiller; never on the fund-movement trust path                                                                         |
+| `packages/sdk/`                         | TypeScript encoders / decoders; correctness already gated by Rust↔TS parity tests (see [`tests/parity.spec.ts`](./tests/parity.spec.ts), 7 tests, runs in CI) |
+| `tests/`                                | Test code itself (the assertions are the audit artifact, not auditable code)                                                                                  |
 
 Documented out-of-scope items (do **not** spend audit hours here, tracked for follow-up):
 
@@ -41,6 +40,7 @@ Documented out-of-scope items (do **not** spend audit hours here, tracked for fo
 Items moved from out-of-scope to **addressed** (pre-engagement deliverables):
 
 - **MEV / front-running review** — done. Pre-audit MEV analysis covering all 6 ordering-sensitive instructions (`claim_payout`, `escape_valve_buy`, `settle_default`, `harvest_yield`, `deposit_idle_to_yield`, `join_pool`) at [`docs/security/mev-front-running.md`](./docs/security/mev-front-running.md). Big-picture finding: Triple Shield constrains extraction to bounded griefing on all instructions except `escape_valve_buy` listing-race (recommended pre-mainnet mitigation: commit-reveal listings + Jito bundles for cancel/relist). Closes [#232](https://github.com/alrimarleskovar/RoundFinancial/issues/232).
+- **`harvest()` path in `roundfi-yield-kamino`** — promoted in-scope. Real Kamino `redeem_reserve_collateral` CPI implemented as a **redeem-all + redeposit-principal** round-trip in [`programs/roundfi-yield-kamino/src/lib.rs`](./programs/roundfi-yield-kamino/src/lib.rs). Slippage guard (`min_realized_usdc`) and adapter-balance-delta over-withdraw guard from PR #124 apply unchanged (they live in `roundfi-core::harvest_yield` and are adapter-agnostic). Pinned `PrincipalLoss` error guards against an exchange-rate regression. Closes [#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233).
 
 See [`docs/security/self-audit.md` §7](./docs/security/self-audit.md#7-out-of-scope-future-work) for the full out-of-scope register.
 
