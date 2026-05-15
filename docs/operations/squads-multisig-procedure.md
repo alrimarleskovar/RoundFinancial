@@ -7,6 +7,8 @@
 > - [`key-rotation.md`](./key-rotation.md) — generic rotation runbook covering all three key surfaces (protocol authority, treasury, upgrade authority). This doc is the **Squads-specific** drill-down for the upgrade + protocol authority surfaces.
 > - [`emergency-response.md`](./emergency-response.md) — what to do if a key (multisig or otherwise) is suspected compromised mid-flight.
 > - [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts) — utility for previewing the multisig PDA from candidate member keys before the real ceremony.
+> - [`scripts/devnet/squads-rehearsal-*.ts`](../../scripts/devnet/) — `verify` / `propose-authority` / `cancel-authority` / `commit-authority` wrappers around the on-chain authority-rotation ix trio (PR #323). Used end-to-end during the devnet rehearsal; refuse to run against mainnet.
+> - [`docs/operations/rehearsal-logs/TEMPLATE-squads-rotation.md`](./rehearsal-logs/TEMPLATE-squads-rotation.md) — fill-in-the-blank rehearsal log capturing every tx signature, PDA, and verification check from the dry-run.
 
 ---
 
@@ -144,10 +146,30 @@ If any verification fails, **DO NOT PROCEED** with the mainnet smoke (item 4.1 o
 
 Before the mainnet ceremony, run the rotation end-to-end on devnet to catch any procedural surprises. The recommended sequence:
 
-1. **Deploy a fresh devnet protocol instance** if you haven't already (see [`docs/devnet-setup.md`](../devnet-setup.md)).
-2. **Create a real Squads multisig on devnet** via [app.squads.so](https://app.squads.so) → switch to devnet → "Create Multisig". Use throwaway member keypairs. Threshold = 2-of-3 to keep the rehearsal fast.
-3. **Run the rotation procedure** above against the devnet programs + devnet protocol.
-4. **Write the rehearsal log** to `docs/operations/rehearsal-logs/YYYY-MM-DD-squads-rotation.md` capturing every tx signature.
+1. **Copy the rehearsal log template** to a dated file:
+
+   ```bash
+   cp docs/operations/rehearsal-logs/TEMPLATE-squads-rotation.md \
+      docs/operations/rehearsal-logs/$(date -u +%Y-%m-%d)-squads-rotation-rehearsal.md
+   ```
+
+2. **Deploy a fresh devnet protocol instance** if you haven't already (see [`docs/devnet-setup.md`](../devnet-setup.md)).
+3. **Create a real Squads multisig on devnet** via [app.squads.so](https://app.squads.so) → switch to devnet → "Create Multisig". Use throwaway member keypairs. Threshold = 2-of-3 to keep the rehearsal fast.
+4. **Cross-check the derived Vault PDA** against the address shown in the Squads UI using [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts) (see below).
+5. **Run the rotation procedure** above against the devnet programs + devnet protocol, using the rehearsal scripts:
+
+   | Step                                   | Script                                                                                                               |
+   | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+   | Pre/post-state inspection (every step) | [`scripts/devnet/squads-rehearsal-verify.ts`](../../scripts/devnet/squads-rehearsal-verify.ts)                       |
+   | Step 3 propose (deployer → vault)      | [`scripts/devnet/squads-rehearsal-propose-authority.ts`](../../scripts/devnet/squads-rehearsal-propose-authority.ts) |
+   | Step 3 abort (also worth rehearsing)   | [`scripts/devnet/squads-rehearsal-cancel-authority.ts`](../../scripts/devnet/squads-rehearsal-cancel-authority.ts)   |
+   | Step 3 finalize (post-timelock)        | [`scripts/devnet/squads-rehearsal-commit-authority.ts`](../../scripts/devnet/squads-rehearsal-commit-authority.ts)   |
+
+   For Step 2 (upgrade authority) and Step 4 (treasury, if exercised), the existing `solana program set-upgrade-authority` CLI + `propose_new_treasury` / `commit_new_treasury` ix already cover the surface — no new wrappers needed.
+
+6. **Fill in the rehearsal log** as each step lands, capturing every tx signature, derived PDA, and verification output. The template at `TEMPLATE-squads-rotation.md` has slots for everything an auditor would want to see post-hoc.
+
+> **Timelock fast-forward (devnet-only):** the 7-day `TREASURY_TIMELOCK_SECS` makes a same-day rehearsal painful. For devnet rehearsals only, temporarily set `TREASURY_TIMELOCK_SECS = 60` in `programs/roundfi-core/src/constants.rs` on a rehearsal-only branch, redeploy, run the full flow in ~2 minutes. Record the temporary value in the rehearsal log §5d so the artifact is honest about which timelock was actually exercised. **Never** ship this branch to mainnet.
 
 The `scripts/devnet/squads-derive-pda.ts` utility derives the Squads PDA addresses deterministically from a member-key list — useful for sanity-checking the address you're about to set as the new upgrade authority. Run it:
 
