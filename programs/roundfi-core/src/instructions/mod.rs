@@ -1,5 +1,6 @@
 pub mod cancel_new_authority;
 pub mod cancel_new_treasury;
+pub mod cancel_pending_listing;
 pub mod claim_payout;
 pub mod close_pool;
 pub mod commit_new_authority;
@@ -26,6 +27,7 @@ pub mod update_protocol_config;
 
 pub use cancel_new_authority::*;
 pub use cancel_new_treasury::*;
+pub use cancel_pending_listing::*;
 pub use claim_payout::*;
 pub use close_pool::*;
 pub use commit_new_authority::*;

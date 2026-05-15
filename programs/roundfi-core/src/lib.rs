@@ -118,6 +118,15 @@ pub mod roundfi_core {
         instructions::escape_valve_buy::handler(ctx, args)
     }
 
+    /// Seller-only abort of a `Pending` escape-valve listing.
+    /// Closes the listing PDA, refunds rent to seller, frees the
+    /// slot for a fresh commit. Adevar Labs SEV-015 fix — without
+    /// this ix, a seller who commits but never reveals locks the
+    /// slot indefinitely (PDA seeds tie the slot to the listing).
+    pub fn cancel_pending_listing(ctx: Context<CancelPendingListing>) -> Result<()> {
+        instructions::cancel_pending_listing::handler(ctx)
+    }
+
     pub fn close_pool(ctx: Context<ClosePool>) -> Result<()> {
         instructions::close_pool::handler(ctx)
     }
