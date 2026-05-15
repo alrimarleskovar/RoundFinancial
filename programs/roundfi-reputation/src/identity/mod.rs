@@ -8,5 +8,5 @@
 //!   3. Field-level invariant checks (status, expiry, network, subject).
 //! On any mismatch they return `Err(ReputationError::InvalidIdentityProof)`.
 
-pub mod civic;
-pub use civic::*;
+pub mod passport;
+pub use passport::*;

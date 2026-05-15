@@ -1,7 +1,8 @@
 //! RoundFi Reputation program.
 //!
 //! SAS-compatible attestation service, permissionless reputation ladder,
-//! and modular/optional identity layer (Civic Pass + future providers).
+//! and modular/optional identity layer (Human Passport + future
+//! providers, e.g. Sumsub for Phase 3 KYC-grade B2B compliance).
 //!
 //! Account layout mirrors the official Solana Attestation Service schema
 //! so Mainnet migration is a program-ID swap, not a data migration.
@@ -11,13 +12,15 @@
 //!     `IdentityRecord` state accounts.
 //!   - `initialize_reputation`, `update_reputation_config`,
 //!     `init_profile`, `attest`, `revoke`, `promote_level`,
-//!     `link_civic_identity`, `refresh_identity`, `unlink_identity`
+//!     `link_passport_identity`, `refresh_identity`, `unlink_identity`
 //!     instructions.
 //!   - Anti-gaming rules: cycle-complete cooldown, sybil-hint halving,
 //!     default stickiness, permissionless promotion.
-//!   - Identity providers treated as UNTRUSTED — Civic gateway-token
-//!     accounts are validated byte-by-byte with no reliance on the
-//!     external program's Anchor traits.
+//!   - Identity providers treated as UNTRUSTED — Passport attestation
+//!     accounts (written by the off-chain bridge service) are
+//!     validated byte-by-byte with no reliance on a deserializer.
+//!     Civic → Human Passport provider migration shipped via #227
+//!     follow-up; account layout byte-compat preserved.
 
 use anchor_lang::prelude::*;
 
@@ -68,8 +71,8 @@ pub mod roundfi_reputation {
         instructions::promote_level::handler(ctx)
     }
 
-    pub fn link_civic_identity(ctx: Context<LinkCivicIdentity>) -> Result<()> {
-        instructions::link_civic_identity::handler(ctx)
+    pub fn link_passport_identity(ctx: Context<LinkPassportIdentity>) -> Result<()> {
+        instructions::link_passport_identity::handler(ctx)
     }
 
     pub fn refresh_identity(ctx: Context<RefreshIdentity>) -> Result<()> {
