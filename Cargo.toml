@@ -30,3 +30,23 @@ opt-level = 3
 opt-level = 3
 incremental = false
 codegen-units = 1
+
+# Borsh unification experiment (#319 — Agave 2.x migration).
+#
+# Symptom: `anchor build` fails with ~405 `could not find 'maybestd' in
+# 'borsh'` errors. `maybestd` is a borsh 0.10 no_std compatibility
+# module that was removed in borsh 1.x. Multiple borsh versions in the
+# dep graph: mpl-core 0.12 brings borsh 1.x directly; an older
+# transitive (likely via solana-program 1.x pulled by anchor's deeper
+# layers) still expects borsh 0.10's `maybestd` API.
+#
+# This patch forces every `borsh` request in the workspace to resolve
+# to 1.5.x. If a crate genuinely needs 0.10's `maybestd`, this will
+# surface as a compile error against that specific crate — useful
+# signal either way.
+#
+# Advisory experiment: if this doesn't unstick the build, the
+# migration is upstream-blocked on mpl-core ↔ anchor borsh
+# coexistence (#319 stays in draft).
+[patch.crates-io]
+borsh = { version = "1.5" }
