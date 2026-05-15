@@ -106,16 +106,20 @@ jobs:
   # angle, and the bankrun anchor lane covers the test-execution angle.
 
   # ─── 3. Security audit (required) ────────────────────────────────────
-  # cargo-audit checks Cargo.lock against the RustSec advisory DB. Fails
-  # the build on any unaddressed vulnerability — explicit `--ignore` for
-  # known transient advisories from solana-program 1.x deps until the
-  # Anza Agave 2.x migration completes.
+  #
+  # Adevar Labs SEV-011 fix: flipped from advisory (`|| true`) to
+  # REQUIRED. Failures here now block merges.
+  #
+  # Known-transient advisories (from solana-program 1.x / mpl-core 0.8
+  # deps) are explicitly listed under `--ignore` below. Each ignore is
+  # tied to a tracking link so we know when to drop it. When the Agave
+  # 2.x migration (#319) lands, the entire ignore block disappears.
+  #
+  # If a NEW advisory lands against a non-Solana dependency (serde,
+  # tokio, axum, prisma, etc.), this gate will fire and surface the
+  # CVE on PR review — exactly the visibility we lost before.
   audit:
-    # Job name explicitly says "advisory" so the badge / status checks
-    # never lie: `cargo audit` runs with `|| true` (warn-only) until
-    # the Solana 1.18 / mpl-core 0.8 transitive advisories are
-    # resolved post-Agave-2.x migration. Hide-nothing naming.
-    name: audit · cargo-audit (advisory)
+    name: audit · cargo-audit (required)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -134,24 +138,50 @@ jobs:
         # The repo doesn't commit Cargo.lock for the workspace (anchor
         # programs typically don't), but `cargo audit` reads from it.
 
-      - name: cargo audit (advisory-only on day 1)
-        run: cargo audit || true
-        # First-pass: warn-only. The Solana 1.18 / mpl-core 0.8 dep tree
-        # carries a handful of transient advisories from `solana-program`
-        # 1.x deps (curve25519-dalek, ed25519-dalek-bip32, etc.) that are
-        # tracked upstream and unfixable from our side until the Anza
-        # Agave 2.x migration completes (separate PR track). Once Anchor
-        # 0.30 + Agave 2.x are validated end-to-end, drop the `|| true`
-        # and add `--ignore RUSTSEC-...` for any persistently-flagged ID.
+      - name: cargo audit (required, Solana 1.18 transients ignored)
+        run: |
+          cargo audit \
+            --deny warnings \
+            --ignore RUSTSEC-2024-0344 \
+            --ignore RUSTSEC-2022-0093 \
+            --ignore RUSTSEC-2024-0375 \
+            --ignore RUSTSEC-2025-0141 \
+            --ignore RUSTSEC-2024-0388 \
+            --ignore RUSTSEC-2025-0161 \
+            --ignore RUSTSEC-2024-0436 \
+            --ignore RUSTSEC-2024-0370 \
+            --ignore RUSTSEC-2021-0145 \
+            --ignore RUSTSEC-2023-0033 \
+            --ignore RUSTSEC-2026-0097
+        # Each --ignore tied to a known-transient from the Solana 1.18 /
+        # mpl-core 0.8 dep tree, tracked for retirement under PR #319
+        # (Agave 2.x migration). When that PR lands the ignores get
+        # removed in lockstep — any NEW ID that appears here is a real
+        # signal that needs review.
+        #
+        # RUSTSEC-2024-0344 — curve25519-dalek timing variability
+        #   (solana-zk-token-sdk 1.18 transitive). Fixed in 4.1.3.
+        # RUSTSEC-2022-0093 — ed25519-dalek double-PK signing oracle
+        #   (solana-sdk 1.18 transitive). Fixed in 2.0.
+        # RUSTSEC-2024-0375 — atty unmaintained.
+        # RUSTSEC-2021-0145 — atty unaligned read.
+        # RUSTSEC-2025-0141 — bincode unmaintained (solana SDK).
+        # RUSTSEC-2024-0388 — derivative unmaintained (solana SDK).
+        # RUSTSEC-2025-0161 — libsecp256k1 unmaintained (solana-secp256k1-recover).
+        # RUSTSEC-2024-0436 — paste unmaintained (solana / anchor).
+        # RUSTSEC-2024-0370 — proc-macro-error unmaintained.
+        # RUSTSEC-2023-0033 — borsh 0.x ZST unsoundness (mpl-core 0.8 transitive;
+        #   borsh 1.x in newer paths is unaffected).
+        # RUSTSEC-2026-0097 — rand unsound with custom logger (solana SDK
+        #   transitive). Not triggerable in our use; gone with Agave 2.x.
 
-  # ─── 3b. Supply-chain lane (advisory) ────────────────────────────────
+  # ─── 3b. Supply-chain lane (required) ────────────────────────────────
   # cargo-deny extends cargo-audit's RustSec coverage with licence
   # policy + dependency-source policy + ban list. Config lives at
-  # repo-root `deny.toml`. Advisory-only for the same reason cargo
-  # audit is — the Solana 1.18 transient CVE set isn't fixable from
-  # our side until Anza Agave 2.x lands.
+  # repo-root `deny.toml`. Adevar SEV-011 fix: flipped from advisory
+  # to REQUIRED, same approach as the cargo-audit lane.
   deny:
-    name: deny · supply-chain (advisory)
+    name: deny · supply-chain (required)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,13 +198,14 @@ jobs:
       - name: Generate Cargo.lock
         run: cargo generate-lockfile
 
-      - name: cargo deny check (advisory-only on day 1)
-        run: cargo deny check --hide-inclusion-graph || true
-        # First-pass: warn-only mirroring the cargo-audit lane above.
-        # Flip the `|| true` off once Anza Agave 2.x retires the
-        # Solana 1.18 transient advisories. Until then, `deny.toml`
-        # already documents the ignore policy so this lane stays
-        # readable rather than red.
+      - name: cargo deny check (required, advisories pinned in deny.toml)
+        run: cargo deny check --hide-inclusion-graph
+        # Required after Adevar SEV-011. The deny.toml `[advisories]`
+        # section enumerates the same RUSTSEC-IDs as the cargo-audit
+        # lane above (defense-in-depth — same source-of-truth list,
+        # both lanes catch new IDs that bypass either's filters).
+        # The `[licenses]` + `[bans]` sections enforce the supply-chain
+        # policy independent of advisories.
 
   # ─── 4. Anchor lane (required) ───────────────────────────────────────
   # `anchor build --no-idl` against Agave 3.0.0 + Anchor 0.30.1.

@@ -107,16 +107,21 @@ db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "warn"
 
-# Once Anza Agave 2.x lands and the transients clear, flip the
-# `vulnerability` line below to "deny" and the CI lane name will
-# stop carrying the "(advisory)" suffix.
+# Adevar Labs SEV-011 fix: explicit RUSTSEC-IDs for each known Solana
+# 1.18 / mpl-core 0.8 transient. Same list as the cargo-audit job in
+# .github/workflows/ci.yml — defence in depth, both scanners catch
+# anything new that bypasses either's filter. When the Agave 2.x
+# migration (#319) lands, this entire block goes away.
 ignore = [
-  # These three are the transient Solana 1.18 advisories already
-  # documented in .github/workflows/ci.yml. Listed here so cargo-deny
-  # output stays clean while cargo-audit still surfaces them
-  # explicitly elsewhere (defence in depth — two scanners, one
-  # explicit ignore list per scanner).
-  # "RUSTSEC-YYYY-NNNN",  # curve25519-dalek timing variability
-  # "RUSTSEC-YYYY-NNNN",  # ed25519-dalek-bip32 oracle attack
-  # "RUSTSEC-YYYY-NNNN",  # rsa Marvin attack
+  "RUSTSEC-2024-0344",  # curve25519-dalek timing variability (solana-zk-token-sdk 1.18)
+  "RUSTSEC-2022-0093",  # ed25519-dalek double-PK signing oracle (solana-sdk 1.18)
+  "RUSTSEC-2024-0375",  # atty unmaintained
+  "RUSTSEC-2021-0145",  # atty unaligned read
+  "RUSTSEC-2025-0141",  # bincode unmaintained (solana SDK)
+  "RUSTSEC-2024-0388",  # derivative unmaintained (solana SDK)
+  "RUSTSEC-2025-0161",  # libsecp256k1 unmaintained (solana-secp256k1-recover)
+  "RUSTSEC-2024-0436",  # paste unmaintained (solana / anchor)
+  "RUSTSEC-2024-0370",  # proc-macro-error unmaintained
+  "RUSTSEC-2023-0033",  # borsh 0.x ZST unsoundness (mpl-core 0.8 transitive)
+  "RUSTSEC-2026-0097",  # rand unsound with custom logger (solana SDK)
 ]
