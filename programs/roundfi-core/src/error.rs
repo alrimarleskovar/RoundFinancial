@@ -154,4 +154,8 @@ pub enum RoundfiError {
     // ─── Adevar Labs SEV-004 — init_pool_vaults idempotence guard ─────
     #[msg("Pool vaults are already initialized — init_pool_vaults is one-shot")]
     VaultsAlreadyInitialized,
+
+    // ─── Adevar Labs SEV-013 — commit-reveal salt entropy floor ───────
+    #[msg("Commit-reveal salt cannot be zero — use a cryptographically random u64")]
+    SaltMustBeNonZero,
 }
