@@ -81,20 +81,23 @@ export async function handleHeliusWebhook(
         where: { txSignature: tx.signature },
         create: {
           txSignature: tx.signature,
-          // Placeholder relations — reconciler (issue #234) fills these
-          // by resolving the canonical Pool + Member from the tx's
-          // account list at finality time. The raw wallet from the log
-          // (`evt.member`) is persisted on `contributorWallet` so the
-          // reconciler doesn't need to re-fetch + re-parse the tx logs.
+          // Placeholder relations — reconciler (#234) fills these by
+          // resolving the canonical Pool + Member from the tx's account
+          // list + the on-log slotIndex. Adevar Labs SEV-014 fix: the
+          // program's actual `msg!` doesn't include the wallet, so
+          // contributorWallet stays null and the reconciler uses
+          // `(poolId, slotIndex)` for the Member lookup (per the
+          // `@@unique([poolId, slotIndex])` constraint).
           poolId: "_unresolved",
           memberId: "_unresolved",
-          contributorWallet: evt.member,
+          contributorWallet: null,
           cycle: evt.cycle,
+          slotIndex: evt.slotIndex,
           schemaId: evt.onTime ? 1 : 2,
-          installment: evt.installment,
+          installment: 0n, // SEV-014: never emitted by program; column kept for back-compat
           solidarityAmt: evt.solidarityAmt,
           escrowAmt: evt.escrowAmt,
-          poolFloatAmt: evt.poolFloatAmt,
+          poolFloatAmt: evt.poolAmt, // SEV-014: column kept; field renamed
           onTime: evt.onTime,
           blockTime,
           slot,
@@ -108,10 +111,10 @@ export async function handleHeliusWebhook(
           txSignature: tx.signature,
           poolId: "_unresolved",
           memberId: "_unresolved",
-          recipientWallet: evt.recipient,
+          recipientWallet: null, // SEV-014: program doesn't emit recipient
           cycle: evt.cycle,
           slotIndex: evt.slotIndex,
-          amountPaid: evt.amount,
+          amountPaid: evt.credit, // SEV-014: program emits `credit=`
           blockTime,
           slot,
         },
@@ -133,7 +136,9 @@ export async function handleHeliusWebhook(
           seizedSolidarity: evt.seizedSolidarity,
           seizedEscrow: evt.seizedEscrow,
           seizedStake: evt.seizedStake,
-          dInit: evt.dInit,
+          // SEV-014: program never emitted d_init; column kept for
+          // back-compat but new rows write 0.
+          dInit: 0n,
           dRem: evt.dRem,
           cInit: evt.cInit,
           cAfter: evt.cAfter,

@@ -7,6 +7,9 @@
 > - [`key-rotation.md`](./key-rotation.md) — generic rotation runbook covering all three key surfaces (protocol authority, treasury, upgrade authority). This doc is the **Squads-specific** drill-down for the upgrade + protocol authority surfaces.
 > - [`emergency-response.md`](./emergency-response.md) — what to do if a key (multisig or otherwise) is suspected compromised mid-flight.
 > - [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts) — utility for previewing the multisig PDA from candidate member keys before the real ceremony.
+> - [`scripts/devnet/squads-rehearsal-*.ts`](../../scripts/devnet/) — `verify` / `propose-authority` / `cancel-authority` / `commit-authority` wrappers around the on-chain authority-rotation ix trio. Used end-to-end during the devnet rehearsal; refuse to run against mainnet.
+> - [`docs/operations/rehearsal-logs/TEMPLATE-squads-rotation.md`](./rehearsal-logs/TEMPLATE-squads-rotation.md) — fill-in-the-blank rehearsal log capturing every tx signature, PDA, and verification check from the dry-run.
+> - [`squads-mainnet-ceremony-checklist.md`](./squads-mainnet-ceremony-checklist.md) — **the day-of operational artifact**. Printable A4 with checkbox-per-line, blank lines for tx sigs/PDAs, explicit kill-switches in §K, sign-off block. Use this checklist at the ceremony; use this procedure doc for context + rationale 24h before.
 
 ---
 
@@ -99,13 +102,19 @@ Repeat for all 4 programs. Once all 4 are rotated, the deployer key has **zero o
 
 This is the `ProtocolConfig.authority` field — different surface from the upgrade authority (see [`key-rotation.md` §(a)](./key-rotation.md#a-protocol-authority-rotation)).
 
-Today's `update_protocol_config` does not directly support changing the authority field (intentional — authority rotation should be a deliberate, separate concern). The procedure is:
+Authority rotation flows through a dedicated 3-step timelock pattern that mirrors the treasury rotation (PR #122). All three instructions live in `programs/roundfi-core/src/instructions/`:
 
-1. **Propose the change via Squads**: build an `update_protocol_config` ix with `new_authority: Some(<VAULT_PDA>)` (once that field exists — tracked as follow-up: extend `UpdateProtocolConfigArgs` with `new_authority: Option<Pubkey>`).
-2. **Threshold members approve the proposal** in the Squads UI.
-3. **Execute** — Squads CPIs into `roundfi-core` with the multisig vault as the signer; the `authority == config.authority` constraint passes because the vault was set as authority at protocol init (or rotated via a prior `update_protocol_config` from a former single-deployer authority).
+1. **Propose** — deployer signs `propose_new_authority(new_authority: <VAULT_PDA>)`. Stages the vault PDA on `config.pending_authority` and sets `config.pending_authority_eta = now + 7d`. Live `config.authority` is **not touched yet** — this is the public-window stage where any user/auditor/multisig member can detect a malicious authority rotation and react.
 
-> **Bootstrap quirk:** at `initialize_protocol` the deployer's wallet is the initial `authority`. To hand off to the Squads multisig, the deployer signs ONE final `update_protocol_config` ix with `new_authority = <VAULT_PDA>`. After that, every future `update_protocol_config` requires a Squads threshold signature.
+2. **Wait 7 days** (`TREASURY_TIMELOCK_SECS = 604_800`). Reuses the same constant the treasury rotation does — authority is at least as sensitive a surface, so the window matches.
+
+3. **Commit** — anyone calls `commit_new_authority()` after the eta elapses (permissionless crank, identical pattern to `commit_new_treasury`). Atomically: `config.authority = config.pending_authority`, clears the pending fields. The Squads vault PDA is now the authority.
+
+If the proposal is wrong (typo, malicious, etc.) before commit, the deployer can call `cancel_new_authority()` to abort and re-propose.
+
+> **Bootstrap quirk:** at `initialize_protocol` the deployer's wallet is the initial `authority`, and `pending_authority = Pubkey::default()`. The deployer signs ONE `propose_new_authority` ix with the vault PDA, waits 7 days, then anyone (including the deployer or a third-party cranker) calls `commit_new_authority`. After commit, all authority-gated ix (including future `propose_new_authority` calls for Squads-A → Squads-B rotations) require a Squads threshold signature CPI'd through the vault PDA.
+
+> **Why 7 days for the bootstrap?** The deployer can't be malicious to themselves, so the window is operational friction for THIS rotation. But the public-window assurance is what gives auditors confidence that NO surprise authority changes can happen on this protocol — the gate is uniform across deployer-bootstrap and Squads-A → Squads-B cases. One-time annoyance, durable trust property.
 
 ### Step 4 — Rotate the treasury (if applicable)
 
@@ -117,6 +126,24 @@ If the treasury also needs to move to a Squads-controlled ATA:
 4. **Anyone** can then call `commit_new_treasury()` (permissionless ix — no Squads needed for this step). Future `harvest_yield` calls route protocol fees to the new ATA.
 
 This is the only step in the whole sequence that involves an on-chain timelock; Squads doesn't add anything on top.
+
+> **⚠ Do NOT call `lock_approved_yield_adapter` during this ceremony or until SEV-001 fix is canary-validated** (Adevar Labs SEV-020 Informational, consequencial a SEV-001).
+>
+> The lock is one-way. If it fires while `approved_yield_adapter` still points at a `roundfi-yield-kamino` build that contains the SEV-001 fund-loss path (deposit-side `c_token_account` unchecked), the protocol is permanently bound to the vulnerable adapter. Recovery requires:
+>
+> 1. Deploying a `roundfi-yield-kamino-v2` with a new program ID (the original program ID is immutable post-`set-upgrade-authority` to a PDA without the migration key).
+> 2. Rotating `approved_yield_adapter` to the new program ID via `update_protocol_config` — **but `update_protocol_config` rejects with `AdapterAllowlistLocked` if the lock fired**.
+> 3. Only path forward: redeploy `roundfi-core` itself with a different program ID (via Squads upgrade authority) and re-bootstrap state.
+>
+> Safe call order at mainnet:
+>
+> 1. Ship SEV-001 fix to `roundfi-yield-kamino` (PR #326).
+> 2. Devnet-validate the patched adapter end-to-end (deposit + harvest + edge cases).
+> 3. Run mainnet canary against the patched adapter (per `mainnet-canary-plan.md`).
+> 4. Soak for the 7-day canary window with no incidents.
+> 5. **Only then** call `lock_approved_yield_adapter` to freeze the allowlist.
+>
+> The lock is a future operational decision, not a ceremony step. Skip it here.
 
 ### Step 5 — Verification matrix
 
@@ -138,10 +165,30 @@ If any verification fails, **DO NOT PROCEED** with the mainnet smoke (item 4.1 o
 
 Before the mainnet ceremony, run the rotation end-to-end on devnet to catch any procedural surprises. The recommended sequence:
 
-1. **Deploy a fresh devnet protocol instance** if you haven't already (see [`docs/devnet-setup.md`](../devnet-setup.md)).
-2. **Create a real Squads multisig on devnet** via [app.squads.so](https://app.squads.so) → switch to devnet → "Create Multisig". Use throwaway member keypairs. Threshold = 2-of-3 to keep the rehearsal fast.
-3. **Run the rotation procedure** above against the devnet programs + devnet protocol.
-4. **Write the rehearsal log** to `docs/operations/rehearsal-logs/YYYY-MM-DD-squads-rotation.md` capturing every tx signature.
+1. **Copy the rehearsal log template** to a dated file:
+
+   ```bash
+   cp docs/operations/rehearsal-logs/TEMPLATE-squads-rotation.md \
+      docs/operations/rehearsal-logs/$(date -u +%Y-%m-%d)-squads-rotation-rehearsal.md
+   ```
+
+2. **Deploy a fresh devnet protocol instance** if you haven't already (see [`docs/devnet-setup.md`](../devnet-setup.md)).
+3. **Create a real Squads multisig on devnet** via [app.squads.so](https://app.squads.so) → switch to devnet → "Create Multisig". Use throwaway member keypairs. Threshold = 2-of-3 to keep the rehearsal fast.
+4. **Cross-check the derived Vault PDA** against the address shown in the Squads UI using [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts) (see below).
+5. **Run the rotation procedure** above against the devnet programs + devnet protocol, using the rehearsal scripts:
+
+   | Step                                   | Script                                                                                                               |
+   | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+   | Pre/post-state inspection (every step) | [`scripts/devnet/squads-rehearsal-verify.ts`](../../scripts/devnet/squads-rehearsal-verify.ts)                       |
+   | Step 3 propose (deployer → vault)      | [`scripts/devnet/squads-rehearsal-propose-authority.ts`](../../scripts/devnet/squads-rehearsal-propose-authority.ts) |
+   | Step 3 abort (also worth rehearsing)   | [`scripts/devnet/squads-rehearsal-cancel-authority.ts`](../../scripts/devnet/squads-rehearsal-cancel-authority.ts)   |
+   | Step 3 finalize (post-timelock)        | [`scripts/devnet/squads-rehearsal-commit-authority.ts`](../../scripts/devnet/squads-rehearsal-commit-authority.ts)   |
+
+   For Step 2 (upgrade authority) and Step 4 (treasury, if exercised), the existing `solana program set-upgrade-authority` CLI + `propose_new_treasury` / `commit_new_treasury` ix already cover the surface — no new wrappers needed.
+
+6. **Fill in the rehearsal log** as each step lands, capturing every tx signature, derived PDA, and verification output. The template at `TEMPLATE-squads-rotation.md` has slots for everything an auditor would want to see post-hoc.
+
+> **Timelock fast-forward (devnet-only):** the 7-day `TREASURY_TIMELOCK_SECS` makes a same-day rehearsal painful. For devnet rehearsals only, temporarily set `TREASURY_TIMELOCK_SECS = 60` in `programs/roundfi-core/src/constants.rs` on a rehearsal-only branch, redeploy, run the full flow in ~2 minutes. Record the temporary value in the rehearsal log §5d so the artifact is honest about which timelock was actually exercised. **Never** ship this branch to mainnet.
 
 The `scripts/devnet/squads-derive-pda.ts` utility derives the Squads PDA addresses deterministically from a member-key list — useful for sanity-checking the address you're about to set as the new upgrade authority. Run it:
 

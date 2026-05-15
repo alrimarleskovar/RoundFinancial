@@ -5,6 +5,7 @@ edition.workspace = true
 description = "RoundFi reputation — SAS-compatible attestation service and reputation ladder"
 license.workspace = true
 repository.workspace = true
+publish.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]

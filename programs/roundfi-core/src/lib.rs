@@ -118,6 +118,15 @@ pub mod roundfi_core {
         instructions::escape_valve_buy::handler(ctx, args)
     }
 
+    /// Seller-only abort of a `Pending` escape-valve listing.
+    /// Closes the listing PDA, refunds rent to seller, frees the
+    /// slot for a fresh commit. Adevar Labs SEV-015 fix — without
+    /// this ix, a seller who commits but never reveals locks the
+    /// slot indefinitely (PDA seeds tie the slot to the listing).
+    pub fn cancel_pending_listing(ctx: Context<CancelPendingListing>) -> Result<()> {
+        instructions::cancel_pending_listing::handler(ctx)
+    }
+
     pub fn close_pool(ctx: Context<ClosePool>) -> Result<()> {
         instructions::close_pool::handler(ctx)
     }
@@ -155,6 +164,33 @@ pub mod roundfi_core {
     /// again (existing pending proposals still commit). Authority-only.
     pub fn lock_treasury(ctx: Context<LockTreasury>) -> Result<()> {
         instructions::lock_treasury::handler(ctx)
+    }
+
+    /// Authority rotation step 1/3 — stage a new protocol authority
+    /// behind a `TREASURY_TIMELOCK_SECS` (7d) window. Mirrors the
+    /// treasury propose/commit pattern (#122). At mainnet Squads
+    /// ceremony, this is the bootstrap from deployer → multisig
+    /// vault PDA. Reverts if another proposal is already pending.
+    /// Authority-only.
+    pub fn propose_new_authority(
+        ctx: Context<ProposeNewAuthority>,
+        args: ProposeNewAuthorityArgs,
+    ) -> Result<()> {
+        instructions::propose_new_authority::handler(ctx, args)
+    }
+
+    /// Authority rotation step 2/3 (optional) — abort a pending
+    /// authority proposal before its eta. Authority-only.
+    pub fn cancel_new_authority(ctx: Context<CancelNewAuthority>) -> Result<()> {
+        instructions::cancel_new_authority::handler(ctx)
+    }
+
+    /// Authority rotation step 3/3 — commit a pending authority
+    /// proposal once its eta has passed. Anyone can crank (timelock
+    /// is the gate). After commit, the new authority controls every
+    /// authority-gated ix.
+    pub fn commit_new_authority(ctx: Context<CommitNewAuthority>) -> Result<()> {
+        instructions::commit_new_authority::handler(ctx)
     }
 
     /// One-way kill switch — once called, `approved_yield_adapter`

@@ -25,10 +25,10 @@ Validate every active M3 protocol instruction against **real mainnet conditions*
 - `release_escrow` (since the member paid on-time, escrow vests)
 - `close_pool` (balanced summary: `total_contributed == total_paid_out`)
 
-Plus the yield branch if Kamino harvest path (#233) lands before canary:
+Plus the yield branch (Kamino harvest path is live — #233 closed):
 
 - `deposit_idle_to_yield` × 1
-- `harvest_yield` × 1 (with real Kamino reserve, slippage guard armed)
+- `harvest_yield` × 1 (real `redeem_reserve_collateral` round-trip via kamino adapter, slippage guard armed, `PrincipalLoss` revert active)
 
 The canary is **not** a stress test. It's a smoke test that confirms the same code that's green on devnet works against mainnet's actual programs and validator clock.
 

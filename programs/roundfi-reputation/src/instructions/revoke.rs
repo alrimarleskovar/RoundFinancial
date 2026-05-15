@@ -5,12 +5,19 @@
 //! attestation (checked on stored `attestation.issuer == signer`).
 //! The config authority is NOT automatically allowed to revoke —
 //! this preserves the "no admin override" property of the ladder.
+//!
+//! **Adevar Labs SEV-008 fix:** the score-reversal weight is read
+//! from `attestation.verified_at_attest` (stored at attest time),
+//! not from the subject's CURRENT identity status. Without this,
+//! a subject who passed unverified → verified between attest and
+//! revoke would have their score over-reversed: apply with
+//! weight 1/2, revoke with weight 2/2 → score goes negative.
 
 use anchor_lang::prelude::*;
 
 use crate::constants::*;
 use crate::error::ReputationError;
-use crate::state::{Attestation, IdentityRecord, ReputationProfile};
+use crate::state::{Attestation, ReputationProfile};
 
 #[derive(Accounts)]
 pub struct Revoke<'info> {
@@ -26,11 +33,11 @@ pub struct Revoke<'info> {
     )]
     pub profile: Account<'info, ReputationProfile>,
 
-    #[account(
-        seeds = [SEED_IDENTITY, subject.key().as_ref()],
-        bump,
-    )]
-    pub identity: Option<Account<'info, IdentityRecord>>,
+    // Adevar Labs SEV-008 fix: identity account removed — revoke uses
+    // the at-attest-time verified flag stored on the attestation
+    // itself, not the current identity status. The account was kept
+    // optional before this fix but never reliably; removing it
+    // simplifies the call site.
 
     #[account(
         mut,
@@ -54,10 +61,11 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
     let profile = &mut ctx.accounts.profile;
     let att = &mut ctx.accounts.attestation;
 
-    let verified = matches!(
-        ctx.accounts.identity.as_ref(),
-        Some(rec) if rec.is_verified(now)
-    );
+    // Adevar Labs SEV-008 fix: read at-attest-time verified flag
+    // from the attestation itself, NOT from the subject's current
+    // identity. This guarantees apply + revoke is exactly zero-sum
+    // regardless of identity-status changes between the two ix.
+    let verified = att.verified_at_attest;
     let weight_num: i64 = if verified { 2 } else { 1 };
     let weight_den: i64 = 2;
 

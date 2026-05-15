@@ -142,4 +142,20 @@ pub enum RoundfiError {
     InvalidCommitHash,
     #[msg("Listing is not yet buyable — wait for REVEAL_COOLDOWN_SECS to elapse past buyable_after")]
     ListingNotBuyableYet,
+
+    // ─── Protocol-authority rotation (Squads ceremony, #3.6) ──────────
+    #[msg("No pending authority rotation to commit or cancel")]
+    NoPendingAuthorityChange,
+    #[msg("Authority rotation timelock has not yet elapsed")]
+    AuthorityTimelockActive,
+    #[msg("An authority rotation is already pending — cancel it first")]
+    AuthorityProposalAlreadyPending,
+
+    // ─── Adevar Labs SEV-004 — init_pool_vaults idempotence guard ─────
+    #[msg("Pool vaults are already initialized — init_pool_vaults is one-shot")]
+    VaultsAlreadyInitialized,
+
+    // ─── Adevar Labs SEV-013 — commit-reveal salt entropy floor ───────
+    #[msg("Commit-reveal salt cannot be zero — use a cryptographically random u64")]
+    SaltMustBeNonZero,
 }

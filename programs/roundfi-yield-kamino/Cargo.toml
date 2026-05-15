@@ -5,6 +5,7 @@ edition.workspace = true
 description = "RoundFi yield adapter (Kamino) — real Kamino Lend CPI for Mainnet; identical interface to roundfi-yield-mock"
 license.workspace = true
 repository.workspace = true
+publish.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]

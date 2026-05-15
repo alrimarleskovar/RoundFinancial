@@ -292,7 +292,20 @@ export interface JoinPoolArgs {
   slotIndex: number;
   reputationLevel: 1 | 2 | 3;
   metadataUri?: string;
-  /** Fresh asset keypair for Metaplex Core. Generated if omitted. */
+  /**
+   * Fresh asset keypair for Metaplex Core. Generated if omitted.
+   *
+   * **IMPORTANT (Adevar Labs SEV-017):** this keypair MUST be freshly
+   * generated and discarded after the join_pool tx confirms. The
+   * on-chain `nft_asset` account is declared as `UncheckedAccount` with
+   * `signer = true` but does NOT validate that the address is freshly-
+   * minted. If the caller passes an existing wallet keypair as
+   * `nftAsset`, mpl-core's `CreateV2` CPI will fail at runtime
+   * (account already initialized) — so this isn't a fund-loss risk,
+   * but a malicious or careless caller could pass display-name-similar
+   * keypairs to create UX-confusing assets. SDK consumers: never
+   * reuse this slot for a long-lived signer.
+   */
   nftAsset?: Keypair;
   /** Pre-existing USDC ATA for the member (must hold the stake). */
   memberUsdc?: PublicKey;

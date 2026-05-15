@@ -170,7 +170,7 @@ async function main(): Promise<void> {
   await prisma.$disconnect();
 }
 
-function poolStatusEnum(s: string): "Forming" | "Active" | "Completed" | "Liquidated" {
+function poolStatusEnum(s: string): "Forming" | "Active" | "Completed" | "Liquidated" | "Closed" {
   switch (s) {
     case "active":
       return "Active";
@@ -178,6 +178,9 @@ function poolStatusEnum(s: string): "Forming" | "Active" | "Completed" | "Liquid
       return "Completed";
     case "liquidated":
       return "Liquidated";
+    case "closed":
+      // Adevar Labs SEV-005 — terminal post-close_pool state.
+      return "Closed";
     default:
       return "Forming";
   }

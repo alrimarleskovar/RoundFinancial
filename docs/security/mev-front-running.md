@@ -153,11 +153,11 @@ Residual surface for mitigation #4 (Jito): the cooldown shrinks the searcher win
 
 ### 2.4 `harvest_yield` + `deposit_idle_to_yield` — Kamino sandwich
 
-**Vector:** When the harvest path lands (today: stubbed, see [`#233`](https://github.com/alrimarleskovar/RoundFinancial/issues/233)), `harvest_yield` will read realized yield from Kamino. Adversaries can sandwich Kamino's price/rate updates around the harvest.
+**Vector:** Harvest path is live (real `redeem_reserve_collateral` CPI shipped, closed [`#233`](https://github.com/alrimarleskovar/RoundFinancial/issues/233)). `harvest_yield` reads realized yield from Kamino. Adversaries can sandwich Kamino's price/rate updates around the harvest.
 
-**Source path (future):**
+**Source path:**
 
-- `roundfi-yield-kamino/src/lib.rs` — harvest CPI (today: stub returning realized=0)
+- `roundfi-yield-kamino/src/lib.rs:272` — harvest CPI (real redeem-all + redeposit-principal round-trip)
 - `harvest_yield.rs` — slippage guard (`min_realized_usdc` from PR #124) caps the lower bound
 
 **Attack model:**
@@ -168,10 +168,11 @@ Residual surface for mitigation #4 (Jito): the cooldown shrinks the searcher win
 | 2    | Bundle a Kamino-side action that reduces realized yield (front-run withdrawal at favorable rate) | Lower the harvest reading   |
 | 3    | After harvest, restore the position                                                              | Net: extract the difference |
 
-**Why this is mostly fine today:**
+**Why this is bounded today:**
 
-- **Harvest is stubbed.** No real Kamino CPI = no extractable surface yet.
 - **Slippage guard (`min_realized_usdc`).** Caller provides minimum expected yield; harvest reverts if below. This is the **direct** mitigation against under-reporting adapters (PR #124).
+- **`PrincipalLoss` error.** The kamino adapter asserts `withdrawn_usdc >= tracked_principal` post-redeem and reverts otherwise — searchers cannot push the harvest into a state where principal is lost in exchange for a small realized-yield read.
+- **Devnet uses mock adapter.** `roundfi-yield-mock` returns deterministic test cycles; the kamino sandwich vector is mainnet-only and gated by `config.approved_yield_adapter`.
 
 **Residual risk on mainnet:**
 
@@ -186,7 +187,7 @@ Residual surface for mitigation #4 (Jito): the cooldown shrinks the searcher win
 | 3   | **Permissioned harvest cranker** — only an allowlisted bundler can call `harvest_yield`                   | Defeats the "permissionless crank" model; introduces a trusted operator                |
 | 4   | **Jito bundle for harvest** — bundle Kamino position read + harvest atomically                            | Reduces searcher window; doesn't help if Kamino itself is sandwiched in the same block |
 
-**Mitigation status:** 🔵 **Pending — lands with harvest path** ([#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233)). Recommend **#1 + #4** combined.
+**Mitigation status:** 🟡 **Slippage guard + `PrincipalLoss` shipped (mitigation #1).** Jito bundling (mitigation #4) is a post-mainnet operator concern — recommend layering on once searcher activity on RoundFi harvests is observed.
 
 ### 2.5 `join_pool` — slot allocation race
 
@@ -323,8 +324,8 @@ Residual surface for mitigation #4 (Jito): the cooldown shrinks the searcher win
 | `escape_valve_list`     | Stale-price race                |           ❌           | `escape_valve_buy` already commits buyer to specific price; no relist primitive today                                                        | Future `escape_valve_relist` must be atomic-update (#232)                                                           |
 | `escape_valve_buy`      | Sniper / listing-race           | ⚠️ Bounded by cooldown | `args.price_usdc == listing.price_usdc` + buyer-balance check + **`now >= listing.buyable_after` (30s cooldown after commit-reveal — #232)** | Operator-side Jito bundle (reveal + buy) for stronger anti-snipe; not strictly required given the on-chain cooldown |
 | `settle_default`        | Reputation grief                |           ❌           | Deterministic cascade order; `args.cycle == pool.current_cycle - 1` binding                                                                  | Cranker bond + cooldown (post-canary)                                                                               |
-| `harvest_yield`         | Kamino sandwich                 |       ❌ (stub)        | `min_realized_usdc` slippage guard (PR #124) + post-CPI delta assertion                                                                      | Slippage guard ✅ + Jito-bundled harvest read (with #233)                                                           |
-| `deposit_idle_to_yield` | Kamino sandwich                 |       ❌ (stub)        | Permissionless crank; deterministic transfer amount                                                                                          | Same as harvest                                                                                                     |
+| `harvest_yield`         | Kamino sandwich                 |    ⚠️ Yes — bounded    | `min_realized_usdc` slippage guard (PR #124) + post-CPI delta assertion + `PrincipalLoss` revert on exchange-rate regression                 | Jito-bundled harvest read (operator concern; layer on if observed)                                                  |
+| `deposit_idle_to_yield` | Kamino sandwich                 |    ⚠️ Yes — bounded    | Permissionless crank; deterministic transfer amount; protocol-side balance-delta check                                                       | Same as harvest                                                                                                     |
 | `join_pool`             | Slot-0 race                     |   ❌ (admin-seeded)    | Slot bitmap deterministic; admin-seeded today (no open enrollment)                                                                           | Random slot assignment (Community Pool variant)                                                                     |
 
 **Big picture:** the Triple Shield design **already constrains** the extraction surface to bounded griefing on every instruction. The previously-flagged `escape_valve_buy` listing-race is now bounded by the on-chain commit-reveal flow + 30s `buyable_after` cooldown (#232). No non-bounded extraction vectors remain in the user-facing surface.

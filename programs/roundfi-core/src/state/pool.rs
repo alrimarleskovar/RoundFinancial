@@ -62,6 +62,18 @@ pub struct Pool {
     pub escrow_vault_bump:     u8,
     pub solidarity_vault_bump: u8,
     pub yield_vault_bump:      u8,
+
+    // ─── Adevar Labs SEV-004 fix — init_pool_vaults idempotence guard ──
+    /// `true` once `init_pool_vaults` has run successfully. Gates the
+    /// TVL counter increment + ATA creation so a repeated call (retry,
+    /// race between interfaces, hostile authority griefing canary
+    /// rampup) cannot double-count `config.committed_protocol_tvl_usdc`.
+    ///
+    /// Before this flag, the `create_idempotent` ATAs were no-op on
+    /// second call but the TVL counter increment was unconditional —
+    /// hostile authority could inflate the global counter to DoS the
+    /// `max_protocol_tvl_usdc` cap.
+    pub vaults_initialized: bool,
 }
 
 #[repr(u8)]
@@ -71,6 +83,13 @@ pub enum PoolStatus {
     Active     = 1,
     Completed  = 2,
     Liquidated = 3,
+    /// Terminal state — entered exactly once when `close_pool` runs.
+    /// Distinct from `Completed` so the close_pool entry constraint
+    /// (`status == Completed`) rejects subsequent invocations. Before
+    /// this variant, close_pool was repeatedly callable on a
+    /// `Completed` pool, deflating `committed_protocol_tvl_usdc` per
+    /// call (Adevar Labs SEV-005).
+    Closed     = 4,
 }
 
 impl Pool {
@@ -85,7 +104,8 @@ impl Pool {
         + 8                    // 4c v1.1: lp_distribution_balance (new)
         + 8                    // slots_bitmap (64 bits = 8 bytes)
         + 4                    // four bumps
-        + 7;                   // padding (carried from v0.1)
+        + 1                    // vaults_initialized (Adevar SEV-004)
+        + 6;                   // padding (was 7, consumed 1 for vaults_initialized)
 
     #[inline]
     pub fn is_slot_taken(&self, slot: u8) -> bool {
