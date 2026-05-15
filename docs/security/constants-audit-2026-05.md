@@ -11,14 +11,14 @@
 
 ## Scope
 
-| Surface                              | Files audited                                                       |
-| ------------------------------------ | ------------------------------------------------------------------- |
-| Rust constants modules               | `programs/roundfi-core/src/constants.rs`, `programs/roundfi-reputation/src/constants.rs` |
-| Time-arithmetic literals (`*_SECS`)  | All instruction files in `programs/` (grep sweep)                  |
-| Inline `unix_timestamp` math         | All instructions doing `.checked_add()` / `.saturating_add()`      |
-| Rust ↔ TS constant parity            | `programs/**/constants.rs` vs `sdk/src/constants.ts`               |
-| Default-permissive `ProtocolConfig`  | `initialize_protocol.rs` field-by-field                            |
-| Devnet / DEMO / TODO markers         | `grep -E "(devnet\|DEMO\|MUST revert\|TODO.*mainnet)"` in `*.rs`   |
+| Surface                             | Files audited                                                                            |
+| ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| Rust constants modules              | `programs/roundfi-core/src/constants.rs`, `programs/roundfi-reputation/src/constants.rs` |
+| Time-arithmetic literals (`*_SECS`) | All instruction files in `programs/` (grep sweep)                                        |
+| Inline `unix_timestamp` math        | All instructions doing `.checked_add()` / `.saturating_add()`                            |
+| Rust ↔ TS constant parity           | `programs/**/constants.rs` vs `sdk/src/constants.ts`                                     |
+| Default-permissive `ProtocolConfig` | `initialize_protocol.rs` field-by-field                                                  |
+| Devnet / DEMO / TODO markers        | `grep -E "(devnet\|DEMO\|MUST revert\|TODO.*mainnet)"` in `*.rs`                         |
 
 ## Methodology
 
@@ -41,16 +41,16 @@ executable instruction code outside the named-constant definitions.
 Every `checked_add` / `saturating_add` / `>=` against `unix_timestamp`
 references a named constant:
 
-| Site                                                     | Constant used                          | Value (sec) |
-| -------------------------------------------------------- | -------------------------------------- | ----------- |
-| `settle_default.rs:167`                                  | `GRACE_PERIOD_SECS`                    | 604_800     |
-| `propose_new_treasury.rs:88`                             | `TREASURY_TIMELOCK_SECS`               | 604_800     |
-| `propose_new_authority.rs:63`                            | `TREASURY_TIMELOCK_SECS`               | 604_800     |
-| `escape_valve_list_reveal.rs:105`                        | `REVEAL_COOLDOWN_SECS`                 | 30          |
-| `propose_new_reputation_authority.rs:59`                 | `REPUTATION_AUTHORITY_TIMELOCK_SECS`   | 604_800     |
-| `attest.rs` (admin-cooldown branch)                      | `MIN_ADMIN_ATTEST_COOLDOWN_SECS`       | 60          |
-| `attest.rs` (CycleComplete branch)                       | `MIN_CYCLE_COOLDOWN_SECS`              | 518_400     |
-| `create_pool.rs:99` (`>= MIN_CYCLE_DURATION`)            | `MIN_CYCLE_DURATION`                   | 86_400      |
+| Site                                          | Constant used                        | Value (sec) |
+| --------------------------------------------- | ------------------------------------ | ----------- |
+| `settle_default.rs:167`                       | `GRACE_PERIOD_SECS`                  | 604_800     |
+| `propose_new_treasury.rs:88`                  | `TREASURY_TIMELOCK_SECS`             | 604_800     |
+| `propose_new_authority.rs:63`                 | `TREASURY_TIMELOCK_SECS`             | 604_800     |
+| `escape_valve_list_reveal.rs:105`             | `REVEAL_COOLDOWN_SECS`               | 30          |
+| `propose_new_reputation_authority.rs:59`      | `REPUTATION_AUTHORITY_TIMELOCK_SECS` | 604_800     |
+| `attest.rs` (admin-cooldown branch)           | `MIN_ADMIN_ATTEST_COOLDOWN_SECS`     | 60          |
+| `attest.rs` (CycleComplete branch)            | `MIN_CYCLE_COOLDOWN_SECS`            | 518_400     |
+| `create_pool.rs:99` (`>= MIN_CYCLE_DURATION`) | `MIN_CYCLE_DURATION`                 | 86_400      |
 
 **Verdict:** the SEV-002 / SEV-023 fixes closed every instance of the
 pattern they exemplified. No new occurrences surfaced.
@@ -99,14 +99,14 @@ risk family as SEV-002: if the mainnet runbook is not followed, the
 protocol launches with rails down and nothing on-chain enforces the
 flip.
 
-| Flag                                  | Default              | What it enforces when ON                                  | Where ops flips                  |
-| ------------------------------------- | -------------------- | --------------------------------------------------------- | -------------------------------- |
-| `commit_reveal_required`              | `false`              | Blocks legacy `escape_valve_list` → forces commit-reveal flow (#232 MEV mitigation) | `update_protocol_config`         |
-| `max_pool_tvl_usdc`                   | `0` (disabled)       | Per-pool TVL cap (mainnet canary safety rail)            | `update_protocol_config`         |
-| `max_protocol_tvl_usdc`               | `0` (disabled)       | Protocol-wide TVL cap                                    | `update_protocol_config`         |
-| `approved_yield_adapter`              | `Pubkey::default()`  | Allowlist — pools may only point at this adapter         | `update_protocol_config`         |
-| `approved_yield_adapter_locked`       | `false`              | One-way kill switch on the allowlist                     | `lock_approved_yield_adapter()`  |
-| `treasury_locked`                     | `false`              | One-way kill switch on treasury rotation                 | `lock_treasury()`                |
+| Flag                            | Default             | What it enforces when ON                                                            | Where ops flips                 |
+| ------------------------------- | ------------------- | ----------------------------------------------------------------------------------- | ------------------------------- |
+| `commit_reveal_required`        | `false`             | Blocks legacy `escape_valve_list` → forces commit-reveal flow (#232 MEV mitigation) | `update_protocol_config`        |
+| `max_pool_tvl_usdc`             | `0` (disabled)      | Per-pool TVL cap (mainnet canary safety rail)                                       | `update_protocol_config`        |
+| `max_protocol_tvl_usdc`         | `0` (disabled)      | Protocol-wide TVL cap                                                               | `update_protocol_config`        |
+| `approved_yield_adapter`        | `Pubkey::default()` | Allowlist — pools may only point at this adapter                                    | `update_protocol_config`        |
+| `approved_yield_adapter_locked` | `false`             | One-way kill switch on the allowlist                                                | `lock_approved_yield_adapter()` |
+| `treasury_locked`               | `false`             | One-way kill switch on treasury rotation                                            | `lock_treasury()`               |
 
 **Risk:** human-process error during mainnet bootstrap leaves any of
 these off. None is a direct fund-loss vector on its own — they're
@@ -125,33 +125,33 @@ TODOs in `scripts/mainnet/canary-flow.ts:64-135` (which already has
 Every numeric constant exported by `sdk/src/constants.ts` matches its
 Rust counterpart. Verified by direct comparison:
 
-| Domain          | Rust                                                        | TS                            | Match |
-| --------------- | ----------------------------------------------------------- | ----------------------------- | ----- |
-| Pool defaults   | `DEFAULT_MEMBERS_TARGET = 24`                               | `membersTarget: 24`           | ✅    |
-| Pool defaults   | `DEFAULT_INSTALLMENT_AMOUNT = 600_000_000`                  | `installmentAmount: 600_000_000n` | ✅ |
-| Pool defaults   | `DEFAULT_CREDIT_AMOUNT = 10_000_000_000`                    | `creditAmount: 10_000_000_000n` | ✅  |
-| Pool defaults   | `DEFAULT_CYCLES_TOTAL = 24`                                 | `cyclesTotal: 24`             | ✅    |
-| Pool defaults   | `DEFAULT_CYCLE_DURATION = 2_592_000`                        | `cycleDurationSec: 2_592_000` | ✅    |
-| Fees            | `DEFAULT_FEE_BPS_YIELD = 2_000`                             | `yieldFeeBps: 2_000`          | ✅    |
-| Fees            | `DEFAULT_FEE_BPS_CYCLE_L1/L2/L3 = 200/100/0`                | `cycleFeeL1Bps/L2Bps/L3Bps`   | ✅    |
-| Fees            | `DEFAULT_GUARANTEE_FUND_BPS = 15_000`                       | `guaranteeFundBps: 15_000`    | ✅    |
-| Fees            | `SOLIDARITY_BPS = 100`                                      | `solidarityBps: 100`          | ✅    |
-| Fees            | `SEED_DRAW_BPS = 9_160`                                     | `seedDrawBps: 9_160`          | ✅    |
-| Fees            | `DEFAULT_ESCROW_RELEASE_BPS = 2_500`                        | `escrowReleaseBps: 2_500`     | ✅    |
-| Stake bps       | `STAKE_BPS_LEVEL_{1,2,3} = 5000/3000/1000`                  | `STAKE_BPS_BY_LEVEL{1,2,3}`   | ✅    |
-| Schemas         | `SCHEMA_PAYMENT/LATE/DEFAULT/CYCLE_COMPLETE/LEVEL_UP = 1..5`| `ATTESTATION_SCHEMA.*`        | ✅    |
-| Grace           | `GRACE_PERIOD_SECS = 604_800`                               | `CRANK_DEFAULTS.defaultGraceSec: 604_800` | ✅ |
+| Domain        | Rust                                                         | TS                                        | Match |
+| ------------- | ------------------------------------------------------------ | ----------------------------------------- | ----- |
+| Pool defaults | `DEFAULT_MEMBERS_TARGET = 24`                                | `membersTarget: 24`                       | ✅    |
+| Pool defaults | `DEFAULT_INSTALLMENT_AMOUNT = 600_000_000`                   | `installmentAmount: 600_000_000n`         | ✅    |
+| Pool defaults | `DEFAULT_CREDIT_AMOUNT = 10_000_000_000`                     | `creditAmount: 10_000_000_000n`           | ✅    |
+| Pool defaults | `DEFAULT_CYCLES_TOTAL = 24`                                  | `cyclesTotal: 24`                         | ✅    |
+| Pool defaults | `DEFAULT_CYCLE_DURATION = 2_592_000`                         | `cycleDurationSec: 2_592_000`             | ✅    |
+| Fees          | `DEFAULT_FEE_BPS_YIELD = 2_000`                              | `yieldFeeBps: 2_000`                      | ✅    |
+| Fees          | `DEFAULT_FEE_BPS_CYCLE_L1/L2/L3 = 200/100/0`                 | `cycleFeeL1Bps/L2Bps/L3Bps`               | ✅    |
+| Fees          | `DEFAULT_GUARANTEE_FUND_BPS = 15_000`                        | `guaranteeFundBps: 15_000`                | ✅    |
+| Fees          | `SOLIDARITY_BPS = 100`                                       | `solidarityBps: 100`                      | ✅    |
+| Fees          | `SEED_DRAW_BPS = 9_160`                                      | `seedDrawBps: 9_160`                      | ✅    |
+| Fees          | `DEFAULT_ESCROW_RELEASE_BPS = 2_500`                         | `escrowReleaseBps: 2_500`                 | ✅    |
+| Stake bps     | `STAKE_BPS_LEVEL_{1,2,3} = 5000/3000/1000`                   | `STAKE_BPS_BY_LEVEL{1,2,3}`               | ✅    |
+| Schemas       | `SCHEMA_PAYMENT/LATE/DEFAULT/CYCLE_COMPLETE/LEVEL_UP = 1..5` | `ATTESTATION_SCHEMA.*`                    | ✅    |
+| Grace         | `GRACE_PERIOD_SECS = 604_800`                                | `CRANK_DEFAULTS.defaultGraceSec: 604_800` | ✅    |
 
 ## Summary
 
-| Category                                       | Findings                | Action                          |
-| ---------------------------------------------- | ----------------------- | ------------------------------- |
-| Hardcoded devnet time literals                 | 0                       | none — sweep clean              |
-| Time-constant pinning tests                    | All assert prod values  | none — verified                 |
-| Rust ↔ TS parity drift                         | 0                       | none — sweep clean              |
-| `MIN_CYCLE_COOLDOWN_SECS` comment drift        | 1 (doc-only)            | docstring update in this PR     |
-| Default-permissive `ProtocolConfig` flags      | 6 (intentional)         | canary pre-flight check (TODO)  |
-| `MIN_ADMIN_ATTEST_COOLDOWN_SECS` threat-model  | 1 (bounded, no-op)      | documented + no action          |
+| Category                                      | Findings               | Action                         |
+| --------------------------------------------- | ---------------------- | ------------------------------ |
+| Hardcoded devnet time literals                | 0                      | none — sweep clean             |
+| Time-constant pinning tests                   | All assert prod values | none — verified                |
+| Rust ↔ TS parity drift                        | 0                      | none — sweep clean             |
+| `MIN_CYCLE_COOLDOWN_SECS` comment drift       | 1 (doc-only)           | docstring update in this PR    |
+| Default-permissive `ProtocolConfig` flags     | 6 (intentional)        | canary pre-flight check (TODO) |
+| `MIN_ADMIN_ATTEST_COOLDOWN_SECS` threat-model | 1 (bounded, no-op)     | documented + no action         |
 
 **Verdict:** the SEV-002 / SEV-023 family is **closed**. The remaining
 mainnet-bootstrap risk surface is process-shaped, not code-shaped, and
