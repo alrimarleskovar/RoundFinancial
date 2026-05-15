@@ -234,10 +234,7 @@ async function callInitPoolVaults(
   //  12. token_program              (read)
   //  13. associated_token_program   (read)
   //  14. system_program             (read)
-  const [protocolConfig] = PublicKey.findProgramAddressSync(
-    [Buffer.from("config")],
-    coreProgram,
-  );
+  const [protocolConfig] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgram);
   const ix = new TransactionInstruction({
     programId: coreProgram,
     keys: [
