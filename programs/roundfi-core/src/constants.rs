@@ -134,6 +134,21 @@ pub const MAX_BPS:            u16 = 10_000;
 /// micro-cycles.
 pub const MIN_CYCLE_DURATION: i64 = 86_400; // 1 day
 
+/// Timelock window for `fee_bps_yield` changes (Adevar Labs SEV-024
+/// follow-up + W3 audit Risk #4). 1 day (86_400 seconds).
+///
+/// Rationale (docs/security/economic-config-governance.md):
+///   - Authority rotation uses 7 days (irreversible, institutional users
+///     need a coordinated migration window).
+///   - Fee changes use 1 day — reversible, blast radius bounded by the
+///     30% `MAX_FEE_BPS_YIELD` cap, but users still need a public window
+///     to detect + opt out via the escape valve. 24h is sufficient.
+///
+/// Anyone can crank `commit_new_fee_bps_yield` after the eta, so the
+/// change eventually lands even if the authority goes offline mid-window
+/// — same shape as the treasury/authority rotation cranks.
+pub const FEE_BPS_YIELD_TIMELOCK_SECS: i64 = 86_400;
+
 /// Maximum allowed `fee_bps_yield` (Adevar Labs SEV-024 fix).
 /// Default is 2_000 (20%); the previous cap was MAX_BPS = 10_000 (100%),
 /// meaning a compromised authority could route 100% of every pool's
