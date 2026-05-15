@@ -63,16 +63,33 @@ pub struct ProtocolConfig {
     /// This is "max possible flow" not "current outstanding". The
     /// conservative bound is what canary safety asks for.
     pub committed_protocol_tvl_usdc: u64,
+
+    // ─── Yield adapter allowlist (mainnet canary safety, item 4.4) ────
+    /// Pinned yield-adapter program ID. If non-default, `create_pool`
+    /// rejects any `args.yield_adapter` that doesn't match this value.
+    ///
+    /// `Pubkey::default()` (all-zero) **disables** the allowlist —
+    /// pools may point at any executable program. This is the devnet
+    /// default; mainnet canary sets this to the deployed
+    /// `roundfi-yield-kamino` program ID before the first pool is
+    /// created, locking the canary's yield-adapter surface.
+    ///
+    /// Mutable via `update_protocol_config` so canary rampup can
+    /// rotate (e.g. mock → kamino → kamino-v2). Distinct from
+    /// `default_yield_adapter` above, which is informational metadata
+    /// that's frozen at init.
+    pub approved_yield_adapter: Pubkey,
 }
 
 impl ProtocolConfig {
     // disc(8) + 6*Pubkey(32) + 5*u16(2) + 2*bool(1) + u8(1)
     //  + Pubkey(32) for pending_treasury + i64(8) for eta
-    //  + 3*u64(8) for TVL caps (max_pool, max_protocol, committed)
-    //  + 64 byte tail-padding. TVL caps consume 24 of the existing
-    //    forward-compat slack — there were 23 bytes of margin in v0.1
-    //    so we grow the padding total to keep ≥24 bytes free for next
-    //    field additions.
+    //  + 3*u64(8) for TVL caps (items 4.2 + 4.3 of MAINNET_READINESS)
+    //  + Pubkey(32) for approved_yield_adapter (item 4.4)
+    //  + 32 byte tail-padding. Combined: TVL caps claimed 24 bytes,
+    //    allowlist claimed 32 bytes, of the original 64-byte padding
+    //    allocation — leaves 32 bytes for further forward-compat
+    //    additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -85,5 +102,6 @@ impl ProtocolConfig {
         + 8                      // max_pool_tvl_usdc
         + 8                      // max_protocol_tvl_usdc
         + 8                      // committed_protocol_tvl_usdc
-        + 64;                    // forward-compat padding (was 64; TVL fields claimed dedicated space above)
+        + 32                     // approved_yield_adapter
+        + 32;                    // forward-compat padding (was 64)
 }
