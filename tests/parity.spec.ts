@@ -33,14 +33,22 @@ import {
   POOL_DEFAULTS,
   ATTESTATION_SCHEMA,
   POOL_STATUS,
+  ESCAPE_VALVE_STATUS,
+  IDENTITY_PROVIDER,
+  IDENTITY_STATUS,
 } from "@roundfi/sdk/constants";
 
 const CORE_CONSTANTS = resolve(process.cwd(), "programs/roundfi-core/src/constants.rs");
 const REP_CONSTANTS = resolve(process.cwd(), "programs/roundfi-reputation/src/constants.rs");
 // Adevar Labs SEV-035 — enum drift between Rust state and SDK is a
-// new parity surface. PoolStatus lives in `state/pool.rs` not
-// `constants.rs`; add the path here so the enum extractor can read it.
+// new parity surface. Enums live in `state/*.rs` not `constants.rs`;
+// add the paths here so the enum extractor can read them. W5 follow-up
+// extends from PoolStatus alone to also cover EscapeValveStatus +
+// IdentityProvider + IdentityStatus (every wire-stable enum the SDK
+// interprets).
 const POOL_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/pool.rs");
+const LISTING_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/listing.rs");
+const IDENTITY_STATE = resolve(process.cwd(), "programs/roundfi-reputation/src/state/identity.rs");
 
 function readRustConstants(path: string): string {
   return readFileSync(path, "utf-8");
@@ -225,26 +233,68 @@ describe("Rust ↔ TS constants parity", () => {
   // PoolStatus::Closed=4 (added on-chain, missing from SDK) shipping
   // for an entire audit cycle without the parity test catching it.
   // Now: extract every enum variant from the on-chain Rust and assert
-  // it has a matching SDK entry with the same discriminant.
-  describe("Enum variants — roundfi-core", () => {
-    it("PoolStatus on-chain ↔ SDK POOL_STATUS each variant matches by name + discriminant", () => {
-      const poolSrc = readRustConstants(POOL_STATE);
-      const rustVariants = extractEnumVariants(poolSrc, "PoolStatus");
-      // Every Rust variant must appear in the SDK with the same value.
+  // it has a matching SDK entry with the same discriminant. W5
+  // follow-up extends this from PoolStatus alone to every wire-stable
+  // enum the SDK / indexer interprets.
+  describe("Enum variants", () => {
+    /**
+     * Bidirectional name + discriminant assertion. Catches:
+     *   - Rust variant added without SDK sync (the SEV-035 shape)
+     *   - SDK variant retained after on-chain removal
+     *   - Discriminant drift in either direction
+     */
+    function assertEnumParity(
+      enumLabel: string,
+      rustVariants: Map<string, number>,
+      sdkConst: Record<string, number>,
+    ): void {
       for (const [name, value] of rustVariants) {
-        const sdkValue = (POOL_STATUS as Record<string, number | undefined>)[name];
-        expect(sdkValue, `SDK POOL_STATUS missing variant: ${name}`).to.not.equal(undefined);
-        expect(sdkValue, `discriminant mismatch for PoolStatus::${name}`).to.equal(value);
+        const sdkValue = (sdkConst as Record<string, number | undefined>)[name];
+        expect(sdkValue, `SDK ${enumLabel} missing variant: ${name}`).to.not.equal(undefined);
+        expect(sdkValue, `discriminant mismatch for ${enumLabel}::${name}`).to.equal(value);
       }
-      // And every SDK entry must have a matching Rust variant — guards
-      // against the inverse drift (SDK keeps a stale variant after the
-      // on-chain enum removes it).
-      for (const [name] of Object.entries(POOL_STATUS)) {
+      for (const [name] of Object.entries(sdkConst)) {
         expect(
           rustVariants.has(name),
-          `Rust enum PoolStatus missing variant present in SDK: ${name}`,
+          `Rust enum ${enumLabel} missing variant present in SDK: ${name}`,
         ).to.equal(true);
       }
+    }
+
+    it("PoolStatus (roundfi-core::state::pool)", () => {
+      const src = readRustConstants(POOL_STATE);
+      assertEnumParity(
+        "PoolStatus",
+        extractEnumVariants(src, "PoolStatus"),
+        POOL_STATUS as unknown as Record<string, number>,
+      );
+    });
+
+    it("EscapeValveStatus (roundfi-core::state::listing)", () => {
+      const src = readRustConstants(LISTING_STATE);
+      assertEnumParity(
+        "EscapeValveStatus",
+        extractEnumVariants(src, "EscapeValveStatus"),
+        ESCAPE_VALVE_STATUS as unknown as Record<string, number>,
+      );
+    });
+
+    it("IdentityProvider (roundfi-reputation::state::identity)", () => {
+      const src = readRustConstants(IDENTITY_STATE);
+      assertEnumParity(
+        "IdentityProvider",
+        extractEnumVariants(src, "IdentityProvider"),
+        IDENTITY_PROVIDER as unknown as Record<string, number>,
+      );
+    });
+
+    it("IdentityStatus (roundfi-reputation::state::identity)", () => {
+      const src = readRustConstants(IDENTITY_STATE);
+      assertEnumParity(
+        "IdentityStatus",
+        extractEnumVariants(src, "IdentityStatus"),
+        IDENTITY_STATUS as unknown as Record<string, number>,
+      );
     });
   });
 });

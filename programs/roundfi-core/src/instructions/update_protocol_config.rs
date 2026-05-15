@@ -120,6 +120,20 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
         cfg.max_protocol_tvl_usdc = cap;
     }
     if let Some(pubkey) = args.new_approved_yield_adapter {
+        // Adevar Labs SEV-036 sweep (W5 follow-up) — reject
+        // Pubkey::default() as a value. `Pubkey::default()` is the
+        // sentinel for "allowlist disabled" (used at protocol init);
+        // setting it via update_protocol_config post-init would
+        // *re-open* a previously-tightened allowlist surface. The
+        // allowlist is supposed to tighten over time
+        // (post-canary → lock_approved_yield_adapter). If the
+        // operator genuinely needs to revert to "no allowlist",
+        // it's a redeploy decision, not an update call.
+        require!(
+            pubkey != Pubkey::default(),
+            RoundfiError::InvalidYieldAdapter,
+        );
+
         // Governance check: if the lock-flag is on, the adapter
         // allowlist is permanently frozen — reject loudly so the
         // operator notices their misuse rather than silently
