@@ -39,7 +39,13 @@ pub const LEVEL_3_THRESHOLD: u64 = 2_000;
 pub const LEVEL_MIN: u8 = 1;
 pub const LEVEL_MAX: u8 = 3;
 
-/// Civic gateway-token account size (v1 Gateway Program state).
-/// We copy the layout constant here to avoid a hard dependency on
-/// the Civic crate; the validator re-derives fields by offset.
-pub const CIVIC_GATEWAY_TOKEN_LEN: usize = 83;
+/// Passport attestation account size — 83 bytes.
+///
+/// Layout reused from the original Civic Gateway-Token v1 shape so the
+/// byte-offset validator carries over unchanged after the Civic →
+/// Human Passport provider migration (#227). The off-chain bridge
+/// service that translates Human Passport score queries to on-chain
+/// attestations writes accounts in this shape under its authority
+/// pubkey. See `identity/passport.rs` for the validator + bridge
+/// architecture rationale.
+pub const PASSPORT_ATTESTATION_LEN: usize = 83;

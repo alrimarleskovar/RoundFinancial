@@ -33,12 +33,14 @@ export const SCHEMA = {
 export interface ReputationInitOpts {
   /** Core program ID that will be allowed to issue attestations. */
   coreProgram: PublicKey;
-  /** Civic gateway program ID. On localnet this can be any pubkey —
-   *  identity link/refresh tests will be skipped unless a real gateway
-   *  account is supplied via the linker fixture. */
-  civicGatewayProgram?: PublicKey;
-  /** Civic network (gatekeeper) pubkey. */
-  civicNetwork?: PublicKey;
+  /** Passport attestation authority pubkey — the off-chain bridge
+   *  service that writes Human Passport-derived attestation accounts.
+   *  On localnet this can be any pubkey; identity link/refresh tests
+   *  will be skipped unless a real bridge-written account is supplied
+   *  via the linker fixture. */
+  passportAttestationAuthority?: PublicKey;
+  /** Passport "network" scope pubkey (e.g. `passport-prod`). */
+  passportNetwork?: PublicKey;
 }
 
 export interface ReputationHandle {
@@ -46,11 +48,11 @@ export interface ReputationHandle {
   authority: PublicKey;
 }
 
-// Arbitrary non-zero localnet placeholder for the Civic gateway.
+// Arbitrary non-zero localnet placeholder for the passport bridge.
 // Attestation tests never CPI into this; identity tests that DO need
-// a real gateway must pass their own override.
-const LOCALNET_CIVIC_GATEWAY = new PublicKey("gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs");
-const LOCALNET_CIVIC_NETWORK = new PublicKey("ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6");
+// a real attestation account must pass their own override.
+const LOCALNET_PASSPORT_AUTHORITY = new PublicKey("gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs");
+const LOCALNET_PASSPORT_NETWORK = new PublicKey("ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6");
 
 export async function initializeReputation(
   env: Env,
@@ -66,8 +68,9 @@ export async function initializeReputation(
   await (env.programs.reputation.methods as any)
     .initializeReputation({
       roundfiCoreProgram: opts.coreProgram,
-      civicGatewayProgram: opts.civicGatewayProgram ?? LOCALNET_CIVIC_GATEWAY,
-      civicNetwork: opts.civicNetwork ?? LOCALNET_CIVIC_NETWORK,
+      passportAttestationAuthority:
+        opts.passportAttestationAuthority ?? LOCALNET_PASSPORT_AUTHORITY,
+      passportNetwork: opts.passportNetwork ?? LOCALNET_PASSPORT_NETWORK,
     })
     .accounts({
       authority: env.payer.publicKey,
