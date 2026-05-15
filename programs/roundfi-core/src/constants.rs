@@ -84,8 +84,19 @@ pub const REVEAL_COOLDOWN_SECS: i64 = 30;
 pub const DEFAULT_LP_SHARE_BPS: u16 = 6_500;
 
 // ─── Product defaults (USDC base units, 6 decimals) ─────────────────────
+//
+// **Adevar Labs SEV-025 fix** — the previous defaults formed an
+// inviable pool: pool float per cycle was `24 × 416 × (1 - 1% solidarity
+// - 25% escrow) ≈ 7388 USDC`, less than the 10_000 USDC credit. Cycle 0
+// `claim_payout` would always fail with `WaterfallUnderflow` because the
+// Seed Draw guard requires the pool to retain 91.6% of credit at first
+// payout. Bumped DEFAULT_INSTALLMENT_AMOUNT 416 → 600 USDC so the
+// product defaults form a viable pool out of the box:
+//   pool_float per cycle = 24 × 600 × 0.74 = 10_656 USDC (>10_000 credit)
+// Whitepaper credit + members + cycles unchanged; installment shifted
+// to make the math close.
 pub const DEFAULT_MEMBERS_TARGET:     u8  = 24;
-pub const DEFAULT_INSTALLMENT_AMOUNT: u64 = 416_000_000;      // 416 USDC
+pub const DEFAULT_INSTALLMENT_AMOUNT: u64 = 600_000_000;      // 600 USDC (SEV-025)
 pub const DEFAULT_CREDIT_AMOUNT:      u64 = 10_000_000_000;   // 10_000 USDC
 pub const DEFAULT_CYCLES_TOTAL:       u8  = 24;
 pub const DEFAULT_CYCLE_DURATION:     i64 = 2_592_000;        // 30 days
@@ -234,13 +245,27 @@ mod tests {
 
     #[test]
     fn pool_defaults_match_product_spec() {
-        // 24 members × 24 cycles, 416 USDC installment, 10_000 USDC credit.
+        // 24 members × 24 cycles, 600 USDC installment (Adevar SEV-025
+        // bumped from 416 — old value made the pool inviable: pool float
+        // 24×416×0.74 = 7388 < 10_000 credit, cycle 0 always failed
+        // Seed Draw guard), 10_000 USDC credit.
         assert_eq!(DEFAULT_MEMBERS_TARGET, 24);
         assert_eq!(DEFAULT_CYCLES_TOTAL,   24);
-        assert_eq!(DEFAULT_INSTALLMENT_AMOUNT, 416_000_000);
+        assert_eq!(DEFAULT_INSTALLMENT_AMOUNT, 600_000_000);
         assert_eq!(DEFAULT_CREDIT_AMOUNT,      10_000_000_000);
         // 30 days per cycle.
         assert_eq!(DEFAULT_CYCLE_DURATION, 30 * 24 * 60 * 60);
+
+        // Viability check: pool_float per cycle = members × installment
+        // × (1 - solidarity_bps/MAX - escrow_release_bps/MAX) must be
+        // ≥ credit so cycle 0 claim_payout passes the Seed Draw guard.
+        let pool_float = (DEFAULT_MEMBERS_TARGET as u128)
+            * (DEFAULT_INSTALLMENT_AMOUNT as u128)
+            * ((MAX_BPS - SOLIDARITY_BPS - DEFAULT_ESCROW_RELEASE_BPS) as u128)
+            / (MAX_BPS as u128);
+        assert!(pool_float >= DEFAULT_CREDIT_AMOUNT as u128,
+            "pool_float {} must be >= credit {} (Adevar SEV-025)",
+            pool_float, DEFAULT_CREDIT_AMOUNT);
     }
 
     #[test]
