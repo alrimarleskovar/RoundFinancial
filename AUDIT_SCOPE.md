@@ -23,13 +23,13 @@
 
 ## Out of scope
 
-| Component                                  | Reason                                                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `programs/roundfi-yield-mock` (348 LoC)    | Devnet-only test adapter; never deployed to mainnet                                                                                                           |
-| `app/` (Next.js frontend)                  | Wallet adapter trust, RPC connection, UI flows — different threat model (UI/UX security review, not on-chain)                                                 |
-| `services/indexer/`                        | Off-chain Helius webhook + Postgres backfiller; never on the fund-movement trust path                                                                         |
-| `packages/sdk/`                            | TypeScript encoders / decoders; correctness already gated by Rust↔TS parity tests (see [`tests/parity.spec.ts`](./tests/parity.spec.ts), 7 tests, runs in CI) |
-| `tests/`                                   | Test code itself (the assertions are the audit artifact, not auditable code)                                                                                  |
+| Component                               | Reason                                                                                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `programs/roundfi-yield-mock` (348 LoC) | Devnet-only test adapter; never deployed to mainnet                                                                                                           |
+| `app/` (Next.js frontend)               | Wallet adapter trust, RPC connection, UI flows — different threat model (UI/UX security review, not on-chain)                                                 |
+| `services/indexer/`                     | Off-chain Helius webhook + Postgres backfiller; never on the fund-movement trust path                                                                         |
+| `packages/sdk/`                         | TypeScript encoders / decoders; correctness already gated by Rust↔TS parity tests (see [`tests/parity.spec.ts`](./tests/parity.spec.ts), 7 tests, runs in CI) |
+| `tests/`                                | Test code itself (the assertions are the audit artifact, not auditable code)                                                                                  |
 
 Documented out-of-scope items (do **not** spend audit hours here, tracked for follow-up):
 
