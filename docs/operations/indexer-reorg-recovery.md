@@ -45,14 +45,28 @@ the cases where manual intervention is required.
 
    ```sql
    SELECT
-     (SELECT COUNT(*) FROM contribute_events WHERE pool_id = '_unresolved') AS contribute,
-     (SELECT COUNT(*) FROM claim_events       WHERE pool_id = '_unresolved') AS claim,
-     (SELECT COUNT(*) FROM default_events     WHERE pool_id = '_unresolved') AS def;
+     (SELECT COUNT(*) FROM contribute_events WHERE pool_id = '_unresolved' AND NOT orphaned) AS contribute_pending,
+     (SELECT COUNT(*) FROM claim_events       WHERE pool_id = '_unresolved' AND NOT orphaned) AS claim_pending,
+     (SELECT COUNT(*) FROM default_events     WHERE pool_id = '_unresolved' AND NOT orphaned) AS default_pending;
    ```
 
    Healthy: < 50 per table (these are events written in the last 30s
    waiting for the next reconciler pass). Unhealthy: > 1000 in any
    table — reconciler stalled.
+
+   To inspect rows the reconciler has marked **orphaned** (tx never
+   reached `finalized` past the 256-slot grace window):
+
+   ```sql
+   SELECT
+     (SELECT COUNT(*) FROM contribute_events WHERE orphaned) AS contribute_orphaned,
+     (SELECT COUNT(*) FROM claim_events       WHERE orphaned) AS claim_orphaned,
+     (SELECT COUNT(*) FROM default_events     WHERE orphaned) AS default_orphaned;
+   ```
+
+   Orphaned count should be near-zero in normal operation. A growing
+   orphan count signals a sustained reorg or a webhook delivering txs
+   that never land — see § Reorg event (P1) below.
 
 3. **Trigger a manual reconciler pass.**
 
@@ -83,16 +97,24 @@ Symptom: `event tx never finalized` warnings firing repeatedly for events
 ### Step 1 — Identify scope
 
 ```sql
--- Recent events flagged for finality but never resolved
-SELECT tx_signature, slot, block_time, pool_id
-FROM contribute_events
-WHERE pool_id = '_unresolved' AND slot < (SELECT MAX(slot) - 256 FROM contribute_events)
+-- Recently orphaned events (reconciler-flagged: tx never finalized
+-- past the 256-slot grace window).
+SELECT tx_signature, slot, block_time, pool_id, 'contribute' AS source
+FROM contribute_events WHERE orphaned
+UNION ALL
+SELECT tx_signature, slot, block_time, pool_id, 'claim' AS source
+FROM claim_events WHERE orphaned
+UNION ALL
+SELECT tx_signature, slot, block_time, pool_id, 'default' AS source
+FROM default_events WHERE orphaned
 ORDER BY slot DESC
 LIMIT 50;
 ```
 
 If multiple txs cluster around a specific slot range, the cluster was
-likely affected by a localized reorg.
+likely affected by a localized reorg. The `@@index([orphaned, slot])`
+on each event table keeps this query fast even when the orphan count
+spikes.
 
 ### Step 2 — Verify on-chain truth
 
@@ -128,22 +150,41 @@ cd services/indexer
 DATABASE_URL=... ROUNDFI_CORE_PROGRAM_ID=... SOLANA_RPC_URL=... pnpm backfill
 ```
 
-The backfill is idempotent — it overwrites `_unresolved` rows for
-finalized txs. Use the canonical RPC (NOT Helius) to avoid Helius-side
-stale data.
+The backfill is idempotent — it upserts canonical Pool + Member rows.
+After backfill completes, force a reconciler pass:
+
+```bash
+pnpm reconcile:once
+```
+
+The reconciler will pick up any `_unresolved` event whose canonical
+Pool/Member row has now been hydrated, set the FK columns to the
+correct cuid, and stamp `resolvedAt`. Use the canonical RPC (NOT
+Helius) for the backfill to avoid Helius-side stale data.
+
+Rows that remain `orphaned = true` after this sequence are
+genuinely orphaned (tx didn't land on the canonical fork) and should
+stay that way for the audit trail.
 
 ### Step 5 — Diff against the ledger
 
-After backfill, run validation script:
+After backfill + reconcile, run validation script:
 
 ```sql
--- For every member, compare on-chain contributions count vs indexer's count
+-- For every member, compare on-chain contributions count vs indexer's
+-- count of NON-orphaned, fully-resolved contribute_events.
 SELECT
   m.wallet,
   m.contributions_paid AS chain_count,
-  (SELECT COUNT(*) FROM contribute_events ce WHERE ce.member_id = m.id) AS indexer_count
+  (SELECT COUNT(*)
+     FROM contribute_events ce
+     WHERE ce.member_id = m.id AND NOT ce.orphaned) AS indexer_count
 FROM members m
-WHERE m.contributions_paid != (SELECT COUNT(*) FROM contribute_events ce WHERE ce.member_id = m.id);
+WHERE m.contributions_paid != (
+  SELECT COUNT(*)
+    FROM contribute_events ce
+    WHERE ce.member_id = m.id AND NOT ce.orphaned
+);
 ```
 
 Any row returned means the indexer is still wrong for that member. Hand
