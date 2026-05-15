@@ -158,4 +158,8 @@ pub enum RoundfiError {
     // ─── Adevar Labs SEV-013 — commit-reveal salt entropy floor ───────
     #[msg("Commit-reveal salt cannot be zero — use a cryptographically random u64")]
     SaltMustBeNonZero,
+
+    // ─── Adevar Labs SEV-031 — create_pool viability runtime guard ────
+    #[msg("Pool parameters are inviable: members × installment × (1 − solidarity − escrow) < credit (would fail cycle-0 Seed Draw guard)")]
+    PoolNotViable,
 }
