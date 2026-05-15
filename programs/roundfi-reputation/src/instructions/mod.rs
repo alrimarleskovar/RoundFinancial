@@ -1,20 +1,26 @@
 pub mod attest;
+pub mod cancel_new_reputation_authority;
+pub mod commit_new_reputation_authority;
 pub mod get_profile;
 pub mod init_profile;
 pub mod initialize_reputation;
 pub mod link_passport_identity;
 pub mod promote_level;
+pub mod propose_new_reputation_authority;
 pub mod refresh_identity;
 pub mod revoke;
 pub mod unlink_identity;
 pub mod update_reputation_config;
 
 pub use attest::*;
+pub use cancel_new_reputation_authority::*;
+pub use commit_new_reputation_authority::*;
 pub use get_profile::*;
 pub use init_profile::*;
 pub use initialize_reputation::*;
 pub use link_passport_identity::*;
 pub use promote_level::*;
+pub use propose_new_reputation_authority::*;
 pub use refresh_identity::*;
 pub use revoke::*;
 pub use unlink_identity::*;
