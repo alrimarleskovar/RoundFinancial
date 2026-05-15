@@ -81,3 +81,71 @@ pub const REPUTATION_AUTHORITY_TIMELOCK_SECS: i64 = 604_800;
 /// pubkey. See `identity/passport.rs` for the validator + bridge
 /// architecture rationale.
 pub const PASSPORT_ATTESTATION_LEN: usize = 83;
+
+// ─── Mainnet floor guard (constants-audit follow-up) ────────────────────
+//
+// Mirrors the floor guard pattern documented in
+// `docs/security/constants-audit-2026-05.md` and applied to
+// `programs/roundfi-core/src/constants.rs`. Pinning tests would catch
+// a regression that flipped the constant to its prior value; floor
+// guards catch a *new* devnet-shortcut value the same family of bug
+// might invent (e.g. a future engineer trying "60s for testing").
+//
+// Two layers:
+//   - Pinning (loud, deliberate change): forces explicit edits.
+//   - Floor (silent until breach): catches regressions independent
+//     of what the pinned value happens to be.
+#[cfg(test)]
+mod floor_guards {
+    use super::*;
+
+    /// CycleComplete attestation cooldown — anti-sybil floor. 6 days
+    /// is the canonical value; floor anything below 1 day (would
+    /// permit rapid ladder-jumping via fake-pool farms).
+    #[test]
+    fn min_cycle_cooldown_above_mainnet_floor() {
+        const FLOOR_SECS: i64 = 86_400; // 1 day
+        assert!(
+            MIN_CYCLE_COOLDOWN_SECS >= FLOOR_SECS,
+            "MIN_CYCLE_COOLDOWN_SECS = {} below mainnet floor {}",
+            MIN_CYCLE_COOLDOWN_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Admin-direct PAYMENT attestation cooldown — anti-spam floor.
+    /// 60s is the canonical floor; assert it cannot drop below 10s
+    /// (anything below 10s is well within trivial-loop range).
+    #[test]
+    fn min_admin_attest_cooldown_above_floor() {
+        const FLOOR_SECS: i64 = 10;
+        assert!(
+            MIN_ADMIN_ATTEST_COOLDOWN_SECS >= FLOOR_SECS,
+            "MIN_ADMIN_ATTEST_COOLDOWN_SECS = {} below floor {}",
+            MIN_ADMIN_ATTEST_COOLDOWN_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Reputation authority rotation timelock — must give the user
+    /// community at least 1 day to detect a malicious key handover
+    /// and migrate. 7 days is canonical; floor 1 day.
+    #[test]
+    fn reputation_authority_timelock_above_floor() {
+        const FLOOR_SECS: i64 = 86_400;
+        assert!(
+            REPUTATION_AUTHORITY_TIMELOCK_SECS >= FLOOR_SECS,
+            "REPUTATION_AUTHORITY_TIMELOCK_SECS = {} below mainnet floor {}",
+            REPUTATION_AUTHORITY_TIMELOCK_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Level thresholds — guard the score ladder ordering. L3 must
+    /// require strictly more score than L2.
+    #[test]
+    fn level_thresholds_strictly_increasing() {
+        assert!(
+            LEVEL_3_THRESHOLD > LEVEL_2_THRESHOLD,
+            "level thresholds must be strictly increasing: L3={} L2={}",
+            LEVEL_3_THRESHOLD, LEVEL_2_THRESHOLD,
+        );
+    }
+}
