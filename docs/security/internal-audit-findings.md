@@ -138,7 +138,7 @@
 | Informational | 6      | 4         | 0                            | 0          | 2                  |
 | **Total**     | **34** | **31**    | **0**                        | **1**      | **2**              |
 
-**Mainnet-blocker status:** all 🟢 Closed for Critical / High (8 of 8).
+**Mainnet-blocker status:** all 🟢 Closed for Critical / High (9 of 9 — 2 Critical + 7 High).
 The 🟠 Blocked entry (SEV-012, bankrun-in-CI) is a coverage-gap finding — tests
 run locally. The 🟡 Partial / Open entries (SEV-026 cascade duplication, SEV-027
 partial admin cooldown, SEV-030 cooldown extension, SEV-031 viability check,
