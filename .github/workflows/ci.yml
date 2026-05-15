@@ -217,13 +217,14 @@ jobs:
       - name: Verify solana CLI
         run: solana --version
 
-      - name: Install Anchor 0.31.1
-        # Agave 2.x migration (#230): bumped from 0.30.1. Anchor 0.31
-        # fixed the `Span::source_file()` removal from stable rustc, so
-        # full IDL generation works (no more `--no-idl` workaround).
+      - name: Install Anchor 1.0.2
+        # Agave 2.x migration (#230): bumped from 0.30.1 → 1.0.2.
+        # Anchor 1.0 fully migrated to borsh 1.x (closes the mpl-core
+        # transitive-borsh conflict that blocked 0.31 attempt). Full
+        # IDL generation works (no more `--no-idl` workaround).
         run: |
           cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.31.1 anchor-cli
+            --tag v1.0.2 anchor-cli
 
       - name: anchor build
         # Full IDL build is back as of Anchor 0.31.1. SBF target compiles
