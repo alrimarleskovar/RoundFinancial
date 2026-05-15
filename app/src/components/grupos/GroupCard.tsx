@@ -296,10 +296,10 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
             fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
             boxShadow: `0 6px 18px ${tokens.purple}55`,
           }}
-          title="Você é o slot contemplado deste ciclo"
+          title={t("home.featured.claimTooltip")}
         >
           <Icons.ticket size={13} stroke={tokens.text} sw={2} />
-          Receber {fmtMoney(g.prize, { noCents: true })}
+          {t("home.featured.claimReceive")} {fmtMoney(g.prize, { noCents: true })}
         </button>
       ) : (
         <button
