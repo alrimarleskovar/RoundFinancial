@@ -270,4 +270,83 @@ mod tests {
         let o = seize_for_default(ins).unwrap();
         assert_eq!(o, CascadeOutcome::default());
     }
+
+    // ─── SEV-026 parity tests ───────────────────────────────────────────
+    //
+    // The on-chain `settle_default` handler was rewritten in this PR to
+    // delegate to `seize_for_default` rather than re-implement the
+    // cascade inline. These tests pin specific (inputs → outcome) tuples
+    // that the on-chain bankrun coverage will exercise once #319
+    // unblocks the bankrun-in-CI path (SEV-012). For now, they serve as
+    // the canonical reference for what the on-chain handler MUST produce
+    // — any future refactor that changes the math will fail these tests
+    // loudly before reaching the chain.
+
+    /// SEV-016 partial-default scenario (from the original release_escrow
+    /// audit context): pool with a defaulted member, solidarity drained
+    /// already, member has only partial escrow.
+    #[test]
+    fn sev_026_partial_escrow_drain_pinned() {
+        let ins = CascadeInputs {
+            d_init:               10_000_000_000,
+            d_rem:                 6_240_000_000,
+            c_init:                5_000_000_000,
+            c_before:              5_000_000_000,
+            missed:                  416_000_000,
+            solidarity_available:           0,
+            escrow_cap:             1_000_000_000,
+            stake_cap:              4_000_000_000,
+        };
+        let o = seize_for_default(ins).unwrap();
+        // Solidarity is empty; escrow has enough → cascade stops at escrow.
+        assert_eq!(o.from_solidarity, 0);
+        assert_eq!(o.from_escrow,     416_000_000);
+        assert_eq!(o.from_stake,              0);
+        assert_eq!(o.total(),         ins.missed);
+        // Pinned for the on-chain handler to assert byte-for-byte.
+    }
+
+    /// Veteran (10% stake) edge case: deep stake, no escrow, draining
+    /// stake alone must respect the D/C invariant.
+    #[test]
+    fn sev_026_veteran_stake_only_pinned() {
+        let ins = CascadeInputs {
+            d_init:               10_000_000_000,
+            d_rem:                 6_240_000_000,
+            c_init:                1_000_000_000, // 10% stake (L3 veteran)
+            c_before:              1_000_000_000,
+            missed:                  416_000_000,
+            solidarity_available:           0,
+            escrow_cap:                     0,
+            stake_cap:              1_000_000_000,
+        };
+        let o = seize_for_default(ins).unwrap();
+        assert_eq!(o.from_solidarity, 0);
+        assert_eq!(o.from_escrow,     0);
+        // D/C limits the seizure even though missed=416M and stake_cap=1B:
+        // max c_after such that d_rem * c_init <= c_after * d_init
+        // = 6.24e9 * 1e9 / 1e10 = 6.24e8 = 624M → max seizure = 1B − 624M = 376M
+        assert_eq!(o.from_stake, 376_000_000);
+        assert_eq!(o.total(), 376_000_000);
+    }
+
+    /// Cycle-0 with full solidarity → no escrow/stake touched.
+    #[test]
+    fn sev_026_full_solidarity_satisfies_pinned() {
+        let ins = CascadeInputs {
+            d_init:               10_000_000_000,
+            d_rem:                10_000_000_000, // freshly joined, paid 0
+            c_init:                5_000_000_000,
+            c_before:              5_000_000_000,
+            missed:                  416_000_000,
+            solidarity_available:    500_000_000,
+            escrow_cap:             4_000_000_000,
+            stake_cap:              1_000_000_000,
+        };
+        let o = seize_for_default(ins).unwrap();
+        assert_eq!(o.from_solidarity, 416_000_000);
+        assert_eq!(o.from_escrow,             0);
+        assert_eq!(o.from_stake,              0);
+        assert_eq!(o.total(),         ins.missed);
+    }
 }

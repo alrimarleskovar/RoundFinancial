@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::constants::*;
 use crate::error::RoundfiError;
-use crate::math::releasable_delta;
+use crate::math::cumulative_vested;
 use crate::state::{Member, Pool, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -94,44 +94,73 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
     );
 
     // ─── Vesting math — linear over cycles_total ────────────────────────
-    let delta_target = releasable_delta(
+    //
+    // Adevar Labs SEV-029 fix (regression of SEV-016 partial-release):
+    //
+    // Prior shape recomputed `delta_target = releasable_delta(last_chk,
+    // new_chk)` on every call and **left `last_released_checkpoint`
+    // un-advanced when the release was partial** (vault shortfall).
+    // Result: a member who got partial-paid at chk=5 could re-call with
+    // `checkpoint=5` (allowed because last_chk hadn't moved) and the
+    // math would return the SAME 208 again — collecting the original
+    // partial 100 + a fresh 208 = 308 against an entitlement of 208.
+    // Bounded fund-leak from the shared escrow_vault per partial-pay
+    // window, repeatable per cycle, observable via the msg! "partial"
+    // log emitted by SEV-016.
+    //
+    // Correct invariant: `cumulative_paid_via_releases = stake_deposited
+    // - escrow_balance` (escrow_balance starts at stake_deposited and
+    // is **only** decremented by release_escrow on non-defaulted
+    // members; settle_default cannot touch a non-defaulted member's
+    // escrow_balance because the `!member.defaulted` constraint above
+    // bars defaulted callers entirely).
+    //
+    // Therefore: compute the total amount owed at the requested
+    // checkpoint (`cumulative_vested`), subtract what has already been
+    // paid out, and pay the remainder capped by vault availability.
+    // `last_released_checkpoint` advances on **every** successful call
+    // — the partial-pay path is now encoded in the cumulative counter,
+    // not in checkpoint replay.
+    //
+    // Trace (stake=1000, cycles=24, vault=100 then refilled to 200):
+    //   call 1 chk=5:  due=208 paid=0 owed=208 delta=min(208,100)=100
+    //                  escrow_balance 1000→900, last_chk=5
+    //   call 2 chk=6:  due=250 paid=100 owed=150 delta=min(150,200)=150
+    //                  escrow_balance 900→750,  last_chk=6
+    //   total paid:   250 == cumulative_vested(stake, 6, 24) ✓ (no overpay)
+    let total_due_at_checkpoint = cumulative_vested(
         member.stake_deposited,
-        member.last_released_checkpoint,
         args.checkpoint,
         pool_cycles,
     )?;
-    require!(delta_target > 0,                       RoundfiError::EscrowNothingToRelease);
-    require!(delta_target <= member.escrow_balance,  RoundfiError::EscrowNothingToRelease);
+    let total_already_paid = member
+        .stake_deposited
+        .saturating_sub(member.escrow_balance);
+    let delta_target = total_due_at_checkpoint.saturating_sub(total_already_paid);
+    require!(delta_target > 0, RoundfiError::EscrowNothingToRelease);
 
-    // Adevar Labs SEV-016 fix — partial release on vault shortfall.
-    //
-    // The escrow_vault ATA is shared across all pool members. If a
-    // settle_default seized vault funds shortly before this call, the
-    // vault may hold less than what the vesting math owes this member
-    // (the invariant sum(member.balances) <= vault_amount holds in
-    // steady state but can transiently violate during ordering races
-    // with a default seizure).
-    //
-    // Before this fix, `require!(delta <= vault_amount)` would DoS
-    // legitimate release calls until enough escrow refills happened.
-    // Now: cap the release at `vault_amount.min(delta_target)` and
-    // log when the cap fires so a future audit / operator can see
-    // the rare-but-real partial-release path.
-    //
-    // Bookkeeping uses the actual `delta`, so member.escrow_balance
-    // only decrements by what was actually moved — the unreleased
-    // remainder vests on a future checkpoint when the vault refills.
+    // Defensive: vesting math cannot owe more than the remaining
+    // escrow balance. Holds by construction (`total_due <= stake`,
+    // `total_already_paid = stake - escrow_balance` ⇒ `delta_target
+    // <= escrow_balance`), but assert it explicitly so a future
+    // refactor that changes how escrow_balance is mutated trips
+    // immediately rather than overpaying silently.
+    require!(
+        delta_target <= member.escrow_balance,
+        RoundfiError::EscrowNothingToRelease,
+    );
+
+    // Cap at vault availability — the SEV-016 partial-release path is
+    // preserved (callers don't get DoS'd by a transient vault shortfall
+    // after a settle_default seizure), but the cumulative-paid counter
+    // now ensures the partial doesn't double-pay on the next call.
     let delta = delta_target.min(vault_amount);
     require!(delta > 0, RoundfiError::EscrowNothingToRelease);
     if delta < delta_target {
         msg!(
-            "roundfi-core: release_escrow partial pool={} member={} owed={} paid={} (vault shortfall)",
+            "roundfi-core: release_escrow partial pool={} member={} owed_now={} paid={} (vault shortfall)",
             pool_key, member.wallet, delta_target, delta,
         );
-        // NOTE: do NOT advance last_released_checkpoint when delta <
-        // delta_target — that would consume the checkpoint without
-        // fully paying for it. The member can re-call release_escrow
-        // with the same args once the vault refills.
     }
 
     // ─── Transfer from escrow → member (escrow PDA signs) ───────────────
@@ -158,13 +187,12 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
         .escrow_balance
         .checked_sub(delta)
         .ok_or(error!(RoundfiError::MathOverflow))?;
-    // SEV-016: only advance the checkpoint when we paid the full
-    // owed amount. A partial release leaves the checkpoint where it
-    // is so the member can re-call once the vault refills and finish
-    // collecting the remainder.
-    if delta == delta_target {
-        member.last_released_checkpoint = args.checkpoint;
-    }
+    // SEV-029: ALWAYS advance the checkpoint. The partial-pay path
+    // (SEV-016) is now encoded in the `total_already_paid =
+    // stake - escrow_balance` counter above — the next call computes
+    // owed_now from that counter, not from a non-advancing checkpoint.
+    // Leaving the checkpoint un-advanced was the regression vector.
+    member.last_released_checkpoint = args.checkpoint;
     let member_escrow_left = member.escrow_balance;
 
     // ─── Pool bookkeeping — aggregated off-chain counter ────────────────

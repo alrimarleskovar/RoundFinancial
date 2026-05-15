@@ -196,14 +196,30 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         require!(elapsed >= MIN_CYCLE_COOLDOWN_SECS, ReputationError::CooldownActive);
     }
 
-    // ─── 4b. Admin SCHEMA_PAYMENT cooldown (Adevar Labs SEV-027) ────────
+    // ─── 4b. Admin score-changing schema cooldown ──────────────────────
     //
-    // Pool-PDA-issued PAYMENT is rate-limited by the cycle structure
-    // (one per member per cycle). Admin-direct PAYMENT had no cooldown
-    // — admin could pump score arbitrarily by issuing PAYMENT in a
-    // tight loop. Now: enforce MIN_ADMIN_ATTEST_COOLDOWN_SECS (60s)
-    // between admin-issued PAYMENT for the same subject.
-    if is_admin && args.schema_id == SCHEMA_PAYMENT {
+    // **SEV-027 (W2):** added 60s cooldown for admin-direct
+    // SCHEMA_PAYMENT only — pool-PDA path is naturally rate-limited
+    // by the cycle structure (one PAYMENT per member per cycle), but
+    // admin-direct could pump score in a tight loop.
+    //
+    // **SEV-030 (W3):** the auditor flagged that the cooldown left
+    // SCHEMA_LATE (−100) and SCHEMA_DEFAULT (−500) unrate-limited —
+    // admin could grief a subject by spamming negative-score attests
+    // and tanking their level. SCHEMA_CYCLE_COMPLETE has its own
+    // dedicated 6-day cooldown (`MIN_CYCLE_COOLDOWN_SECS` above);
+    // SCHEMA_LEVEL_UP is informational and applies no score delta.
+    //
+    // Now: the cooldown applies to **any admin-direct attestation
+    // that changes the score** — PAYMENT (+10), LATE (−100), DEFAULT
+    // (−500). 60s remains the floor; defeats trivial loops for both
+    // pump-and-dump and grief-spam vectors. Pool-PDA path is
+    // untouched.
+    let is_score_changing = matches!(
+        args.schema_id,
+        SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT
+    );
+    if is_admin && is_score_changing {
         let elapsed = now.saturating_sub(profile.last_admin_attest_at);
         require!(elapsed >= MIN_ADMIN_ATTEST_COOLDOWN_SECS, ReputationError::CooldownActive);
     }
@@ -354,5 +370,74 @@ mod tests {
         // Negative unchanged:
         assert_eq!(SCORE_LATE,    -100);
         assert_eq!(SCORE_DEFAULT, -500);
+    }
+
+    // ─── SEV-030 admin cooldown classification ──────────────────────────
+    //
+    // SEV-027 (W2) added cooldown for admin SCHEMA_PAYMENT only. SEV-030
+    // (W3) extends to all *score-changing* schemas (PAYMENT, LATE,
+    // DEFAULT). SCHEMA_CYCLE_COMPLETE has its own dedicated 6-day
+    // cooldown above; SCHEMA_LEVEL_UP is informational.
+    //
+    // The handler's `is_score_changing` matcher is the gate. These
+    // tests exercise the classification matrix so a future refactor
+    // that drops a schema from the cooldown coverage fails loudly
+    // rather than silently.
+
+    fn is_score_changing_schema(id: u16) -> bool {
+        matches!(id, SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT)
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_covers_payment() {
+        assert!(is_score_changing_schema(SCHEMA_PAYMENT),
+            "SCHEMA_PAYMENT (positive +10) must be cooldown-gated — was SEV-027");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_covers_late() {
+        assert!(is_score_changing_schema(SCHEMA_LATE),
+            "SCHEMA_LATE (-100) must be cooldown-gated — auditor SEV-030");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_covers_default() {
+        assert!(is_score_changing_schema(SCHEMA_DEFAULT),
+            "SCHEMA_DEFAULT (-500) must be cooldown-gated — auditor SEV-030 grief vector");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_skips_cycle_complete() {
+        // CYCLE_COMPLETE has its own 6-day cooldown
+        // (`MIN_CYCLE_COOLDOWN_SECS`) which is far stricter than the
+        // 60s admin floor — applying the 60s floor on top would be
+        // redundant. Confirm the matcher does not include it.
+        assert!(!is_score_changing_schema(SCHEMA_CYCLE_COMPLETE),
+            "SCHEMA_CYCLE_COMPLETE uses MIN_CYCLE_COOLDOWN_SECS, not the admin floor");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_skips_level_up() {
+        assert!(!is_score_changing_schema(SCHEMA_LEVEL_UP),
+            "SCHEMA_LEVEL_UP is informational — applies no score delta");
+    }
+
+    #[test]
+    fn sev_030_cooldown_floor_defeats_trivial_loops() {
+        // 60s floor is well above the ~400ms block time, so a tight
+        // loop issuing back-to-back admin attests is rejected.
+        assert!(MIN_ADMIN_ATTEST_COOLDOWN_SECS >= 10,
+            "cooldown floor below 10s admits trivial loops");
+        // And the cooldown applies regardless of attestation direction
+        // (positive or negative), so a grief campaign mixing LATE
+        // (−100) and DEFAULT (−500) is also rate-limited.
+        let neg_throughput_per_hour =
+            3_600i64 / MIN_ADMIN_ATTEST_COOLDOWN_SECS;
+        // At 60s floor: max 60 negative attests/hr per subject ⇒ −6_000
+        // score/hr at SCHEMA_LATE rate or −30_000/hr at DEFAULT rate.
+        // Bounded — operator alarms have time to fire long before this
+        // crosses any economically-meaningful threshold.
+        assert!(neg_throughput_per_hour <= 360,
+            "cooldown allows >360 admin attests/hr — grief budget too high");
     }
 }

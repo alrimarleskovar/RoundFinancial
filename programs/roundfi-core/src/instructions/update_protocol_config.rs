@@ -69,14 +69,23 @@ pub struct UpdateProtocolConfig<'info> {
 pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArgs) -> Result<()> {
     let cfg = &mut ctx.accounts.config;
 
-    if let Some(bps) = args.new_fee_bps_yield {
-        // Adevar Labs SEV-024 fix: tightened from MAX_BPS (100%) to
-        // MAX_FEE_BPS_YIELD (30%). Was previously a 1-tx irreversible
-        // attack surface for a compromised authority — set to 100%,
-        // every subsequent harvest in every pool routes 100% of yield
-        // to treasury. Now bounded to 1.5x the whitepaper default.
-        require!(bps <= MAX_FEE_BPS_YIELD, RoundfiError::InvalidBps);
-        cfg.fee_bps_yield = bps;
+    if let Some(_bps) = args.new_fee_bps_yield {
+        // Adevar Labs SEV-024 fix (W2): tightened the cap from MAX_BPS
+        // (100%) to MAX_FEE_BPS_YIELD (30%).
+        //
+        // Adevar Labs SEV-024 follow-up (W3 Risk #4): direct mutation
+        // of `fee_bps_yield` via `update_protocol_config` is **no longer
+        // permitted**. Callers must use the
+        // `propose_new_fee_bps_yield → commit_new_fee_bps_yield` flow,
+        // which enforces a 1-day public window between proposal and
+        // effective change. The 30% cap still applies (validated by the
+        // propose handler).
+        //
+        // The `new_fee_bps_yield` field on `UpdateProtocolConfigArgs` is
+        // retained for SDK back-compat (renaming would break callers'
+        // type structs) but its presence is now an explicit error,
+        // pointing the operator at the timelock-protected flow.
+        return Err(error!(RoundfiError::DirectFeeBpsYieldMutationDisabled));
     }
     if let Some(bps) = args.new_fee_bps_cycle_l1 {
         require!(bps <= MAX_BPS, RoundfiError::InvalidBps);

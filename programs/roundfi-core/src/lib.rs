@@ -193,6 +193,31 @@ pub mod roundfi_core {
         instructions::commit_new_authority::handler(ctx)
     }
 
+    /// Fee timelock step 1/3 — propose a new `fee_bps_yield` value.
+    /// Stages on `pending_fee_bps_yield` behind a 1-day public window
+    /// (`FEE_BPS_YIELD_TIMELOCK_SECS`). Adevar Labs SEV-024 follow-up:
+    /// SEV-024 capped fee_bps_yield at 30%, this PR adds the timelock
+    /// gate so users can detect a fee change and opt out via the
+    /// escape valve before it takes effect. Authority-only.
+    pub fn propose_new_fee_bps_yield(
+        ctx: Context<ProposeNewFeeBpsYield>,
+        args: ProposeNewFeeBpsYieldArgs,
+    ) -> Result<()> {
+        instructions::propose_new_fee_bps_yield::handler(ctx, args)
+    }
+
+    /// Fee timelock step 2/3 (optional) — abort a pending fee_bps_yield
+    /// proposal before its eta. Authority-only.
+    pub fn cancel_new_fee_bps_yield(ctx: Context<CancelNewFeeBpsYield>) -> Result<()> {
+        instructions::cancel_new_fee_bps_yield::handler(ctx)
+    }
+
+    /// Fee timelock step 3/3 — commit a pending fee_bps_yield proposal
+    /// once its eta has passed. Anyone can crank (timelock is the gate).
+    pub fn commit_new_fee_bps_yield(ctx: Context<CommitNewFeeBpsYield>) -> Result<()> {
+        instructions::commit_new_fee_bps_yield::handler(ctx)
+    }
+
     /// One-way kill switch — once called, `approved_yield_adapter`
     /// cannot be changed (mirrors `lock_treasury` for the adapter
     /// allowlist). Authority-only, idempotent. Governance hardening

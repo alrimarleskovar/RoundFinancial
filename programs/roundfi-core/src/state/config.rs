@@ -148,6 +148,29 @@ pub struct ProtocolConfig {
     /// "freeze the fee sink forever" is a coherent end-state; authority
     /// has no equivalent end-state.
     pub pending_authority_eta:   i64,
+
+    // ─── Adevar Labs SEV-024 follow-up + W3 Risk #4 — fee timelock ─────
+    /// Pending `fee_bps_yield` change, gated by a 1-day public window.
+    ///
+    /// **Why a timelock on fees:** SEV-024 capped `fee_bps_yield` at
+    /// `MAX_FEE_BPS_YIELD = 30%` to bound the blast-radius of an
+    /// authority compromise. The W3 audit (Risk #4 + point #6) asked
+    /// for a deeper fix: a public window so users can detect a fee
+    /// change and opt out via the escape valve before it takes effect.
+    ///
+    /// `0` is NOT a sentinel here (it's a valid value — fee disabled).
+    /// `pending_fee_bps_yield_eta == 0` is the "no pending change"
+    /// signal; the propose handler sets it to `now + FEE_BPS_YIELD_TIMELOCK_SECS`,
+    /// the cancel/commit handlers reset it to 0.
+    ///
+    /// This is the **pilot** for the 6-field timelock pattern documented
+    /// in `docs/security/economic-config-governance.md`. The other 5
+    /// bps fields (cycle_l1/l2/l3, guarantee_fund_bps, lp_share_bps)
+    /// follow the same shape and ship in subsequent PRs.
+    pub pending_fee_bps_yield:     u16,
+    /// Earliest unix-ts at which `commit_new_fee_bps_yield` may execute.
+    /// `0` when no fee change is pending.
+    pub pending_fee_bps_yield_eta: i64,
 }
 
 impl ProtocolConfig {
@@ -159,10 +182,14 @@ impl ProtocolConfig {
     //  + 1 byte for commit_reveal_required (#232)
     //  + 32 bytes for pending_authority + 8 bytes for eta (Squads ceremony, #3.6)
     //  + 2 bytes for lp_share_bps (Adevar Labs SEV-003 fix)
-    //  + 28 byte tail-padding.
+    //  + 2 bytes for pending_fee_bps_yield (SEV-024 follow-up timelock)
+    //  + 8 bytes for pending_fee_bps_yield_eta
+    //  + 18 byte tail-padding.
     //
-    // Note: SEV-003 consumed 2 of the 30 forward-compat pad bytes
-    // (lp_share_bps as u16). 28 bytes remain for future additions.
+    // Note: SEV-003 consumed 2 of the original 30 forward-compat pad
+    // bytes (lp_share_bps as u16). SEV-024 follow-up consumed 10 more
+    // bytes for the pending_fee_bps_yield timelock pair. 18 bytes
+    // remain for future additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -181,5 +208,7 @@ impl ProtocolConfig {
         + 32                     // pending_authority (#3.6 Squads ceremony)
         + 8                      // pending_authority_eta
         + 2                      // lp_share_bps (Adevar SEV-003)
-        + 28;                    // forward-compat padding (was 30)
+        + 2                      // pending_fee_bps_yield (SEV-024 follow-up)
+        + 8                      // pending_fee_bps_yield_eta
+        + 18;                    // forward-compat padding (was 28 pre-SEV-024 follow-up)
 }

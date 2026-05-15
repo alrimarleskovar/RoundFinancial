@@ -96,6 +96,26 @@ pub fn retained_meets_seed_draw(
     .map_err(map_err)
 }
 
+/// SEV-031 runtime viability check — see
+/// `roundfi_math::seed_draw::pool_is_viable` for math + audit context.
+#[inline]
+pub fn pool_is_viable(
+    members_target: u8,
+    installment_amount: u64,
+    credit_amount: u64,
+    solidarity_bps: u16,
+    escrow_release_bps: u16,
+) -> Result<bool> {
+    roundfi_math::pool_is_viable(
+        members_target,
+        installment_amount,
+        credit_amount,
+        solidarity_bps,
+        escrow_release_bps,
+    )
+    .map_err(map_err)
+}
+
 // ─── escrow_vesting ─────────────────────────────────────────────────────
 
 #[inline]
