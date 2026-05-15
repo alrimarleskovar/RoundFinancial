@@ -154,6 +154,11 @@ model ContributeEvent {
   poolId          String
   member          Member   @relation(fields: [memberId], references: [id])
   memberId        String
+  /// Raw wallet pubkey from the on-chain log (`member=<base58>`).
+  /// Persisted at webhook time so the reconciler (issue #234) can
+  /// resolve `memberId` against canonical Member rows without
+  /// re-fetching + re-parsing the tx logs.
+  contributorWallet String
   cycle           Int
   schemaId        Int
   installment     BigInt
@@ -163,8 +168,18 @@ model ContributeEvent {
   onTime          Boolean
   blockTime       BigInt
   slot            BigInt
+  /// Reconciler state (issue #234). `false` while unresolved or
+  /// resolved-successfully; `true` when finality lookup failed
+  /// past the orphan-grace window (tx dropped or reorged out).
+  /// Orphaned rows are kept for audit trail but skipped by the
+  /// B2B oracle's canonical-state reads.
+  orphaned        Boolean  @default(false)
+  /// Timestamp at which the reconciler resolved `poolId` + `memberId`
+  /// to canonical IDs (NULL = still unresolved).
+  resolvedAt      DateTime?
 
   @@index([poolId, cycle])
+  @@index([orphaned, slot])
   @@map("contribute_events")
 }
 
@@ -175,13 +190,20 @@ model ClaimEvent {
   poolId        String
   member        Member   @relation(fields: [memberId], references: [id])
   memberId      String
+  /// Raw wallet pubkey of the payout recipient from the on-chain
+  /// log (`recipient=<base58>`). See ContributeEvent.contributorWallet
+  /// for rationale.
+  recipientWallet String
   cycle         Int
   slotIndex     Int
   amountPaid    BigInt
   blockTime     BigInt
   slot          BigInt
+  orphaned      Boolean  @default(false)
+  resolvedAt    DateTime?
 
   @@index([poolId, cycle])
+  @@index([orphaned, slot])
   @@map("claim_events")
 }
 
@@ -206,8 +228,11 @@ model DefaultEvent {
   cAfter        BigInt
   blockTime     BigInt
   slot          BigInt
+  orphaned      Boolean  @default(false)
+  resolvedAt    DateTime?
 
   @@index([poolId, slotIndex])
+  @@index([orphaned, slot])
   @@map("default_events")
 }
 
