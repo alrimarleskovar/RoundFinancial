@@ -561,9 +561,26 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub kamino_reserve_collateral_mint: UncheckedAccount<'info>,
 
-    /// CHECK: c-token ATA owned by `state` PDA — receives minted c-tokens.
-    #[account(mut)]
-    pub c_token_account: UncheckedAccount<'info>,
+    /// State-owned c-token ATA — destination of the c-tokens Kamino
+    /// mints in exchange for the deposited USDC liquidity.
+    ///
+    /// **Security (SEV-001 fix):** Anchor-enforced ATA derivation pins
+    /// the `(state, kamino_reserve_collateral_mint)` pair as the
+    /// canonical destination. Before this constraint, the account was
+    /// `UncheckedAccount` — meaning a permissionless caller of
+    /// `roundfi-core::deposit_idle_to_yield` could pass a c-token
+    /// account they controlled in `remaining_accounts`, Kamino would
+    /// happily mint c-tokens to them, and the protocol's
+    /// `tracked_principal` would still increment as if state owned
+    /// them. Attacker then redeems via Kamino direct for full
+    /// fund-loss. Mirrors the constraint that was already in place
+    /// on `Harvest::c_token_account`.
+    #[account(
+        mut,
+        associated_token::mint = kamino_reserve_collateral_mint,
+        associated_token::authority = state,
+    )]
+    pub c_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: Kamino Lend program — pinned to KAMINO_LEND_PROGRAM_ID.
     #[account(address = KAMINO_LEND_PROGRAM_ID @ YieldKaminoError::InvalidKaminoProgram)]
