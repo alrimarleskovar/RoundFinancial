@@ -162,4 +162,14 @@ pub enum RoundfiError {
     // ─── Adevar Labs SEV-031 — create_pool viability runtime guard ────
     #[msg("Pool parameters are inviable: members × installment × (1 − solidarity − escrow) < credit (would fail cycle-0 Seed Draw guard)")]
     PoolNotViable,
+
+    // ─── Adevar Labs SEV-024 follow-up — fee_bps_yield timelock ───────
+    #[msg("No pending fee_bps_yield change to commit or cancel")]
+    NoPendingFeeBpsYieldChange,
+    #[msg("fee_bps_yield timelock has not yet elapsed")]
+    FeeBpsYieldTimelockActive,
+    #[msg("A fee_bps_yield change is already pending — cancel it first")]
+    FeeBpsYieldProposalAlreadyPending,
+    #[msg("Direct mutation of fee_bps_yield is disabled — use propose/cancel/commit timelock flow")]
+    DirectFeeBpsYieldMutationDisabled,
 }

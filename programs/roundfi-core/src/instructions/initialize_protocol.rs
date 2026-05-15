@@ -135,6 +135,14 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     // justifies.
     config.lp_share_bps = DEFAULT_LP_SHARE_BPS;
 
+    // Adevar Labs SEV-024 follow-up — fee_bps_yield timelock pilot.
+    // Starts empty (eta=0 is the "no pending change" sentinel).
+    // Authority uses propose/cancel/commit to change fee_bps_yield with
+    // a 1-day public window. Direct mutation via update_protocol_config
+    // is rejected with DirectFeeBpsYieldMutationDisabled.
+    config.pending_fee_bps_yield     = 0;
+    config.pending_fee_bps_yield_eta = 0;
+
     msg!("roundfi-core: protocol initialized");
     Ok(())
 }
