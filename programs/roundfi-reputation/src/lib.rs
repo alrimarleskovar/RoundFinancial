@@ -55,6 +55,34 @@ pub mod roundfi_reputation {
         instructions::update_reputation_config::handler(ctx, args)
     }
 
+    /// Reputation-authority rotation step 1/3 (Adevar SEV-021).
+    /// Stages a new authority behind a 7-day timelock. Mirror of
+    /// roundfi-core's `propose_new_authority` (PR #323). Reverts
+    /// if another proposal is already pending.
+    pub fn propose_new_reputation_authority(
+        ctx: Context<ProposeNewReputationAuthority>,
+        args: ProposeNewReputationAuthorityArgs,
+    ) -> Result<()> {
+        instructions::propose_new_reputation_authority::handler(ctx, args)
+    }
+
+    /// Reputation-authority rotation step 2/3 (Adevar SEV-021) —
+    /// abort a pending proposal before its eta. Authority-only.
+    pub fn cancel_new_reputation_authority(
+        ctx: Context<CancelNewReputationAuthority>,
+    ) -> Result<()> {
+        instructions::cancel_new_reputation_authority::handler(ctx)
+    }
+
+    /// Reputation-authority rotation step 3/3 (Adevar SEV-021) —
+    /// commit a pending proposal once the 7-day eta has passed.
+    /// Permissionless crank.
+    pub fn commit_new_reputation_authority(
+        ctx: Context<CommitNewReputationAuthority>,
+    ) -> Result<()> {
+        instructions::commit_new_reputation_authority::handler(ctx)
+    }
+
     pub fn init_profile(ctx: Context<InitProfile>, wallet: Pubkey) -> Result<()> {
         instructions::init_profile::handler(ctx, wallet)
     }

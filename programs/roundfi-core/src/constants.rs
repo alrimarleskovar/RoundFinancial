@@ -84,8 +84,19 @@ pub const REVEAL_COOLDOWN_SECS: i64 = 30;
 pub const DEFAULT_LP_SHARE_BPS: u16 = 6_500;
 
 // ─── Product defaults (USDC base units, 6 decimals) ─────────────────────
+//
+// **Adevar Labs SEV-025 fix** — the previous defaults formed an
+// inviable pool: pool float per cycle was `24 × 416 × (1 - 1% solidarity
+// - 25% escrow) ≈ 7388 USDC`, less than the 10_000 USDC credit. Cycle 0
+// `claim_payout` would always fail with `WaterfallUnderflow` because the
+// Seed Draw guard requires the pool to retain 91.6% of credit at first
+// payout. Bumped DEFAULT_INSTALLMENT_AMOUNT 416 → 600 USDC so the
+// product defaults form a viable pool out of the box:
+//   pool_float per cycle = 24 × 600 × 0.74 = 10_656 USDC (>10_000 credit)
+// Whitepaper credit + members + cycles unchanged; installment shifted
+// to make the math close.
 pub const DEFAULT_MEMBERS_TARGET:     u8  = 24;
-pub const DEFAULT_INSTALLMENT_AMOUNT: u64 = 416_000_000;      // 416 USDC
+pub const DEFAULT_INSTALLMENT_AMOUNT: u64 = 600_000_000;      // 600 USDC (SEV-025)
 pub const DEFAULT_CREDIT_AMOUNT:      u64 = 10_000_000_000;   // 10_000 USDC
 pub const DEFAULT_CYCLES_TOTAL:       u8  = 24;
 pub const DEFAULT_CYCLE_DURATION:     i64 = 2_592_000;        // 30 days
@@ -108,7 +119,34 @@ pub const STAKE_BPS_LEVEL_3: u16 = 1_000; // 10%
 // ─── Bounds ─────────────────────────────────────────────────────────────
 pub const MAX_MEMBERS:        u8  = 64;   // safety ceiling; protocol default 24
 pub const MAX_BPS:            u16 = 10_000;
-pub const MIN_CYCLE_DURATION: i64 = 60;   // 1 min — devnet test-friendly
+
+/// Minimum allowed `cycle_duration` on a `Pool`. **Adevar Labs SEV-023
+/// fix** — was 60 seconds ("devnet test-friendly"), the same family of
+/// devnet-patch-leaked-to-prod bug as SEV-002 (GRACE_PERIOD_SECS=60).
+/// At 60s, a careless or hostile pool authority could create pools
+/// where members had to contribute every minute — practically unusable
+/// and a footgun even if not a direct fund-loss vector.
+///
+/// Reverted to 86_400 (1 day) — gives operators flexibility for short
+/// cycles in canary / staging without permitting micro-cycles that
+/// break the protocol's economic model. Devnet rehearsal scripts now
+/// use a fast-forwarded clock at the test-harness layer rather than
+/// micro-cycles.
+pub const MIN_CYCLE_DURATION: i64 = 86_400; // 1 day
+
+/// Maximum allowed `fee_bps_yield` (Adevar Labs SEV-024 fix).
+/// Default is 2_000 (20%); the previous cap was MAX_BPS = 10_000 (100%),
+/// meaning a compromised authority could route 100% of every pool's
+/// yield to treasury in a single tx with no public window. Tightened
+/// to 3_000 (30%, 1.5x default) — bounds the immediate-blast-radius
+/// of an authority compromise to a 50% yield surcharge over the
+/// whitepaper's 20%, while leaving room for legitimate calibration.
+///
+/// A timelock on fee changes (deeper fix) is tracked as a follow-up
+/// — would mirror the treasury rotation pattern. For now, the cap
+/// alone closes the magnitude vector.
+pub const MAX_FEE_BPS_YIELD: u16 = 3_000;
+
 pub const MAX_URI_LEN:        usize = 200;
 
 /// Look up stake bps from reputation level. Returns `None` for unknown levels.
@@ -234,13 +272,27 @@ mod tests {
 
     #[test]
     fn pool_defaults_match_product_spec() {
-        // 24 members × 24 cycles, 416 USDC installment, 10_000 USDC credit.
+        // 24 members × 24 cycles, 600 USDC installment (Adevar SEV-025
+        // bumped from 416 — old value made the pool inviable: pool float
+        // 24×416×0.74 = 7388 < 10_000 credit, cycle 0 always failed
+        // Seed Draw guard), 10_000 USDC credit.
         assert_eq!(DEFAULT_MEMBERS_TARGET, 24);
         assert_eq!(DEFAULT_CYCLES_TOTAL,   24);
-        assert_eq!(DEFAULT_INSTALLMENT_AMOUNT, 416_000_000);
+        assert_eq!(DEFAULT_INSTALLMENT_AMOUNT, 600_000_000);
         assert_eq!(DEFAULT_CREDIT_AMOUNT,      10_000_000_000);
         // 30 days per cycle.
         assert_eq!(DEFAULT_CYCLE_DURATION, 30 * 24 * 60 * 60);
+
+        // Viability check: pool_float per cycle = members × installment
+        // × (1 - solidarity_bps/MAX - escrow_release_bps/MAX) must be
+        // ≥ credit so cycle 0 claim_payout passes the Seed Draw guard.
+        let pool_float = (DEFAULT_MEMBERS_TARGET as u128)
+            * (DEFAULT_INSTALLMENT_AMOUNT as u128)
+            * ((MAX_BPS - SOLIDARITY_BPS - DEFAULT_ESCROW_RELEASE_BPS) as u128)
+            / (MAX_BPS as u128);
+        assert!(pool_float >= DEFAULT_CREDIT_AMOUNT as u128,
+            "pool_float {} must be >= credit {} (Adevar SEV-025)",
+            pool_float, DEFAULT_CREDIT_AMOUNT);
     }
 
     #[test]

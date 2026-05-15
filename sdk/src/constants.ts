@@ -34,8 +34,11 @@ export const STAKE_BPS_BY_LEVEL = {
 /** Default ROSCA pool parameters. */
 export const POOL_DEFAULTS = {
   membersTarget: 24,
-  /** Monthly installment in USDC base units (6 decimals): 416 USDC = 416_000_000. */
-  installmentAmount: 416_000_000n,
+  /** Monthly installment in USDC base units (6 decimals): 600 USDC = 600_000_000.
+   *  Bumped from 416 USDC by Adevar Labs SEV-025 — old defaults made the pool
+   *  inviable (24 × 416 × 0.74 = 7388 USDC pool float < 10_000 USDC credit,
+   *  failed cycle-0 Seed Draw guard). Now 24 × 600 × 0.74 = 10_656 USDC. */
+  installmentAmount: 600_000_000n,
   /** Credit amount released per cycle: 10,000 USDC. */
   creditAmount: 10_000_000_000n,
   cyclesTotal: 24,

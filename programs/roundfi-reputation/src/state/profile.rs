@@ -42,14 +42,26 @@ pub struct ReputationProfile {
     /// PDA bump.
     pub bump: u8,
 
-    pub _padding: [u8; 15],
+    /// **Adevar Labs SEV-027 fix** — anti-spam cooldown for admin-
+    /// issued attestations. Updated on every attest where issuer ==
+    /// config.authority (the admin path). Pool-PDA-issued attests
+    /// have natural cooldown via the per-cycle structure of the
+    /// core pool, so they do NOT bump this field.
+    ///
+    /// Used in attest.rs handler: admin-issued SCHEMA_PAYMENT requires
+    /// `now - last_admin_attest_at >= MIN_ADMIN_ATTEST_COOLDOWN_SECS`.
+    /// Without this, admin could pump score arbitrarily by issuing
+    /// PAYMENT attestations in a tight loop.
+    pub last_admin_attest_at: i64,
+
+    pub _padding: [u8; 7],
 }
 
 impl ReputationProfile {
     /// discriminator(8) + wallet(32) + level(1) + 5*u32(20) + total_part(4)
-    ///   + score(8) + 3*i64(24) + bump(1) + padding(15) = 8+32+1+20+4+8+24+1+15
-    /// = 113. We round to 120 via padding for alignment safety.
-    pub const LEN: usize = 8 + 32 + 1 + 20 + 4 + 8 + 24 + 1 + 15;
+    ///   + score(8) + 3*i64(24) + bump(1) + last_admin_attest_at(8) + pad(7)
+    /// = 113. SEV-027 consumed 8 of the original 15 pad bytes; LEN unchanged.
+    pub const LEN: usize = 8 + 32 + 1 + 20 + 4 + 8 + 24 + 1 + 8 + 7;
 
     /// Apply a signed score delta saturating at 0 on the low end and
     /// u64::MAX on the high end.
@@ -97,7 +109,8 @@ mod tests {
             first_seen_at: 0,
             last_updated_at: 0,
             bump: 0,
-            _padding: [0; 15],
+            last_admin_attest_at: 0,
+            _padding: [0; 7],
         };
         p.apply_score_delta(-500);
         assert_eq!(p.score, 0);
@@ -118,7 +131,8 @@ mod tests {
             first_seen_at: 0,
             last_updated_at: 0,
             bump: 0,
-            _padding: [0; 15],
+            last_admin_attest_at: 0,
+            _padding: [0; 7],
         };
         p.apply_score_delta(100);
         assert_eq!(p.score, u64::MAX);

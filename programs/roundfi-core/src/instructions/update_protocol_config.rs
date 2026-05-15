@@ -70,7 +70,12 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
     let cfg = &mut ctx.accounts.config;
 
     if let Some(bps) = args.new_fee_bps_yield {
-        require!(bps <= MAX_BPS, RoundfiError::InvalidBps);
+        // Adevar Labs SEV-024 fix: tightened from MAX_BPS (100%) to
+        // MAX_FEE_BPS_YIELD (30%). Was previously a 1-tx irreversible
+        // attack surface for a compromised authority — set to 100%,
+        // every subsequent harvest in every pool routes 100% of yield
+        // to treasury. Now bounded to 1.5x the whitepaper default.
+        require!(bps <= MAX_FEE_BPS_YIELD, RoundfiError::InvalidBps);
         cfg.fee_bps_yield = bps;
     }
     if let Some(bps) = args.new_fee_bps_cycle_l1 {

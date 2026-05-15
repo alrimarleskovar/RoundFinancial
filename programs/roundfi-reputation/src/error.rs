@@ -45,4 +45,12 @@ pub enum ReputationError {
     Unauthorized,
     #[msg("ReputationConfig is frozen after initialization — this field is immutable.")]
     ImmutableConfigField,
+
+    // ─── Adevar Labs SEV-021 — timelocked authority rotation ──────────
+    #[msg("No pending reputation-authority rotation to commit or cancel")]
+    NoPendingAuthorityChange,
+    #[msg("Reputation-authority rotation timelock has not yet elapsed")]
+    AuthorityTimelockActive,
+    #[msg("A reputation-authority rotation is already pending — cancel it first")]
+    AuthorityProposalAlreadyPending,
 }
