@@ -68,6 +68,20 @@ pub struct EscapeValveListReveal<'info> {
 pub fn handler(ctx: Context<EscapeValveListReveal>, args: EscapeValveListRevealArgs) -> Result<()> {
     require!(args.price_usdc > 0, RoundfiError::InvalidListingPrice);
 
+    // Adevar Labs SEV-013 fix — minimal salt entropy guard.
+    //
+    // The salt is u64 (2^64), enough in theory if cryptographically
+    // random. But a seller using `salt = 0` (or a predictable value
+    // like `slot`, `timestamp`, etc.) lets a searcher brute-force the
+    // commit_hash by enumerating price candidates in the expected
+    // range — breaking the privacy property of the commit phase.
+    //
+    // `salt != 0` is the minimal guard that closes the trivially-
+    // broken case. SDK helpers should generate via `crypto.randomBytes(8)`
+    // (documented at the commit instruction). Future hardening would
+    // extend the salt to `[u8; 16]` — tracked as Fase 3 if needed.
+    require!(args.salt != 0, RoundfiError::SaltMustBeNonZero);
+
     let listing = &mut ctx.accounts.listing;
 
     // Reconstruct the commit and compare against stored. Hash format

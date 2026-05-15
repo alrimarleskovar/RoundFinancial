@@ -103,6 +103,32 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
   });
 
   app.post("/webhook/helius", async (req, reply) => {
+    // Adevar Labs SEV-009 fix — shared-secret auth on the webhook.
+    //
+    // Before: any POST with a well-formed payload was accepted. The
+    // only "auth" was URL obscurity, which leaks via Helius dashboard
+    // config, CI logs, proxy tooling. An attacker who learned the URL
+    // could inject phantom contributes/claims/defaults into the
+    // indexer's Postgres — eventually corrupting the B2B Phase 3
+    // oracle's score reads.
+    //
+    // After: bearer-token check against HELIUS_WEBHOOK_SECRET env.
+    // Helius dashboard config supports a custom Authorization header.
+    // If the env var is unset (devnet / local), the check is bypassed
+    // so the local-development loop stays frictionless — but a startup
+    // warning fires so the gap is visible in logs.
+    const expected = process.env.HELIUS_WEBHOOK_SECRET;
+    if (expected) {
+      const auth = req.headers["authorization"];
+      if (auth !== `Bearer ${expected}`) {
+        app.log.warn(
+          { ip: req.ip, hasHeader: typeof auth === "string" },
+          "rejected webhook POST — missing or invalid Authorization header",
+        );
+        return reply.code(401).send({ error: "unauthorized" });
+      }
+    }
+
     const parse = heliusBodySchema.safeParse(req.body);
     if (!parse.success) {
       app.log.warn({ issues: parse.error.issues }, "rejected malformed Helius payload");
@@ -133,6 +159,18 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   const app = await buildServer(prisma);
+
+  // Adevar Labs SEV-009 — startup gap warning when HELIUS_WEBHOOK_SECRET
+  // is unset. The webhook handler skips auth in that case (frictionless
+  // local-dev loop), but production deploys MUST set the env var. A
+  // visible warning at startup makes the gap auditable in logs.
+  if (!process.env.HELIUS_WEBHOOK_SECRET) {
+    app.log.warn(
+      "HELIUS_WEBHOOK_SECRET is unset — webhook auth disabled. " +
+        "Required for any non-local deploy (SEV-009 / Adevar audit).",
+    );
+  }
+
   try {
     await app.listen({ host: HOST, port: PORT });
     app.log.info(`indexer listening on http://${HOST}:${PORT}`);
