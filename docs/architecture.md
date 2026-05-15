@@ -23,7 +23,7 @@ This document is the single source of truth for RoundFi's on-chain and off-chain
 
 **Non-goals (this phase)**
 
-- KYC / Proof-of-Personhood — wallet-only for v1; an optional PoP integration is scaffolded against the legacy Civic Pass account format (sunset 31 Jul 2025). Replacement provider under evaluation between VeryAI / WorldID / Sumsub for mainnet — see §4.4.
+- KYC / Proof-of-Personhood — wallet-only for v1; an optional PoP integration ships against **Human Passport** (off-chain score → on-chain SAS attestation via a bridge service) for Phase 1/canary. The legacy Civic Pass scaffold (sunset 31 Jul 2025) was renamed in-place to Human Passport per #227 with byte-compat preserved. Future provider migrations (Sumsub for Phase 3 KYC-grade B2B compliance) reuse the same 83-byte attestation envelope. See §4.4.
 - Governance / token. No `$RFI` token this phase; revenue accrues to `treasury` account.
 - L2 / cross-chain bridging.
 - Fiat on-ramp — assume user already holds USDC.
@@ -267,16 +267,16 @@ pub struct YieldVaultState {
 
 ### 4.2 `roundfi-reputation`
 
-| Instruction                          | Caller                | Effect                                                                                                                                                                          |
-| ------------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initialize_reputation(cfg)`         | authority (S)         | One-time singleton init of `ReputationConfig` — stores `roundfi_core_program` and the Civic network pubkey.                                                                     |
-| `init_profile(wallet)`               | anyone (S)            | Creates `ReputationProfile` for a wallet. Permissionless bootstrap.                                                                                                             |
-| `attest(schema_id, nonce, payload)`  | authorized issuer (S) | Creates `Attestation`; updates `ReputationProfile.score` and counters according to schema. Rejects unwhitelisted issuers and cooldown violations.                               |
-| `revoke(attestation)`                | issuer (S)            | Marks revoked; recomputes score.                                                                                                                                                |
-| `promote_level(wallet)`              | anyone (S)            | Permissionless — re-reads the score and applies the threshold rule. Advances `level` 1→2 or 2→3; no admin override.                                                             |
-| `link_civic_identity(gateway_token)` | user (S)              | Validates Civic gateway-token account against the Civic Networks program and writes `IdentityRecord { provider: Civic, status: Verified }`. Untrusted-provider checks enforced. |
-| `refresh_identity()`                 | anyone (S)            | Re-reads the gateway token and flips status to `Expired` / `Revoked` when appropriate. No privileged access; anyone can refresh any profile.                                    |
-| `unlink_identity()`                  | user (S)              | Owner-only removal — frees the `IdentityRecord`.                                                                                                                                |
+| Instruction                           | Caller                | Effect                                                                                                                                                                                                                                                             |
+| ------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `initialize_reputation(cfg)`          | authority (S)         | One-time singleton init of `ReputationConfig` — stores `roundfi_core_program`, the `passport_attestation_authority` (off-chain bridge service pubkey), and the `passport_network` scope.                                                                           |
+| `init_profile(wallet)`                | anyone (S)            | Creates `ReputationProfile` for a wallet. Permissionless bootstrap.                                                                                                                                                                                                |
+| `attest(schema_id, nonce, payload)`   | authorized issuer (S) | Creates `Attestation`; updates `ReputationProfile.score` and counters according to schema. Rejects unwhitelisted issuers and cooldown violations.                                                                                                                  |
+| `revoke(attestation)`                 | issuer (S)            | Marks revoked; recomputes score.                                                                                                                                                                                                                                   |
+| `promote_level(wallet)`               | anyone (S)            | Permissionless — re-reads the score and applies the threshold rule. Advances `level` 1→2 or 2→3; no admin override.                                                                                                                                                |
+| `link_passport_identity(attestation)` | user (S)              | Validates a Human Passport attestation account (written by the off-chain bridge service under `config.passport_attestation_authority`) and writes `IdentityRecord { provider: HumanPassport, status: Verified }`. Untrusted-provider checks enforced byte-by-byte. |
+| `refresh_identity()`                  | anyone (S)            | Re-reads the gateway token and flips status to `Expired` / `Revoked` when appropriate. No privileged access; anyone can refresh any profile.                                                                                                                       |
+| `unlink_identity()`                   | user (S)              | Owner-only removal — frees the `IdentityRecord`.                                                                                                                                                                                                                   |
 
 **Authorized issuers** = whitelist stored in `ReputationConfig`, initialized with `roundfi-core`'s program ID. On Mainnet, the whitelist is replaced by signed SAS issuance. The core program CPIs into `attest()` inside `contribute` / `claim_payout` / `settle_default`; every CPI is checked against the stored program id (program-id guard).
 
@@ -312,7 +312,7 @@ pub struct YieldVaultState {
 
 ### 4.4 Identity Layer (added v0.2 — 2026-04-22 · provider transition v0.4 — 2026-05)
 
-> **Provider transition note.** The PoP slot was originally scaffolded against **Civic Pass (Civic Gateway Tokens)**. Civic Pass was discontinued by Civic on **31 July 2025**. The `link_civic_identity` instruction + `IdentityProvider::Civic` enum variant + Civic-network config in `ReputationConfig` remain in the codebase as a **working gateway-token validator pattern** — the post-mainnet replacement is under evaluation between **VeryAI** (Solana Colosseum 2026 PoP partner — primary candidate), **WorldID**, and **Sumsub-on-chain**. No partnership is signed yet; whichever provider lands first inherits the existing validator pattern and the `provider: u8` slot 2 (the discriminant already reserves `3..=255` for additional providers). No on-chain account-layout change required when the rename ships.
+> **Provider transition note.** The PoP slot was originally scaffolded against **Civic Pass (Civic Gateway Tokens)**, which Civic discontinued on **31 July 2025**. Per the #227 follow-up the codebase migrated to **Human Passport** as the Phase 1/canary PoP provider — `link_passport_identity` instruction + `IdentityProvider::HumanPassport` enum variant (discriminant=2 inherited) + `passport_attestation_authority` / `passport_network` config in `ReputationConfig`. The 83-byte attestation layout is **reused verbatim** from the Civic Gateway-Token v1 shape, so the byte-level validator was renamed in-place and on-chain `IdentityRecord` PDAs survive without migration. Human Passport's verification is off-chain (HTTPS API + Stamps + score threshold) — an operator-controlled bridge service queries Passport and writes the 83-byte attestation under `passport_attestation_authority`. Future provider migrations (e.g. **Sumsub** for Phase 3 KYC-grade B2B compliance) inherit the same envelope and slot ≥ 3 (`3..=255` reserved). VeryAI / WorldID stay tracked as alternative providers; switching is a same-shape rename, no account-layout change.
 
 **Design principle: optional + modular.** Identity is never a gate for `join_pool`; it's an enrichment signal that the reputation program and the B2B score API can opt into. Providers are plugged in without program-upgrade:
 
@@ -325,9 +325,9 @@ pub struct YieldVaultState {
              ▼                         ▼                         ▼
    ┌──────────────────┐   ┌────────────────────────┐   ┌──────────────────┐
    │ IdentityProvider │   │ IdentityProvider       │   │ IdentityProvider │
-   │ = SAS            │   │ = PoP gateway (TBD)    │   │ = <future…>      │
-   │ (in-house Dev,   │   │ ex-Civic Pass scaffold │   │                  │
-   │  official Main)  │   │ VeryAI / WorldID / TBD │   │                  │
+   │ = SAS            │   │ = HumanPassport        │   │ = <future…>      │
+   │ (in-house Dev,   │   │ (Passport API → bridge │   │ e.g. Sumsub for  │
+   │  official Main)  │   │  service → 83-byte att) │   │ Phase 3 KYC      │
    └──────────────────┘   └────────────────────────┘   └──────────────────┘
 ```
 
@@ -342,18 +342,18 @@ pub struct IdentityRecord {
     pub status:         u8,          // IdentityStatus enum
     pub verified_at:    i64,
     pub expires_at:     i64,         // 0 = never
-    pub gateway_token:  Pubkey,      // Civic gateway-token account; default when provider != Civic
+    pub gateway_token:  Pubkey,      // Passport attestation account; default when provider != HumanPassport. Field name preserved for byte-compat with pre-#227 IdentityRecord PDAs on devnet.
     pub bump:           u8,
 }
 
-#[repr(u8)] pub enum IdentityProvider { None=0, Sas=1, Civic=2 /* legacy scaffold — PoP provider TBD post-mainnet (VeryAI / WorldID / Sumsub under evaluation); 3..=255 reserved */ }
+#[repr(u8)] pub enum IdentityProvider { None=0, Sas=1, HumanPassport=2 /* Phase 1/canary PoP; ex-Civic slot, byte-compat; 3..=255 reserved for future providers e.g. Sumsub */ }
 #[repr(u8)] pub enum IdentityStatus   { Unverified=0, Verified=1, Expired=2, Revoked=3 }
 ```
 
 **Instructions (roundfi-reputation, Step 4d):**
 
-- `link_civic_identity(gateway_token)` — validates a Civic Gateway Token account against the Civic Networks program; sets `IdentityRecord { provider: Civic, status: Verified, expires_at }`.
-- `refresh_identity()` — re-reads the gateway token; marks `Expired` if Civic revoked it.
+- `link_passport_identity(attestation)` — validates a Human Passport attestation account (written by the off-chain bridge service under `passport_attestation_authority`); sets `IdentityRecord { provider: HumanPassport, status: Verified, expires_at }`.
+- `refresh_identity()` — re-reads the attestation; marks `Expired` if the bridge revoked it or the embedded `expire_time` elapsed.
 - `unlink_identity()` — user-initiated removal.
 - `attest(...)` — unchanged SAS-compatible issuance; when an `IdentityRecord` exists for the subject, the attestation `payload` embeds the provider+status as a read-only hint to indexers.
 
@@ -362,9 +362,9 @@ pub struct IdentityRecord {
 1. **Never a gate.** `join_pool` does NOT read `IdentityRecord`. Reputation-level logic (`promote_level`, stake bps snapshot) continues to derive from on-chain behavior alone.
 2. **Additive only.** Absence of an `IdentityRecord` is indistinguishable from `IdentityStatus::Unverified` — no existing wallet is affected when this layer ships.
 3. **Scoring hint, not auth.** The B2B score API MAY weigh verified identities higher; the on-chain protocol MUST not.
-4. **Provider-agnostic.** The current Civic gateway-token scaffold occupies the first non-SAS provider slot; the eventual PoP partner (under evaluation between VeryAI, WorldID, Sumsub-on-chain) inherits slot 2. The `provider: u8` enum reserves `3..=255` for additional providers — no account migration needed for any future addition.
+4. **Provider-agnostic.** Slot 2 holds `HumanPassport` (Phase 1/canary PoP); `3..=255` reserved for future providers — e.g. Sumsub for Phase 3 KYC-grade B2B compliance, or VeryAI / WorldID as alternate signal sources. No account migration needed for any future addition.
 
-**Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. The Civic gateway-token scaffold currently in `programs/roundfi-reputation/src/identity/civic.rs` will be re-pointed to whichever PoP provider RoundFi onboards first — same untrusted-provider validator pattern (§4.6.2), same `IdentityRecord` writes, new account parser. No on-chain account-layout change.
+**Mainnet migration:** `IdentityRecord` layout is stable across Devnet/Mainnet. The Human Passport bridge-service architecture in `programs/roundfi-reputation/src/identity/passport.rs` (the 83-byte attestation validator) is the canonical adapter pattern — future providers (Sumsub etc.) implement the same untrusted-provider validator pattern (§4.6.2), write the same `IdentityRecord` shape, and slot into a different `provider: u8` discriminant. No on-chain account-layout change.
 
 ### 4.5 Step 4c mechanics — defaults, escape valve, yield (added v0.3 — 2026-04-22)
 

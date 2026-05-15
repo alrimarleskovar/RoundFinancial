@@ -26,12 +26,12 @@
  * Identity semantics note:
  *   The reputation handler applies weight `1/2` unless the subject has
  *   a Verified IdentityRecord. On localnet we never create one (the
- *   Civic path is deferred — see feedback_step4d). So the "absence"
+ *   Human Passport bridge path is post-canary). So the "absence"
  *   and "present+unverified" paths are indistinguishable at the score
  *   level: both halve positive deltas. The protocol never blocks on
  *   identity (no authorization gate); it only dampens rewards. We
  *   exercise the halved path here; the Verified path is deferred with
- *   the Civic integration.
+ *   the Human Passport bridge service rollout.
  *
  * Expected per-member math (unverified weight = 1/2):
  *   Payment  delta = SCORE_PAYMENT * 1 / 2         =  5

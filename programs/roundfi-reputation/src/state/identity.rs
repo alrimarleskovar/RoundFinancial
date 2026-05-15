@@ -23,8 +23,12 @@ pub struct IdentityRecord {
     /// 0 ≡ never expires; else unix seconds of expiry.
     pub expires_at: i64,
 
-    /// Civic gateway-token account (when provider == Civic). Default
-    /// pubkey for other providers.
+    /// Passport-attestation account address (when provider ==
+    /// HumanPassport). Default pubkey for other providers. Field name
+    /// kept as `gateway_token` for byte-compat with already-allocated
+    /// IdentityRecord PDAs on devnet; semantic is now "the off-chain
+    /// bridge-service-written attestation account" rather than the
+    /// original Civic Gateway Token. See `identity/passport.rs`.
     pub gateway_token: Pubkey,
 
     pub bump: u8,
@@ -47,9 +51,17 @@ impl IdentityRecord {
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IdentityProvider {
-    None  = 0,
-    Sas   = 1,
-    Civic = 2,
+    None          = 0,
+    Sas           = 1,
+    /// Human Passport — score-based PoP (KYC + biometric + Web2/Web3
+    /// activity + web-of-trust signals). Validator reads an
+    /// 83-byte attestation account written by an off-chain bridge
+    /// service that queries Passport's API and gates by score
+    /// threshold. Discriminant=2 inherited from the prior
+    /// `IdentityProvider::Civic` variant for byte-compat with
+    /// already-allocated `IdentityRecord` PDAs on devnet
+    /// (per #227's migration design).
+    HumanPassport = 2,
     // 3..=255 reserved for future providers without an account migration.
 }
 

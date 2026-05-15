@@ -5,26 +5,44 @@
 //!   identity of the attestor program is load-bearing for the anti-spoof
 //!   guard in `attest`, so a rotation would be equivalent to handing the
 //!   attacker the keys.
-//! - `civic_network` and `authority` are mutable via `update_reputation_config`.
+//! - `passport_network` and `authority` are mutable via `update_reputation_config`.
+//!
+//! ## Civic → Human Passport migration (#227)
+//!
+//! Field names + types renamed from `civic_*` to `passport_*`. Account
+//! layout is byte-identical (same Pubkey × 4 + bool + u8 + 30-byte
+//! padding), so existing devnet `ReputationConfig` PDAs survive
+//! without realloc. Semantic shift: the "gateway program" field now
+//! holds the **off-chain bridge service pubkey** that issues
+//! Passport-derived attestations, not the Civic Networks program ID.
 
 use anchor_lang::prelude::*;
 
 #[account]
 #[derive(Debug)]
 pub struct ReputationConfig {
-    /// Admin authority — can update `civic_network` and whitelist issuers.
+    /// Admin authority — can update `passport_network` and whitelist issuers.
     pub authority: Pubkey,
 
     /// The roundfi-core program ID whose `Pool` PDAs are trusted as
     /// attestation issuers. FROZEN after initialization.
     pub roundfi_core_program: Pubkey,
 
-    /// Civic Networks program ID (gateway-token account owner). FROZEN.
-    pub civic_gateway_program: Pubkey,
+    /// **Passport attestation authority** — pubkey of the off-chain
+    /// bridge service that translates Human Passport score queries
+    /// into on-chain 83-byte attestation accounts. Validator requires
+    /// `attestation_account.owner == passport_attestation_authority`.
+    /// FROZEN at initialization. Field name kept generic so a future
+    /// provider migration (e.g. → Sumsub for KYC-grade signal in
+    /// Phase 3 B2B) is also byte-compatible.
+    pub passport_attestation_authority: Pubkey,
 
-    /// Civic gatekeeper network pubkey (e.g. uniqueness / kyc). Mutable
-    /// so a Mainnet migration can switch network without a program upgrade.
-    pub civic_network: Pubkey,
+    /// Passport "network" pubkey — a free-form scope identifier the
+    /// bridge service embeds in every attestation it issues so
+    /// rotation between e.g. "passport-prod" and "passport-staging"
+    /// scopes is possible without re-deploying. Mutable so a
+    /// mainnet migration can switch scope without a program upgrade.
+    pub passport_network: Pubkey,
 
     /// Emergency stop — short-circuits write-path instructions.
     pub paused: bool,
