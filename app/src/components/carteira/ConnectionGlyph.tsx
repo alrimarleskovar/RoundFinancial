@@ -2,8 +2,14 @@
 
 // Brand glyphs for each integration card. Mirrors the prototype's
 // ConnectionGlyph in desktop-more.jsx.
+//
+// Migration #227: Civic Gateway-Token v1 → Human Passport. The glyph
+// `kind` was renamed `civic` → `passport` to match. Visual is kept
+// (shield + check is canonical "verified identity" iconography on
+// Solana ecosystem cards; no need to invent a new mark for the
+// provider switch).
 
-export type GlyphKind = "phantom" | "civic" | "kamino" | "solflare" | "pix";
+export type GlyphKind = "phantom" | "passport" | "kamino" | "solflare" | "pix";
 
 export function ConnectionGlyph({
   kind,
@@ -22,7 +28,7 @@ export function ConnectionGlyph({
           <path d="M12 2.5c-5 0-9 3.8-9 9.3v8a1.3 1.3 0 0 0 2.2.9l1.4-1.4a1 1 0 0 1 1.4 0l1.1 1a1.1 1.1 0 0 0 1.6 0l1.1-1a1 1 0 0 1 1.4 0l1.1 1a1.1 1.1 0 0 0 1.6 0l1.1-1a1 1 0 0 1 1.4 0l1.4 1.4a1.3 1.3 0 0 0 2.2-.9v-8c0-5.5-4-9.3-9-9.3zm-3.5 10a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm7 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z" />
         </svg>
       );
-    case "civic":
+    case "passport":
       return (
         <svg
           viewBox="0 0 24 24"
