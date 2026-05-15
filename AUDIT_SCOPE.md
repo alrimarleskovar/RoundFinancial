@@ -46,9 +46,11 @@ See [`docs/security/self-audit.md` §7](./docs/security/self-audit.md#7-out-of-s
 
 ---
 
-## Prior internal hardening — 6 findings closed pre-audit
+## Prior internal hardening — 6 findings closed pre-audit (and what the external audit caught after)
 
 Six audit findings were surfaced and fixed during internal review before this engagement. Each PR carries: source-line reference, threat model, error variant, test coverage. Linked below so external review hours don't re-flag what's already closed.
+
+**Honest framing (per Adevar Labs SEV-019):** the internal review **did not catch** the Critical `c_token_account` ATA constraint miss on `roundfi-yield-kamino::Deposit` (closed post-audit as SEV-001 — same constraint that was already in place on `Harvest::c_token_account`, copy-paste-miss). External audit caught what internal review missed. The remediation track is documented in [`ADEVAR_AUDIT_REPORT.md`](./ADEVAR_AUDIT_REPORT.md) — 20 findings total, 2 Critical / 3 High / 7 Medium / 4 Low / 5 Informational. Fase 1 (Critical + High) ships as a sequenced set of PRs before mainnet canary; Fase 2 + 3 follow per the auditor's schedule.
 
 | #   | PR                                                                     | Title                                                                                  | Surface                                                                                                                                                                                               |
 | --- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
