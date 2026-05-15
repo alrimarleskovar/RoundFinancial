@@ -3,6 +3,8 @@
 > **Scope:** the 3 distinct key surfaces of the deployed protocol: **(a) protocol authority** (signs `update_protocol_config` + treasury rotation), **(b) treasury address** (receives protocol fees from `harvest_yield` waterfall), **(c) deployer / upgrade authority** (signs program upgrades).
 >
 > All three rotations are **timelocked or one-way on-chain** by design — no surprise key swaps. Procedures below cover the happy path + the compromised-key path.
+>
+> **For the mainnet ceremony specifically** — rotating from a single deployer keypair to a Squads multisig — see the dedicated drill-down at [`squads-multisig-procedure.md`](./squads-multisig-procedure.md). It expands the abstract steps below into concrete CLI invocations + verification matrix + rollback paths.
 
 ---
 
@@ -132,9 +134,9 @@ If `deployer` is rotated, the **OtterSec attestation PDA** is signer-bound to th
 
 ## Pre-mainnet hardening
 
-These hardening moves are tracked but not yet implemented:
+These hardening moves are tracked. Status reflects what's in the repo today vs what executes at the mainnet ceremony:
 
-- [ ] **Squads multisig** as protocol authority — issue tracked separately
+- [x] **Squads multisig procedure documented** — see [`squads-multisig-procedure.md`](./squads-multisig-procedure.md). PDA-derivation utility at [`scripts/devnet/squads-derive-pda.ts`](../../scripts/devnet/squads-derive-pda.ts). Execution itself happens at the mainnet ceremony.
 - [ ] **HSM key custody** for the deployer keypair (mainnet)
 - [ ] **Authority rotation timelock** added on-chain — currently treasury has 7d timelock but authority swap is direct; consider symmetric timelock pre-mainnet
 - [ ] **Comms template** for planned rotations — single Twitter/Discord post template with required fields
