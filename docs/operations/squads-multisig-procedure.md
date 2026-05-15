@@ -127,6 +127,24 @@ If the treasury also needs to move to a Squads-controlled ATA:
 
 This is the only step in the whole sequence that involves an on-chain timelock; Squads doesn't add anything on top.
 
+> **⚠ Do NOT call `lock_approved_yield_adapter` during this ceremony or until SEV-001 fix is canary-validated** (Adevar Labs SEV-020 Informational, consequencial a SEV-001).
+>
+> The lock is one-way. If it fires while `approved_yield_adapter` still points at a `roundfi-yield-kamino` build that contains the SEV-001 fund-loss path (deposit-side `c_token_account` unchecked), the protocol is permanently bound to the vulnerable adapter. Recovery requires:
+>
+> 1. Deploying a `roundfi-yield-kamino-v2` with a new program ID (the original program ID is immutable post-`set-upgrade-authority` to a PDA without the migration key).
+> 2. Rotating `approved_yield_adapter` to the new program ID via `update_protocol_config` — **but `update_protocol_config` rejects with `AdapterAllowlistLocked` if the lock fired**.
+> 3. Only path forward: redeploy `roundfi-core` itself with a different program ID (via Squads upgrade authority) and re-bootstrap state.
+>
+> Safe call order at mainnet:
+>
+> 1. Ship SEV-001 fix to `roundfi-yield-kamino` (PR #326).
+> 2. Devnet-validate the patched adapter end-to-end (deposit + harvest + edge cases).
+> 3. Run mainnet canary against the patched adapter (per `mainnet-canary-plan.md`).
+> 4. Soak for the 7-day canary window with no incidents.
+> 5. **Only then** call `lock_approved_yield_adapter` to freeze the allowlist.
+>
+> The lock is a future operational decision, not a ceremony step. Skip it here.
+
 ### Step 5 — Verification matrix
 
 After all rotations, run all four checks:
