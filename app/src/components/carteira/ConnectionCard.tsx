@@ -14,7 +14,7 @@ import type { Tone } from "@/data/carteira";
 import type { WalletView } from "@/lib/wallet";
 
 // Single connection card. Expand on click; phantom flows through the
-// real wallet hook, mocks (civic / kamino / solflare / pix) flow through
+// real wallet hook, mocks (passport / kamino / solflare / pix) flow through
 // the local mockConnecting state + ConnectionsProvider runtime.
 
 export interface ConnMeta {
