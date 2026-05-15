@@ -18,10 +18,22 @@ pub const SCHEMA_LEVEL_UP:       u16 = 5;
 pub const ATTESTATION_PAYLOAD_LEN: usize = 96;
 
 /// Anti-gaming cooldown — minimum real-time seconds between two
-/// `CycleComplete` attestations for the same subject. Defaults to
-/// 60% of a 10-day cycle = 518_400 seconds. Prevents a sybil farm
-/// from rapidly completing 10 fake pools in a single slot and
-/// ladder-jumping to level 3.
+/// `CycleComplete` attestations for the same subject.
+///
+/// **Absolute anti-sybil floor** (518_400s = 6 days), deliberately
+/// decoupled from `Pool.cycle_duration`. Prevents a sybil farm from
+/// rapidly completing 10 fake pools in a single slot and ladder-
+/// jumping to level 3, regardless of how short any individual pool's
+/// configured cycle is. With the default 30-day cycle this is ~20%
+/// of cycle duration; with a 10-day canary cycle it would be 60%.
+/// The security property (rate-limit on CycleComplete per subject)
+/// holds in both cases.
+///
+/// Comment surfaced as comment-vs-default drift in the 2026-05
+/// constants audit (`docs/security/constants-audit-2026-05.md` §2)
+/// — docstring previously said "60% of a 10-day cycle", but the
+/// protocol default cycle is 30 days. Reframed as an absolute
+/// rate-limit floor; value unchanged.
 pub const MIN_CYCLE_COOLDOWN_SECS: i64 = 518_400;
 
 /// **Adevar Labs SEV-027 fix** — anti-spam cooldown for admin-issued
