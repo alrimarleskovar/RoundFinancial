@@ -52,6 +52,14 @@ pub fn handler(
         cfg.pending_authority == Pubkey::default(),
         ReputationError::AuthorityProposalAlreadyPending,
     );
+    // Adevar Labs SEV-036 — reject Pubkey::default() as new_authority
+    // (mirrors the same guard in roundfi-core::propose_new_authority).
+    // Without this, calling propose with Pubkey::default() creates a
+    // zombie pending state (eta set, pending_authority == sentinel).
+    require!(
+        args.new_authority != Pubkey::default(),
+        ReputationError::Unauthorized,
+    );
 
     let clock = Clock::get()?;
     let eta = clock

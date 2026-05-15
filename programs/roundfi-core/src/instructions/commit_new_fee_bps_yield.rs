@@ -27,6 +27,14 @@ pub struct CommitNewFeeBpsYield<'info> {
         // No authority constraint — permissionless crank.
     )]
     pub config: Account<'info, ProtocolConfig>,
+
+    /// Adevar Labs SEV-037 — added for consistency with the other
+    /// `commit_new_*` ixs (CommitNewTreasury, CommitNewAuthority).
+    /// The crank is still permissionless (no authority gate), but a
+    /// signer is required so the tx has an explicit fee-payer and
+    /// the account-list shape matches the rest of the timelock
+    /// commit family. Same convention these other handlers use.
+    pub caller: Signer<'info>,
 }
 
 pub fn handler(ctx: Context<CommitNewFeeBpsYield>) -> Result<()> {

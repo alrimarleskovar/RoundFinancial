@@ -56,6 +56,21 @@ pub fn handler(
         cfg.pending_authority == Pubkey::default(),
         RoundfiError::AuthorityProposalAlreadyPending,
     );
+    // Adevar Labs SEV-036 — reject Pubkey::default() as new_authority.
+    // Without this guard, calling propose with Pubkey::default() sets
+    // `pending_authority_eta = now + 7d` while leaving
+    // `pending_authority == Pubkey::default()` (the "no proposal in
+    // flight" sentinel). Effect: a zombie pending state where the
+    // cancel/commit handlers can both refuse with confusing errors,
+    // and the next legitimate propose succeeds (because the sentinel
+    // check above passes) — but the eta is now from the zombie call,
+    // not the new one. Self-healing but UX-confusing. Reject the
+    // default sentinel as `new_authority` so the proposal never
+    // enters the zombie state.
+    require!(
+        args.new_authority != Pubkey::default(),
+        RoundfiError::Unauthorized,
+    );
 
     let clock = Clock::get()?;
     let eta = clock

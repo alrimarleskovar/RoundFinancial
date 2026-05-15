@@ -32,10 +32,15 @@ import {
   STAKE_BPS_BY_LEVEL,
   POOL_DEFAULTS,
   ATTESTATION_SCHEMA,
+  POOL_STATUS,
 } from "@roundfi/sdk/constants";
 
 const CORE_CONSTANTS = resolve(process.cwd(), "programs/roundfi-core/src/constants.rs");
 const REP_CONSTANTS = resolve(process.cwd(), "programs/roundfi-reputation/src/constants.rs");
+// Adevar Labs SEV-035 — enum drift between Rust state and SDK is a
+// new parity surface. PoolStatus lives in `state/pool.rs` not
+// `constants.rs`; add the path here so the enum extractor can read it.
+const POOL_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/pool.rs");
 
 function readRustConstants(path: string): string {
   return readFileSync(path, "utf-8");
@@ -62,6 +67,36 @@ function extractInt(src: string): Map<string, bigint> {
   const out = new Map<string, bigint>();
   for (const m of src.matchAll(INT_CONST_RE)) {
     out.set(m[1]!, BigInt(m[2]!.replaceAll("_", "")));
+  }
+  return out;
+}
+
+/**
+ * Extract `Variant = N` pairs from a `pub enum X { ... }` block.
+ *
+ * **Adevar Labs SEV-035** — `PoolStatus::Closed = 4` was added on-chain
+ * by the SEV-005 fix but not propagated to the SDK `POOL_STATUS` map.
+ * The auditor's W5 strategic recommendation: extend the parity test to
+ * cover enum variants, not just seeds and numeric constants. This
+ * helper closes that drift surface.
+ *
+ * Robust to standard formatting (allows trailing commas, doc-comments
+ * between variants, whitespace). Rejects variants without an explicit
+ * discriminant (`= N`) — the protocol's policy is "every wire-stable
+ * enum value is pinned" so any drift to implicit discriminants is also
+ * a finding worth catching.
+ */
+function extractEnumVariants(src: string, enumName: string): Map<string, number> {
+  const enumRe = new RegExp(`pub\\s+enum\\s+${enumName}\\s*\\{([\\s\\S]*?)\\}`);
+  const enumMatch = src.match(enumRe);
+  if (!enumMatch) {
+    throw new Error(`enum ${enumName} not found in source`);
+  }
+  const body = enumMatch[1]!;
+  const variantRe = /([A-Za-z][A-Za-z0-9_]*)\s*=\s*(-?[0-9_]+)\s*[,}]/g;
+  const out = new Map<string, number>();
+  for (const m of body.matchAll(variantRe)) {
+    out.set(m[1]!, Number(m[2]!.replaceAll("_", "")));
   }
   return out;
 }
@@ -183,6 +218,33 @@ describe("Rust ↔ TS constants parity", () => {
       expect(Number(rust.get("SCHEMA_DEFAULT"))).to.equal(ATTESTATION_SCHEMA.Default);
       expect(Number(rust.get("SCHEMA_CYCLE_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.CycleComplete);
       expect(Number(rust.get("SCHEMA_LEVEL_UP"))).to.equal(ATTESTATION_SCHEMA.LevelUp);
+    });
+  });
+
+  // Adevar Labs SEV-035 — enum drift coverage. The original drift was
+  // PoolStatus::Closed=4 (added on-chain, missing from SDK) shipping
+  // for an entire audit cycle without the parity test catching it.
+  // Now: extract every enum variant from the on-chain Rust and assert
+  // it has a matching SDK entry with the same discriminant.
+  describe("Enum variants — roundfi-core", () => {
+    it("PoolStatus on-chain ↔ SDK POOL_STATUS each variant matches by name + discriminant", () => {
+      const poolSrc = readRustConstants(POOL_STATE);
+      const rustVariants = extractEnumVariants(poolSrc, "PoolStatus");
+      // Every Rust variant must appear in the SDK with the same value.
+      for (const [name, value] of rustVariants) {
+        const sdkValue = (POOL_STATUS as Record<string, number | undefined>)[name];
+        expect(sdkValue, `SDK POOL_STATUS missing variant: ${name}`).to.not.equal(undefined);
+        expect(sdkValue, `discriminant mismatch for PoolStatus::${name}`).to.equal(value);
+      }
+      // And every SDK entry must have a matching Rust variant — guards
+      // against the inverse drift (SDK keeps a stale variant after the
+      // on-chain enum removes it).
+      for (const [name] of Object.entries(POOL_STATUS)) {
+        expect(
+          rustVariants.has(name),
+          `Rust enum PoolStatus missing variant present in SDK: ${name}`,
+        ).to.equal(true);
+      }
     });
   });
 });

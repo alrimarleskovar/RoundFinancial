@@ -61,6 +61,10 @@ export const POOL_STATUS = {
   Active: 1,
   Completed: 2,
   Liquidated: 3,
+  /** Terminal state set by close_pool. Distinct from Completed so the
+   *  close_pool entry constraint rejects subsequent invocations
+   *  (Adevar Labs SEV-005 fix; SDK sync added in SEV-035). */
+  Closed: 4,
 } as const;
 
 /** Default crank intervals (seconds). Overridable via env. */
