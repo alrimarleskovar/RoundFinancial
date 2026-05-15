@@ -129,4 +129,7 @@ pub enum RoundfiError {
     PoolTvlCapExceeded,
     #[msg("Protocol-wide committed TVL would exceed config.max_protocol_tvl_usdc")]
     ProtocolTvlCapExceeded,
+    // ─── Adapter allowlist governance (item 9 of post-#311 review) ─────
+    #[msg("approved_yield_adapter is permanently locked — `lock_approved_yield_adapter()` was called")]
+    AdapterAllowlistLocked,
 }

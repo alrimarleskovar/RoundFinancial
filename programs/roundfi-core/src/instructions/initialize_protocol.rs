@@ -108,6 +108,11 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     // at mock or kamino freely. Mainnet authority pins the canary
     // adapter via `update_protocol_config` post-deploy.
     config.approved_yield_adapter = Pubkey::default();
+    // Adapter allowlist lock-flag (governance, item 9 of post-#311
+    // review): starts unlocked; authority calls
+    // `lock_approved_yield_adapter()` post-canary when the pinned
+    // adapter is final. Mirrors `treasury_locked` (#122).
+    config.approved_yield_adapter_locked = false;
 
     msg!("roundfi-core: protocol initialized");
     Ok(())

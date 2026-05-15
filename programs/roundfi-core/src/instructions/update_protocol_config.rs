@@ -96,7 +96,30 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
         cfg.max_protocol_tvl_usdc = cap;
     }
     if let Some(pubkey) = args.new_approved_yield_adapter {
-        // No further validation here: a Pubkey is just 32 bytes, and
+        // Governance check: if the lock-flag is on, the adapter
+        // allowlist is permanently frozen — reject loudly so the
+        // operator notices their misuse rather than silently
+        // discarding the change. Mirrors `treasury_locked` semantic
+        // from #122 (which rejects propose_new_treasury) but with
+        // a loud error instead of a quiet decline.
+        require!(
+            !cfg.approved_yield_adapter_locked,
+            RoundfiError::AdapterAllowlistLocked,
+        );
+
+        // Audit trail: emit a dedicated msg! when the adapter
+        // changes so an off-chain monitor (Helius webhook → indexer
+        // → ops alerts) can flag every allowlist rotation. The
+        // generic update_protocol_config log below carries the new
+        // value; this line carries the OLD → NEW transition.
+        if cfg.approved_yield_adapter != pubkey {
+            msg!(
+                "roundfi-core: approved_yield_adapter rotated old={} new={}",
+                cfg.approved_yield_adapter, pubkey,
+            );
+        }
+
+        // No further validation: a Pubkey is just 32 bytes, and
         // we can't verify it points at an executable program without
         // forwarding the account (which would bloat this admin ix).
         // create_pool will independently enforce
@@ -108,10 +131,10 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, args: UpdateProtocolConfigArg
     }
 
     msg!(
-        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={}",
+        "roundfi-core: update_protocol_config fee_yield={} gf_bps={} max_pool_tvl={} max_protocol_tvl={} approved_adapter={} adapter_locked={}",
         cfg.fee_bps_yield, cfg.guarantee_fund_bps,
         cfg.max_pool_tvl_usdc, cfg.max_protocol_tvl_usdc,
-        cfg.approved_yield_adapter,
+        cfg.approved_yield_adapter, cfg.approved_yield_adapter_locked,
     );
 
     Ok(())
