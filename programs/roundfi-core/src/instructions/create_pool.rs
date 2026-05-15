@@ -125,6 +125,57 @@ pub fn handler(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
         );
     }
 
+    // ─── TVL cap fail-fast (items 4.2 + 4.3 of MAINNET_READINESS) ─────
+    //
+    // The authoritative TVL accounting lives in `init_pool_vaults`:
+    // that's where `committed_protocol_tvl_usdc` is incremented and
+    // the race-free reservation happens. But the cap CHECK belongs
+    // here, BEFORE the Pool PDA is allocated, so a rejected pool
+    // doesn't leak ~3kb of orphan rent on the authority's account.
+    //
+    // Without this fail-fast: `create_pool` allocates Pool PDA →
+    // `init_pool_vaults` rejects on cap → Pool PDA stuck in Forming
+    // status with no vaults (close_pool requires Completed, so the
+    // PDA can never be closed). Reported by external review post #310.
+    //
+    // We do NOT increment `committed_protocol_tvl_usdc` here — that
+    // stays in `init_pool_vaults` so the running total only grows
+    // when vaults are actually allocated. Two consequences:
+    //
+    //   1. Authority can `create_pool` repeatedly with no committed-
+    //      total bookkeeping side-effects — only the final
+    //      `init_pool_vaults` call commits.
+    //   2. Race between create + init: if Pool A creates, Pool B
+    //      creates + inits (consuming headroom), Pool A inits → A's
+    //      init_pool_vaults rejects on cap. Benign DoS — A's Pool PDA
+    //      already exists but can be retried after a cap raise or
+    //      another pool closes. This is acceptable.
+    let pool_committed = (args.credit_amount as u128)
+        .checked_mul(args.cycles_total as u128)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
+    let pool_committed: u64 = pool_committed
+        .try_into()
+        .map_err(|_| error!(RoundfiError::MathOverflow))?;
+
+    if ctx.accounts.config.max_pool_tvl_usdc > 0 {
+        require!(
+            pool_committed <= ctx.accounts.config.max_pool_tvl_usdc,
+            RoundfiError::PoolTvlCapExceeded,
+        );
+    }
+    if ctx.accounts.config.max_protocol_tvl_usdc > 0 {
+        let new_committed = ctx
+            .accounts
+            .config
+            .committed_protocol_tvl_usdc
+            .checked_add(pool_committed)
+            .ok_or(error!(RoundfiError::MathOverflow))?;
+        require!(
+            new_committed <= ctx.accounts.config.max_protocol_tvl_usdc,
+            RoundfiError::ProtocolTvlCapExceeded,
+        );
+    }
+
     let pool = &mut ctx.accounts.pool;
 
     pool.authority          = ctx.accounts.authority.key();
