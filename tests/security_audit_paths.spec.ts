@@ -54,7 +54,6 @@ import {
   configPda,
   createPool,
   createUsdcMint,
-  ensureAta,
   fetchProtocolConfig,
   initMockVault,
   initializeProtocol,
@@ -191,12 +190,16 @@ describe("security — audit error path coverage", function () {
     await initMockVault(env, pool.pool, usdcMint);
     // No `prefundMockYield` — adapter has 0 surplus. realized will be 0.
     // min_realized_usdc=1 forces `0 >= 1` to fail with HarvestSlippageExceeded.
-    const treasuryUsdc = await ensureAta(env, usdcMint, treasury);
+    // `proto.treasury` (captured into `treasury`) is already the
+    // canonical treasury_usdc ATA — passing it through ensureAta
+    // again would derive ATA(usdcMint, treasuryAta), a different
+    // address that fails the `treasury_usdc == config.treasury`
+    // constraint (Unauthorized 6023).
     await expectRejected(
       () =>
         harvestYield(env, {
           pool,
-          treasuryUsdc,
+          treasuryUsdc: treasury,
           minRealizedUsdc: 1n,
         }),
       /HarvestSlippageExceeded|slippage/i,
