@@ -56,6 +56,35 @@ impl borsh::BorshDeserialize for Payload {
     }
 }
 
+// `#[derive(AnchorSerialize)]` auto-implements `IdlBuild` so the IDL
+// builder can walk nested types. We use manual borsh impls (above)
+// instead of the derive (borsh 0.9–0.10 can't auto-derive for arrays
+// >32), so we also have to provide the `IdlBuild` impl by hand.
+// Without it, `anchor build` fails when any `#[account]` /
+// `AnchorSerialize` struct references `Payload`.
+//
+// We expose `Payload` to the IDL as a type-alias for `[u8; 96]` —
+// matches the on-wire format exactly and keeps SDK consumers
+// transparent: clients see a 96-byte array, no custom decoder needed.
+#[cfg(feature = "idl-build")]
+impl anchor_lang::IdlBuild for Payload {
+    fn create_type() -> Option<anchor_lang::idl::types::IdlTypeDef> {
+        Some(anchor_lang::idl::types::IdlTypeDef {
+            name: "Payload".to_string(),
+            docs: vec![],
+            serialization: anchor_lang::idl::types::IdlSerialization::Borsh,
+            repr: None,
+            generics: vec![],
+            ty: anchor_lang::idl::types::IdlTypeDefTy::Type {
+                alias: anchor_lang::idl::types::IdlType::Array(
+                    Box::new(anchor_lang::idl::types::IdlType::U8),
+                    anchor_lang::idl::types::IdlArrayLen::Value(ATTESTATION_PAYLOAD_LEN),
+                ),
+            },
+        })
+    }
+}
+
 #[account]
 #[derive(Debug)]
 pub struct Attestation {
