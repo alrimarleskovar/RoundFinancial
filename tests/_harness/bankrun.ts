@@ -69,7 +69,11 @@ export interface BankrunEnv {
 function loadIdl(name: string): AnyIdl {
   const path = resolve(process.cwd(), "target", "idl", `${name}.json`);
   if (!existsSync(path)) {
-    throw new Error(`IDL not found: ${path}. Run 'anchor build' before bankrun tests.`);
+    throw new Error(
+      `IDL not found: ${path}. Run 'bash scripts/dev/rebuild-idls.sh' ` +
+        `(or 'anchor build') before bankrun tests. The dev script applies ` +
+        `the #319 anchor-syn patch and emits the three IDLs the bankrun harness needs.`,
+    );
   }
   return JSON.parse(readFileSync(path, "utf-8")) as AnyIdl;
 }
