@@ -71,7 +71,12 @@ import {
 const MEMBERS_TARGET = 2;
 const CYCLES_TOTAL = 2;
 const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION
-const INSTALLMENT_BASE = usdc(1_000n);
+// SEV-031 viability: members × installment × (1 − sol − esc) >= credit.
+// With protocol defaults (sol=1%, esc=25% → net 0.74): 2 × 2000 × 0.74 =
+// 2960 >= 2200 ✓ (margin 760). Pre-Item L the spec had installment=1000
+// which gives 1480 < 2200 — would have failed cycle-0 Seed Draw guard
+// the moment SEV-031 enforcement landed.
+const INSTALLMENT_BASE = usdc(2_000n);
 const CREDIT_BASE = usdc(2_200n);
 
 // Safe margin (seconds) we keep from `next_cycle_at` on each leg.
