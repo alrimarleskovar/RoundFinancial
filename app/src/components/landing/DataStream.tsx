@@ -9,11 +9,11 @@ const LINES = [
   "tx_4xR9…k9Fn  payment.send       -892.40 USDC   escrow.usdc",
   "tx_8mP2…aQ7L  yield.claim        +52.30 USDC    kamino.vault",
   "tx_2vK7…hN4T  secondary.market   +1890.00 USDC  @petrus",
-  "tx_6wB3…pX1Z  sas.attestation    +18 pts        civic.pass",
+  "tx_6wB3…pX1Z  sas.attestation    +18 pts        passport.id",
   "tx_9hT4…mW2K  pool.join          -22.50 USDC    renovacao_mei",
   "tx_5kF8…aL3R  yield.claim        +41.05 USDC    kamino.vault",
   "tx_3pN6…vQ7H  payment.send       -892.40 USDC   escrow.usdc",
-  "tx_1dS9…cE4M  sas.attestation    +6 pts         civic.pass",
+  "tx_1dS9…cE4M  sas.attestation    +6 pts         passport.id",
   "tx_7yU2…rB5V  secondary.market   +1640.00 USDC  @intercambio",
   "tx_8jX1…fC9T  yield.claim        +73.18 USDC    kamino.vault",
   "tx_4nM7…hW6K  pool.draw          +10000.00 USDC seed_winner",
@@ -23,7 +23,7 @@ const LINES = [
   "tx_9wB4…sM2D  yield.claim        +88.42 USDC    kamino.vault",
   "tx_3aF7…uK1G  secondary.market   +1200.00 USDC  @reforma",
   "tx_1cQ9…eN6W  payment.send       -2140.00 USDC  escrow.usdc",
-  "tx_8mZ3…tH5J  sas.attestation    +12 pts        civic.pass",
+  "tx_8mZ3…tH5J  sas.attestation    +12 pts        passport.id",
 ];
 
 export function DataStream() {

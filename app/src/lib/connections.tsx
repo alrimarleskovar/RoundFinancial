@@ -6,7 +6,9 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 // useWallet() directly). Replaces the prototype's APP_STATE.connections
 // + setConnection() pub/sub.
 
-export type ConnId = "civic" | "kamino" | "solflare" | "pix";
+// `passport` was previously `civic` (Civic Gateway-Token v1). Provider
+// migrated to Human Passport in #227; type + registry key follow.
+export type ConnId = "passport" | "kamino" | "solflare" | "pix";
 export type ConnStatus = "connected" | "disconnected" | "pending";
 
 export interface ConnRuntime {
@@ -17,7 +19,7 @@ export interface ConnRuntime {
 export type ConnectionsState = Record<ConnId, ConnRuntime>;
 
 const DEFAULT_STATE: ConnectionsState = {
-  civic: { status: "connected", since: "Mar 2026" },
+  passport: { status: "connected", since: "Mar 2026" },
   kamino: { status: "connected", since: "Jan 2026" },
   solflare: { status: "disconnected" },
   pix: { status: "pending" },

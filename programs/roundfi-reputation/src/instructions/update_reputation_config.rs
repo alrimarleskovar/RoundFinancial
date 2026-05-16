@@ -63,6 +63,14 @@ pub fn handler(
         );
     }
     if let Some(n) = args.new_passport_network {
+        // Adevar Labs SEV-036 sweep (W5 follow-up) — reject
+        // Pubkey::default(). `passport_network` was set at init to
+        // the canary network; setting it to default would silently
+        // accept any attestation with `network == Pubkey::default()`,
+        // a sentinel value a malicious bridge could fabricate. Force
+        // explicit operator intent: a real provider migration goes
+        // through a non-default value.
+        require!(n != Pubkey::default(), ReputationError::Unauthorized);
         cfg.passport_network = n;
     }
     if let Some(p) = args.new_paused {

@@ -1,12 +1,27 @@
 # Human Passport Bridge — Threat Model
 
+> **🚧 Implementation status (W5 framing correction):** the on-chain
+> validator (`programs/roundfi-reputation/src/identity/passport.rs`)
+> is implemented and exercised in tests; the **off-chain bridge service
+> described below is NOT yet running**. The architecture, trust
+> boundary, and threats-vs-mitigations are pre-audited here so the
+> protocol can describe its target identity surface honestly — but
+> the bridge itself is roadmap, not live. External communications
+> should say **"Human Passport-ready"** or **"planned integration"**,
+> NOT "Human Passport-integrated." Auditor's W5 #7 explicitly flagged
+> the risk of conflating "validator code shipped" with "bridge service
+> live" — this badge resolves the framing.
+>
+> Pre-mainnet checklist for activation is at the bottom of this doc.
+>
 > **Why this doc exists:** the Adevar Labs W3 re-audit (point #4) flagged
 > the off-chain Human Passport bridge as a pending trust boundary that
 > needed an explicit threat model before mainnet. The bridge is the only
 > non-program trust dependency in the identity layer — every other write
 > path is either a user signature or a deterministic CPI from
 > `roundfi-core`. This document enumerates the threats, the mitigations
-> currently in place, and the gaps scheduled for mainnet hardening.
+> the on-chain validator already enforces, and the **operational gaps**
+> that block the bridge from going live.
 
 ## Architecture in one paragraph
 

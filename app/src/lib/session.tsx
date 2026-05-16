@@ -46,7 +46,7 @@ export interface SessionEvent {
   txid: string; // synthesized e.g. "tx_4xR9…k9Fn"
   op: string; // "payment.send" / "yield.claim" / "secondary.market"
   amountBrl: number; // 0 for non-money events
-  target: string; // "escrow.usdc" / "kamino.vault" / "@petrus" / "civic.pass"
+  target: string; // "escrow.usdc" / "kamino.vault" / "@petrus" / "passport.id"
   attestPts?: number; // only present for kind === "attestation"
 }
 
@@ -235,7 +235,7 @@ const INITIAL_EVENTS: SessionEvent[] = [
     txid: "tx_6wB3…pX1Z",
     op: "sas.attestation",
     amountBrl: 0,
-    target: "civic.pass",
+    target: "passport.id",
     attestPts: 18,
   },
 ];
@@ -285,7 +285,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         txid: makeTxid(),
         op: "sas.attestation",
         amountBrl: 0,
-        target: "civic.pass",
+        target: "passport.id",
         attestPts: 6,
       };
 

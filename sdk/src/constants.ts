@@ -61,6 +61,39 @@ export const POOL_STATUS = {
   Active: 1,
   Completed: 2,
   Liquidated: 3,
+  /** Terminal state set by close_pool. Distinct from Completed so the
+   *  close_pool entry constraint rejects subsequent invocations
+   *  (Adevar Labs SEV-005 fix; SDK sync added in SEV-035). */
+  Closed: 4,
+} as const;
+
+/** EscapeValveStatus enum values — mirrors roundfi-core::state::listing::EscapeValveStatus.
+ *  W5 follow-up: extended parity test coverage beyond PoolStatus (the SEV-035 drift class). */
+export const ESCAPE_VALVE_STATUS = {
+  Active: 0,
+  Filled: 1,
+  Cancelled: 2,
+  /** Listing committed (hash on chain) but not yet revealed. Cannot be
+   *  bought. Cancellable by the seller. Used by the #232 commit-reveal
+   *  MEV mitigation. */
+  Pending: 3,
+} as const;
+
+/** IdentityProvider enum values — mirrors roundfi-reputation::state::identity::IdentityProvider.
+ *  HumanPassport discriminant=2 inherited from the prior Civic variant
+ *  for byte-compat with already-allocated IdentityRecord PDAs (#227). */
+export const IDENTITY_PROVIDER = {
+  None: 0,
+  Sas: 1,
+  HumanPassport: 2,
+} as const;
+
+/** IdentityStatus enum values — mirrors roundfi-reputation::state::identity::IdentityStatus. */
+export const IDENTITY_STATUS = {
+  Unverified: 0,
+  Verified: 1,
+  Expired: 2,
+  Revoked: 3,
 } as const;
 
 /** Default crank intervals (seconds). Overridable via env. */

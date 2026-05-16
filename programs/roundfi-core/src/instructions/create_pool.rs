@@ -102,9 +102,25 @@ pub fn handler(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
     );
     require!(args.escrow_release_bps <= MAX_BPS, RoundfiError::InvalidBps);
 
-    // One payout per member per cycle → cycles_total must accommodate every slot.
+    // One payout per member per cycle.
+    //
+    // **Adevar Labs SEV-038 fix** — was `>=`, allowing `cycles_total >
+    // members_target`. With `>`, cycles past index `members_target - 1`
+    // have no slot owner (`claim_payout` requires `slot_index ==
+    // cycle`, so cycles in `members_target..cycles_total` cannot be
+    // claimed). The pool stays in Active status forever; close_pool
+    // requires Completed (and the SEV-005 fix tightened that to
+    // strictly Completed); members' contributions for those orphan
+    // cycles route into pool_usdc_vault with no path to claim. Funds
+    // trapped.
+    //
+    // Tightened to `==`. The slot rotation `slot_index = cycle` only
+    // closes the loop when there are exactly `members_target` cycles —
+    // every slot claims exactly once. Existing tests (edge_tiny_lifecycle
+    // 3×3, lifecycle 4×4, defaults 24×24) all use square pools, so the
+    // tightening doesn't break any tested shape.
     require!(
-        args.cycles_total as u16 >= args.members_target as u16,
+        args.cycles_total as u16 == args.members_target as u16,
         RoundfiError::InvalidPoolParams,
     );
 

@@ -24,9 +24,66 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
-import { loadCluster } from "../../config/clusters.js";
+import { loadCluster, requireProgram } from "../../config/clusters.js";
+
+// ─── ProtocolConfig field offsets ──────────────────────────────────────
+//
+// Hand-decoded from `programs/roundfi-core/src/state/config.rs`. Each
+// constant below is the byte offset of the field within the account
+// data (post 8-byte Anchor discriminator). Updating any of these
+// requires also updating the on-chain layout — the Rust SIZE comment
+// is the canonical reference; touch both in the same PR.
+//
+// Field discovery order:
+//   8 (disc) + 32 (authority) + 32 (treasury) + 32 (usdc_mint)
+//     + 32 (metaplex_core) + 32 (default_yield_adapter)
+//     + 32 (reputation_program) + 10 (5 × u16 fees) + 1 (paused)
+//     + 1 (bump) + 1 (treasury_locked) + 32 (pending_treasury)
+//     + 8 (pending_treasury_eta) + 8 (max_pool_tvl_usdc) + ...
+const OFFSET_AUTHORITY = 8;
+const OFFSET_PAUSED = 210;
+const OFFSET_TREASURY_LOCKED = 212;
+const OFFSET_MAX_POOL_TVL_USDC = 253;
+const OFFSET_MAX_PROTOCOL_TVL_USDC = 261;
+const OFFSET_APPROVED_YIELD_ADAPTER = 277;
+const OFFSET_APPROVED_YIELD_ADAPTER_LOCKED = 309;
+const OFFSET_COMMIT_REVEAL_REQUIRED = 310;
+
+/**
+ * Decode the fields of `ProtocolConfig` the canary pre-flight cares
+ * about. Returns a typed struct or throws if the account is missing
+ * / wrong-sized.
+ *
+ * Why hand-decode: the canary script must NOT depend on Anchor's
+ * codegen path (which is gated on the Rust 1.95 / mpl-core fix). The
+ * pre-flight gate is the protocol's ground-truth check; rolling our
+ * own byte reader keeps it independent of the IDL surface.
+ */
+function readProtocolConfig(data: Buffer): {
+  authority: PublicKey;
+  paused: boolean;
+  treasury_locked: boolean;
+  max_pool_tvl_usdc: bigint;
+  max_protocol_tvl_usdc: bigint;
+  approved_yield_adapter: PublicKey;
+  approved_yield_adapter_locked: boolean;
+  commit_reveal_required: boolean;
+} {
+  return {
+    authority: new PublicKey(data.subarray(OFFSET_AUTHORITY, OFFSET_AUTHORITY + 32)),
+    paused: data[OFFSET_PAUSED] === 1,
+    treasury_locked: data[OFFSET_TREASURY_LOCKED] === 1,
+    max_pool_tvl_usdc: data.readBigUInt64LE(OFFSET_MAX_POOL_TVL_USDC),
+    max_protocol_tvl_usdc: data.readBigUInt64LE(OFFSET_MAX_PROTOCOL_TVL_USDC),
+    approved_yield_adapter: new PublicKey(
+      data.subarray(OFFSET_APPROVED_YIELD_ADAPTER, OFFSET_APPROVED_YIELD_ADAPTER + 32),
+    ),
+    approved_yield_adapter_locked: data[OFFSET_APPROVED_YIELD_ADAPTER_LOCKED] === 1,
+    commit_reveal_required: data[OFFSET_COMMIT_REVEAL_REQUIRED] === 1,
+  };
+}
 
 // ─── Safety guards ──────────────────────────────────────────────────────
 
@@ -78,12 +135,102 @@ const PREFLIGHT_CHECKS: PreflightCheck[] = [
   },
   {
     name: "Protocol is NOT paused (and is initialized)",
-    run: async (_conn, _deployer) => {
-      // TODO(#292 W2): port the protocol-config decoder from
-      // scripts/devnet/init-protocol.ts:read_protocol_config(). Read
-      // ProtocolConfig PDA, assert paused == false, assert authority ==
-      // squads_pda. Abort if not.
-      throw new Error("PreflightCheck NOT IMPLEMENTED — wire decoder before run");
+    run: async (conn) => {
+      const cluster = loadCluster();
+      const coreProgram = requireProgram(cluster, "core");
+      const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgram);
+      const info = await conn.getAccountInfo(configPda, "confirmed");
+      if (!info) {
+        throw new Error(
+          `ProtocolConfig PDA ${configPda.toBase58()} not found — protocol not initialized on this cluster`,
+        );
+      }
+      const cfg = readProtocolConfig(info.data);
+      if (cfg.paused) {
+        throw new Error(`ProtocolConfig.paused == true on mainnet — refusing to run canary`);
+      }
+      if (cfg.authority.equals(PublicKey.default)) {
+        throw new Error(`ProtocolConfig.authority == Pubkey::default() — protocol not initialized`);
+      }
+      console.log(`  ProtocolConfig authority: ${cfg.authority.toBase58()}`);
+    },
+  },
+  {
+    // Adevar Labs W5 #10 + constants-audit follow-up (PR #340) — the
+    // 6 default-permissive flags must be in their production-correct
+    // state before the canary touches any user-bearing pool.
+    //
+    // Hard checks (refuse to run if wrong):
+    //   - commit_reveal_required == true     (MEV mitigation active)
+    //   - max_pool_tvl_usdc > 0              (per-pool TVL cap active)
+    //   - max_protocol_tvl_usdc > 0          (protocol-wide cap active)
+    //   - approved_yield_adapter != default  (allowlist set)
+    //
+    // Soft checks (warn-only — these are post-canary lock-downs):
+    //   - approved_yield_adapter_locked == true
+    //   - treasury_locked == true
+    //
+    // Locks are intentionally soft: during the canary itself, the
+    // operator may still be rotating; the locks come at the end of
+    // canary. The hard checks are non-negotiable.
+    name: "Mainnet hardening flags (constants-audit follow-up + W5 #10)",
+    run: async (conn) => {
+      const cluster = loadCluster();
+      const coreProgram = requireProgram(cluster, "core");
+      const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgram);
+      const info = await conn.getAccountInfo(configPda, "confirmed");
+      if (!info) {
+        throw new Error(`ProtocolConfig PDA not found at ${configPda.toBase58()}`);
+      }
+      const cfg = readProtocolConfig(info.data);
+
+      const hardFailures: string[] = [];
+      if (!cfg.commit_reveal_required) {
+        hardFailures.push(
+          "commit_reveal_required == false — MEV mitigation OFF (must be true on mainnet)",
+        );
+      }
+      if (cfg.max_pool_tvl_usdc === 0n) {
+        hardFailures.push("max_pool_tvl_usdc == 0 — per-pool TVL cap disabled");
+      }
+      if (cfg.max_protocol_tvl_usdc === 0n) {
+        hardFailures.push("max_protocol_tvl_usdc == 0 — protocol TVL cap disabled");
+      }
+      if (cfg.approved_yield_adapter.equals(PublicKey.default)) {
+        hardFailures.push(
+          "approved_yield_adapter == Pubkey::default() — yield-adapter allowlist disabled",
+        );
+      }
+
+      if (hardFailures.length > 0) {
+        throw new Error(
+          `mainnet hardening pre-flight FAILED:\n` +
+            hardFailures.map((f) => `    • ${f}`).join("\n") +
+            `\n  Fix via update_protocol_config + lock_treasury / lock_approved_yield_adapter ` +
+            `before re-running the canary. See docs/operations/mainnet-canary-plan.md §3.`,
+        );
+      }
+
+      // Soft checks — log warnings but don't refuse.
+      const softWarnings: string[] = [];
+      if (!cfg.approved_yield_adapter_locked) {
+        softWarnings.push(
+          "approved_yield_adapter_locked == false — call lock_approved_yield_adapter() post-canary",
+        );
+      }
+      if (!cfg.treasury_locked) {
+        softWarnings.push("treasury_locked == false — call lock_treasury() post-canary");
+      }
+      if (softWarnings.length > 0) {
+        console.log("  ⚠️  soft warnings (post-canary action items):");
+        for (const w of softWarnings) console.log(`     - ${w}`);
+      }
+      console.log(
+        `  hardening state OK: pool_cap=${cfg.max_pool_tvl_usdc} ` +
+          `protocol_cap=${cfg.max_protocol_tvl_usdc} ` +
+          `adapter_set=${!cfg.approved_yield_adapter.equals(PublicKey.default)} ` +
+          `commit_reveal=${cfg.commit_reveal_required}`,
+      );
     },
   },
   {
