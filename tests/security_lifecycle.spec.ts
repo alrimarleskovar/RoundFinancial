@@ -127,7 +127,11 @@ const F_CREDIT_BASE = usdc(F_CREDIT_USDC);
 // Active pool intent without violating the equality constraint.
 const L_MEMBERS_TARGET = 2;
 const L_CYCLES_TOTAL = 2;
-const L_INSTALLMENT_USDC = 1_000n;
+// SEV-031 viability guard requires:
+//   members × installment × (1 − sol_bps − escrow_bps) >= credit
+// With sol=1% + escrow=25% (net = 0.74), 2 × 1000 × 0.74 = 1480 < 1500
+// FAILS. Bump installment to 1050: 2 × 1050 × 0.74 = 1554 >= 1500 ✓.
+const L_INSTALLMENT_USDC = 1_050n;
 const L_CREDIT_USDC = 1_500n;
 const L_INSTALLMENT_BASE = usdc(L_INSTALLMENT_USDC);
 const L_CREDIT_BASE = usdc(L_CREDIT_USDC);

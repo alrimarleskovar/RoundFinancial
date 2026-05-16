@@ -89,7 +89,7 @@ import {
   ensureAta,
   fetchMember,
   fetchPool,
-  fetchProfile,
+  tryFetchProfile,
   fundUsdc,
   initMockVault,
   initializeProtocol,
@@ -192,7 +192,7 @@ async function snapshotMember(env: Env, h: MemberHandle): Promise<MemberSnapshot
       contributionsPaid: number;
       onTimeCount: number;
     }>,
-    fetchProfile(env, h.wallet.publicKey) as Promise<{
+    tryFetchProfile(env, h.wallet.publicKey) as Promise<{
       score: { toString(): string };
       onTimePayments: number;
     }>,
