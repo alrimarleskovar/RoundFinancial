@@ -339,16 +339,25 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     // 1) from_solidarity = min(missed=1_000, avail=50) = 50
     // 2) shortfall = 950. max_seizure_respecting_dc(D=2000, C=1750, 3000)
     //    = C_before − ceil(D_rem × C_init / D_init)
-    //    = 1_750 − ceil(2_000 × 1_750 / 3_000) = 1_750 − 1_167 = 583
-    //    cap_escrow = min(escrow_balance=250, vault=1_750) = 250
-    //    → from_escrow = min(950, 250, 583) = 250
-    // 3) shortfall = 700. c_after_escrow = 1_500.
-    //    max_seizure = 1_500 − 1_167 = 333
-    //    cap_stake = min(stake=1_500, vault_remaining=1_500) = 1_500
-    //    → from_stake = min(700, 1_500, 333) = 333
+    //    = 1_750_000_000 − ceil(2_000_000_000 × 1_750_000_000 / 3_000_000_000)
+    //    = 1_750_000_000 − 1_166_666_667 = 583_333_333  (≈ 583.333 USDC)
+    //    cap_escrow = min(escrow_balance=250M, vault=1_750M) = 250M
+    //    → from_escrow = min(950M, 250M, 583_333_333) = 250_000_000
+    // 3) shortfall = 700. c_after_escrow = 1_500_000_000.
+    //    max_seizure = 1_500_000_000 − 1_166_666_667 = 333_333_333  (≈ 333.333 USDC)
+    //    cap_stake = min(stake=1_500M, vault_remaining=1_500M) = 1_500_000_000
+    //    → from_stake = min(700M, 1_500M, 333_333_333) = 333_333_333
     //
-    // Total seized = 50 + 250 + 333 = 633
-    const EXPECTED_SEIZED = 633_000_000n;
+    // Total seized = 50_000_000 + 250_000_000 + 333_333_333 = 633_333_333
+    //                                                        (≈ 633.333 USDC)
+    //
+    // NOTE: previous version of this comment rounded the D/C ratio
+    // result `1_166_666_666.67` to `1_167` USDC and used `333` USDC as
+    // the stake seizure shorthand. Chain math actually gives the full
+    // `333_333_333` base units (1/3 USDC remainder) — keep the chain
+    // truth here, not the rounded shorthand, so EXPECTED_SEIZED
+    // matches the on-chain settle_default log byte-for-byte.
+    const EXPECTED_SEIZED = 633_333_333n;
 
     // Token flows — pool_usdc_vault absorbs the full seizure.
     const poolVaultAfter = await readTokenBalance(env, poolUsdcVault);
@@ -364,8 +373,8 @@ describe("edge — grace-period default (bankrun setClock)", function () {
       "solidarity vault drained by full balance",
     );
     expect(escrowVaultBefore - escrowVaultAfter).to.equal(
-      583_000_000n,
-      "escrow vault drained by escrow+stake legs (250 + 333)",
+      583_333_333n,
+      "escrow vault drained by escrow+stake legs (250_000_000 + 333_333_333)",
     );
 
     // Member bookkeeping — defaulted flips, escrow drains to 0,
@@ -381,7 +390,7 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     };
     expect(m.defaulted).to.equal(true);
     expect(m.escrowBalance.toString()).to.equal("0");
-    expect(m.stakeDeposited.toString()).to.equal("1167000000"); // 1500 − 333
+    expect(m.stakeDeposited.toString()).to.equal("1166666667"); // 1_500_000_000 − 333_333_333
     // Initials must be untouched — they anchor the D/C invariant.
     expect(m.stakeDepositedInitial.toString()).to.equal(STAKE_INITIAL.toString());
     expect(m.totalEscrowDeposited.toString()).to.equal(ESCROW_DEPOSITED.toString());
@@ -395,7 +404,7 @@ describe("edge — grace-period default (bankrun setClock)", function () {
     };
     expect(p.defaultedMembers).to.equal(1);
     expect(p.solidarityBalance.toString()).to.equal("0");
-    expect(p.escrowBalance.toString()).to.equal((ESCROW_VAULT_BAL - 583_000_000n).toString());
+    expect(p.escrowBalance.toString()).to.equal((ESCROW_VAULT_BAL - 583_333_333n).toString());
 
     // D/C invariant on the post-seizure member state — recomputed
     // from raw member fields, identical formula to math/dc.rs:9.
