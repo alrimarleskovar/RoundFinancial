@@ -72,11 +72,17 @@ import {
 // ─── Pool shape ─────────────────────────────────────────────────────────
 //
 // Auditor's disclosed scenario uses stake=750 USDC, cycles=3, installment=
-// 1000 USDC. We mirror it as closely as the harness allows. members=2
-// because joinMembers requires `cycles_total >= members_target`; with
-// cycles_total=3 we get a 2-member rotation.
+// 1000 USDC. We mirror it. SEV-038 tightened `cycles_total >=
+// members_target` to `==`, so a 3-cycle pool needs exactly 3 members
+// (one slot rotation per cycle, every member claims once).
+//
+// The SEV-034 math doesn't depend on member count — VEST_PER_CHECKPOINT
+// is `stake/cycles` regardless. The lifecycle loop drives `handles[0]`
+// through contribute → claim (at cycle 0, slot owner = handles[0]) →
+// release, then contribute → claim (cycle 1, slot owner = handles[1])
+// → release, etc.
 
-const MEMBERS_TARGET = 2;
+const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
 // MIN_CYCLE_DURATION on-chain is 86_400s (1 day) — SEV-023 reverted the
 // devnet 60s patch. The lifecycle here doesn't rely on wall-clock
