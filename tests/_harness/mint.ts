@@ -56,19 +56,30 @@ export function usdc(whole: number | bigint): bigint {
  *   writes it into `ProtocolConfig`.
  * Subsequent calls (warm): reads `ProtocolConfig.usdc_mint` off
  *   chain, returns that.
+ *
+ * Pass `{ forceFresh: true }` to bypass the reuse — useful for
+ * specs that need a SECOND, unrelated mint to exercise wrong-mint
+ * negative paths (`InvalidMint` guards etc.). The fresh mint is
+ * NOT written to ProtocolConfig, so it never participates in the
+ * canonical reuse cycle.
  */
-export async function createUsdcMint(env: Env): Promise<PublicKey> {
-  // Lazy import to dodge the circular `protocol.ts ← mint.ts` cycle
-  // — `protocol.ts` imports `ensureAta` from here.
-  const { configPda } = await import("./pda.js");
-  const config = configPda(env);
-  const existing = await env.connection.getAccountInfo(config, "confirmed");
-  if (existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const decoded = (await (env.programs.core.account as any).protocolConfig.fetch(config)) as {
-      usdcMint: PublicKey;
-    };
-    return decoded.usdcMint;
+export async function createUsdcMint(
+  env: Env,
+  opts: { forceFresh?: boolean } = {},
+): Promise<PublicKey> {
+  if (!opts.forceFresh) {
+    // Lazy import to dodge the circular `protocol.ts ← mint.ts` cycle
+    // — `protocol.ts` imports `ensureAta` from here.
+    const { configPda } = await import("./pda.js");
+    const config = configPda(env);
+    const existing = await env.connection.getAccountInfo(config, "confirmed");
+    if (existing) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const decoded = (await (env.programs.core.account as any).protocolConfig.fetch(config)) as {
+        usdcMint: PublicKey;
+      };
+      return decoded.usdcMint;
+    }
   }
   return createMint(
     env.connection,
