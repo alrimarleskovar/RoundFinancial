@@ -25,11 +25,23 @@ skip-lint = false
 # after the first local build to generate real keypairs under target/deploy/
 # and have this file (and every declare_id! macro) rewritten automatically.
 
+# Localnet addresses MUST match `declare_id!` in each
+# `programs/*/src/lib.rs` (same as `[programs.devnet]` below — the
+# protocol uses ONE set of program IDs across clusters, vendored into
+# the source as `declare_id!` macros). Bankrun (`tests/_harness/
+# bankrun.ts`) reads this section to decide where to deploy each
+# program in the in-memory env; if these are `11111…` placeholders
+# (the Anchor template default), bankrun tries to deploy programs at
+# the System Program address, the runtime refuses the override, and
+# every spec ix targeting roundfi-core fails with "incorrect program
+# id for instruction" (the System Program receives the tx instead of
+# roundfi-core). Keep these aligned with `[programs.devnet]` + the
+# `declare_id!` macros.
 [programs.localnet]
-roundfi_core        = "11111111111111111111111111111111"
-roundfi_reputation  = "11111111111111111111111111111111"
-roundfi_yield_mock  = "11111111111111111111111111111111"
-roundfi_yield_kamino = "11111111111111111111111111111111"
+roundfi_core         = "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw"
+roundfi_reputation   = "Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2"
+roundfi_yield_mock   = "GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ"
+roundfi_yield_kamino = "74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb"
 
 [programs.devnet]
 roundfi_core         = "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw"
