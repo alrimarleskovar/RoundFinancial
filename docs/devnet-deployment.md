@@ -414,3 +414,49 @@ done
 | SOL spent on uploads              | _≈ X SOL_                                                                      |
 | SOL recovered via `program close` | _≈ Y SOL_                                                                      |
 | Outcome                           | _e.g. "All four programs deployed and closed cleanly. CD pipeline validated."_ |
+
+---
+
+## 9 · Session addendum (2026-05-16 — pre-audit integration testing wave)
+
+This entry supplements §3 with evidence from the **SEV-034 integration spec session** that surfaced **SEV-034b** (the only on-chain finding from the post-pre-audit integration wave; see PR #360 + `MAINNET_READINESS.md` §1.6b).
+
+### Pool state snapshot (after session, before any PR merge)
+
+| Pool                                                                                                                   | Status               | Surface exercised                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pool 1** — [`5APoEC…c8ooa`](https://solscan.io/account/5APoECXzJwr6j6xXGsqkT6GRSWNVDm4NSQB3KLhc8ooa?cluster=devnet)  | ✅ **Closed**        | Full ROSCA lifecycle from §3 already. `close_pool` summary: total_contributed = 90 USDC, total_paid_out = 90 USDC. Conservation property holds on chain. |
+| **Pool 2** — [`8XZxRS…twbujm`](https://solscan.io/account/8XZxRSqUDEvhVENxxnhNKM8htZTmVuyQgYbZXmtwbujm?cluster=devnet) | ✅ Active (3/3)      | Already covered in §3 (yield + escape-valve subset).                                                                                                     |
+| **Pool 3** — [`D9PS7Q…pDE5`](https://solscan.io/account/D9PS7QDGUsAwHa4T6Gibw6HV9Lx2sbB5aZM5GsNzpDE5?cluster=devnet)   | ✅ Active, cycle 2/3 | `settle_default` subset from §3 + **today's contribute tx** below.                                                                                       |
+
+### New tx evidence captured this session
+
+| Action                                                            | Tx                                                                                                                                             | What it proves                                                                                                                                                                          |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `contribute(cycle=2)` on Pool 3 — member 0                        | [`4RivEL…2dHL`](https://solscan.io/tx/4RivELE1FXQrPC5tEZi6eBhA9yqZHEfF9iLs93K1W6eckNE5DcieCsGkZSM7TUeLpqPz4oeAZjVyPs6ZeN492dHL?cluster=devnet) | Fresh wallet (`DC5Dcf7j…`) contributes to a live Active pool 9 days into its lifecycle. Schema = LATE (next_cycle_at expired) — reputation will get `SCHEMA_LATE` not `SCHEMA_PAYMENT`. |
+| `contribute(cycle=2)` rejected — `AlreadyContributed` (0x1779)    | inline log, no signature                                                                                                                       | Per-cycle idempotence guard fires on member 1 (`6NTyfs83…`) who had already contributed cycle 2 in a prior session. Anti-double-pay invariant.                                          |
+| `contribute(cycle=2)` rejected — `DefaultedMember` (0x177d)       | inline log, no signature                                                                                                                       | Triple Shield default-stickiness guard: member 2 (`4sLSCzCJ…`) was set `defaulted = true` by a prior `settle_default` call; future contributes by a defaulted member are blocked.       |
+| `release_escrow(checkpoint=1)` rejected — `EscrowLocked` (0x177b) | [`2pJ2CP…9ywv`](https://solscan.io/tx/2pJ2CPTyGHMe2jK4wL4Y83qVTFXRkx8PaZJDY3VW135NrtEULKGw3bsWJYyt3DqnV3KhXGB2r2fXuDsuqzuU9ywv?cluster=devnet) | Pool 1 (Closed) — `on_time_count = 0` < `checkpoint = 1` → on-chain guard reverts. Negative-path enforcement of the on-time-discipline rule visible as durable failed-tx evidence.      |
+
+### Live Member NFT positions (Pool 3, Metaplex Core)
+
+| Slot | Wallet                                         | Member PDA                                                                                               |
+| ---- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 0    | `DC5Dcf7j365ca4ZCeSqqpiqxhaQVdgagRivQQpU4xgah` | [`4QiLca…WMPaB`](https://solscan.io/account/4QiLcaPmRN2gBXatV4oCchoHRJbopqAtjWQZFg1WMPaB?cluster=devnet) |
+| 1    | `6NTyfs83wzEo7WkkhTuNSxXiyYM9x73icbdtQWVbhaRy` | [`FtGAB3…3dB8`](https://solscan.io/account/FtGAB3Vjg9JEUv3DJhWb6ZEWnjXAjkGtJGXFTjms3dB8?cluster=devnet)  |
+| 2    | `4sLSCzCJnZFMtaLD6vQsgZ4ywAwYa6joExK9dcM2HvKq` | [`GqzmPk…SqfHQ`](https://solscan.io/account/GqzmPkW73QaoSZAmg481btfPkgY7jgncPekf2aUSqfHQ?cluster=devnet) |
+
+### Off-chain validation (math + fuzz)
+
+| Lane                                          | Result                                                          |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| `cargo test -p roundfi-math --release`        | ✅ 98 passing, 0 failed                                         |
+| `cargo +nightly fuzz run <target>` × 6 × 5min | ✅ ~500M inputs, 0 crashes, 0 artifacts                         |
+| `cargo clippy --all-targets` (post fix sweep) | ✅ No actionable warnings (only doc-list cosmetic + Anchor cfg) |
+
+### Why this matters for the demo / pitch
+
+1. **Conservation visible on chain**: Pool 1's `close_pool` log shows `total_contributed = total_paid_out = 90 USDC` — the ROSCA balanced down to the last base unit.
+2. **All three Triple Shield guards captured firing on real funds**: `WaterfallUnderflow` + `EscrowLocked` (§3) + `shield-1-only seizure` (§3 settle_default). The negative tx in this addendum re-confirms `EscrowLocked` post-Closed state.
+3. **Real defaulted member in chain state**: Pool 3 slot 2 (`4sLSCzCJ…`) has `defaulted = true` set by a prior `settle_default`. Any contribute attempt by that wallet is now blocked (0x177d above) — Triple Shield default-stickiness is observable across sessions.
+4. **Integration spec found a real Critical bug**: SEV-034b (PR #360) — `total_escrow_deposited = stake_amount` should be `= 0` in `join_pool`. Whole `release_escrow` feature was broken on `main` HEAD until that fix. Validates the SEV-034 author's own docstring: pure-math simulators prove function properties, not on-chain state.
