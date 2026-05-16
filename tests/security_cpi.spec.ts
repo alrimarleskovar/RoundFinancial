@@ -195,14 +195,17 @@ async function snapshotMember(env: Env, h: MemberHandle): Promise<MemberSnapshot
     tryFetchProfile(env, h.wallet.publicKey) as Promise<{
       score: { toString(): string };
       onTimePayments: number;
-    }>,
+    } | null>,
   ]);
+  // Fresh wallet (no init_profile yet) → canonical level-1 defaults.
+  // This mirrors the on-chain semantic: an absent ReputationProfile
+  // is treated as score=0, on_time_payments=0 at level 1.
   return {
     memberUsdc,
     contributions: m.contributionsPaid,
     onTimeCount: m.onTimeCount,
-    profileScore: bn(p.score),
-    profileOnTime: p.onTimePayments,
+    profileScore: p ? bn(p.score) : 0n,
+    profileOnTime: p ? p.onTimePayments : 0,
   };
 }
 
