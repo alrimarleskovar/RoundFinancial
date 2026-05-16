@@ -93,6 +93,16 @@ const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZN
  * those CPIs trip "Unsupported program id" — exactly the failure mode
  * SEV-012 / #319 has been tracking for the bankrun-in-CI lane.
  *
+ * **Status (May 2026)**: this loader resolves the "Unsupported program
+ * id" trip for mpl_core specifically. Validated locally that bankrun
+ * accepts the mainnet-cloned binary and registers it under
+ * `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d`. The
+ * `edge_grace_default*` specs still fail with a downstream "incorrect
+ * program id for instruction" error rooted in how their `writeAccount`
+ * setup interacts with bankrun's System-Program initialization (4
+ * "Overriding account at 11111…" lines in the boot log) — unrelated
+ * to mpl_core, tracked as a separate follow-up.
+ *
  * mpl_core.so is NOT committed to the repo (~1MB binary). Convention:
  * `target/deploy/mpl_core.so` populated via:
  *
