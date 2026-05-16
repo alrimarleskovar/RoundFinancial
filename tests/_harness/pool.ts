@@ -185,6 +185,33 @@ export async function createPool(env: Env, opts: CreatePoolOpts): Promise<PoolHa
     .signers([opts.authority])
     .rpc();
 
+  // `create_pool` only allocates Pool PDA + records vault-authority
+  // bumps; the 4 USDC vault ATAs are split into `init_pool_vaults` to
+  // dodge Anchor's recursive init stack overflow (SEV-004 / see header
+  // of init_pool_vaults.rs). Without this second call, `joinPool` (and
+  // every subsequent ix that touches the vaults) trips
+  // `AccountNotInitialized`.
+  await (env.programs.core.methods as any)
+    .initPoolVaults()
+    .accounts({
+      authority: authorityPk,
+      config: configPda(env),
+      pool,
+      usdcMint: opts.usdcMint,
+      escrowVaultAuthority,
+      solidarityVaultAuthority,
+      yieldVaultAuthority,
+      poolUsdcVault,
+      escrowVault,
+      solidarityVault,
+      yieldVault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([opts.authority])
+    .rpc();
+
   return {
     pool,
     authority: opts.authority,
