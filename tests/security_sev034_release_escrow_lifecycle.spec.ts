@@ -258,8 +258,7 @@ describe("SEV-034 — release_escrow under interleaved contribute/release lifecy
     // is a one-cycle credit advance, not a profit position. The pool
     // "earns" 750 (= installment × cycles − credit − stake) as solidarity
     // float + pool float, which funds the spread between credit and stake.
-    const expectedNetGain =
-      STAKE_BASE + CREDIT_BASE - INSTALLMENT_BASE * BigInt(CYCLES_TOTAL);
+    const expectedNetGain = STAKE_BASE + CREDIT_BASE - INSTALLMENT_BASE * BigInt(CYCLES_TOTAL);
     expect(
       walletGain,
       `subject wallet net gain = stake released + credit received − contributions paid`,

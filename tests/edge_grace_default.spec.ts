@@ -69,7 +69,7 @@ const GRACE_PERIOD_SECS = 604_800n;
 
 const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60n;
+const CYCLE_DURATION_SEC = 86_400n;
 const INSTALLMENT = 1_000_000_000n; // 1_000 USDC
 const CREDIT = 3_000_000_000n; // 3_000 USDC == 3 × installment
 const STAKE_INITIAL = 1_500_000_000n; // 50% of credit (Level-1)

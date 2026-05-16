@@ -113,7 +113,7 @@ import {
 
 const MEMBERS_TARGET = 2;
 const CYCLES_TOTAL = 2;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst = 1_250 * (1 - 0.01 - 0.25) = 925 USDC
 // credit must fit 2 * 925 = 1_850 USDC

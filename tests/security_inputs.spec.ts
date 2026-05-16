@@ -76,7 +76,7 @@ import {
 
 const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 const INSTALLMENT_USDC = 1_250n;
 const CREDIT_USDC = 2_775n;
 const LEVEL: 1 | 2 | 3 = 2;

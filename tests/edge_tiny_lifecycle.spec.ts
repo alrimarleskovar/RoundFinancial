@@ -73,7 +73,7 @@ import {
 
 const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION
 
 const LEVEL: 1 | 2 | 3 = 1; // 50 % stake
 const STAKE_BPS = 5_000;
