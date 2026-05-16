@@ -89,7 +89,7 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
 
     // ─── On-time requirement (invariant #2 scaffolding) ─────────────────
     require!(
-        member.on_time_count as u16 >= args.checkpoint as u16,
+        member.on_time_count >= args.checkpoint as u16,
         RoundfiError::EscrowLocked,
     );
 
