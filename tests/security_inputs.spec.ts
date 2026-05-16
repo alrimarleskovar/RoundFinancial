@@ -123,7 +123,8 @@ async function snapshot(env: Env, pool: PoolHandle, h: MemberHandle): Promise<Se
   const profile = (await tryFetchProfile(env, h.wallet.publicKey)) as {
     score: { toString(): string };
     onTimePayments: number;
-  };
+  } | null;
+  // Fresh wallet (no init_profile yet) → canonical level-1 defaults.
   return {
     poolVault,
     solidarity,
@@ -134,8 +135,8 @@ async function snapshot(env: Env, pool: PoolHandle, h: MemberHandle): Promise<Se
     memberDefaulted: m.defaulted,
     poolCurrentCycle: p.currentCycle,
     poolTotalContrib: bn(p.totalContributed),
-    profileScore: bn(profile.score),
-    profileOnTime: profile.onTimePayments,
+    profileScore: profile ? bn(profile.score) : 0n,
+    profileOnTime: profile ? profile.onTimePayments : 0,
   };
 }
 
