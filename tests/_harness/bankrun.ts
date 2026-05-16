@@ -98,10 +98,19 @@ const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZN
  * accepts the mainnet-cloned binary and registers it under
  * `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d`. The
  * `edge_grace_default*` specs still fail with a downstream "incorrect
- * program id for instruction" error rooted in how their `writeAccount`
- * setup interacts with bankrun's System-Program initialization (4
- * "Overriding account at 11111…" lines in the boot log) — unrelated
- * to mpl_core, tracked as a separate follow-up.
+ * program id for instruction" error — **diagnosed as a spec-level bug,
+ * not a harness one**: those specs pass `env.ids.reputation` (the
+ * reputation program's executable address) as a placeholder for
+ * optional reputation accounts (e.g. `reputationConfig`, `attestation`)
+ * via the `settleAccounts()` helper. The settle_default handler skips
+ * the reputation CPI at runtime when `config.reputation_program ==
+ * Pubkey::default()`, but Anchor's `Account<T>` ownership-check runs
+ * BEFORE the handler — so the program-executable-as-account placeholder
+ * fails validation with "incorrect program id". Was previously masked
+ * by the mpl_core "Unsupported program id" trip; surfaces post-loader.
+ * Tracked as a separate spec-fix follow-up (the on-chain accounts struct
+ * would need `Option<Account<T>>` to accept the placeholder pattern, or
+ * the spec needs uninitialized PDAs at the canonical seed addresses).
  *
  * mpl_core.so is NOT committed to the repo (~1MB binary). Convention:
  * `target/deploy/mpl_core.so` populated via:
