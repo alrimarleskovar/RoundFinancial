@@ -43,8 +43,8 @@ import { loadCluster, requireProgram } from "../../config/clusters.js";
 const OFFSET_AUTHORITY = 8;
 const OFFSET_PENDING_TREASURY = 213;
 const OFFSET_PENDING_TREASURY_ETA = 245;
-const OFFSET_PENDING_AUTHORITY = 311; // (NEW in PR #323)
-const OFFSET_PENDING_AUTHORITY_ETA = 343; // (NEW in PR #323)
+const OFFSET_PENDING_AUTHORITY = 313; // (NEW in PR #323)
+const OFFSET_PENDING_AUTHORITY_ETA = 345; // (NEW in PR #323)
 const PROTOCOL_CONFIG_SIZE = 381;
 
 interface AuthorityRotationView {
