@@ -1,14 +1,21 @@
-# `[toolchain]` block intentionally omitted. PR #121 bumped the
+# `anchor_version` pin matches the workspace `anchor-lang = "0.30.1"`
+# dependency in every `programs/*/Cargo.toml`. Without it, devs running
+# Anchor CLI 1.x get a version-drift warning and `anchor test` tries to
+# spawn `surfpool` (the Anchor 1.x replacement for solana-test-validator)
+# which most local installs don't have. Pinning to 0.30.1 keeps `anchor
+# test` on the classic solana-test-validator path — same as CI.
+#
+# `solana_version` deliberately NOT pinned. PR #121 bumped the
 # workspace to Anza Agave 2.x (stable channel) for edition2024
 # transitive deps; pinning a `solana_version` here would trigger
 # `solana-install init <ver>` before every build, which (a) requires
 # the user to have the legacy 1.x cached locally, and (b) overwrites
-# whatever Agave 2.x they installed for the CI lane.
-#
-# `anchor build` now uses whichever `solana` is in PATH, matching the
+# whatever Agave 2.x they installed for the CI lane. `anchor build`
+# uses whichever `solana` is in PATH instead — matches the
 # `programs/roundfi-core/Cargo.toml` `mpl-core 0.8` constraint and the
-# `.github/workflows/ci.yml` anchor lane (which installs Agave stable
-# on a fresh ubuntu-latest runner). Same toolchain everywhere.
+# `.github/workflows/ci.yml` anchor lane.
+[toolchain]
+anchor_version = "0.30.1"
 
 [features]
 resolution = true
