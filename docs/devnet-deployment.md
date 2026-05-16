@@ -460,3 +460,40 @@ This entry supplements §3 with evidence from the **SEV-034 integration spec ses
 2. **All three Triple Shield guards captured firing on real funds**: `WaterfallUnderflow` + `EscrowLocked` (§3) + `shield-1-only seizure` (§3 settle_default). The negative tx in this addendum re-confirms `EscrowLocked` post-Closed state.
 3. **Real defaulted member in chain state**: Pool 3 slot 2 (`4sLSCzCJ…`) has `defaulted = true` set by a prior `settle_default`. Any contribute attempt by that wallet is now blocked (0x177d above) — Triple Shield default-stickiness is observable across sessions.
 4. **Integration spec found a real Critical bug**: SEV-034b (PR #360) — `total_escrow_deposited = stake_amount` should be `= 0` in `join_pool`. Whole `release_escrow` feature was broken on `main` HEAD until that fix. Validates the SEV-034 author's own docstring: pure-math simulators prove function properties, not on-chain state.
+
+---
+
+## 10 · Session addendum (2026-05-16 — Squads multisig rotation rehearsal)
+
+End-to-end rehearsal of the Squads multisig authority rotation flow against a **parallel test deploy** on devnet. Canonical `roundfi-core` program (`8LVrgxKw…QQjw`) + Pool 1/2/3 state from §3 + §9 were NOT touched. Full log artifact: [`docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md`](./operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md) (PR #369).
+
+### Parallel test deploy (not canonical)
+
+| Surface             | Value                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Core program (test) | `6WuSo1utWKg8gNyzzJyqCoeLa7VpEyu8ZN1EtLzJ7Rpn` (throwaway, lives on devnet as orphan post-rehearsal)                                                               |
+| ProtocolConfig PDA  | `FD68n1C6rT15PkjyVPgx25jDXQ2tRvpqf7KPi1nzkyPc` (derived from the new program-id; canonical `3c9MmoM8…` is untouched)                                               |
+| Upgrade authority   | `B8CjP1mC4SzntAi7WabGx87kPHnqYcUc6SQYAr4ci8di`                                                                                                                     |
+| Protocol authority  | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` (pre-rehearsal) → `6Y6BL1mq6ME7HfWXFVzUmT1DgKekzW8eKW11jAess6aL` (post-rehearsal commit, throwaway vault simulator) |
+
+### Rehearsal tx chain — 4 phases validated on-chain
+
+| Phase | Instruction             | Tx signature              | Solscan                                                                                                                               |
+| ----- | ----------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| A     | `propose_new_authority` | `4pfiQLAEzpoz…BoZpTzMPFN` | [view](https://solscan.io/tx/4pfiQLAEzpozgZgRr4z47asWfZdtu3uKreCgFNFRnnznaGCsyEwp89qFzGqeg1eJwAWW7wEV2U7tYPBoZpTzMPFN?cluster=devnet) |
+| B     | `cancel_new_authority`  | `s1NDWguUm…natFY4pg2nF`   | [view](https://solscan.io/tx/s1NDWguUmSe2oC1Vw2FzoiKTXfVMkuVXvpi8Xq7i5jcg2SitySz1UcC9SUdFfo8DpKc42arbG5gwnatFY4pg2nF?cluster=devnet)  |
+| C-a   | `propose_new_authority` | `2dhWa68945…NibfHfW6hcX`  | [view](https://solscan.io/tx/2dhWa68945EW7fvkknSssyCAaYtcAUK5niRoaYpPuWSrACoaVaQ9ZGDsdRASbvs8YX3d2C6XiMwx4NibfHfW6hcX?cluster=devnet) |
+| C-b   | `commit_new_authority`  | `2xeWvuDTa4…zfXgvkVf`     | [view](https://solscan.io/tx/2xeWvuDTa4hC9Ej2sTmEjEPwgu4ztYnjZKfNYvwXVpJtBGXEw2BQx2e2229cW4d3zCKaK9nh8dDa6XyhzfXgvkVf?cluster=devnet) |
+
+Final state post-commit: `live=6Y6BL1mq…`, `pending=11111…`, `eta=0` (idle, no rotation in flight).
+
+### Audit-worthy findings surfaced during execution
+
+1. **Canonical devnet ProtocolConfig (`3c9MmoM8…`) is pre-PR #323.** On-chain account is 317 bytes; current code expects 381 (delta = 64 bytes = `pending_authority` Pubkey + `pending_authority_eta` i64). `realloc` migration ix will be required before the canonical config can be exercised by the rotation flow. Tracked as gap for next devnet refresh sprint.
+2. **Script offset bug in `squads-rehearsal-{verify,commit-authority}.ts`** (fixed in PR #369): hardcoded `OFFSET_PENDING_AUTHORITY = 311` and `OFFSET_PENDING_AUTHORITY_ETA = 343` were both off by 2 bytes. Root cause: the struct's own `pub const SIZE` comment listed `pending_authority` BEFORE `lp_share_bps` (u16, 2 bytes) — but Borsh serializes in source declaration order which puts `lp_share_bps` FIRST. Script author trusted the SIZE comment instead of source declaration order. Fix: `OFFSET_PENDING_AUTHORITY: 311 → 313`, `OFFSET_PENDING_AUTHORITY_ETA: 343 → 345`.
+
+### Honest framing
+
+The rehearsal validated the RoundFi-side propose/cancel/commit instruction logic + the Phase C timelock (lowered to 60s on a throwaway branch via `TREASURY_TIMELOCK_SECS = 60`, redeployed, exercised, restored). The Squads-side multisig vault PDA derivation + member signing flow is NOT in this rehearsal scope — that's exercised separately at the mainnet ceremony via the Squads web UI per [`docs/operations/squads-multisig-procedure.md`](./operations/squads-multisig-procedure.md) §3-§5.
+
+Mainnet timelock (`TREASURY_TIMELOCK_SECS = 604_800` = 7 days) is **NOT bypassed in production** — the canonical program at `8LVrgxKw…QQjw` was never touched. This rehearsal proves the ix logic; the real-time 7-day wait is a runtime property pinned by `programs/roundfi-core/src/constants.rs:treasury_timelock_above_mainnet_floor` unit test.
