@@ -35,11 +35,41 @@ export function usdc(whole: number | bigint): bigint {
 }
 
 /**
- * Create a fresh USDC-like mint (6 decimals, harness payer as mint
- * authority). Returns the mint pubkey. Spec files typically cache
- * this in a top-level `before()` hook and pass it to every helper.
+ * Get (or create) the harness USDC mint.
+ *
+ * Idempotent across mocha runs against the same validator: if a
+ * `ProtocolConfig` PDA already exists on chain, we reuse its
+ * `usdc_mint` instead of minting a fresh one. This lets specs that
+ * each call `createUsdcMint()` then `initializeProtocol(env, {
+ * usdcMint })` cooperate on a non-reset validator — without this,
+ * every spec after the first hits `InvalidMint` (6025) at
+ * `create_pool` because the chain config holds the previous spec's
+ * mint.
+ *
+ * Mint authority is `env.payer`. Since the validator+wallet pair is
+ * stable across runs (same `~/.config/solana/id.json` keypair), the
+ * payer can keep minting against the persisted mint — `fundUsdc` and
+ * friends work identically pre- and post-reuse.
+ *
+ * First call (cold): mints a new 6-decimal USDC-like token, returns
+ *   the pubkey. Spec then passes it to `initializeProtocol`, which
+ *   writes it into `ProtocolConfig`.
+ * Subsequent calls (warm): reads `ProtocolConfig.usdc_mint` off
+ *   chain, returns that.
  */
 export async function createUsdcMint(env: Env): Promise<PublicKey> {
+  // Lazy import to dodge the circular `protocol.ts ← mint.ts` cycle
+  // — `protocol.ts` imports `ensureAta` from here.
+  const { configPda } = await import("./pda.js");
+  const config = configPda(env);
+  const existing = await env.connection.getAccountInfo(config, "confirmed");
+  if (existing) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const decoded = (await (env.programs.core.account as any).protocolConfig.fetch(config)) as {
+      usdcMint: PublicKey;
+    };
+    return decoded.usdcMint;
+  }
   return createMint(
     env.connection,
     env.payer,
