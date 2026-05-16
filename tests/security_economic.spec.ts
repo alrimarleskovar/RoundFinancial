@@ -111,7 +111,7 @@ const E_MEMBERS_TARGET = 3;
 const E_CYCLES_TOTAL = 3;
 const E_INSTALLMENT_USDC = 1_250n;
 const E_CREDIT_USDC = 2_775n;
-const E_LEVEL: 1 | 2 | 3 = 2;
+const E_LEVEL: 1 | 2 | 3 = 1;
 
 const E_INSTALLMENT_BASE = usdc(E_INSTALLMENT_USDC);
 const E_CREDIT_BASE = usdc(E_CREDIT_USDC);
@@ -120,7 +120,7 @@ const Y_MEMBERS_TARGET = 2;
 const Y_CYCLES_TOTAL = 2;
 const Y_INSTALLMENT_USDC = 1_000n;
 const Y_CREDIT_USDC = 1_500n;
-const Y_LEVEL: 1 | 2 | 3 = 2;
+const Y_LEVEL: 1 | 2 | 3 = 1;
 
 const Y_INSTALLMENT_BASE = usdc(Y_INSTALLMENT_USDC);
 const Y_CREDIT_BASE = usdc(Y_CREDIT_USDC);

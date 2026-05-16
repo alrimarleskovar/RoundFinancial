@@ -269,7 +269,7 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
     );
   });
 
-  it("close_pool succeeds (status=Completed, zero defaults)", async function () {
+  it("close_pool succeeds (status=Closed, zero defaults)", async function () {
     // close_pool requires `defaulted_members == 0 || escrow_balance == 0`.
     // Here defaulted_members == 0, so close is allowed even though the
     // non-stake escrow portion is still resident.
@@ -277,9 +277,12 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (await fetchPool(env, pool.pool)) as any;
-    // close_pool is effectively a log/assert step — status stays at
-    // Completed (the terminal value from claim_payout on the last cycle).
-    expect(p.status).to.equal(2);
+    // SEV-005 fix added a distinct terminal `Closed = 4` variant so
+    // close_pool is one-shot (entry constraint = status == Completed,
+    // which the flip to Closed then bars). Pre-SEV-005 the pool stayed
+    // at Completed = 2 after close and could be replayed, deflating
+    // `committed_protocol_tvl_usdc` per call.
+    expect(p.status, "post-close status must be Closed (4), not Completed (2)").to.equal(4);
     expect(p.defaultedMembers).to.equal(0);
   });
 

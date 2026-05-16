@@ -43,6 +43,7 @@
  */
 
 import { expect } from "chai";
+import { BN } from "@coral-xyz/anchor";
 import { PublicKey, Keypair } from "@solana/web3.js";
 
 import {
@@ -88,8 +89,17 @@ async function updateProtocolConfig(env: Env, opts: UpdateConfigOpts): Promise<v
       newFeeBpsCycleL2: null,
       newFeeBpsCycleL3: null,
       newGuaranteeFundBps: null,
-      newMaxPoolTvlUsdc: opts.maxPoolTvlUsdc !== undefined ? opts.maxPoolTvlUsdc : null,
-      newMaxProtocolTvlUsdc: opts.maxProtocolTvlUsdc !== undefined ? opts.maxProtocolTvlUsdc : null,
+      // Anchor's Option<u64> encoder requires `BN | null` (the borsh
+      // BNLayout calls `src.toArrayLike(...)`). Wrap bigints here so
+      // callers can keep the more ergonomic `bigint | null` API.
+      newMaxPoolTvlUsdc:
+        opts.maxPoolTvlUsdc !== undefined && opts.maxPoolTvlUsdc !== null
+          ? new BN(opts.maxPoolTvlUsdc.toString())
+          : null,
+      newMaxProtocolTvlUsdc:
+        opts.maxProtocolTvlUsdc !== undefined && opts.maxProtocolTvlUsdc !== null
+          ? new BN(opts.maxProtocolTvlUsdc.toString())
+          : null,
       newApprovedYieldAdapter:
         opts.approvedYieldAdapter !== undefined ? opts.approvedYieldAdapter : null,
     })

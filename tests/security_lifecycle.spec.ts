@@ -109,19 +109,24 @@ function listingPdaFor(coreProgram: PublicKey, pool: PublicKey, slotIndex: numbe
 //     listed one.
 //
 const CYCLE_DURATION_SEC = 86_400;
-const LEVEL: 1 | 2 | 3 = 2;
+const LEVEL: 1 | 2 | 3 = 1;
 
-// Pool F (Forming).
+// Pool F (Forming). SEV-038 requires cycles_total == members_target —
+// bumped from 3/2 to 3/3 so the shape is valid; the test scenarios in
+// this spec only join 2/3 members to keep pool in Forming, so the
+// third cycle slot is never exercised.
 const F_MEMBERS_TARGET = 3;
-const F_CYCLES_TOTAL = 2;
+const F_CYCLES_TOTAL = 3;
 const F_INSTALLMENT_USDC = 1_000n;
 const F_CREDIT_USDC = 1_500n;
 const F_INSTALLMENT_BASE = usdc(F_INSTALLMENT_USDC);
 const F_CREDIT_BASE = usdc(F_CREDIT_USDC);
 
-// Pool L (Lifecycle — release_escrow + close_pool).
+// Pool L (Lifecycle — release_escrow + close_pool). SEV-038: cycles
+// must equal members — was 2/3, normalized to 2/2 to keep the small
+// Active pool intent without violating the equality constraint.
 const L_MEMBERS_TARGET = 2;
-const L_CYCLES_TOTAL = 3;
+const L_CYCLES_TOTAL = 2;
 const L_INSTALLMENT_USDC = 1_000n;
 const L_CREDIT_USDC = 1_500n;
 const L_INSTALLMENT_BASE = usdc(L_INSTALLMENT_USDC);
