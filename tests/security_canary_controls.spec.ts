@@ -40,6 +40,16 @@
  * `approved_yield_adapter` via `update_protocol_config`. `afterEach`
  * resets every field to its initial-disabled state so subsequent specs
  * in the same mocha run see a clean config.
+ *
+ * **Suite ordering note** — by design, the yield-adapter allowlist
+ * subdir tests MUTATE the singleton `ProtocolConfig.approved_yield_adapter`
+ * field. The on-chain handler at `update_protocol_config.rs:132` forbids
+ * reverting that field to `Pubkey::default()` (allowlist is one-way
+ * tightening). So once this spec runs, every subsequent createPool in
+ * the same validator session must pass the pinned adapter, or it bounces
+ * with `InvalidYieldAdapter` (6016). When batching specs against a single
+ * `solana-test-validator`, run `security_canary_controls` LAST — or run
+ * it isolated with a `--reset` before the next batch.
  */
 
 import { expect } from "chai";
@@ -165,15 +175,16 @@ describe("canary controls — TVL caps + adapter allowlist (negative paths)", fu
 
   describe("TVL caps", () => {
     it("per-pool cap exceeded → PoolTvlCapExceeded, no Pool PDA created", async () => {
-      // Set cap = $5; attempt to create a pool with credit × cycles = $90.
+      // Set cap = $5; pool credit $20 exceeds it. Installment bumped to
+      // $10 so SEV-031 viability passes: 3 × 10 × 0.74 = 22.2 >= 20.
       await updateProtocolConfig(env, { maxPoolTvlUsdc: usdc(5n) });
 
       const msg = await expectRejected(() =>
         createPool(env, {
           authority,
           usdcMint,
-          creditAmount: usdc(30n),
-          installmentAmount: usdc(10n),
+          creditAmount: usdc(20n),
+          installmentAmount: usdc(15n), // SEV-031: 3 × 15 × 0.74 = 33.3 >= 30
           cyclesTotal: 3,
           membersTarget: 3,
         }),
@@ -191,7 +202,7 @@ describe("canary controls — TVL caps + adapter allowlist (negative paths)", fu
           authority,
           usdcMint,
           creditAmount: usdc(30n),
-          installmentAmount: usdc(10n),
+          installmentAmount: usdc(15n), // SEV-031: 3 × 15 × 0.74 = 33.3 >= 30
           cyclesTotal: 3,
           membersTarget: 3,
         }),
@@ -221,7 +232,7 @@ describe("canary controls — TVL caps + adapter allowlist (negative paths)", fu
         authority,
         usdcMint,
         creditAmount: usdc(30n),
-        installmentAmount: usdc(10n),
+        installmentAmount: usdc(15n), // SEV-031: 3 × 15 × 0.74 = 33.3 >= 30
         cyclesTotal: 3,
         membersTarget: 3,
       });
@@ -237,7 +248,7 @@ describe("canary controls — TVL caps + adapter allowlist (negative paths)", fu
           authority,
           usdcMint,
           creditAmount: usdc(30n),
-          installmentAmount: usdc(10n),
+          installmentAmount: usdc(15n), // SEV-031: 3 × 15 × 0.74 = 33.3 >= 30
           cyclesTotal: 3,
           membersTarget: 3,
         }),
@@ -288,17 +299,19 @@ describe("canary controls — TVL caps + adapter allowlist (negative paths)", fu
       expect(pool.pool).to.be.instanceOf(PublicKey);
     });
 
-    it("update_protocol_config can re-disable the allowlist", async () => {
-      // Set, then clear, then verify any adapter is accepted again.
-      await updateProtocolConfig(env, { approvedYieldAdapter: env.ids.yieldMock });
-      await updateProtocolConfig(env, { approvedYieldAdapter: PublicKey.default });
-
-      const pool = await createPool(env, {
-        authority,
-        usdcMint,
-        yieldAdapter: env.ids.reputation, // previously rejected; now accepted
-      });
-      expect(pool.pool).to.be.instanceOf(PublicKey);
+    it.skip("update_protocol_config can re-disable the allowlist", async () => {
+      // **Behavioural change**: the `update_protocol_config` handler
+      // now explicitly REJECTS `Pubkey::default()` for the adapter
+      // field (update_protocol_config.rs:132) — the allowlist is
+      // one-way-tightening by design (post-canary it gets locked via
+      // `lock_approved_yield_adapter`; reverting to "no allowlist"
+      // is a redeploy decision). This test asserted the old "set →
+      // clear → set anything" behaviour that no longer exists.
+      //
+      // The negative companion test (`InvalidYieldAdapter`) above
+      // still covers the wider security property — keeping this
+      // test as `.skip` for historical record, in case the policy
+      // ever softens.
     });
   });
 
