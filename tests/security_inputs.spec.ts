@@ -526,9 +526,17 @@ describe("security — malicious inputs + PDA tampering", function () {
     expect(sig).to.be.a("string");
 
     const after = await snapshot(env, poolA, h);
+    // Per-pool member fields (memberContribs / memberOnTime) are
+    // fresh-per-run because each run creates a new pool keyed by
+    // authority. Absolute values are safe.
     expect(after.memberContribs).to.equal(1);
     expect(after.memberOnTime).to.equal(1);
-    expect(after.profileOnTime).to.equal(1);
+    // Profile-level fields (profileOnTime / profileScore) are
+    // wallet-scoped (PDA = [SEED_PROFILE, wallet]). Wallets are
+    // deterministic across runs, so previous runs' contributes
+    // accumulate. Assert the DELTA from this run's contribute,
+    // not the absolute value.
+    expect(after.profileOnTime - before.profileOnTime).to.equal(1);
     expect(after.profileScore - before.profileScore).to.equal(5n);
     // SCHEMA.Payment wasn't actually used in an assertion — silence TS.
     void SCHEMA;
