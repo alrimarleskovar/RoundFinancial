@@ -236,15 +236,39 @@ class BankrunConnectionShim {
     return tx.signature ? tx.signature.toString("base64") : "bankrun-tx";
   }
 
+  /**
+   * `Connection.sendTransaction` semantics: for a legacy Transaction
+   * without nonceInfo, the real Connection fetches the latest
+   * blockhash, sets it on the tx, signs with the provided signers,
+   * then sends. We mirror that here so spl-token / generic
+   * sendAndConfirmTransaction callers work transparently.
+   *
+   * VersionedTransaction is expected to come fully formed (already
+   * signed + has a blockhash) — bypass the prep and just process.
+   */
   async sendTransaction(
     transaction: Transaction | VersionedTransaction,
-    _signers?: unknown,
+    signersOrOptions?: unknown,
     _options?: unknown,
   ): Promise<TransactionSignature> {
-    await this.banksClient.processTransaction(transaction as Transaction);
-    if (transaction instanceof Transaction && transaction.signature) {
-      return transaction.signature.toString("base64");
+    if (transaction instanceof Transaction) {
+      const signers = Array.isArray(signersOrOptions)
+        ? (signersOrOptions as Array<{ publicKey: PublicKey; secretKey: Uint8Array }>)
+        : [];
+      if (!transaction.recentBlockhash) {
+        const { blockhash } = await this.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+      }
+      if (!transaction.feePayer && signers.length > 0) {
+        transaction.feePayer = signers[0]!.publicKey;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (signers.length > 0) transaction.sign(...(signers as any));
+      await this.banksClient.processTransaction(transaction);
+      return transaction.signature ? transaction.signature.toString("base64") : "bankrun-tx";
     }
+    // VersionedTransaction: assume caller already prepped it.
+    await this.banksClient.processTransaction(transaction);
     return "bankrun-tx";
   }
 
