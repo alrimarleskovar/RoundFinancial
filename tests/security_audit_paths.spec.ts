@@ -178,6 +178,16 @@ describe("security — audit error path coverage", function () {
       cyclesTotal: CYCLES_TOTAL,
       cycleDurationSec: CYCLE_DURATION_SEC,
     });
+    // `harvest_yield` requires `pool.status == Active`. Fill the
+    // members_target slots so join_pool auto-activates the pool
+    // before we probe the slippage check.
+    for (let i = 0; i < MEMBERS_TARGET; i++) {
+      await joinPool(env, pool, {
+        member: Keypair.generate(),
+        slotIndex: i,
+        reputationLevel: 1,
+      });
+    }
     await initMockVault(env, pool.pool, usdcMint);
     // No `prefundMockYield` — adapter has 0 surplus. realized will be 0.
     // min_realized_usdc=1 forces `0 >= 1` to fail with HarvestSlippageExceeded.
@@ -220,12 +230,18 @@ describe("security — audit error path coverage", function () {
   // 6. TreasuryLocked  (LAST — permanently mutates singleton config)
   // ───────────────────────────────────────────────────────────────────
   it("TreasuryLocked — propose_new_treasury rejects after lock_treasury", async function () {
-    // Sanity: pre-state must be unlocked + no pending proposal,
-    // otherwise the test isn't actually probing TreasuryLocked.
+    // `lock_treasury` is monotonic — once flipped, it stays locked
+    // forever (no unlock ix by design). If a previous mocha run in
+    // the same validator session already exercised this test, the
+    // sanity check below would fail. Detect + skip in that case so
+    // the suite re-runs cleanly without a validator reset.
     const cfg = (await fetchProtocolConfig(env)) as {
       treasuryLocked: boolean;
       pendingTreasury: PublicKey;
     };
+    if (cfg.treasuryLocked) {
+      this.skip();
+    }
     expect(cfg.treasuryLocked, "config must start unlocked").to.equal(false);
     expect(cfg.pendingTreasury.toString(), "no pending proposal at start").to.equal(
       PublicKey.default.toString(),
