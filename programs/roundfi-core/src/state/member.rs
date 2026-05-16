@@ -82,18 +82,19 @@ mod tests {
 
     fn blank(
         contributions_paid: u8,
-        stake_deposited:    u64,
-        stake_initial:      u64,
-        escrow_balance:     u64,
-        escrow_deposited:   u64,
+        stake_deposited: u64,
+        stake_initial: u64,
+        escrow_balance: u64,
+        escrow_deposited: u64,
     ) -> Member {
-        let mut m = Member::default();
-        m.contributions_paid      = contributions_paid;
-        m.stake_deposited         = stake_deposited;
-        m.stake_deposited_initial = stake_initial;
-        m.escrow_balance          = escrow_balance;
-        m.total_escrow_deposited  = escrow_deposited;
-        m
+        Member {
+            contributions_paid,
+            stake_deposited,
+            stake_deposited_initial: stake_initial,
+            escrow_balance,
+            total_escrow_deposited: escrow_deposited,
+            ..Member::default()
+        }
     }
 
     // ─── debt_initial / debt_remaining ──────────────────────────────────

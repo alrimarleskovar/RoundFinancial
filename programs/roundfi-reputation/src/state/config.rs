@@ -79,6 +79,6 @@ pub struct ReputationConfig {
 
 impl ReputationConfig {
     /// Anchor discriminator (8) + fields.
-    /// 32*4 + 1 + 1 + 32 + 8 + 0 = 170.
-    pub const LEN: usize = 8 + 32 * 4 + 1 + 1 + 32 + 8 + 0;
+    /// 32*4 + 1 + 1 + 32 + 8 = 170.
+    pub const LEN: usize = 8 + 32 * 4 + 1 + 1 + 32 + 8;
 }
