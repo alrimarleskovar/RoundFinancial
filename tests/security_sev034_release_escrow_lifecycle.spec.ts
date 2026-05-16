@@ -78,7 +78,13 @@ import {
 
 const MEMBERS_TARGET = 2;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60;
+// MIN_CYCLE_DURATION on-chain is 86_400s (1 day) — SEV-023 reverted the
+// devnet 60s patch. The lifecycle here doesn't rely on wall-clock
+// progression: `contribute()` only gates on `args.cycle ==
+// pool.current_cycle`, and `claim_payout` is what bumps current_cycle.
+// We pick the floor value so create_pool validation passes; the test
+// still finishes in seconds.
+const CYCLE_DURATION_SEC = 86_400;
 
 // L1 = 50% stake. credit=1500 → stake=750 (matches auditor trace).
 const LEVEL: 1 | 2 | 3 = 1;
