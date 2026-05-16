@@ -56,9 +56,25 @@ export async function initializeProtocol(
 
   const existing = await env.connection.getAccountInfo(config, "confirmed");
   if (existing) {
-    // Already initialized. Trust that a previous run used the same
-    // parameters — otherwise the spec is mis-scoped and should use
-    // its own isolated core program.
+    // Validate that the on-chain `usdc_mint` matches what the spec
+    // wants to use. If they diverge, every downstream ix that has
+    // `has_one = usdc_mint` (create_pool, etc.) will fail with the
+    // cryptic `InvalidMint` (6025). Surface that here as a clear
+    // setup error instead.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chainConfig = (await (env.programs.core.account as any).protocolConfig.fetch(
+      config,
+    )) as { usdcMint: PublicKey };
+    if (!chainConfig.usdcMint.equals(opts.usdcMint)) {
+      throw new Error(
+        `ProtocolConfig at ${config.toBase58()} is already initialized with USDC ` +
+          `mint ${chainConfig.usdcMint.toBase58()}, but this spec is trying to use ` +
+          `${opts.usdcMint.toBase58()}. Each test run creates a fresh mint via ` +
+          `createUsdcMint(), so leftover state from a previous run causes this. ` +
+          `Reset the validator: kill solana-test-validator, restart with --reset ` +
+          `(and --clone-upgradeable-program for Metaplex Core), then redeploy.`,
+      );
+    }
     return {
       config,
       treasury,
