@@ -40,9 +40,12 @@ wallet  = "~/.config/solana/id.json"
 [scripts]
 # Only *.spec.ts files are test entrypoints; *.ts files under tests/_harness/
 # are helpers imported by specs. `anchor test` runs this on localnet after
-# building all programs from the workspace. tests/tsconfig.json overrides
-# module to CommonJS so ts-mocha can `require()` the workspace @roundfi/sdk.
-test = "pnpm exec ts-mocha -p ./tests/tsconfig.json -t 1000000 'tests/**/*.spec.ts'"
+# building all programs from the workspace. The runner is `mocha + tsx/cjs`
+# (configured via `.mocharc.json` at repo root) — the `tsx` ESM/CJS loader
+# resolves the `.js` extensions in spec imports back to their `.ts` sources
+# without the ts-mocha 10 / ts-node 7 NodeNext limitation that bit specs
+# pre-#359.
+test = "pnpm exec mocha -t 1000000 'tests/**/*.spec.ts'"
 
 [workspace]
 types = "sdk/src/generated"
