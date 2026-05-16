@@ -62,12 +62,12 @@ import {
   joinMembers,
   memberKeypairs,
   releaseEscrow,
-  setupEnv,
   usdc,
   type Env,
   type MemberHandle,
   type PoolHandle,
 } from "./_harness/index.js";
+import { setupBankrunEnvCompat } from "./_harness/bankrun_compat.js";
 
 // ─── Pool shape ─────────────────────────────────────────────────────────
 //
@@ -122,7 +122,13 @@ describe("SEV-034 — release_escrow under interleaved contribute/release lifecy
   let handles: MemberHandle[];
 
   before(async function () {
-    env = await setupEnv();
+    // Item L: bankrun-native via the Env-compat wrapper. Same helper
+    // surface as `setupEnv()` (localnet), but each run starts from a
+    // pristine in-memory state — no validator reset needed, no
+    // accumulating reputation-cooldown / config-singleton pollution
+    // across runs. Closes the "spec passes in isolation, fails in
+    // batch" mode the localnet SEV-034 spec exhibited.
+    env = await setupBankrunEnvCompat();
     usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
     await initializeReputation(env, { coreProgram: env.ids.core });
