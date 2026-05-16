@@ -243,13 +243,27 @@ describe("SEV-034 — release_escrow under interleaved contribute/release lifecy
 
     const subjectWalletEnd = await balanceOf(env, subject.memberUsdc);
     const walletGain = subjectWalletEnd - subjectWalletStart;
-    // Wallet gain via releases alone equals the stake; the subject also
-    // received their credit at cycle 0 (first slot owner) which adds
-    // CREDIT_BASE on top.
-    const expectedGainViaReleasesPlusCredit = STAKE_BASE + CREDIT_BASE;
-    expect(walletGain, `subject wallet gain = stake released + credit received`).to.equal(
-      expectedGainViaReleasesPlusCredit,
-    );
+    // Net wallet change between `subjectWalletStart` (captured right after
+    // `before` block — post-join, post-fundUsdc) and end of lifecycle:
+    //
+    //   Inflows:  stake released  (3 × 250 = STAKE_BASE)
+    //             credit received (CREDIT_BASE; subject is slot 0 owner)
+    //   Outflows: 3 × installment (INSTALLMENT_BASE × CYCLES_TOTAL)
+    //
+    //   Net = STAKE_BASE + CREDIT_BASE − INSTALLMENT_BASE × CYCLES_TOTAL
+    //       = 750 + 1500 − 3000 = −750 USDC
+    //
+    // The negative net is expected: the subject's role as a borrower (paid
+    // 3000 in installments to receive 1500 credit upfront + 750 stake back)
+    // is a one-cycle credit advance, not a profit position. The pool
+    // "earns" 750 (= installment × cycles − credit − stake) as solidarity
+    // float + pool float, which funds the spread between credit and stake.
+    const expectedNetGain =
+      STAKE_BASE + CREDIT_BASE - INSTALLMENT_BASE * BigInt(CYCLES_TOTAL);
+    expect(
+      walletGain,
+      `subject wallet net gain = stake released + credit received − contributions paid`,
+    ).to.equal(expectedNetGain);
   });
 
   /**
