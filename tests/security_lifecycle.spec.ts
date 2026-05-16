@@ -70,6 +70,8 @@ import {
   joinPool,
   memberKeypairs,
   memberPda,
+  METAPLEX_CORE_ID,
+  positionAuthorityPda,
   releaseEscrow,
   setupEnv,
   usdc,
@@ -621,6 +623,11 @@ describe("security — state transitions + escape valve", function () {
     const sellerUsdcBefore = await balanceOf(env, sellerUsdc);
 
     // Listing price is LISTING_PRICE; tx claims a different one.
+    // escape_valve_buy also needs nftAsset (pinned to old_member),
+    // positionAuthority (PDA of pool+slot), and metaplexCore (mpl-core
+    // program id pinned by config). Added in IDL since the spec was
+    // written.
+    const [d3PositionAuthority] = positionAuthorityPda(env.ids.core, poolEV.pool, seller.slotIndex);
     const msg = await expectRejected(() =>
       (env.programs.core.methods as any)
         .escapeValveBuy({ priceUsdc: new BN((LISTING_PRICE + 1n).toString()) })
@@ -635,6 +642,9 @@ describe("security — state transitions + escape valve", function () {
           usdcMint,
           buyerUsdc,
           sellerUsdc,
+          nftAsset: seller.nftAsset.publicKey,
+          positionAuthority: d3PositionAuthority,
+          metaplexCore: METAPLEX_CORE_ID,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -670,6 +680,16 @@ describe("security — state transitions + escape valve", function () {
     const buyerUsdcBefore = await balanceOf(env, buyerUsdc);
     const fakeSellerUsdcBefore = await balanceOf(env, fakeSellerUsdc);
 
+    // The seller_wallet key constraint fires before we ever reach
+    // mpl_core, but Anchor's account validation still requires every
+    // declared account to be present. Use fakeSeller's nft_asset to
+    // stay consistent with the bogus seller; positionAuthority derives
+    // from the fakeSeller's slot.
+    const [d4PositionAuthority] = positionAuthorityPda(
+      env.ids.core,
+      poolEV.pool,
+      fakeSeller.slotIndex,
+    );
     const msg = await expectRejected(() =>
       (env.programs.core.methods as any)
         .escapeValveBuy({ priceUsdc: new BN(LISTING_PRICE.toString()) })
@@ -688,6 +708,9 @@ describe("security — state transitions + escape valve", function () {
           usdcMint,
           buyerUsdc,
           sellerUsdc: fakeSellerUsdc,
+          nftAsset: fakeSeller.nftAsset.publicKey,
+          positionAuthority: d4PositionAuthority,
+          metaplexCore: METAPLEX_CORE_ID,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -744,6 +767,7 @@ describe("security — state transitions + escape valve", function () {
       "D.5 precondition: buyer has no pre-existing Member row",
     ).to.be.null;
 
+    const [d5PositionAuthority] = positionAuthorityPda(env.ids.core, poolEV.pool, seller.slotIndex);
     await (env.programs.core.methods as any)
       .escapeValveBuy({ priceUsdc: new BN(LISTING_PRICE.toString()) })
       .accounts({
@@ -757,6 +781,9 @@ describe("security — state transitions + escape valve", function () {
         usdcMint,
         buyerUsdc,
         sellerUsdc,
+        nftAsset: seller.nftAsset.publicKey,
+        positionAuthority: d5PositionAuthority,
+        metaplexCore: METAPLEX_CORE_ID,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })

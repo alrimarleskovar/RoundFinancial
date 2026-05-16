@@ -117,14 +117,22 @@ async function updateProtocolConfig(env: Env, opts: UpdateConfigOpts): Promise<v
 }
 
 /**
- * Reset every cap + allowlist field to the initial "disabled" state so
- * subsequent describe blocks / specs see a clean ProtocolConfig.
+ * Reset every cap field to its initial "disabled" state so subsequent
+ * describe blocks / specs see a clean ProtocolConfig. NOTE: cannot
+ * reset `approved_yield_adapter` back to Pubkey::default() — the
+ * on-chain handler rejects that path (one-way tightening invariant;
+ * see update_protocol_config.rs:132). Allowlist resets that require
+ * "no allowlist" are now a redeploy decision, not a runtime call.
+ * Subsequent tests that exercise the allowlist must either:
+ *   (a) leave the same approved adapter in place across runs, OR
+ *   (b) set a different known-valid adapter (e.g. env.ids.yieldMock).
  */
 async function resetCanaryControls(env: Env): Promise<void> {
   await updateProtocolConfig(env, {
     maxPoolTvlUsdc: 0n,
     maxProtocolTvlUsdc: 0n,
-    approvedYieldAdapter: PublicKey.default,
+    // approvedYieldAdapter intentionally NOT reset — see fn docstring.
+    // The on-chain guard forbids setting it back to Pubkey::default().
   });
 }
 
