@@ -7,17 +7,17 @@
 
 ## 0. Metadata
 
-| Field                | Value                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| Rehearsal date (UTC) | 2026-05-16T22:30:00Z → 22:47:00Z                                                            |
-| Operator             | alrimarleskovar                                                                             |
-| Cluster              | devnet                                                                                      |
-| Core program ID      | 6WuSo1utWKg8gNyzzJyqCoeLa7VpEyu8ZN1EtLzJ7Rpn (parallel test deploy, not canonical)        |
-| ProtocolConfig PDA   | FD68n1C6rT15PkjyVPgx25jDXQ2tRvpqf7KPi1nzkyPc                                              |
-| Solana CLI version   | solana-cli 3.0.0 (Agave)                                                                    |
-| Branch + commit      | main @ 8fd1a02                                                                              |
-| Authority (deployer) | 64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm                                              |
-| Upgrade authority    | B8CjP1mC4SzntAi7WabGx87kPHnqYcUc6SQYAr4ci8di (different keypair from protocol authority)  |
+| Field                | Value                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| Rehearsal date (UTC) | 2026-05-16T22:30:00Z → 22:47:00Z                                                         |
+| Operator             | alrimarleskovar                                                                          |
+| Cluster              | devnet                                                                                   |
+| Core program ID      | 6WuSo1utWKg8gNyzzJyqCoeLa7VpEyu8ZN1EtLzJ7Rpn (parallel test deploy, not canonical)       |
+| ProtocolConfig PDA   | FD68n1C6rT15PkjyVPgx25jDXQ2tRvpqf7KPi1nzkyPc                                             |
+| Solana CLI version   | solana-cli 3.0.0 (Agave)                                                                 |
+| Branch + commit      | main @ 8fd1a02                                                                           |
+| Authority (deployer) | 64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm                                             |
+| Upgrade authority    | B8CjP1mC4SzntAi7WabGx87kPHnqYcUc6SQYAr4ci8di (different keypair from protocol authority) |
 
 ## 1. Pre-rehearsal blockers surfaced + resolved
 
@@ -71,6 +71,7 @@ Pending authority eta: 0 (no proposal)
 - propose_new_authority tx: 4pfiQLAEzpozgZgRr4z47asWfZdtu3uKreCgFNFRnnznaGCsyEwp89qFzGqeg1eJwAWW7wEV2U7tYPBoZpTzMPFN
 
 Post-propose state observed:
+
 - Live authority: 64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm (unchanged)
 - Pending authority: 6Y6BL1mq6ME7HfWXFVzUmT1DgKekzW8eKW11jAess6aL (NEW)
 - Pending authority eta: now + TREASURY_TIMELOCK_SECS (timelock active)
@@ -126,12 +127,13 @@ Recommended follow-up: a future rehearsal should capture the post-init state wit
 - [x] commit_new_authority ix exists, callable by anyone, enforces eta window, rotates live authority
 - [x] Post-commit state is correctly cleared (pending_authority: default, eta: 0)
 - [x] The 4 RoundFi rehearsal scripts work end-to-end WITH the offset fix from section 8.1
-- [x] pnpm aliases (devnet:squads-rehearsal-*) work (from PR #367)
+- [x] pnpm aliases (devnet:squads-rehearsal-\*) work (from PR #367)
 - [ ] NOT validated by this rehearsal: actual Squads v4 multisig PDA derivation + member signing flow (see section 3). This is exercised separately on the mainnet ceremony day via the Squads web UI per squads-multisig-procedure.md sections 3-5.
 
 ## 10. Cleanup
 
 After the rehearsal:
+
 - target/deploy/roundfi_core-keypair.json was overwritten with the rehearsal keypair — restore from keypairs/ or regenerate on next canonical deploy
 - Anchor.toml + programs/roundfi-core/src/lib.rs were modified by anchor keys sync — reverted via git checkout
 - programs/roundfi-core/src/constants.rs TREASURY_TIMELOCK_SECS was temporarily lowered to 60 — reverted to 604_800
