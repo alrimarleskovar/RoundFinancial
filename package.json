@@ -59,7 +59,7 @@
     "@roundfi/sdk": "workspace:*",
     "@types/chai": "^4.3.17",
     "@types/mocha": "^10.0.7",
-    "@types/node": "^22.5.0",
+    "@types/node": "^25.8.0",
     "anchor-bankrun": "^0.5.0",
     "chai": "^4.5.0",
     "mocha": "^10.7.3",
