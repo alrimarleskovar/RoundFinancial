@@ -62,9 +62,9 @@ export async function initializeProtocol(
     // cryptic `InvalidMint` (6025). Surface that here as a clear
     // setup error instead.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chainConfig = (await (env.programs.core.account as any).protocolConfig.fetch(
-      config,
-    )) as { usdcMint: PublicKey };
+    const chainConfig = (await (env.programs.core.account as any).protocolConfig.fetch(config)) as {
+      usdcMint: PublicKey;
+    };
     if (!chainConfig.usdcMint.equals(opts.usdcMint)) {
       throw new Error(
         `ProtocolConfig at ${config.toBase58()} is already initialized with USDC ` +
