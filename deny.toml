@@ -54,16 +54,22 @@ license-files = [
   { path = "LICENSE", hash = 0xbd0eed23 },
 ]
 
-# Adevar Labs SEV-011 follow-up: mpl-core 0.8.1 ships a LICENSE file
+# Adevar Labs SEV-011 follow-up: mpl-core 0.8.x ships a LICENSE file
 # (Apache-2.0) but doesn't declare a `license` field in Cargo.toml.
 # cargo-deny's text-fingerprint heuristic gets 0.80 confidence —
 # below the 0.93 threshold — so it can't auto-resolve. This clarify
 # entry pins the resolution explicitly. Retire when we move to a
 # version of mpl-core that declares its license field properly
 # (tracked via the Agave 2.x / mpl-core 0.12 upgrade in PR #319).
+#
+# Version range "0.8" matches both 0.8.0 and 0.8.1 — LICENSE files
+# are byte-identical, so the same hash applies. The pin in
+# programs/roundfi-core/Cargo.toml (=0.8.0) keeps the resolution
+# deterministic; the range here just future-proofs against a patch
+# bump within 0.8.x.
 [[licenses.clarify]]
 name = "mpl-core"
-version = "0.8.1"
+version = "0.8"
 expression = "Apache-2.0"
 license-files = [
   { path = "LICENSE", hash = 0xd3dacb8e },
