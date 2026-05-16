@@ -20,15 +20,21 @@
  *      one for the same (issuer, subject, cycle, slot) tuple.
  *
  * Determinism note: we don't assert the *exact-boundary* millisecond
- * case (`clock.unix_timestamp == next_cycle_at` → on-time). Real-time
- * `sleep()` on localnet can't guarantee sub-second precision. The
+ * case (`clock.unix_timestamp == next_cycle_at` → on-time). The
  * exact equality is covered by Rust unit tests against `split_installment`
  * /reputation attestation helpers and by code inspection of
  * `contribute.rs` (line 181: `<=` is inclusive). Here we verify the
  * client-observable behavior at safe margins (~≥2s before / after).
  *
- * Pool shape kept minimal (2 members, 2 cycles, cycle_duration=60s)
- * so the spec runs in ~80s even after the 62s "wait for late" sleep.
+ * **Bankrun mode** (Item L follow-up — was localnet-only with 24h+ real
+ * sleeps, which made the spec unrunnable in CI). The CYCLE_DURATION_SEC
+ * = MIN_CYCLE_DURATION = 86_400s floor (SEV-023) means leg B would need
+ * a wall-clock sleep of up to 24h+30s on localnet — clearly impossible.
+ * Bankrun's `setBankrunUnixTs` warps the on-chain clock to past
+ * `next_cycle_at` in a single setClock call, so the same boundary
+ * behavior gets validated in seconds. Connection-over-BanksClient shim
+ * makes `setupBankrunEnvCompat()` drop-in compatible with all `Env`-typed
+ * helpers (createPool, contribute, fetchMember, attestationFor, etc.).
  */
 
 import { expect } from "chai";
@@ -50,13 +56,15 @@ import {
   joinMembers,
   memberKeypairs,
   onchainUnix,
-  setupEnv,
   usdc,
-  waitUntilUnix,
-  type Env,
   type MemberHandle,
   type PoolHandle,
 } from "./_harness/index.js";
+import {
+  setBankrunUnixTs,
+  setupBankrunEnvCompat,
+  type BankrunEnvCompat,
+} from "./_harness/bankrun_compat.js";
 
 // ─── Pool parameters ──────────────────────────────────────────────────
 
@@ -74,10 +82,11 @@ const SAFE_MARGIN_SEC = 2;
 // ─── Spec ─────────────────────────────────────────────────────────────
 
 describe("edge — cycle boundary on-time vs late", function () {
-  // 62s wait + surrounding rpc latency; keep comfortable headroom.
-  this.timeout(180_000);
+  // Bankrun setClock is instant; mocha default would be plenty. Keep
+  // a 60s ceiling so a degenerate harness failure surfaces quickly.
+  this.timeout(60_000);
 
-  let env: Env;
+  let env: BankrunEnvCompat;
   let usdcMint: PublicKey;
 
   const authority = Keypair.generate();
@@ -88,7 +97,7 @@ describe("edge — cycle boundary on-time vs late", function () {
   let bob: MemberHandle;
 
   before(async function () {
-    env = await setupEnv();
+    env = await setupBankrunEnvCompat();
     usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
     await initializeReputation(env, { coreProgram: env.ids.core });
@@ -173,9 +182,9 @@ describe("edge — cycle boundary on-time vs late", function () {
     const p = (await fetchPool(env, pool.pool)) as any;
     const nextCycleAt = Number(p.nextCycleAt.toString());
 
-    // Wait until the on-chain clock is SAFE_MARGIN_SEC past the deadline.
-    // Cap the wait so a mis-set fixture doesn't hang CI.
-    await waitUntilUnix(nextCycleAt + SAFE_MARGIN_SEC, (CYCLE_DURATION_SEC + 30) * 1_000);
+    // Bankrun: warp the on-chain clock past `next_cycle_at` instantly.
+    // Localnet (pre-Item L) would have to real-sleep ~24h here.
+    await setBankrunUnixTs(env.context, BigInt(nextCycleAt + SAFE_MARGIN_SEC));
 
     const after = await onchainUnix(env.connection);
     expect(after).to.be.greaterThan(
