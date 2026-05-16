@@ -55,7 +55,7 @@ import {
   escrowVaultAuthorityPda,
   fetchMember,
   fetchPool,
-  fetchProfile,
+  tryFetchProfile,
   fundUsdc,
   initializeProtocol,
   initializeReputation,
@@ -120,7 +120,7 @@ async function snapshot(env: Env, pool: PoolHandle, h: MemberHandle): Promise<Se
     currentCycle: number;
     totalContributed: { toString(): string };
   };
-  const profile = (await fetchProfile(env, h.wallet.publicKey)) as {
+  const profile = (await tryFetchProfile(env, h.wallet.publicKey)) as {
     score: { toString(): string };
     onTimePayments: number;
   };

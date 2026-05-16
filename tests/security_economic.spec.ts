@@ -118,7 +118,9 @@ const E_CREDIT_BASE = usdc(E_CREDIT_USDC);
 
 const Y_MEMBERS_TARGET = 2;
 const Y_CYCLES_TOTAL = 2;
-const Y_INSTALLMENT_USDC = 1_000n;
+// SEV-031 viability: 2 × 1000 × 0.74 = 1480 < 1500 FAILS.
+// Bump installment to 1050: 2 × 1050 × 0.74 = 1554 >= 1500 ✓.
+const Y_INSTALLMENT_USDC = 1_050n;
 const Y_CREDIT_USDC = 1_500n;
 const Y_LEVEL: 1 | 2 | 3 = 1;
 

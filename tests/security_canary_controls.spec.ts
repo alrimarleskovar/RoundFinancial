@@ -102,6 +102,11 @@ async function updateProtocolConfig(env: Env, opts: UpdateConfigOpts): Promise<v
           : null,
       newApprovedYieldAdapter:
         opts.approvedYieldAdapter !== undefined ? opts.approvedYieldAdapter : null,
+      // Fields added to UpdateProtocolConfigArgs after this spec was
+      // written. Borsh deserializer requires the full struct shape
+      // even when leaving fields unchanged — pass null explicitly.
+      newCommitRevealRequired: null, // #232 commit-reveal gate
+      newLpShareBps: null, // SEV-003 lp share authoritative slot
     })
     .accounts({
       config: configPda(env),
