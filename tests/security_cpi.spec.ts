@@ -118,7 +118,7 @@ const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst = 1_250 * (1 - 0.01 - 0.25) = 925 USDC
 // credit must fit 2 * 925 = 1_850 USDC
 const CREDIT_USDC = 1_800n;
-const LEVEL: 1 | 2 | 3 = 2;
+const LEVEL: 1 | 2 | 3 = 1;
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
 const CREDIT_BASE = usdc(CREDIT_USDC);

@@ -100,8 +100,17 @@ describe("edge — degenerate pool shapes", function () {
   });
 
   // ─── A. cycles_total = 1 ──────────────────────────────────────────
+  //
+  // **Skipped after SEV-038**: this describe block tests a 1-cycle
+  // pool with 2 members. SEV-038 tightened the create_pool check
+  // from `cycles_total >= members_target` to `==`, making this
+  // degenerate shape illegal at the protocol level. A 1/1 pool
+  // would compile but isn't an interesting test (single slot,
+  // single cycle = no rotation surface). The semantics this block
+  // was probing (one-shot completion) are now degenerate-by-design
+  // and covered by the `cycles=members=N` paths in tests B and C.
 
-  describe("A. cycles_total = 1 (one-shot pool)", function () {
+  describe.skip("A. cycles_total = 1 (one-shot pool) [SEV-038: cycles_total must == members_target]", function () {
     const authority = Keypair.generate();
     const [m0, m1] = memberKeypairs(2, "edge_deg_A") as [Keypair, Keypair];
 
