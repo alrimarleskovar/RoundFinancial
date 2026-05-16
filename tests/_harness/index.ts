@@ -25,3 +25,7 @@ export * from "./events.js";
 export * from "./pool.js";
 export * from "./actions.js";
 export * from "./parityDriver.js";
+// bankrun harness — clock-warpable in-memory env for specs that need
+// time travel (settle_default grace, multi-cycle attestation cooldown).
+// Distinct surface from env.ts's localnet path; specs choose which.
+export * from "./bankrun.js";
