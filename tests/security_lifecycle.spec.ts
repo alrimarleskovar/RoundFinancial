@@ -108,7 +108,7 @@ function listingPdaFor(coreProgram: PublicKey, pool: PublicKey, slotIndex: numbe
 //     untouched slots to probe error paths without perturbing the
 //     listed one.
 //
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 const LEVEL: 1 | 2 | 3 = 2;
 
 // Pool F (Forming).

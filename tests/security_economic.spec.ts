@@ -125,7 +125,7 @@ const Y_LEVEL: 1 | 2 | 3 = 2;
 const Y_INSTALLMENT_BASE = usdc(Y_INSTALLMENT_USDC);
 const Y_CREDIT_BASE = usdc(Y_CREDIT_USDC);
 
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 
 // u64::MAX — the upper bound BN can pass through Anchor's u64 layout.
 const U64_MAX = (1n << 64n) - 1n;

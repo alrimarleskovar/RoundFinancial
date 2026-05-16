@@ -63,7 +63,7 @@ import {
 
 // ─── Shared pool defaults ─────────────────────────────────────────────
 
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 const INSTALLMENT_BASE = usdc(1_000n);
 // credit_amount = 1.48 × installment — large enough to exceed the
 // seed-draw floor (1.832 × installment ÷ 2 members = 0.916 × installment)
