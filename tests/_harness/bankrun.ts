@@ -211,6 +211,24 @@ function maybeLoadKaminoLend(): AddedProgram | null {
 
 export interface BankrunSetupOptions {
   /**
+   * Whether to load mpl_core.so into the test env. Default `true` —
+   * back-compat with existing specs that route through `join_pool` /
+   * `escape_valve_buy` (Metaplex Core CPI for FreezeDelegate +
+   * TransferDelegate plugin ops).
+   *
+   * **Set to `false`** for specs that don't need Metaplex Core (e.g.
+   * the Kamino bankrun spike). Reason: Metaplex deployed a newer
+   * SBFv2-arch (0x107) build of mpl_core to mainnet; `solana program
+   * dump` returns that newer format. solana-program-test 1.18.0
+   * (used by bankrun) only reads eBPF/SBFv1 (0xf7), so loading the
+   * current mainnet mpl_core.so panics with garbled bytes
+   * (`<�h9` in the panic message — the arch byte being mis-decoded
+   * as a program name). Specs that don't touch Metaplex Core can
+   * sidestep this entirely — same upstream-compat surface as
+   * SEV-012, just on a different external dep.
+   */
+  loadMplCore?: boolean;
+  /**
    * Whether to load klend.so (Kamino Lend) into the test env. Default
    * `false` — only specs that CPI into Kamino need it. When true and
    * the .so is missing, the loader prints a warning and silently
@@ -224,10 +242,14 @@ export async function setupBankrunEnv(options: BankrunSetupOptions = {}): Promis
   // startAnchor reads Anchor.toml at `path` and deploys every
   // program under [programs.localnet] from target/deploy/. Extras
   // (mpl_core, klend) get loaded by their `name` from the same dir.
+  const { loadMplCore = true, loadKaminoLend = false } = options;
+
   const extras: AddedProgram[] = [];
-  const mplCore = maybeLoadMplCore();
-  if (mplCore) extras.push(mplCore);
-  if (options.loadKaminoLend) {
+  if (loadMplCore) {
+    const mplCore = maybeLoadMplCore();
+    if (mplCore) extras.push(mplCore);
+  }
+  if (loadKaminoLend) {
     const klend = maybeLoadKaminoLend();
     if (klend) extras.push(klend);
   }

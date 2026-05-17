@@ -68,7 +68,13 @@ describe("Kamino bankrun spike — Phase 1 (program loading)", function () {
       );
       return;
     }
-    env = await setupBankrunEnv({ loadKaminoLend: true });
+    // Phase 1 doesn't CPI into Metaplex Core, so we opt out of
+    // loading mpl_core.so. This sidesteps the SBFv2-arch incompatibility
+    // (current mainnet mpl_core.so is SBFv2 / arch 0x107;
+    // solana-program-test 1.18.0 only reads eBPF / SBFv1 / arch 0xf7).
+    // See `BankrunSetupOptions.loadMplCore` docstring for the full
+    // explanation.
+    env = await setupBankrunEnv({ loadMplCore: false, loadKaminoLend: true });
   });
 
   it("klend.so is present at target/deploy/klend.so", function () {
