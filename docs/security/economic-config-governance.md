@@ -1,6 +1,6 @@
 # Economic Config Governance
 
-> **Why this doc exists:** the Adevar Labs W3 re-audit (point #6 +
+> **Why this doc exists:** the internal pre-audit W3 re-audit (point #6 +
 > Risk #4) flagged that several economic-policy levers in `ProtocolConfig`
 > still allow instantaneous mutation by the authority (no timelock, no
 > public window). The SEV-024 commit comment already acknowledged
