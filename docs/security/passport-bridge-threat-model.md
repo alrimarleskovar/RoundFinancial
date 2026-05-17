@@ -14,7 +14,7 @@
 >
 > Pre-mainnet checklist for activation is at the bottom of this doc.
 >
-> **Why this doc exists:** the Adevar Labs W3 re-audit (point #4) flagged
+> **Why this doc exists:** the internal pre-audit W3 re-audit (point #4) flagged
 > the off-chain Human Passport bridge as a pending trust boundary that
 > needed an explicit threat model before mainnet. The bridge is the only
 > non-program trust dependency in the identity layer — every other write

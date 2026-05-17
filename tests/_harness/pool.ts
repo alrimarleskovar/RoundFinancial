@@ -130,10 +130,12 @@ export async function createPool(env: Env, opts: CreatePoolOpts): Promise<PoolHa
   const installmentAmount = opts.installmentAmount ?? POOL_DEFAULTS.installmentAmount;
   const creditAmount = opts.creditAmount ?? POOL_DEFAULTS.creditAmount;
   const cyclesTotal = opts.cyclesTotal ?? POOL_DEFAULTS.cyclesTotal;
-  // Tests should prefer tiny cycle durations so time-based specs
-  // can `sleep()` across boundaries in seconds instead of days.
-  // Default to 60s (matches MIN_CYCLE_DURATION).
-  const cycleDurationSec = opts.cycleDurationSec ?? 60;
+  // On-chain MIN_CYCLE_DURATION is 86_400s (1 day) since SEV-023.
+  // Most specs don't rely on wall-clock progression — cycle counter
+  // is driven by `claim_payout`, not by Clock — so the floor value
+  // is fine. Specs that need real time-warp (grace-period etc.)
+  // should use the bankrun harness and `setClock`.
+  const cycleDurationSec = opts.cycleDurationSec ?? 86_400;
   const escrowReleaseBps = opts.escrowReleaseBps ?? 2500;
   const yieldAdapter = opts.yieldAdapter ?? env.ids.yieldMock;
 
@@ -179,6 +181,33 @@ export async function createPool(env: Env, opts: CreatePoolOpts): Promise<PoolHa
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
+    })
+    .signers([opts.authority])
+    .rpc();
+
+  // `create_pool` only allocates Pool PDA + records vault-authority
+  // bumps; the 4 USDC vault ATAs are split into `init_pool_vaults` to
+  // dodge Anchor's recursive init stack overflow (SEV-004 / see header
+  // of init_pool_vaults.rs). Without this second call, `joinPool` (and
+  // every subsequent ix that touches the vaults) trips
+  // `AccountNotInitialized`.
+  await (env.programs.core.methods as any)
+    .initPoolVaults()
+    .accounts({
+      authority: authorityPk,
+      config: configPda(env),
+      pool,
+      usdcMint: opts.usdcMint,
+      escrowVaultAuthority,
+      solidarityVaultAuthority,
+      yieldVaultAuthority,
+      poolUsdcVault,
+      escrowVault,
+      solidarityVault,
+      yieldVault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
     })
     .signers([opts.authority])
     .rpc();

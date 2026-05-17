@@ -1,6 +1,6 @@
 # Constants Audit — Mainnet Validation Sweep (2026-05-15)
 
-> **Pattern:** Adevar Labs SEV-002 (`GRACE_PERIOD_SECS = 60`) and SEV-023
+> **Pattern:** Internal pre-audit SEV-002 (`GRACE_PERIOD_SECS = 60`) and SEV-023
 > (`MIN_CYCLE_DURATION = 60`) were both shaped the same way: a devnet
 > shortcut value was pinned with a "MUST revert before mainnet" TODO, the
 > TODO never closed, a pinning test happily asserted the shortcut as

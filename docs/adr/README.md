@@ -14,6 +14,7 @@
 | [0004](./0004-extract-roundfi-math-crate.md)  | ✅ Accepted | Extract `roundfi-math` as standalone workspace crate       |
 | [0005](./0005-indexer-finality-gate.md)       | ✅ Accepted | Indexer reconciler finality gate at 32 slots               |
 | [0006](./0006-app-encoder-coverage-layers.md) | ✅ Accepted | Three-layer coverage for front-end IDL-free encoders       |
+| [0007](./0007-bankrun-compat-shim.md)         | ✅ Accepted | `bankrun_compat` Connection shim for time-warp-bound specs |
 
 **Future ADRs land alongside their implementing PR.** PR author writes the ADR as part of the PR (template below).
 

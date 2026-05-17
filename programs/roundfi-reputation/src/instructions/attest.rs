@@ -23,9 +23,7 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 
 use crate::constants::*;
 use crate::error::ReputationError;
-use crate::state::{
-    Attestation, IdentityRecord, IdentityStatus, Payload, ReputationConfig, ReputationProfile,
-};
+use crate::state::{Attestation, IdentityRecord, Payload, ReputationConfig, ReputationProfile};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AttestArgs {
@@ -342,6 +340,10 @@ pub(crate) fn is_valid_pool_issuer(
 }
 
 #[cfg(test)]
+// SEV-030 cooldown floor test pins MIN_ADMIN_ATTEST_COOLDOWN_SECS >= 10s
+// against drift via constant-vs-constant assertion — intentional, lint
+// suppress applies module-wide.
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 

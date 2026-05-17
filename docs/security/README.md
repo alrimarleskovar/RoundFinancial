@@ -4,18 +4,18 @@
 
 ## TL;DR
 
-| What you have | Time to read                     | When to read                                                       |
-| ------------- | -------------------------------- | ------------------------------------------------------------------ |
-| 5 min         | `../../AUDIT_SCOPE.md` (1-pager) | Before everything else                                             |
-| 10 min        | `audit-readiness.md`             | Strategic context                                                  |
-| 5 min         | `internal-audit-findings.md`     | Adevar Labs audit — public findings tracker (28 SEVs, status, PRs) |
-| 5 min         | `constants-audit-2026-05.md`     | Post-audit pattern sweep (SEV-002 / SEV-023 family)                |
-| 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees                                   |
-| 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface                                |
-| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)                            |
-| 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope)                        |
-| 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)                         |
-| 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers                                   |
+| What you have | Time to read                     | When to read                                                                                                            |
+| ------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 5 min         | `../../AUDIT_SCOPE.md` (1-pager) | Before everything else                                                                                                  |
+| 10 min        | `audit-readiness.md`             | Strategic context                                                                                                       |
+| 5 min         | `internal-audit-findings.md`     | Internal pre-audit tracker (40 SEVs, status, PRs) — methodology modeled on Adevar Labs', NOT a formal Adevar engagement |
+| 5 min         | `constants-audit-2026-05.md`     | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                     |
+| 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees                                                                                        |
+| 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface                                                                                     |
+| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)                                                                                 |
+| 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope)                                                                             |
+| 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)                                                                              |
+| 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers                                                                                        |
 
 **Total first-pass: ~2 hours.**
 
@@ -25,7 +25,7 @@
 
 Statement-of-Work-shape doc:
 
-- In-scope: 3 Anchor programs (8,341 LoC of Rust)
+- In-scope: 3 Anchor programs (~8,655 LoC of Rust)
 - Out-of-scope: yield-mock, harvest() path, frontend, indexer, SDK, tests
 - 6 prior internal hardening PRs catalogued
 - Mainnet timeline + engagement format
@@ -46,14 +46,15 @@ One-pager for security firms:
 
 ### 3. Audit findings tracker — `internal-audit-findings.md`
 
-Public accountability record for the Adevar Labs audit (May 2026):
+Public accountability record for the internal pre-audit (May 2026) — **NOT** a formal Adevar Labs engagement (that's in scoping; cost/timeline negotiation). Methodology was deliberately modeled on Adevar's so the eventual paid auditor can re-validate quickly against a clean baseline.
 
-- 28 findings total (20 initial + 8 re-audit)
+- 40 findings total (5-pass internal pre-audit W1..W5 + 1 integration-testing wave that surfaced SEV-034b)
+- 36 closed (Critical/High 10/10 — 3 Critical + 7 High), 1 upstream-blocked (SEV-012), 3 design-intentional
 - One row per SEV — severity, status (🟢 Closed / 🟡 Deferred / 🟠 Blocked / 🔵 Won't fix), PR, technical note
 - Disclosure timeline + summary table
-- Methodology notes — pattern fingerprinting after SEV-002 / SEV-023
+- Methodology notes — pattern fingerprinting after SEV-002 / SEV-023; integration-testing wave rationale post-W5
 
-**Why third:** before reading the deep dive, see what the external review surfaced and how each finding was triaged.
+**Why third:** before reading the deep dive, see what the team's own red-team surfaced and how each finding was triaged.
 
 ### 3a. Pattern sweep — `constants-audit-2026-05.md`
 
@@ -178,4 +179,4 @@ Update this README whenever a security doc is added, removed, or substantively r
 
 ---
 
-_Last updated: May 2026. 7 security docs indexed (plus this README)._
+_Last updated: 2026-05-16. 11 security docs indexed (plus this README): audit-readiness, internal-audit-findings, constants-audit-2026-05, self-audit, adversarial-threat-model, mev-front-running, frontend-security-checklist, indexer-threat-model, passport-bridge-threat-model, economic-config-governance, bug-bounty._

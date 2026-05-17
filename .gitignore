@@ -63,3 +63,13 @@ app/test-results/
 app/playwright-report/
 app/blob-report/
 app/playwright/.cache/
+
+# cargo-fuzz growth corpus + crash artifacts. Only the per-target
+# `canonical` seed file is committed (committed via `git ls-files`);
+# everything else in corpus/ is libFuzzer-discovered noise that bloats
+# the repo across re-runs. `artifacts/` holds crash inputs that
+# should be triaged and added to corpus/ as canonical seeds before
+# committing — never committed directly.
+crates/math/fuzz/corpus/*/*
+!crates/math/fuzz/corpus/*/canonical
+crates/math/fuzz/artifacts/

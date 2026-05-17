@@ -17,6 +17,65 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ---
 
+## [0.5.0] — 2026-05-16 (Pre-audit completion + integration-testing wave + bankrun_compat)
+
+Post-0.4.0 sprint focused on closing the multi-wave internal pre-audit cycle (W3 → W4 → W5 → integration-testing wave), validating the SEV-034 release_escrow fix end-to-end via a new bankrun-compatibility harness, executing the Squads multisig rotation rehearsal on devnet, and producing the documentation surface for the eventual external Adevar Labs engagement (scoping in progress).
+
+**Internal pre-audit framing:** the SEV-### identifiers below come from the team's own pre-audit cycle simulating Adevar Labs' methodology — **NOT** from a formal Adevar engagement. The Adevar engagement is in scoping (cost/timeline negotiation). The internal methodology and SEV naming were deliberately mirrored so the eventual paid auditor can re-validate quickly against a clean baseline. Full tracker: [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md).
+
+### Added
+
+#### Internal pre-audit completion
+
+- **W3 batch** — SEV-029 release_escrow partial-pay overpay regression fix with 6 negative tests (#342); 5 W3 findings catalogued (SEV-029..SEV-033).
+- **W4 wave** — SEV-034 release_escrow cumulative-paid derivation rewrite + `LifecycleState` simulator that mirrors on-chain state shape AND models `contribute()` between releases (#349); release_escrow derivation extracted to math crate as single source of truth (#351).
+- **Fase 5 batch** — constants floor guard CI lane (#343), SEV-030 admin cooldown extension to negative-score schemas + SEV-031 `create_pool` runtime viability guard + SEV-033 webhook fail-closed in production (#344), SEV-026 cascade math refactor delegating both `settle_default` and `release_escrow` to `roundfi-math::cascade` (#345), `fee_bps_yield` 1-day timelock pilot (#347).
+- **W5 batch** — SEV-035 SDK enum drift fix (`PoolStatus::Closed = 4`), SEV-036 `Pubkey::default()` zombie state guard on propose handlers, SEV-037 `commit_new_fee_bps_yield` Signer field consistency, SEV-038 `cycles_total == members_target` (was `>=` allowing orphan cycles), SEV-039 `close_pool` PDA/ATA close acknowledged design constraint (#354, #356).
+- **Integration-testing wave (this release)** — running the SEV-034 author's prescribed integration spec end-to-end surfaced **SEV-034b** (Critical): `join_pool.rs:272` seeded `member.total_escrow_deposited = stake_amount` (legacy from SEV-029 derivation) while the post-SEV-034 math assumes `ted=0` at join. Effect: `release_escrow` errored `EscrowNothingToRelease` on every call after the first contribute, locking member stake until `close_pool`. **1-line on-chain fix**: `total_escrow_deposited = 0` (#360).
+
+#### bankrun harness extension — `bankrun_compat` shim
+
+- **`tests/_harness/bankrun_compat.ts`** (343 LoC, ADR 0007) — Connection-over-BanksClient shim that wraps bankrun's 3-method `BankrunConnectionProxy` with the full `Connection` surface that `Env`-typed harness helpers expect (`getBalance`, `getLatestBlockhash`, `sendTransaction`, `simulateTransaction`, `confirmTransaction`, `requestAirdrop`, ...). Spec authors swap one import line; `Env`-typed helpers work transparently. Closes the "cooldown-bound / time-warp-bound specs are dead code on localnet" gap that previously hid SEV-034b. (#360 Items J/L/M)
+- **3 specs migrated to bankrun via `setupBankrunEnvCompat`** with on-chain validation: `tests/security_sev034_release_escrow_lifecycle.spec.ts` (2/2 passing — the canary that found SEV-034b), `tests/edge_cycle_boundary.spec.ts` (4/4 passing in 1s — was unrunnable on localnet due to 24h+ `waitUntilUnix`), `tests/edge_grace_default.spec.ts` (3/3 passing — `settle_default` with Triple Shield seizure + clock-warp).
+- **No remaining `waitUntilUnix(` consumer** in `tests/*.spec.ts` after the migrations.
+
+#### Dev / operations scripts
+
+- **`scripts/dev/patch-anchor-syn-319.sh`** + **`scripts/dev/rebuild-idls.sh`** (#360) — workaround for spike #319 (anchor-syn 0.30.1 IDL builder calls removed `Span::source_file()` API). Patches the cached `anchor-syn-0.30.1` source in `~/.cargo/registry/src` to swap the `#[cfg(procmacro2_semver_exempt)]` gate for `#[cfg(any())]`, then runs `anchor idl build` for the 3 workspace programs the bankrun harness loads. Local-machine-only; CI uses `anchor build --no-idl` and skips bankrun specs (SEV-012 coverage gap).
+- **`scripts/test-fresh.sh`** (#361, #362) — fresh local validator + program redeployment for batch localnet runs (kills any running `solana-test-validator`, wipes ledger, fresh `--reset` start, optional `mpl_core.so` clone from mainnet, `anchor build --no-idl` + `anchor deploy`). Detects program-ID drift from Anchor.toml on first-run scenarios (#362). Mirrors the existing `devnet:pause-rehearsal` alias style.
+- **5 pnpm aliases for Squads rehearsal** — `devnet:squads-derive-pda`, `devnet:squads-rehearsal-{verify,propose,cancel,commit}` (#367).
+- **`docs/operations/squads-rehearsal-quickstart.md`** (#367) — copy-paste runbook condensing the canonical `squads-multisig-procedure.md` into the actual command sequence with expected outputs at each phase. Documents two paths for the Phase C commit timelock: Option 1 (real 7d wait, mainnet-faithful) or Option 2 (temporarily lowered timelock on a throwaway branch).
+
+#### Documentation
+
+- **`docs/adr/0007-bankrun-compat-shim.md`** (#364) — ADR documenting the architectural decision behind `tests/_harness/bankrun_compat.ts`. Captures context (2 distinct spec populations), decision (shim, not rewrite), alternatives rejected (fork upstream, accept 24h localnet, etc.), and empirical consequences (surfaced SEV-034b + SEV-031 latent fixture drift).
+- **`docs/319-agave-2x-migration-spike.md`** (#368) — planning spike with empirical failure capture (Cargo unifier deadlock on `zeroize` / `curve25519-dalek` when bumping mpl-core 0.8 → 0.12 piecemeal) + 5-PR roadmap with per-PR risk + time estimates. Concludes: 4-7 working days + OtterSec re-attestation lead time; **not on the mainnet-GA critical path** for Q4 2026.
+- **`docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md`** (#369) — Squads rotation rehearsal log: 4 phases validated on-chain (propose `4pfiQLAEzpoz...`, cancel `s1NDWguUm...`, re-propose `2dhWa68945...`, commit `2xeWvuDTa4...`). Final state on parallel test deployment: `live=6Y6BL1mq...`, `pending=default`, `eta=0`. Canonical `8LVrgxKw...` program untouched. Documents pre-flight blockers (devnet ProtocolConfig pre-PR #323 — realloc migration needed for canonical; insufficient SOL on solana config wallet; DeclaredProgramIdMismatch on first deploy attempt).
+- **Findings tracker fully reconciled** — section counts now match summary cell-for-cell, internal-audit-findings.md SEV-026/027/030/031/033 status flipped from `🟡 Open/Deferred/Partial` to `🟢 Closed` (#363), SEV-029 + SEV-034 promoted from Low to High section to match their "High — fund-leak" severity notes (#365), stale tracker stats swept across README + MAINNET_READINESS + audit-readiness (#366).
+
+### Changed
+
+- **`programs/roundfi-core/src/instructions/join_pool.rs:272`** — `member.total_escrow_deposited = stake_amount;` → `= 0;` (SEV-034b 1-line on-chain fix in #360). Single on-chain change of the entire 0.5.0 release; all other commits are test / build / harness / doc infrastructure.
+- **`programs/roundfi-core/src/instructions/release_escrow.rs`** — derivation extracted to `roundfi-math::escrow_vesting` crate; the on-chain handler now delegates (#351). Same principle as the SEV-026 cascade refactor — single source of truth for replicated financial math.
+- **`tests/_harness/index.ts`** — `setupBankrunEnv` exported from barrel.
+- **`Anchor.toml`** — `[programs.localnet]` aligned with `declare_id!` + `[programs.devnet]` (was `11111…` placeholders — bankrun was trying to deploy at the System Program address).
+- **`tests/edge_grace_default.spec.ts`** — fixture expected values aligned to chain truth (1/3 USDC remainder from D/C ratio — `1500/3000 × 2000 = 1166_666_667 → 333_333_333` stake seizure, was off by exactly 333_333 base units).
+- **`tests/edge_cycle_boundary.spec.ts`** — `INSTALLMENT_BASE` bumped 1000 → 2000 USDC to satisfy SEV-031 viability (`members × installment × (1 − sol − esc) ≥ credit`). Pre-existing fixture (installment=1000, credit=2200) violated the post-SEV-031 guard; bankrun migration made the spec actually run and surfaced the latent drift (#360 Item M).
+- **`MAINNET_READINESS.md`** + **`README.md`** + **`docs/security/audit-readiness.md`** — tracker stat sweep (W4-era stale numbers updated to current 40/36/10/10) (#366).
+
+### Fixed
+
+- **SEV-034b** (Critical) — `release_escrow` fully broken by `total_escrow_deposited` init in `join_pool` (#360). Feature break of every member's vested stake until `close_pool`; not a fund-drain.
+- **`scripts/devnet/squads-rehearsal-{verify,commit-authority}.ts`** offset bug — `OFFSET_PENDING_AUTHORITY: 311 → 313`, `OFFSET_PENDING_AUTHORITY_ETA: 343 → 345` (#369). Root cause: struct's `pub const SIZE` comment listed `pending_authority` before `lp_share_bps`, but Borsh serializes in source declaration order which has `lp_share_bps` (u16) FIRST. Script author trusted the SIZE comment. Bug surfaced during rehearsal execution.
+
+### Infrastructure
+
+- **Reproducible-build attestation refresh deferred** — the 4 deployed devnet programs (`roundfi-core`, `roundfi-reputation`, `roundfi-yield-mock`, `roundfi-yield-kamino`) are pre-#360 bytecode; the SEV-034b fix lives in main but hasn't been redeployed to devnet yet. Next devnet refresh sprint will bundle re-deploy + re-attestation + canonical ProtocolConfig realloc migration (gap surfaced by the Squads rehearsal — canonical config is pre-PR #323, missing `pending_authority` + `pending_authority_eta` fields).
+- **Throwaway parallel devnet deploy** at `6WuSo1ut...7Rpn` (Squads rehearsal test instance, not canonical) — see [`docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md`](./docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md) §1.
+- **11 PRs merged 2026-05-16** under this release: #359..#369 covering test infra base, SEV-034b fix + Items J/L/M/N/O, test-fresh.sh, findings tracker reconciliation, ADR 0007, SEV-029/034 row promote, tracker stats sweep, Squads quickstart, #319 spike doc, Squads rehearsal execution log + offset fix.
+
+---
+
 ## [0.4.0] — 2026-05-14 (Audit-readiness consolidation + app↔chain wiring)
 
 Post-Colosseum sprint focused on external-auditor pre-engagement docs, app↔chain encoder coverage, and security infrastructure (wallet allowlist, RPC quorum, phishing-resistance, indexer reconciler). 4 issues closed (#228, #229, #232, #234); 5 issues with partial progress (#235, #249, #227, #230, #233).

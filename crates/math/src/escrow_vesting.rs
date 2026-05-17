@@ -78,8 +78,10 @@ pub fn releasable_delta(
 ///   `join_pool`. `total_escrow_deposited` is monotonic, incremented
 ///   by every `contribute`. Therefore:
 ///
-///     total_released = (stake_deposited_initial + total_escrow_deposited)
-///                    − escrow_balance
+/// ```text
+/// total_released = (stake_deposited_initial + total_escrow_deposited)
+///                - escrow_balance
+/// ```
 ///
 /// **NOT valid for defaulted members** (settle_default seizes
 /// escrow_balance without bumping a "seized" counter; the derivation

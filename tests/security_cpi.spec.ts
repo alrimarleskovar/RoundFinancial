@@ -89,7 +89,7 @@ import {
   ensureAta,
   fetchMember,
   fetchPool,
-  fetchProfile,
+  tryFetchProfile,
   fundUsdc,
   initMockVault,
   initializeProtocol,
@@ -113,12 +113,12 @@ import {
 
 const MEMBERS_TARGET = 2;
 const CYCLES_TOTAL = 2;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst = 1_250 * (1 - 0.01 - 0.25) = 925 USDC
 // credit must fit 2 * 925 = 1_850 USDC
 const CREDIT_USDC = 1_800n;
-const LEVEL: 1 | 2 | 3 = 2;
+const LEVEL: 1 | 2 | 3 = 1;
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
 const CREDIT_BASE = usdc(CREDIT_USDC);
@@ -192,17 +192,20 @@ async function snapshotMember(env: Env, h: MemberHandle): Promise<MemberSnapshot
       contributionsPaid: number;
       onTimeCount: number;
     }>,
-    fetchProfile(env, h.wallet.publicKey) as Promise<{
+    tryFetchProfile(env, h.wallet.publicKey) as Promise<{
       score: { toString(): string };
       onTimePayments: number;
-    }>,
+    } | null>,
   ]);
+  // Fresh wallet (no init_profile yet) → canonical level-1 defaults.
+  // This mirrors the on-chain semantic: an absent ReputationProfile
+  // is treated as score=0, on_time_payments=0 at level 1.
   return {
     memberUsdc,
     contributions: m.contributionsPaid,
     onTimeCount: m.onTimeCount,
-    profileScore: bn(p.score),
-    profileOnTime: p.onTimePayments,
+    profileScore: p ? bn(p.score) : 0n,
+    profileOnTime: p ? p.onTimePayments : 0,
   };
 }
 

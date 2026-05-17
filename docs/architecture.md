@@ -519,17 +519,19 @@ This section freezes the behavior contracts for the Step 4d instructions that li
 
 #### 4.6.2 Identity validator — untrusted provider contract
 
-`link_civic_identity` accepts an arbitrary account claimed to be a Civic gateway token. The validator:
+`link_passport_identity` accepts an arbitrary account claimed to be a Human Passport attestation (legacy Civic gateway-token layout reused byte-for-byte; see §4.4 provider transition note). The validator:
 
-1. Verifies the account's **owner** equals the Civic Networks program ID stored in `ReputationConfig`.
-2. Deserializes the gateway-token layout (Civic's 83-byte state struct) from raw account data — no Anchor `Account<'info, T>` trust, since the program does not own that type.
+1. Verifies the account's **owner** equals the `passport_attestation_authority` program ID stored in `ReputationConfig`.
+2. Deserializes the 83-byte attestation layout from raw account data — no Anchor `Account<'info, T>` trust, since the program does not own that type.
 3. Checks: `state == Active`, `expires_at == 0 || expires_at > clock.unix_timestamp`, `owner_wallet == signer.key()`.
-4. Checks the token's _gatekeeper network_ matches `ReputationConfig.civic_network`.
-5. On success, writes `IdentityRecord { provider: Civic, status: Verified, verified_at: clock.unix_timestamp, expires_at, gateway_token: token.key(), bump }`.
+4. Checks the attestation's _network_ identifier matches `ReputationConfig.passport_network`.
+5. On success, writes `IdentityRecord { provider: HumanPassport, status: Verified, verified_at: clock.unix_timestamp, expires_at, attestation: token.key(), bump }`.
 
 Any deserialization error, owner mismatch, or state flag mismatch rejects with `InvalidIdentityProof` — never a silent downgrade.
 
-`refresh_identity()` is permissionless (anyone can refresh anyone's record). It re-runs the validator; if the token now fails validation, the record's status is flipped to `Expired` / `Revoked`. This path lets indexers keep the on-chain state fresh without privileged crank authority.
+`refresh_identity()` is permissionless (anyone can refresh anyone's record). It re-runs the validator; if the attestation now fails validation, the record's status is flipped to `Expired` / `Revoked`. This path lets indexers keep the on-chain state fresh without privileged crank authority.
+
+> **Provider transition note**: This validator pattern was originally implemented for Civic Pass (gateway tokens), then renamed in-place to Human Passport in PR #317 after Civic discontinued the product on 31 July 2025. The 83-byte attestation layout is reused verbatim — only the provider name, config field names, and `IdentityProvider` enum tag change. Future providers (e.g. Sumsub for Phase 3 KYC-grade B2B compliance) inherit the same envelope under a different `provider` discriminant. See §4.4 for the full transition rationale.
 
 #### 4.6.3 Attestation issuance flow (core → reputation)
 
@@ -740,16 +742,19 @@ NEXT_PUBLIC_CORE_PROGRAM_ID=
 
 ## 11. Testing Strategy (detail in Step 5)
 
-- **Unit (Rust):** pure-math modules — `math::waterfall`, `math::escrow_vesting`, `math::reputation_score`
-- **Integration (TS + bankrun):** Anchor tests against a local bankrun validator
+- **Unit (Rust):** `roundfi-math` workspace crate — pure-math modules `bps`, `cascade`, `dc`, `escrow_vesting`, `seed_draw`, `waterfall`. 98 unit tests + proptest invariants, runs in ~10ms on host (no SBF). Extracted as standalone crate per [ADR 0004](./adr/0004-extract-roundfi-math-crate.md). Tarpaulin coverage >90%.
+- **Cargo-fuzz:** 6 targets on `roundfi-math` (`bps`, `cascade`, `dc_invariant`, `escrow_vesting`, `seed_draw`, `waterfall`); CI advisory smoke (60s/target) + manual long-run sweep (5min/target ≈ 500M inputs / 30s/target post-fix ≈ 86M inputs, 0 crashes captured).
+- **Integration (TS + bankrun):** Anchor tests against a `solana-bankrun` in-memory chain via [`tests/_harness/bankrun.ts`](../tests/_harness/bankrun.ts) (`setupBankrunEnv`) and the [`bankrun_compat` shim](../tests/_harness/bankrun_compat.ts) (ADR 0007) that wraps bankrun's 3-method `BankrunConnectionProxy` with the full `Connection` surface so existing `Env`-typed helpers run transparently. The shim is what unlocks specs whose real-time dependencies exceed CI budgets:
   - Happy path: 24-member full 24-cycle lifecycle, all on-time
-  - Default in mid-cycle → settle_default → seize stake → default attestation
+  - Default in mid-cycle → `settle_default` → Triple Shield cascade → default attestation (`edge_grace_default.spec.ts`, 3/3 via clock-warp past the 7-day `GRACE_PERIOD_SECS` window)
+  - `release_escrow` interleaved with `contribute` across 3 cycles (`security_sev034_release_escrow_lifecycle.spec.ts`, 2/2 — this is the spec that surfaced **SEV-034b** in PR #360)
+  - Cycle-boundary on-time/late classification at `next_cycle_at ± SAFE_MARGIN_SEC` (`edge_cycle_boundary.spec.ts`, 4/4 via `setBankrunUnixTs`; unrunnable on localnet because of the 24h+ real-sleep)
   - Escape valve: distressed member lists → buyer purchases → NFT transfers → Member re-anchors → reputation re-anchored
   - Waterfall: harvest with varying yield, assert bps splits across 10 randomized scenarios
   - Seed draw invariant: property-based test across a range of pool sizes
-- **Fuzz:** `cargo-fuzz` on entry points for `contribute`, `claim_payout`, `harvest_yield`
+- **Localnet (full real-time):** [`scripts/test-fresh.sh`](../scripts/test-fresh.sh) kills any running `solana-test-validator`, wipes ledger, fresh `--reset` start, `anchor build --no-idl` + `anchor deploy --provider.cluster localnet`. Used for specs that require actual cross-program-invocation timing (`tests/security_*.spec.ts` non-cooldown subset).
 - **E2E (Playwright):** frontend smoke tests against local-validator
-- **CI:** GitHub Actions — `anchor build && anchor test && pnpm -r test`
+- **CI:** GitHub Actions — 4 required gates (`js · lint + typecheck + parity + L1`, `audit · cargo-audit (advisory)`, `deny · supply-chain (advisory)`, `anchor · build`) + advisory lanes (`coverage · roundfi-math (tarpaulin)`, `fuzz · roundfi-math (libfuzzer)` × 6 targets). All required gates enforce on `main` via branch protection.
 
 ---
 

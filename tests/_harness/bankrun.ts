@@ -26,7 +26,13 @@
 
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { AccountInfoBytes, Clock, ProgramTestContext, startAnchor } from "solana-bankrun";
+import {
+  AccountInfoBytes,
+  AddedProgram,
+  Clock,
+  ProgramTestContext,
+  startAnchor,
+} from "solana-bankrun";
 import { BankrunProvider } from "anchor-bankrun";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
@@ -63,7 +69,11 @@ export interface BankrunEnv {
 function loadIdl(name: string): AnyIdl {
   const path = resolve(process.cwd(), "target", "idl", `${name}.json`);
   if (!existsSync(path)) {
-    throw new Error(`IDL not found: ${path}. Run 'anchor build' before bankrun tests.`);
+    throw new Error(
+      `IDL not found: ${path}. Run 'bash scripts/dev/rebuild-idls.sh' ` +
+        `(or 'anchor build') before bankrun tests. The dev script applies ` +
+        `the #319 anchor-syn patch and emits the three IDLs the bankrun harness needs.`,
+    );
   }
   return JSON.parse(readFileSync(path, "utf-8")) as AnyIdl;
 }
@@ -75,10 +85,73 @@ function loadIdl(name: string): AnyIdl {
  * with. Mirrors `setupEnv()` but backed by bankrun instead of
  * localnet.
  */
+/** Metaplex Core program ID. Same on every cluster. */
+const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
+
+/**
+ * Ensure mpl_core.so is loaded into the bankrun env.
+ *
+ * Specs that go through `join_pool` / `escape_valve_buy` CPI into
+ * Metaplex Core for FreezeDelegate + TransferDelegate plugin ops on
+ * the position NFT. Without mpl_core in the bankrun program registry,
+ * those CPIs trip "Unsupported program id" — exactly the failure mode
+ * SEV-012 / #319 has been tracking for the bankrun-in-CI lane.
+ *
+ * **Status (May 2026)**: this loader resolves the "Unsupported program
+ * id" trip for mpl_core specifically. Validated locally that bankrun
+ * accepts the mainnet-cloned binary and registers it under
+ * `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d`. The
+ * `edge_grace_default*` specs still fail with a downstream "incorrect
+ * program id for instruction" error — **diagnosed as a spec-level bug,
+ * not a harness one**: those specs pass `env.ids.reputation` (the
+ * reputation program's executable address) as a placeholder for
+ * optional reputation accounts (e.g. `reputationConfig`, `attestation`)
+ * via the `settleAccounts()` helper. The settle_default handler skips
+ * the reputation CPI at runtime when `config.reputation_program ==
+ * Pubkey::default()`, but Anchor's `Account<T>` ownership-check runs
+ * BEFORE the handler — so the program-executable-as-account placeholder
+ * fails validation with "incorrect program id". Was previously masked
+ * by the mpl_core "Unsupported program id" trip; surfaces post-loader.
+ * Tracked as a separate spec-fix follow-up (the on-chain accounts struct
+ * would need `Option<Account<T>>` to accept the placeholder pattern, or
+ * the spec needs uninitialized PDAs at the canonical seed addresses).
+ *
+ * mpl_core.so is NOT committed to the repo (~1MB binary). Convention:
+ * `target/deploy/mpl_core.so` populated via:
+ *
+ *   solana program dump -u mainnet-beta \
+ *     CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d \
+ *     target/deploy/mpl_core.so
+ *
+ * Returns the `AddedProgram` entry to pass to `startAnchor`, or
+ * `null` if the .so is missing (warning printed). Specs that depend
+ * on mpl_core then fail loudly at the first CPI with the standard
+ * "Unsupported program id" — same as before this loader, but at
+ * least the warning here points to the fix.
+ */
+function maybeLoadMplCore(): AddedProgram | null {
+  const path = resolve(process.cwd(), "target", "deploy", "mpl_core.so");
+  if (!existsSync(path)) {
+    console.warn(
+      "[bankrun] mpl_core.so missing at target/deploy/mpl_core.so — " +
+        "specs that CPI into Metaplex Core (join_pool, escape_valve_buy) " +
+        "will fail with 'Unsupported program id'. Download with:\n" +
+        `  solana program dump -u mainnet-beta ${METAPLEX_CORE_ID.toBase58()} target/deploy/mpl_core.so`,
+    );
+    return null;
+  }
+  return { name: "mpl_core", programId: METAPLEX_CORE_ID };
+}
+
 export async function setupBankrunEnv(): Promise<BankrunEnv> {
   // startAnchor reads Anchor.toml at `path` and deploys every
-  // program under [programs.localnet] from target/deploy/.
-  const context = await startAnchor("./", [], []);
+  // program under [programs.localnet] from target/deploy/. Extras
+  // (mpl_core) get loaded by their `name` from the same dir.
+  const extras: AddedProgram[] = [];
+  const mplCore = maybeLoadMplCore();
+  if (mplCore) extras.push(mplCore);
+
+  const context = await startAnchor("./", extras, []);
   const provider = new BankrunProvider(context);
   anchor.setProvider(provider);
 

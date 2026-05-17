@@ -175,6 +175,12 @@ pub fn stake_bps_for_level(level: u8) -> Option<u16> {
 }
 
 #[cfg(test)]
+// The constants here are intentional compile-time invariants — the
+// `assert!(STAKE_BPS_LEVEL_1 > STAKE_BPS_LEVEL_2)` shape is what
+// clippy::assertions_on_constants flags, but the value of the test is
+// EXACTLY to catch accidental reordering or value drift in
+// constants.rs itself. Suppress lint-wide for this module.
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 
@@ -345,6 +351,9 @@ mod tests {
 // silent because 14d > 1d floor. This is the "if the pinning ever drifts
 // again, the floor catches it" net.
 #[cfg(test)]
+// Same lint-suppress as `mod tests` above — `assert!(MIN_X >= FLOOR_X)`
+// is intentional, not a clippy::assertions_on_constants smell.
+#[allow(clippy::assertions_on_constants)]
 mod floor_guards {
     use super::*;
 

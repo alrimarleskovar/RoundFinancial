@@ -267,9 +267,23 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     member.paid_out                  = false;
     member.last_released_checkpoint  = 0;
     member.joined_at                 = clock.unix_timestamp;
-    // 4c: snapshot initial collateral for D/C invariant + seed escrow as "deposited"
+    // 4c: snapshot initial collateral for D/C invariant.
     member.stake_deposited_initial   = stake_amount;
-    member.total_escrow_deposited    = stake_amount;
+    // SEV-034b — `total_escrow_deposited` MUST start at 0. The SEV-034
+    // derivation `paid = (stake_initial + total_escrow_deposited) -
+    // escrow_balance` assumes `ted` counts ONLY contribute-time escrow
+    // deposits (each cycle's `escrow_release_bps × installment`). Seeding
+    // it with `stake_amount` at join double-counts the stake, making the
+    // initial post-join derived `paid = stake` (should be 0) and breaking
+    // every subsequent `release_escrow` with EscrowNothingToRelease.
+    //
+    // SEV-034 (#349) centralized the derivation in
+    // `roundfi-math::escrow_vesting::derive_total_released` but missed
+    // this init site — the integration spec
+    // `tests/security_sev034_release_escrow_lifecycle.spec.ts` is what
+    // surfaced the gap. Confirms the SEV-034 author's own thesis: pure-
+    // math simulators prove function properties, not on-chain state.
+    member.total_escrow_deposited    = 0;
     member.last_transferred_at       = 0;
     member.bump                      = ctx.bumps.member;
 

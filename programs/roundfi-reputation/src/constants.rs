@@ -96,6 +96,10 @@ pub const PASSPORT_ATTESTATION_LEN: usize = 83;
 //   - Floor (silent until breach): catches regressions independent
 //     of what the pinned value happens to be.
 #[cfg(test)]
+// `assert!(CONST >= FLOOR_CONST)` shape is what clippy::assertions_on_constants
+// flags, but the value of the test is EXACTLY to catch accidental
+// drift below the floor. Lint-suppress for this guard module.
+#[allow(clippy::assertions_on_constants)]
 mod floor_guards {
     use super::*;
 

@@ -55,7 +55,9 @@ In the interim (devnet through mainnet smoke), valid reports go through the chan
 
 ### Audit status
 
-The protocol is currently under **internal audit** (see [`docs/security/self-audit.md`](docs/security/self-audit.md)). External third-party audit is deferred to the mainnet migration phase. This means: please assume no external auditor has rubber-stamped this code yet. We're operating on devnet only.
+The protocol has completed an **internal pre-audit** (May 2026): 5-pass red-team exercise + 1 integration-testing wave run by the RoundFi team **simulating Adevar Labs' methodology** — 40 findings catalogued, 36 🟢 closed (Critical/High 10/10 including SEV-034b surfaced by the integration-testing wave), 1 🟠 upstream-blocked (SEV-012 ← mpl-core borsh compatibility), 3 🔵 design-intentional. Public tracker at [`docs/security/internal-audit-findings.md`](docs/security/internal-audit-findings.md). See also the canonical internal audit at [`docs/security/self-audit.md`](docs/security/self-audit.md).
+
+**This is NOT an Adevar attestation.** The formal external Adevar Labs engagement is in **scoping** (cost/timeline negotiation) — the internal pre-audit was run _before_ commissioning the paid auditor so the formal audit's clock can go to harder questions rather than findings the team could surface independently. Please assume no external auditor has rubber-stamped this code yet. We're operating on devnet only.
 
 ## Hall of fame
 

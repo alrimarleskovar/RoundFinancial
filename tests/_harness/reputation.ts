@@ -124,7 +124,7 @@ export async function seedReputation(
   return { handle, profiles };
 }
 
-/** Loosely-typed profile fetcher. */
+/** Loosely-typed profile fetcher. Throws if the PDA isn't initialized. */
 export async function fetchProfile(env: Env, wallet: PublicKey): Promise<Record<string, unknown>> {
   const pda = reputationProfileFor(env, wallet);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,6 +132,28 @@ export async function fetchProfile(env: Env, wallet: PublicKey): Promise<Record<
     string,
     unknown
   >;
+}
+
+/**
+ * Soft variant: returns `null` when the ReputationProfile PDA doesn't
+ * exist yet — the on-chain canonical "fresh wallet = level 1"
+ * semantic. Security specs use this in `snapshotMember`-style helpers
+ * to tolerate test wallets that were never `init_profile`'d, instead
+ * of cascading-failing on every fetch.
+ */
+export async function tryFetchProfile(
+  env: Env,
+  wallet: PublicKey,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await fetchProfile(env, wallet);
+  } catch (err) {
+    const msg = String((err as Error)?.message ?? err);
+    if (msg.includes("Account does not exist") || msg.includes("has no data")) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 // ─── Admin-path attest ───────────────────────────────────────────────

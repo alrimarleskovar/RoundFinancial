@@ -78,6 +78,10 @@ pub fn handler(
 }
 
 #[cfg(test)]
+// Constant-vs-constant assertions are intentional compile-time
+// invariants here — they pin SEV-024's MAX_FEE_BPS_YIELD = 3_000
+// against drift in either MAX_BPS or DEFAULT_FEE_BPS_YIELD.
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 

@@ -44,8 +44,8 @@ import {
 
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
-const OFFSET_PENDING_AUTHORITY = 311;
-const OFFSET_PENDING_AUTHORITY_ETA = 343;
+const OFFSET_PENDING_AUTHORITY = 313;
+const OFFSET_PENDING_AUTHORITY_ETA = 345;
 const PROTOCOL_CONFIG_SIZE = 381;
 
 function loadKeypair(path: string): Keypair {

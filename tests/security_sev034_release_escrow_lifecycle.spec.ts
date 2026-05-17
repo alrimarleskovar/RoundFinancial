@@ -62,23 +62,35 @@ import {
   joinMembers,
   memberKeypairs,
   releaseEscrow,
-  setupEnv,
   usdc,
   type Env,
   type MemberHandle,
   type PoolHandle,
 } from "./_harness/index.js";
+import { setupBankrunEnvCompat } from "./_harness/bankrun_compat.js";
 
 // ─── Pool shape ─────────────────────────────────────────────────────────
 //
 // Auditor's disclosed scenario uses stake=750 USDC, cycles=3, installment=
-// 1000 USDC. We mirror it as closely as the harness allows. members=2
-// because joinMembers requires `cycles_total >= members_target`; with
-// cycles_total=3 we get a 2-member rotation.
+// 1000 USDC. We mirror it. SEV-038 tightened `cycles_total >=
+// members_target` to `==`, so a 3-cycle pool needs exactly 3 members
+// (one slot rotation per cycle, every member claims once).
+//
+// The SEV-034 math doesn't depend on member count — VEST_PER_CHECKPOINT
+// is `stake/cycles` regardless. The lifecycle loop drives `handles[0]`
+// through contribute → claim (at cycle 0, slot owner = handles[0]) →
+// release, then contribute → claim (cycle 1, slot owner = handles[1])
+// → release, etc.
 
-const MEMBERS_TARGET = 2;
+const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60;
+// MIN_CYCLE_DURATION on-chain is 86_400s (1 day) — SEV-023 reverted the
+// devnet 60s patch. The lifecycle here doesn't rely on wall-clock
+// progression: `contribute()` only gates on `args.cycle ==
+// pool.current_cycle`, and `claim_payout` is what bumps current_cycle.
+// We pick the floor value so create_pool validation passes; the test
+// still finishes in seconds.
+const CYCLE_DURATION_SEC = 86_400;
 
 // L1 = 50% stake. credit=1500 → stake=750 (matches auditor trace).
 const LEVEL: 1 | 2 | 3 = 1;
@@ -110,7 +122,13 @@ describe("SEV-034 — release_escrow under interleaved contribute/release lifecy
   let handles: MemberHandle[];
 
   before(async function () {
-    env = await setupEnv();
+    // Item L: bankrun-native via the Env-compat wrapper. Same helper
+    // surface as `setupEnv()` (localnet), but each run starts from a
+    // pristine in-memory state — no validator reset needed, no
+    // accumulating reputation-cooldown / config-singleton pollution
+    // across runs. Closes the "spec passes in isolation, fails in
+    // batch" mode the localnet SEV-034 spec exhibited.
+    env = await setupBankrunEnvCompat();
     usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
     await initializeReputation(env, { coreProgram: env.ids.core });
@@ -231,13 +249,26 @@ describe("SEV-034 — release_escrow under interleaved contribute/release lifecy
 
     const subjectWalletEnd = await balanceOf(env, subject.memberUsdc);
     const walletGain = subjectWalletEnd - subjectWalletStart;
-    // Wallet gain via releases alone equals the stake; the subject also
-    // received their credit at cycle 0 (first slot owner) which adds
-    // CREDIT_BASE on top.
-    const expectedGainViaReleasesPlusCredit = STAKE_BASE + CREDIT_BASE;
-    expect(walletGain, `subject wallet gain = stake released + credit received`).to.equal(
-      expectedGainViaReleasesPlusCredit,
-    );
+    // Net wallet change between `subjectWalletStart` (captured right after
+    // `before` block — post-join, post-fundUsdc) and end of lifecycle:
+    //
+    //   Inflows:  stake released  (3 × 250 = STAKE_BASE)
+    //             credit received (CREDIT_BASE; subject is slot 0 owner)
+    //   Outflows: 3 × installment (INSTALLMENT_BASE × CYCLES_TOTAL)
+    //
+    //   Net = STAKE_BASE + CREDIT_BASE − INSTALLMENT_BASE × CYCLES_TOTAL
+    //       = 750 + 1500 − 3000 = −750 USDC
+    //
+    // The negative net is expected: the subject's role as a borrower (paid
+    // 3000 in installments to receive 1500 credit upfront + 750 stake back)
+    // is a one-cycle credit advance, not a profit position. The pool
+    // "earns" 750 (= installment × cycles − credit − stake) as solidarity
+    // float + pool float, which funds the spread between credit and stake.
+    const expectedNetGain = STAKE_BASE + CREDIT_BASE - INSTALLMENT_BASE * BigInt(CYCLES_TOTAL);
+    expect(
+      walletGain,
+      `subject wallet net gain = stake released + credit received − contributions paid`,
+    ).to.equal(expectedNetGain);
   });
 
   /**
