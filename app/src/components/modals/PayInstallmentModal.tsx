@@ -386,13 +386,12 @@ export function PayInstallmentModal({
                   lineHeight: 1.5,
                 }}
               >
-                Wallet conectada (slot {memberRecord.slotIndex} ·{" "}
-                {shortAddr(connectedWallet?.toBase58() ?? "")}) é membro do Pool{" "}
-                {onChainPool.pool.seedId.toString()}. Confirmar dispara{" "}
-                <code style={{ color: tokens.green }}>
-                  contribute(cycle={onChainPool.pool.currentCycle})
-                </code>{" "}
-                no devnet.
+                {t("modal.pay.onchain.banner", {
+                  slot: memberRecord.slotIndex,
+                  addr: shortAddr(connectedWallet?.toBase58() ?? ""),
+                  seedId: onChainPool.pool.seedId.toString(),
+                  cycle: onChainPool.pool.currentCycle,
+                })}
               </span>
             </div>
           ) : null}
@@ -433,7 +432,9 @@ export function PayInstallmentModal({
               }}
             >
               <MonoLabel size={9} color={tokens.red}>
-                {cycleDone ? "CICLO COMPLETO" : "SALDO INSUFICIENTE"}
+                {cycleDone
+                  ? t("modal.pay.blocked.cycleComplete")
+                  : t("modal.pay.blocked.insufficientBalance")}
               </MonoLabel>
               <span
                 style={{
