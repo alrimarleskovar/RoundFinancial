@@ -58,11 +58,13 @@ export interface BankrunEnv {
     core: Program<AnyIdl>;
     reputation: Program<AnyIdl>;
     yieldMock: Program<AnyIdl>;
+    yieldKamino: Program<AnyIdl>;
   };
   ids: {
     core: PublicKey;
     reputation: PublicKey;
     yieldMock: PublicKey;
+    yieldKamino: PublicKey;
   };
 }
 
@@ -261,20 +263,23 @@ export async function setupBankrunEnv(options: BankrunSetupOptions = {}): Promis
   const coreIdl = loadIdl("roundfi_core");
   const reputationIdl = loadIdl("roundfi_reputation");
   const yieldMockIdl = loadIdl("roundfi_yield_mock");
+  const yieldKaminoIdl = loadIdl("roundfi_yield_kamino");
 
   const core = new Program(coreIdl, provider);
   const reputation = new Program(reputationIdl, provider);
   const yieldMock = new Program(yieldMockIdl, provider);
+  const yieldKamino = new Program(yieldKaminoIdl, provider);
 
   return {
     context,
     provider,
     payer: context.payer,
-    programs: { core, reputation, yieldMock },
+    programs: { core, reputation, yieldMock, yieldKamino },
     ids: {
       core: core.programId,
       reputation: reputation.programId,
       yieldMock: yieldMock.programId,
+      yieldKamino: yieldKamino.programId,
     },
   };
 }

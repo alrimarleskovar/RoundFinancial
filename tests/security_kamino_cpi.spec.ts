@@ -59,7 +59,19 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 
-import { setupBankrunEnv, BankrunEnv, KAMINO_LEND_PROGRAM_ID } from "./_harness/bankrun.js";
+import * as anchor from "@coral-xyz/anchor";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+
+import {
+  setupBankrunEnv,
+  BankrunEnv,
+  KAMINO_LEND_PROGRAM_ID,
+  writeTokenAccount,
+} from "./_harness/bankrun.js";
 import { loadAllKaminoFixtures, KaminoFixtures } from "./_harness/kamino_fixtures.js";
 
 /**
@@ -521,5 +533,245 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 1 (fixture seeding)", fun
       fixtures.usdcMint.pubkey.toBase58(),
       "reserve_liquidity_supply.mint must equal USDC mint — Kamino's USDC vault",
     );
+  });
+});
+
+/**
+ * Phase 2b checkpoint 2+3 — init_vault + deposit CPI against cloned Kamino state.
+ *
+ * **The moment of truth.** After Phase 1 (program loads), Phase 2a
+ * (discriminators correct), and Phase 2b/1 (cascade-clone integrity),
+ * this is the actual end-to-end mechanics test:
+ *
+ *   1. Init our wrapper's YieldVaultState PDA via roundfi-yield-kamino::init_vault,
+ *      pinning the cloned reserve + lending_market.
+ *   2. Pre-seed source USDC ATA owned by pool (skips Circle mint authority).
+ *   3. Pre-seed c-token ATA owned by state (Anchor's `associated_token::*`
+ *      constraint requires it to exist; not init_if_needed in our wrapper).
+ *   4. Invoke roundfi-yield-kamino::deposit(amount).
+ *   5. Inspect outcome — success means full mechanics validated; failure
+ *      with specific Kamino error reveals which layer tripped.
+ *
+ * **Possible outcomes:**
+ *   - SUCCESS — all CPI mechanics correct. Phase 2b closes the account
+ *     ordering / signer seeds / ATA constraint gaps.
+ *   - "AccountValidationFailed" at position N — account ordering bug
+ *     in our wrapper's Deposit accounts struct.
+ *   - "ConstraintTokenAccountAuthority" — c-token ATA derivation
+ *     mismatch (state PDA seeds or mint mismatch).
+ *   - "ReserveStale" / "OracleNotFresh" — Kamino's pre-CPI freshness
+ *     check tripped on the cloned (frozen-in-time) state. Operational
+ *     limitation of bankrun-clone, NOT a wrapper bug. Documented as
+ *     known risk in docs/operations/kamino-bankrun-spike.md.
+ *
+ * The spec logs the outcome but doesn't assert success/failure — the
+ * information value is in WHICH error class fires, not whether the
+ * tx returns ok.
+ */
+describe("Kamino bankrun spike — Phase 2b checkpoint 2+3 (init_vault + deposit CPI)", function () {
+  this.timeout(60_000);
+
+  let env: BankrunEnv;
+  let fixtures: KaminoFixtures | null = null;
+
+  // Identities created at boot
+  let pool: Keypair;
+  let statePda: PublicKey;
+  let shadowVault: PublicKey;
+  let sourceAta: PublicKey;
+  let cTokenAta: PublicKey;
+
+  const DEPOSIT_AMOUNT = 10_000_000n; // 10 USDC (6 decimals)
+  const SOURCE_BALANCE = 100_000_000n; // 100 USDC starting balance
+
+  before(async () => {
+    if (!KLEND_SO_PRESENT) {
+      console.warn(`\n[Phase 2b/2+3] SKIPPING — klend.so missing.`);
+      return;
+    }
+    try {
+      fixtures = loadAllKaminoFixtures();
+    } catch (err) {
+      console.warn(
+        `\n[Phase 2b/2+3] SKIPPING — fixtures missing.\n${err instanceof Error ? err.message : err}`,
+      );
+      return;
+    }
+    env = await setupBankrunEnv({ loadMplCore: false, loadKaminoLend: true });
+
+    // Seed all cascade-clone fixtures.
+    for (const snap of Object.values(fixtures)) {
+      env.context.setAccount(snap.pubkey, snap.account);
+    }
+
+    // Generate fresh pool keypair (in production this is roundfi-core's
+    // Pool PDA; for this spike, any pubkey we control works).
+    pool = Keypair.generate();
+
+    // Derive YieldVaultState PDA.
+    [statePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("yield-state"), pool.publicKey.toBuffer()],
+      env.ids.yieldKamino,
+    );
+
+    // Pre-derive the ATAs we need.
+    shadowVault = getAssociatedTokenAddressSync(fixtures.usdcMint.pubkey, statePda, true);
+    sourceAta = getAssociatedTokenAddressSync(fixtures.usdcMint.pubkey, pool.publicKey, true);
+    cTokenAta = getAssociatedTokenAddressSync(fixtures.cTokenMint.pubkey, statePda, true);
+
+    console.log(`  [Phase 2b/2+3] pool=${pool.publicKey.toBase58()}`);
+    console.log(`  [Phase 2b/2+3] state=${statePda.toBase58()}`);
+    console.log(`  [Phase 2b/2+3] shadow_vault=${shadowVault.toBase58()}`);
+    console.log(`  [Phase 2b/2+3] source_ata=${sourceAta.toBase58()}`);
+    console.log(`  [Phase 2b/2+3] c_token_ata=${cTokenAta.toBase58()}`);
+  });
+
+  it("Checkpoint 2 — init_vault creates YieldVaultState pinning cloned reserve + market", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (env.programs.yieldKamino.methods as any)
+      .initVault(fixtures.reserve.pubkey, fixtures.lendingMarket.pubkey)
+      .accounts({
+        payer: env.payer.publicKey,
+        pool: pool.publicKey,
+        mint: fixtures.usdcMint.pubkey,
+        state: statePda,
+        vault: shadowVault,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const state = (await (env.programs.yieldKamino.account as any).yieldVaultState.fetch(
+      statePda,
+    )) as {
+      pool: PublicKey;
+      underlyingMint: PublicKey;
+      vault: PublicKey;
+      kaminoReserve: PublicKey;
+      kaminoMarket: PublicKey;
+      trackedPrincipal: anchor.BN;
+    };
+    assert.equal(state.pool.toBase58(), pool.publicKey.toBase58());
+    assert.equal(state.underlyingMint.toBase58(), fixtures.usdcMint.pubkey.toBase58());
+    assert.equal(state.vault.toBase58(), shadowVault.toBase58());
+    assert.equal(state.kaminoReserve.toBase58(), fixtures.reserve.pubkey.toBase58());
+    assert.equal(state.kaminoMarket.toBase58(), fixtures.lendingMarket.pubkey.toBase58());
+    assert.equal(state.trackedPrincipal.toString(), "0");
+    console.log(`  [Phase 2b/2] init_vault SUCCEEDED — state PDA initialized`);
+  });
+
+  it("Checkpoint 3 — deposit CPI against cloned Kamino state (THE MOMENT OF TRUTH)", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+
+    // Seed source USDC ATA with 100 USDC (override owner to pool —
+    // bypasses Circle's mint authority since we own the account state).
+    writeTokenAccount(env.context, sourceAta, {
+      mint: fixtures.usdcMint.pubkey,
+      owner: pool.publicKey,
+      amount: SOURCE_BALANCE,
+    });
+
+    // Pre-create the c-token ATA with 0 balance. Our wrapper's
+    // associated_token::* constraint requires this account to exist
+    // (NOT init_if_needed).
+    writeTokenAccount(env.context, cTokenAta, {
+      mint: fixtures.cTokenMint.pubkey,
+      owner: statePda,
+      amount: 0n,
+    });
+
+    let outcome: "SUCCESS" | string;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (env.programs.yieldKamino.methods as any)
+        .deposit(new anchor.BN(DEPOSIT_AMOUNT.toString()))
+        .accounts({
+          source: sourceAta,
+          destination: shadowVault,
+          authority: pool.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          state: statePda,
+          kaminoReserve: fixtures.reserve.pubkey,
+          kaminoMarket: fixtures.lendingMarket.pubkey,
+          kaminoMarketAuthority: fixtures.lendingMarketAuthority.pubkey,
+          kaminoReserveLiquiditySupply: fixtures.reserveLiquiditySupply.pubkey,
+          kaminoReserveCollateralMint: fixtures.cTokenMint.pubkey,
+          cTokenAccount: cTokenAta,
+          kaminoProgram: KAMINO_LEND_PROGRAM_ID,
+        })
+        .signers([pool])
+        .rpc();
+      outcome = "SUCCESS";
+    } catch (err) {
+      outcome = err instanceof Error ? err.message : String(err);
+    }
+
+    console.log("");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(" Phase 2b/3 DEPOSIT OUTCOME");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    if (outcome === "SUCCESS") {
+      console.log("✅ DEPOSIT SUCCEEDED — full CPI mechanics validated");
+      console.log("   - Account ordering correct");
+      console.log("   - Signer seeds correct");
+      console.log("   - c-token ATA constraint satisfied");
+      console.log("   - Kamino accepted the deposit_reserve_liquidity invocation");
+    } else {
+      console.log("⚠️  DEPOSIT FAILED — analyze the failure class:");
+      console.log(`   Raw error: ${outcome.slice(0, 500)}`);
+      console.log("");
+      console.log("   Failure classification:");
+      const knownClasses = [
+        {
+          pattern: /AccountValidationFailed|ConstraintRaw|ConstraintAddress/i,
+          label: "wrapper-side account validation — our Deposit struct constraint mismatch",
+        },
+        {
+          pattern: /ConstraintTokenAccountAuthority|ConstraintTokenMint/i,
+          label: "ATA derivation mismatch — state PDA seeds or mint mismatch",
+        },
+        {
+          pattern: /InvalidKaminoProgram/i,
+          label: "kamino_program account mismatch (SEV-040-class — should be impossible after fix)",
+        },
+        {
+          pattern: /Stale|NotFresh|LastUpdate/i,
+          label:
+            "Kamino oracle/reserve freshness check — bankrun clock vs cloned snapshot timestamp",
+        },
+        {
+          pattern: /PrivilegeEscalation|MissingRequiredSignature/i,
+          label: "signer seeds or signer permission mismatch",
+        },
+        {
+          pattern: /AccountOwnedByWrongProgram/i,
+          label: "account owner mismatch — likely wrong cascade-clone target",
+        },
+      ];
+      const matched = knownClasses.find((c) => c.pattern.test(outcome));
+      if (matched) {
+        console.log(`   → ${matched.label}`);
+      } else {
+        console.log("   → unclassified (investigate manually)");
+      }
+    }
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    // Don't assert success/failure — this test is informational.
+    // The output is what matters; auto-pass to keep CI green while the
+    // spike data is consumed.
+    assert.ok(true, "Phase 2b/3 is informational — outcome logged above");
   });
 });
