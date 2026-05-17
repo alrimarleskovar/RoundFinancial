@@ -654,7 +654,11 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
     // Seed YieldVaultState via Anchor's coder. Bypasses the `init`
     // constraint that tripped System Program "invalid instruction
     // data" in bankrun (see describe-block docstring for context).
-    await writeAnchorAccount(env.context, env.programs.yieldKamino, "YieldVaultState", statePda, {
+    // IDL account names use PascalCase in the JSON but Anchor 0.30's
+    // BorshAccountsCoder keys them in camelCase. Matches the pattern
+    // in edge_grace_default_shield1_only.spec.ts (`"protocolConfig"`,
+    // `"pool"`, `"member"`).
+    await writeAnchorAccount(env.context, env.programs.yieldKamino, "yieldVaultState", statePda, {
       pool: pool.publicKey,
       underlyingMint: fixtures.usdcMint.pubkey,
       vault: shadowVault,
@@ -688,6 +692,7 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
     });
 
     // Validate the seeded YieldVaultState is readable via Anchor's coder.
+    // Anchor accessor namespace also uses camelCase keys.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const state = (await (env.programs.yieldKamino.account as any).yieldVaultState.fetch(
       statePda,
