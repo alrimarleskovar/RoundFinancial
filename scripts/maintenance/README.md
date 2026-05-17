@@ -12,13 +12,13 @@ Inventory of **304 remote branches safe to delete** (post wave-5 doc refresh, 20
 
 **Composition:**
 
-| Class | Count | Notes |
-| --- | --- | --- |
-| Squash-merge orphans (PR merged) | 261 | Git `--merged` misses these because squash rewrites commit hashes |
-| Truly merged (Git-detectable via `--merged main`) | 37 | Old enough to be reachable from main HEAD |
-| PR closed without merging | 2 | `claude/video-pitch-script` (#183), `fix/anchor-idl-build-payload-newtype` (#358) |
-| No-PR historical (work absorbed or abandoned spike) | 4 | `chore/riptide-spike`, `chore/tests-mocha-tsx-loader`, `claude/setup-copilot-api-config-PuGXP`, `claude/web3-security-audit-2CA0r` |
-| **Total** | **304** | |
+| Class                                               | Count   | Notes                                                                                                                              |
+| --------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Squash-merge orphans (PR merged)                    | 261     | Git `--merged` misses these because squash rewrites commit hashes                                                                  |
+| Truly merged (Git-detectable via `--merged main`)   | 37      | Old enough to be reachable from main HEAD                                                                                          |
+| PR closed without merging                           | 2       | `claude/video-pitch-script` (#183), `fix/anchor-idl-build-payload-newtype` (#358)                                                  |
+| No-PR historical (work absorbed or abandoned spike) | 4       | `chore/riptide-spike`, `chore/tests-mocha-tsx-loader`, `claude/setup-copilot-api-config-PuGXP`, `claude/web3-security-audit-2CA0r` |
+| **Total**                                           | **304** |                                                                                                                                    |
 
 **Excluded from this list (KEEP):**
 
