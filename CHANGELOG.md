@@ -11,7 +11,9 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
-### Added
+### Fixed — Pass-8 constants/config validation wave
+
+- **SEV-042 (Critical) — `mainnet_hardening_check.ts` byte offsets reading random data** — the pre-flight canary safety gate had a stale `OFFSETS_POST_DISC` table: claimed `paused @ 108` and `treasury_locked @ 125`, but actual `ProtocolConfig` post-discriminator offsets are `paused @ 202` and `treasury_locked @ 204`. The docstring layout silently skipped 4 Pubkey fields (`usdc_mint`, `metaplex_core`, `default_yield_adapter`, `reputation_program`), placing the wrong-byte reads inside `default_yield_adapter` and `pending_treasury`. Random bytes often returned `0` (false/unpaused/unlocked), so the check would have green-lit a canary on a paused or treasury-locked protocol. **Fix:** rewrote the offset table from canonical `config.rs` order; added 4 new BLOCKER checks (`approved_yield_adapter`, `approved_yield_adapter_locked`, `max_pool_tvl_usdc`/`max_protocol_tvl_usdc`, `commit_reveal_required`) that the previous version self-deferred; added a `data.length === 373` size-mismatch guard that bails before reading offsets if `ProtocolConfig` grows; added Rust-side coupling test `protocol_config_size_pinned_for_hardening_script` in `state/config.rs` that pins `SIZE = 381` so future struct growth fails the Rust test first and forces a same-PR update of the TS offsets. Methodology generalization: SEV-040 forced "every pinned-constant string needs a unit test" — this finding extends the same principle to byte-offset constants in off-chain scripts.
 
 ## [0.4-canary] — 2026-05-17 (release-candidate marker — feature freeze active)
 

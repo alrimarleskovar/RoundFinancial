@@ -28,13 +28,14 @@
  *   pnpm test:mainnet-hardening
  *
  * Env:
- *   RPC_URL                       (default: https://api.mainnet-beta.solana.com)
- *   ROUNDFI_CORE_PROGRAM_ID       (default: 8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw)
- *   EXPECTED_AUTHORITY            (REQUIRED on mainnet — pass the Squads multisig PDA)
- *   EXPECTED_TREASURY             (REQUIRED on mainnet — pass the Squads-controlled USDC ATA)
- *   EXPECTED_APPROVED_ADAPTER     (REQUIRED on mainnet — pass roundfi-yield-kamino program ID)
- *   EXPECTED_MAX_POOL_TVL_USDC    (default 10000_000000 = 10k USDC base units for canary)
- *   EXPECTED_MAX_PROTOCOL_TVL_USDC (default 100000_000000 = 100k USDC for canary)
+ *   RPC_URL                         (default: https://api.mainnet-beta.solana.com)
+ *   ROUNDFI_CORE_PROGRAM_ID         (default: 8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw)
+ *   EXPECTED_AUTHORITY              (REQUIRED on mainnet — pass the Squads multisig PDA)
+ *   EXPECTED_TREASURY               (REQUIRED on mainnet — pass the Squads-controlled USDC ATA)
+ *   EXPECTED_APPROVED_ADAPTER       (REQUIRED on mainnet — pass roundfi-yield-kamino program ID)
+ *   EXPECTED_MAX_POOL_TVL_USDC      (default 5_000000 = $5 base units for first canary wave)
+ *   EXPECTED_MAX_PROTOCOL_TVL_USDC  (default 50_000000 = $50 base units for first canary wave)
+ *   EXPECTED_COMMIT_REVEAL_REQUIRED (default "true" — #232 MEV mitigation gate on mainnet)
  *
  * Run with `--devnet` to use devnet defaults and SKIP the
  * REQUIRED-on-mainnet env vars (useful for rehearsal).
@@ -47,43 +48,67 @@ const DEFAULT_CORE_PROGRAM_ID = "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw";
 // ProtocolConfig field byte offsets within the account data, AFTER
 // the 8-byte Anchor discriminator. Derived from
 // programs/roundfi-core/src/state/config.rs field declaration order +
-// SIZE breakdown. If config.rs changes, update OFFSETS_POST_DISC.
+// SIZE breakdown.
+//
+// SEV-042 history: the previous version of this table had the
+// post-Pubkey fields (paused, treasury_locked) at offsets 108 and 125
+// because the docstring layout had skipped 4 Pubkeys (usdc_mint,
+// metaplex_core, default_yield_adapter, reputation_program). The
+// script was reading random bytes in the middle of those Pubkeys and
+// would have passed even on a paused protocol if the corresponding
+// byte happened to be 0. Layout below is derived empirically from
+// config.rs at v0.4-canary.
 //
 // Layout (post-discriminator):
-//   authority:                Pubkey      32 bytes  @ 0
-//   treasury:                 Pubkey      32 bytes  @ 32
-//   fee_bps_yield:            u16          2 bytes  @ 64
-//   fee_bps_cycle_l1:         u16          2 bytes  @ 66
-//   fee_bps_cycle_l2:         u16          2 bytes  @ 68
-//   fee_bps_cycle_l3:         u16          2 bytes  @ 70
-//   guarantee_fund_bps:       u16          2 bytes  @ 72
-//   lp_share_bps:             u16          2 bytes  @ 74
-//   reputation_program:       Pubkey      32 bytes  @ 76
-//   paused:                   bool         1 byte   @ 108
-//   pending_treasury_eta:     i64          8 bytes  @ 109
-//   pending_authority_eta:    i64          8 bytes  @ 117
-//   treasury_locked:          bool         1 byte   @ 125
-//   pending_treasury:         Pubkey      32 bytes  @ 126
-//   ... and so on through the new fields
-// (We don't need every offset — just the ones we assert on.)
-//
-// NOTE: this script is OFFSET-FRAGILE. If ProtocolConfig grows new
-// fields between authority+treasury and the fields we read, the
-// offsets shift. Keep cross-referenced with config.rs.
+//   authority:                       Pubkey  32 bytes  @ 0
+//   treasury:                        Pubkey  32 bytes  @ 32
+//   usdc_mint:                       Pubkey  32 bytes  @ 64
+//   metaplex_core:                   Pubkey  32 bytes  @ 96
+//   default_yield_adapter:           Pubkey  32 bytes  @ 128
+//   reputation_program:              Pubkey  32 bytes  @ 160
+//   fee_bps_yield:                   u16      2 bytes  @ 192
+//   fee_bps_cycle_l1:                u16      2 bytes  @ 194
+//   fee_bps_cycle_l2:                u16      2 bytes  @ 196
+//   fee_bps_cycle_l3:                u16      2 bytes  @ 198
+//   guarantee_fund_bps:              u16      2 bytes  @ 200
+//   paused:                          bool     1 byte   @ 202
+//   bump:                            u8       1 byte   @ 203
+//   treasury_locked:                 bool     1 byte   @ 204
+//   pending_treasury:                Pubkey  32 bytes  @ 205
+//   pending_treasury_eta:            i64      8 bytes  @ 237
+//   max_pool_tvl_usdc:               u64      8 bytes  @ 245
+//   max_protocol_tvl_usdc:           u64      8 bytes  @ 253
+//   committed_protocol_tvl_usdc:     u64      8 bytes  @ 261
+//   approved_yield_adapter:          Pubkey  32 bytes  @ 269
+//   approved_yield_adapter_locked:   bool     1 byte   @ 301
+//   commit_reveal_required:          bool     1 byte   @ 302
+//   pending_authority:               Pubkey  32 bytes  @ 303
+//   pending_authority_eta:           i64      8 bytes  @ 335
+//   lp_share_bps:                    u16      2 bytes  @ 343
+//   pending_fee_bps_yield:           u16      2 bytes  @ 345
+//   pending_fee_bps_yield_eta:       i64      8 bytes  @ 347
+//   forward-compat padding:                  18 bytes  @ 355
+//   ────────────────────────────────────────────────────
+//   Total post-discriminator size:           373 bytes
 const OFFSETS_POST_DISC = {
   authority: 0,
   treasury: 32,
-  paused: 108,
-  // The fields below are post-W3 additions per
-  // docs/operations/reputation-config-migration.md and the SEV-024
-  // timelock work. Offsets depend on the *exact* current ProtocolConfig
-  // shape — if asserts below report unexpected values, run
-  // `solana account <CONFIG_PDA> --output json-compact` and verify
-  // by hand against config.rs.
-  treasuryLocked: 125,
+  paused: 202,
+  treasuryLocked: 204,
+  maxPoolTvlUsdc: 245,
+  maxProtocolTvlUsdc: 253,
+  approvedYieldAdapter: 269,
+  approvedYieldAdapterLocked: 301,
+  commitRevealRequired: 302,
 } as const;
 
 const ANCHOR_DISC_SIZE = 8;
+
+// Expected size of the ProtocolConfig account body (post-discriminator).
+// Must equal ProtocolConfig::SIZE - 8 from config.rs. If the on-chain
+// account is larger or smaller, the struct has changed shape and these
+// offsets are stale — the script bails before reading wrong bytes.
+const EXPECTED_DATA_SIZE = 373;
 
 interface Check {
   name: string;
@@ -99,6 +124,10 @@ function pubkeyAt(data: Buffer, offset: number): PublicKey {
 
 function boolAt(data: Buffer, offset: number): boolean {
   return data.readUInt8(offset) === 1;
+}
+
+function u64At(data: Buffer, offset: number): bigint {
+  return data.readBigUInt64LE(offset);
 }
 
 async function main() {
@@ -132,6 +161,21 @@ async function main() {
   const data = info.data.subarray(ANCHOR_DISC_SIZE);
   console.log(`Account data: ${data.length} bytes (post-discriminator)`);
   console.log("");
+
+  // ─── SEV-042 guard: bail before reading wrong offsets ─────────────
+  // If the on-chain account body size doesn't match ProtocolConfig::SIZE - 8
+  // from config.rs, the struct has changed shape since this script was
+  // written. Every offset below is potentially wrong — bail hard rather
+  // than silently green-light the canary.
+  if (data.length !== EXPECTED_DATA_SIZE) {
+    console.error(
+      `❌ ProtocolConfig size mismatch: expected ${EXPECTED_DATA_SIZE} bytes post-disc, got ${data.length}.`,
+    );
+    console.error("   The struct has changed since this script was last updated.");
+    console.error("   Re-derive OFFSETS_POST_DISC from programs/roundfi-core/src/state/config.rs");
+    console.error("   before running canary. SEV-042 class — do NOT proceed.");
+    process.exit(2);
+  }
 
   const checks: Check[] = [];
 
@@ -208,6 +252,89 @@ async function main() {
     severity: "BLOCKER",
   });
 
+  // ─── BLOCKER 5: approved_yield_adapter must match expected (Kamino on mainnet) ──
+  // SEV-040/041 class — wrong adapter program ID = funds routed to wrong CPI target.
+  const actualAdapter = pubkeyAt(data, OFFSETS_POST_DISC.approvedYieldAdapter);
+  if (process.env.EXPECTED_APPROVED_ADAPTER) {
+    const expected = new PublicKey(process.env.EXPECTED_APPROVED_ADAPTER);
+    checks.push({
+      name: "approved_yield_adapter",
+      ok: actualAdapter.equals(expected),
+      expected: expected.toBase58(),
+      actual: actualAdapter.toBase58(),
+      severity: "BLOCKER",
+    });
+  } else if (!isDevnet) {
+    checks.push({
+      name: "approved_yield_adapter",
+      ok: false,
+      expected: "<set EXPECTED_APPROVED_ADAPTER env var to roundfi-yield-kamino program ID>",
+      actual: actualAdapter.toBase58(),
+      severity: "BLOCKER",
+    });
+  } else {
+    console.log(
+      `  (devnet) approved_yield_adapter = ${actualAdapter.toBase58()} (skipped — set EXPECTED_APPROVED_ADAPTER to enforce)`,
+    );
+  }
+
+  // ─── BLOCKER 6: approved_yield_adapter_locked should be FALSE pre-canary ──
+  // One-way kill switch. Locking pre-canary breaks rampup rotations
+  // (e.g. mock → kamino). Only flip to true POST-canary.
+  const adapterLocked = boolAt(data, OFFSETS_POST_DISC.approvedYieldAdapterLocked);
+  checks.push({
+    name: "approved_yield_adapter_locked",
+    ok: !adapterLocked,
+    expected: "false (lock fires POST-canary only)",
+    actual: adapterLocked ? "true" : "false",
+    severity: "BLOCKER",
+  });
+
+  // ─── BLOCKER 7: TVL caps must be > 0 ──
+  // 0 means disabled (no cap) per config.rs docstring. On mainnet
+  // canary, both caps MUST be > 0 — that's the entire point of the
+  // canary safety envelope. Default expected values match
+  // mainnet-canary-plan.md §7 wave-1 ($5 pool / $50 protocol).
+  const maxPoolTvl = u64At(data, OFFSETS_POST_DISC.maxPoolTvlUsdc);
+  const maxProtocolTvl = u64At(data, OFFSETS_POST_DISC.maxProtocolTvlUsdc);
+  const expectedMaxPool = BigInt(process.env.EXPECTED_MAX_POOL_TVL_USDC ?? "5000000");
+  const expectedMaxProtocol = BigInt(process.env.EXPECTED_MAX_PROTOCOL_TVL_USDC ?? "50000000");
+  checks.push({
+    name: "max_pool_tvl_usdc",
+    ok: maxPoolTvl > 0n && (isDevnet || maxPoolTvl === expectedMaxPool),
+    expected: isDevnet
+      ? "> 0 (any value)"
+      : `${expectedMaxPool} base units ($${Number(expectedMaxPool) / 1_000_000})`,
+    actual: `${maxPoolTvl} base units ($${Number(maxPoolTvl) / 1_000_000})`,
+    severity: "BLOCKER",
+  });
+  checks.push({
+    name: "max_protocol_tvl_usdc",
+    ok: maxProtocolTvl > 0n && (isDevnet || maxProtocolTvl === expectedMaxProtocol),
+    expected: isDevnet
+      ? "> 0 (any value)"
+      : `${expectedMaxProtocol} base units ($${Number(expectedMaxProtocol) / 1_000_000})`,
+    actual: `${maxProtocolTvl} base units ($${Number(maxProtocolTvl) / 1_000_000})`,
+    severity: "BLOCKER",
+  });
+
+  // ─── BLOCKER 8: commit_reveal_required must be TRUE on mainnet (#232 MEV) ──
+  // Gates the legacy single-step escape_valve_list path. Mainnet
+  // canary requires the commit-reveal anti-snipe window. Devnet may
+  // leave it false to keep demo flows single-step.
+  const commitRevealRequired = boolAt(data, OFFSETS_POST_DISC.commitRevealRequired);
+  const expectedCommitReveal =
+    (process.env.EXPECTED_COMMIT_REVEAL_REQUIRED ?? (isDevnet ? "false" : "true")) === "true";
+  checks.push({
+    name: "commit_reveal_required",
+    ok: commitRevealRequired === expectedCommitReveal,
+    expected: expectedCommitReveal
+      ? "true (#232 MEV mitigation on mainnet)"
+      : "false (devnet demo)",
+    actual: commitRevealRequired ? "true" : "false",
+    severity: isDevnet ? "WARNING" : "BLOCKER",
+  });
+
   // ─── Report ───────────────────────────────────────────────────────
   console.log("");
   console.log("Pre-flight assertions:");
@@ -224,21 +351,6 @@ async function main() {
       else failedWarnings += 1;
     }
   }
-
-  console.log("");
-  console.log("─── ProtocolConfig fields not yet checked by this script ───");
-  console.log("  - approved_yield_adapter (post-W3 offset; verify manually with");
-  console.log("    `solana account <CONFIG_PDA>` until script grows to read it)");
-  console.log(
-    "  - approved_yield_adapter_locked (one-way kill switch — should be false pre-canary)",
-  );
-  console.log("  - commit_reveal_required (#232 MEV mitigation — should be true for mainnet)");
-  console.log("  - max_pool_tvl_usdc + max_protocol_tvl_usdc (canary caps — should be > 0)");
-  console.log("");
-  console.log("  Filed as TODO follow-up — the 4 fields above need stable byte");
-  console.log("  offsets pinned. The 4 BLOCKER fields above (authority/treasury/");
-  console.log("  paused/treasury_locked) are the highest-confidence layer that");
-  console.log("  this script asserts today.");
 
   console.log("");
   if (failedBlockers > 0) {
