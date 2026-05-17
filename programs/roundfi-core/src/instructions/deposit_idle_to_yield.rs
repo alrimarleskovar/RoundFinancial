@@ -16,7 +16,9 @@ use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::constants::*;
-use crate::cpi::yield_adapter::{invoke_and_measure, AdapterCpiArgs};
+use crate::cpi::yield_adapter::{
+    build_adapter_call_prelude, invoke_and_measure, AdapterCallPreludeInputs, AdapterCpiArgs,
+};
 use crate::error::RoundfiError;
 use crate::state::{Pool, PoolStatus, ProtocolConfig};
 
@@ -105,18 +107,18 @@ pub fn handler<'info>(
     let yield_vault_info = ctx.accounts.yield_vault.to_account_info();
     let token_program_info = ctx.accounts.token_program.to_account_info();
 
-    // Minimal account order expected by the adapter's `deposit`:
-    //   [source_token_account (writable), destination_token_account (writable),
-    //    authority (signer/readonly), token_program (readonly),
-    //    remaining_accounts...]
-    // Any additional adapter-specific accounts must be passed via
-    // `remaining_accounts` in the same order the adapter expects.
-    let mut metas = vec![
-        AccountMeta::new(pool_vault_info.key(), false),
-        AccountMeta::new(yield_vault_info.key(), false),
-        AccountMeta::new_readonly(pool_key, true),
-        AccountMeta::new_readonly(token_program_info.key(), false),
-    ];
+    // 4-account adapter-call prelude goes through the SEV-041 class
+    // oracle builder. Order + flags pinned by
+    // `adapter_prelude_matches_canonical_layout` test in
+    // cpi/yield_adapter.rs. Any additional adapter-specific accounts
+    // are forwarded via `remaining_accounts` in the same order the
+    // adapter expects.
+    let mut metas = build_adapter_call_prelude(&AdapterCallPreludeInputs {
+        source:        pool_vault_info.key(),
+        destination:   yield_vault_info.key(),
+        authority:     pool_key,
+        token_program: token_program_info.key(),
+    });
     let mut infos = vec![
         pool_vault_info.clone(),
         yield_vault_info.clone(),

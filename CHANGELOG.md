@@ -11,6 +11,13 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Added — SEV-041 class oracle generalized to internal CPIs
+
+- **`build_adapter_call_prelude` + `AdapterCallPreludeInputs`** in `programs/roundfi-core/src/cpi/yield_adapter.rs` — extracts the 4-account adapter-call prelude (`[source, destination, authority(signer), token_program]`) that `deposit_idle_to_yield.rs` and `harvest_yield.rs` previously constructed inline as 2 separate hand-written `vec![...]` blocks. SEV-041 class risk: swapping source ↔ destination or dropping the signer flag was not caught at compile time and would have broken core→adapter CPI auth checks at runtime.
+- **`build_attest_metas` + `AttestMetaInputs`** in `programs/roundfi-core/src/cpi/reputation.rs` — same pattern for the 8-account `attest` CPI. Single source of truth for the position mapping that mirrors `roundfi_reputation::Attest` struct field order.
+- **2 oracle unit tests** pinning every (pubkey, is_signer, is_writable) tuple per slot against the canonical layouts: `adapter_prelude_matches_canonical_layout` (4 slots, in `cpi/yield_adapter.rs::tests`) and `attest_metas_match_canonical_layout` (8 slots, in `cpi/reputation.rs::tests`).
+- Generalizes the SEV-041 lesson from external CPIs (Kamino) to internal CPIs (yield-adapter and reputation). Layouts audited and found CORRECT — no new SEV; the work is purely regression-prevention so future shuffles fail `cargo test` in ~sub-second instead of at runtime.
+
 ### Added — SEV-041 oracle test (CPI account-list layout pinning)
 
 - **`kamino_deposit_metas` + `kamino_redeem_metas`** pure functions extracted from the 3 in-handler `let metas = vec![...]` constructions in `programs/roundfi-yield-kamino/src/lib.rs` (standalone `deposit()` + `kamino_cpi_deposit` + `kamino_cpi_redeem`). Single source of truth for the canonical 12-account order + flags that Kamino's `deposit_reserve_liquidity` and `redeem_reserve_collateral` ix's expect.

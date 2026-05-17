@@ -63,6 +63,62 @@ pub struct AdapterCpiArgs<'a, 'info> {
     pub signer_seeds: &'a [&'a [&'a [u8]]],
 }
 
+// ─── Adapter call-prelude builder (SEV-041 class oracle) ──────────────
+//
+// Every adapter CPI (deposit, harvest, withdraw — anything that follows
+// the standard adapter interface) begins with the same 4-account
+// prelude in this exact order:
+//
+//   1. source       (TokenAccount, mut)
+//   2. destination  (TokenAccount, mut)
+//   3. authority    (signer, ro)
+//   4. token_program (Program, ro)
+//
+// The yield-kamino wrapper's `Deposit` and `Harvest` account structs
+// hardcode this prelude (see the docstring on `Deposit<'info>` in
+// `programs/roundfi-yield-kamino/src/lib.rs`). Any other adapter that
+// ships later must follow the same convention or core's CPI breaks.
+//
+// Before this builder existed, `deposit_idle_to_yield.rs` and
+// `harvest_yield.rs` each constructed the prelude inline as two
+// hand-written `vec![...]` blocks. SEV-041 class risk: swapping
+// source/destination, dropping the signer flag on the authority,
+// adding/removing positions silently — none caught at compile time.
+//
+// The builder collapses both sites into a single call. The unit test
+// `adapter_prelude_matches_canonical_layout` below pins the
+// (pubkey, is_signer, is_writable) tuple per position, so a future
+// shuffle fails `cargo test` instead of canary-mainnet.
+
+/// Inputs for `build_adapter_call_prelude`. Field names mirror the
+/// canonical positions in the adapter interface so callers can't
+/// accidentally swap source ↔ destination.
+pub struct AdapterCallPreludeInputs {
+    /// Token account funds flow OUT of — pool USDC vault on deposit,
+    /// adapter shadow vault on harvest.
+    pub source:        Pubkey,
+    /// Token account funds flow INTO — adapter shadow vault on
+    /// deposit, pool USDC vault on harvest.
+    pub destination:   Pubkey,
+    /// Pool PDA acting as the authority. Signer bit set; pool's
+    /// `invoke_signed` provides the signature via PDA seeds.
+    pub authority:     Pubkey,
+    /// SPL Token program account.
+    pub token_program: Pubkey,
+}
+
+/// Canonical 4-account prelude for any adapter CPI. The adapter's
+/// account struct must accept this exact prefix in this exact order.
+/// Order + flags pinned by `adapter_prelude_matches_canonical_layout`.
+pub fn build_adapter_call_prelude(i: &AdapterCallPreludeInputs) -> Vec<AccountMeta> {
+    vec![
+        AccountMeta::new(i.source, false), //                 1. source (mut)
+        AccountMeta::new(i.destination, false), //            2. destination (mut)
+        AccountMeta::new_readonly(i.authority, true), //      3. authority (signer, ro)
+        AccountMeta::new_readonly(i.token_program, false), // 4. token_program (ro)
+    ]
+}
+
 /// Invokes an adapter instruction and returns the signed CPI result.
 /// Callers still must do balance deltas themselves — this helper does
 /// *not* inspect token balances (to keep the signature generic).
@@ -140,5 +196,66 @@ mod tests {
         assert_ne!(deposit, harvest);
         assert_ne!(withdraw, harvest);
         assert_ne!(deposit, [0u8; 8]);
+    }
+
+    fn sentinel_pubkey(slot: u8) -> Pubkey {
+        let mut bytes = [0u8; 32];
+        bytes[0] = slot;
+        Pubkey::from(bytes)
+    }
+
+    /// SEV-041 class oracle for the adapter-call 4-account prelude.
+    /// Pins every (pubkey, is_signer, is_writable) tuple per position
+    /// so a future shuffle in `build_adapter_call_prelude` (or a
+    /// drift between the function and yield-kamino's `Deposit` /
+    /// `Harvest` account struct prefix) fails `cargo test` before
+    /// canary-mainnet.
+    #[test]
+    fn adapter_prelude_matches_canonical_layout() {
+        let source = sentinel_pubkey(1);
+        let destination = sentinel_pubkey(2);
+        let authority = sentinel_pubkey(3);
+        let token_program = sentinel_pubkey(4);
+
+        let metas = build_adapter_call_prelude(&AdapterCallPreludeInputs {
+            source,
+            destination,
+            authority,
+            token_program,
+        });
+
+        // Oracle: positions per `Deposit` / `Harvest` account-struct
+        // prefix in programs/roundfi-yield-kamino/src/lib.rs and
+        // any future adapter following the standard interface.
+        // Format: (expected pubkey, is_signer, is_writable)
+        let oracle: [(Pubkey, bool, bool); 4] = [
+            (source, false, true), //         1. source (mut)
+            (destination, false, true), //    2. destination (mut)
+            (authority, true, false), //      3. authority (signer, ro)
+            (token_program, false, false), // 4. token_program (ro)
+        ];
+
+        assert_eq!(
+            metas.len(),
+            oracle.len(),
+            "adapter prelude account count drifted — canonical is 4",
+        );
+        for (i, (meta, (expected_key, expected_signer, expected_writable))) in
+            metas.iter().zip(oracle.iter()).enumerate()
+        {
+            let pos = i + 1;
+            assert_eq!(
+                meta.pubkey, *expected_key,
+                "adapter prelude slot {pos} pubkey mismatch — order shuffled vs canonical",
+            );
+            assert_eq!(
+                meta.is_signer, *expected_signer,
+                "adapter prelude slot {pos} is_signer mismatch",
+            );
+            assert_eq!(
+                meta.is_writable, *expected_writable,
+                "adapter prelude slot {pos} is_writable mismatch",
+            );
+        }
     }
 }
