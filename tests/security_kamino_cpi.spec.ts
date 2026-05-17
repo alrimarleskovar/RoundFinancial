@@ -734,27 +734,50 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
 
     // ATAs + state already seeded by Checkpoint 2.
 
+    // Bypass Anchor's MethodsBuilder.rpc() — it has been producing a
+    // System Program ix at depth 1 instead of routing through our
+    // wrapper in bankrun (root cause not yet diagnosed). Build the
+    // raw deposit tx manually, exactly the same pattern Phase 2a uses
+    // successfully.
+    //
+    // Account ordering MUST match `Deposit` struct in
+    // programs/roundfi-yield-kamino/src/lib.rs (the canonical source).
+    const depositDisc = anchorDisc("deposit");
+    const amountLe = Buffer.alloc(8);
+    amountLe.writeBigUInt64LE(DEPOSIT_AMOUNT, 0);
+    const depositIxData = Buffer.concat([depositDisc, amountLe]);
+
+    const depositKeys: AccountMeta[] = [
+      { pubkey: sourceAta, isSigner: false, isWritable: true },
+      { pubkey: shadowVault, isSigner: false, isWritable: true },
+      { pubkey: pool.publicKey, isSigner: true, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: statePda, isSigner: false, isWritable: false },
+      { pubkey: fixtures.reserve.pubkey, isSigner: false, isWritable: true },
+      { pubkey: fixtures.lendingMarket.pubkey, isSigner: false, isWritable: false },
+      { pubkey: fixtures.lendingMarketAuthority.pubkey, isSigner: false, isWritable: false },
+      { pubkey: fixtures.reserveLiquiditySupply.pubkey, isSigner: false, isWritable: true },
+      { pubkey: fixtures.cTokenMint.pubkey, isSigner: false, isWritable: true },
+      { pubkey: cTokenAta, isSigner: false, isWritable: true },
+      { pubkey: KAMINO_LEND_PROGRAM_ID, isSigner: false, isWritable: false },
+    ];
+
+    const depositIx = new TransactionInstruction({
+      programId: env.ids.yieldKamino,
+      keys: depositKeys,
+      data: depositIxData,
+    });
+
+    const depositTx = new Transaction();
+    depositTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+    depositTx.add(depositIx);
+    depositTx.recentBlockhash = env.context.lastBlockhash;
+    depositTx.feePayer = env.payer.publicKey;
+    depositTx.sign(env.payer, pool);
+
     let outcome: "SUCCESS" | string;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (env.programs.yieldKamino.methods as any)
-        .deposit(new anchor.BN(DEPOSIT_AMOUNT.toString()))
-        .accounts({
-          source: sourceAta,
-          destination: shadowVault,
-          authority: pool.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          state: statePda,
-          kaminoReserve: fixtures.reserve.pubkey,
-          kaminoMarket: fixtures.lendingMarket.pubkey,
-          kaminoMarketAuthority: fixtures.lendingMarketAuthority.pubkey,
-          kaminoReserveLiquiditySupply: fixtures.reserveLiquiditySupply.pubkey,
-          kaminoReserveCollateralMint: fixtures.cTokenMint.pubkey,
-          cTokenAccount: cTokenAta,
-          kaminoProgram: KAMINO_LEND_PROGRAM_ID,
-        })
-        .signers([pool])
-        .rpc();
+      await env.context.banksClient.processTransaction(depositTx);
       outcome = "SUCCESS";
     } catch (err) {
       outcome = err instanceof Error ? err.message : String(err);
