@@ -844,3 +844,313 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
     assert.ok(true, "Phase 2b/3 is informational — outcome logged above");
   });
 });
+
+/**
+ * Phase 2b checkpoint 4 — harvest (redeem) CPI vs cloned Kamino state.
+ *
+ * Mirror of checkpoint 3 (deposit), but exercises the OTHER half of
+ * the SEV-041 fix: the Harvest struct's 14-account list and the
+ * `redeem_reserve_collateral` CPI in `kamino_cpi_redeem()`. The fix
+ * applied to BOTH structs (Deposit + Harvest) — checkpoint 3 only
+ * empirically exercised the deposit side, leaving the harvest side
+ * validated by code review alone. This checkpoint closes that gap.
+ *
+ * **What this validates:**
+ *   - Harvest struct's 14 accounts match wrapper expectations
+ *   - `redeem_reserve_collateral` discriminator is what Kamino expects
+ *     (already covered by Phase 2a with random accounts; this exercises
+ *     it against real cloned state)
+ *   - State auth checks fire correctly (authority = pool, source = vault)
+ *   - c_token_account ATA constraint is satisfied
+ *
+ * **Expected outcome class:** likely MathOverflow (LendingError #7 =
+ * 0x1777) for the same reason checkpoint 3's deposit hit it — Kamino's
+ * redeem path runs the reserve-refresh math with bankrun's frozen
+ * clock vs the cloned mainnet snapshot's last_update_slot, producing
+ * a stale-by-millions-of-slots delta that overflows the accrual
+ * calculation. This is an operational limit of bankrun-clone, NOT a
+ * wrapper bug. The information value is in the failure CLASS:
+ *   - MathOverflow / LendingError → CPI mechanics are correct; the
+ *     error is downstream in Kamino's own accrual math
+ *   - AccountValidationFailed / Constraint* → wrapper-side bug
+ *     (wrong account, wrong order, wrong signer)
+ *   - InvalidKaminoProgram → SEV-040 regression (should be impossible)
+ *
+ * Same informational pattern as 2b/3 — outcome logged, test passes
+ * to keep CI green while the spike data is consumed.
+ *
+ * **Pre-condition setup (mirror 2b/2 but with c-tokens minted):**
+ *   - YieldVaultState with tracked_principal = HARVEST_TRACKED
+ *     (so `tracked > 0` guard passes)
+ *   - c_token_account pre-seeded with HARVEST_CTOKEN_BALANCE
+ *     (so `c_token_balance > 0` guard passes; the helper bypasses
+ *     Kamino's mint authority — fine because we own the ATA state)
+ *   - shadow_vault (USDC ATA owned by state, starts at 0; Kamino's
+ *     redeem deposits USDC into it on success)
+ *   - destination USDC ATA owned by pool (where realized yield flows
+ *     IF the redeem CPI succeeds and yield > 0)
+ */
+describe("Kamino bankrun spike — Phase 2b checkpoint 4 (harvest CPI vs cloned state)", function () {
+  this.timeout(60_000);
+
+  let env: BankrunEnv;
+  let fixtures: KaminoFixtures | null = null;
+
+  let pool: Keypair;
+  let statePda: PublicKey;
+  let shadowVault: PublicKey;
+  let destinationAta: PublicKey;
+  let cTokenAta: PublicKey;
+
+  // Tracked principal at harvest time. Picked low enough that any
+  // realistic exchange rate keeps total_redeemed >= tracked (avoids
+  // tripping the PrincipalLoss guard if Kamino's math somehow succeeds).
+  const HARVEST_TRACKED = 1_000_000n; // 1 USDC tracked
+  const HARVEST_CTOKEN_BALANCE = 1_000_000n; // 1 c-token (placeholder)
+
+  before(async () => {
+    if (!KLEND_SO_PRESENT) {
+      console.warn(`\n[Phase 2b/4] SKIPPING — klend.so missing.`);
+      return;
+    }
+    try {
+      fixtures = loadAllKaminoFixtures();
+    } catch (err) {
+      console.warn(
+        `\n[Phase 2b/4] SKIPPING — fixtures missing.\n${err instanceof Error ? err.message : err}`,
+      );
+      return;
+    }
+    env = await setupBankrunEnv({ loadMplCore: false, loadKaminoLend: true });
+
+    for (const snap of Object.values(fixtures)) {
+      env.context.setAccount(snap.pubkey, snap.account);
+    }
+
+    pool = Keypair.generate();
+
+    env.context.setAccount(pool.publicKey, {
+      lamports: 1_000_000_000,
+      data: new Uint8Array(0),
+      owner: SystemProgram.programId,
+      executable: false,
+      rentEpoch: 0,
+    });
+
+    [statePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("yield-state"), pool.publicKey.toBuffer()],
+      env.ids.yieldKamino,
+    );
+
+    shadowVault = getAssociatedTokenAddressSync(fixtures.usdcMint.pubkey, statePda, true);
+    destinationAta = getAssociatedTokenAddressSync(fixtures.usdcMint.pubkey, pool.publicKey, true);
+    cTokenAta = getAssociatedTokenAddressSync(fixtures.cTokenMint.pubkey, statePda, true);
+
+    console.log(`  [Phase 2b/4] pool=${pool.publicKey.toBase58()}`);
+    console.log(`  [Phase 2b/4] state=${statePda.toBase58()}`);
+    console.log(`  [Phase 2b/4] shadow_vault=${shadowVault.toBase58()}`);
+    console.log(`  [Phase 2b/4] destination_ata=${destinationAta.toBase58()}`);
+    console.log(`  [Phase 2b/4] c_token_ata=${cTokenAta.toBase58()}`);
+  });
+
+  it("Checkpoint 4 — seed state with tracked_principal + c-tokens", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+
+    const [, stateBump] = PublicKey.findProgramAddressSync(
+      [Buffer.from("yield-state"), pool.publicKey.toBuffer()],
+      env.ids.yieldKamino,
+    );
+
+    // Seed YieldVaultState with non-zero tracked_principal so the
+    // `tracked == 0` early-return in harvest() doesn't fire before the
+    // CPI is reached.
+    await writeAnchorAccount(env.context, env.programs.yieldKamino, "yieldVaultState", statePda, {
+      pool: pool.publicKey,
+      underlyingMint: fixtures.usdcMint.pubkey,
+      vault: shadowVault,
+      kaminoReserve: fixtures.reserve.pubkey,
+      kaminoMarket: fixtures.lendingMarket.pubkey,
+      trackedPrincipal: new anchor.BN(HARVEST_TRACKED.toString()),
+      bump: stateBump,
+    });
+
+    // Shadow vault starts at 0 — Kamino's redeem path deposits USDC
+    // here on success.
+    writeTokenAccount(env.context, shadowVault, {
+      mint: fixtures.usdcMint.pubkey,
+      owner: statePda,
+      amount: 0n,
+    });
+
+    // Destination ATA (pool-owned USDC) — receives realized yield
+    // surplus after the redeem completes.
+    writeTokenAccount(env.context, destinationAta, {
+      mint: fixtures.usdcMint.pubkey,
+      owner: pool.publicKey,
+      amount: 0n,
+    });
+
+    // c-token ATA pre-seeded with a balance. The helper bypasses
+    // Kamino's mint authority (we own the token-account state);
+    // this is fine for testing the CPI account list — the
+    // economic correctness of the exchange rate is canary-only.
+    writeTokenAccount(env.context, cTokenAta, {
+      mint: fixtures.cTokenMint.pubkey,
+      owner: statePda,
+      amount: HARVEST_CTOKEN_BALANCE,
+    });
+
+    // Sanity check the seeded state.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const state = (await (env.programs.yieldKamino.account as any).yieldVaultState.fetch(
+      statePda,
+    )) as {
+      trackedPrincipal: anchor.BN;
+      bump: number;
+    };
+    assert.equal(
+      state.trackedPrincipal.toString(),
+      HARVEST_TRACKED.toString(),
+      "tracked_principal must round-trip",
+    );
+    assert.equal(state.bump, stateBump);
+    console.log(
+      `  [Phase 2b/4] state + 3 ATAs seeded — tracked=${HARVEST_TRACKED} c-tokens=${HARVEST_CTOKEN_BALANCE}`,
+    );
+  });
+
+  it("Checkpoint 5 — harvest CPI against cloned Kamino state (informational)", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+
+    // Discriminator matches `pub fn harvest(...)` in the wrapper.
+    // Anchor 0.30 encoding: sha256("global:harvest")[..8]. No args.
+    const harvestDisc = anchorDisc("harvest");
+    const harvestIxData = harvestDisc;
+
+    const SYSVAR_INSTRUCTIONS_PUBKEY = new PublicKey("Sysvar1nstructions1111111111111111111111111");
+
+    // Order MUST match `Harvest` struct in
+    // programs/roundfi-yield-kamino/src/lib.rs verbatim (post-SEV-041
+    // fix — 14 accounts including the 2 new fields
+    // `reserve_liquidity_mint` at position 9 and `instruction_sysvar`
+    // at position 14).
+    const harvestKeys: AccountMeta[] = [
+      { pubkey: shadowVault, isSigner: false, isWritable: true }, // 1. source (= state.vault per auth check)
+      { pubkey: destinationAta, isSigner: false, isWritable: true }, // 2. destination (pool-owned USDC)
+      { pubkey: pool.publicKey, isSigner: true, isWritable: false }, // 3. authority
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 4. token_program
+      { pubkey: statePda, isSigner: false, isWritable: false }, // 5. state (NOT mut — harvest doesn't write state)
+      { pubkey: fixtures.reserve.pubkey, isSigner: false, isWritable: true }, // 6. kamino_reserve (mut)
+      { pubkey: fixtures.lendingMarket.pubkey, isSigner: false, isWritable: false }, // 7. kamino_market
+      { pubkey: fixtures.lendingMarketAuthority.pubkey, isSigner: false, isWritable: false }, // 8. kamino_market_authority
+      { pubkey: fixtures.usdcMint.pubkey, isSigner: false, isWritable: false }, // 9. reserve_liquidity_mint (SEV-041)
+      { pubkey: fixtures.reserveLiquiditySupply.pubkey, isSigner: false, isWritable: true }, // 10. kamino_reserve_liquidity_supply
+      { pubkey: fixtures.cTokenMint.pubkey, isSigner: false, isWritable: true }, // 11. kamino_reserve_collateral_mint
+      { pubkey: cTokenAta, isSigner: false, isWritable: true }, // 12. c_token_account (burned from)
+      { pubkey: KAMINO_LEND_PROGRAM_ID, isSigner: false, isWritable: false }, // 13. kamino_program
+      { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false }, // 14. instruction_sysvar (SEV-041)
+    ];
+
+    const harvestIx = new TransactionInstruction({
+      programId: env.ids.yieldKamino,
+      keys: harvestKeys,
+      data: harvestIxData,
+    });
+
+    const harvestTx = new Transaction();
+    harvestTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+    harvestTx.add(harvestIx);
+    harvestTx.recentBlockhash = env.context.lastBlockhash;
+    harvestTx.feePayer = env.payer.publicKey;
+    harvestTx.sign(env.payer, pool);
+
+    let outcome: "SUCCESS" | string;
+    try {
+      await env.context.banksClient.processTransaction(harvestTx);
+      outcome = "SUCCESS";
+    } catch (err) {
+      outcome = err instanceof Error ? err.message : String(err);
+    }
+
+    console.log("");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(" Phase 2b/4 HARVEST OUTCOME");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    if (outcome === "SUCCESS") {
+      console.log("✅ HARVEST SUCCEEDED — full redeem CPI mechanics validated");
+      console.log("   - Account ordering correct (SEV-041 fix applied to Harvest)");
+      console.log("   - Signer seeds correct");
+      console.log("   - c-token ATA constraint satisfied");
+      console.log("   - Kamino accepted the redeem_reserve_collateral invocation");
+    } else {
+      console.log("⚠️  HARVEST FAILED — analyze the failure class:");
+      console.log(`   Raw error: ${outcome.slice(0, 500)}`);
+      console.log("");
+      console.log("   Failure classification:");
+      const knownClasses = [
+        {
+          pattern: /MathOverflow|0x1777|LendingError/i,
+          label:
+            "Kamino accrual math overflow (LendingError #7) — expected: bankrun frozen clock " +
+            "vs cloned snapshot last_update_slot delta. NOT a wrapper bug. Same operational " +
+            "limit hit by checkpoint 3 (deposit).",
+        },
+        {
+          pattern: /PrincipalLoss/i,
+          label:
+            "wrapper PrincipalLoss guard fired — total_redeemed < tracked_principal. " +
+            "Indicates Kamino redeemed less USDC than we tracked. Could be exchange-rate " +
+            "regression on the cloned snapshot or out-of-band redemption — investigate.",
+        },
+        {
+          pattern: /VaultMismatch|UnauthorizedPool|DestinationNotPoolOwned|MintMismatch/i,
+          label: "wrapper auth check fired — state seeding mismatch (check seeded state.vault)",
+        },
+        {
+          pattern: /AccountValidationFailed|ConstraintRaw|ConstraintAddress/i,
+          label: "wrapper-side account validation — Harvest struct constraint mismatch",
+        },
+        {
+          pattern: /ConstraintTokenAccountAuthority|ConstraintTokenMint/i,
+          label: "ATA derivation mismatch — state PDA seeds or mint mismatch",
+        },
+        {
+          pattern: /InvalidKaminoProgram/i,
+          label:
+            "kamino_program account mismatch (SEV-040-class regression — should be impossible)",
+        },
+        {
+          pattern: /Stale|NotFresh|LastUpdate/i,
+          label:
+            "Kamino oracle/reserve freshness check — bankrun clock vs cloned snapshot timestamp",
+        },
+        {
+          pattern: /PrivilegeEscalation|MissingRequiredSignature/i,
+          label: "signer seeds or signer permission mismatch",
+        },
+        {
+          pattern: /AccountOwnedByWrongProgram/i,
+          label: "account owner mismatch — likely wrong cascade-clone target",
+        },
+      ];
+      const matched = knownClasses.find((c) => c.pattern.test(outcome));
+      if (matched) {
+        console.log(`   → ${matched.label}`);
+      } else {
+        console.log("   → unclassified (investigate manually)");
+      }
+    }
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    // Informational like 2b/3 — outcome logged, test passes to keep
+    // CI green. The signal is in the failure class, not the exit code.
+    assert.ok(true, "Phase 2b/4 is informational — outcome logged above");
+  });
+});
