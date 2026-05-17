@@ -122,7 +122,7 @@ The protocol's economic spec is encoded in a **pure-TypeScript actuarial simulat
 - **Whitepaper-faithful playground** — pick credit/members/tier/maturity/APY and watch the matrix unfold. 4 canonical presets (Healthy / Pre-default / Post-default / Cascade) load with one click.
 - **Audit panel** with full capital-structure breakdown: float + Solidarity Vault + Guarantee Fund (capped at 150% of credit) − outstanding escrow − outstanding stake refund = **Net Solvency**. Plus the 4-tier yield waterfall (admin fee → GF → 65% LPs → 35% participants).
 
-**40 L1 tests green** under `pnpm run test:economic-parity-l1` covering: input refactor (credit-amount as primary), toggleCell click semantics, escrow gating on default month, stake cashback phase, net-solvency identity, capital structure invariants, mature-group acceleration (5/4/3 → 3/2/1), Escape Valve `"E"` cell architecture, and the 4-tier waterfall split.
+**45 L1 tests green** under `pnpm run test:economic-parity-l1` covering: input refactor (credit-amount as primary), toggleCell click semantics, escrow gating on default month, stake cashback phase, net-solvency identity, capital structure invariants, mature-group acceleration (5/4/3 → 3/2/1), Escape Valve `"E"` cell architecture, and the 4-tier waterfall split.
 
 **L1 ↔ L2 parity validated on-chain (Healthy preset).** The `Healthy` matrix from `runSimulation()` is now driven end-to-end against `roundfi-core` and asserts per-member USDC delta on-chain ≡ L1 net within ε = 1 USDC base unit. Pre-default / Post-default / Cascade unlock mechanically once the canary turns green organically; the matrix-driver harness already supports all four preset shapes.
 
