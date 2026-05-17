@@ -73,3 +73,6 @@ app/playwright/.cache/
 crates/math/fuzz/corpus/*/*
 !crates/math/fuzz/corpus/*/canonical
 crates/math/fuzz/artifacts/
+
+# Ephemeral branch-cleanup inventories (generated locally, not for commit)
+.cleanup-branches-*.txt
