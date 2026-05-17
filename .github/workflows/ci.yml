@@ -280,3 +280,10 @@ jobs:
       # workaround) restores IDL generation. Tracking the gap as a
       # follow-up — not a regression hidden behind an `allowed-to-fail`
       # mask.
+
+  # NOTE: bankrun-no-mpl-core lane attempted in PR #381 (chore/mainnet-prep-deliverables)
+  # but failed at the rebuild-idls.sh step (exit code 101). Likely the
+  # anchor-syn #319 patch doesn't apply cleanly under CI's exact
+  # toolchain combo. Deferred to a separate follow-up PR rather than
+  # blocking the v0.4-canary tag. Tracking: re-attempt after the
+  # canary release marker lands.
