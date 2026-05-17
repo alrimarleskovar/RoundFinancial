@@ -81,7 +81,7 @@ pub const SEED_STATE: &[u8] = b"yield-state";
 /// rather than runtime config — adapter swaps go through
 /// `Pool.yield_adapter`, not through reading config-account bytes.
 pub const KAMINO_LEND_PROGRAM_ID: Pubkey =
-    anchor_lang::pubkey!("KLend2g3cPP7fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
+    anchor_lang::pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 
 /// Discriminator for Kamino's `deposit_reserve_liquidity` ix —
 /// sha256("global:deposit_reserve_liquidity")[..8]. Computed at runtime
@@ -767,5 +767,22 @@ mod tests {
     #[test]
     fn kamino_deposit_and_redeem_discs_differ() {
         assert_ne!(kamino_deposit_disc(), kamino_redeem_disc());
+    }
+
+    /// Pin `KAMINO_LEND_PROGRAM_ID` against the canonical mainnet program
+    /// ID (same address used on devnet — see
+    /// https://github.com/Kamino-Finance/klend `declare_id!`). A typo in
+    /// this constant (SEV-040 regression class) is silent at compile
+    /// time because `anchor_lang::pubkey!()` accepts any syntactically
+    /// valid base58, and the failure mode is `InvalidKaminoProgram`
+    /// rejection at the first runtime CPI — i.e. canary-mainnet, after
+    /// rent + ceremony cost. This test catches it locally in `cargo
+    /// test` before that.
+    #[test]
+    fn kamino_lend_program_id_matches_canonical() {
+        assert_eq!(
+            KAMINO_LEND_PROGRAM_ID.to_string(),
+            "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+        );
     }
 }
