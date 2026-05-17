@@ -400,35 +400,48 @@ fn kamino_cpi_redeem<'info>(
     data.extend_from_slice(&kamino_redeem_disc());
     data.extend_from_slice(&c_token_amount.to_le_bytes());
 
-    // Kamino's `redeem_reserve_collateral` ordering. Position 0 is the
-    // signer (our state PDA, owner of source_collateral + destination
-    // _liquidity); subsequent positions mirror the on-chain klend
-    // account list. The `kamino_market_authority` is the
-    // lending-market PDA Kamino derives off-chain — passed through.
+    // SEV-041 fix: canonical RedeemReserveCollateral account list,
+    // 12 accounts in exact order per
+    // klend/programs/klend/src/handlers/handler_redeem_reserve_collateral.rs
+    //   1. owner (signer)
+    //   2. lending_market (ro)            ← NOTE: redeem has lending_market BEFORE reserve
+    //   3. reserve (mut, has_one = lending_market)
+    //   4. lending_market_authority (ro, PDA)
+    //   5. reserve_liquidity_mint (ro, = USDC mint)
+    //   6. reserve_collateral_mint (mut, = c-token mint)
+    //   7. reserve_liquidity_supply (mut)
+    //   8. user_source_collateral (mut, c-token ATA we burn from)
+    //   9. user_destination_liquidity (mut, where redeemed USDC goes — shadow vault)
+    //  10. collateral_token_program (ro)
+    //  11. liquidity_token_program (ro, Interface)
+    //  12. instruction_sysvar (ro)
     let metas = vec![
         AccountMeta::new_readonly(ctx.accounts.state.key(), true),
         AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
         AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
-        AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.reserve_liquidity_mint.key(), false),
         AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
-        // user_source_collateral — our c-token ATA (debited).
+        AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
         AccountMeta::new(ctx.accounts.c_token_account.key(), false),
-        // user_destination_liquidity — our shadow USDC vault (credited).
         AccountMeta::new(ctx.accounts.source.key(), false),
         AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
     ];
 
     let infos = [
         ctx.accounts.state.to_account_info(),
         ctx.accounts.kamino_market.to_account_info(),
-        ctx.accounts.kamino_market_authority.to_account_info(),
         ctx.accounts.kamino_reserve.to_account_info(),
-        ctx.accounts.kamino_reserve_liquidity_supply.to_account_info(),
+        ctx.accounts.kamino_market_authority.to_account_info(),
+        ctx.accounts.reserve_liquidity_mint.to_account_info(),
         ctx.accounts.kamino_reserve_collateral_mint.to_account_info(),
+        ctx.accounts.kamino_reserve_liquidity_supply.to_account_info(),
         ctx.accounts.c_token_account.to_account_info(),
         ctx.accounts.source.to_account_info(),
         ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.instruction_sysvar.to_account_info(),
         ctx.accounts.kamino_program.to_account_info(),
     ];
 
@@ -454,19 +467,21 @@ fn kamino_cpi_deposit<'info>(
     data.extend_from_slice(&kamino_deposit_disc());
     data.extend_from_slice(&amount.to_le_bytes());
 
-    // Mirrors the ordering used in `deposit()` above.
+    // SEV-041 fix: canonical DepositReserveLiquidity 12-account order
+    // (same as standalone `deposit()` handler above).
     let metas = vec![
         AccountMeta::new_readonly(ctx.accounts.state.key(), true),
         AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
         AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
         AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.reserve_liquidity_mint.key(), false),
         AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
         AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
-        // user_source_liquidity — our shadow USDC vault.
         AccountMeta::new(ctx.accounts.source.key(), false),
-        // user_destination_collateral — our c-token ATA.
         AccountMeta::new(ctx.accounts.c_token_account.key(), false),
         AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+        AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
     ];
 
     let infos = [
@@ -474,11 +489,13 @@ fn kamino_cpi_deposit<'info>(
         ctx.accounts.kamino_reserve.to_account_info(),
         ctx.accounts.kamino_market.to_account_info(),
         ctx.accounts.kamino_market_authority.to_account_info(),
+        ctx.accounts.reserve_liquidity_mint.to_account_info(),
         ctx.accounts.kamino_reserve_liquidity_supply.to_account_info(),
         ctx.accounts.kamino_reserve_collateral_mint.to_account_info(),
         ctx.accounts.source.to_account_info(),
         ctx.accounts.c_token_account.to_account_info(),
         ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.instruction_sysvar.to_account_info(),
         ctx.accounts.kamino_program.to_account_info(),
     ];
 
@@ -669,6 +686,15 @@ pub struct Harvest<'info> {
     /// CHECK: Kamino-derived PDA (lending_market_authority).
     pub kamino_market_authority: UncheckedAccount<'info>,
 
+    /// **SEV-041 fix:** Both Kamino `redeem_reserve_collateral` and
+    /// `deposit_reserve_liquidity` ixs require the reserve's
+    /// liquidity_mint (= USDC) at specific positions in their
+    /// account lists. Pinned to `state.underlying_mint`.
+    ///
+    /// CHECK: pinned to state.underlying_mint (USDC mint).
+    #[account(address = state.underlying_mint @ YieldKaminoError::MintMismatch)]
+    pub reserve_liquidity_mint: UncheckedAccount<'info>,
+
     /// CHECK: Kamino's reserve liquidity supply ATA — credited on
     /// redeposit, debited on redeem.
     #[account(mut)]
@@ -695,6 +721,13 @@ pub struct Harvest<'info> {
     /// CHECK: Kamino Lend program — pinned to KAMINO_LEND_PROGRAM_ID.
     #[account(address = KAMINO_LEND_PROGRAM_ID @ YieldKaminoError::InvalidKaminoProgram)]
     pub kamino_program: UncheckedAccount<'info>,
+
+    /// **SEV-041 fix:** Both Kamino redeem and deposit CPIs require
+    /// the Sysvar Instructions account.
+    ///
+    /// CHECK: Sysvar Instructions — fixed canonical address.
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 }
 
 // ─── State ──────────────────────────────────────────────────────────────
