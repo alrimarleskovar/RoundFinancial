@@ -734,32 +734,35 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
 
     // ATAs + state already seeded by Checkpoint 2.
 
-    // Bypass Anchor's MethodsBuilder.rpc() — it has been producing a
-    // System Program ix at depth 1 instead of routing through our
-    // wrapper in bankrun (root cause not yet diagnosed). Build the
-    // raw deposit tx manually, exactly the same pattern Phase 2a uses
-    // successfully.
+    // SEV-041 fix applied to wrapper: Deposit struct now has 14
+    // accounts (was 12). Two NEW accounts: reserve_liquidity_mint
+    // (the USDC mint) at position 5, and instruction_sysvar at
+    // position 13 (right before kamino_program).
     //
-    // Account ordering MUST match `Deposit` struct in
-    // programs/roundfi-yield-kamino/src/lib.rs (the canonical source).
+    // Order matches `Deposit` struct in
+    // programs/roundfi-yield-kamino/src/lib.rs verbatim.
     const depositDisc = anchorDisc("deposit");
     const amountLe = Buffer.alloc(8);
     amountLe.writeBigUInt64LE(DEPOSIT_AMOUNT, 0);
     const depositIxData = Buffer.concat([depositDisc, amountLe]);
 
+    const SYSVAR_INSTRUCTIONS_PUBKEY = new PublicKey("Sysvar1nstructions1111111111111111111111111");
+
     const depositKeys: AccountMeta[] = [
-      { pubkey: sourceAta, isSigner: false, isWritable: true },
-      { pubkey: shadowVault, isSigner: false, isWritable: true },
-      { pubkey: pool.publicKey, isSigner: true, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: statePda, isSigner: false, isWritable: true }, // mut: deposit increments tracked_principal
-      { pubkey: fixtures.reserve.pubkey, isSigner: false, isWritable: true },
-      { pubkey: fixtures.lendingMarket.pubkey, isSigner: false, isWritable: false },
-      { pubkey: fixtures.lendingMarketAuthority.pubkey, isSigner: false, isWritable: false },
-      { pubkey: fixtures.reserveLiquiditySupply.pubkey, isSigner: false, isWritable: true },
-      { pubkey: fixtures.cTokenMint.pubkey, isSigner: false, isWritable: true },
-      { pubkey: cTokenAta, isSigner: false, isWritable: true },
-      { pubkey: KAMINO_LEND_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: sourceAta, isSigner: false, isWritable: true }, // 1. source
+      { pubkey: shadowVault, isSigner: false, isWritable: true }, // 2. destination
+      { pubkey: pool.publicKey, isSigner: true, isWritable: false }, // 3. authority
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 4. token_program
+      { pubkey: statePda, isSigner: false, isWritable: true }, // 5. state (mut)
+      { pubkey: fixtures.reserve.pubkey, isSigner: false, isWritable: true }, // 6. kamino_reserve (mut)
+      { pubkey: fixtures.lendingMarket.pubkey, isSigner: false, isWritable: false }, // 7. kamino_market
+      { pubkey: fixtures.lendingMarketAuthority.pubkey, isSigner: false, isWritable: false }, // 8. kamino_market_authority
+      { pubkey: fixtures.usdcMint.pubkey, isSigner: false, isWritable: false }, // 9. reserve_liquidity_mint (NEW — SEV-041)
+      { pubkey: fixtures.reserveLiquiditySupply.pubkey, isSigner: false, isWritable: true }, // 10. kamino_reserve_liquidity_supply
+      { pubkey: fixtures.cTokenMint.pubkey, isSigner: false, isWritable: true }, // 11. kamino_reserve_collateral_mint
+      { pubkey: cTokenAta, isSigner: false, isWritable: true }, // 12. c_token_account
+      { pubkey: KAMINO_LEND_PROGRAM_ID, isSigner: false, isWritable: false }, // 13. kamino_program
+      { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false }, // 14. instruction_sysvar (NEW — SEV-041)
     ];
 
     const depositIx = new TransactionInstruction({

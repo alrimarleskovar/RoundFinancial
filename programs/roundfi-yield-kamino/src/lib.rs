@@ -182,19 +182,38 @@ pub mod roundfi_yield_kamino {
         data.extend_from_slice(&kamino_deposit_disc());
         data.extend_from_slice(&amount.to_le_bytes());
 
+        // SEV-041 fix: account list matches Kamino's canonical
+        // `DepositReserveLiquidity` accounts struct EXACTLY in order +
+        // count. Empirically validated via bankrun spike May 2026.
+        // Source: Kamino-Finance/klend/programs/klend/src/handlers/
+        //         handler_deposit_reserve_liquidity.rs
+        //
+        // Canonical order (12 accounts):
+        //   1. owner (signer)
+        //   2. reserve (mut)
+        //   3. lending_market (ro)
+        //   4. lending_market_authority (ro, PDA)
+        //   5. reserve_liquidity_mint (ro, = USDC mint)
+        //   6. reserve_liquidity_supply (mut)
+        //   7. reserve_collateral_mint (mut)
+        //   8. user_source_liquidity (mut, source — our shadow vault)
+        //   9. user_destination_collateral (mut, dest — our c-token ATA)
+        //  10. collateral_token_program (ro, Token)
+        //  11. liquidity_token_program (ro, Token Interface — same program for USDC)
+        //  12. instruction_sysvar (ro, Sysvar Instructions)
         let metas = vec![
-            // owner — state PDA signs as the Kamino-side depositor.
             AccountMeta::new_readonly(ctx.accounts.state.key(), true),
             AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
             AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
             AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.reserve_liquidity_mint.key(), false),
             AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
             AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
-            // user_source_liquidity — our shadow vault (now holds the USDC).
             AccountMeta::new(ctx.accounts.destination.key(), false),
-            // user_destination_collateral — our c-token account, state-owned.
             AccountMeta::new(ctx.accounts.c_token_account.key(), false),
             AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
         ];
 
         let infos = [
@@ -202,11 +221,13 @@ pub mod roundfi_yield_kamino {
             ctx.accounts.kamino_reserve.to_account_info(),
             ctx.accounts.kamino_market.to_account_info(),
             ctx.accounts.kamino_market_authority.to_account_info(),
+            ctx.accounts.reserve_liquidity_mint.to_account_info(),
             ctx.accounts.kamino_reserve_liquidity_supply.to_account_info(),
             ctx.accounts.kamino_reserve_collateral_mint.to_account_info(),
             ctx.accounts.destination.to_account_info(),
             ctx.accounts.c_token_account.to_account_info(),
             ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.instruction_sysvar.to_account_info(),
             ctx.accounts.kamino_program.to_account_info(),
         ];
 
@@ -553,6 +574,18 @@ pub struct Deposit<'info> {
     /// CHECK: Kamino-derived PDA (lending_market_authority).
     pub kamino_market_authority: UncheckedAccount<'info>,
 
+    /// **SEV-041 fix:** Kamino's `deposit_reserve_liquidity` ix expects
+    /// `reserve_liquidity_mint` (= the USDC mint) as account position
+    /// 4 in its account list. Empirically validated via bankrun spike
+    /// May 2026 — without this, Kamino fails at
+    /// `address = reserve.load()?.liquidity.mint_pubkey` with
+    /// `InvalidAccountData`. Pinned to `state.underlying_mint` which
+    /// was set + validated at init_vault time.
+    ///
+    /// CHECK: pinned to state.underlying_mint (USDC mint).
+    #[account(address = state.underlying_mint @ YieldKaminoError::MintMismatch)]
+    pub reserve_liquidity_mint: UncheckedAccount<'info>,
+
     /// CHECK: Kamino's reserve liquidity supply ATA — receives the USDC.
     #[account(mut)]
     pub kamino_reserve_liquidity_supply: UncheckedAccount<'info>,
@@ -585,6 +618,15 @@ pub struct Deposit<'info> {
     /// CHECK: Kamino Lend program — pinned to KAMINO_LEND_PROGRAM_ID.
     #[account(address = KAMINO_LEND_PROGRAM_ID @ YieldKaminoError::InvalidKaminoProgram)]
     pub kamino_program: UncheckedAccount<'info>,
+
+    /// **SEV-041 fix:** Kamino's `deposit_reserve_liquidity` ix requires
+    /// the Sysvar Instructions account at position 11 of its account
+    /// list (used for tx introspection). Pinned to the canonical
+    /// sysvar address.
+    ///
+    /// CHECK: Sysvar Instructions — fixed canonical address.
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 }
 
 /// Same positional layout as `roundfi-core::harvest_yield`:
