@@ -13,6 +13,44 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ### Added
 
+## [0.4-canary] — 2026-05-17 (release-candidate marker — feature freeze active)
+
+> **Tag marker for the v0.4 canary candidate.** From this tag forward, `main` enters feature freeze per [`FREEZE.md`](./FREEZE.md). Lifts on mainnet GA OR explicit unfreeze with founder + tech lead joint sign-off. Only bug-fixes, audit-finding remediation, and operational docs filled post-event merge during the freeze.
+
+### Added — Kamino integration validation infrastructure (mainnet-blocker class)
+
+- **Bankrun-clone spike** for `roundfi-yield-kamino` ([#378](https://github.com/alrimarleskovar/RoundFinancial/pull/378), [#379](https://github.com/alrimarleskovar/RoundFinancial/pull/379)) — 5 layered validation phases that exercise our CPI mechanics against real Kamino bytecode loaded from mainnet, with cascade-cloned reserve state. 15 tests across Phase 1 (program load), Phase 2a (discriminator validation w/ negative control), Phase 2b/1 (8-fixture cascade-clone integrity), Phase 2b/2 (state + ATA seeding), Phase 2b/3 (deposit CPI vs cloned state).
+- **`pnpm test:mainnet-hardening`** ([#380](https://github.com/alrimarleskovar/RoundFinancial/pull/380)) — pre-flight script that reads `ProtocolConfig` on-chain and refuses canary if 4 BLOCKER safety rails are wrong (authority, treasury, paused, treasury_locked).
+- **Test command aliases**: `test:security:localnet`, `test:fuzz`, `test:bankrun:no-mpl-core` to formalize the runbook test surface.
+- **Mainnet-prep deliverables** ([#381](https://github.com/alrimarleskovar/RoundFinancial/pull/381)):
+  - `docs/operations/rehearsal-logs/FINAL-mainnet-squads-ceremony-template.md` — worksheet for the mainnet Squads ceremony day
+  - `docs/security/immunefi-submission-package.md` — ready-to-submit Immunefi bug-bounty package ($50k initial pool, 5-tier severity, Safe Harbor)
+  - `docs/observability/{README,grafana-dashboards,prometheus-alerts.yaml,pagerduty-runbook}.md` — 4 Grafana dashboards + 8 Prometheus alerts (config change, TVL cap, failed CPI, harvest revert, PrincipalLoss, vault mismatch, pause, treasury) + PagerDuty escalation matrix with 8 alert response procedures
+
+### Fixed — Critical Kamino integration bugs (closed pre-canary)
+
+- **[SEV-040](./docs/security/internal-audit-findings.md#sev-040)** ([#377](https://github.com/alrimarleskovar/RoundFinancial/pull/377)) — `KAMINO_LEND_PROGRAM_ID` typo (`KLend2g3cPP7...` → `KLend2g3cP87...`). 1-character correction + pinning unit test (`kamino_lend_program_id_matches_canonical`). The typo would have caused every Kamino CPI to reject at the `address = KAMINO_LEND_PROGRAM_ID` constraint, failing all `deposit_idle_to_yield` and `harvest_yield` instructions at canary mainnet. **Surfaced by the spike's discovery phase**, before spike execution started.
+- **[SEV-041](./docs/security/internal-audit-findings.md#sev-041)** ([#379](https://github.com/alrimarleskovar/RoundFinancial/pull/379)) — Wrapper's `Deposit` + `Harvest` CPI account lists used 9 jumbled accounts vs Kamino's canonical 12-account interface. Missing: `reserve_liquidity_mint` (USDC mint), `liquidity_token_program` (Token Interface), `instruction_sysvar`. Wrong positions on the existing 9. Surfaced by Phase 2b/3 of the spike — Kamino emitted `AnchorError caused by account: reserve_liquidity_mint. Error Code: InvalidAccountData`. Fixed by reordering both CPI helpers to match `klend/src/handlers/handler_{deposit_reserve_liquidity,redeem_reserve_collateral}.rs` verbatim + adding the 3 missing accounts.
+
+### Changed — UX honesty/discipline polish
+
+- **i18n drift fixes + DEMO labeling** ([#376](https://github.com/alrimarleskovar/RoundFinancial/pull/376)) — `PayInstallmentModal.tsx` block-reason labels, `TripleShield.tsx` 3 shield titles, `Modal.tsx` close button aria-label, landing page metrics now carry an amber "ILLUSTRATIVE FIGURES" badge. 12 new i18n keys × 2 languages = 24 entries added.
+
+### Documentation
+
+- 5 documentation waves [#370-#374] refreshing all external-facing docs (`AUDIT_SCOPE.md`, `CHANGELOG.md`, `docs/status.md`, `docs/architecture.md`, `docs/devnet-deployment.md`, `docs/security/*`, `README.md`, `MAINNET_READINESS.md`, `SECURITY.md`, `CONTRIBUTING.md`) against post-0.4.0 state. Removed misleading Adevar-attribution drift everywhere; internal pre-audit framing preserved (NOT an Adevar attestation — formal engagement in scoping).
+- New: `docs/observability/` directory (4 files, ~22KB)
+- New: `docs/operations/kamino-bankrun-spike.md` runbook
+- New: `docs/security/immunefi-submission-package.md`
+
+### Notes
+
+- **Operational limit reached at Phase 2b/3:** Kamino's deposit handler returns `MathOverflow` (LendingError #7) against cloned reserve state due to frozen-clock vs mainnet-slot delta in interest-accrual math. This is the documented bankrun-clone limitation — NOT a wrapper bug. Economic validation = canary mainnet event. Mechanics validation = complete.
+- **2 Critical SEVs caught by spike methodology** (#040 + #041). Spike paid for itself 2x.
+- **CI lane `bankrun-no-mpl-core` attempted but deferred** — failed at the `rebuild-idls.sh` step (exit code 101, likely anchor-syn patch incompatibility under CI's toolchain). Tracked as follow-up post-canary tag.
+
+---
+
 - (None yet — next user-visible additions land here.)
 
 ---
