@@ -263,11 +263,17 @@ describe("Kamino bankrun spike — Phase 2a (discriminator validation)", functio
     // "instruction not found" or "Fallback functions are not
     // supported" or "Custom: 8002". Any of those = our disc string is
     // wrong.
+    // Anchor's `InstructionFallbackNotFound` is error number 101 (=0x65).
+    // The JS-side bankrun error is "custom program error: 0x65" — the
+    // text "InstructionFallbackNotFound" only appears in the Solana
+    // runtime log, not the captured JS error. Match the hex code as
+    // the reliable signal; keep the human-readable strings in case
+    // bankrun-future surfaces them too.
     const dispatcherRejectPatterns = [
       /InstructionFallbackNotFound/i,
-      /instruction not found/i,
       /Fallback functions are not supported/i,
-      /Custom.*8002/i,
+      /custom program error:?\s*0x65\b/i,
+      /custom program error:?\s*101\b/,
     ];
 
     for (const pat of dispatcherRejectPatterns) {
@@ -298,11 +304,17 @@ describe("Kamino bankrun spike — Phase 2a (discriminator validation)", functio
     const disc = anchorDisc("redeem_reserve_collateral");
     const errMsg = await sendKaminoIxWithGarbageAccounts(disc);
 
+    // Anchor's `InstructionFallbackNotFound` is error number 101 (=0x65).
+    // The JS-side bankrun error is "custom program error: 0x65" — the
+    // text "InstructionFallbackNotFound" only appears in the Solana
+    // runtime log, not the captured JS error. Match the hex code as
+    // the reliable signal; keep the human-readable strings in case
+    // bankrun-future surfaces them too.
     const dispatcherRejectPatterns = [
       /InstructionFallbackNotFound/i,
-      /instruction not found/i,
       /Fallback functions are not supported/i,
-      /Custom.*8002/i,
+      /custom program error:?\s*0x65\b/i,
+      /custom program error:?\s*101\b/,
     ];
 
     for (const pat of dispatcherRejectPatterns) {
@@ -332,11 +344,17 @@ describe("Kamino bankrun spike — Phase 2a (discriminator validation)", functio
     const disc = anchorDisc("deposit_reserve_liquidity_typo");
     const errMsg = await sendKaminoIxWithGarbageAccounts(disc);
 
+    // Anchor's `InstructionFallbackNotFound` is error number 101 (=0x65).
+    // The JS-side bankrun error is "custom program error: 0x65" — the
+    // text "InstructionFallbackNotFound" only appears in the Solana
+    // runtime log, not the captured JS error. Match the hex code as
+    // the reliable signal; keep the human-readable strings in case
+    // bankrun-future surfaces them too.
     const dispatcherRejectPatterns = [
       /InstructionFallbackNotFound/i,
-      /instruction not found/i,
       /Fallback functions are not supported/i,
-      /Custom.*8002/i,
+      /custom program error:?\s*0x65\b/i,
+      /custom program error:?\s*101\b/,
     ];
 
     const matched = dispatcherRejectPatterns.some((pat) => pat.test(errMsg));
