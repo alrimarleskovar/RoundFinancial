@@ -60,6 +60,7 @@ import {
 } from "@solana/web3.js";
 
 import { setupBankrunEnv, BankrunEnv, KAMINO_LEND_PROGRAM_ID } from "./_harness/bankrun.js";
+import { loadAllKaminoFixtures, KaminoFixtures } from "./_harness/kamino_fixtures.js";
 
 /**
  * Mirror of `kamino_deposit_disc()` / `kamino_redeem_disc()` from
@@ -367,5 +368,158 @@ describe("Kamino bankrun spike — Phase 2a (discriminator validation)", functio
     );
 
     console.log(`[Phase 2a/negative] wrong disc correctly rejected: ${errMsg.slice(0, 200)}`);
+  });
+});
+
+/**
+ * Phase 2b checkpoint 1 — fixture seeding validation.
+ *
+ * Boots bankrun with klend.so + roundfi-yield-kamino, then seeds the
+ * 8 cascade-cloned Kamino USDC reserve accounts from
+ * `tests/fixtures/kamino/`. Validates that each one is retrievable
+ * from bankrun's banks client with the right owner program.
+ *
+ * **What this catches:**
+ *   - Fixture JSONs malformed or stale
+ *   - `setAccount` rejecting any of the cloned data shapes
+ *   - bankrun losing the seeded state between setAccount calls
+ *
+ * **What this is NOT yet:**
+ *   - Phase 2b checkpoint 2 (init_vault) — pending
+ *   - Phase 2b checkpoint 3 (deposit CPI exercise) — pending
+ *
+ * Sequencing rationale: seed first, run init_vault second, invoke
+ * deposit third. Each checkpoint is a clean failure boundary so we
+ * know exactly which layer fails when something goes wrong.
+ */
+describe("Kamino bankrun spike — Phase 2b checkpoint 1 (fixture seeding)", function () {
+  this.timeout(60_000);
+
+  let env: BankrunEnv;
+  let fixtures: KaminoFixtures | null = null;
+
+  before(async () => {
+    if (!KLEND_SO_PRESENT) {
+      console.warn(`\n[Kamino spike Phase 2b/1] SKIPPING — klend.so not at ${KLEND_SO_PATH}.`);
+      return;
+    }
+    // Load fixtures BEFORE booting bankrun so we fail fast on missing
+    // files (rather than waiting for the 10s+ startup).
+    try {
+      fixtures = loadAllKaminoFixtures();
+    } catch (err) {
+      console.warn(
+        `\n[Kamino spike Phase 2b/1] SKIPPING — fixtures missing.\n${err instanceof Error ? err.message : err}`,
+      );
+      return;
+    }
+    env = await setupBankrunEnv({ loadMplCore: false, loadKaminoLend: true });
+
+    // Seed each cloned account into the bankrun env.
+    for (const [label, snap] of Object.entries(fixtures)) {
+      env.context.setAccount(snap.pubkey, snap.account);
+      console.log(
+        `  [seed/${label}] ${snap.pubkey.toBase58()} (${snap.account.data.length}B, owner=${snap.account.owner.toBase58().slice(0, 8)}…)`,
+      );
+    }
+  });
+
+  it("reserve is retrievable + owned by Kamino program", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+    const info = await env.context.banksClient.getAccount(fixtures.reserve.pubkey);
+    assert.ok(info, "reserve account must exist post-seed");
+    assert.equal(
+      new PublicKey(info.owner).toBase58(),
+      KAMINO_LEND_PROGRAM_ID.toBase58(),
+      "reserve must be owned by Kamino program",
+    );
+  });
+
+  it("lending_market is retrievable + owned by Kamino program", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+    const info = await env.context.banksClient.getAccount(fixtures.lendingMarket.pubkey);
+    assert.ok(info);
+    assert.equal(new PublicKey(info.owner).toBase58(), KAMINO_LEND_PROGRAM_ID.toBase58());
+  });
+
+  it("USDC mint is retrievable + owned by SPL Token program", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+    const info = await env.context.banksClient.getAccount(fixtures.usdcMint.pubkey);
+    assert.ok(info);
+    assert.equal(
+      new PublicKey(info.owner).toBase58(),
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "USDC mint must be SPL Token-owned",
+    );
+    // Mint accounts are 82 bytes.
+    assert.equal(info.data.length, 82, "USDC mint data must be 82 bytes");
+  });
+
+  it("c-token mint is retrievable + has mint_authority = lending_market_authority", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+    const info = await env.context.banksClient.getAccount(fixtures.cTokenMint.pubkey);
+    assert.ok(info);
+    assert.equal(
+      new PublicKey(info.owner).toBase58(),
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    );
+
+    // SPL Mint layout: [mint_authority_option: u32, mint_authority: Pubkey, ...]
+    const data = Buffer.from(info.data);
+    const mintAuthorityOption = data.readUInt32LE(0);
+    assert.equal(mintAuthorityOption, 1, "c-token mint must have mint_authority set");
+    const mintAuthority = new PublicKey(data.subarray(4, 36));
+    assert.equal(
+      mintAuthority.toBase58(),
+      fixtures.lendingMarketAuthority.pubkey.toBase58(),
+      "c-token mint authority must equal lending_market_authority — confirms cascade-clone integrity",
+    );
+  });
+
+  it("collateral.supply_vault is retrievable + token account of c-token mint", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+    const info = await env.context.banksClient.getAccount(fixtures.collateralSupplyVault.pubkey);
+    assert.ok(info);
+    assert.equal(info.data.length, 165, "token account data must be 165 bytes");
+    // Token Account layout: [mint: Pubkey, owner: Pubkey, ...]
+    const data = Buffer.from(info.data);
+    const mint = new PublicKey(data.subarray(0, 32));
+    assert.equal(
+      mint.toBase58(),
+      fixtures.cTokenMint.pubkey.toBase58(),
+      "collateral_supply_vault.mint must equal c_token_mint",
+    );
+  });
+
+  it("reserve_liquidity_supply is a USDC token account", async function () {
+    if (!KLEND_SO_PRESENT || !fixtures) {
+      this.skip();
+      return;
+    }
+    const info = await env.context.banksClient.getAccount(fixtures.reserveLiquiditySupply.pubkey);
+    assert.ok(info);
+    assert.equal(info.data.length, 165);
+    const data = Buffer.from(info.data);
+    const mint = new PublicKey(data.subarray(0, 32));
+    assert.equal(
+      mint.toBase58(),
+      fixtures.usdcMint.pubkey.toBase58(),
+      "reserve_liquidity_supply.mint must equal USDC mint — Kamino's USDC vault",
+    );
   });
 });
