@@ -57,14 +57,23 @@ const OFFSETS = {
   liquidityMint: 120 + 0,
   liquiditySupply: 120 + 32,
   liquidityFeeVault: 120 + 64,
-  // ReserveLiquidity size (best-effort from klend source):
-  //   4 × Pubkey (32×4=128) + 1 × u64 (8) + 6 × u128 (96) + 6 × u64 (48) +
-  //   1 × BigFractionBytes (assumed 32) + 1 × Pubkey (token_program, 32) +
-  //   1 × u64 (8) + [u64; 50] (400) + [u128; 32] (512) = 1264 bytes
+  // ReserveLiquidity actual size: 1232 bytes (empirically confirmed
+  // May 2026 via brute-force scan + mint-account validation on the
+  // USDC reserve D6q6wuQS...). Original best-effort was 1264; the
+  // BigFractionBytes type is smaller than assumed (likely 24 bytes
+  // [u8; 24] rather than [u8; 32]).
   // Plus reserve_liquidity_padding [u64; 150] = 1200 bytes.
-  // So collateral block starts at: 120 + 1264 + 1200 = 2584
+  // So ReserveCollateral starts at: 120 + 1232 + 1200 = 2552.
   // C-token mint is the first 32 bytes of ReserveCollateral.
-  collateralMint: 2584,
+  //
+  // Validation reference: in the USDC reserve D6q6wuQS..., the c-token
+  // mint at offset 2552 is B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D
+  // (Mint, space=82, owned by SPL Token, mint_authority = AbTz488...
+  // = lending_market_authority). The collateral.supply_vault at offset
+  // 2592 is 3DzjXRfxRm6iejfyyMynR4tScddaanrePJ1NJU2XnPPL (Token
+  // Account, space=165). Both confirm the offset.
+  collateralMint: 2552,
+  collateralSupplyVault: 2592,
 } as const;
 
 // Kamino's lending_market_authority PDA is derived from the lending
@@ -126,6 +135,10 @@ function main() {
   const liquidityFeeVault = pubkeyAt(data, OFFSETS.liquidityFeeVault);
   const collateralMint =
     data.length >= OFFSETS.collateralMint + 32 ? pubkeyAt(data, OFFSETS.collateralMint) : null;
+  const collateralSupplyVault =
+    data.length >= OFFSETS.collateralSupplyVault + 32
+      ? pubkeyAt(data, OFFSETS.collateralSupplyVault)
+      : null;
 
   // Derive Kamino's lending_market_authority PDA.
   const [marketAuthority] = PublicKey.findProgramAddressSync(
@@ -139,8 +152,11 @@ function main() {
   console.log(`│ liquidity.supply_vault: ${liquiditySupply.toBase58()}`);
   console.log(`│ liquidity.fee_vault:    ${liquidityFeeVault.toBase58()}`);
   if (collateralMint) {
+    console.log(`│ collateral.mint_pubkey: ${collateralMint.toBase58()}  (c-token mint)`);
+  }
+  if (collateralSupplyVault) {
     console.log(
-      `│ collateral.mint_pubkey: ${collateralMint.toBase58()}  (BEST-EFFORT — verify via Solscan)`,
+      `│ collateral.supply_vault: ${collateralSupplyVault.toBase58()}  (Kamino c-token vault)`,
     );
   }
   console.log("└──────────────────────────────────────────────────────────────");
@@ -175,6 +191,9 @@ function main() {
   ];
   if (collateralMint) {
     accountsToClone.push(["c-token-mint", collateralMint]);
+  }
+  if (collateralSupplyVault) {
+    accountsToClone.push(["collateral-supply-vault", collateralSupplyVault]);
   }
   for (const [label, pk] of accountsToClone) {
     console.log(
