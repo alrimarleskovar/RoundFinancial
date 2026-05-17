@@ -741,7 +741,6 @@ export const DICT: Record<Lang, Dict> = {
       "Wallet conectada (slot {slot} · {addr}) é membro do Pool {seedId}. Confirmar dispara contribute(cycle={cycle}) no devnet.",
     "modal.pay.blocked.cycleComplete": "CICLO COMPLETO",
     "modal.pay.blocked.insufficientBalance": "SALDO INSUFICIENTE",
-    "modal.close": "Fechar",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -1689,7 +1688,6 @@ export const DICT: Record<Lang, Dict> = {
       "Connected wallet (slot {slot} · {addr}) is a member of Pool {seedId}. Confirm dispatches contribute(cycle={cycle}) on devnet.",
     "modal.pay.blocked.cycleComplete": "CYCLE COMPLETE",
     "modal.pay.blocked.insufficientBalance": "INSUFFICIENT BALANCE",
-    "modal.close": "Close",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
