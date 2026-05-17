@@ -47,6 +47,8 @@ Every PR opened against `main` during the freeze must:
 2. Be reviewed by at least one of: founder, tech lead, security advisor.
 3. Include a `[FREEZE-EXCEPTION]` tag in the PR title for visibility.
 
+The `.github/workflows/freeze-enforcement.yml` workflow automates checks #1 and #3 by asserting the PR title contains either a `SEV-\d+` reference or the literal `[FREEZE-EXCEPTION]` tag. The gate auto-skips for `dependabot[bot]` and `renovate[bot]` authors (the CVE-patch lane explicitly allowed below). Check #2 is human-judged by reviewers.
+
 ## Active exceptions
 
 (Approved during freeze, tracked here for audit trail.)
