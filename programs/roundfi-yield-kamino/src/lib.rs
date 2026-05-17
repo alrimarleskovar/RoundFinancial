@@ -108,6 +108,103 @@ fn kamino_redeem_disc() -> [u8; 8] {
     out
 }
 
+// ─── CPI account-list builders (SEV-041 oracle) ──────────────────────
+//
+// These two functions are the SINGLE source of truth for the order +
+// signer/writable flags of accounts forwarded to Kamino's
+// `deposit_reserve_liquidity` and `redeem_reserve_collateral` ix's.
+// Three call sites use them today (the standalone `deposit()` handler
+// + `kamino_cpi_deposit` + `kamino_cpi_redeem` helpers) — extracting
+// here means a SEV-041 class shuffle bug can ONLY happen if these
+// functions themselves are wrong, and the unit tests at the bottom
+// of the file pin exactly that order.
+//
+// Oracle provenance: order + flags transcribed from
+//   Kamino-Finance/klend/programs/klend/src/handlers/
+//     handler_deposit_reserve_liquidity.rs
+//     handler_redeem_reserve_collateral.rs
+// at SEV-041 fix time (May 2026). Kamino-side breaking changes will
+// fail `kamino_deposit_metas_match_canonical_layout` /
+// `kamino_redeem_metas_match_canonical_layout` and force a same-PR
+// re-derivation against the new upstream layout.
+
+/// Pubkey inputs for `kamino_deposit_metas`. Field names mirror
+/// Kamino's `DepositReserveLiquidity` account-struct field names so
+/// the caller mapping is unambiguous (our wrapper's `Deposit` /
+/// `Harvest` field names sometimes differ — e.g. `destination` /
+/// `source` both map to Kamino's `user_source_liquidity`).
+pub(crate) struct KaminoDepositMetaInputs {
+    pub owner:                       Pubkey,
+    pub reserve:                     Pubkey,
+    pub lending_market:              Pubkey,
+    pub lending_market_authority:    Pubkey,
+    pub reserve_liquidity_mint:      Pubkey,
+    pub reserve_liquidity_supply:    Pubkey,
+    pub reserve_collateral_mint:     Pubkey,
+    pub user_source_liquidity:       Pubkey,
+    pub user_destination_collateral: Pubkey,
+    pub token_program:               Pubkey,
+    pub instruction_sysvar:          Pubkey,
+}
+
+/// Canonical 12-account `AccountMeta` list for Kamino's
+/// `deposit_reserve_liquidity` ix. Position + flags pinned by
+/// `kamino_deposit_metas_match_canonical_layout` test below.
+pub(crate) fn kamino_deposit_metas(i: &KaminoDepositMetaInputs) -> Vec<AccountMeta> {
+    vec![
+        AccountMeta::new_readonly(i.owner, true), //                  1. owner (signer, ro)
+        AccountMeta::new(i.reserve, false), //                        2. reserve (mut)
+        AccountMeta::new_readonly(i.lending_market, false), //        3. lending_market (ro)
+        AccountMeta::new_readonly(i.lending_market_authority, false), // 4. lending_market_authority (ro, PDA)
+        AccountMeta::new_readonly(i.reserve_liquidity_mint, false), // 5. reserve_liquidity_mint (ro, = USDC mint)
+        AccountMeta::new(i.reserve_liquidity_supply, false), //       6. reserve_liquidity_supply (mut)
+        AccountMeta::new(i.reserve_collateral_mint, false), //        7. reserve_collateral_mint (mut, c-token mint)
+        AccountMeta::new(i.user_source_liquidity, false), //          8. user_source_liquidity (mut, source — our shadow vault)
+        AccountMeta::new(i.user_destination_collateral, false), //    9. user_destination_collateral (mut, dest — our c-token ATA)
+        AccountMeta::new_readonly(i.token_program, false), //         10. collateral_token_program (ro, Token)
+        AccountMeta::new_readonly(i.token_program, false), //         11. liquidity_token_program (ro, Token Interface — same SPL Token for USDC)
+        AccountMeta::new_readonly(i.instruction_sysvar, false), //    12. instruction_sysvar (ro, Sysvar Instructions)
+    ]
+}
+
+/// Pubkey inputs for `kamino_redeem_metas`. NOTE the redeem ix has
+/// `lending_market` BEFORE `reserve` (positions 2/3) while deposit
+/// has them in the opposite order (3/2) — that asymmetry is in
+/// Kamino's source and the oracle below captures it.
+pub(crate) struct KaminoRedeemMetaInputs {
+    pub owner:                       Pubkey,
+    pub lending_market:              Pubkey,
+    pub reserve:                     Pubkey,
+    pub lending_market_authority:    Pubkey,
+    pub reserve_liquidity_mint:      Pubkey,
+    pub reserve_collateral_mint:     Pubkey,
+    pub reserve_liquidity_supply:    Pubkey,
+    pub user_source_collateral:      Pubkey,
+    pub user_destination_liquidity:  Pubkey,
+    pub token_program:               Pubkey,
+    pub instruction_sysvar:          Pubkey,
+}
+
+/// Canonical 12-account `AccountMeta` list for Kamino's
+/// `redeem_reserve_collateral` ix. Position + flags pinned by
+/// `kamino_redeem_metas_match_canonical_layout` test below.
+pub(crate) fn kamino_redeem_metas(i: &KaminoRedeemMetaInputs) -> Vec<AccountMeta> {
+    vec![
+        AccountMeta::new_readonly(i.owner, true), //                  1. owner (signer, ro)
+        AccountMeta::new_readonly(i.lending_market, false), //        2. lending_market (ro) — note: BEFORE reserve in redeem
+        AccountMeta::new(i.reserve, false), //                        3. reserve (mut, has_one = lending_market)
+        AccountMeta::new_readonly(i.lending_market_authority, false), // 4. lending_market_authority (ro, PDA)
+        AccountMeta::new_readonly(i.reserve_liquidity_mint, false), // 5. reserve_liquidity_mint (ro, = USDC mint)
+        AccountMeta::new(i.reserve_collateral_mint, false), //        6. reserve_collateral_mint (mut, c-token mint)
+        AccountMeta::new(i.reserve_liquidity_supply, false), //       7. reserve_liquidity_supply (mut)
+        AccountMeta::new(i.user_source_collateral, false), //         8. user_source_collateral (mut, c-token ATA we burn from)
+        AccountMeta::new(i.user_destination_liquidity, false), //     9. user_destination_liquidity (mut, where redeemed USDC goes — shadow vault)
+        AccountMeta::new_readonly(i.token_program, false), //         10. collateral_token_program (ro)
+        AccountMeta::new_readonly(i.token_program, false), //         11. liquidity_token_program (ro, Interface)
+        AccountMeta::new_readonly(i.instruction_sysvar, false), //    12. instruction_sysvar (ro)
+    ]
+}
+
 #[program]
 pub mod roundfi_yield_kamino {
     use super::*;
@@ -182,39 +279,23 @@ pub mod roundfi_yield_kamino {
         data.extend_from_slice(&kamino_deposit_disc());
         data.extend_from_slice(&amount.to_le_bytes());
 
-        // SEV-041 fix: account list matches Kamino's canonical
-        // `DepositReserveLiquidity` accounts struct EXACTLY in order +
-        // count. Empirically validated via bankrun spike May 2026.
-        // Source: Kamino-Finance/klend/programs/klend/src/handlers/
-        //         handler_deposit_reserve_liquidity.rs
-        //
-        // Canonical order (12 accounts):
-        //   1. owner (signer)
-        //   2. reserve (mut)
-        //   3. lending_market (ro)
-        //   4. lending_market_authority (ro, PDA)
-        //   5. reserve_liquidity_mint (ro, = USDC mint)
-        //   6. reserve_liquidity_supply (mut)
-        //   7. reserve_collateral_mint (mut)
-        //   8. user_source_liquidity (mut, source — our shadow vault)
-        //   9. user_destination_collateral (mut, dest — our c-token ATA)
-        //  10. collateral_token_program (ro, Token)
-        //  11. liquidity_token_program (ro, Token Interface — same program for USDC)
-        //  12. instruction_sysvar (ro, Sysvar Instructions)
-        let metas = vec![
-            AccountMeta::new_readonly(ctx.accounts.state.key(), true),
-            AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.reserve_liquidity_mint.key(), false),
-            AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
-            AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
-            AccountMeta::new(ctx.accounts.destination.key(), false),
-            AccountMeta::new(ctx.accounts.c_token_account.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
-        ];
+        // SEV-041 fix: account list goes through the single-source-of-
+        // truth `kamino_deposit_metas` builder above. Order + flags
+        // pinned by `kamino_deposit_metas_match_canonical_layout` unit
+        // test. Empirically validated via bankrun spike May 2026.
+        let metas = kamino_deposit_metas(&KaminoDepositMetaInputs {
+            owner:                       ctx.accounts.state.key(),
+            reserve:                     ctx.accounts.kamino_reserve.key(),
+            lending_market:              ctx.accounts.kamino_market.key(),
+            lending_market_authority:    ctx.accounts.kamino_market_authority.key(),
+            reserve_liquidity_mint:      ctx.accounts.reserve_liquidity_mint.key(),
+            reserve_liquidity_supply:    ctx.accounts.kamino_reserve_liquidity_supply.key(),
+            reserve_collateral_mint:     ctx.accounts.kamino_reserve_collateral_mint.key(),
+            user_source_liquidity:       ctx.accounts.destination.key(),
+            user_destination_collateral: ctx.accounts.c_token_account.key(),
+            token_program:               ctx.accounts.token_program.key(),
+            instruction_sysvar:          ctx.accounts.instruction_sysvar.key(),
+        });
 
         let infos = [
             ctx.accounts.state.to_account_info(),
@@ -400,35 +481,22 @@ fn kamino_cpi_redeem<'info>(
     data.extend_from_slice(&kamino_redeem_disc());
     data.extend_from_slice(&c_token_amount.to_le_bytes());
 
-    // SEV-041 fix: canonical RedeemReserveCollateral account list,
-    // 12 accounts in exact order per
-    // klend/programs/klend/src/handlers/handler_redeem_reserve_collateral.rs
-    //   1. owner (signer)
-    //   2. lending_market (ro)            ← NOTE: redeem has lending_market BEFORE reserve
-    //   3. reserve (mut, has_one = lending_market)
-    //   4. lending_market_authority (ro, PDA)
-    //   5. reserve_liquidity_mint (ro, = USDC mint)
-    //   6. reserve_collateral_mint (mut, = c-token mint)
-    //   7. reserve_liquidity_supply (mut)
-    //   8. user_source_collateral (mut, c-token ATA we burn from)
-    //   9. user_destination_liquidity (mut, where redeemed USDC goes — shadow vault)
-    //  10. collateral_token_program (ro)
-    //  11. liquidity_token_program (ro, Interface)
-    //  12. instruction_sysvar (ro)
-    let metas = vec![
-        AccountMeta::new_readonly(ctx.accounts.state.key(), true),
-        AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
-        AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.reserve_liquidity_mint.key(), false),
-        AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
-        AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
-        AccountMeta::new(ctx.accounts.c_token_account.key(), false),
-        AccountMeta::new(ctx.accounts.source.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
-    ];
+    // SEV-041 fix: account list goes through the single-source-of-
+    // truth `kamino_redeem_metas` builder. Order + flags pinned by
+    // `kamino_redeem_metas_match_canonical_layout` unit test.
+    let metas = kamino_redeem_metas(&KaminoRedeemMetaInputs {
+        owner:                      ctx.accounts.state.key(),
+        lending_market:             ctx.accounts.kamino_market.key(),
+        reserve:                    ctx.accounts.kamino_reserve.key(),
+        lending_market_authority:   ctx.accounts.kamino_market_authority.key(),
+        reserve_liquidity_mint:     ctx.accounts.reserve_liquidity_mint.key(),
+        reserve_collateral_mint:    ctx.accounts.kamino_reserve_collateral_mint.key(),
+        reserve_liquidity_supply:   ctx.accounts.kamino_reserve_liquidity_supply.key(),
+        user_source_collateral:     ctx.accounts.c_token_account.key(),
+        user_destination_liquidity: ctx.accounts.source.key(),
+        token_program:              ctx.accounts.token_program.key(),
+        instruction_sysvar:         ctx.accounts.instruction_sysvar.key(),
+    });
 
     let infos = [
         ctx.accounts.state.to_account_info(),
@@ -467,22 +535,21 @@ fn kamino_cpi_deposit<'info>(
     data.extend_from_slice(&kamino_deposit_disc());
     data.extend_from_slice(&amount.to_le_bytes());
 
-    // SEV-041 fix: canonical DepositReserveLiquidity 12-account order
-    // (same as standalone `deposit()` handler above).
-    let metas = vec![
-        AccountMeta::new_readonly(ctx.accounts.state.key(), true),
-        AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.kamino_market.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.kamino_market_authority.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.reserve_liquidity_mint.key(), false),
-        AccountMeta::new(ctx.accounts.kamino_reserve_liquidity_supply.key(), false),
-        AccountMeta::new(ctx.accounts.kamino_reserve_collateral_mint.key(), false),
-        AccountMeta::new(ctx.accounts.source.key(), false),
-        AccountMeta::new(ctx.accounts.c_token_account.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-        AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
-    ];
+    // SEV-041 fix: same single-source-of-truth `kamino_deposit_metas`
+    // builder used by the standalone `deposit()` handler above.
+    let metas = kamino_deposit_metas(&KaminoDepositMetaInputs {
+        owner:                       ctx.accounts.state.key(),
+        reserve:                     ctx.accounts.kamino_reserve.key(),
+        lending_market:              ctx.accounts.kamino_market.key(),
+        lending_market_authority:    ctx.accounts.kamino_market_authority.key(),
+        reserve_liquidity_mint:      ctx.accounts.reserve_liquidity_mint.key(),
+        reserve_liquidity_supply:    ctx.accounts.kamino_reserve_liquidity_supply.key(),
+        reserve_collateral_mint:     ctx.accounts.kamino_reserve_collateral_mint.key(),
+        user_source_liquidity:       ctx.accounts.source.key(),
+        user_destination_collateral: ctx.accounts.c_token_account.key(),
+        token_program:               ctx.accounts.token_program.key(),
+        instruction_sysvar:          ctx.accounts.instruction_sysvar.key(),
+    });
 
     let infos = [
         ctx.accounts.state.to_account_info(),
@@ -858,6 +925,241 @@ mod tests {
         assert_eq!(
             KAMINO_LEND_PROGRAM_ID.to_string(),
             "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+        );
+    }
+
+    // ─── SEV-041 oracle — CPI account-list layout pinning ───────────
+    //
+    // These two tests are the canonical-layout oracle that turns
+    // SEV-041 from "caught by bankrun spike" (a 5-phase setup that
+    // needs mainnet RPC + program dump) into "caught by cargo test"
+    // (sub-second, runs in CI on every PR). They assert that
+    // `kamino_deposit_metas` + `kamino_redeem_metas` produce the
+    // exact 12-account list Kamino's `deposit_reserve_liquidity` and
+    // `redeem_reserve_collateral` ix's expect.
+    //
+    // Oracle provenance: positions + signer/writable flags
+    // transcribed from
+    //   Kamino-Finance/klend/programs/klend/src/handlers/
+    //     handler_deposit_reserve_liquidity.rs
+    //     handler_redeem_reserve_collateral.rs
+    // at SEV-041 fix time (May 2026). If Kamino releases a breaking
+    // change to either ix's account list, these tests fail and force
+    // a same-PR re-derivation of the inputs structs + builder
+    // functions above.
+    //
+    // What this catches that the bankrun spike doesn't:
+    //   - Quick local cargo-test feedback (no RPC, no .so dump)
+    //   - Future shuffles in the inputs-struct → builder mapping
+    //   - Future shuffles in the per-position is_signer / is_writable
+    //     flags (the bankrun spike only catches outright rejection
+    //     at runtime — wrong flag may pass if the test fixture's
+    //     signer set happens to match)
+    //
+    // What the bankrun spike still catches that these tests don't:
+    //   - Discriminator drift (Kamino renames the ix)
+    //   - Real ATA / mint constraint violations at runtime
+    //   - Kamino's own internal validation (e.g. has_one on reserve)
+
+    fn sentinel_pubkey(slot: u8) -> Pubkey {
+        // Distinct, easy-to-read-in-failure pubkey per slot. The
+        // first byte is the slot number (1..=N); rest is zeros.
+        // Use slot 0 as the token_program (it appears twice in
+        // both layouts at positions 10 + 11).
+        let mut bytes = [0u8; 32];
+        bytes[0] = slot;
+        Pubkey::from(bytes)
+    }
+
+    #[test]
+    fn kamino_deposit_metas_match_canonical_layout() {
+        // Sentinel inputs. Slot 0 reserved for token_program (dup
+        // at positions 10 + 11 per Kamino's canonical layout).
+        let owner = sentinel_pubkey(1);
+        let reserve = sentinel_pubkey(2);
+        let lending_market = sentinel_pubkey(3);
+        let lending_market_authority = sentinel_pubkey(4);
+        let reserve_liquidity_mint = sentinel_pubkey(5);
+        let reserve_liquidity_supply = sentinel_pubkey(6);
+        let reserve_collateral_mint = sentinel_pubkey(7);
+        let user_source_liquidity = sentinel_pubkey(8);
+        let user_destination_collateral = sentinel_pubkey(9);
+        let token_program = sentinel_pubkey(0);
+        let instruction_sysvar = sentinel_pubkey(12);
+
+        let metas = kamino_deposit_metas(&KaminoDepositMetaInputs {
+            owner,
+            reserve,
+            lending_market,
+            lending_market_authority,
+            reserve_liquidity_mint,
+            reserve_liquidity_supply,
+            reserve_collateral_mint,
+            user_source_liquidity,
+            user_destination_collateral,
+            token_program,
+            instruction_sysvar,
+        });
+
+        // Oracle: (expected pubkey, is_signer, is_writable) per slot,
+        // sourced from
+        // klend/programs/klend/src/handlers/handler_deposit_reserve_liquidity.rs
+        let oracle: [(Pubkey, bool, bool); 12] = [
+            (owner, true, false), //                       1. owner (signer, ro)
+            (reserve, false, true), //                     2. reserve (mut)
+            (lending_market, false, false), //             3. lending_market (ro)
+            (lending_market_authority, false, false), //   4. lending_market_authority (ro, PDA)
+            (reserve_liquidity_mint, false, false), //     5. reserve_liquidity_mint (ro)
+            (reserve_liquidity_supply, false, true), //    6. reserve_liquidity_supply (mut)
+            (reserve_collateral_mint, false, true), //     7. reserve_collateral_mint (mut)
+            (user_source_liquidity, false, true), //       8. user_source_liquidity (mut)
+            (user_destination_collateral, false, true), // 9. user_destination_collateral (mut)
+            (token_program, false, false), //              10. collateral_token_program (ro)
+            (token_program, false, false), //              11. liquidity_token_program (ro, same SPL Token for USDC)
+            (instruction_sysvar, false, false), //         12. instruction_sysvar (ro)
+        ];
+
+        assert_eq!(
+            metas.len(),
+            oracle.len(),
+            "deposit account count drifted — Kamino canonical is 12",
+        );
+        for (i, (meta, (expected_key, expected_signer, expected_writable))) in
+            metas.iter().zip(oracle.iter()).enumerate()
+        {
+            let pos = i + 1;
+            assert_eq!(
+                meta.pubkey, *expected_key,
+                "deposit slot {pos} pubkey mismatch — order shuffled vs Kamino canonical",
+            );
+            assert_eq!(
+                meta.is_signer, *expected_signer,
+                "deposit slot {pos} is_signer mismatch",
+            );
+            assert_eq!(
+                meta.is_writable, *expected_writable,
+                "deposit slot {pos} is_writable mismatch",
+            );
+        }
+    }
+
+    #[test]
+    fn kamino_redeem_metas_match_canonical_layout() {
+        let owner = sentinel_pubkey(1);
+        let lending_market = sentinel_pubkey(2); // note: BEFORE reserve in redeem
+        let reserve = sentinel_pubkey(3);
+        let lending_market_authority = sentinel_pubkey(4);
+        let reserve_liquidity_mint = sentinel_pubkey(5);
+        let reserve_collateral_mint = sentinel_pubkey(6);
+        let reserve_liquidity_supply = sentinel_pubkey(7);
+        let user_source_collateral = sentinel_pubkey(8);
+        let user_destination_liquidity = sentinel_pubkey(9);
+        let token_program = sentinel_pubkey(0);
+        let instruction_sysvar = sentinel_pubkey(12);
+
+        let metas = kamino_redeem_metas(&KaminoRedeemMetaInputs {
+            owner,
+            lending_market,
+            reserve,
+            lending_market_authority,
+            reserve_liquidity_mint,
+            reserve_collateral_mint,
+            reserve_liquidity_supply,
+            user_source_collateral,
+            user_destination_liquidity,
+            token_program,
+            instruction_sysvar,
+        });
+
+        // Oracle: (expected pubkey, is_signer, is_writable) per slot,
+        // sourced from
+        // klend/programs/klend/src/handlers/handler_redeem_reserve_collateral.rs
+        // NOTE: redeem has lending_market BEFORE reserve — asymmetric vs deposit.
+        let oracle: [(Pubkey, bool, bool); 12] = [
+            (owner, true, false), //                       1. owner (signer, ro)
+            (lending_market, false, false), //             2. lending_market (ro)
+            (reserve, false, true), //                     3. reserve (mut, has_one = lending_market)
+            (lending_market_authority, false, false), //   4. lending_market_authority (ro, PDA)
+            (reserve_liquidity_mint, false, false), //     5. reserve_liquidity_mint (ro)
+            (reserve_collateral_mint, false, true), //     6. reserve_collateral_mint (mut, c-token mint)
+            (reserve_liquidity_supply, false, true), //    7. reserve_liquidity_supply (mut)
+            (user_source_collateral, false, true), //      8. user_source_collateral (mut, c-token burned)
+            (user_destination_liquidity, false, true), //  9. user_destination_liquidity (mut, USDC received)
+            (token_program, false, false), //              10. collateral_token_program (ro)
+            (token_program, false, false), //              11. liquidity_token_program (ro, Interface)
+            (instruction_sysvar, false, false), //         12. instruction_sysvar (ro)
+        ];
+
+        assert_eq!(
+            metas.len(),
+            oracle.len(),
+            "redeem account count drifted — Kamino canonical is 12",
+        );
+        for (i, (meta, (expected_key, expected_signer, expected_writable))) in
+            metas.iter().zip(oracle.iter()).enumerate()
+        {
+            let pos = i + 1;
+            assert_eq!(
+                meta.pubkey, *expected_key,
+                "redeem slot {pos} pubkey mismatch — order shuffled vs Kamino canonical",
+            );
+            assert_eq!(
+                meta.is_signer, *expected_signer,
+                "redeem slot {pos} is_signer mismatch",
+            );
+            assert_eq!(
+                meta.is_writable, *expected_writable,
+                "redeem slot {pos} is_writable mismatch",
+            );
+        }
+    }
+
+    #[test]
+    fn kamino_deposit_and_redeem_metas_differ_at_position_2_and_3() {
+        // Sanity guard for the asymmetry between deposit + redeem.
+        // If a future refactor accidentally homogenizes the two
+        // layouts (e.g. via a single "kamino_cpi_metas" function),
+        // this test fires.
+        //
+        // Deposit:   pos 2 = reserve (mut),       pos 3 = lending_market (ro)
+        // Redeem:    pos 2 = lending_market (ro), pos 3 = reserve (mut)
+        let common = sentinel_pubkey(99);
+        let deposit_metas = kamino_deposit_metas(&KaminoDepositMetaInputs {
+            owner:                       common,
+            reserve:                     sentinel_pubkey(2),
+            lending_market:              sentinel_pubkey(3),
+            lending_market_authority:    common,
+            reserve_liquidity_mint:      common,
+            reserve_liquidity_supply:    common,
+            reserve_collateral_mint:     common,
+            user_source_liquidity:       common,
+            user_destination_collateral: common,
+            token_program:               common,
+            instruction_sysvar:          common,
+        });
+        let redeem_metas = kamino_redeem_metas(&KaminoRedeemMetaInputs {
+            owner:                      common,
+            lending_market:              sentinel_pubkey(2),
+            reserve:                     sentinel_pubkey(3),
+            lending_market_authority:    common,
+            reserve_liquidity_mint:      common,
+            reserve_collateral_mint:     common,
+            reserve_liquidity_supply:    common,
+            user_source_collateral:      common,
+            user_destination_liquidity:  common,
+            token_program:               common,
+            instruction_sysvar:          common,
+        });
+
+        // Both have reserve at the writable slot (deposit pos 2, redeem pos 3)
+        // and lending_market at the readonly slot (deposit pos 3, redeem pos 2).
+        assert!(
+            deposit_metas[1].is_writable && !deposit_metas[2].is_writable,
+            "deposit pos 2 must be writable (reserve), pos 3 must be readonly (lending_market)",
+        );
+        assert!(
+            !redeem_metas[1].is_writable && redeem_metas[2].is_writable,
+            "redeem pos 2 must be readonly (lending_market), pos 3 must be writable (reserve)",
         );
     }
 }
