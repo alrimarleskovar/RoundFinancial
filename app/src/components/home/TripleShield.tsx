@@ -12,25 +12,23 @@ export function TripleShield() {
   const glass = glassSurfaceStyle(palette);
   const t = useT();
 
-  // Bilingual copy lives inline (the prototype kept these PT-only;
-  // the equivalent EN strings would be a future i18n pass).
   const items = [
     {
       n: "01",
-      title: "Sorteio Semente",
-      desc: "91,6% retido Mês 1",
+      title: t("home.shield.tile1.title"),
+      desc: t("home.shield.tile1.desc"),
       c: tokens.green,
     },
     {
       n: "02",
-      title: "Escrow Adaptativo",
-      desc: "65% nunca sai do contrato",
+      title: t("home.shield.tile2.title"),
+      desc: t("home.shield.tile2.desc"),
       c: tokens.teal,
     },
     {
       n: "03",
-      title: "Cofre + Yield",
-      desc: "1% cofre + 6,8% APY Kamino",
+      title: t("home.shield.tile3.title"),
+      desc: t("home.shield.tile3.desc"),
       c: tokens.purple,
     },
   ];

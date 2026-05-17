@@ -70,6 +70,12 @@ export const DICT: Record<Lang, Dict> = {
     "home.month": "Mês",
     "home.passport": "◆ SAS Passport",
     "home.shield": "◆ Triplo Escudo · ativo",
+    "home.shield.tile1.title": "Sorteio Semente",
+    "home.shield.tile1.desc": "91,6% retido Mês 1",
+    "home.shield.tile2.title": "Escrow Adaptativo",
+    "home.shield.tile2.desc": "65% nunca sai do contrato",
+    "home.shield.tile3.title": "Cofre + Yield",
+    "home.shield.tile3.desc": "1% cofre + 6,8% APY Kamino",
     "home.activity": "◆ Atividade recente",
     // levels
     "level.proven": "COMPROVADO Nv.2",
@@ -406,6 +412,9 @@ export const DICT: Record<Lang, Dict> = {
     "landing.metric.pools": "Pooled Capital Groups",
     "landing.metric.apy": "Base APY Estimado",
     "landing.metric.fee": "Taxa do Protocolo",
+    "landing.metrics.demoBadge": "CIFRAS ILUSTRATIVAS",
+    "landing.metrics.demoNote":
+      "Métricas exibidas no preview são ilustrativas; valores reais on-chain disponíveis pós-mainnet.",
     "landing.sim.title1": "Simule seu",
     "landing.sim.title2": "Saldo Futuro",
     "landing.sim.body":
@@ -728,6 +737,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.cta": "Pagar agora",
     "modal.pay.success.title": "Parcela paga",
     "modal.pay.success.body": "Atestado SAS emitido on-chain. Sua reputação subiu +6 pts.",
+    "modal.pay.onchain.banner":
+      "Wallet conectada (slot {slot} · {addr}) é membro do Pool {seedId}. Confirmar dispara contribute(cycle={cycle}) no devnet.",
+    "modal.pay.blocked.cycleComplete": "CICLO COMPLETO",
+    "modal.pay.blocked.insufficientBalance": "SALDO INSUFICIENTE",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -1010,6 +1023,12 @@ export const DICT: Record<Lang, Dict> = {
     "home.month": "Month",
     "home.passport": "◆ SAS Passport",
     "home.shield": "◆ Triple Shield · active",
+    "home.shield.tile1.title": "Seed Draw",
+    "home.shield.tile1.desc": "91.6% retained Month 1",
+    "home.shield.tile2.title": "Adaptive Escrow",
+    "home.shield.tile2.desc": "65% never leaves the contract",
+    "home.shield.tile3.title": "Vault + Yield",
+    "home.shield.tile3.desc": "1% vault + 6.8% APY Kamino",
     "home.activity": "◆ Recent activity",
     "level.proven": "PROVEN Lv.2",
     "level.beginner": "Beginner",
@@ -1340,6 +1359,9 @@ export const DICT: Record<Lang, Dict> = {
     "landing.metric.pools": "Pooled Capital Groups",
     "landing.metric.apy": "Base APY (est.)",
     "landing.metric.fee": "Protocol Fee",
+    "landing.metrics.demoBadge": "ILLUSTRATIVE FIGURES",
+    "landing.metrics.demoNote":
+      "Metrics shown in preview are illustrative; live on-chain values available post-mainnet.",
     "landing.sim.title1": "Simulate your",
     "landing.sim.title2": "Future Balance",
     "landing.sim.body":
@@ -1662,6 +1684,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.cta": "Pay now",
     "modal.pay.success.title": "Installment paid",
     "modal.pay.success.body": "SAS attestation emitted on-chain. Reputation +6 pts.",
+    "modal.pay.onchain.banner":
+      "Connected wallet (slot {slot} · {addr}) is a member of Pool {seedId}. Confirm dispatches contribute(cycle={cycle}) on devnet.",
+    "modal.pay.blocked.cycleComplete": "CYCLE COMPLETE",
+    "modal.pay.blocked.insufficientBalance": "INSUFFICIENT BALANCE",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",

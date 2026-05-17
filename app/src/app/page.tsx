@@ -200,31 +200,41 @@ export default function LandingPage() {
           {/* Metrics */}
           <MountReveal
             delay={0.32}
-            className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20"
+            className="w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20"
           >
-            <div>
-              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                {t("landing.metric.tvl")}
-              </p>
-              <p className="text-xl md:text-4xl font-bold">$1,245,800</p>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[9px] md:text-[10px] font-mono tracking-[0.12em] px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                {t("landing.metrics.demoBadge")}
+              </span>
+              <span className="text-[10px] md:text-xs text-gray-500">
+                {t("landing.metrics.demoNote")}
+              </span>
             </div>
-            <div>
-              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                {t("landing.metric.pools")}
-              </p>
-              <p className="text-xl md:text-4xl font-bold">14</p>
-            </div>
-            <div>
-              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                {t("landing.metric.apy")}
-              </p>
-              <p className="text-xl md:text-4xl font-bold text-[#14F195]">~ 6.5%</p>
-            </div>
-            <div>
-              <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                {t("landing.metric.fee")}
-              </p>
-              <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+              <div>
+                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                  {t("landing.metric.tvl")}
+                </p>
+                <p className="text-xl md:text-4xl font-bold">$1,245,800</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                  {t("landing.metric.pools")}
+                </p>
+                <p className="text-xl md:text-4xl font-bold">14</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                  {t("landing.metric.apy")}
+                </p>
+                <p className="text-xl md:text-4xl font-bold text-[#14F195]">~ 6.5%</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
+                  {t("landing.metric.fee")}
+                </p>
+                <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
+              </div>
             </div>
           </MountReveal>
         </div>
