@@ -752,7 +752,7 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
       { pubkey: shadowVault, isSigner: false, isWritable: true },
       { pubkey: pool.publicKey, isSigner: true, isWritable: false },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: statePda, isSigner: false, isWritable: false },
+      { pubkey: statePda, isSigner: false, isWritable: true }, // mut: deposit increments tracked_principal
       { pubkey: fixtures.reserve.pubkey, isSigner: false, isWritable: true },
       { pubkey: fixtures.lendingMarket.pubkey, isSigner: false, isWritable: false },
       { pubkey: fixtures.lendingMarketAuthority.pubkey, isSigner: false, isWritable: false },
