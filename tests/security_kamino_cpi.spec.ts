@@ -621,6 +621,20 @@ describe("Kamino bankrun spike — Phase 2b checkpoint 2 (deposit CPI vs cloned 
     // Pool PDA; for this spike, any pubkey we control works).
     pool = Keypair.generate();
 
+    // Fund pool with lamports — Solana requires every signer to be
+    // either the fee payer (env.payer) or have a funded account.
+    // Without this, the tx is rejected pre-program-invoke with the
+    // misleading "Program 11111111 invoke [1] failed: invalid
+    // instruction data" error. (Empirical: caught in the 1st run
+    // of checkpoint 3.)
+    env.context.setAccount(pool.publicKey, {
+      lamports: 1_000_000_000, // 1 SOL
+      data: new Uint8Array(0),
+      owner: SystemProgram.programId,
+      executable: false,
+      rentEpoch: 0,
+    });
+
     // Derive YieldVaultState PDA.
     [statePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("yield-state"), pool.publicKey.toBuffer()],
