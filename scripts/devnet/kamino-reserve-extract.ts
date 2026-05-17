@@ -57,7 +57,22 @@ const OFFSETS = {
   liquidityMint: 120 + 0,
   liquiditySupply: 120 + 32,
   liquidityFeeVault: 120 + 64,
+  // ReserveLiquidity size (best-effort from klend source):
+  //   4 × Pubkey (32×4=128) + 1 × u64 (8) + 6 × u128 (96) + 6 × u64 (48) +
+  //   1 × BigFractionBytes (assumed 32) + 1 × Pubkey (token_program, 32) +
+  //   1 × u64 (8) + [u64; 50] (400) + [u128; 32] (512) = 1264 bytes
+  // Plus reserve_liquidity_padding [u64; 150] = 1200 bytes.
+  // So collateral block starts at: 120 + 1264 + 1200 = 2584
+  // C-token mint is the first 32 bytes of ReserveCollateral.
+  collateralMint: 2584,
 } as const;
+
+// Kamino's lending_market_authority PDA is derived from the lending
+// market pubkey + the klend program. Documented in klend's
+// `LendingMarket` impl: `seeds = [lending_market.key().as_ref()]`.
+// We need this as a `kamino_market_authority` account in our wrapper's
+// CPI — it's a signer derived by Kamino's program at CPI time.
+const KAMINO_LEND_PROGRAM_ID = new PublicKey("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 
 const ANCHOR_DISC_SIZE = 8;
 
@@ -109,11 +124,25 @@ function main() {
   const liquidityMint = pubkeyAt(data, OFFSETS.liquidityMint);
   const liquiditySupply = pubkeyAt(data, OFFSETS.liquiditySupply);
   const liquidityFeeVault = pubkeyAt(data, OFFSETS.liquidityFeeVault);
+  const collateralMint =
+    data.length >= OFFSETS.collateralMint + 32 ? pubkeyAt(data, OFFSETS.collateralMint) : null;
+
+  // Derive Kamino's lending_market_authority PDA.
+  const [marketAuthority] = PublicKey.findProgramAddressSync(
+    [lendingMarket.toBuffer()],
+    KAMINO_LEND_PROGRAM_ID,
+  );
 
   console.log(`│ lending_market:         ${lendingMarket.toBase58()}`);
+  console.log(`│ lending_market_auth:    ${marketAuthority.toBase58()}  (derived PDA)`);
   console.log(`│ liquidity.mint_pubkey:  ${liquidityMint.toBase58()}`);
   console.log(`│ liquidity.supply_vault: ${liquiditySupply.toBase58()}`);
   console.log(`│ liquidity.fee_vault:    ${liquidityFeeVault.toBase58()}`);
+  if (collateralMint) {
+    console.log(
+      `│ collateral.mint_pubkey: ${collateralMint.toBase58()}  (BEST-EFFORT — verify via Solscan)`,
+    );
+  }
   console.log("└──────────────────────────────────────────────────────────────");
 
   // Sanity check: liquidity.mint_pubkey should be the canonical USDC mint
@@ -144,11 +173,21 @@ function main() {
     ["reserve-liquidity-supply", liquiditySupply],
     ["reserve-fee-vault", liquidityFeeVault],
   ];
+  if (collateralMint) {
+    accountsToClone.push(["c-token-mint", collateralMint]);
+  }
   for (const [label, pk] of accountsToClone) {
     console.log(
       `  solana account ${pk.toBase58()} --url mainnet-beta --output json > tests/fixtures/kamino/${label}.json`,
     );
   }
+  console.log("");
+  console.log(
+    "lending_market_authority is a derived PDA — Kamino computes it at CPI time, no clone needed.",
+  );
+  console.log(`  PDA: ${marketAuthority.toBase58()}`);
+  console.log(`  seeds: [<lending-market-pubkey>] = [${lendingMarket.toBase58()}]`);
+  console.log(`  program: ${KAMINO_LEND_PROGRAM_ID.toBase58()}`);
 
   console.log("");
   console.log("Reserve account itself (for the bankrun spec to seed it):");
@@ -163,13 +202,14 @@ function main() {
   }
 
   console.log("");
-  console.log("Note: collateral.mint_pubkey (the c-token mint that Anchor's");
-  console.log("`associated_token::mint = kamino_reserve_collateral_mint` constraint");
-  console.log("expects) requires parsing the ReserveCollateral struct, which sits");
-  console.log("at offset 120 + sizeof(ReserveLiquidity) + 1200 (padding [u64; 150])");
-  console.log("inside the Reserve account. This script's offsets cover the high-confidence");
-  console.log("fields; for the c-token mint, use Solscan's Anchor decoder or klend-sdk.");
-  console.log("Cross-reference with the Reserve account's data on Solscan to verify.");
+  console.log("Verification step — cross-check `collateral.mint_pubkey` via Solscan:");
+  console.log(`  https://solscan.io/account/${accountPubkey ?? "<RESERVE_PUBKEY>"}#anchorData`);
+  console.log("  Look for the `collateral.mintPubkey` field. If it doesn't match the value above,");
+  console.log("  the offset for `collateralMint` in this script is wrong and needs adjustment.");
+  console.log("");
+  console.log("Still unknown (not extracted by this script):");
+  console.log("  - Scope oracle prices PDA (reserve.config.token_info.oracle.scope)");
+  console.log("    → find via Solscan anchor decoder under config.tokenInfo.scopeConfiguration");
 }
 
 main();
