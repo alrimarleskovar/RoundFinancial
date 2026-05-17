@@ -18,6 +18,23 @@
  *
  * Optional env:
  *   RPC_URL=https://api.mainnet-beta.solana.com (default)
+ *
+ * Public RPC fallback: if you see "scan aborted: accumulated scan
+ * results exceeded the limit", the public endpoint rate-limited the
+ * getProgramAccounts call. Workaround — use a free-tier paid RPC that
+ * doesn't have this limit:
+ *
+ *   # Helius (free tier, sign up at https://helius.dev)
+ *   RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY \
+ *     pnpm tsx scripts/devnet/kamino-find-usdc-reserve.ts
+ *
+ *   # QuickNode (free tier)
+ *   RPC_URL=https://your-endpoint.quiknode.pro/YOUR_KEY/ \
+ *     pnpm tsx scripts/devnet/kamino-find-usdc-reserve.ts
+ *
+ * The dataSize filter below (8624 bytes) narrows the scan enough that
+ * the public RPC usually handles it; the fallback is for the case
+ * where Kamino has many reserves of the same size.
  */
 
 import { Connection, PublicKey } from "@solana/web3.js";
@@ -49,10 +66,14 @@ async function main() {
   console.log("");
 
   // Filter all program accounts that have lending_market matching the
-  // main market at the expected byte offset. Skip the dataSize filter
-  // for tolerance — different reserve versions may have different sizes.
+  // main market at the expected byte offset. Add dataSize filter
+  // (8624 bytes = 8616 Reserve struct + 8 Anchor discriminator,
+  // empirically confirmed via previous extract run) to keep the
+  // public RPC's scan within its accumulated-result limit.
+  const RESERVE_TOTAL_SIZE = 8624;
   const accounts = await connection.getProgramAccounts(KAMINO_LEND_PROGRAM_ID, {
     filters: [
+      { dataSize: RESERVE_TOTAL_SIZE },
       {
         memcmp: {
           offset: LENDING_MARKET_OFFSET_IN_DATA,
