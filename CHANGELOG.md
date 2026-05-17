@@ -11,6 +11,10 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Added — Indexer Prometheus exposition format
+
+- **`services/indexer/src/metrics.ts`** + `/metrics` route migration — closes item #1 of `docs/observability/README.md` "Pre-deployment readiness". The endpoint now serves `prom-client` registry output with `Content-Type: text/plain; version=0.0.4` instead of the previous JSON stub, so the alerts in `docs/observability/prometheus-alerts.yaml` can scrape against real data. Pass-1 metric surface (derivable from existing Prisma data, no new data sources needed): `roundfi_indexer_last_slot`, `roundfi_indexer_last_update_timestamp_seconds`, `roundfi_indexer_pool_count{status}`, `roundfi_indexer_member_count`, `roundfi_indexer_event_count{kind}`, `roundfi_reconciler_unresolved_count{table}` + default Node.js runtime metrics under the `roundfi_indexer_node_` prefix. Unblocks the `IndexerLagHigh` alert and the `roundfi:reconciler_unresolved_total` recording rule. Metrics that require RPC reads or webhook-handler instrumentation (`roundfi_protocol_paused`, `roundfi_protocol_config_hash`, TVL caps, CPI failure counters, principal-loss counter, treasury outflow, per-pool vault balances) are documented as deferred-with-source in the `metrics.ts` header docstring.
+
 ### Added — Freeze automation
 
 - **`.github/workflows/freeze-enforcement.yml`** — CI gate that asserts every PR opened against `main` either references a tracked SEV ID (`SEV-\d+`) or carries the `[FREEZE-EXCEPTION]` tag in the title. Auto-skips for `dependabot[bot]` / `renovate[bot]` (CVE-patch lane allowed by FREEZE.md). Materializes the policy in [`FREEZE.md`](./FREEZE.md) beyond the .md file so the gate can't be silently bypassed.

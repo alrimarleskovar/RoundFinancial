@@ -38,6 +38,7 @@ import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 
 import { handleHeliusWebhook } from "./webhook.js";
+import { collectIndexerMetrics, PROMETHEUS_CONTENT_TYPE } from "./metrics.js";
 
 const PORT = Number(process.env.INDEXER_PORT ?? 8787);
 const HOST = process.env.INDEXER_HOST ?? "0.0.0.0";
@@ -92,14 +93,16 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
 
   app.get("/healthz", async () => ({ ok: true, ts: Date.now() }));
 
-  app.get("/metrics", async () => {
-    const cursor = await prisma.indexerCursor.findFirst({
-      orderBy: { updatedAt: "desc" },
-    });
-    return {
-      lastIndexedSlot: cursor?.lastSlot.toString() ?? null,
-      lastUpdatedAt: cursor?.updatedAt ?? null,
-    };
+  // Prometheus exposition format (text/plain; version=0.0.4). Migrated
+  // from JSON per item #1 of docs/observability/README.md
+  // "Pre-deployment readiness" so the alerts in
+  // docs/observability/prometheus-alerts.yaml can scrape against real
+  // metrics. See `metrics.ts` for the catalogued metric set and which
+  // alert-spec metrics are still deferred.
+  app.get("/metrics", async (_req, reply) => {
+    const body = await collectIndexerMetrics(prisma);
+    reply.header("Content-Type", PROMETHEUS_CONTENT_TYPE);
+    return reply.send(body);
   });
 
   app.post("/webhook/helius", async (req, reply) => {
