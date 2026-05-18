@@ -288,6 +288,26 @@ jobs:
   # (~17 tests covering Kamino program load + discriminator validation
   # + cascade-clone integrity + deposit/harvest CPI vs cloned state).
   #
+  # **Scope audit (2026-05-18).** Other bankrun specs were evaluated
+  # for inclusion in this lane. Findings:
+  #   - `edge_cycle_boundary.spec.ts`, `security_sev034_release_escrow_lifecycle.spec.ts`,
+  #     `economic_parity.spec.ts` — all use `joinMembers()` from the
+  #     test harness, which wraps `joinPool()`. `joinPool()` does a
+  #     CreateV2 CPI into mpl_core (FreezeDelegate + TransferDelegate
+  #     position-NFT mint), so all three need mpl_core loaded.
+  #   - `edge_grace_default.spec.ts`, `edge_grace_default_shield1_only.spec.ts` —
+  #     pass `metaplexCore` directly as an account-meta and exercise
+  #     mpl_core via settle_default's burn path.
+  #   - `app_encoders_bankrun.spec.ts` — only spec that bypasses joinPool
+  #     (seeds Pool+Member via `writeAnchorAccount`), so it COULD
+  #     mechanically run without mpl_core. But 7 of 9 sub-tests fail
+  #     with unrelated custom-error codes (0x177c, 0x1777, 0xbbd) due
+  #     to state-shape drift between when the spec was written and
+  #     current Pool/Member layouts. Inclusion requires a separate
+  #     spec-refresh PR; not a quick win.
+  # Net: current scope is correct; expanding it needs spec-level work,
+  # not lane-level work. Re-evaluate after spec-refresh follow-up.
+  #
   # The full `test:bankrun` lane (which exercises join_pool +
   # escape_valve_buy via mpl_core) remains blocked by SEV-012 / #319
   # (mpl-core 0.12 → Anchor 1.0 borsh conflict — upstream issue
