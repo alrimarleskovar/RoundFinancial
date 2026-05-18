@@ -18,7 +18,9 @@ name: deploy · devnet
 #
 # Prereqs (one-time, off-protocol):
 #   1. Generate the deployer keypair: `solana-keygen new --no-bip39-passphrase`
-#   2. Airdrop ≥ 5 SOL to it on devnet
+#   2. Fund the keypair with ≥ 20 SOL on devnet (faucet.solana.com).
+#      Actual deploy of 4 programs costs ~12.5 SOL; 20 = 1.6× buffer
+#      for priority-fee spikes and rent-exempt buffer-account temporaries.
 #   3. Store the JSON file content as the `DEVNET_DEPLOYER_KEYPAIR`
 #      repo secret (use `cat keypair.json | base64` then paste as secret)
 #   4. Push a tag `devnet-deploy-v0.1.0` (or similar) to trigger
@@ -107,16 +109,21 @@ jobs:
           BAL=$(solana balance --url devnet)
           echo "Deployer balance: $BAL"
 
-      - name: Check deployer balance ≥ 5 SOL
-        # Anchor deploy of 4 programs costs ~3-4 SOL (varies with
-        # bytecode size + priority fees). Refuse to start unless we
-        # have a safe floor.
+      - name: Check deployer balance ≥ 20 SOL
+        # SEV-046 follow-up — actual cost per anchor deploy of 4
+        # programs is ~12-15 SOL (NOT the ~3-4 SOL the original docs
+        # claimed). Per-program rent-exempt minimum is 2x bytecode size:
+        #   roundfi_core         ~880KB → ~6.14 SOL
+        #   roundfi_reputation   ~370KB → ~2.6 SOL
+        #   roundfi_yield_kamino ~294KB → ~2.0 SOL
+        #   roundfi_yield_mock   ~254KB → ~1.8 SOL
+        #                        TOTAL  ≈ 12.5 SOL + ~0.05 tx fees
+        # Floor set to 20 SOL = 1.6× buffer for priority-fee spikes
+        # and per-program upgrade-buffer temporaries. Surfaced
+        # empirically by rehearsal-1f.
         #
-        # SEV-046 follow-up: previous version parsed `solana balance
-        # --output json | jq -r '.balance'` which returns `null` (no
-        # such field — the JSON shape is bare lamports), tripping the
-        # rehearsal-1b run. Solana CLI's plain text format
-        # ("X.YZ SOL") is the reliable surface; parse that.
+        # Previous version parsed `solana balance --output json | jq
+        # -r '.balance'` which returned `null`; PR #389 fixed that.
         run: |
           BAL_SOL=$(solana balance --url devnet | grep -oE '^[0-9.]+' | head -1)
           if [ -z "$BAL_SOL" ]; then
@@ -124,10 +131,11 @@ jobs:
             exit 1
           fi
           # bc comparison for floating-point — bash builtin can't do floats.
-          OK=$(echo "$BAL_SOL >= 5" | bc -l)
+          OK=$(echo "$BAL_SOL >= 20" | bc -l)
           if [ "$OK" != "1" ]; then
-            echo "::error::Deployer balance $BAL_SOL SOL is below 5 SOL floor."
-            echo "::error::Top up via airdrop or manual transfer before retrying."
+            echo "::error::Deployer balance $BAL_SOL SOL is below 20 SOL floor."
+            echo "::error::Expected ~12.5 SOL for 4-program deploy + safety margin."
+            echo "::error::Top up via faucet (https://faucet.solana.com) before retrying."
             exit 1
           fi
 
