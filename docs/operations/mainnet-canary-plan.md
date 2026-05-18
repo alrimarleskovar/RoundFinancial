@@ -84,7 +84,7 @@ ALL items must be ✅ before running `scripts/mainnet/canary-flow.ts`. The scrip
 
 - [ ] **Monitoring stack live** — Grafana / Datadog / equivalent ([#271](https://github.com/alrimarleskovar/RoundFinancial/issues/271)). Per-instruction transaction count + Triple Shield error rate dashboards green.
 - [ ] **PagerDuty rotation defined** — primary + secondary on-call for the 7-day soak window
-- [ ] **CD pipeline approved + tested** — staging deploy via [#272](https://github.com/alrimarleskovar/RoundFinancial/issues/272) rehearsed at least once
+- [ ] **CD pipeline approved + tested** — staging deploy via [#272](https://github.com/alrimarleskovar/RoundFinancial/issues/272) rehearsed at least once (scaffolding landed via SEV-046; see [`docs/operations/cd-pipeline.md`](./cd-pipeline.md) — rehearsal execution pending operator running it 3× clean on devnet)
 - [ ] **Front-end mainnet hardening complete** — devnet/mainnet visual banner, RPC pinning, allowlist tests ([#249](https://github.com/alrimarleskovar/RoundFinancial/issues/249))
 - [ ] **Indexer deployed + caught up** — finality gate active, RPC quorum active, reconciler running
 - [ ] **Emergency-response runbook reviewed** by all on-call — [`emergency-response.md`](./emergency-response.md)

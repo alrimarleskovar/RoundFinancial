@@ -58,7 +58,8 @@
     "test:bankrun:no-mpl-core": "pnpm exec mocha -t 120000 'tests/security_kamino_cpi.spec.ts'",
     "test:security:localnet": "pnpm exec mocha -t 120000 'tests/security_*.spec.ts'",
     "test:fuzz": "for t in bps cascade dc_invariant escrow_vesting seed_draw waterfall; do echo \"=== fuzz target: $t ===\"; cargo fuzz run --fuzz-dir crates/math/fuzz \"$t\" -- -max_total_time=60 || exit 1; done",
-    "test:mainnet-hardening": "tsx scripts/mainnet/mainnet-hardening-check.ts"
+    "test:mainnet-hardening": "tsx scripts/mainnet/mainnet-hardening-check.ts",
+    "mainnet:deploy": "tsx scripts/mainnet/deploy.ts"
   },
   "devDependencies": {
     "@roundfi/sdk": "workspace:*",
