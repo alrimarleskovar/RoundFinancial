@@ -1,0 +1,173 @@
+name: deploy · devnet
+
+# CD pipeline (#272) — devnet leg.
+#
+# Triggered on tag push `devnet-deploy-v*` OR manual workflow_dispatch.
+# Builds the 4 RoundFi Anchor programs from a clean ubuntu-latest
+# runner using the same Agave 3.0.0 + Anchor 0.30.1 toolchain as the
+# `anchor · build` CI lane, then deploys to devnet using the
+# `DEVNET_DEPLOYER_KEYPAIR` repo secret.
+#
+# Why a CD workflow instead of operator-runs-pnpm:
+#   - Reproducibility: clean runner pin removes "works on my WSL"
+#     drift that historically cost ~1d/cycle for OtterSec verify-build.
+#   - Audit trail: every deploy is a GitHub Actions run, logs retained
+#     for the retention window, tx signatures captured in step output.
+#   - Mainnet parity: this rehearses the exact ceremony that the
+#     mainnet workflow will use (see `mainnet-deploy.yml`).
+#
+# Prereqs (one-time, off-protocol):
+#   1. Generate the deployer keypair: `solana-keygen new --no-bip39-passphrase`
+#   2. Airdrop ≥ 5 SOL to it on devnet
+#   3. Store the JSON file content as the `DEVNET_DEPLOYER_KEYPAIR`
+#      repo secret (use `cat keypair.json | base64` then paste as secret)
+#   4. Push a tag `devnet-deploy-v0.1.0` (or similar) to trigger
+
+on:
+  push:
+    tags:
+      - "devnet-deploy-v*"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this deploy? (for audit log)"
+        type: string
+        required: true
+
+concurrency:
+  group: deploy-devnet
+  cancel-in-progress: false # don't cancel mid-deploy
+
+jobs:
+  deploy:
+    name: deploy · devnet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Install Solana Agave 3.0.0 (matches anchor · build lane)
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli
+
+      - name: Restore deployer keypair from secret
+        # The secret holds the JSON keypair as base64. Restore to disk
+        # so anchor + solana CLI can read it. Path NOT under `.git` to
+        # avoid accidental commit; `target/` is gitignored.
+        env:
+          DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
+        run: |
+          if [ -z "$DEVNET_DEPLOYER_KEYPAIR" ]; then
+            echo "::error::DEVNET_DEPLOYER_KEYPAIR secret is empty. Set it in repo settings."
+            exit 1
+          fi
+          mkdir -p target
+          echo "$DEVNET_DEPLOYER_KEYPAIR" | base64 -d > target/devnet-deployer.json
+          chmod 600 target/devnet-deployer.json
+          solana config set --keypair "$PWD/target/devnet-deployer.json" --url devnet
+          solana address
+          BAL=$(solana balance --url devnet)
+          echo "Deployer balance: $BAL"
+
+      - name: Check deployer balance ≥ 5 SOL
+        # Anchor deploy of 4 programs costs ~3-4 SOL (varies with
+        # bytecode size + priority fees). Refuse to start unless we
+        # have a safe floor.
+        run: |
+          BAL_RAW=$(solana balance --url devnet --output json | jq -r '.balance' || \
+                    solana balance --url devnet | awk '{print $1}')
+          # solana CLI prints "X.YZ SOL" or JSON; handle both.
+          BAL_SOL=$(echo "$BAL_RAW" | grep -oE '^[0-9.]+' | head -1)
+          if [ -z "$BAL_SOL" ]; then
+            echo "::error::Could not parse balance: $BAL_RAW"
+            exit 1
+          fi
+          # bc comparison for floating-point — bash builtin can't do floats.
+          OK=$(echo "$BAL_SOL >= 5" | bc -l)
+          if [ "$OK" != "1" ]; then
+            echo "::error::Deployer balance $BAL_SOL SOL is below 5 SOL floor."
+            echo "::error::Top up via airdrop or manual transfer before retrying."
+            exit 1
+          fi
+
+      - name: anchor build (--no-idl)
+        run: anchor build --no-idl
+
+      - name: anchor keys sync (verify declare_id! matches keypair)
+        run: anchor keys sync
+        # If this changes any file, the deploy proceeds with the
+        # SYNCED IDs. The committed code drifts from the deployed
+        # binary — operator must follow up with a PR to commit the
+        # synced declare_id! values. Logged in deploy-summary step.
+
+      - name: anchor build (post-sync, --no-idl)
+        # Re-build after keys sync so declare_id!() values match the
+        # keypair file pubkeys exactly.
+        run: anchor build --no-idl
+
+      - name: anchor deploy (devnet)
+        # SOLANA_CLUSTER is read by scripts/devnet/deploy.ts via
+        # loadCluster(); pass it explicitly so the wrapper script
+        # behaves the same locally and in CI.
+        env:
+          SOLANA_CLUSTER: devnet
+        run: pnpm exec tsx scripts/devnet/deploy.ts
+
+      - name: Capture deploy summary
+        # The devnet/deploy.ts script writes config/program-ids.devnet.json.
+        # Upload it as an artifact for the audit trail, also echo to log.
+        run: |
+          echo "::group::Program IDs (devnet)"
+          cat config/program-ids.devnet.json
+          echo "::endgroup::"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: program-ids-devnet-${{ github.run_id }}
+          path: config/program-ids.devnet.json
+          retention-days: 90 # retain through a typical canary cycle
+
+      - name: Print post-deploy reminders
+        run: |
+          echo "::notice::Devnet deploy complete. Next steps:"
+          echo "::notice::  1. Verify on Solscan: https://solscan.io/account/<id>?cluster=devnet"
+          echo "::notice::  2. Run integration tests against the new deployment"
+          echo "::notice::  3. If this is a rehearsal for mainnet, file a rehearsal-log entry"
+          echo "::notice::     in docs/operations/rehearsal-logs/"
+
+      - name: Cleanup keypair from runner
+        if: always()
+        run: |
+          rm -f target/devnet-deployer.json
+          # Defense-in-depth — GitHub-hosted runners are ephemeral but
+          # explicit cleanup means a debugging-fork can't accidentally
+          # publish the keypair via artifact upload.
