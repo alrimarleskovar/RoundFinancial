@@ -19,7 +19,7 @@ export interface WalletView {
   publicKey: string | null;
   balance: number | null; // lamports
   balanceSol: number | null;
-  network: "devnet" | "localnet";
+  network: "devnet" | "localnet" | "mainnet-beta";
   lastError: string | null;
   lastTxSig: string | null;
   airdropping: boolean;
@@ -43,9 +43,14 @@ export interface WalletView {
 
 const AIRDROP_DEFAULT = LAMPORTS_PER_SOL; // 1 SOL
 
-function explorerCluster(id: "devnet" | "localnet"): string {
-  // Solana Explorer supports ?cluster=devnet / ?cluster=custom for local
-  return id === "localnet" ? "custom" : "devnet";
+function explorerCluster(id: "devnet" | "localnet" | "mainnet-beta"): string {
+  // Solana Explorer cluster query values:
+  //   ?cluster=mainnet-beta (default if omitted)
+  //   ?cluster=devnet
+  //   ?cluster=custom (for localnet — pairs with `customUrl=http://...`)
+  if (id === "localnet") return "custom";
+  if (id === "mainnet-beta") return "mainnet-beta";
+  return "devnet";
 }
 
 export function useWallet(): WalletView {
