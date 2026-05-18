@@ -14,7 +14,11 @@
 // after a basic vetting pass (responsive maintenance, no known
 // drainer history, audited release process).
 
-import type { NetworkId } from "@/lib/network";
+// Type-only import from a pure .ts module so the workspace-root tsc
+// (no JSX) can typecheck this file via the Mocha test at
+// tests/frontend_allowlist.spec.ts. See `networkTypes.ts` for the
+// SEV-045 rationale.
+import type { NetworkId } from "./networkTypes";
 
 /**
  * Curated set of supported wallet adapter names. Standard-wallet

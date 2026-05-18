@@ -896,6 +896,8 @@ export const DICT: Record<Lang, Dict> = {
     "network.banner.localnet": "LOCALNET · validador local ({url})",
     "network.banner.devnet":
       "DEVNET · APENAS fundos de teste — esta rede não movimenta dinheiro real ({url})",
+    "network.banner.mainnet":
+      "🔴 MAINNET · DINHEIRO REAL em jogo — toda transação assinada movimenta USDC real. Confirme cada detalhe antes de assinar ({url})",
     "network.banner.unknown":
       "⚠ RPC DESCONHECIDO ({url}) — não é possível verificar o cluster. Confirme manualmente antes de assinar.",
     // faucet
@@ -1838,6 +1840,8 @@ export const DICT: Record<Lang, Dict> = {
     "network.banner.localnet": "LOCALNET · local validator ({url})",
     "network.banner.devnet":
       "DEVNET · TEST funds only — this network does NOT move real money ({url})",
+    "network.banner.mainnet":
+      "🔴 MAINNET · REAL FUNDS in play — every signed transaction moves real USDC. Verify every detail before signing ({url})",
     "network.banner.unknown":
       "⚠ UNKNOWN RPC ({url}) — cluster cannot be verified. Confirm manually before signing.",
     "wallet.faucet.title": "Faucet · Devnet",

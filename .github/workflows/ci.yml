@@ -27,7 +27,12 @@ jobs:
   #     (Next.js runs its own typecheck pass that detected a missed
   #     PublicKey→string type drift in PR #299; we surface that here
   #     instead of in the slower e2e advisory lane)
-  #   - Rust ↔ TS constants/seeds parity (test:parity) — 7 tests
+  #   - Rust ↔ TS constants/seeds parity (test:parity) — 12 tests
+  #   - Frontend allowlist + cluster classification
+  #     (test:frontend-allowlist) — 24 tests pinning the three
+  #     pure-function defenses gating the front-end's mainnet exposure
+  #     (SEV-045): classifyEndpoint, resolveRpcAllowlist /
+  #     isAllowlistedEndpoint, decideWalletAllowlist.
   #   - App ↔ chain encoder structural parity (test:app-encoders) — 58
   #     tests covering discriminators, account counts, signer positions,
   #     PDA derivations on the 6 front-end IDL-free encoders (#283 + #291).
@@ -77,6 +82,14 @@ jobs:
 
       - name: Rust ↔ TS constants/seeds parity (7 tests)
         run: pnpm test:parity
+
+      - name: Frontend allowlist + cluster classification (24 tests)
+        # SEV-045: pins the three pure-function defenses that gate the
+        # front-end's mainnet exposure: classifyEndpoint (cluster from
+        # RPC URL), resolveRpcAllowlist / isAllowlistedEndpoint (per-
+        # network endpoint pinning), decideWalletAllowlist (wallet-by-
+        # cluster gates). Sub-second; runs on every PR.
+        run: pnpm test:frontend-allowlist
 
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders

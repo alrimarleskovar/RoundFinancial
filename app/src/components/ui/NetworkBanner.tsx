@@ -5,14 +5,27 @@ import { useConnection } from "@solana/wallet-adapter-react";
 import { Icons } from "@/components/brand/icons";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import { classifyEndpoint, type Cluster } from "@/lib/networkClassify";
+
+// Re-export so existing call-sites (and tests that import via the
+// component path) keep working. The actual implementation lives in
+// `networkClassify.ts` — see SEV-045 comment there.
+export { classifyEndpoint };
+export type { Cluster };
 
 // NetworkBanner — top-of-page strip identifying the active Solana
 // cluster. Mitigates devnet→mainnet confusion (item 4.6 of
 // MAINNET_READINESS.md):
 //
-//   - LOCALNET   — soft hint, blue. Local validator only.
-//   - DEVNET     — strong hint, yellow. Test funds only, no real money.
-//   - MAINNET    — green confirm. Real funds in play.
+//   - LOCALNET   — soft hint, teal. Local validator only.
+//   - DEVNET     — strong hint, amber. Test funds only, no real money.
+//   - MAINNET    — LOUD red alert. Real funds in play, every signed
+//                  tx is irreversible. SEV-045: previously hidden on
+//                  mainnet ("training to ignore") — flipped to ALWAYS
+//                  visible because the canary-plan threat model is
+//                  "user thinks they're on devnet but RPC is mainnet,"
+//                  in which case mainnet IS the surprise. Visibility
+//                  on the happy path is the entire point.
 //   - UNKNOWN    — red alert. RPC URL doesn't match any known cluster
 //                  pattern; could be a malicious RPC fronting wrong
 //                  cluster. User should verify before signing.
@@ -27,22 +40,6 @@ import { useTheme } from "@/lib/theme";
 // Pairs with `PhishingBanner` (domain-pin guard) — different attack
 // surface (domain vs RPC), same defense-in-depth philosophy.
 
-type Cluster = "localnet" | "devnet" | "mainnet" | "unknown";
-
-export function classifyEndpoint(url: string): Cluster {
-  // Substring matching is order-sensitive — check most-specific first.
-  // "mainnet" is a substring of "mainnet-beta", which both
-  // `api.mainnet-beta.solana.com` and `mainnet.helius-rpc.com` carry.
-  if (url.includes("127.0.0.1") || url.includes("localhost")) return "localnet";
-  if (url.includes("devnet")) return "devnet";
-  if (url.includes("mainnet")) return "mainnet";
-  // Triton, QuickNode, custom proxies — we cannot tell cluster from
-  // URL alone. Default to UNKNOWN with the alert banner; operator
-  // must whitelist their RPC URL pattern explicitly when ready to
-  // suppress the alert.
-  return "unknown";
-}
-
 export function NetworkBanner() {
   const { tokens } = useTheme();
   const t = useT();
@@ -50,10 +47,10 @@ export function NetworkBanner() {
   const url = connection.rpcEndpoint;
   const cluster = classifyEndpoint(url);
 
-  // Mainnet is the "expected" production state; no banner needed there
-  // — same UX rationale as canonical-domain on PhishingBanner. Showing
-  // a banner on the happy path trains users to ignore it.
-  if (cluster === "mainnet") return null;
+  // SEV-045: mainnet was previously hidden ("training to ignore"
+  // argument). Flipped — banner now ALWAYS renders, mainnet variant
+  // uses the same LOUD red palette as unknown so users cannot
+  // accidentally sign a real-funds tx thinking they're on devnet.
 
   const palette = {
     localnet: {
@@ -74,6 +71,15 @@ export function NetworkBanner() {
       borderWidth: 1,
       labelKey: "network.banner.devnet",
     },
+    mainnet: {
+      bg: `${tokens.red}1A`,
+      border: tokens.red,
+      fg: tokens.red,
+      iconStroke: tokens.red,
+      role: "alert" as const,
+      borderWidth: 2,
+      labelKey: "network.banner.mainnet",
+    },
     unknown: {
       bg: `${tokens.red}1A`,
       border: tokens.red,
@@ -89,12 +95,15 @@ export function NetworkBanner() {
     <div
       role={palette.role}
       style={{
-        padding: cluster === "unknown" ? "10px 16px" : "6px 12px",
+        // Loud variants (mainnet, unknown) get extra padding + size
+        // so they read as "stop and check" not "FYI". Localnet/devnet
+        // stay slim FYI strips.
+        padding: cluster === "unknown" || cluster === "mainnet" ? "10px 16px" : "6px 12px",
         background: palette.bg,
         borderBottom: `${palette.borderWidth}px solid ${palette.border}`,
         color: palette.fg,
-        fontSize: cluster === "unknown" ? 12 : 11,
-        fontWeight: cluster === "unknown" ? 700 : 600,
+        fontSize: cluster === "unknown" || cluster === "mainnet" ? 12 : 11,
+        fontWeight: cluster === "unknown" || cluster === "mainnet" ? 700 : 600,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -102,7 +111,10 @@ export function NetworkBanner() {
         fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
       }}
     >
-      <Icons.info size={cluster === "unknown" ? 14 : 12} stroke={palette.iconStroke} />
+      <Icons.info
+        size={cluster === "unknown" || cluster === "mainnet" ? 14 : 12}
+        stroke={palette.iconStroke}
+      />
       <span>{t(palette.labelKey, { url })}</span>
     </div>
   );
