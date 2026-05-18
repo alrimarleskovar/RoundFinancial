@@ -102,13 +102,16 @@ jobs:
         # Anchor deploy of 4 programs costs ~3-4 SOL (varies with
         # bytecode size + priority fees). Refuse to start unless we
         # have a safe floor.
+        #
+        # SEV-046 follow-up: previous version parsed `solana balance
+        # --output json | jq -r '.balance'` which returns `null` (no
+        # such field — the JSON shape is bare lamports), tripping the
+        # rehearsal-1b run. Solana CLI's plain text format
+        # ("X.YZ SOL") is the reliable surface; parse that.
         run: |
-          BAL_RAW=$(solana balance --url devnet --output json | jq -r '.balance' || \
-                    solana balance --url devnet | awk '{print $1}')
-          # solana CLI prints "X.YZ SOL" or JSON; handle both.
-          BAL_SOL=$(echo "$BAL_RAW" | grep -oE '^[0-9.]+' | head -1)
+          BAL_SOL=$(solana balance --url devnet | grep -oE '^[0-9.]+' | head -1)
           if [ -z "$BAL_SOL" ]; then
-            echo "::error::Could not parse balance: $BAL_RAW"
+            echo "::error::Could not parse balance from 'solana balance'"
             exit 1
           fi
           # bc comparison for floating-point — bash builtin can't do floats.
