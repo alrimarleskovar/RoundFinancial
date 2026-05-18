@@ -141,8 +141,16 @@ jobs:
         # SOLANA_CLUSTER is read by scripts/devnet/deploy.ts via
         # loadCluster(); pass it explicitly so the wrapper script
         # behaves the same locally and in CI.
+        #
+        # ANCHOR_WALLET: `anchor deploy` ignores `solana config set
+        # --keypair` (that's for the `solana` CLI only) and defaults
+        # to `~/.config/solana/id.json` — which doesn't exist on a
+        # fresh GitHub-hosted runner. Point it at the keypair we
+        # restored 6 steps up. SEV-046 follow-up surfaced empirically
+        # by rehearsal-1d (run-26033760418-and-after lane).
         env:
           SOLANA_CLUSTER: devnet
+          ANCHOR_WALLET: ${{ github.workspace }}/target/devnet-deployer.json
         run: pnpm exec tsx scripts/devnet/deploy.ts
 
       - name: Capture deploy summary
