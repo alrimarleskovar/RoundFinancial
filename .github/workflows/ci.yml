@@ -281,9 +281,128 @@ jobs:
       # follow-up — not a regression hidden behind an `allowed-to-fail`
       # mask.
 
-  # NOTE: bankrun-no-mpl-core lane attempted in PR #381 (chore/mainnet-prep-deliverables)
-  # but failed at the rebuild-idls.sh step (exit code 101). Likely the
-  # anchor-syn #319 patch doesn't apply cleanly under CI's exact
-  # toolchain combo. Deferred to a separate follow-up PR rather than
-  # blocking the v0.4-canary tag. Tracking: re-attempt after the
-  # canary release marker lands.
+  # ─── bankrun · no-mpl-core (SEV-012 partial) ─────────────────────
+  # Bankrun specs that DON'T need mpl_core can run today via the
+  # rebuild-idls.sh workaround (anchor-syn #319 patch + anchor idl
+  # build per program). Current scope: tests/security_kamino_cpi.spec.ts
+  # (~17 tests covering Kamino program load + discriminator validation
+  # + cascade-clone integrity + deposit/harvest CPI vs cloned state).
+  #
+  # **Scope audit (2026-05-18).** Other bankrun specs were evaluated
+  # for inclusion in this lane. Findings:
+  #   - `edge_cycle_boundary.spec.ts`, `security_sev034_release_escrow_lifecycle.spec.ts`,
+  #     `economic_parity.spec.ts` — all use `joinMembers()` from the
+  #     test harness, which wraps `joinPool()`. `joinPool()` does a
+  #     CreateV2 CPI into mpl_core (FreezeDelegate + TransferDelegate
+  #     position-NFT mint), so all three need mpl_core loaded.
+  #   - `edge_grace_default.spec.ts`, `edge_grace_default_shield1_only.spec.ts` —
+  #     pass `metaplexCore` directly as an account-meta and exercise
+  #     mpl_core via settle_default's burn path.
+  #   - `app_encoders_bankrun.spec.ts` — only spec that bypasses joinPool
+  #     (seeds Pool+Member via `writeAnchorAccount`), so it COULD
+  #     mechanically run without mpl_core. But 7 of 9 sub-tests fail
+  #     with unrelated custom-error codes (0x177c, 0x1777, 0xbbd) due
+  #     to state-shape drift between when the spec was written and
+  #     current Pool/Member layouts. Inclusion requires a separate
+  #     spec-refresh PR; not a quick win.
+  # Net: current scope is correct; expanding it needs spec-level work,
+  # not lane-level work. Re-evaluate after spec-refresh follow-up.
+  #
+  # The full `test:bankrun` lane (which exercises join_pool +
+  # escape_valve_buy via mpl_core) remains blocked by SEV-012 / #319
+  # (mpl-core 0.12 → Anchor 1.0 borsh conflict — upstream issue
+  # metaplex-foundation/mpl-core#282 stale since 2026-05-15). This
+  # partial lane is the concrete first step toward closing SEV-012;
+  # when mpl-core unblocks, merge this lane back into the full anchor
+  # lane.
+  #
+  # **PR #381 retrospective.** The first attempt at this lane (PR #381)
+  # failed with exit code 101 because it used a different Solana
+  # toolchain installer (`release.solana.com/v1.18.26/install` — Anza
+  # took over and the legacy installer can return non-zero) than the
+  # working `anchor · build` lane (`anza-xyz/agave v3.0.0` via direct
+  # GitHub release tarball). This re-attempt mirrors the anchor lane's
+  # toolchain install verbatim. Also fixed: `rebuild-idls.sh` now
+  # builds all 4 program IDLs (was missing `roundfi_yield_kamino`,
+  # which `bankrun.ts::loadIdl()` requires unconditionally).
+  bankrun-no-mpl-core:
+    name: bankrun · no-mpl-core (security_kamino_cpi)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: anchor # piggyback on the SBF artifact path semantics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Solana Agave 3.0.0 (matches anchor · build lane)
+        # IMPORTANT: must match the toolchain install in the `anchor`
+        # lane above. PR #381's bankrun lane used the legacy
+        # `release.solana.com` installer at v1.18.26 — that path now
+        # returns non-zero on Anza's redirect chain, causing exit 101.
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli
+
+      - name: anchor build (--no-idl) + IDL regen (#319 workaround)
+        # The .so binaries come from `anchor build --no-idl` (same as
+        # the anchor lane). IDLs come from rebuild-idls.sh which applies
+        # the patch-anchor-syn-319.sh patch then runs `anchor idl build`
+        # per program. The bankrun harness loads IDLs unconditionally
+        # via `loadIdl()` for all 4 programs (core, reputation,
+        # yield_mock, yield_kamino).
+        run: |
+          anchor build --no-idl
+          bash scripts/dev/rebuild-idls.sh
+
+      - name: Cache klend.so (Kamino Lend mainnet binary)
+        # ~600KB binary, hashed against the Kamino program ID. Cached
+        # weekly via the key date suffix; if Kamino redeploys their
+        # program (rare), bump the cache key.
+        id: klend-cache
+        uses: actions/cache@v4
+        with:
+          path: target/deploy/klend.so
+          key: klend-so-2026-W20
+
+      - name: Download klend.so (cache miss only)
+        if: steps.klend-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p target/deploy
+          solana program dump -u mainnet-beta \
+            KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD \
+            target/deploy/klend.so
+
+      - name: Run bankrun spec (Kamino — no mpl_core needed)
+        # ~17 tests across Phase 1 (program load), Phase 2a (disc
+        # validation), Phase 2b/1-5 (fixture seeding + cascade-clone
+        # integrity + deposit/harvest CPI vs cloned state). Phase 2b
+        # checkpoints 3 and 5 are informational — they log the
+        # Kamino-side MathOverflow (documented bankrun-clone
+        # economic-simulation limit, frozen-clock vs cloned
+        # last_update_slot delta) but auto-pass since the validation
+        # goal is mechanics not economics. Wrapper-side regressions
+        # would shift the failure class to `AccountValidationFailed`
+        # / `Constraint*` and surface immediately.
+        run: pnpm test:bankrun:no-mpl-core

@@ -29,7 +29,7 @@ bash "$(dirname "$0")/patch-anchor-syn-319.sh"
 
 mkdir -p target/idl
 
-for prog in roundfi_core roundfi_reputation roundfi_yield_mock; do
+for prog in roundfi_core roundfi_reputation roundfi_yield_mock roundfi_yield_kamino; do
   echo "→ anchor idl build $prog"
   anchor idl build --program-name "$prog" -o "target/idl/${prog}.json" >/dev/null
 done
