@@ -93,6 +93,15 @@ jobs:
           mkdir -p target
           echo "$DEVNET_DEPLOYER_KEYPAIR" | base64 -d > target/devnet-deployer.json
           chmod 600 target/devnet-deployer.json
+          # `anchor deploy` reads the wallet path from Anchor.toml's
+          # `[provider] wallet = "~/.config/solana/id.json"` — the
+          # solana CLI's `--keypair` flag and the `ANCHOR_WALLET` env
+          # var are both ignored by the anchor CLI's deploy command.
+          # Copy the restored keypair to the path Anchor.toml expects.
+          # SEV-046 follow-up: surfaced by rehearsals 1d + 1e.
+          mkdir -p "$HOME/.config/solana"
+          cp target/devnet-deployer.json "$HOME/.config/solana/id.json"
+          chmod 600 "$HOME/.config/solana/id.json"
           solana config set --keypair "$PWD/target/devnet-deployer.json" --url devnet
           solana address
           BAL=$(solana balance --url devnet)
@@ -142,15 +151,12 @@ jobs:
         # loadCluster(); pass it explicitly so the wrapper script
         # behaves the same locally and in CI.
         #
-        # ANCHOR_WALLET: `anchor deploy` ignores `solana config set
-        # --keypair` (that's for the `solana` CLI only) and defaults
-        # to `~/.config/solana/id.json` — which doesn't exist on a
-        # fresh GitHub-hosted runner. Point it at the keypair we
-        # restored 6 steps up. SEV-046 follow-up surfaced empirically
-        # by rehearsal-1d (run-26033760418-and-after lane).
+        # Wallet resolution: handled by the keypair restore step above
+        # which copies the keypair to ~/.config/solana/id.json (the
+        # path Anchor.toml's [provider] section points at). See the
+        # SEV-046 follow-up notes there.
         env:
           SOLANA_CLUSTER: devnet
-          ANCHOR_WALLET: ${{ github.workspace }}/target/devnet-deployer.json
         run: pnpm exec tsx scripts/devnet/deploy.ts
 
       - name: Capture deploy summary
@@ -179,6 +185,9 @@ jobs:
         if: always()
         run: |
           rm -f target/devnet-deployer.json
+          rm -f "$HOME/.config/solana/id.json"
           # Defense-in-depth — GitHub-hosted runners are ephemeral but
           # explicit cleanup means a debugging-fork can't accidentally
-          # publish the keypair via artifact upload.
+          # publish the keypair via artifact upload. We restore the
+          # keypair to TWO locations (target/* + ~/.config/solana/) so
+          # both must be cleaned up.
