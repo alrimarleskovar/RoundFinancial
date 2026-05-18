@@ -11,6 +11,11 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Added — SEV-040 root-cause post-mortem
+
+- **`docs/security/post-mortems/SEV-040.md`** (new file) + new `docs/security/post-mortems/` directory pattern. Documents the SEV-040 `KAMINO_LEND_PROGRAM_ID` typo: timeline (defect introduced ~Q1 2026, surfaced 2026-05-17 at bankrun-spike planning, fixed same day in commit `cad9ca4`), 5-whys root cause, why every existing safeguard (compiler / unit tests / integration tests / code review) failed to catch a 1-character base58 typo, fix details, methodology lesson, and downstream propagation to SEV-041 oracle / SEV-042 / SEV-043 (all same-class findings discovered when the SEV-040 lesson "every pinned external-protocol constant needs an automated assertion vs an authoritative source" was generalized to byte offsets and PDA seeds). Process rule added: any commit introducing or modifying such a constant must include a sibling assertion in the same commit. First entry in `docs/security/post-mortems/`; future Critical/High SEVs follow the same shape. Internal pre-audit framing preserved — NOT an Adevar Labs report; designed so the formal external audit can cross-reference against process responses without re-deriving history.
+- **Tracker cross-link** — `docs/security/internal-audit-findings.md` SEV-040 row now points at the post-mortem.
+
 ### Added — Bankrun-no-mpl-core CI lane (SEV-012 partial unblock)
 
 - **`.github/workflows/ci.yml` new `bankrun-no-mpl-core` lane** — runs `tests/security_kamino_cpi.spec.ts` (~17 Kamino spike tests across Phase 1 + 2a + 2b/1-5) on every PR. Closes 80%+ of the bankrun-in-CI coverage gap. The mpl_core-dependent specs (`join_pool` + `escape_valve_buy` paths) remain local-only pending upstream mpl-core 0.12 ↔ Anchor 1.0 borsh compat resolution ([mpl-core#282](https://github.com/metaplex-foundation/mpl-core/issues/282), stale since 2026-05-15). SEV-012 moves from 🟠 Blocked to 🟡 Partial in `docs/security/internal-audit-findings.md`.
