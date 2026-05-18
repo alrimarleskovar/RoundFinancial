@@ -24,7 +24,9 @@ name: deploy · mainnet
 # Prereqs (one-time, off-protocol):
 #   1. Generate the mainnet deployer keypair (cold ceremony — hardware
 #      wallet preferred; if software, never reused across clusters)
-#   2. Fund it with ≥ 5 SOL on mainnet
+#   2. Fund it with ≥ 20 SOL on mainnet (actual deploy of 4 programs
+#      is ~12.5 SOL — 20 = 1.6× buffer; mainnet has NO faucet so
+#      top up via the CFO/treasury before tagging)
 #   3. Store JSON content as `MAINNET_DEPLOYER_KEYPAIR` repo secret
 #      (base64-encoded), restricted to the `mainnet` environment
 #   4. Set repo-secret values for EXPECTED_AUTHORITY, EXPECTED_TREASURY,
@@ -195,16 +197,21 @@ jobs:
           BAL=$(solana balance)
           echo "Deployer balance: $BAL"
 
-      - name: Check deployer balance ≥ 5 SOL
+      - name: Check deployer balance ≥ 20 SOL
+        # Same floor as devnet — empirical cost per 4-program anchor
+        # deploy is ~12.5 SOL (per-program rent-exempt = 2× bytecode
+        # size). 20 SOL = 1.6× buffer. See devnet-deploy.yml comment
+        # for the per-program breakdown.
         run: |
           BAL_SOL=$(solana balance | grep -oE '^[0-9.]+' | head -1)
           if [ -z "$BAL_SOL" ]; then
             echo "::error::Could not parse balance"
             exit 1
           fi
-          OK=$(echo "$BAL_SOL >= 5" | bc -l)
+          OK=$(echo "$BAL_SOL >= 20" | bc -l)
           if [ "$OK" != "1" ]; then
-            echo "::error::Mainnet deployer balance $BAL_SOL SOL < 5 SOL floor."
+            echo "::error::Mainnet deployer balance $BAL_SOL SOL < 20 SOL floor."
+            echo "::error::Expected ~12.5 SOL for 4-program deploy + safety margin."
             exit 1
           fi
 

@@ -27,7 +27,7 @@ The CD pipeline addresses all three: a clean ubuntu-latest runner with pinned to
 │  - Pinned Agave 3.0.0      │                │  - 2 jobs: preflight + deploy
 │  - Pinned Anchor 0.30.1    │                │  - preflight runs mainnet- │
 │  - DEVNET_DEPLOYER_KEYPAIR │                │    hardening-check vs      │
-│  - Balance ≥ 5 SOL gate    │                │    mainnet RPC (read-only) │
+│  - Balance ≥ 20 SOL gate    │                │    mainnet RPC (read-only) │
 │  - anchor keys sync OK     │                │  - deploy needs:           │
 │  - scripts/devnet/deploy.ts│                │     • GH env approver gate │
 │  - Artifact:               │                │     • anchor keys verify   │
@@ -48,7 +48,7 @@ The CD pipeline addresses all three: a clean ubuntu-latest runner with pinned to
 
 **Toolchain:** mirrors the working `anchor · build` CI lane (Agave 3.0.0 from `anza-xyz/agave` GitHub releases + Anchor 0.30.1 via `cargo install --git --tag v0.30.1`). Same shape used by SEV-012 / PR #385 bankrun-no-mpl-core lane — proven path.
 
-**Deployer:** `DEVNET_DEPLOYER_KEYPAIR` repo secret (base64-encoded JSON). Workflow restores to disk, sets `solana config`, refuses to start if balance < 5 SOL.
+**Deployer:** `DEVNET_DEPLOYER_KEYPAIR` repo secret (base64-encoded JSON). Workflow restores to disk, sets `solana config`, refuses to start if balance < 20 SOL (actual cost ~12.5 SOL for 4 programs).
 
 **Steps:**
 
@@ -88,7 +88,7 @@ Runs without approval gate. Read-only against mainnet RPC. Catches show-stoppers
 Once approved:
 
 1. Same toolchain install as preflight + devnet workflow.
-2. Restore keypair, set `solana config`, balance check ≥ 5 SOL.
+2. Restore keypair, set `solana config`, balance check ≥ 20 SOL.
 3. `anchor build --no-idl` (sealed — no keys sync this time).
 4. `pnpm exec tsx scripts/mainnet/deploy.ts` — wrapper that:
    - Enforces `SOLANA_CLUSTER=mainnet-beta` AND `MAINNET_DEPLOY_CONFIRM=I-UNDERSTAND-THIS-IS-MAINNET` AND `MAINNET_DEPLOYER_KEYPAIR` path AND the three `EXPECTED_*` env vars.
@@ -108,7 +108,7 @@ Once approved:
    ```bash
    solana-keygen new --no-bip39-passphrase -o /tmp/devnet-deployer.json
    ```
-2. Airdrop or transfer ≥ 5 SOL to the new pubkey.
+2. Airdrop or transfer ≥ 20 SOL to the new pubkey (actual deploy cost ~12.5 SOL for 4 programs; 20 = 1.6× buffer for priority-fee spikes).
 3. Base64-encode the JSON and store as `DEVNET_DEPLOYER_KEYPAIR` repo secret:
    ```bash
    base64 -w0 /tmp/devnet-deployer.json
@@ -120,7 +120,7 @@ Once approved:
 ### Mainnet
 
 1. Generate the deployer keypair via the **Squads ceremony** (see `docs/operations/squads-mainnet-ceremony-checklist.md`). Hardware wallets preferred; if software keys, they must NEVER be reused across clusters.
-2. Fund with ≥ 5 SOL on mainnet (typical deploy cost: 3-4 SOL across 4 programs).
+2. Fund with ≥ 20 SOL on mainnet (empirical deploy cost ~12.5 SOL across 4 programs — per-program rent-exempt = 2× bytecode size: core ~6.1, reputation ~2.6, yield_kamino ~2.0, yield_mock ~1.8).
 3. Create the `mainnet` environment in repo Settings → Environments → New environment. Configure:
    - **Required reviewers:** at minimum the protocol authority signers (3-of-5 Squads).
    - **Deployment branches:** restrict to `main` only.
