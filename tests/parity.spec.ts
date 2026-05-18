@@ -49,6 +49,13 @@ const REP_CONSTANTS = resolve(process.cwd(), "programs/roundfi-reputation/src/co
 const POOL_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/pool.rs");
 const LISTING_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/listing.rs");
 const IDENTITY_STATE = resolve(process.cwd(), "programs/roundfi-reputation/src/state/identity.rs");
+// SEV-043 — `SEED_STATE = b"yield-state"` is defined twice (yield-mock,
+// yield-kamino) and mirrored as `SEED.yieldState` in the SDK, but no
+// parity test pinned the three together. Both adapter programs must
+// agree byte-for-byte with the SDK helper — otherwise a future rename
+// in one program silently breaks the TS helper for the other.
+const YIELD_MOCK_LIB = resolve(process.cwd(), "programs/roundfi-yield-mock/src/lib.rs");
+const YIELD_KAMINO_LIB = resolve(process.cwd(), "programs/roundfi-yield-kamino/src/lib.rs");
 
 function readRustConstants(path: string): string {
   return readFileSync(path, "utf-8");
@@ -120,8 +127,11 @@ describe("Rust ↔ TS constants parity", () => {
 
   describe("PDA seeds — roundfi-core", () => {
     // Map: Rust SEED_X constant → TS SDK key. `undefined` means the
-    // Rust seed isn't mirrored in TS yet (e.g. listing — Step 4c,
-    // SDK parity pending).
+    // Rust seed isn't mirrored in the SDK helper map (no TS consumer).
+    // SEV-043 — `SEED_LISTING` was flipped from `undefined` to "listing"
+    // after Pass-9 audit found `SEED.listing` defined in the SDK (used
+    // by `listingPda()`) but uncovered by parity; a rename of
+    // `b"listing"` in Rust would have passed this test.
     const mapping: Record<string, string | undefined> = {
       SEED_CONFIG: "config",
       SEED_POOL: "pool",
@@ -130,7 +140,7 @@ describe("Rust ↔ TS constants parity", () => {
       SEED_SOLIDARITY: "solidarity",
       SEED_YIELD: "yield",
       SEED_POSITION: "position",
-      SEED_LISTING: undefined,
+      SEED_LISTING: "listing",
     };
 
     it("extracts every seed from Rust source", () => {
@@ -153,6 +163,36 @@ describe("Rust ↔ TS constants parity", () => {
           `seed mismatch ${rustName}: Rust="${rustBytes}" TS="${tsBytes!.toString()}"`,
         ).to.equal(true);
       }
+    });
+  });
+
+  // SEV-043 — `SEED_STATE = b"yield-state"` is defined twice (once per
+  // adapter program) and mirrored as `SEED.yieldState` in the SDK.
+  // Five inline call-sites (4 scripts + 1 test) hard-code
+  // `Buffer.from("yield-state")` rather than importing the SDK helper,
+  // so a rename in either Rust program would silently break the
+  // ecosystem until a real CPI hits `seeds constraint violated`. This
+  // tri-way pin makes the rename a `pnpm test:parity` failure instead.
+  describe("PDA seeds — yield adapters", () => {
+    it("SEED_STATE matches between yield-mock, yield-kamino, and SDK", () => {
+      const mockSrc = readRustConstants(YIELD_MOCK_LIB);
+      const kaminoSrc = readRustConstants(YIELD_KAMINO_LIB);
+      const mockSeeds = extractSeeds(mockSrc);
+      const kaminoSeeds = extractSeeds(kaminoSrc);
+
+      const mockBytes = mockSeeds.get("SEED_STATE");
+      const kaminoBytes = kaminoSeeds.get("SEED_STATE");
+      const sdkBytes = (SEED as Record<string, Buffer>).yieldState;
+
+      expect(mockBytes, "yield-mock SEED_STATE not found").to.not.equal(undefined);
+      expect(kaminoBytes, "yield-kamino SEED_STATE not found").to.not.equal(undefined);
+      expect(sdkBytes, "SDK SEED.yieldState not found").to.not.equal(undefined);
+
+      expect(mockBytes).to.equal(kaminoBytes, "SEED_STATE drift between mock and kamino");
+      expect(
+        Buffer.from(mockBytes!).equals(sdkBytes!),
+        `SEED_STATE/yieldState drift: Rust="${mockBytes}" TS="${sdkBytes!.toString()}"`,
+      ).to.equal(true);
     });
   });
 
