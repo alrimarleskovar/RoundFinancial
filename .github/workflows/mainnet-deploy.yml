@@ -180,6 +180,14 @@ jobs:
           mkdir -p target
           echo "$MAINNET_DEPLOYER_KEYPAIR" | base64 -d > target/mainnet-deployer.json
           chmod 600 target/mainnet-deployer.json
+          # `anchor deploy` reads the wallet path from Anchor.toml's
+          # [provider] section (~/.config/solana/id.json). The solana
+          # CLI's --keypair flag and ANCHOR_WALLET env are ignored by
+          # the anchor deploy CLI command. Copy the keypair to the
+          # path Anchor.toml expects. SEV-046 follow-up.
+          mkdir -p "$HOME/.config/solana"
+          cp target/mainnet-deployer.json "$HOME/.config/solana/id.json"
+          chmod 600 "$HOME/.config/solana/id.json"
           solana config set --keypair "$PWD/target/mainnet-deployer.json" \
             --url mainnet-beta
           DEPLOYER=$(solana address)
@@ -241,4 +249,6 @@ jobs:
 
       - name: Cleanup keypair from runner
         if: always()
-        run: rm -f target/mainnet-deployer.json
+        run: |
+          rm -f target/mainnet-deployer.json
+          rm -f "$HOME/.config/solana/id.json"
