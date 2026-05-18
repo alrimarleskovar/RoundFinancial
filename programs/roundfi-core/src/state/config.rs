@@ -212,3 +212,26 @@ impl ProtocolConfig {
         + 8                      // pending_fee_bps_yield_eta
         + 18;                    // forward-compat padding (was 28 pre-SEV-024 follow-up)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SEV-042 coupling test: ProtocolConfig byte layout drives the
+    /// offset table in `scripts/mainnet/mainnet-hardening-check.ts`.
+    /// If this test fails because a new field was added, the TS
+    /// script's `OFFSETS_POST_DISC` + `EXPECTED_DATA_SIZE` constants
+    /// must be updated in the SAME PR — otherwise the canary
+    /// pre-flight will either bail (size mismatch guard) or, worse,
+    /// read random bytes for the post-padding fields.
+    #[test]
+    fn protocol_config_size_pinned_for_hardening_script() {
+        // 8 disc + 373 body. The 373 figure is pinned in
+        // `EXPECTED_DATA_SIZE` in the hardening script.
+        assert_eq!(
+            ProtocolConfig::SIZE,
+            381,
+            "ProtocolConfig::SIZE changed — update OFFSETS_POST_DISC + EXPECTED_DATA_SIZE in scripts/mainnet/mainnet-hardening-check.ts (SEV-042 coupling)",
+        );
+    }
+}

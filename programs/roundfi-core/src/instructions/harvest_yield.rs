@@ -34,7 +34,10 @@ use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::constants::*;
-use crate::cpi::yield_adapter::{invoke_adapter, token_amount, AdapterCpiArgs};
+use crate::cpi::yield_adapter::{
+    build_adapter_call_prelude, invoke_adapter, token_amount, AdapterCallPreludeInputs,
+    AdapterCpiArgs,
+};
 use crate::error::RoundfiError;
 use crate::math::{guarantee_fund_room, waterfall};
 use crate::state::{Pool, PoolStatus, ProtocolConfig};
@@ -191,12 +194,15 @@ pub fn handler<'info>(
     let yield_vault_info  = ctx.accounts.yield_vault.to_account_info();
     let token_program_info = ctx.accounts.token_program.to_account_info();
 
-    let mut metas = vec![
-        AccountMeta::new(yield_vault_info.key(), false),
-        AccountMeta::new(pool_vault_info.key(), false),
-        AccountMeta::new_readonly(pool_key, true),
-        AccountMeta::new_readonly(token_program_info.key(), false),
-    ];
+    // For harvest, source = adapter shadow vault (yield_vault) and
+    // destination = pool USDC vault — inverse of deposit. Same
+    // 4-account prelude order pinned by the adapter oracle test.
+    let mut metas = build_adapter_call_prelude(&AdapterCallPreludeInputs {
+        source:        yield_vault_info.key(),
+        destination:   pool_vault_info.key(),
+        authority:     pool_key,
+        token_program: token_program_info.key(),
+    });
     let mut infos = vec![
         yield_vault_info.clone(),
         pool_vault_info.clone(),

@@ -20,7 +20,7 @@ This package converts those requirements into concrete config that can be `kubec
 
 Before the platform stand-up, these gaps need closing on the indexer side:
 
-1. **Migrate `/metrics` to Prometheus exposition format.** Current endpoint at `services/indexer/src/server.ts:95` returns JSON. Need `prom-client` registry to expose `# HELP` / `# TYPE` formatted output. ~30 min of work; tracked as a follow-up.
+1. ~~**Migrate `/metrics` to Prometheus exposition format.**~~ ✅ **Done** — `services/indexer/src/server.ts` `/metrics` route now serves `prom-client` registry output with `Content-Type: text/plain; version=0.0.4`. Catalogued metrics in `services/indexer/src/metrics.ts`; Pass-1 surface covers `roundfi_indexer_last_slot`, `roundfi_indexer_last_update_timestamp_seconds`, `roundfi_indexer_pool_count{status}`, `roundfi_indexer_member_count`, `roundfi_indexer_event_count{kind}`, `roundfi_reconciler_unresolved_count{table}` + default Node.js runtime metrics under the `roundfi_indexer_node_` prefix. Alert-spec metrics that require RPC reads or webhook-handler instrumentation (config hash, protocol paused, TVL caps, CPI failure counters, principal-loss counter, treasury outflow, per-pool vault balances) are listed as deferred-with-source in the `metrics.ts` header docstring.
 
 2. **Emit structured logs in `services/indexer/src/reconciler.ts`.** Currently free-text. Need JSON shape with fixed keys: `{ ts, level, event_type, slot, signature, error? }`. The PagerDuty runbook assumes these keys exist.
 

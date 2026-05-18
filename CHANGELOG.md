@@ -11,7 +11,33 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
-### Added
+### Added — SEV-041 class oracle generalized to internal CPIs
+
+- **`build_adapter_call_prelude` + `AdapterCallPreludeInputs`** in `programs/roundfi-core/src/cpi/yield_adapter.rs` — extracts the 4-account adapter-call prelude (`[source, destination, authority(signer), token_program]`) that `deposit_idle_to_yield.rs` and `harvest_yield.rs` previously constructed inline as 2 separate hand-written `vec![...]` blocks. SEV-041 class risk: swapping source ↔ destination or dropping the signer flag was not caught at compile time and would have broken core→adapter CPI auth checks at runtime.
+- **`build_attest_metas` + `AttestMetaInputs`** in `programs/roundfi-core/src/cpi/reputation.rs` — same pattern for the 8-account `attest` CPI. Single source of truth for the position mapping that mirrors `roundfi_reputation::Attest` struct field order.
+- **2 oracle unit tests** pinning every (pubkey, is_signer, is_writable) tuple per slot against the canonical layouts: `adapter_prelude_matches_canonical_layout` (4 slots, in `cpi/yield_adapter.rs::tests`) and `attest_metas_match_canonical_layout` (8 slots, in `cpi/reputation.rs::tests`).
+- Generalizes the SEV-041 lesson from external CPIs (Kamino) to internal CPIs (yield-adapter and reputation). Layouts audited and found CORRECT — no new SEV; the work is purely regression-prevention so future shuffles fail `cargo test` in ~sub-second instead of at runtime.
+
+### Added — SEV-041 oracle test (CPI account-list layout pinning)
+
+- **`kamino_deposit_metas` + `kamino_redeem_metas`** pure functions extracted from the 3 in-handler `let metas = vec![...]` constructions in `programs/roundfi-yield-kamino/src/lib.rs` (standalone `deposit()` + `kamino_cpi_deposit` + `kamino_cpi_redeem`). Single source of truth for the canonical 12-account order + flags that Kamino's `deposit_reserve_liquidity` and `redeem_reserve_collateral` ix's expect.
+- **3 oracle unit tests** in the same file: `kamino_deposit_metas_match_canonical_layout`, `kamino_redeem_metas_match_canonical_layout`, `kamino_deposit_and_redeem_metas_differ_at_position_2_and_3` — each slot's (pubkey, is_signer, is_writable) tuple pinned against the transcribed Kamino canonical layout. Closes the follow-up filed in the SEV-041 tracker note: turns the regression detector from "Kamino bankrun spike (5 phases, mainnet RPC + program dump)" into "cargo test (sub-second, every PR)". Future Kamino-side breaking changes fail CI immediately and force same-PR re-derivation.
+
+### Added — Indexer Prometheus exposition format
+
+- **`services/indexer/src/metrics.ts`** + `/metrics` route migration — closes item #1 of `docs/observability/README.md` "Pre-deployment readiness". The endpoint now serves `prom-client` registry output with `Content-Type: text/plain; version=0.0.4` instead of the previous JSON stub, so the alerts in `docs/observability/prometheus-alerts.yaml` can scrape against real data. Pass-1 metric surface (derivable from existing Prisma data, no new data sources needed): `roundfi_indexer_last_slot`, `roundfi_indexer_last_update_timestamp_seconds`, `roundfi_indexer_pool_count{status}`, `roundfi_indexer_member_count`, `roundfi_indexer_event_count{kind}`, `roundfi_reconciler_unresolved_count{table}` + default Node.js runtime metrics under the `roundfi_indexer_node_` prefix. Unblocks the `IndexerLagHigh` alert and the `roundfi:reconciler_unresolved_total` recording rule. Metrics that require RPC reads or webhook-handler instrumentation (`roundfi_protocol_paused`, `roundfi_protocol_config_hash`, TVL caps, CPI failure counters, principal-loss counter, treasury outflow, per-pool vault balances) are documented as deferred-with-source in the `metrics.ts` header docstring.
+
+### Added — Freeze automation
+
+- **`.github/workflows/freeze-enforcement.yml`** — CI gate that asserts every PR opened against `main` either references a tracked SEV ID (`SEV-\d+`) or carries the `[FREEZE-EXCEPTION]` tag in the title. Auto-skips for `dependabot[bot]` / `renovate[bot]` (CVE-patch lane allowed by FREEZE.md). Materializes the policy in [`FREEZE.md`](./FREEZE.md) beyond the .md file so the gate can't be silently bypassed.
+
+### Added — Kamino spike Phase 2b/4 (harvest CPI hardening for SEV-041)
+
+- **Phase 2b checkpoint 4** in `tests/security_kamino_cpi.spec.ts` — exercises the harvest path of the SEV-041 fix. The wrapper's `Harvest` struct gained the same 2 new accounts (`reserve_liquidity_mint`, `instruction_sysvar`) and same 14-account canonical order as `Deposit`, but only the deposit side was empirically validated by checkpoint 3. Checkpoint 4 closes that gap with the redeem CPI against cloned mainnet state. Same informational-test pattern as 2b/3: expected outcome class is MathOverflow (LendingError #7) due to bankrun frozen-clock vs cloned-snapshot last_update_slot delta; the signal is the failure CLASS, not the exit code. If wrapper-side regressions appear (account-list shuffles, missing fields), the failure class shifts to `AccountValidationFailed` / `Constraint*` and the test surfaces them.
+
+### Fixed — Pass-8 constants/config validation wave
+
+- **SEV-042 (Critical) — `mainnet_hardening_check.ts` byte offsets reading random data** — the pre-flight canary safety gate had a stale `OFFSETS_POST_DISC` table: claimed `paused @ 108` and `treasury_locked @ 125`, but actual `ProtocolConfig` post-discriminator offsets are `paused @ 202` and `treasury_locked @ 204`. The docstring layout silently skipped 4 Pubkey fields (`usdc_mint`, `metaplex_core`, `default_yield_adapter`, `reputation_program`), placing the wrong-byte reads inside `default_yield_adapter` and `pending_treasury`. Random bytes often returned `0` (false/unpaused/unlocked), so the check would have green-lit a canary on a paused or treasury-locked protocol. **Fix:** rewrote the offset table from canonical `config.rs` order; added 4 new BLOCKER checks (`approved_yield_adapter`, `approved_yield_adapter_locked`, `max_pool_tvl_usdc`/`max_protocol_tvl_usdc`, `commit_reveal_required`) that the previous version self-deferred; added a `data.length === 373` size-mismatch guard that bails before reading offsets if `ProtocolConfig` grows; added Rust-side coupling test `protocol_config_size_pinned_for_hardening_script` in `state/config.rs` that pins `SIZE = 381` so future struct growth fails the Rust test first and forces a same-PR update of the TS offsets. Methodology generalization: SEV-040 forced "every pinned-constant string needs a unit test" — this finding extends the same principle to byte-offset constants in off-chain scripts.
 
 ## [0.4-canary] — 2026-05-17 (release-candidate marker — feature freeze active)
 
