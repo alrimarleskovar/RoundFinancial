@@ -14,6 +14,8 @@
  *   - TVL caps left at 0 (= disabled, no canary safety envelope)
  *   - approved_yield_adapter not pinned to the canonical mainnet
  *     Kamino adapter program (or pinned wrong; SEV-040/SEV-041 class)
+ *   - usdc_mint not pinned to canonical mainnet USDC (SEV-044)
+ *   - metaplex_core not pinned to canonical Metaplex Core (SEV-044)
  *   - Protocol paused unexpectedly
  *   - Authority not on Squads multisig (#266)
  *   - Treasury not on Squads multisig (#266)
@@ -33,6 +35,7 @@
  *   EXPECTED_AUTHORITY              (REQUIRED on mainnet — pass the Squads multisig PDA)
  *   EXPECTED_TREASURY               (REQUIRED on mainnet — pass the Squads-controlled USDC ATA)
  *   EXPECTED_APPROVED_ADAPTER       (REQUIRED on mainnet — pass roundfi-yield-kamino program ID)
+ *   EXPECTED_USDC_MINT              (default canonical mainnet/devnet USDC; override for pinned localnet)
  *   EXPECTED_MAX_POOL_TVL_USDC      (default 5_000000 = $5 base units for first canary wave)
  *   EXPECTED_MAX_PROTOCOL_TVL_USDC  (default 50_000000 = $50 base units for first canary wave)
  *   EXPECTED_COMMIT_REVEAL_REQUIRED (default "true" — #232 MEV mitigation gate on mainnet)
@@ -93,6 +96,8 @@ const DEFAULT_CORE_PROGRAM_ID = "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw";
 const OFFSETS_POST_DISC = {
   authority: 0,
   treasury: 32,
+  usdcMint: 64,
+  metaplexCore: 96,
   paused: 202,
   treasuryLocked: 204,
   maxPoolTvlUsdc: 245,
@@ -109,6 +114,16 @@ const ANCHOR_DISC_SIZE = 8;
 // account is larger or smaller, the struct has changed shape and these
 // offsets are stale — the script bails before reading wrong bytes.
 const EXPECTED_DATA_SIZE = 373;
+
+// Canonical mainnet pubkeys. Same value across clusters (Metaplex Core
+// has a single program-id; Solana's mainnet USDC mint has its own).
+// SEV-044: previously, `mainnet-canary-plan.md §3.2` required these
+// be pinned but no automated check enforced them — operator error
+// could have shipped a canary against a wrong mint or a substituted
+// mpl-core program with no script-level guard.
+const CANONICAL_METAPLEX_CORE_ID = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
+const CANONICAL_MAINNET_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const CANONICAL_DEVNET_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
 interface Check {
   name: string;
@@ -229,7 +244,42 @@ async function main() {
     );
   }
 
-  // ─── BLOCKER 3: paused must be FALSE (canary cannot run if paused) ──
+  // ─── BLOCKER 3: usdc_mint must match canonical for the cluster ──
+  // SEV-044 class — wrong mint = funds routed to a wrong-decimals or
+  // wrong-issuer token. Default canonical values: mainnet
+  // EPjFWdd5...zTDt1v, devnet 4zMMC9sr...DncDU. Override via env
+  // EXPECTED_USDC_MINT (e.g. for a pinned localnet mint during
+  // rehearsal).
+  const actualUsdcMint = pubkeyAt(data, OFFSETS_POST_DISC.usdcMint);
+  const expectedUsdcMint = new PublicKey(
+    process.env.EXPECTED_USDC_MINT ??
+      (isDevnet ? CANONICAL_DEVNET_USDC_MINT : CANONICAL_MAINNET_USDC_MINT),
+  );
+  checks.push({
+    name: "usdc_mint",
+    ok: actualUsdcMint.equals(expectedUsdcMint),
+    expected: expectedUsdcMint.toBase58(),
+    actual: actualUsdcMint.toBase58(),
+    severity: "BLOCKER",
+  });
+
+  // ─── BLOCKER 4: metaplex_core must equal canonical Metaplex Core ──
+  // Same program-id on every cluster. A substituted mpl-core program
+  // (compromised, wrong fork, devnet test build) would silently
+  // accept different plugin payloads in join_pool's CreateV2 CPI —
+  // position NFTs would be malformed without an on-chain error here.
+  // SEV-044 class.
+  const actualMetaplexCore = pubkeyAt(data, OFFSETS_POST_DISC.metaplexCore);
+  const expectedMetaplexCore = new PublicKey(CANONICAL_METAPLEX_CORE_ID);
+  checks.push({
+    name: "metaplex_core",
+    ok: actualMetaplexCore.equals(expectedMetaplexCore),
+    expected: expectedMetaplexCore.toBase58(),
+    actual: actualMetaplexCore.toBase58(),
+    severity: "BLOCKER",
+  });
+
+  // ─── BLOCKER 5: paused must be FALSE (canary cannot run if paused) ──
   const paused = boolAt(data, OFFSETS_POST_DISC.paused);
   checks.push({
     name: "paused",
@@ -239,7 +289,7 @@ async function main() {
     severity: "BLOCKER",
   });
 
-  // ─── BLOCKER 4: treasury_locked is a one-way kill switch ──
+  // ─── BLOCKER 6: treasury_locked is a one-way kill switch ──
   // This SHOULD be false pre-canary (rotation still possible).
   // It only flips to true POST-canary via lock_treasury() ceremony.
   // If it's true pre-canary, someone fired it prematurely.
@@ -252,7 +302,7 @@ async function main() {
     severity: "BLOCKER",
   });
 
-  // ─── BLOCKER 5: approved_yield_adapter must match expected (Kamino on mainnet) ──
+  // ─── BLOCKER 7: approved_yield_adapter must match expected (Kamino on mainnet) ──
   // SEV-040/041 class — wrong adapter program ID = funds routed to wrong CPI target.
   const actualAdapter = pubkeyAt(data, OFFSETS_POST_DISC.approvedYieldAdapter);
   if (process.env.EXPECTED_APPROVED_ADAPTER) {
@@ -278,7 +328,7 @@ async function main() {
     );
   }
 
-  // ─── BLOCKER 6: approved_yield_adapter_locked should be FALSE pre-canary ──
+  // ─── BLOCKER 8: approved_yield_adapter_locked should be FALSE pre-canary ──
   // One-way kill switch. Locking pre-canary breaks rampup rotations
   // (e.g. mock → kamino). Only flip to true POST-canary.
   const adapterLocked = boolAt(data, OFFSETS_POST_DISC.approvedYieldAdapterLocked);
@@ -290,7 +340,7 @@ async function main() {
     severity: "BLOCKER",
   });
 
-  // ─── BLOCKER 7: TVL caps must be > 0 ──
+  // ─── BLOCKER 9 + 10: TVL caps must be > 0 ──
   // 0 means disabled (no cap) per config.rs docstring. On mainnet
   // canary, both caps MUST be > 0 — that's the entire point of the
   // canary safety envelope. Default expected values match
@@ -318,7 +368,7 @@ async function main() {
     severity: "BLOCKER",
   });
 
-  // ─── BLOCKER 8: commit_reveal_required must be TRUE on mainnet (#232 MEV) ──
+  // ─── BLOCKER 11: commit_reveal_required must be TRUE on mainnet (#232 MEV) ──
   // Gates the legacy single-step escape_valve_list path. Mainnet
   // canary requires the commit-reveal anti-snipe window. Devnet may
   // leave it false to keep demo flows single-step.
