@@ -6,7 +6,7 @@
 >
 > **Authoritative.** This is the source-of-truth runbook for mainnet day 1. The companion script (`scripts/mainnet/canary-flow.ts`) implements it; the post-run report template (`docs/operations/mainnet-canary-report-template.md`) captures the outcome.
 
-**Status:** 🟡 plan written, run is hard-gated on audit clear (#267), multi-sig migration (#266), Agave 2.x toolchain (#230), Kamino harvest path (#233), legal counsel (#268).
+**Status:** 🟡 plan written, run is hard-gated on audit clear (#267), multi-sig migration (#266), Solana SDK transitive bump (#230 — see §3.2 for the refined scope: CLI ✓ Agave 3.0.0, SDK transitives still `solana-program 1.18.x` via `anchor-lang 0.30.1`), Kamino harvest path (#233), legal counsel (#268). Front-end mainnet hardening (#249) closed via SEV-045 / PR #387.
 
 **Tracks:** [#292](https://github.com/alrimarleskovar/RoundFinancial/issues/292). Mirrors `MAINNET_READINESS.md` §4.1 + §4.7.
 
@@ -71,7 +71,7 @@ ALL items must be ✅ before running `scripts/mainnet/canary-flow.ts`. The scrip
 
 ### 3.2 On-chain prerequisites
 
-- [ ] **Agave 2.x toolchain migration complete** — [#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230). All 4 programs rebuilt + bytecode-attested under the new toolchain.
+- [ ] **Agave / Solana SDK toolchain migration** — [#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230). **CLI half done:** CI (`anchor · build` lane) + CD pipeline (`devnet-deploy.yml` + `mainnet-deploy.yml`) pinned to Agave **3.0.0** since 2026-05; 7 devnet rehearsals (SEV-046 saga) confirm `cargo-build-sbf` v3.0.0 produces a deployable artifact. **SDK transitive half NOT done:** `anchor-lang 0.30.1` still pulls `solana-program 1.18.x`, which is why the 11 `cargo audit --ignore RUSTSEC-*` exceptions in `.github/workflows/ci.yml` cannot be removed yet. Removing them requires either anchor 0.31+ (pulls `solana-program 2.x`) or an explicit workspace patch override — neither is in scope for this canary. Full close needs all 4 programs rebuilt + OtterSec verify-build attested under the bumped SDK.
 - [ ] **Squads multi-sig deployed** — 3-of-5 signer set, signers from at least 3 different geographies ([#266](https://github.com/alrimarleskovar/RoundFinancial/issues/266))
 - [ ] **Upgrade authority rotated** to Squads PDA on all 4 mainnet programs (`roundfi-core`, `roundfi-reputation`, `roundfi-yield-mock`, `roundfi-yield-kamino`) — verify with `solana program show <id>`
 - [ ] **Treasury authority on Squads PDA** — via `propose_new_treasury` → 7-day timelock → `commit_new_treasury` cycle (MAINNET_READINESS.md §3.7)
@@ -85,7 +85,7 @@ ALL items must be ✅ before running `scripts/mainnet/canary-flow.ts`. The scrip
 - [ ] **Monitoring stack live** — Grafana / Datadog / equivalent ([#271](https://github.com/alrimarleskovar/RoundFinancial/issues/271)). Per-instruction transaction count + Triple Shield error rate dashboards green.
 - [ ] **PagerDuty rotation defined** — primary + secondary on-call for the 7-day soak window
 - [x] **CD pipeline approved + tested** — staging deploy via [#272](https://github.com/alrimarleskovar/RoundFinancial/issues/272) rehearsed at least once (scaffolding via SEV-046; strict "at least once" criterion satisfied by rehearsal 1g on 2026-05-19 — see [`docs/operations/rehearsal-logs/2026-05-19-SEV-046-rehearsal-1g-success.md`](./rehearsal-logs/2026-05-19-SEV-046-rehearsal-1g-success.md). Stretch goal of 3× clean per `cd-pipeline.md` §"Rehearsal protocol" still at **1 / 3** — rehearsals 2 + 3 pending operator)
-- [ ] **Front-end mainnet hardening complete** — devnet/mainnet visual banner, RPC pinning, allowlist tests ([#249](https://github.com/alrimarleskovar/RoundFinancial/issues/249))
+- [x] **Front-end mainnet hardening complete** — devnet/mainnet visual banner, RPC pinning, allowlist tests ([#249](https://github.com/alrimarleskovar/RoundFinancial/issues/249) closed via SEV-045 / PR [#387](https://github.com/alrimarleskovar/roundfinancial/pull/387) — see SEV-045 tracker row for the gap breakdown: `NetworkBanner` flipped from "hide on mainnet" to "LOUD red on mainnet", `NetworkId` extended to `"mainnet-beta"`, `RPC_ALLOWLIST["mainnet-beta"]` populated with `api.mainnet-beta.solana.com` + Helius/Triton conditional inclusion, new `tests/frontend_allowlist.spec.ts` with 24 tests pinning classifyEndpoint / resolveRpcAllowlist / isAllowlistedEndpoint / decideWalletAllowlist, `test:frontend-allowlist` step wired into `js · lint + typecheck + parity + L1` CI lane)
 - [ ] **Indexer deployed + caught up** — finality gate active, RPC quorum active, reconciler running
 - [ ] **Emergency-response runbook reviewed** by all on-call — [`emergency-response.md`](./emergency-response.md)
 - [ ] **Pause-rehearsal completed** on mainnet (a real pause + unpause cycle with no canary impact)
@@ -309,4 +309,4 @@ The protocol-level TVL cap (MAINNET_READINESS.md §4.3) enforces this on-chain. 
 
 ---
 
-_Last updated: May 2026. Run is gated on #266 + #267 + #230 + #233 + #268. Operator: not yet assigned._
+_Last updated: 2026-05-19. Run is gated on #266 + #267 + #230 (SDK transitive bump only — CLI half is done) + #233 + #268. #249 closed via SEV-045 / PR #387, #272 closed (strict "at least once") via SEV-046 rehearsal 1g. Operator: not yet assigned._
