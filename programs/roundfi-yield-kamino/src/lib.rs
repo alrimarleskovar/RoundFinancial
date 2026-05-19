@@ -38,7 +38,10 @@
 //!   we never need to deserialize Kamino's `Reserve` account to
 //!   read the live exchange rate, which keeps audit surface small.
 //!   The CU cost is acceptable for a per-cycle crank (not
-//!   high-frequency). Tracked under issue #233.
+//!   high-frequency). On-chain CPI code: shipped (#233 part A,
+//!   closed); operational integration (canonical mainnet reserve
+//!   pin + canary smoke-test): #233 part B, pending — see
+//!   `docs/operations/mainnet-canary-plan.md §3.2`.
 //!
 //! ## What is still pending
 //!
@@ -75,11 +78,12 @@ pub const SEED_STATE: &[u8] = b"yield-state";
 ///
 /// Pre-mainnet verification: re-verify against Kamino's published
 /// deploy address before the live mainnet pool first goes Active.
-/// Tracked under issue #233 (harvest-path completion) — same review
-/// pass should sanity-check this pubkey one last time. The constant MUST
-/// be const-eval `pubkey!()` so a future re-pin is a single-line PR
-/// rather than runtime config — adapter swaps go through
-/// `Pool.yield_adapter`, not through reading config-account bytes.
+/// Sanity check belongs in #233 part B (operational integration —
+/// canonical reserve pin + canary smoke-test) per the mainnet
+/// canary plan §3.2 entry. The constant MUST be const-eval
+/// `pubkey!()` so a future re-pin is a single-line PR rather than
+/// runtime config — adapter swaps go through `Pool.yield_adapter`,
+/// not through reading config-account bytes.
 pub const KAMINO_LEND_PROGRAM_ID: Pubkey =
     anchor_lang::pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 
