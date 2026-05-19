@@ -1,0 +1,261 @@
+name: deploy · mainnet
+
+# CD pipeline (#272) — mainnet leg.
+#
+# Triggered on tag push `mainnet-deploy-v*` ONLY. No workflow_dispatch
+# fallback — every mainnet deploy must be traceable to a signed git
+# tag (the tagger's commit signature is the audit anchor).
+#
+# Two gates before any mainnet tx fires:
+#
+#   1. GitHub Environment "mainnet" with **required reviewers**. The
+#      job below has `environment: mainnet` so GitHub blocks execution
+#      until an approver clicks "Approve and deploy" in the Actions
+#      UI. Approver list configured in repo Settings → Environments →
+#      mainnet → "Required reviewers".
+#
+#   2. `mainnet_hardening_check` pre-flight inside the deploy script.
+#      If the protocol is already initialized, it re-verifies every
+#      BLOCKER (paused = false, treasury_locked = false, TVL caps,
+#      approved_yield_adapter, etc.) before allowing the build to
+#      proceed. SEV-042 / SEV-044 closed the offset + coverage bugs
+#      in that script.
+#
+# Prereqs (one-time, off-protocol):
+#   1. Generate the mainnet deployer keypair (cold ceremony — hardware
+#      wallet preferred; if software, never reused across clusters)
+#   2. Fund it with ≥ 20 SOL on mainnet (actual deploy of 4 programs
+#      is ~12.5 SOL — 20 = 1.6× buffer; mainnet has NO faucet so
+#      top up via the CFO/treasury before tagging)
+#   3. Store JSON content as `MAINNET_DEPLOYER_KEYPAIR` repo secret
+#      (base64-encoded), restricted to the `mainnet` environment
+#   4. Set repo-secret values for EXPECTED_AUTHORITY, EXPECTED_TREASURY,
+#      EXPECTED_APPROVED_ADAPTER (also scoped to `mainnet` env)
+#   5. Push a SIGNED tag `mainnet-deploy-v0.4.0-canary` (or similar)
+#
+# Reference: docs/operations/cd-pipeline.md (full ceremony spec).
+
+on:
+  push:
+    tags:
+      - "mainnet-deploy-v*"
+
+concurrency:
+  group: deploy-mainnet
+  cancel-in-progress: false # NEVER cancel a mainnet deploy mid-flight
+
+jobs:
+  preflight:
+    name: deploy · mainnet · preflight (no tx)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Preflight does NOT use the mainnet environment — the build +
+    # hardening-check work is read-only against mainnet RPC and
+    # doesn't need an approver. The approval gate is on the `deploy`
+    # job below.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Install Solana Agave 3.0.0
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 0.30.1
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli
+
+      - name: anchor build (--no-idl)
+        run: anchor build --no-idl
+
+      - name: anchor keys verify (mainnet IDs must already match declare_id!)
+        # Unlike the devnet workflow which auto-syncs keys, mainnet
+        # refuses to deploy if `declare_id!()` doesn't match the
+        # keypair file. Mainnet program IDs are permanent — a sync
+        # here would silently rewrite them, which is catastrophic.
+        run: |
+          if anchor keys sync 2>&1 | grep -q "synced"; then
+            echo "::error::declare_id!() drift detected from keypair files."
+            echo "::error::Refusing to deploy — mainnet IDs must match BEFORE the tag is cut."
+            echo "::error::Fix in a separate PR, re-tag, retry."
+            git diff --exit-code  # show what drifted
+            exit 1
+          fi
+
+      - name: mainnet hardening pre-flight (read-only)
+        # Runs against actual mainnet RPC. If ProtocolConfig PDA
+        # doesn't exist yet (first deploy), the script exits with
+        # "PDA not found" (exit 1) — that's expected and the
+        # `|| true` swallows it. If the PDA DOES exist, every BLOCKER
+        # must pass.
+        env:
+          EXPECTED_AUTHORITY: ${{ secrets.EXPECTED_AUTHORITY }}
+          EXPECTED_TREASURY: ${{ secrets.EXPECTED_TREASURY }}
+          EXPECTED_APPROVED_ADAPTER: ${{ secrets.EXPECTED_APPROVED_ADAPTER }}
+          ROUNDFI_CORE_PROGRAM_ID: ${{ secrets.MAINNET_CORE_PROGRAM_ID }}
+        run: |
+          if [ -z "$ROUNDFI_CORE_PROGRAM_ID" ]; then
+            echo "::notice::ROUNDFI_CORE_PROGRAM_ID secret empty — first deploy, skipping hardening pre-flight."
+            exit 0
+          fi
+          pnpm run test:mainnet-hardening
+
+  deploy:
+    name: deploy · mainnet (approver-gated)
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    environment:
+      name: mainnet
+      url: https://solscan.io/
+      # `environment: mainnet` triggers GitHub's protection rules.
+      # Approvers configured in repo Settings → Environments must
+      # click "Approve and deploy" before this job's steps run.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Install Solana Agave 3.0.0
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 0.30.1
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli
+
+      - name: Restore deployer keypair from environment secret
+        env:
+          MAINNET_DEPLOYER_KEYPAIR: ${{ secrets.MAINNET_DEPLOYER_KEYPAIR }}
+        run: |
+          if [ -z "$MAINNET_DEPLOYER_KEYPAIR" ]; then
+            echo "::error::MAINNET_DEPLOYER_KEYPAIR is empty in the 'mainnet' environment."
+            exit 1
+          fi
+          mkdir -p target
+          echo "$MAINNET_DEPLOYER_KEYPAIR" | base64 -d > target/mainnet-deployer.json
+          chmod 600 target/mainnet-deployer.json
+          # `anchor deploy` reads the wallet path from Anchor.toml's
+          # [provider] section (~/.config/solana/id.json). The solana
+          # CLI's --keypair flag and ANCHOR_WALLET env are ignored by
+          # the anchor deploy CLI command. Copy the keypair to the
+          # path Anchor.toml expects. SEV-046 follow-up.
+          mkdir -p "$HOME/.config/solana"
+          cp target/mainnet-deployer.json "$HOME/.config/solana/id.json"
+          chmod 600 "$HOME/.config/solana/id.json"
+          solana config set --keypair "$PWD/target/mainnet-deployer.json" \
+            --url mainnet-beta
+          DEPLOYER=$(solana address)
+          echo "Deployer pubkey: $DEPLOYER"
+          BAL=$(solana balance)
+          echo "Deployer balance: $BAL"
+
+      - name: Check deployer balance ≥ 20 SOL
+        # Same floor as devnet — empirical cost per 4-program anchor
+        # deploy is ~12.5 SOL (per-program rent-exempt = 2× bytecode
+        # size). 20 SOL = 1.6× buffer. See devnet-deploy.yml comment
+        # for the per-program breakdown.
+        run: |
+          BAL_SOL=$(solana balance | grep -oE '^[0-9.]+' | head -1)
+          if [ -z "$BAL_SOL" ]; then
+            echo "::error::Could not parse balance"
+            exit 1
+          fi
+          OK=$(echo "$BAL_SOL >= 20" | bc -l)
+          if [ "$OK" != "1" ]; then
+            echo "::error::Mainnet deployer balance $BAL_SOL SOL < 20 SOL floor."
+            echo "::error::Expected ~12.5 SOL for 4-program deploy + safety margin."
+            exit 1
+          fi
+
+      - name: anchor build (--no-idl, sealed)
+        # Sealed = no `anchor keys sync` step. Mainnet IDs must already
+        # match — the preflight job above checked that.
+        run: anchor build --no-idl
+
+      - name: Run mainnet deploy script
+        env:
+          SOLANA_CLUSTER: mainnet-beta
+          MAINNET_DEPLOY_CONFIRM: I-UNDERSTAND-THIS-IS-MAINNET
+          MAINNET_DEPLOYER_KEYPAIR: ${{ github.workspace }}/target/mainnet-deployer.json
+          EXPECTED_AUTHORITY: ${{ secrets.EXPECTED_AUTHORITY }}
+          EXPECTED_TREASURY: ${{ secrets.EXPECTED_TREASURY }}
+          EXPECTED_APPROVED_ADAPTER: ${{ secrets.EXPECTED_APPROVED_ADAPTER }}
+          ROUNDFI_CORE_PROGRAM_ID: ${{ secrets.MAINNET_CORE_PROGRAM_ID }}
+        run: pnpm exec tsx scripts/mainnet/deploy.ts
+
+      - name: Capture deploy summary
+        run: |
+          echo "::group::Program IDs (mainnet-beta)"
+          cat config/program-ids.mainnet-beta.json
+          echo "::endgroup::"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: program-ids-mainnet-${{ github.run_id }}
+          path: config/program-ids.mainnet-beta.json
+          retention-days: 365 # mainnet deploy artifact retained ≥ 1y
+
+      - name: Print post-deploy reminders
+        run: |
+          echo "::notice::🚀 Mainnet deploy complete."
+          echo "::notice::"
+          echo "::notice::Mandatory next steps:"
+          echo "::notice::  1. OtterSec verify-build attestation"
+          echo "::notice::  2. Rotate upgrade authority to Squads PDA on each program"
+          echo "::notice::  3. Re-run pnpm test:mainnet-hardening (full BLOCKER suite green)"
+          echo "::notice::  4. File rehearsal-log entry in docs/operations/rehearsal-logs/"
+          echo "::notice::  5. Hold 24h pre-canary soak before any user-facing tx"
+
+      - name: Cleanup keypair from runner
+        if: always()
+        run: |
+          rm -f target/mainnet-deployer.json
+          rm -f "$HOME/.config/solana/id.json"

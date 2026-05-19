@@ -4,22 +4,27 @@
 >
 > - [`SECURITY.md`](./SECURITY.md) — disclosure channel + SLAs
 > - [`docs/security/self-audit.md`](./docs/security/self-audit.md) — full 228-line self-audit + threat model
-> - [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md) — **internal pre-audit tracker (40 findings, 36 closed; Critical/High 10/10)** — read this first to see what the team's own red-team already surfaced
+> - [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md) — **internal pre-audit tracker (47 findings, 43+ closed; Critical/High 13/13)** — read this first to see what the team's own red-team already surfaced. Includes the 5-pass methodology + 9 follow-up waves through 2026-05-19 (Kamino-spike discovery / execution / Pass-8 constants / Pass-9 PDA seeds / Pass-10 canary-plan vs hardening / Pass-11 frontend mainnet / Pass-12 CD pipeline / Pass-13 canary-plan vs reality / Pass-14 indexer observability / Pass-15 emergency-response runbook / Pass-16 sibling-docs alignment).
 > - [`docs/security/audit-readiness.md`](./docs/security/audit-readiness.md) — strategic one-pager (TL;DR, fund-flow, ranked focus areas)
+> - [`docs/security/post-mortems/`](./docs/security/post-mortems/) — dedicated post-mortems for Critical-class SEVs (currently SEV-040; more retroactive entries planned)
 > - [`MAINNET_READINESS.md`](./MAINNET_READINESS.md) — single-source checklist for the path from M3 (devnet) → mainnet GA
 > - [`docs/verified-build.md`](./docs/verified-build.md) — reproducible-build flow and on-chain attestation
+> - [`docs/operations/cd-pipeline.md`](./docs/operations/cd-pipeline.md) — SEV-046 CD pipeline architecture (`.github/workflows/{devnet,mainnet}-deploy.yml`), rehearsal protocol, Squads-approval-gated mainnet deploy
 >
-> **Pre-audit state (May 2026):** the team ran an internal 5-pass
-> red-team exercise + 1 integration-testing wave, modeled on Adevar
-> Labs' methodology, _before_ commissioning the formal engagement —
-> 40 findings catalogued, 36 closed (Critical/High 10/10 including
-> SEV-034b surfaced by the integration-testing wave), 1 upstream-blocked
-> (SEV-012 bankrun-in-CI), 3 acknowledged design constraints. **This
-> is NOT an Adevar attestation** — the SEV-### identifiers come from
-> the team's own pre-audit cycle simulating Adevar's methodology; the
-> formal Adevar engagement is in scoping. The taxonomy was deliberately
-> mirrored so the eventual paid auditor can re-validate quickly against
-> a clean baseline.
+> **Pre-audit state (2026-05-19):** the team ran an internal 5-pass
+> red-team exercise + 1 integration-testing wave + 9 follow-up waves,
+> modeled on an external auditor's methodology, _before_ commissioning
+> the formal engagement — **47 findings catalogued, 43+ closed**
+> (Critical/High **13/13** including SEV-034b surfaced by the
+> integration-testing wave and SEV-040 / SEV-041 / SEV-042 surfaced
+> by the Kamino-spike pre-audit), 1 upstream-blocked (SEV-012
+> bankrun-in-CI / #230 SDK transitive bump), 3 acknowledged design
+> constraints. **This is NOT an external auditor attestation** — the
+> SEV-### identifiers come from the team's own pre-audit cycle
+> simulating the published methodology shape; the formal engagement
+> (Adevar / Halborn / OtterSec / Sec3 — selection pending) is in
+> scoping. The taxonomy was deliberately mirrored so the eventual
+> paid auditor can re-validate quickly against a clean baseline.
 
 ---
 
@@ -53,7 +58,7 @@ Documented out-of-scope items (do **not** spend audit hours here, tracked for fo
 Items moved from out-of-scope to **addressed** (pre-engagement deliverables):
 
 - **MEV / front-running review** — done. Pre-audit MEV analysis covering all 6 ordering-sensitive instructions (`claim_payout`, `escape_valve_buy`, `settle_default`, `harvest_yield`, `deposit_idle_to_yield`, `join_pool`) at [`docs/security/mev-front-running.md`](./docs/security/mev-front-running.md). Big-picture finding: Triple Shield constrains extraction to bounded griefing on all instructions except `escape_valve_buy` listing-race (recommended pre-mainnet mitigation: commit-reveal listings + Jito bundles for cancel/relist). Closes [#232](https://github.com/alrimarleskovar/RoundFinancial/issues/232).
-- **`harvest()` path in `roundfi-yield-kamino`** — promoted in-scope. Real Kamino `redeem_reserve_collateral` CPI implemented as a **redeem-all + redeposit-principal** round-trip in [`programs/roundfi-yield-kamino/src/lib.rs`](./programs/roundfi-yield-kamino/src/lib.rs). Slippage guard (`min_realized_usdc`) and adapter-balance-delta over-withdraw guard from PR #124 apply unchanged (they live in `roundfi-core::harvest_yield` and are adapter-agnostic). Pinned `PrincipalLoss` error guards against an exchange-rate regression. Closes [#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233).
+- **`harvest()` path in `roundfi-yield-kamino`** — promoted in-scope. Real Kamino `redeem_reserve_collateral` CPI implemented as a **redeem-all + redeposit-principal** round-trip in [`programs/roundfi-yield-kamino/src/lib.rs`](./programs/roundfi-yield-kamino/src/lib.rs). Slippage guard (`min_realized_usdc`) and adapter-balance-delta over-withdraw guard from PR #124 apply unchanged (they live in `roundfi-core::harvest_yield` and are adapter-agnostic). Pinned `PrincipalLoss` error guards against an exchange-rate regression. SEV-041 fix landed canonical 12-account ordering (was 9-account jumbled) pinned by `kamino_redeem_metas_match_canonical_layout` + `kamino_deposit_metas_match_canonical_layout` cargo tests. **#233 part A closed** (on-chain CPI code shipped); **part B pending** (canonical mainnet Kamino USDC reserve pubkey pin in `scripts/mainnet/canary-flow.ts` PREFLIGHT_CHECKS + canary smoke-test against cloned mainnet reserve — operator decision, see [`docs/operations/mainnet-canary-plan.md §3.2`](./docs/operations/mainnet-canary-plan.md)).
 
 See [`docs/security/self-audit.md` §7](./docs/security/self-audit.md#7-out-of-scope-future-work) for the full out-of-scope register.
 
@@ -63,7 +68,7 @@ See [`docs/security/self-audit.md` §7](./docs/security/self-audit.md#7-out-of-s
 
 Six audit findings were surfaced and fixed during the team's early internal review **before** the multi-pass pre-audit cycle (W1-W5 + integration-testing wave) that produced the SEV-### tracker. Each PR below carries: source-line reference, threat model, error variant, test coverage. Linked so the eventual external Adevar engagement doesn't re-flag what's already closed.
 
-**Honest framing:** the team's early internal review **did not catch** the Critical `c_token_account` ATA constraint miss on `roundfi-yield-kamino::Deposit` (closed in W1 of the internal pre-audit as SEV-001 — same constraint that was already in place on `Harvest::c_token_account`, copy-paste-miss). The W1 pass of the internal pre-audit caught it. The full remediation track across all 5 internal passes + 1 integration-testing wave is documented in [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md) — 40 findings total, 36 closed (3 Critical + 7 High + 9 Medium + 12 Low + 9 Informational), 1 upstream-blocked, 3 design-intentional. [`ADEVAR_AUDIT_REPORT.md`](./ADEVAR_AUDIT_REPORT.md) preserves the original W1 transcript in Adevar's issue-template format — the **filename uses "ADEVAR" because the templates mirror Adevar's published format, NOT because Adevar wrote it**. Adevar engagement is in scoping; the formal audit's surface area starts from main HEAD post-remediation, not from the original W1 baseline.
+**Honest framing:** the team's early internal review **did not catch** the Critical `c_token_account` ATA constraint miss on `roundfi-yield-kamino::Deposit` (closed in W1 of the internal pre-audit as SEV-001 — same constraint that was already in place on `Harvest::c_token_account`, copy-paste-miss). The W1 pass of the internal pre-audit caught it. The full remediation track across all 5 internal passes + 1 integration-testing wave + 9 follow-up waves through 2026-05-19 is documented in [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md) — **47 findings total, 43+ closed** (6 Critical + 7 High + 13 Medium + 12 Low + 9 Informational), 1 upstream-blocked (#230 SDK transitive bump / SEV-012), 3 design-intentional. The 3 net-new Critical findings beyond the original 5-pass came from the Kamino-spike pre-audit (SEV-040 KAMINO_LEND_PROGRAM_ID typo, SEV-041 CPI account list 9→12, SEV-042 mainnet-hardening byte offsets — all fixed via PR [#383](https://github.com/alrimarleskovar/roundfinancial/pull/383)). [`ADEVAR_AUDIT_REPORT.md`](./ADEVAR_AUDIT_REPORT.md) preserves the original W1 transcript in the published issue-template format — the **filename uses "ADEVAR" because the templates mirror that firm's published format, NOT because they wrote it**. External-auditor engagement (Adevar / Halborn / OtterSec / Sec3 — selection pending) is in scoping; the formal audit's surface area starts from main HEAD post-remediation, not from the original W1 baseline.
 
 | #   | PR                                                                     | Title                                                                                  | Surface                                                                                                                                                                                               |
 | --- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -114,18 +119,18 @@ All three hashes match across all 4 programs. See [`docs/verified-build.md`](./d
 
 ## Mainnet timeline
 
-Current date: **May 2026**. Hackathon submission complete (Colosseum 2026). Internal pre-audit complete (5 passes + integration-testing wave, 36/40 findings closed including 10/10 Critical/High). Adevar Labs formal engagement in scoping (cost/timeline negotiation).
+Current date: **2026-05-19**. Hackathon submission complete (Colosseum 2026). Internal pre-audit complete (5 passes + integration-testing wave + 9 follow-up waves, **43+/47 findings closed including 13/13 Critical/High**). Mainnet operational scaffolding shipped: SEV-046 CD pipeline (rehearsal 1g green 2026-05-19), Pass-14 indexer observability, Pass-15 Squads-aware emergency-response runbook. External-auditor formal engagement (Adevar / Halborn / OtterSec / Sec3 — selection pending) in scoping (cost/timeline negotiation).
 
-| Phase                                                    | Window     | Status                                                                                                                                                                                                                                    |
-| -------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Internal self-audit + threat model                       | Q1–Q2 2026 | ✅ Done — [`docs/security/self-audit.md`](./docs/security/self-audit.md) (228 lines)                                                                                                                                                      |
-| Internal pre-audit (5 passes + integration-testing wave) | May 2026   | ✅ Done — 40 findings catalogued, 36 closed (10/10 Critical/High). [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md)                                                                               |
-| Squads multisig rotation rehearsal (devnet)              | May 2026   | ✅ Done 2026-05-16 — 4 phases validated on-chain (propose/cancel/re-propose/commit). [`docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md`](./docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md) |
-| Pause-state rehearsal (devnet)                           | May 2026   | ✅ Done 2026-05-12 — [`docs/operations/rehearsal-logs/2026-05-12-pause-rehearsal.md`](./docs/operations/rehearsal-logs/2026-05-12-pause-rehearsal.md)                                                                                     |
-| External audit (Adevar Labs — formal)                    | Q2–Q3 2026 | 🟡 Scoping in progress (cost/timeline negotiation)                                                                                                                                                                                        |
-| Legal counsel review                                     | Q3 2026    | 🔵 Planned                                                                                                                                                                                                                                |
-| Mainnet smoke (canary pool, capped TVL)                  | Q3–Q4 2026 | 🔵 Planned — see [`docs/operations/mainnet-canary-plan.md`](./docs/operations/mainnet-canary-plan.md)                                                                                                                                     |
-| Mainnet GA + bug-bounty program (Immunefi, $50k initial) | Q4 2026    | 🔵 Planned                                                                                                                                                                                                                                |
+| Phase                                                                           | Window     | Status                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Internal self-audit + threat model                                              | Q1–Q2 2026 | ✅ Done — [`docs/security/self-audit.md`](./docs/security/self-audit.md) (228 lines)                                                                                                                                                      |
+| Internal pre-audit (5 passes + integration-testing wave + 9 follow-up waves)    | May 2026   | ✅ Done — 47 findings catalogued, 43+ closed (13/13 Critical/High). [`docs/security/internal-audit-findings.md`](./docs/security/internal-audit-findings.md)                                                                              |
+| Squads multisig rotation rehearsal (devnet)                                     | May 2026   | ✅ Done 2026-05-16 — 4 phases validated on-chain (propose/cancel/re-propose/commit). [`docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md`](./docs/operations/rehearsal-logs/2026-05-16-squads-rotation-rehearsal.md) |
+| Pause-state rehearsal (devnet)                                                  | May 2026   | ✅ Done 2026-05-12 — [`docs/operations/rehearsal-logs/2026-05-12-pause-rehearsal.md`](./docs/operations/rehearsal-logs/2026-05-12-pause-rehearsal.md)                                                                                     |
+| External audit (Adevar / Halborn / OtterSec / Sec3 — formal, selection pending) | Q2–Q3 2026 | 🟡 Scoping in progress (cost/timeline negotiation)                                                                                                                                                                                        |
+| Legal counsel review                                                            | Q3 2026    | 🔵 Planned                                                                                                                                                                                                                                |
+| Mainnet smoke (canary pool, capped TVL)                                         | Q3–Q4 2026 | 🔵 Planned — see [`docs/operations/mainnet-canary-plan.md`](./docs/operations/mainnet-canary-plan.md)                                                                                                                                     |
+| Mainnet GA + bug-bounty program (Immunefi, $50k initial)                        | Q4 2026    | 🔵 Planned                                                                                                                                                                                                                                |
 
 The bug-bounty program is **planned for mainnet launch**, not now. Full policy drafted at [`docs/security/bug-bounty.md`](./docs/security/bug-bounty.md) — USD 50k initial pool, 5-tier severity, USDC-on-Solana payouts, 90-day coordinated disclosure. See [`SECURITY.md`](./SECURITY.md) for interim devnet/smoke-phase rewards.
 
@@ -133,7 +138,7 @@ The bug-bounty program is **planned for mainnet launch**, not now. Full policy d
 
 ## Engagement format requested
 
-- **Duration:** 2-week scoped engagement (8,655 LoC is comfortably auditable in 2 weeks given the pre-documented invariants + 5-pass internal pre-audit that closed 36/40 findings)
+- **Duration:** 2-week scoped engagement (8,655 LoC is comfortably auditable in 2 weeks given the pre-documented invariants + 5-pass internal pre-audit + 9 follow-up waves that closed 43+/47 findings)
 - **Channels:** Single point of contact `roundfinance.sol@gmail.com` · private GitHub repo access available on request · responsible-disclosure SLAs in [`SECURITY.md`](./SECURITY.md)
 - **Deliverables we ship pre-kickoff:** self-audit doc + threat model + reproducible-build attestation + CI green on `main` + this scope doc + [operations runbooks](./docs/operations/) (deploy, key-rotation, emergency-response, incident postmortem template)
 - **Deliverables we need from auditor:** standard severity-classified findings report + remediation review pass after fixes land

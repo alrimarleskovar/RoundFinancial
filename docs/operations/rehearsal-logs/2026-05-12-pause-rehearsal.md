@@ -41,6 +41,6 @@
 
 ## Cadence next steps
 
-- Run again after Anza Agave 2.x migration ([#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230))
+- Run again after the SDK transitive half of #230 lands (CLI half is already on Agave 3.0.0 — see canary plan §3.2 entry for the split)
 - Run with a fresh Pool (`POOL_SEED_ID=2`, Active state) to cover the remaining 8 gates + `settle_default` carve-out
 - Run before mainnet smoke deploy

@@ -257,9 +257,15 @@ const PREFLIGHT_CHECKS: PreflightCheck[] = [
     name: "Kamino canonical USDC reserve is initialized",
     run: async (_conn, _deployer) => {
       // TODO(#292 W2): assert the canonical Kamino USDC reserve account
-      // exists + has expected discriminator. Requires #233 to ship a
-      // pinned canonical reserve pubkey first.
-      console.log("  ⚠️  SKIPPED: Kamino reserve check pending #233. Document in report.");
+      // exists + has expected discriminator. Requires #233 part B —
+      // operational integration: pick + pin the canonical Kamino
+      // mainnet USDC reserve pubkey here. The on-chain CPI code
+      // (#233 part A) is already shipped in `roundfi-yield-kamino`
+      // and would fire if invoked, but without a pinned reserve we
+      // have no canonical target to assert against.
+      console.log(
+        "  ⚠️  SKIPPED: Kamino reserve check pending #233 part B (canonical reserve pin). Document in report.",
+      );
     },
   },
   {
@@ -312,7 +318,9 @@ const STEPS = [
   "contribute(cycle=0)",
   "claim_payout(cycle=0)",
   "release_escrow(checkpoint=1)",
-  // Step 8 (yield branch) only if #233 has landed.
+  // Step 8 (yield branch) only if #233 part B (operational reserve
+  // pin + canary smoke-test) has landed. Part A (on-chain CPI code)
+  // is already shipped in `roundfi-yield-kamino`.
   // "deposit_idle_to_yield",
   // "harvest_yield",
   "close_pool",
@@ -359,7 +367,7 @@ async function main() {
   throw new Error(
     "Step handlers not implemented. This script is a scaffold + pre-flight gate;\n" +
       "full step implementations land in a follow-up PR after the pre-flight\n" +
-      "blockers (#266, #267, #230, #233, #268) clear.",
+      "blockers (#266, #267, #230 SDK transitives, #233 part B canonical reserve, #268) clear.",
   );
 }
 

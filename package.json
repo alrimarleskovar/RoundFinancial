@@ -49,11 +49,18 @@
     "devnet:verify-redeploy": "bash scripts/devnet/verify-redeploy.sh",
     "devnet:verify-onchain": "bash scripts/devnet/verify-onchain.sh",
     "test:parity": "pnpm exec mocha -t 60000 'tests/parity.spec.ts'",
+    "test:frontend-allowlist": "pnpm exec mocha -t 60000 'tests/frontend_allowlist.spec.ts'",
+    "test:indexer-log": "pnpm exec mocha -t 60000 'tests/indexer_log.spec.ts'",
     "test:app-encoders": "pnpm exec mocha -t 60000 'tests/app_encoders.spec.ts'",
     "test:events": "pnpm exec mocha -t 60000 'tests/events.spec.ts'",
     "test:economic-parity-l1": "pnpm exec mocha -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",
     "test:economic-parity": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts'",
-    "test:bankrun": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts' 'tests/app_encoders_bankrun.spec.ts'"
+    "test:bankrun": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts' 'tests/app_encoders_bankrun.spec.ts' 'tests/security_kamino_cpi.spec.ts'",
+    "test:bankrun:no-mpl-core": "pnpm exec mocha -t 120000 'tests/security_kamino_cpi.spec.ts'",
+    "test:security:localnet": "pnpm exec mocha -t 120000 'tests/security_*.spec.ts'",
+    "test:fuzz": "for t in bps cascade dc_invariant escrow_vesting seed_draw waterfall; do echo \"=== fuzz target: $t ===\"; cargo fuzz run --fuzz-dir crates/math/fuzz \"$t\" -- -max_total_time=60 || exit 1; done",
+    "test:mainnet-hardening": "tsx scripts/mainnet/mainnet-hardening-check.ts",
+    "mainnet:deploy": "tsx scripts/mainnet/deploy.ts"
   },
   "devDependencies": {
     "@roundfi/sdk": "workspace:*",

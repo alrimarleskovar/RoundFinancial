@@ -21,7 +21,11 @@
 
 import { Connection, type Commitment } from "@solana/web3.js";
 
-import type { NetworkId } from "@/lib/network";
+// Type-only import from a pure .ts module so the workspace-root tsc
+// (no JSX) can typecheck this file via the Mocha test at
+// tests/frontend_allowlist.spec.ts. See `networkTypes.ts` for the
+// SEV-045 rationale.
+import type { NetworkId } from "./networkTypes";
 
 /**
  * Curated allowlist of trusted RPC providers per network. The user
@@ -46,6 +50,19 @@ export const RPC_ALLOWLIST: Readonly<Record<NetworkId, ReadonlyArray<string>>> =
     // below — they aren't hard-coded because the API key isn't a
     // public secret.
   ],
+
+  // Mainnet — public Solana RPC + Helius/Triton mainnet endpoints.
+  // SEV-045: mainnet entry was missing before. Without it, switching
+  // the app to mainnet would have either crashed (no allowlist key)
+  // or — worse — silently fallen back to whatever endpoint the user
+  // typed in. With it, only allowlisted endpoints are accepted.
+  // Helius/Triton mainnet keys via NEXT_PUBLIC_HELIUS_MAINNET /
+  // NEXT_PUBLIC_TRITON_MAINNET.
+  "mainnet-beta": [
+    "https://api.mainnet-beta.solana.com",
+    // Helius and Triton mainnet are conditionally included by the
+    // resolver below — they aren't hard-coded for the same reason.
+  ],
 };
 
 /**
@@ -60,15 +77,26 @@ export function resolveRpcAllowlist(network: NetworkId): {
   primary: string;
   secondaries: string[];
 } {
-  const baseline = [...RPC_ALLOWLIST[network]];
+  // `RPC_ALLOWLIST` is a `Record<NetworkId, …>` so the index is
+  // exhaustive at the type level — `?? []` is a no-op at runtime but
+  // satisfies `noUncheckedIndexedAccess`.
+  const baseline = [...(RPC_ALLOWLIST[network] ?? [])];
 
-  const heliusKey = process.env.NEXT_PUBLIC_HELIUS_DEVNET;
-  if (network === "devnet" && heliusKey) {
-    baseline.push(`https://devnet.helius-rpc.com/?api-key=${heliusKey}`);
+  const heliusDevnet = process.env.NEXT_PUBLIC_HELIUS_DEVNET;
+  if (network === "devnet" && heliusDevnet) {
+    baseline.push(`https://devnet.helius-rpc.com/?api-key=${heliusDevnet}`);
   }
-  const tritonKey = process.env.NEXT_PUBLIC_TRITON_DEVNET;
-  if (network === "devnet" && tritonKey) {
-    baseline.push(`https://${tritonKey}.devnet.rpcpool.com`);
+  const tritonDevnet = process.env.NEXT_PUBLIC_TRITON_DEVNET;
+  if (network === "devnet" && tritonDevnet) {
+    baseline.push(`https://${tritonDevnet}.devnet.rpcpool.com`);
+  }
+  const heliusMainnet = process.env.NEXT_PUBLIC_HELIUS_MAINNET;
+  if (network === "mainnet-beta" && heliusMainnet) {
+    baseline.push(`https://mainnet.helius-rpc.com/?api-key=${heliusMainnet}`);
+  }
+  const tritonMainnet = process.env.NEXT_PUBLIC_TRITON_MAINNET;
+  if (network === "mainnet-beta" && tritonMainnet) {
+    baseline.push(`https://${tritonMainnet}.mainnet.rpcpool.com`);
   }
 
   const [primary, ...secondaries] = baseline;

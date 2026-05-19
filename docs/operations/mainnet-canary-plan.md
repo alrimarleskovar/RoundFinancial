@@ -6,7 +6,7 @@
 >
 > **Authoritative.** This is the source-of-truth runbook for mainnet day 1. The companion script (`scripts/mainnet/canary-flow.ts`) implements it; the post-run report template (`docs/operations/mainnet-canary-report-template.md`) captures the outcome.
 
-**Status:** 🟡 plan written, run is hard-gated on audit clear (#267), multi-sig migration (#266), Agave 2.x toolchain (#230), Kamino harvest path (#233), legal counsel (#268).
+**Status:** 🟡 plan written, run is hard-gated on audit clear (#267), multi-sig migration (#266), Solana SDK transitive bump (#230 — see §3.2 for the refined scope: CLI ✓ Agave 3.0.0, SDK transitives still `solana-program 1.18.x` via `anchor-lang 0.30.1`), Kamino canary integration (#233 part B — see §3.2 for split: on-chain CPI code shipped, operational reserve pin + canary smoke-test pending), legal counsel (#268). Front-end mainnet hardening (#249) closed via SEV-045 / PR #387.
 
 **Tracks:** [#292](https://github.com/alrimarleskovar/RoundFinancial/issues/292). Mirrors `MAINNET_READINESS.md` §4.1 + §4.7.
 
@@ -25,7 +25,7 @@ Validate every active M3 protocol instruction against **real mainnet conditions*
 - `release_escrow` (since the member paid on-time, escrow vests)
 - `close_pool` (balanced summary: `total_contributed == total_paid_out`)
 
-Plus the yield branch (Kamino harvest path is live — #233 closed):
+Plus the yield branch (Kamino harvest **on-chain CPI** is shipped — #233 part A closed; part B operational integration still pending — see §3.2):
 
 - `deposit_idle_to_yield` × 1
 - `harvest_yield` × 1 (real `redeem_reserve_collateral` round-trip via kamino adapter, slippage guard armed, `PrincipalLoss` revert active)
@@ -36,17 +36,17 @@ The canary is **not** a stress test. It's a smoke test that confirms the same co
 
 ## 2. Pool shape
 
-| Field            | Value                                                     |
-| ---------------- | --------------------------------------------------------- |
-| Members          | 1 (the deployer self-pools)                               |
-| Cycles           | 1                                                         |
-| `credit_amount`  | $5 USDC                                                   |
-| `installment`    | $5 USDC                                                   |
-| Stake (Lv1, 50%) | $2.50 USDC                                                |
-| Cycle duration   | 60 seconds (devnet patch retained for canary)             |
-| Yield adapter    | Mock first; Kamino canonical USDC reserve once #233 ships |
-| Pool authority   | Squads multi-sig PDA (post-#266) — **NOT** single keypair |
-| Treasury         | Squads multi-sig PDA (post-#266)                          |
+| Field            | Value                                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| Members          | 1 (the deployer self-pools)                                                                  |
+| Cycles           | 1                                                                                            |
+| `credit_amount`  | $5 USDC                                                                                      |
+| `installment`    | $5 USDC                                                                                      |
+| Stake (Lv1, 50%) | $2.50 USDC                                                                                   |
+| Cycle duration   | 60 seconds (devnet patch retained for canary)                                                |
+| Yield adapter    | Mock first; Kamino canonical USDC reserve once #233 part B ships (on-chain CPI already live) |
+| Pool authority   | Squads multi-sig PDA (post-#266) — **NOT** single keypair                                    |
+| Treasury         | Squads multi-sig PDA (post-#266)                                                             |
 
 **Why 1 member.** Smallest possible TVL ($2.50 stake + $5 contribution = $7.50 protocol-side at peak). If anything goes wrong, the loss is bounded by lunch money. The protocol's invariants are exercised the same — 1 member is enough to fire Triple Shield, the waterfall, and the close_pool balance check.
 
@@ -71,23 +71,23 @@ ALL items must be ✅ before running `scripts/mainnet/canary-flow.ts`. The scrip
 
 ### 3.2 On-chain prerequisites
 
-- [ ] **Agave 2.x toolchain migration complete** — [#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230). All 4 programs rebuilt + bytecode-attested under the new toolchain.
+- [ ] **Agave / Solana SDK toolchain migration** — [#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230). **CLI half done:** CI (`anchor · build` lane) + CD pipeline (`devnet-deploy.yml` + `mainnet-deploy.yml`) pinned to Agave **3.0.0** since 2026-05; 7 devnet rehearsals (SEV-046 saga) confirm `cargo-build-sbf` v3.0.0 produces a deployable artifact. **SDK transitive half NOT done:** `anchor-lang 0.30.1` still pulls `solana-program 1.18.x`, which is why the 11 `cargo audit --ignore RUSTSEC-*` exceptions in `.github/workflows/ci.yml` cannot be removed yet. Removing them requires either anchor 0.31+ (pulls `solana-program 2.x`) or an explicit workspace patch override — neither is in scope for this canary. Full close needs all 4 programs rebuilt + OtterSec verify-build attested under the bumped SDK.
 - [ ] **Squads multi-sig deployed** — 3-of-5 signer set, signers from at least 3 different geographies ([#266](https://github.com/alrimarleskovar/RoundFinancial/issues/266))
 - [ ] **Upgrade authority rotated** to Squads PDA on all 4 mainnet programs (`roundfi-core`, `roundfi-reputation`, `roundfi-yield-mock`, `roundfi-yield-kamino`) — verify with `solana program show <id>`
 - [ ] **Treasury authority on Squads PDA** — via `propose_new_treasury` → 7-day timelock → `commit_new_treasury` cycle (MAINNET_READINESS.md §3.7)
 - [ ] **OtterSec verify-build attestation refreshed** on mainnet for all 4 programs post-deployment
 - [ ] **`config.metaplex_core` pinned to mainnet mpl-core program** (`CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d` — same as devnet but verify on-chain)
-- [ ] **Kamino canonical USDC reserve allowlisted** in `config.yield_adapter_program` ([#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233))
+- [ ] **Kamino canonical USDC reserve pinned + smoke-tested** ([#233](https://github.com/alrimarleskovar/RoundFinancial/issues/233) **part B — operational integration**). On-chain CPI code shipped (part A) — `roundfi-yield-kamino::harvest()` does the redeem-all + redeposit-principal round-trip via Kamino `redeem_reserve_collateral` + `deposit_reserve_liquidity`, principal-loss guard armed (`PrincipalLoss` error), SEV-041 account-list ordering pinned by `kamino_redeem_metas_match_canonical_layout` test. Part B remaining: (a) pick + pin the canonical Kamino mainnet USDC reserve pubkey in `scripts/mainnet/canary-flow.ts` (PREFLIGHT_CHECKS currently has a `SKIPPED` console.log placeholder at line ~260); (b) verify reserve discriminator on the canary RPC pre-flight; (c) smoke-test deposit + harvest end-to-end on devnet against the cloned mainnet Kamino reserve via the bankrun-clone spike, then re-run on mainnet inside the canary; (d) verify `config.approved_yield_adapter` equals `roundfi-yield-kamino` program ID before flipping `Pool.yield_adapter`
 - [ ] **Mainnet USDC mint pinned** (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`) — sanity check via `solana account`
 
 ### 3.3 Operational prerequisites
 
 - [ ] **Monitoring stack live** — Grafana / Datadog / equivalent ([#271](https://github.com/alrimarleskovar/RoundFinancial/issues/271)). Per-instruction transaction count + Triple Shield error rate dashboards green.
 - [ ] **PagerDuty rotation defined** — primary + secondary on-call for the 7-day soak window
-- [ ] **CD pipeline approved + tested** — staging deploy via [#272](https://github.com/alrimarleskovar/RoundFinancial/issues/272) rehearsed at least once
-- [ ] **Front-end mainnet hardening complete** — devnet/mainnet visual banner, RPC pinning, allowlist tests ([#249](https://github.com/alrimarleskovar/RoundFinancial/issues/249))
+- [x] **CD pipeline approved + tested** — staging deploy via [#272](https://github.com/alrimarleskovar/RoundFinancial/issues/272) rehearsed at least once (scaffolding via SEV-046; strict "at least once" criterion satisfied by rehearsal 1g on 2026-05-19 — see [`docs/operations/rehearsal-logs/2026-05-19-SEV-046-rehearsal-1g-success.md`](./rehearsal-logs/2026-05-19-SEV-046-rehearsal-1g-success.md). Stretch goal of 3× clean per `cd-pipeline.md` §"Rehearsal protocol" now at **2 / 3** — rehearsal 2 attempt aborted pre-deploy by the 20 SOL balance gate (PR #393 floor doing its job — 1g consumed 12.5 SOL leaving 12.38 SOL), then **rehearsal 2b** ran green post-faucet-topup at 22.38 SOL consuming 12.62 SOL within 1% of prediction — see [`docs/operations/rehearsal-logs/2026-05-19-SEV-046-rehearsal-2b-success.md`](./rehearsal-logs/2026-05-19-SEV-046-rehearsal-2b-success.md). Rehearsal 3 deferred pending one more faucet top-up cycle. **NOT a mainnet blocker** — stretch goal is reproducibility-confidence-only)
+- [x] **Front-end mainnet hardening complete** — devnet/mainnet visual banner, RPC pinning, allowlist tests ([#249](https://github.com/alrimarleskovar/RoundFinancial/issues/249) closed via SEV-045 / PR [#387](https://github.com/alrimarleskovar/roundfinancial/pull/387) — see SEV-045 tracker row for the gap breakdown: `NetworkBanner` flipped from "hide on mainnet" to "LOUD red on mainnet", `NetworkId` extended to `"mainnet-beta"`, `RPC_ALLOWLIST["mainnet-beta"]` populated with `api.mainnet-beta.solana.com` + Helius/Triton conditional inclusion, new `tests/frontend_allowlist.spec.ts` with 24 tests pinning classifyEndpoint / resolveRpcAllowlist / isAllowlistedEndpoint / decideWalletAllowlist, `test:frontend-allowlist` step wired into `js · lint + typecheck + parity + L1` CI lane)
 - [ ] **Indexer deployed + caught up** — finality gate active, RPC quorum active, reconciler running
-- [ ] **Emergency-response runbook reviewed** by all on-call — [`emergency-response.md`](./emergency-response.md)
+- [x] **Emergency-response runbook reviewed** by all on-call — [`emergency-response.md`](./emergency-response.md). **Pass-15 review (2026-05-19):** runbook revised to cover post-Squads pause flow (3-of-5 multisig vs single keypair), SEV-2b protocol-error sub-tier (unexpected Triple Shield firing), `mainnet_hardening_check` re-run during unpause verification, cross-links to `pagerduty-runbook.md` + `BackfillRun` cron metric (Pass-14), expanded "Authority key not accessible" matrix (0–3 lost signers → recoverable / tight / catastrophic), Immunefi disclosure path placeholder for post-#270. On-call review: pending operator sign-off — the runbook is now ready to walk through in a tabletop.
 - [ ] **Pause-rehearsal completed** on mainnet (a real pause + unpause cycle with no canary impact)
 
 ### 3.4 Pre-flight test sequence (10 minutes, no protocol writes)
@@ -187,14 +187,14 @@ Expected new state:
 
 ### Step 8 (optional) — Yield branch
 
-If [#233 Kamino harvest path](https://github.com/alrimarleskovar/RoundFinancial/issues/233) has shipped:
+If [#233 Kamino harvest path](https://github.com/alrimarleskovar/RoundFinancial/issues/233) **part B (operational integration)** has shipped — part A (on-chain CPI code) is already live, see §3.2 entry:
 
 - Submit `deposit_idle_to_yield({ amount: ... })` — moves any idle pool float to Kamino
 - Wait at least 10 minutes for accrued yield
 - Submit `harvest_yield({ min_realized_usdc: 1 })` — slippage guard armed at $0.000001 (effectively just non-zero)
 - Verify waterfall buckets per `roundfi-math/waterfall.rs` (20% protocol fee → treasury, 65% LP, 35% participants, 0% GF for Lv1)
 
-If #233 has NOT shipped, the canary skips this step and the report records "harvest path deferred" — but every other M3 instruction still exercises.
+If #233 part B has NOT shipped (canonical reserve not pinned in canary-flow.ts), the canary skips this step and the report records "harvest path operational integration deferred" — but every other M3 instruction still exercises (#233 part A code is in `roundfi-yield-kamino` and would fire if invoked, but without a pinned reserve we have no canonical target).
 
 ### Step 9 — `close_pool`
 
@@ -242,7 +242,7 @@ Halt the canary and **revert to paused state** if any of the following:
 | OtterSec verify-build PDA mismatch detected post-step                                                                | Pause; emergency response runbook; do not retry until bytecode verified          |
 | Indexer reports `_unresolved` events for >5 minutes                                                                  | Pause; investigate (likely reorg or RPC partition); fallback to direct RPC reads |
 | Deployer wallet drained beyond canary budget                                                                         | Pause; investigate (possible front-running or unexpected fee bump)               |
-| Real Kamino reserve responds with non-zero but unexpected `realized` value (>10% deviation from `min_realized_usdc`) | Pause harvest; investigate; out of #233 scope                                    |
+| Real Kamino reserve responds with non-zero but unexpected `realized` value (>10% deviation from `min_realized_usdc`) | Pause harvest; investigate; out of #233 part B scope (slippage threshold review) |
 
 Pause is via the existing `pause(true)` instruction (Squads-signed). Mass user impact: zero (canary is solo-deployer).
 
@@ -309,4 +309,4 @@ The protocol-level TVL cap (MAINNET_READINESS.md §4.3) enforces this on-chain. 
 
 ---
 
-_Last updated: May 2026. Run is gated on #266 + #267 + #230 + #233 + #268. Operator: not yet assigned._
+_Last updated: 2026-05-19. Run is gated on #266 + #267 + #230 (SDK transitive bump only — CLI half is done) + #233 part B (canonical reserve pin + canary integration — CPI code half is done) + #268. #249 closed via SEV-045 / PR #387, #272 closed (strict "at least once") via SEV-046 rehearsal 1g. Operator: not yet assigned._

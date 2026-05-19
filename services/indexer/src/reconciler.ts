@@ -56,6 +56,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { Connection, PublicKey, type Commitment } from "@solana/web3.js";
 
+import { createLogger, type Logger } from "./log.js";
+
 // ─── Configuration ──────────────────────────────────────────────────────
 
 /** Minimum slot age before we consider an event eligible for finality check. */
@@ -109,7 +111,7 @@ export interface ReconcilerResult {
 async function checkFinalizedQuorum(
   connections: Connection[],
   signature: string,
-  logger?: { warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<"finalized" | "not_finalized" | "missing" | null> {
   const results = await Promise.allSettled(
     connections.map(async (conn) => {
@@ -139,7 +141,10 @@ async function checkFinalizedQuorum(
   if (missing >= threshold) return "missing";
 
   // Mixed results — defer + log so ops sees the divergence.
-  logger?.warn({ signature, results: settled }, "RPC quorum divergence — deferring reconciliation");
+  logger?.warn(
+    { event_type: "rpc_quorum_divergence", signature, results: settled },
+    "RPC quorum divergence — deferring reconciliation",
+  );
   return null;
 }
 
@@ -251,7 +256,7 @@ async function resolveCanonicalIds(
 export async function reconcileOnce(
   prisma: PrismaClient,
   config: ReconcilerConfig,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<ReconcilerResult> {
   const finalityGate = config.finalityGateSlots ?? FINALITY_GATE_SLOTS;
   const orphanGrace = config.orphanGraceSlots ?? ORPHAN_GRACE_SLOTS;
@@ -312,7 +317,7 @@ async function reconcileContributeEvents(
   finalityGate: number,
   orphanGrace: number,
   counters: Counters,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.contributeEvent.findMany({
     where: { poolId: "_unresolved", orphaned: false },
@@ -366,7 +371,12 @@ async function reconcileContributeEvents(
       });
       counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "contribute_events" },
+        {
+          event_type: "orphan",
+          signature: evt.txSignature,
+          ageSlots: ageSlots.toString(),
+          table: "contribute_events",
+        },
         "event tx never finalized — marked orphaned",
       );
     } else {
@@ -382,7 +392,7 @@ async function reconcileClaimEvents(
   finalityGate: number,
   orphanGrace: number,
   counters: Counters,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.claimEvent.findMany({
     where: { poolId: "_unresolved", orphaned: false },
@@ -433,7 +443,12 @@ async function reconcileClaimEvents(
       });
       counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "claim_events" },
+        {
+          event_type: "orphan",
+          signature: evt.txSignature,
+          ageSlots: ageSlots.toString(),
+          table: "claim_events",
+        },
         "event tx never finalized — marked orphaned",
       );
     } else {
@@ -449,7 +464,7 @@ async function reconcileDefaultEvents(
   finalityGate: number,
   orphanGrace: number,
   counters: Counters,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.defaultEvent.findMany({
     where: { poolId: "_unresolved", orphaned: false },
@@ -505,7 +520,12 @@ async function reconcileDefaultEvents(
       });
       counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "default_events" },
+        {
+          event_type: "orphan",
+          signature: evt.txSignature,
+          ageSlots: ageSlots.toString(),
+          table: "default_events",
+        },
         "event tx never finalized — marked orphaned",
       );
     } else {
@@ -524,7 +544,7 @@ async function reconcileDefaultEvents(
 export async function crossValidateOnce(
   prisma: PrismaClient,
   config: ReconcilerConfig,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<{ scanned: number; gaps: number }> {
   const connection = new Connection(config.primaryRpcUrl, "finalized" as Commitment);
   const programPk = new PublicKey(config.programId);
@@ -543,7 +563,7 @@ export async function crossValidateOnce(
     if (!contribute && !claim && !def) {
       gaps += 1;
       logger?.warn(
-        { txSignature: s.signature, slot: s.slot },
+        { event_type: "cross_validation_gap", signature: s.signature, slot: s.slot },
         "cross-validation gap — signature on chain but no event row",
       );
       // TODO: enqueue a re-fetch via the webhook handler. Implementation
@@ -551,7 +571,10 @@ export async function crossValidateOnce(
     }
   }
 
-  logger?.info({ scanned: sigs.length, gaps }, "cross-validation sweep complete");
+  logger?.info(
+    { event_type: "cross_validation", scanned: sigs.length, gaps },
+    "cross-validation sweep complete",
+  );
   return { scanned: sigs.length, gaps };
 }
 
@@ -565,11 +588,7 @@ export interface ReconcilerDaemon {
 export function createReconcilerDaemon(
   prisma: PrismaClient,
   config: ReconcilerConfig,
-  logger: {
-    info: (obj: unknown, msg: string) => void;
-    warn: (obj: unknown, msg: string) => void;
-    error: (obj: unknown, msg: string) => void;
-  },
+  logger: Logger,
 ): ReconcilerDaemon {
   let reconcileTimer: NodeJS.Timeout | null = null;
   let crossValidationTimer: NodeJS.Timeout | null = null;
@@ -579,9 +598,9 @@ export function createReconcilerDaemon(
     if (stopping) return;
     try {
       const result = await reconcileOnce(prisma, config, logger);
-      logger.info(result, "reconciler tick complete");
+      logger.info({ event_type: "reconciler_tick", ...result }, "reconciler tick complete");
     } catch (err) {
-      logger.error({ err }, "reconciler tick failed");
+      logger.error({ event_type: "reconciler_tick", error: err }, "reconciler tick failed");
     }
   };
 
@@ -590,16 +609,22 @@ export function createReconcilerDaemon(
     try {
       const result = await crossValidateOnce(prisma, config, logger);
       if (result.gaps > 0) {
-        logger.warn(result, "cross-validation found gaps — on-call should investigate");
+        logger.warn(
+          { event_type: "cross_validation", ...result },
+          "cross-validation found gaps — on-call should investigate",
+        );
       }
     } catch (err) {
-      logger.error({ err }, "cross-validation failed");
+      logger.error({ event_type: "cross_validation", error: err }, "cross-validation failed");
     }
   };
 
   return {
     start: () => {
-      logger.info({ programId: config.programId }, "reconciler daemon starting");
+      logger.info(
+        { event_type: "daemon_start", programId: config.programId },
+        "reconciler daemon starting",
+      );
       // Fire-and-forget initial passes, then schedule.
       void runReconcile();
       void runCrossValidation();
@@ -610,7 +635,7 @@ export function createReconcilerDaemon(
       stopping = true;
       if (reconcileTimer) clearInterval(reconcileTimer);
       if (crossValidationTimer) clearInterval(crossValidationTimer);
-      logger.info({}, "reconciler daemon stopped");
+      logger.info({ event_type: "daemon_stop" }, "reconciler daemon stopped");
     },
   };
 }
@@ -628,17 +653,12 @@ async function main(): Promise<void> {
     programId: process.env.ROUNDFI_CORE_PROGRAM_ID ?? "",
   };
 
+  const logger = createLogger({ service: "reconciler" });
+
   if (!config.programId) {
-    console.error("ROUNDFI_CORE_PROGRAM_ID env var is required");
+    logger.error({ event_type: "startup" }, "ROUNDFI_CORE_PROGRAM_ID env var is required");
     process.exit(1);
   }
-
-  // Minimal console logger; in production we wire pino + structured logs.
-  const logger = {
-    info: (obj: unknown, msg: string) => console.log("[reconciler]", msg, obj),
-    warn: (obj: unknown, msg: string) => console.warn("[reconciler]", msg, obj),
-    error: (obj: unknown, msg: string) => console.error("[reconciler]", msg, obj),
-  };
 
   // Run once + exit if invoked with --once, otherwise daemonize.
   if (process.argv.includes("--once")) {

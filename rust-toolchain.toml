@@ -1,9 +1,13 @@
 [toolchain]
 # Bumped from 1.79.0 (legacy Solana 1.18 alignment) to "stable" so
 # transitive deps requiring edition2024 (block-buffer 0.12+,
-# hashbrown 0.17+, etc.) build cleanly. Solana Agave 2.x's
-# `cargo build-sbf` bundles its own SBF target compiler — host Rust
-# just needs to be recent enough for cargo metadata + dep resolution.
+# hashbrown 0.17+, etc.) build cleanly. Solana Agave 3.0.0's
+# `cargo build-sbf` (pinned in CI + CD pipeline) bundles its own SBF
+# target compiler — host Rust just needs to be recent enough for
+# cargo metadata + dep resolution. Note: SDK crates (`solana-program`,
+# `solana-sdk` etc.) come transitively through `anchor-lang 0.30.1`,
+# which still pins `solana-program 1.18.x`; full SDK bump is tracked
+# under #230 (see `.github/workflows/ci.yml` audit lane prose).
 channel = "stable"
 components = ["rustfmt", "clippy"]
 profile = "minimal"
