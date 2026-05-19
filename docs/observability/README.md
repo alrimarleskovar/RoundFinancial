@@ -18,13 +18,13 @@ This package converts those requirements into concrete config that can be `kubec
 
 ## Pre-deployment readiness
 
-Before the platform stand-up, these gaps need closing on the indexer side:
+Before the platform stand-up, three gaps on the indexer side. **All three closed as of 2026-05-19** (Pass-14 observability scaffolding):
 
 1. ~~**Migrate `/metrics` to Prometheus exposition format.**~~ ✅ **Done** — `services/indexer/src/server.ts` `/metrics` route now serves `prom-client` registry output with `Content-Type: text/plain; version=0.0.4`. Catalogued metrics in `services/indexer/src/metrics.ts`; Pass-1 surface covers `roundfi_indexer_last_slot`, `roundfi_indexer_last_update_timestamp_seconds`, `roundfi_indexer_pool_count{status}`, `roundfi_indexer_member_count`, `roundfi_indexer_event_count{kind}`, `roundfi_reconciler_unresolved_count{table}` + default Node.js runtime metrics under the `roundfi_indexer_node_` prefix. Alert-spec metrics that require RPC reads or webhook-handler instrumentation (config hash, protocol paused, TVL caps, CPI failure counters, principal-loss counter, treasury outflow, per-pool vault balances) are listed as deferred-with-source in the `metrics.ts` header docstring.
 
-2. **Emit structured logs in `services/indexer/src/reconciler.ts`.** Currently free-text. Need JSON shape with fixed keys: `{ ts, level, event_type, slot, signature, error? }`. The PagerDuty runbook assumes these keys exist.
+2. ~~**Emit structured logs in `services/indexer/src/reconciler.ts`.**~~ ✅ **Done** — new `services/indexer/src/log.ts` module emits the fixed-shape JSON `{ ts, level, service, msg, event_type?, slot?, signature?, error? }` plus arbitrary passthrough context. `reconciler.ts` + `backfill.ts` both migrated to use `createLogger({ service: "..." })` instead of free-text `console.log`. BigInts get stringified, errors get flattened to `{ name, message, stack }`. Pino migration option stays open — replace `createLogger()` with a pino instance + keep call sites untouched.
 
-3. **Add `getProgramAccounts` cron health metric.** Backfill runs but doesn't currently report cron success/failure separately from the HTTP `/metrics`. Add a `lastBackfillRunUnix` + `lastBackfillStatus` pair.
+3. ~~**Add `getProgramAccounts` cron health metric.**~~ ✅ **Done** — new `BackfillRun` Prisma model (one row per `backfill.ts` invocation, status = `running` → `ok` | `error` on completion, with `startedAt`, `finishedAt`, `durationMs`, `poolsTouched`, `membersTouched`, `errorMessage` for audit history). Three new `/metrics` gauges in `services/indexer/src/metrics.ts`: `roundfi_indexer_last_backfill_run_timestamp_seconds` (most recent `startedAt`), `roundfi_indexer_last_backfill_status` (0=ok / 1=error / 2=running / 3=no-runs-yet), `roundfi_indexer_last_backfill_duration_ms` (capacity planning). The 3-status-code discrimination lets PromQL distinguish "cron failed" from "cron never ran" from "cron mid-flight" — different ops responses.
 
 ## Stack choice
 

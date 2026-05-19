@@ -30,6 +30,13 @@
  *   - `roundfi_reconciler_unresolved_count{table}` (gauge) — events
  *     with NULL `resolvedAt`. Powers the
  *     `roundfi:reconciler_unresolved_total` recording rule.
+ *   - `roundfi_indexer_last_backfill_run_timestamp_seconds` (gauge) —
+ *     unix ts of the most recent `BackfillRun.startedAt`. Detects a
+ *     stale getProgramAccounts cron.
+ *   - `roundfi_indexer_last_backfill_status` (gauge) — 0=ok, 1=error,
+ *     2=running, 3=no-runs-yet. Powers BackfillCronFailed.
+ *   - `roundfi_indexer_last_backfill_duration_ms` (gauge) — wall-clock
+ *     of the most recent BackfillRun. Capacity-planning input.
  *
  * **What this module does NOT emit (deferred):**
  *
@@ -110,6 +117,24 @@ const reconcilerUnresolvedCount = new Gauge({
   registers: [registry],
 });
 
+const indexerLastBackfillRunTimestampSeconds = new Gauge({
+  name: "roundfi_indexer_last_backfill_run_timestamp_seconds",
+  help: "Unix timestamp (seconds) of the most recent BackfillRun.startedAt. Detects a stale getProgramAccounts cron — pair with the SLO target ≥ 1× per day to fire BackfillCronStale.",
+  registers: [registry],
+});
+
+const indexerLastBackfillStatus = new Gauge({
+  name: "roundfi_indexer_last_backfill_status",
+  help: "Status code of the most recent BackfillRun: 0=ok, 1=error, 2=running (mid-flight), 3=no-runs-yet. Powers the BackfillCronFailed alert.",
+  registers: [registry],
+});
+
+const indexerLastBackfillDurationMs = new Gauge({
+  name: "roundfi_indexer_last_backfill_duration_ms",
+  help: "Wall-clock duration of the most recent BackfillRun in milliseconds. 0 if mid-flight or no runs yet. Capacity-planning input — runtime growth correlates with on-chain account count.",
+  registers: [registry],
+});
+
 // ─── Scrape-time collection ─────────────────────────────────────────
 
 /**
@@ -131,6 +156,7 @@ export async function collectIndexerMetrics(prisma: PrismaClient): Promise<strin
     refreshMemberMetrics(prisma),
     refreshEventMetrics(prisma),
     refreshReconcilerMetrics(prisma),
+    refreshBackfillMetrics(prisma),
   ]);
 
   return registry.metrics();
@@ -213,6 +239,41 @@ async function refreshReconcilerMetrics(prisma: PrismaClient): Promise<void> {
     reconcilerUnresolvedCount.set({ table: "default_events" }, defaultEv);
   } catch (err) {
     console.error("[metrics] refreshReconcilerMetrics failed:", err);
+  }
+}
+
+/**
+ * Backfill cron health — closes item #3 of
+ * `docs/observability/README.md` "Pre-deployment readiness". Reads
+ * the most recent `BackfillRun` row and emits three gauges so the
+ * SLO target ("≥ 99% / week backfill cron success rate") + the
+ * BackfillCronStale + BackfillCronFailed alerts can fire.
+ *
+ * Status code → gauge value mapping:
+ *   ok      → 0
+ *   error   → 1
+ *   running → 2 (mid-flight; benign if recent, alarming if stuck)
+ *   <no row>→ 3 (cron has NEVER run on this DB — different signal
+ *               from "ran and failed" so distinguish in PromQL)
+ */
+async function refreshBackfillMetrics(prisma: PrismaClient): Promise<void> {
+  try {
+    const run = await prisma.backfillRun.findFirst({
+      orderBy: { startedAt: "desc" },
+    });
+    if (!run) {
+      indexerLastBackfillRunTimestampSeconds.set(0);
+      indexerLastBackfillStatus.set(3);
+      indexerLastBackfillDurationMs.set(0);
+      return;
+    }
+    indexerLastBackfillRunTimestampSeconds.set(Math.floor(run.startedAt.getTime() / 1000));
+    indexerLastBackfillStatus.set(
+      run.status === "ok" ? 0 : run.status === "error" ? 1 : run.status === "running" ? 2 : 1,
+    );
+    indexerLastBackfillDurationMs.set(run.durationMs ?? 0);
+  } catch (err) {
+    console.error("[metrics] refreshBackfillMetrics failed:", err);
   }
 }
 

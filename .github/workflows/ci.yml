@@ -33,6 +33,10 @@ jobs:
   #     pure-function defenses gating the front-end's mainnet exposure
   #     (SEV-045): classifyEndpoint, resolveRpcAllowlist /
   #     isAllowlistedEndpoint, decideWalletAllowlist.
+  #   - Indexer structured-logger JSON shape (test:indexer-log) — 10
+  #     tests pinning the JSON shape services/indexer/src/log.ts emits
+  #     (observability/README.md #2 / Pass-14). Drift here silently
+  #     breaks alert grouping + log queries in Loki/Datadog.
   #   - App ↔ chain encoder structural parity (test:app-encoders) — 58
   #     tests covering discriminators, account counts, signer positions,
   #     PDA derivations on the 6 front-end IDL-free encoders (#283 + #291).
@@ -90,6 +94,14 @@ jobs:
         # network endpoint pinning), decideWalletAllowlist (wallet-by-
         # cluster gates). Sub-second; runs on every PR.
         run: pnpm test:frontend-allowlist
+
+      - name: Indexer structured-logger JSON shape (10 tests)
+        # observability/README.md #2 (Pass-14): pins the JSON shape
+        # emitted by services/indexer/src/log.ts. The PagerDuty runbook
+        # parses these lines assuming { ts, level, service, msg,
+        # event_type?, slot?, signature?, error? } — drift breaks alert
+        # grouping + Loki/Datadog log queries silently. Sub-second.
+        run: pnpm test:indexer-log
 
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
