@@ -63,11 +63,13 @@ Common root-cause categories (pick one as the primary classification):
 
 ## What worked (response)
 
-What part of the response went smoothly. Examples:
+What part of the response went smoothly. Examples (calibrate against the post-Squads time budgets in `emergency-response.md` §"Who can pause"):
 
-- `pause` instruction was reachable in < 30 seconds from incident-commander declaration
+- **Pre-Squads-rotation**: `pause` instruction was reachable in < 30 seconds from incident-commander declaration (single-keypair flow)
+- **Post-Squads-rotation**: 3-of-5 signer quorum reached + executed inside the 30-minute SEV-0 SLO (Squads UI propose-and-sign flow)
 - Solscan tx forensics let us reconstruct the affected accounts in 5 min
 - Reporter responded to triage emails within 1h
+- Pre-flight observability signals (Pass-14 structured logs / BackfillRun cron metrics / `mainnet_hardening_check` re-run) gave us a 10-minute head-start over the user-reporter path
 
 ## What didn't (response)
 

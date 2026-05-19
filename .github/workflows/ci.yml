@@ -33,6 +33,10 @@ jobs:
   #     pure-function defenses gating the front-end's mainnet exposure
   #     (SEV-045): classifyEndpoint, resolveRpcAllowlist /
   #     isAllowlistedEndpoint, decideWalletAllowlist.
+  #   - Indexer structured-logger JSON shape (test:indexer-log) — 10
+  #     tests pinning the JSON shape services/indexer/src/log.ts emits
+  #     (observability/README.md #2 / Pass-14). Drift here silently
+  #     breaks alert grouping + log queries in Loki/Datadog.
   #   - App ↔ chain encoder structural parity (test:app-encoders) — 58
   #     tests covering discriminators, account counts, signer positions,
   #     PDA derivations on the 6 front-end IDL-free encoders (#283 + #291).
@@ -91,6 +95,14 @@ jobs:
         # cluster gates). Sub-second; runs on every PR.
         run: pnpm test:frontend-allowlist
 
+      - name: Indexer structured-logger JSON shape (10 tests)
+        # observability/README.md #2 (Pass-14): pins the JSON shape
+        # emitted by services/indexer/src/log.ts. The PagerDuty runbook
+        # parses these lines assuming { ts, level, service, msg,
+        # event_type?, slot?, signature?, error? } — drift breaks alert
+        # grouping + Loki/Datadog log queries silently. Sub-second.
+        run: pnpm test:indexer-log
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
@@ -125,8 +137,12 @@ jobs:
   #
   # Known-transient advisories (from solana-program 1.x / mpl-core 0.8
   # deps) are explicitly listed under `--ignore` below. Each ignore is
-  # tied to a tracking link so we know when to drop it. When the Agave
-  # 2.x migration (#319) lands, the entire ignore block disappears.
+  # tied to a tracking link so we know when to drop it. The CI/CD CLI
+  # half of #230 is done (Agave 3.0.0 pinned everywhere); the SDK
+  # transitive half — `anchor-lang 0.30.1` → `solana-program 1.18.x` —
+  # is what these advisories track. Bump anchor (0.31+ pulls
+  # `solana-program 2.x`) or apply a workspace patch override and the
+  # ignore block can come off in lockstep.
   #
   # If a NEW advisory lands against a non-Solana dependency (serde,
   # tokio, axum, prisma, etc.), this gate will fire and surface the
@@ -171,11 +187,14 @@ jobs:
             --ignore RUSTSEC-2021-0145 \
             --ignore RUSTSEC-2023-0033 \
             --ignore RUSTSEC-2026-0097
-        # Each --ignore tied to a known-transient from the Solana 1.18 /
-        # mpl-core 0.8 dep tree, tracked for retirement under PR #319
-        # (Agave 2.x migration). When that PR lands the ignores get
-        # removed in lockstep — any NEW ID that appears here is a real
-        # signal that needs review.
+        # Each --ignore tied to a known-transient from the `solana-program
+        # 1.18.x` / `mpl-core 0.8` dep tree (anchor-lang 0.30.1 pulls
+        # 1.18.x transitively). Tracked under #230 (Solana SDK transitive
+        # bump). The Agave CLI/runtime half of #230 is already shipping
+        # (Agave 3.0.0 in CI + CD pipeline + 7 devnet rehearsals); these
+        # ignores stay until anchor bumps (0.31+ → solana-program 2.x) or
+        # an explicit workspace patch lands. Any NEW ID that appears here
+        # is a real signal that needs review.
         #
         # RUSTSEC-2024-0344 — curve25519-dalek timing variability
         #   (solana-zk-token-sdk 1.18 transitive). Fixed in 4.1.3.
