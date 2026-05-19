@@ -10,7 +10,7 @@
 
 | Field       | Value                                                                      |
 | ----------- | -------------------------------------------------------------------------- |
-| Tag         | `devnet-deploy-v20260518-rehearsal-1g`                                     |
+| Tag         | `devnet-deploy-v20260519-rehearsal-1g`                                     |
 | Run URL     | https://github.com/alrimarleskovar/RoundFinancial/actions/runs/26086314957 |
 | Workflow    | `.github/workflows/devnet-deploy.yml`                                      |
 | Cluster     | devnet                                                                     |
@@ -79,8 +79,12 @@ None. The workflow ran exactly as specified after PRs #389–#393 landed. Compar
 
 To satisfy the 3× stretch goal:
 
-1. **Rehearsal 2** — tag `devnet-deploy-v20260519-rehearsal-2`. Same operator, same secret, no code changes. Expectation: green, ~same SOL cost, different program IDs (fresh keypairs each `anchor build` cycle).
+1. **Rehearsal 2** — tag `devnet-deploy-v20260519-rehearsal-2`. Same operator, same secret, no code changes. Expectation: green, ~same SOL cost, different program IDs (fresh keypairs each `anchor build` cycle). **Status (2026-05-19): aborted pre-deploy** by the 20 SOL balance gate (deployer pubkey `5ZpFtJePb2hGKhG9RJ6Fdwmo5y8wuwKXZZcKttoN1Jgo` had 12.38030804 SOL post-1g — the rehearsal-1g `anchor deploy` consumed the ~12.5 SOL that PR #393's empirical breakdown predicted, leaving ~12.4 SOL which is correctly < the 20 SOL floor). **This is the feature working as designed** — the floor refuses to start the workflow when there isn't enough SOL to complete the deploy + safety margin. See [`2026-05-18-SEV-046-rehearsal-saga.md`](./2026-05-18-SEV-046-rehearsal-saga.md) continuation table row 2-aborted for the full evidence.
 2. **Rehearsal 3** — tag `devnet-deploy-v20260520-rehearsal-3` (or same-day with a `-b` suffix). Same expectation. If green, file a single combined log addendum and mark §3.3 fully closed.
+
+**Operator unblock path for rehearsals 2 + 3:** top up the deployer wallet to ≥20 SOL via faucet.solana.com (rate-limited 5 SOL / 8h per wallet) OR `solana airdrop` CLI (separate budget) OR alternative devnet faucets (Helius, Triton One). Two faucet hits ~8h apart + CLI airdrop should clear the floor for the next rehearsal.
+
+**§3.3 status note:** the strict "rehearsed at least once" criterion is satisfied by 1g; the 3× stretch goal is reproducibility-confidence-only and deferred pending operator SOL top-up. **NOT a mainnet blocker.**
 
 If either rehearsal fails with a new bug pattern, log it under `2026-05-NN-SEV-046-rehearsal-saga.md` continuation table and ship a fix PR before the next attempt — same single-file/single-concern discipline as PRs #389–#393.
 
