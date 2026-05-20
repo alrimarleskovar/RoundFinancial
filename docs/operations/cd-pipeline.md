@@ -150,6 +150,20 @@ The canary-plan §3.3 item is "**staging deploy rehearsed at least once**." Defi
 5. File a rehearsal-log entry under `docs/operations/rehearsal-logs/` with: tag name, run URL, program IDs, SOL spent, any deviations from this doc.
 6. Rinse and repeat — until the dry-run is fully reproducible against a clean runner three times in a row, mainnet is not yet rehearsed enough.
 
+**Status as of 2026-05-20: ✅ Step 6 satisfied — 3 / 3 consecutive clean rehearsals achieved.**
+
+| #  | Tag                                       | Date       | SOL consumed | Outcome                                                                              |
+| -- | ----------------------------------------- | ---------- | ------------ | ------------------------------------------------------------------------------------ |
+| 1g | `devnet-deploy-v20260519-rehearsal-1g`    | 2026-05-19 | ~12.5        | ✅ Green — first end-to-end success post 5-PR bug chain (#389 → #393)                |
+| 2b | `devnet-deploy-v20260519-rehearsal-2b`    | 2026-05-19 | 12.62        | ✅ Green — second consecutive, post-faucet-topup of 22.38 SOL                        |
+| 3  | `devnet-deploy-v20260520-rehearsal-3`     | 2026-05-20 | 12.62        | ✅ Green — third consecutive, identical SOL cost to 2b to 4 sig figs                 |
+
+See per-rehearsal logs at [`docs/operations/rehearsal-logs/`](./rehearsal-logs/) for tx signatures, full program-ID lists, run URLs, and the 1g-vs-2b-vs-3 three-way reproducibility comparison. The 5-PR bug chain documented at [`2026-05-18-SEV-046-rehearsal-saga.md`](./rehearsal-logs/2026-05-18-SEV-046-rehearsal-saga.md) is the lessons-learned counterpart to this section.
+
+**Closure semantics:** stretch goal closure means reproducibility is empirically demonstrated, not that mainnet is unblocked. Mainnet GA remains gated on `mainnet-canary-plan.md` §3.1 (audit + legal counsel + multi-sig + DPIA + bug bounty + ToS) and §3.2 (#230 SDK-transitive bump + Squads rotation + #233 Kamino part B). The CD pipeline itself is mainnet-grade by construction AND by demonstration.
+
+**Reset criteria:** if any change touches the CD workflow surface (`devnet-deploy.yml` / `mainnet-deploy.yml` / `deploy.ts` / `Anchor.toml` provider config / floor constants), the 3× count resets for the changed surface — a single confirmatory rehearsal is recommended post-change to verify no regression.
+
 ## Open follow-ups (not in this PR)
 
 - **OtterSec verify-build automation** — currently a manual post-deploy step. When the formal OtterSec engagement starts, add a `verify-build` job to `mainnet-deploy.yml` that calls their API/CLI and attaches the attestation to the run.
