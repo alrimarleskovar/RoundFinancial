@@ -1,9 +1,9 @@
-# Pre-Ceremony Beta — Proposta de Design (v0.5.1)
+# Pre-Ceremony Beta — Proposta de Design (v0.5.2)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.5.1 — fix de inconsistência em §5 + 3 tuning items
+**Versão:** 0.5.2 — 9 items operacionais adicionados a §10 + critical path
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.5:** ver §15
+**Mudanças vs. v0.5.1:** ver §15
 
 Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
@@ -336,13 +336,36 @@ Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar 
 
 ### Pré-Fase 0 (gates de engenharia)
 
+**Nomeações e ownership (P1):**
+
 - [ ] Confirmar capacidade ops do time, **2+ pessoas em on-call rotation** (§9.1) — bloqueador
+- [ ] **Lead eng nomeado** (pode ser mesma pessoa do fuzz owner) — bloqueador para §9.2 "decisão técnica do lead eng"
 - [ ] **Owner do fuzz atribuído** (nome) — bloqueador para §7
 - [ ] **Procedimento de aborto mid-flight pré-escrito** (§9.2) — bloqueador
+
+**Setup de tracking e ferramentas (P1+P2):**
+
 - [ ] **GitHub label `sev-low-deadline-canary` criada** no repo (referenciada pelo SEV gate §5) — 1 clique mas precisa existir antes
+- [ ] **Discord/Telegram channel criado + bot de auto-tracking de mensagens** — composite score de §10 D2 requer `discord_messages` logado desde dia 1; sem bot, a fórmula min-max vira teatro
+- [ ] **Push notification infra confirmada** (existe? envia? testers recebem?) — §2 lista push notifications como variável observada; sem infra, variável não é observável
+
+**Build de software (P1):**
+
 - [ ] Backend de referral off-chain implementado (DB + admin attest dashboard + `scripts/devnet/referral-cycle-attest.ts`)
+- [ ] **Termo de participação escrito** (template) — pré-req para recrutar testers; não pode esperar até Fase 0 começar
+- [ ] **Onboarding doc/script pra testers** — sem doc escrito, hand-holding manual = ops fatigue real (§9.1)
+
+**Infra devnet (P1):**
+
 - [ ] Redeploy devnet com `GRACE_PERIOD_SECS = 86_400` + pinning test gateado (§6.3)
+- [ ] **Cranker rodando + configurado para `cycle_duration = 172_800`** — sem cranker ativo, ciclo não avança = beta morre no dia 1
+- [ ] **Indexer apontado pros novos program IDs** do redeploy — IDs antigos = zero metrics
+- [ ] **Tester wallet provisioning resolvido** — devnet USDC via faucet (validar que funciona) ou team mint + distribute
+
+**Validação (P1+P2):**
+
 - [ ] **Fuzz fixture Canary nos 6 targets, 1M iterações cada — bloqueia start**
+- [ ] **Flow de "smoke test surfa SEV ≥ Medium" pré-escrito** — smoke existe pra achar problemas; se achar, re-spin Pré-Fase 0 inteiro ou só fix + re-smoke?
 - [ ] Smoke test em devnet local com 10 wallets simuladas, 1 ciclo completo
 
 ### Fase 0 — Genesis Canary (~20 dias wall-clock)
@@ -385,6 +408,54 @@ Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar 
 - [ ] **ADR de migração referral on-chain** (§11)
 - [ ] **ADR de grace per-pool on-chain** (§13) — pré-req do mainnet beta
 - [ ] Decisão sobre mainnet beta pós-audit
+
+### Critical path do Pré-Fase 0 (sequência recomendada)
+
+Critical path ordenado por dependências reais. Premissa: 1-2 devs dedicados.
+
+```
+Dia 1-2  │ Nomeações: lead eng + fuzz owner + 2 on-call
+         │ Confirmar ADR numbering (depende do merge da treasury branch)
+         │ Criar label sev-low-deadline-canary (1 clique)
+         │ Draft do procedimento de aborto (§9.2)
+         │ Draft do flow "SEV no smoke test" (§10)
+         │
+Dia 3-5  │ Redeploy devnet com GRACE_PERIOD_SECS = 86_400
+         │   ├── Pinning test gate (cfg feature)
+         │   └── Smoke devnet 1 ciclo completo (canário do canário)
+         │ Cranker apontado pra new generation + cycle 48h
+         │ Indexer apontado pros novos program IDs
+         │ Push notification infra validada
+         │
+Dia 5-8  │ ⚡ Bottleneck: Backend de referral
+         │              (DB + dashboard + referral-cycle-attest.ts)
+         │              ~3 dias eng sólidos
+         │
+Dia 8-11 │ ⚡ Bottleneck: Fuzz Canary fixture, 6 targets × 1M iter
+         │              ~24-48h compute + análise de findings
+         │
+Dia 11-13│ Termo + onboarding doc + selecionar 10 testers (círculo founders)
+         │ Tester wallet provisioning (USDC mint + distribute)
+         │ Discord channel + bot de auto-tracking ativos
+         │
+Dia 13-14│ Smoke "ensaio geral" com 10 wallets simuladas, 1 ciclo
+         │ — confirmar TODOS os items de §10 Pré-Fase 0 verdes
+         │
+Dia 15   │ START Canary
+```
+
+**Bottlenecks reais:**
+
+1. **Backend de referral (~3 dias eng)** — item de software de maior peso. Pode paralelizar com redeploy se for genérico (não codifica program IDs). Se hardcoda IDs, ordem fica: redeploy → backend.
+2. **Fuzz (~24-48h compute + análise)** — não é eng work, mas é wall-clock. Pode rodar em background enquanto backend é construído.
+3. **ADR numbering** — depende do merge da branch `claude/setup-copilot-api-config-PuGXP`. **Não bloqueia execução do beta**, só a redação dos ADRs pós-beta.
+
+**Sequência viável:**
+
+- 1 dev dedicado: ~3 semanas até start
+- 2 devs (paralelizando backend + infra devnet): ~2 semanas até start
+
+**Não recomendado:** sobrepor mais de 2 bottlenecks simultaneamente. Riscos de qualidade > ganho de wall-clock.
 
 ---
 
@@ -454,7 +525,19 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 ---
 
-## 15. O que mudou de v0.5 para v0.5.1
+## 15. O que mudou de v0.5.1 para v0.5.2
+
+| Ponto v0.5.1 → v0.5.2 |
+|---|
+| **§10 Pré-Fase 0 reestruturado em 5 grupos:** nomeações/ownership, setup de tracking, build de software, infra devnet, validação. 9 items operacionais adicionados que estavam implícitos em §2/§4 mas faltavam na checklist. |
+| **Novos itens P1 (bloqueadores):** lead eng nomeado (§9.2 cita mas não nomeava), cranker rodando + configurado pra 48h (sem ele, ciclo não avança), indexer apontado pros novos program IDs (redeploy quebra IDs antigos), termo de participação escrito (pré-req para recrutar), tester wallet provisioning (faucet ou team mint). |
+| **Novos itens P2 (não-blocker imediato, evita re-trabalho):** Discord bot de auto-tracking de mensagens (sem dados desde dia 1, fórmula min-max do §10 D2 vira teatro), push notification infra (§2 lista como variável observada), onboarding doc/script, flow de "SEV no smoke test" pré-escrito. |
+| **Nova subseção §10 — Critical path do Pré-Fase 0:** sequência ordenada por dependências (Dia 1-15), com bottlenecks explícitos (backend referral ~3 dias eng, fuzz ~24-48h compute, ADR numbering depende de merge externo). Sequência viável: 2-3 semanas até start. |
+| **Microcorreção de ordering:** backend de referral antes ou depois do redeploy depende de ser genérico vs. codificar program IDs. Critical path coloca redeploy primeiro por segurança; se backend for genérico, paraleliza. |
+
+**v0.5.1 está obsoleta. Substituída por esta v0.5.2.**
+
+## 16. O que mudou de v0.5 para v0.5.1
 
 | Ponto v0.5 → v0.5.1 |
 |---|
@@ -463,9 +546,7 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 | **§10 Pré-Fase 0 novo item:** criar GitHub label `sev-low-deadline-canary` que o SEV gate de §5 referencia. 1 clique, mas precisa existir antes do gate ser avaliável. |
 | **§10 Pré-Fase 1 spec de normalização:** `discord_messages_normalized` agora especificado como min-max em [0,1] sobre o universo do Canary. `on_time_rate` já está em [0,1]. Tie-breaker explícito (mais ciclos sem default → decisão do lead). |
 
-**v0.5 está obsoleta. Substituída por esta v0.5.1.**
-
-## 16. O que mudou de v0.4.2 para v0.5
+## 17. O que mudou de v0.4.2 para v0.5
 
 | Ponto v0.4.2 → v0.5 |
 |---|
@@ -481,14 +562,14 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 **v0.4.2 está obsoleta. Substituída por esta v0.5.**
 
-## 17. O que mudou de v0.4.1 para v0.4.2
+## 18. O que mudou de v0.4.1 para v0.4.2
 
 | Ponto v0.4.1 → v0.4.2 |
 |---|
 | §11 alinhado ao mesmo padrão flexível de §12 — número 0008 marcado como provisório com referência cruzada à nota de §12 |
 | §12 nota de ADR atualizada com a confirmação do reviewer: ADR 0008 `treasury-custody-squads-multisig` existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando mergear, esta proposta shifta para 0009 (referral) e 0010 (grace per-pool) |
 
-## 18. O que mudou de v0.4 para v0.4.1
+## 19. O que mudou de v0.4 para v0.4.1
 
 | Ponto v0.4 → v0.4.1 |
 |---|
@@ -502,6 +583,7 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 ## Histórico de versões
 
+- v0.5.2 (2026-05-21): 9 items operacionais adicionados em §10 (Pré-Fase 0 reestruturado em 5 grupos) + nova subseção "Critical path" com sequência ordenada por dependências e bottlenecks explícitos.
 - v0.5.1 (2026-05-21): fix de inconsistência da prosa §5 (Medium aparecia em dois lados) + on-time estrito definido + label criada na checklist + spec de normalização min-max.
 - v0.5 (2026-05-21): fecha 5 decisões da §13 (SEV gate, composição 3+7, comunicação híbrida, cap 3 ativos, manter pool unit) + 4 detalhes de execução + correção de 3 bugs preexistentes.
 - v0.4.2 (2026-05-21): consistência de ADR numbering entre §11 e §12.
