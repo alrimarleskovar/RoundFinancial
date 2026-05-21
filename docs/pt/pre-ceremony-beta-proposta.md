@@ -1,9 +1,9 @@
 # Pre-Ceremony Beta — Proposta de Design (v0.4)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.4 — grace per-pool reformulado após confirmação no código; tuning items absorvidos
+**Versão:** 0.4.1 — fixture honesty, caveat de Fase 1, gates promovidos a checklist
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.3:** ver §14
+**Mudanças vs. v0.4:** ver §14
 
 Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
@@ -107,6 +107,15 @@ Os primeiros 10 testers serão do círculo dos founders — alta engajamento, al
 
 Conclusão válida: ✅ "Power users mantêm pagamento semanal." Conclusão **inválida**: ❌ "Usuários em geral mantêm pagamento semanal." Esta segunda pergunta requer amostra externa, fora do escopo do beta atual.
 
+### 4.5 Grace 7d na Fase 1 infla artificialmente o on-time rate
+
+Na Fase 1, `cycle_duration = 7d` e `GRACE_PERIOD_SECS = 7d` significa que um membro pode pagar com até 7 dias de atraso e ainda contar como "em dia". Em mainnet, com grace per-pool apertado (provavelmente 24-48h), o mesmo comportamento marcaria default. Logo:
+
+- ❌ Conclusão **inválida**: "On-time rate da Fase 1 é diretamente comparável ao on-time rate esperado em mainnet."
+- ✅ Conclusão **válida**: "On-time rate da Fase 1 é **lower bound** do que ocorreria em mainnet — testers podem estar 'em dia' por terem 7d de cushion que não existirá em produção."
+
+O on-time rate real (apertado) só pode ser medido em fase posterior, com grace per-pool implementado (ver §12).
+
 ---
 
 ## 5. Escala
@@ -178,6 +187,8 @@ Apontar pool para `programs/roundfi-yield-mock` (drop-in com o adapter Kamino co
 
 `crates/math/fuzz/fuzz_targets/` tem 6 targets confirmados: `bps.rs`, `cascade.rs`, `dc_invariant.rs`, `escrow_vesting.rs`, `seed_draw.rs`, `waterfall.rs`. **Todos os 6 são gate**.
 
+**Nota de honestidade:** `grace_period` **não entra nos fixtures** porque o math crate não o consome — grace é exclusivamente um timing gate em `programs/roundfi-core/src/instructions/settle_default.rs:166-167`, não em `crates/math/`. Confirmado via `grep -rn "grace" crates/math/` (zero hits). Listar `grace_period` aqui seria prometer cobertura que o fuzz não exercita. Validação do timing grace × cycle_duration × clock fica para integration tests (bankrun), não para o math fuzz.
+
 ### 7.1 Antes da Fase 0 (Genesis Canary)
 
 ```
@@ -187,7 +198,6 @@ cycles_total = 10
 members_target = 10
 stake_bps = 5000
 yield_apy = 0
-grace_period = 86_400     (24h, ver §6.3)
 ```
 
 1M iterações por target. **Bloqueia start do Canary.**
@@ -201,7 +211,6 @@ cycles_total = 10
 members_target = 10
 stake_bps = 5000
 yield_apy = 0
-grace_period = 604_800    (7d default)
 ```
 
 Mesmos 6 targets, 1M iterações. **Bloqueia start da Fase 1.**
@@ -272,12 +281,27 @@ Com ciclos de 48h, vesting do convidador acelera: 100 XP em ~2,5 semanas (em vez
 
 **Validação obrigatória antes de start da Fase 0:**
 
-- [ ] Time tem 1+ pessoa dedicada a suporte/operação durante a janela do beta?
+- [ ] Time tem **2+ pessoas** cobrindo on-call rotation durante a janela do beta (3 meses + férias + doença + travel — 1 pessoa é SPOF garantido)
 - [ ] Testers serão self-serve via app ou exigem hand-holding manual?
 - [ ] Se hand-holding manual, capacidade ops do time limita N de testers — ajustar §5 critério de escala em consonância
 - [ ] Crank monitoring é automated (alertas) ou requer human-in-loop?
 
 Se respostas indicam capacidade < demanda, **reduzir escopo** (1 pool por fase, sem paralelismo) antes de start, não no meio.
+
+### 9.2 Procedimento de aborto mid-flight
+
+Cenário: SEV aparece no ciclo 4 do Canary (de 10). O que fazer?
+
+**Política:**
+
+- **Pausar o pool em curso** (não permitir novos `contribute`/`claim_payout` até decisão).
+- **Decisão técnica do lead eng**, não democrática. Opções:
+  - (a) Fix + redeploy + retomar pool do mesmo ponto (se fix preserva estado).
+  - (b) Abortar fase, refund devnet USDC (trivial, mintado), reiniciar fase pós-fix.
+- **Trigger automático de pausa:** qualquer SEV ≥ Medium descoberto durante a fase.
+- **Comunicação aos testers:** dentro de 24h, no canal dedicado, com plano de retomada ou aborto.
+
+Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar testers e re-onboard precisa estar pré-escrito antes do start.
 
 ---
 
@@ -285,7 +309,9 @@ Se respostas indicam capacidade < demanda, **reduzir escopo** (1 pool por fase, 
 
 ### Pré-Fase 0 (gates de engenharia)
 
-- [ ] Confirmar capacidade ops do time (§9.1) — bloqueador
+- [ ] Confirmar capacidade ops do time, **2+ pessoas em on-call rotation** (§9.1) — bloqueador
+- [ ] **Owner do fuzz atribuído** (nome) — bloqueador para §7
+- [ ] **Procedimento de aborto mid-flight pré-escrito** (§9.2) — bloqueador
 - [ ] Backend de referral off-chain implementado (DB + admin attest dashboard + `scripts/devnet/referral-cycle-attest.ts`)
 - [ ] Redeploy devnet com `GRACE_PERIOD_SECS = 86_400` + pinning test gateado (§6.3)
 - [ ] **Fuzz fixture Canary nos 6 targets, 1M iterações cada — bloqueia start**
@@ -335,12 +361,14 @@ Inalterado. Após beta:
 
 A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala para mainnet**. Para mainnet beta, grace per-pool tem que ser on-chain real.
 
-- Novo ADR em `docs/adr/0009-grace-period-per-pool.md` (a criar)
+- Novo ADR a criar (número depende da última ADR mergeada em main no momento da criação — ver nota abaixo)
 - Mudanças: campo `grace_period: i64` em `Pool`, leitura em `settle_default`, arg em `create_pool`, preservar SEV-002 floor (`grace_period >= 86_400`), atualizar pinning test
 - Tratado como SEV-equivalent: account migration ou versionamento de Pool, FREEZE exception, re-escopo de audit surface
 - Custo estimado: 3-5 dias engenharia + ciclo de review
 
 **Não é escopo do beta atual** — registrado aqui para que o mainnet beta não seja surpreendido.
+
+**Nota sobre numeração de ADR (§11 e §12):** confirmado via `git ls-tree -r origin/main -- docs/adr/` em 2026-05-21 — última ADR em main é `0007-bankrun-compat-shim.md`. Os números 0008 (referral migration) e 0009 (grace per-pool) estão **provisoriamente reservados** nesta proposta, mas reviewer indicou que ADR 0008 (`treasury-custody-squads-multisig`) pode estar em PR aberto não-mergeado. **Antes de criar os ADRs, confirmar PRs abertos em `docs/adr/` e shiftar números conforme necessário.**
 
 ---
 
@@ -349,24 +377,31 @@ A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala 
 1. **§5 — Threshold de "zero SEVs do Canary":** literal zero, ou exclui Low/Info? Recomendo literal zero pré-mainnet.
 2. **§10 — Composição dos 10 testers da Fase 1:** mesmos 10 do Canary, rotação parcial, ou totalmente novos? Trade-off: continuidade vs. sinal de "primeira experiência".
 3. **Comunicação externa:** público (anúncio comunidade) ou privado (founders + indicados)?
-4. **Owner do fuzz:** quem na equipe roda as fixtures? (Owner do `crates/math`?)
-5. **§8 — XP cap por convidador:** 3 ativos ou 3 totais lifetime?
-6. **§9.1 — Critério de redução de escopo:** se ops capacity é limitada, reduzir N de testers ou reduzir N de pools?
+4. **§8 — XP cap por convidador:** 3 ativos ou 3 totais lifetime?
+5. **§9.1 — Critério de redução de escopo:** se ops capacity é limitada, reduzir N de testers ou reduzir N de pools?
+
+**Notas:** Q4 ("Owner do fuzz") da v0.4 foi promovida a item de checklist em §10 (bloqueador, não open question).
 
 ---
 
-## 14. O que mudou de v0.3 para v0.4
+## 14. O que mudou de v0.4 para v0.4.1
 
-| Ponto v0.3 → v0.4 |
+| Ponto v0.4 → v0.4.1 |
 |---|
-| §6.3 reescrita após confirmação no código — `GRACE_PERIOD_SECS` é global, não SDK-only. Adotada Opção B (redeploy devnet entre fases) com ajuste do pinning test em `constants.rs:282-291` |
-| §7 atualizado com 6 fuzz targets (não 4) — confirmado em `crates/math/fuzz/fuzz_targets/`; adicionados `escrow_vesting.rs` e `bps.rs` |
-| §5 reescrita: critérios primários são técnicos (zero SEVs, zero crank failures, indexer lag); on-time rate vira secundário — consistência com §4.2 |
-| §8.4 nova: build cost do `scripts/devnet/referral-cycle-attest.ts` + dashboard de attests + ~330 admin txs por fase |
-| §9.1 nova: team operational fatigue como validação bloqueadora pré-Fase 0 |
-| §10 Pré-Fase 1: "zero SEVs abertos do Canary" virou gate técnico, não decisão de produto |
-| §4.4 nova: caveat de selection bias (founders' círculo enviesa Fase 1) |
-| §12 nova: dependência forward — grace per-pool on-chain como pré-req do mainnet beta (ADR 0009 a criar) |
-| Todas as referências `arquivo:linha` confirmadas via grep antes da escrita |
+| §4.5 nova: caveat de que on-time rate da Fase 1 é lower bound, não diretamente comparável a mainnet (grace 7d = ciclo inteiro de cushion) |
+| §7 honesty fix: removido `grace_period` dos fixtures porque math crate não consome (confirmado via `grep -rn "grace" crates/math/` = zero hits). Validação de timing fica para integration tests, não para math fuzz |
+| §9.1 endurecido: "2+ pessoas em on-call rotation" em vez de "1+ pessoa dedicada" — 3 meses + férias/doença/travel = 1 pessoa é SPOF |
+| §9.2 nova: procedimento de aborto mid-flight pré-escrito (pausa automática em SEV ≥ Medium, decisão técnica do lead eng, comunicação aos testers em ≤24h) |
+| §10 Pré-Fase 0: "Owner do fuzz atribuído" e "Procedimento de aborto pré-escrito" promovidos a checklist bloqueador (eram open questions / não existiam) |
+| §13 Q4 ("Owner do fuzz") removido — virou checklist |
+| §12 nota sobre ADR numbering: 0008/0009 estão **provisoriamente reservados**. Antes de criar, confirmar PRs abertos em `docs/adr/` — reviewer indicou possível ADR 0008 em PR não-mergeado (não encontrado em `origin/main` via `git ls-tree` em 2026-05-21) |
 
-**v0.3 está obsoleta. Substituída por esta v0.4.**
+**v0.4 está obsoleta. Substituída por esta v0.4.1.**
+
+## Histórico de versões
+
+- v0.4.1 (2026-05-21): honesty fix no fuzz, §4.5 lower bound, §9.2 aborto mid-flight, gates promovidos.
+- v0.4: grace per-pool reformulado (Opção B), 6 fuzz targets, team fatigue, selection bias.
+- v0.3: Genesis Canary como fase 0, caveats de devnet.
+- v0.2: USDC, yield-mock, referral off-chain, fuzz fixture obrigatória.
+- v0.1: rascunho inicial (obsoleto — assumiu pool params hardcoded incorretamente).
