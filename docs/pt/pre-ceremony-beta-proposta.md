@@ -1,9 +1,9 @@
 # Pre-Ceremony Beta — Proposta de Design (v0.4)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.4.1 — fixture honesty, caveat de Fase 1, gates promovidos a checklist
+**Versão:** 0.4.2 — consistência de ADR numbering entre §11 e §12
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.4:** ver §14
+**Mudanças vs. v0.4.1:** ver §14
 
 Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
@@ -351,7 +351,7 @@ Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar 
 
 Inalterado. Após beta:
 
-- Novo ADR em `docs/adr/0008-referral-on-chain-migration.md`
+- Novo ADR a criar (número provisório 0008 — confirmar contra PRs abertos em `docs/adr/` antes de criar; ver nota em §12)
 - Schema final de `Member.inviter` + counters
 - Path de migração: instrução administrativa "bootstrap reputation" com snapshot off-chain → freeze → emissão on-chain → unfreeze
 
@@ -368,7 +368,7 @@ A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala 
 
 **Não é escopo do beta atual** — registrado aqui para que o mainnet beta não seja surpreendido.
 
-**Nota sobre numeração de ADR (§11 e §12):** confirmado via `git ls-tree -r origin/main -- docs/adr/` em 2026-05-21 — última ADR em main é `0007-bankrun-compat-shim.md`. Os números 0008 (referral migration) e 0009 (grace per-pool) estão **provisoriamente reservados** nesta proposta, mas reviewer indicou que ADR 0008 (`treasury-custody-squads-multisig`) pode estar em PR aberto não-mergeado. **Antes de criar os ADRs, confirmar PRs abertos em `docs/adr/` e shiftar números conforme necessário.**
+**Nota sobre numeração de ADR (§11 e §12):** confirmado via `git ls-tree -r origin/main -- docs/adr/` em 2026-05-21 — última ADR em main é `0007-bankrun-compat-shim.md`. Os números 0008 (referral migration) e 0009 (grace per-pool) estão **provisoriamente reservados** nesta proposta. Reviewer confirmou que ADR 0008 (`treasury-custody-squads-multisig`) existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando essa branch mergear em main, esta proposta precisará shiftar para 0009 (referral) e 0010 (grace per-pool). **Antes de criar os ADRs, confirmar estado dos PRs abertos em `docs/adr/`.**
 
 ---
 
@@ -383,6 +383,15 @@ A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala 
 **Notas:** Q4 ("Owner do fuzz") da v0.4 foi promovida a item de checklist em §10 (bloqueador, não open question).
 
 ---
+
+## 14. O que mudou de v0.4.1 para v0.4.2
+
+| Ponto v0.4.1 → v0.4.2 |
+|---|
+| §11 alinhado ao mesmo padrão flexível de §12 — número 0008 marcado como provisório com referência cruzada à nota de §12 |
+| §12 nota de ADR atualizada com a confirmação do reviewer: ADR 0008 `treasury-custody-squads-multisig` existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando mergear, esta proposta shifta para 0009 (referral) e 0010 (grace per-pool) |
+
+**v0.4.1 está obsoleta. Substituída por esta v0.4.2.**
 
 ## 14. O que mudou de v0.4 para v0.4.1
 
@@ -400,6 +409,7 @@ A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala 
 
 ## Histórico de versões
 
+- v0.4.2 (2026-05-21): consistência de ADR numbering entre §11 e §12 após confirmação do reviewer sobre PR aberto.
 - v0.4.1 (2026-05-21): honesty fix no fuzz, §4.5 lower bound, §9.2 aborto mid-flight, gates promovidos.
 - v0.4: grace per-pool reformulado (Opção B), 6 fuzz targets, team fatigue, selection bias.
 - v0.3: Genesis Canary como fase 0, caveats de devnet.
