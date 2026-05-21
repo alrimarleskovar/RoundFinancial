@@ -1,24 +1,24 @@
-# Pre-Ceremony Beta — Proposta de Design (v0.3)
+# Pre-Ceremony Beta — Proposta de Design (v0.4)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.3 — Genesis Canary adicionado como fase 0; objetivos reframados por fase
+**Versão:** 0.4 — grace per-pool reformulado após confirmação no código; tuning items absorvidos
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.2:** ver §12
+**Mudanças vs. v0.3:** ver §14
+
+Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
 ---
 
 ## 1. Decisão de produto
 
-**Beta em devnet primeiro, dividido em duas fases sequenciais:**
+Beta em devnet primeiro, dividido em duas fases sequenciais com **dois devnet generations distintos** (ver §6.3):
 
-| Fase | Nome | Cadência | Aporte | O que testa |
+| Fase | Nome | Cadência | Aporte | Foco |
 |---|---|---|---|---|
 | **0** | Genesis Canary | 48h por ciclo | 10 USDC | Operação, UX, dinâmica social, indexer, crank — **não testa hábito** |
 | **1** | Pre-Ceremony Semanal | 7 dias por ciclo | 50 USDC | Hábito de pagamento recorrente, retenção, defaults em cadência realista |
 
-Mainnet beta é fase 2, fora do escopo deste doc — depende dos dados das fases 0 e 1 + smoke + Squads + audit.
-
-**Por que duas fases:** ciclos curtos comprimem o ciclo de observação operacional (defaults aparecem em dias, bugs de crank em horas) mas **não testam hábito**. Hábito só é testável com cadência que cabe na vida do usuário. Separar permite que cada fase responda a perguntas claras, sem misturar artefatos do setup com sinal real.
+Mainnet beta é fase 2, fora do escopo deste doc — depende dos dados das fases 0 e 1 + smoke + Squads + audit + **grace per-pool on-chain (ver §13).**
 
 ---
 
@@ -28,29 +28,19 @@ Mainnet beta é fase 2, fora do escopo deste doc — depende dos dados das fases
 
 **Pergunta central:** O produto funciona operacionalmente e a dinâmica social é coerente?
 
-Variáveis sob observação:
-
-1. **UX:** onboarding flow, clareza dos eventos de ciclo, fluxo de pagamento, percepção de progresso.
-2. **Operação:** crank reliability sob cadência alta, indexer latência, push notifications acertadas vs. ruído.
-3. **Dinâmica social:** como o grupo reage quando alguém atrasa? Pressão de pares emerge naturalmente? Discord/Telegram funcionam como canal de coordenação?
-4. **Confiança:** testers entendem o que está acontecendo a cada ciclo? Transparência dos eventos on-chain é suficiente ou precisa de abstração na UI?
-5. **Mecânica de default:** o flow de default é compreendido? Stake recovery comunica corretamente?
+Variáveis sob observação: UX (onboarding, clareza de eventos, percepção de progresso), operação (crank reliability em cadência alta, indexer latência, push notifications úteis vs. ruído), dinâmica social (reação do grupo a atrasos, pressão de pares, eficácia do canal de coordenação), confiança (testers entendem o que está acontecendo ciclo a ciclo), mecânica de default (flow compreendido, stake recovery comunicado).
 
 **O que Fase 0 NÃO valida:**
 
 - Taxa de default real (em devnet com USDC mintado, default não dói — números serão artificialmente altos).
-- Adesão de longo prazo (20 dias não testa hábito).
+- Adesão de longo prazo (20 dias wall-clock não testa hábito).
 - Viabilidade econômica do pool (capital simbólico).
 
 ### Fase 1 — Pre-Ceremony Semanal
 
 **Pergunta central:** Usuários mantêm pagamento recorrente em cadência realista?
 
-Variáveis sob observação (adicionalmente às de Fase 0):
-
-1. **Retenção semanal:** on-time payment rate ciclo a ciclo, decay ao longo das 10 semanas.
-2. **Defaults reais:** posição no slot vs. probabilidade de default; correlação com engajamento social.
-3. **Comportamento de referral:** convidados pagam tão consistentemente quanto convidadores?
+Adicionalmente às variáveis da Fase 0: retenção semanal (on-time payment rate ciclo a ciclo, decay nas 10 semanas), defaults reais (posição no slot vs. probabilidade de default; correlação com engajamento social), comportamento de referral (convidados pagam tão consistentemente quanto convidadores).
 
 ---
 
@@ -58,73 +48,96 @@ Variáveis sob observação (adicionalmente às de Fase 0):
 
 ### Fase 0 — Genesis Canary
 
-| Parâmetro | Valor | Comentário |
+| Parâmetro | Valor | Fonte / nota |
 |---|---|---|
-| Denominação | USDC (devnet, mintado) | Valor é simbólico — ver §4 |
-| Aporte por ciclo | **10 USDC** | Faixa 5-15 USDC; valor é cosmético, não econômico |
-| `cycle_duration` | **172 800s (48h)** | 2× o piso `MIN_CYCLE_DURATION` |
+| Denominação | USDC (devnet, mintado) | Valor simbólico — ver §4 |
+| Aporte por ciclo | 10 USDC (`10_000_000`) | Faixa 5-15 USDC; valor cosmético |
+| `cycle_duration` | 172 800s (48h) | 2× `MIN_CYCLE_DURATION` (`programs/roundfi-core/src/constants.rs:135` = 86 400) |
 | Membros por pool | 10 | |
 | `cycles_total` | 10 | Pool inteiro em ~20 dias |
 | Payout por slot | 100 USDC | |
-| Yield strategy | `roundfi-yield-mock` | yield = 0, fluxo CPI preservado |
-| Grace period | **24 horas** | Metade do ciclo |
+| Yield strategy | `programs/roundfi-yield-mock` | yield = 0, fluxo CPI preservado |
+| Grace period | **24h (= 86 400s)** | **No floor SEV-002 exato** — ver §6.3 |
 | Stake (nível 1) | 50% (default) | |
 
 ### Fase 1 — Pre-Ceremony Semanal
 
-| Parâmetro | Valor | Comentário |
+| Parâmetro | Valor | Fonte / nota |
 |---|---|---|
 | Denominação | USDC (devnet, mintado) | |
-| Aporte por ciclo | **50 USDC** | Mesmo número da v0.2 |
-| `cycle_duration` | **604 800s (7d)** | |
+| Aporte por ciclo | 50 USDC (`50_000_000`) | |
+| `cycle_duration` | 604 800s (7d) | |
 | Membros por pool | 10 | |
 | `cycles_total` | 10 | Pool inteiro em ~70 dias |
 | Payout por slot | 500 USDC | |
-| Yield strategy | `roundfi-yield-mock` | |
-| Grace period | **48 horas** | |
+| Yield strategy | `programs/roundfi-yield-mock` | |
+| Grace period | **7d (= 604 800s, default)** | Default global on-chain — ver §6.3 |
 | Stake (nível 1) | 50% (default) | |
 
-**Wall-clock total até completar Fase 1:** ~20 dias (Canary) + ~7 dias análise + ~70 dias (semanal) ≈ **3 meses** do start do Canary até dados completos da Fase 1.
+**Nota sobre grace na Fase 1:** com `cycle_duration = 7d` e `GRACE_PERIOD_SECS = 7d`, membro tem um ciclo inteiro de tolerância antes do default cravar. **UX não-ótima.** Aceito como custo da Opção B (§6.3) — solução real (grace per-pool) é pré-req do mainnet beta, não do beta atual.
+
+**Wall-clock total:** ~20 dias (Canary) + ~7 dias análise + ~70 dias (Semanal) ≈ **3 meses**.
 
 ---
 
 ## 4. Caveats sobre interpretação de dados (devnet)
 
-**Importante para qualquer leitura dos dados pós-beta:**
+Esses caveats devem estar visíveis em qualquer apresentação dos dados pro time ou stakeholders externos.
 
 ### 4.1 Valor é cosmético em devnet
 
-Tester com 10 USDC mintado se comporta **idêntico** a tester com 500 USDC mintado em devnet — é dinheiro de Monopoly. Aporte baixo (5-15 USDC) é escolhido por:
-
-- UI mostra números realistas em vez de absurdos durante demo.
-- Reduz "ansiedade visual" do tester.
-- **Não reduz fricção financeira real** porque não há fricção financeira em devnet.
+Tester com 10 USDC mintado se comporta idêntico a tester com 500 USDC mintado em devnet — dinheiro de Monopoly. Aporte baixo é escolhido por: UI realista durante demo, reduz ansiedade visual. **Não reduz fricção financeira real** porque não há fricção financeira em devnet.
 
 ### 4.2 Taxa de default do Canary não é preditiva
 
-Em devnet com aporte simbólico, dar calote não dói. Defaults serão **artificialmente altos** comparados ao que ocorreria em mainnet. Conclusões válidas:
+Em devnet com aporte simbólico, dar calote não dói. Defaults serão artificialmente altos comparados a mainnet. Conclusões válidas:
 
-- ✅ "O mecanismo de detecção de default funciona em X horas após miss" — válido.
-- ✅ "Stake recovery executa corretamente" — válido.
-- ✅ "Reação social ao default no Discord segue padrão Y" — válido.
-- ❌ "Taxa de default esperada em produção é X%" — inválido. Devnet ≠ mainnet.
+- ✅ "O mecanismo de detecção de default funciona em X horas após miss"
+- ✅ "Stake recovery executa corretamente"
+- ✅ "Reação social ao default no Discord segue padrão Y"
+- ❌ "Taxa de default esperada em produção é X%"
 
 ### 4.3 Hábito só é testado na Fase 1
 
-Ciclo de 48h é **stress test operacional**, não hábito. Apenas a Fase 1 (7 dias) gera dados sobre aderência recorrente humana.
+Ciclo de 48h é stress test operacional, não hábito. Apenas a Fase 1 (7 dias) gera dados sobre aderência recorrente humana.
 
-**Esses caveats devem estar visíveis em qualquer apresentação dos dados pro time ou stakeholders externos.**
+### 4.4 Seleção dos testers enviesa Fase 1
+
+Os primeiros 10 testers serão do círculo dos founders — alta engajamento, alta tolerância a fricção, viés "early adopter". Se a Fase 1 reusa parte desses testers (provável), o on-time rate da Fase 1 está enviesado pra cima.
+
+Conclusão válida: ✅ "Power users mantêm pagamento semanal." Conclusão **inválida**: ❌ "Usuários em geral mantêm pagamento semanal." Esta segunda pergunta requer amostra externa, fora do escopo do beta atual.
 
 ---
 
 ## 5. Escala
 
-**Cada fase começa com 1 pool de 10.** Critérios de escalar para pools paralelos:
+Cada fase começa com 1 pool de 10. Critérios para escalar a pools paralelos:
 
-- Fase 0 → +2 pools paralelos na semana 2 (do Canary) se: zero falhas de crank, indexer lag < 30s, on-time rate > 70% (threshold baixo dado que default não dói).
-- Fase 1 → +2 pools paralelos na semana 4 (da Semanal) se: on-time rate > 90% nos ciclos 1-3, zero defaults.
+### Fase 0 → +2 pools paralelos na semana 2
 
-Sem critério atendido = manter 1 pool, investigar, ajustar.
+**Critérios primários (técnicos, todos obrigatórios):**
+
+- Zero falhas de crank durante 2 semanas
+- Indexer lag < 30s no p95
+- Zero SEVs abertos (qualquer severity)
+- Zero relatos de UX confusion não-resolvidos
+
+**Critérios secundários (sinal, não bloqueador):**
+
+- On-time rate > 70% — usado como contexto, não como gate. Conforme §4.2, esse número é artefato do setup.
+
+### Fase 1 → +2 pools paralelos na semana 4
+
+**Critérios primários:**
+
+- Zero SEVs abertos do Canary (§10 gate)
+- Zero falhas de crank na Fase 1 até semana 4
+- Indexer lag < 30s p95
+
+**Critérios secundários:**
+
+- On-time rate > 90% nos ciclos 1-3 (aqui sim é sinal útil, porque cadência realista)
+- Zero defaults nos 3 primeiros ciclos
 
 ---
 
@@ -136,21 +149,36 @@ Confirmado em `programs/roundfi-core/src/state/pool.rs:16-20`: `members_target`,
 
 ### 6.2 Yield strategy
 
-Apontar pool para `programs/roundfi-yield-mock` (já existe, drop-in com o adapter Kamino conforme header do crate). Pré-fundar `yield_vault` com zero surplus. Resultado: yield = 0, fluxo CPI preservado, Seed Draw exercitado sem drift econômico.
+Apontar pool para `programs/roundfi-yield-mock` (drop-in com o adapter Kamino conforme header do crate). Pré-fundar `yield_vault` com zero surplus. Resultado: yield = 0, fluxo CPI preservado, Seed Draw exercitado sem drift econômico.
 
-### 6.3 Grace period override
+### 6.3 Grace period — Opção B (redeploy devnet entre fases)
 
-**Action item bloqueador:** confirmar com SDK owner se `CRANK_DEFAULTS.defaultGraceSec` em `sdk/src/constants.ts` é overrideable per-pool ou global. Precisa de override per-pool para suportar grace de 24h (Canary) e 48h (Fase 1) em pools distintos.
+**Achado:** `GRACE_PERIOD_SECS = 604_800` em `programs/roundfi-core/src/constants.rs:49` é **constante global on-chain**, consumida em `programs/roundfi-core/src/instructions/settle_default.rs:166-167`. Pool state **não tem** campo `grace_period`. SDK `defaultGraceSec` em `sdk/src/constants.ts:103` é apenas scheduling do cranker, **independente** do que governa default on-chain.
 
-Se não é overrideable, **essa é a única mudança real de código** — adicionar parametrização per-pool.
+**Implicação:** grace per-pool exige PR sério (account migration, settle_default update, create_pool arg, preserve SEV-002 floor, mexer pinning test). 3-5 dias + FREEZE exception. Fora do escopo do beta atual.
+
+**Solução para o beta — Opção B:**
+
+1. **Fase 0 (Canary):** redeploy devnet com `GRACE_PERIOD_SECS = 86_400` (24h, no floor SEV-002 exato).
+2. **Pré-Fase 1:** redeploy devnet com `GRACE_PERIOD_SECS = 604_800` (volta ao default 7d).
+
+**Ajustes obrigatórios para o redeploy do Canary:**
+
+- Ajustar pinning test em `programs/roundfi-core/src/constants.rs:282-291` (`assert_eq!(GRACE_PERIOD_SECS, 604_800)` quebra). Opções: (a) gate com `#[cfg(feature = "devnet-canary")]` ou (b) feature-flag a const inteira.
+- Preservar SEV-002 floor check em `constants.rs:364-369` — 86 400 ≥ 86 400 passa (no exato limite, sem margem).
+- Custo total: ~0.5 dia engenharia + smoke devnet.
+
+**Honestidade operacional:** cada fase é um devnet generation distinto. Testers da Fase 1 não interagem com pools da Fase 0. Esperado, dado phase gate explícito.
+
+**Margem zero no floor:** se algum momento alguém propor grace < 24h no Canary, **não é viável** sem mexer também em `FLOOR_SECS`. Não fazer isso. SEV-002 existe por razão.
 
 ---
 
-## 7. Validação obrigatória antes de cada fase
+## 7. Validação obrigatória antes de cada fase — fuzz fixtures
+
+`crates/math/fuzz/fuzz_targets/` tem 6 targets confirmados: `bps.rs`, `cascade.rs`, `dc_invariant.rs`, `escrow_vesting.rs`, `seed_draw.rs`, `waterfall.rs`. **Todos os 6 são gate**.
 
 ### 7.1 Antes da Fase 0 (Genesis Canary)
-
-Fuzz com **fixture do Canary** nos targets de `crates/math/fuzz/fuzz_targets/`:
 
 ```
 installment = 10_000_000  (10 USDC)
@@ -159,13 +187,12 @@ cycles_total = 10
 members_target = 10
 stake_bps = 5000
 yield_apy = 0
+grace_period = 86_400     (24h, ver §6.3)
 ```
 
-Targets obrigatórios: `seed_draw.rs`, `cascade.rs`, `dc_invariant.rs`, `waterfall.rs`. **1M iterações cada.** Bloqueia start do Canary.
+1M iterações por target. **Bloqueia start do Canary.**
 
 ### 7.2 Antes da Fase 1 (Pre-Ceremony Semanal)
-
-Fuzz com **fixture da Semanal**:
 
 ```
 installment = 50_000_000  (50 USDC)
@@ -174,27 +201,56 @@ cycles_total = 10
 members_target = 10
 stake_bps = 5000
 yield_apy = 0
+grace_period = 604_800    (7d default)
 ```
 
-Mesmos targets. Bloqueia start da Fase 1.
-
-**Sem esses passos, qualquer afirmação sobre cobertura de default em cada fase é especulação.**
+Mesmos 6 targets, 1M iterações. **Bloqueia start da Fase 1.**
 
 ---
 
-## 8. Sistema de referral — off-chain (inalterado da v0.2)
+## 8. Sistema de referral — off-chain
 
-Aplicação consistente em ambas as fases:
+### 8.1 Decisão arquitetural
 
-- DB do indexer com tabela `referrals` (schema na v0.2 §6.2).
-- Admin attest manual para os primeiros 10 testers de cada fase.
-- Cap de 3 convidados ativos por wallet.
-- XP do convidado: +50 no join. XP do convidador: +20 por ciclo completo do convidado (vesting natural).
-- Default do convidado: -500 (existente on-chain) + -100 no convidador (off-chain ledger).
-- Auto-referral bloqueado.
-- ADR de migração on-chain pós-audit pendente (ver §11).
+Pre-audit: referral em DB do indexer/backend, com admin attestation. Pós-audit: migração para on-chain via ADR separado (§11).
 
-**Observação para Canary:** com ciclos de 48h, o vesting do convidador acelera para 10 dias completos = 100 XP vestados em ~2,5 semanas. Não muda nada na lógica — só nota mental de que numbers crescem mais rápido em cadência alta.
+### 8.2 Schema
+
+```
+referrals (
+  invitee_pubkey       PUBKEY PRIMARY KEY,
+  inviter_pubkey       PUBKEY NOT NULL,
+  pool_address         PUBKEY NOT NULL,
+  joined_at            TIMESTAMP NOT NULL,
+  cycles_paid          INT DEFAULT 0,
+  defaulted            BOOLEAN DEFAULT FALSE,
+  admin_attested_by    PUBKEY NOT NULL,
+  attested_at          TIMESTAMP NOT NULL
+);
+```
+
+### 8.3 Regras de XP
+
+| Evento | XP convidado | XP convidador |
+|---|---|---|
+| Convidado joina o pool | +50 | 0 (vesting) |
+| Convidado completa 1 ciclo | 0 | +20 |
+| Convidado dá default | -500 (existente on-chain — `programs/roundfi-reputation/src/constants.rs:55`) | -100 (off-chain) |
+| Cap convidados ativos por wallet | n/a | 3 |
+
+### 8.4 Custo operacional — build cost listado
+
+30 testers × Fase 0 (10 ciclos) = 30 join attests + ~300 cycle attests = **~330 admin txs por fase**. Devnet SOL = ~0.1 SOL (trivial), mas exige automação:
+
+- **Build obrigatório:** `scripts/devnet/referral-cycle-attest.ts` — batch attest pós-fechamento de cada ciclo.
+- **Dashboard interno:** founders aprovam join attests manualmente nos primeiros 10 testers.
+- **Idempotência:** script tem que ser safe-to-rerun (chave única `(invitee, pool, cycle)`).
+
+Sem o script, founders fazem 330 cliques por fase = não rola.
+
+### 8.5 Nota para o Canary
+
+Com ciclos de 48h, vesting do convidador acelera: 100 XP em ~2,5 semanas (em vez de ~10 semanas na Semanal). Não muda lógica, mas é dado relevante para análise.
 
 ---
 
@@ -202,54 +258,72 @@ Aplicação consistente em ambas as fases:
 
 | Risco | Severidade | Mitigação |
 |---|---|---|
-| Conclusões erradas sobre default rate em produção | **Alta** | §4 explícito em todas as apresentações dos dados |
+| Conclusões erradas sobre default rate em produção | Alta | §4 explícito em todas as apresentações |
 | Crank/indexer não aguenta cadência 48h | Alta | Fuzz §7.1 + smoke test antes do Canary |
-| Default em slot inicial inviabiliza pool | Média (validar via fuzz) | Bloqueado por §7 fuzz fixture de cada fase |
-| Centralização off-chain do referral contradiz narrativa | Média | Comunicação explícita + ADR de migração on-chain |
-| Tester abandona após 2-3 ciclos do Canary (fadiga) | Média | Sinal válido — mostra que cadência alta tem custo. Documentar como aprendizado. |
-| Grace 24h é agressivo demais no Canary | Baixa | Reverter para 48h se on-time rate < 60% no ciclo 1 |
+| Default em slot inicial inviabiliza pool | Média (validar via fuzz) | Bloqueado por §7 fuzz fixture |
+| Centralização off-chain do referral contradiz narrativa | Média | Comunicação explícita + ADR de migração |
+| **Team operational fatigue** | **Média** | Ver §9.1 — validar capacidade ops antes de start |
+| Grace 24h no floor SEV-002 dá margem zero | Média | Aceito; documentar. Não baixar abaixo de 24h. |
+| Tester abandona após 2-3 ciclos do Canary (fadiga) | Baixa | Sinal válido — fadiga em cadência alta é dado. Documentar como aprendizado, não como problema. |
+
+### 9.1 Team operational fatigue
+
+3 meses de Canary + Semanal sobrepostos, com escala potencial para até 3 pools paralelos = até **90 pessoas em onboarding/support sobrepostos**. A proposta v0.3 tratava como "1 team rodando 1 thing" — falha de planejamento.
+
+**Validação obrigatória antes de start da Fase 0:**
+
+- [ ] Time tem 1+ pessoa dedicada a suporte/operação durante a janela do beta?
+- [ ] Testers serão self-serve via app ou exigem hand-holding manual?
+- [ ] Se hand-holding manual, capacidade ops do time limita N de testers — ajustar §5 critério de escala em consonância
+- [ ] Crank monitoring é automated (alertas) ou requer human-in-loop?
+
+Se respostas indicam capacidade < demanda, **reduzir escopo** (1 pool por fase, sem paralelismo) antes de start, não no meio.
 
 ---
 
 ## 10. Checklist de implementação
 
-### Pré-Fase 0
+### Pré-Fase 0 (gates de engenharia)
 
-- [ ] Confirmar grace period overrideable per-pool no SDK
-- [ ] Backend de referral off-chain implementado (DB + admin attest dashboard)
-- [ ] **Fuzz fixture Canary nos 4 targets, 1M iterações cada — bloqueia start**
-- [ ] Smoke test em devnet local com 10 wallets simuladas
+- [ ] Confirmar capacidade ops do time (§9.1) — bloqueador
+- [ ] Backend de referral off-chain implementado (DB + admin attest dashboard + `scripts/devnet/referral-cycle-attest.ts`)
+- [ ] Redeploy devnet com `GRACE_PERIOD_SECS = 86_400` + pinning test gateado (§6.3)
+- [ ] **Fuzz fixture Canary nos 6 targets, 1M iterações cada — bloqueia start**
+- [ ] Smoke test em devnet local com 10 wallets simuladas, 1 ciclo completo
 
 ### Fase 0 — Genesis Canary (~20 dias wall-clock)
 
-- [ ] Seleção dos 10 testers do Canary
-- [ ] Termo de participação (experimento devnet, valor simbólico, fadiga esperada)
+- [ ] Seleção dos 10 testers
+- [ ] Termo de participação (experimento devnet, valor simbólico, fadiga esperada, dados sob caveats §4)
 - [ ] Canal dedicado (Discord/Telegram)
-- [ ] Métricas tracking: on-time rate, crank lag, indexer latência, NPS qualitativo, observação social
-- [ ] Análise pós-Canary: o que mudar antes da Fase 1?
+- [ ] Métricas tracking: on-time rate, crank lag, indexer latência, observação social, NPS qualitativo
+- [ ] Análise pós-Canary
 
-### Pré-Fase 1
+### Pré-Fase 1 (gates de engenharia)
 
-- [ ] Ajustes de UX/operação identificados no Canary
-- [ ] **Fuzz fixture Semanal nos 4 targets — bloqueia start**
+- [ ] **Zero SEVs abertos do Canary** (gate técnico, não decisão de produto)
+- [ ] Ajustes de UX/operação identificados no Canary aplicados
+- [ ] Redeploy devnet com `GRACE_PERIOD_SECS = 604_800` (volta ao default)
+- [ ] **Fuzz fixture Semanal nos 6 targets, 1M iterações cada — bloqueia start**
 
 ### Fase 1 — Pre-Ceremony Semanal (~70 dias wall-clock)
 
-- [ ] Seleção dos 10 testers da Semanal (pode incluir veteranos do Canary + novos)
+- [ ] Seleção dos 10 testers (composição definida — ver §13 Q2)
 - [ ] Termo atualizado
 - [ ] Métricas: on-time rate semanal, defaults, retenção, XP de referral, NPS
 
 ### Pós-beta
 
-- [ ] Relatório consolidado com dados das duas fases + caveats §4
-- [ ] ADR de migração referral on-chain (§11)
+- [ ] Relatório consolidado das duas fases com caveats §4 visíveis
+- [ ] **ADR de migração referral on-chain** (§11)
+- [ ] **ADR de grace per-pool on-chain** (§13) — pré-req do mainnet beta
 - [ ] Decisão sobre mainnet beta pós-audit
 
 ---
 
 ## 11. ADR pendente — Migração de referral off-chain para on-chain
 
-Inalterado da v0.2. Após beta:
+Inalterado. Após beta:
 
 - Novo ADR em `docs/adr/0008-referral-on-chain-migration.md`
 - Schema final de `Member.inviter` + counters
@@ -257,28 +331,42 @@ Inalterado da v0.2. Após beta:
 
 ---
 
-## 12. O que mudou de v0.2 para v0.3
+## 12. Dependência forward — grace per-pool on-chain (mainnet beta)
 
-Feedback do time:
+A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala para mainnet**. Para mainnet beta, grace per-pool tem que ser on-chain real.
 
-| Ponto v0.2 → v0.3 |
-|---|
-| Estrutura virou 2 fases: Genesis Canary (48h, 10 USDC, foco operacional/social) → Pre-Ceremony Semanal (7d, 50 USDC, foco hábito) |
-| §2 reframado: objetivos por fase, com pergunta central clara para cada |
-| §4 nova: caveats explícitos sobre interpretação de dados em devnet (valor cosmético, default rate não preditiva, hábito só na Fase 1) |
-| §5 escala: critérios diferentes por fase (threshold mais baixo no Canary porque default simbólico não dói) |
-| §7 fuzz: duas fixtures, uma por fase, ambas bloqueadoras |
-| §8 referral: nota sobre vesting acelerado em cadência alta |
-| §10 checklist: organizado por fase com gates de validação entre elas |
+- Novo ADR em `docs/adr/0009-grace-period-per-pool.md` (a criar)
+- Mudanças: campo `grace_period: i64` em `Pool`, leitura em `settle_default`, arg em `create_pool`, preservar SEV-002 floor (`grace_period >= 86_400`), atualizar pinning test
+- Tratado como SEV-equivalent: account migration ou versionamento de Pool, FREEZE exception, re-escopo de audit surface
+- Custo estimado: 3-5 dias engenharia + ciclo de review
 
-**v0.2 está obsoleta. Substituída por esta v0.3.**
+**Não é escopo do beta atual** — registrado aqui para que o mainnet beta não seja surpreendido.
 
 ---
 
 ## 13. Perguntas abertas remanescentes
 
-1. **Threshold de on-time rate pro Canary** (atual: 70%) é o nível certo, dado que default não dói em devnet?
-2. **Composição dos 10 testers da Fase 1** — mesmos 10 do Canary, ou rotação parcial pra ter sinal de "primeira experiência"?
-3. **Comunicação externa do beta** — público (anúncio na comunidade) ou privado (founders + indicados)?
-4. **Owner do fuzz** — quem na equipe rola as fixtures?
-5. **Critério de aborto inter-fase** — se Canary tem on-time rate < X%, aborta Fase 1 ou ajusta e prossegue?
+1. **§5 — Threshold de "zero SEVs do Canary":** literal zero, ou exclui Low/Info? Recomendo literal zero pré-mainnet.
+2. **§10 — Composição dos 10 testers da Fase 1:** mesmos 10 do Canary, rotação parcial, ou totalmente novos? Trade-off: continuidade vs. sinal de "primeira experiência".
+3. **Comunicação externa:** público (anúncio comunidade) ou privado (founders + indicados)?
+4. **Owner do fuzz:** quem na equipe roda as fixtures? (Owner do `crates/math`?)
+5. **§8 — XP cap por convidador:** 3 ativos ou 3 totais lifetime?
+6. **§9.1 — Critério de redução de escopo:** se ops capacity é limitada, reduzir N de testers ou reduzir N de pools?
+
+---
+
+## 14. O que mudou de v0.3 para v0.4
+
+| Ponto v0.3 → v0.4 |
+|---|
+| §6.3 reescrita após confirmação no código — `GRACE_PERIOD_SECS` é global, não SDK-only. Adotada Opção B (redeploy devnet entre fases) com ajuste do pinning test em `constants.rs:282-291` |
+| §7 atualizado com 6 fuzz targets (não 4) — confirmado em `crates/math/fuzz/fuzz_targets/`; adicionados `escrow_vesting.rs` e `bps.rs` |
+| §5 reescrita: critérios primários são técnicos (zero SEVs, zero crank failures, indexer lag); on-time rate vira secundário — consistência com §4.2 |
+| §8.4 nova: build cost do `scripts/devnet/referral-cycle-attest.ts` + dashboard de attests + ~330 admin txs por fase |
+| §9.1 nova: team operational fatigue como validação bloqueadora pré-Fase 0 |
+| §10 Pré-Fase 1: "zero SEVs abertos do Canary" virou gate técnico, não decisão de produto |
+| §4.4 nova: caveat de selection bias (founders' círculo enviesa Fase 1) |
+| §12 nova: dependência forward — grace per-pool on-chain como pré-req do mainnet beta (ADR 0009 a criar) |
+| Todas as referências `arquivo:linha` confirmadas via grep antes da escrita |
+
+**v0.3 está obsoleta. Substituída por esta v0.4.**
