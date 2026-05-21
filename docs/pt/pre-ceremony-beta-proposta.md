@@ -1,9 +1,9 @@
-# Pre-Ceremony Beta — Proposta de Design (v0.5)
+# Pre-Ceremony Beta — Proposta de Design (v0.5.1)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.5 — fecha as 5 decisões da §13 + 4 detalhes de execução
+**Versão:** 0.5.1 — fix de inconsistência em §5 + 3 tuning items
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.4.2:** ver §14
+**Mudanças vs. v0.5:** ver §15
 
 Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
@@ -124,7 +124,7 @@ Cada fase começa com 1 pool de 10. Critérios para escalar a pools paralelos:
 
 ### Regra de SEV gate (aplicada em todos os gates abaixo e em §10)
 
-Padrão Mozilla/OWASP/Chromium: block-on-Critical/High, deadline-on-Medium, backlog-on-Low. Adaptado para o beta:
+Padrão derivado de Mozilla/OWASP/Chromium, **endurecido para o gate de fase**: block-on-Critical/High/Medium, fix-plan-com-deadline-on-Low, ignore Info. O endurecimento de Medium (block em vez de deadline) reflete que o beta é pré-mainnet — Medium em produção web pode esperar, Medium pré-mainnet bloqueia.
 
 ```
 SEV gate passa ⟺
@@ -136,7 +136,7 @@ SEV gate passa ⟺
 
 Rubrica de severidade: `docs/security/internal-audit-findings.md`. Formato do fix-plan: GitHub issue com label `sev-low-deadline-canary`, assignee, due date em milestone. Gate passa quando issue tem assignee + due date — não exige resolução, exige plano.
 
-Literal-zero foi descartado: mascara prioridades reais e cria fadiga em Lows que muitas vezes são style nits ou doc gaps.
+Literal-zero (incluindo Low) foi descartado: mascara prioridades reais e cria fadiga em Lows que muitas vezes são style nits ou doc gaps.
 
 ### Fase 0 → +2 pools paralelos na semana 2
 
@@ -161,8 +161,10 @@ Literal-zero foi descartado: mascara prioridades reais e cria fadiga em Lows que
 
 **Critérios secundários:**
 
-- On-time rate > 90% nos ciclos 1-3 (aqui sim é sinal útil, porque cadência realista)
+- **On-time rate estrito** > 90% nos ciclos 1-3. Definição: pagamento dentro de `cycle_duration / 2` (3,5 dias na Fase 1), não dentro do grace permissivo de 7d. Sem essa definição estrita, "on-time" inclui pagamento até 7d de atraso (per §4.5) e o número fica inflado.
 - Zero defaults nos 3 primeiros ciclos
+
+**Por que medir on-time estrito:** o sistema indexer registra `paid_at`, então a métrica é trivial de computar pós-fato. Em mainnet (com grace per-pool apertado em ~24-48h), o on-time real será mais perto do estrito do que do permissivo. Reportar ambos no relatório: bruto (signal positivo pro produto) e estrito (signal previsivo pro mainnet).
 
 ---
 
@@ -337,6 +339,7 @@ Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar 
 - [ ] Confirmar capacidade ops do time, **2+ pessoas em on-call rotation** (§9.1) — bloqueador
 - [ ] **Owner do fuzz atribuído** (nome) — bloqueador para §7
 - [ ] **Procedimento de aborto mid-flight pré-escrito** (§9.2) — bloqueador
+- [ ] **GitHub label `sev-low-deadline-canary` criada** no repo (referenciada pelo SEV gate §5) — 1 clique mas precisa existir antes
 - [ ] Backend de referral off-chain implementado (DB + admin attest dashboard + `scripts/devnet/referral-cycle-attest.ts`)
 - [ ] Redeploy devnet com `GRACE_PERIOD_SECS = 86_400` + pinning test gateado (§6.3)
 - [ ] **Fuzz fixture Canary nos 6 targets, 1M iterações cada — bloqueia start**
@@ -362,6 +365,8 @@ Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar 
 **Seleção de testers (composição 3 vets + 7 newbies — §13 D2):**
 
 - [ ] 3 vets selecionados via composite score do Canary: `(on_time_rate × 0.6) + (discord_messages_normalized × 0.4)`. Pegar top 5, escolher 3 dispostos a continuar.
+  - **Normalização:** min-max em [0,1] sobre o universo do Canary (`x_norm = (x - min) / (max - min)`). `on_time_rate` já está em [0,1] (não precisa normalizar). `discord_messages` é min-max sobre o count total da fase.
+  - **Tie-breaker:** se composite score empata, preferir tester com mais ciclos completos sem default. Se ainda empata, decisão do lead de produto.
 - [ ] Landing page de application publicada (build cost ~3-5 dias marketing/ops)
 - [ ] Post público "Genesis Canary learnings + Fase 1 aberta": anuncia learnings do Canary, abre application pros 7 newbies
 - [ ] 7 newbies recrutados via apps externas — critério de filtro a definir (mínimo: wallet ativa em devnet há ≥7d, sem sinal de sybil)
@@ -442,14 +447,25 @@ Pool unit é load-bearing pro design (fuzz fixtures pinadas em `members_target =
 
 Itens de execução que valem registro explícito mas não bloqueiam start:
 
-1. **Formato do fix-plan de Low SEV (§5):** GitHub issue com label `sev-low-deadline-canary`, assignee, due date em milestone. Gate passa quando issue tem assignee + due date — não exige resolução.
+1. **Formato do fix-plan de Low SEV (§5):** GitHub issue com label `sev-low-deadline-canary` (label criada como item de §10 Pré-Fase 0), assignee, due date em milestone. Gate passa quando issue tem assignee + due date — não exige resolução.
 2. **Critério de filtro dos newbies (§10 Pré-Fase 1):** wallet ativa em devnet há ≥7d, sem sinais óbvios de sybil. Time pode endurecer durante recrutamento.
 3. **Opt-out de exposição pública (§10 Fase 1):** posts quinzenais mencionam testers — termo de participação inclui opção de aparecer anônimo ou opt-out completo.
 4. **Slot allocation com vets em slots 1, 5, 9 (§10 Pré-Fase 1):** ordem fixa pré-decidida no protocolo, não negociada com testers. Comunicar como dado, não como escolha.
 
 ---
 
-## 15. O que mudou de v0.4.2 para v0.5
+## 15. O que mudou de v0.5 para v0.5.1
+
+| Ponto v0.5 → v0.5.1 |
+|---|
+| **§5 inconsistência corrigida:** prosa dizia "block-on-Critical/High, deadline-on-Medium, backlog-on-Low" mas o gate formal era `count(Critical+High+Medium abertos) == 0`. Medium aparecia em dois lados (block e deadline). Prosa agora diz "endurecido para o gate de fase: block-on-Critical/High/Medium, fix-plan-com-deadline-on-Low, ignore Info" — alinha com o gate e justifica o endurecimento (beta é pré-mainnet). |
+| **§5 Fase 1 critério secundário endurecido:** "on-time rate > 90%" virou "**on-time rate estrito** > 90%", definido como pagamento dentro de `cycle_duration / 2` (3,5d na Fase 1), não dentro do grace permissivo de 7d. Resolve a tensão com §4.5. Relatório reporta ambos (bruto + estrito). |
+| **§10 Pré-Fase 0 novo item:** criar GitHub label `sev-low-deadline-canary` que o SEV gate de §5 referencia. 1 clique, mas precisa existir antes do gate ser avaliável. |
+| **§10 Pré-Fase 1 spec de normalização:** `discord_messages_normalized` agora especificado como min-max em [0,1] sobre o universo do Canary. `on_time_rate` já está em [0,1]. Tie-breaker explícito (mais ciclos sem default → decisão do lead). |
+
+**v0.5 está obsoleta. Substituída por esta v0.5.1.**
+
+## 16. O que mudou de v0.4.2 para v0.5
 
 | Ponto v0.4.2 → v0.5 |
 |---|
@@ -465,14 +481,14 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 **v0.4.2 está obsoleta. Substituída por esta v0.5.**
 
-## 16. O que mudou de v0.4.1 para v0.4.2
+## 17. O que mudou de v0.4.1 para v0.4.2
 
 | Ponto v0.4.1 → v0.4.2 |
 |---|
 | §11 alinhado ao mesmo padrão flexível de §12 — número 0008 marcado como provisório com referência cruzada à nota de §12 |
 | §12 nota de ADR atualizada com a confirmação do reviewer: ADR 0008 `treasury-custody-squads-multisig` existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando mergear, esta proposta shifta para 0009 (referral) e 0010 (grace per-pool) |
 
-## 17. O que mudou de v0.4 para v0.4.1
+## 18. O que mudou de v0.4 para v0.4.1
 
 | Ponto v0.4 → v0.4.1 |
 |---|
@@ -486,6 +502,7 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 ## Histórico de versões
 
+- v0.5.1 (2026-05-21): fix de inconsistência da prosa §5 (Medium aparecia em dois lados) + on-time estrito definido + label criada na checklist + spec de normalização min-max.
 - v0.5 (2026-05-21): fecha 5 decisões da §13 (SEV gate, composição 3+7, comunicação híbrida, cap 3 ativos, manter pool unit) + 4 detalhes de execução + correção de 3 bugs preexistentes.
 - v0.4.2 (2026-05-21): consistência de ADR numbering entre §11 e §12.
 - v0.4.1 (2026-05-21): honesty fix no fuzz, §4.5 lower bound, §9.2 aborto mid-flight, gates promovidos.
