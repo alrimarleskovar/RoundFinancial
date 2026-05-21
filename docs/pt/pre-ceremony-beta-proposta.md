@@ -1,9 +1,9 @@
-# Pre-Ceremony Beta — Proposta de Design (v0.4)
+# Pre-Ceremony Beta — Proposta de Design (v0.5)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.4.2 — consistência de ADR numbering entre §11 e §12
+**Versão:** 0.5 — fecha as 5 decisões da §13 + 4 detalhes de execução
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.4.1:** ver §14
+**Mudanças vs. v0.4.2:** ver §14
 
 Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
@@ -18,7 +18,7 @@ Beta em devnet primeiro, dividido em duas fases sequenciais com **dois devnet ge
 | **0** | Genesis Canary | 48h por ciclo | 10 USDC | Operação, UX, dinâmica social, indexer, crank — **não testa hábito** |
 | **1** | Pre-Ceremony Semanal | 7 dias por ciclo | 50 USDC | Hábito de pagamento recorrente, retenção, defaults em cadência realista |
 
-Mainnet beta é fase 2, fora do escopo deste doc — depende dos dados das fases 0 e 1 + smoke + Squads + audit + **grace per-pool on-chain (ver §13).**
+Mainnet beta é fase 2, fora do escopo deste doc — depende dos dados das fases 0 e 1 + smoke + Squads + audit + **grace per-pool on-chain (ver §12).**
 
 ---
 
@@ -122,13 +122,29 @@ O on-time rate real (apertado) só pode ser medido em fase posterior, com grace 
 
 Cada fase começa com 1 pool de 10. Critérios para escalar a pools paralelos:
 
+### Regra de SEV gate (aplicada em todos os gates abaixo e em §10)
+
+Padrão Mozilla/OWASP/Chromium: block-on-Critical/High, deadline-on-Medium, backlog-on-Low. Adaptado para o beta:
+
+```
+SEV gate passa ⟺
+  count(Critical + High + Medium abertos) == 0
+  AND  todos os Low abertos têm fix-plan em tracker
+       (issue com assignee + due date ≤ 30 dias)
+  AND  Info ignorado (literalmente informacional)
+```
+
+Rubrica de severidade: `docs/security/internal-audit-findings.md`. Formato do fix-plan: GitHub issue com label `sev-low-deadline-canary`, assignee, due date em milestone. Gate passa quando issue tem assignee + due date — não exige resolução, exige plano.
+
+Literal-zero foi descartado: mascara prioridades reais e cria fadiga em Lows que muitas vezes são style nits ou doc gaps.
+
 ### Fase 0 → +2 pools paralelos na semana 2
 
 **Critérios primários (técnicos, todos obrigatórios):**
 
 - Zero falhas de crank durante 2 semanas
 - Indexer lag < 30s no p95
-- Zero SEVs abertos (qualquer severity)
+- **SEV gate passa** (regra acima)
 - Zero relatos de UX confusion não-resolvidos
 
 **Critérios secundários (sinal, não bloqueador):**
@@ -139,7 +155,7 @@ Cada fase começa com 1 pool de 10. Critérios para escalar a pools paralelos:
 
 **Critérios primários:**
 
-- Zero SEVs abertos do Canary (§10 gate)
+- **SEV gate passa** do Canary (regra acima, §10 gate)
 - Zero falhas de crank na Fase 1 até semana 4
 - Indexer lag < 30s p95
 
@@ -245,7 +261,7 @@ referrals (
 | Convidado joina o pool | +50 | 0 (vesting) |
 | Convidado completa 1 ciclo | 0 | +20 |
 | Convidado dá default | -500 (existente on-chain — `programs/roundfi-reputation/src/constants.rs:55`) | -100 (off-chain) |
-| Cap convidados ativos por wallet | n/a | 3 |
+| Cap convidados ativos por wallet | n/a | **3 ativos (beta).** Decisão final (cap híbrido: `≤3 ativos AND ≤N lifetime` escalonado por reputation level) fica para ADR de migração on-chain pós-beta — decide com data, não vibes. Sybil em devnet é trivial farmar de qualquer jeito (USDC mintado, contas grátis); endurecimento real só faz sentido em mainnet. |
 
 ### 8.4 Custo operacional — build cost listado
 
@@ -288,6 +304,15 @@ Com ciclos de 48h, vesting do convidador acelera: 100 XP em ~2,5 semanas (em vez
 
 Se respostas indicam capacidade < demanda, **reduzir escopo** (1 pool por fase, sem paralelismo) antes de start, não no meio.
 
+**Direção da redução de escopo — manter pool unit = 10, reduzir paralelismo:**
+
+- Pool unit (10 membros) é **load-bearing pro design**: `members_target = cycles_total = 10`, fuzz fixtures pinadas em `members_target = 10`, default cascade calibrada (1 default em pool de 10 = 10% vs. 12.5% em pool de 8), waterfall denominador, stake share per member. Reduzir tamanho invalida comparação com mainnet (`MAX_MEMBERS = 64`).
+- Paralelismo é **amplificador removível** — se ops capacity melhorar mid-flight, escalar de 1 para 3 pools é fácil. **Voltar de 8 → 10 membros mid-pool é impossível** sem re-formar membership.
+- Signal cleanliness > signal quantity em beta pequeno: 10 trajetórias com dinâmica autêntica > 24 trajetórias com dinâmica atípica.
+- Narrativa externa mais limpa: "1 pool de 10" é coerente; "3 pools de 8" exige explicação.
+
+**Regra:** se ops capacity força redução, manter pool unit, sacrificar paralelismo.
+
 ### 9.2 Procedimento de aborto mid-flight
 
 Cenário: SEV aparece no ciclo 4 do Canary (de 10). O que fazer?
@@ -319,24 +344,35 @@ Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar 
 
 ### Fase 0 — Genesis Canary (~20 dias wall-clock)
 
-- [ ] Seleção dos 10 testers
-- [ ] Termo de participação (experimento devnet, valor simbólico, fadiga esperada, dados sob caveats §4)
+- [ ] Seleção dos 10 testers (círculo founders, recrutamento direto)
+- [ ] Termo de participação: experimento devnet, valor simbólico, fadiga esperada, dados sob caveats §4, **Canary é silent — sem posts públicos sobre o experimento durante a fase**
 - [ ] Canal dedicado (Discord/Telegram)
 - [ ] Métricas tracking: on-time rate, crank lag, indexer latência, observação social, NPS qualitativo
 - [ ] Análise pós-Canary
 
-### Pré-Fase 1 (gates de engenharia)
+### Pré-Fase 1 (gates de engenharia + recrutamento público)
 
-- [ ] **Zero SEVs abertos do Canary** (gate técnico, não decisão de produto)
+**Gates de engenharia:**
+
+- [ ] **SEV gate do Canary passa** (regra §5 — block on Critical/High/Medium, deadline ≤30d em Low)
 - [ ] Ajustes de UX/operação identificados no Canary aplicados
 - [ ] Redeploy devnet com `GRACE_PERIOD_SECS = 604_800` (volta ao default)
 - [ ] **Fuzz fixture Semanal nos 6 targets, 1M iterações cada — bloqueia start**
 
+**Seleção de testers (composição 3 vets + 7 newbies — §13 D2):**
+
+- [ ] 3 vets selecionados via composite score do Canary: `(on_time_rate × 0.6) + (discord_messages_normalized × 0.4)`. Pegar top 5, escolher 3 dispostos a continuar.
+- [ ] Landing page de application publicada (build cost ~3-5 dias marketing/ops)
+- [ ] Post público "Genesis Canary learnings + Fase 1 aberta": anuncia learnings do Canary, abre application pros 7 newbies
+- [ ] 7 newbies recrutados via apps externas — critério de filtro a definir (mínimo: wallet ativa em devnet há ≥7d, sem sinal de sybil)
+- [ ] Slot allocation espalhada: **vets nos slots 1, 5, 9** (cada subgroup vive ambas as experiências — esperar e receber)
+
 ### Fase 1 — Pre-Ceremony Semanal (~70 dias wall-clock)
 
-- [ ] Seleção dos 10 testers (composição definida — ver §13 Q2)
-- [ ] Termo atualizado
+- [ ] Termo atualizado (inclui exposição pública via posts quinzenais; tester ciente do nome aparecer em comunicação externa, opt-out disponível)
+- [ ] Cadência quinzenal de marker posts públicos durante Fase 1
 - [ ] Métricas: on-time rate semanal, defaults, retenção, XP de referral, NPS
+- [ ] **Segmentação obrigatória de metrics por subgroup (vets vs. newbies)** — relatório pós-Fase 1 separa as duas cohorts
 
 ### Pós-beta
 
@@ -372,44 +408,86 @@ A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala 
 
 ---
 
-## 13. Perguntas abertas remanescentes
+## 13. Decisões tomadas (resoluções das 5 perguntas abertas da v0.4.2)
 
-1. **§5 — Threshold de "zero SEVs do Canary":** literal zero, ou exclui Low/Info? Recomendo literal zero pré-mainnet.
-2. **§10 — Composição dos 10 testers da Fase 1:** mesmos 10 do Canary, rotação parcial, ou totalmente novos? Trade-off: continuidade vs. sinal de "primeira experiência".
-3. **Comunicação externa:** público (anúncio comunidade) ou privado (founders + indicados)?
-4. **§8 — XP cap por convidador:** 3 ativos ou 3 totais lifetime?
-5. **§9.1 — Critério de redução de escopo:** se ops capacity é limitada, reduzir N de testers ou reduzir N de pools?
+Time fechou as 5 perguntas abertas em 2026-05-21. Cada decisão está incorporada ao corpo do doc (§5, §8, §9, §10) — esta seção preserva o rastro do raciocínio.
 
-**Notas:** Q4 ("Owner do fuzz") da v0.4 foi promovida a item de checklist em §10 (bloqueador, não open question).
+**D1 — SEV gate (era Q1): block Critical/High/Medium, deadline ≤30d em Low, ignore Info.**
+
+Padrão Mozilla/OWASP/Chromium. Literal-zero foi descartado: Lows muitas vezes incluem style nits, doc gaps, coverage observations — bloquear Fase 1 por isso cria fadiga e mascara o que é Critical real. Trade-off honesto: Low permissive pode acumular dívida técnica; mitigação = deadline de 30d força clearing antes ou no decorrer da Fase 1. Regra completa em §5.
+
+**D2 — Composição da Fase 1 (era Q2): 3 vets + 7 newbies, com critério mensurável e slot allocation espalhada.**
+
+3 vets como âncoras sociais reduzem fricção de onboarding dos newbies e modelam comportamento esperado. 7 newbies como sinal de "first experience" sem 20 dias de muscle memory. Mantém amostra de 10 (não complica fuzz, não muda mechanics). Vets não-rotacionados vão para pool paralelo se §5 critérios baterem.
+
+- Critério mensurável: composite score `(on_time_rate × 0.6) + (discord_messages_normalized × 0.4)`, top 5 → 3 dispostos a continuar
+- Slot allocation: vets nos slots 1, 5, 9 — cada subgroup vive ambas as experiências (esperar + receber payout)
+- Segmentação de metrics por subgroup é obrigatória no relatório (§10)
+
+**D3 — Comunicação externa (era Q3): híbrido — Canary silent, Fase 1 semi-pública.**
+
+Canary é silent (sem posts públicos durante) — stress test interno, alto risco de SEVs descobertos em devnet, blast radius limitado. Post público pré-Fase 1 anuncia "Genesis Canary learnings + Fase 1 aberta" e funciona como funil de recrutamento dos 7 newbies (resolve D2 e D3 simultaneamente — sem público, newbies vêm do círculo founders e o bias volta). Cadência quinzenal de marker posts durante Fase 1. Build cost: ~3-5 dias marketing/ops (não engenharia).
+
+**D4 — Cap de referral (era Q4): 3 ativos no beta, cap híbrido decide com data via ADR de migração.**
+
+Permite power-user genuíno (tester completa pool, slot libera, convida +1). Sybil em devnet é trivial farmar de qualquer jeito (USDC mintado, contas grátis) — endurecimento real só faz sentido em mainnet. Decisão final (`≤3 ativos AND ≤N lifetime` escalonado por reputation level) precisa de DATA do beta, não vibes. Se durante beta alguém farmar 30 referrals via rotação, isso é o sinal que justifica o cap híbrido no ADR.
+
+**D5 — Direção de redução de escopo (era Q5): manter pool unit = 10, reduzir paralelismo.**
+
+Pool unit é load-bearing pro design (fuzz fixtures pinadas em `members_target = 10`, default cascade calibrada em 10%, waterfall denominador, comparação com mainnet `MAX_MEMBERS = 64`). Paralelismo é amplificador removível — escalar +2 pools é fácil; voltar de 8→10 mid-pool é impossível sem re-formar membership. Signal cleanliness > signal quantity. Regra completa em §9.1.
 
 ---
 
-## 14. O que mudou de v0.4.1 para v0.4.2
+## 14. Decisões finas remanescentes (não bloqueadores)
+
+Itens de execução que valem registro explícito mas não bloqueiam start:
+
+1. **Formato do fix-plan de Low SEV (§5):** GitHub issue com label `sev-low-deadline-canary`, assignee, due date em milestone. Gate passa quando issue tem assignee + due date — não exige resolução.
+2. **Critério de filtro dos newbies (§10 Pré-Fase 1):** wallet ativa em devnet há ≥7d, sem sinais óbvios de sybil. Time pode endurecer durante recrutamento.
+3. **Opt-out de exposição pública (§10 Fase 1):** posts quinzenais mencionam testers — termo de participação inclui opção de aparecer anônimo ou opt-out completo.
+4. **Slot allocation com vets em slots 1, 5, 9 (§10 Pré-Fase 1):** ordem fixa pré-decidida no protocolo, não negociada com testers. Comunicar como dado, não como escolha.
+
+---
+
+## 15. O que mudou de v0.4.2 para v0.5
+
+| Ponto v0.4.2 → v0.5 |
+|---|
+| §5 nova subseção: regra de SEV gate (Mozilla/OWASP/Chromium pattern) — block Critical/High/Medium, deadline ≤30d Low, ignore Info. Substitui "Zero SEVs (qualquer severity)" da v0.4.2 |
+| §8.3 célula de cap reformulada: 3 ativos no beta, com nota explícita sobre cap híbrido (`≤3 ativos AND ≤N lifetime`) decidir via ADR pós-beta |
+| §9.1 nova regra explícita: manter pool unit = 10, reduzir paralelismo se ops capacity força redução. Inclui justificativa técnica completa |
+| §10 Fase 0: termo de participação inclui "Canary é silent — sem posts públicos durante" |
+| §10 Pré-Fase 1 reformulado: composite score pra seleção dos 3 vets, landing page de application + post público pros 7 newbies, slot allocation em 1/5/9 |
+| §10 Fase 1: cadência quinzenal de marker posts + segmentação obrigatória de metrics por subgroup |
+| §13 reformulado: virou "Decisões tomadas" com 5 resoluções (D1-D5) preservando rastro do raciocínio |
+| §14 nova: 4 decisões finas remanescentes (formato fix-plan, filtro newbies, opt-out público, comunicação do slot allocation) |
+| Bugs preexistentes corrigidos: header dizia "v0.4" mas versão era 0.4.2; havia dois "## 14." duplicados; referência §13 na §1 era de fato §12 (grace per-pool) |
+
+**v0.4.2 está obsoleta. Substituída por esta v0.5.**
+
+## 16. O que mudou de v0.4.1 para v0.4.2
 
 | Ponto v0.4.1 → v0.4.2 |
 |---|
 | §11 alinhado ao mesmo padrão flexível de §12 — número 0008 marcado como provisório com referência cruzada à nota de §12 |
 | §12 nota de ADR atualizada com a confirmação do reviewer: ADR 0008 `treasury-custody-squads-multisig` existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando mergear, esta proposta shifta para 0009 (referral) e 0010 (grace per-pool) |
 
-**v0.4.1 está obsoleta. Substituída por esta v0.4.2.**
-
-## 14. O que mudou de v0.4 para v0.4.1
+## 17. O que mudou de v0.4 para v0.4.1
 
 | Ponto v0.4 → v0.4.1 |
 |---|
 | §4.5 nova: caveat de que on-time rate da Fase 1 é lower bound, não diretamente comparável a mainnet (grace 7d = ciclo inteiro de cushion) |
 | §7 honesty fix: removido `grace_period` dos fixtures porque math crate não consome (confirmado via `grep -rn "grace" crates/math/` = zero hits). Validação de timing fica para integration tests, não para math fuzz |
-| §9.1 endurecido: "2+ pessoas em on-call rotation" em vez de "1+ pessoa dedicada" — 3 meses + férias/doença/travel = 1 pessoa é SPOF |
-| §9.2 nova: procedimento de aborto mid-flight pré-escrito (pausa automática em SEV ≥ Medium, decisão técnica do lead eng, comunicação aos testers em ≤24h) |
-| §10 Pré-Fase 0: "Owner do fuzz atribuído" e "Procedimento de aborto pré-escrito" promovidos a checklist bloqueador (eram open questions / não existiam) |
+| §9.1 endurecido: "2+ pessoas em on-call rotation" em vez de "1+ pessoa dedicada" |
+| §9.2 nova: procedimento de aborto mid-flight pré-escrito (pausa automática em SEV ≥ Medium, decisão técnica do lead eng, comunicação ≤24h) |
+| §10 Pré-Fase 0: "Owner do fuzz atribuído" e "Procedimento de aborto pré-escrito" promovidos a checklist bloqueador |
 | §13 Q4 ("Owner do fuzz") removido — virou checklist |
-| §12 nota sobre ADR numbering: 0008/0009 estão **provisoriamente reservados**. Antes de criar, confirmar PRs abertos em `docs/adr/` — reviewer indicou possível ADR 0008 em PR não-mergeado (não encontrado em `origin/main` via `git ls-tree` em 2026-05-21) |
-
-**v0.4 está obsoleta. Substituída por esta v0.4.1.**
+| §12 nota sobre ADR numbering: 0008/0009 provisoriamente reservados |
 
 ## Histórico de versões
 
-- v0.4.2 (2026-05-21): consistência de ADR numbering entre §11 e §12 após confirmação do reviewer sobre PR aberto.
+- v0.5 (2026-05-21): fecha 5 decisões da §13 (SEV gate, composição 3+7, comunicação híbrida, cap 3 ativos, manter pool unit) + 4 detalhes de execução + correção de 3 bugs preexistentes.
+- v0.4.2 (2026-05-21): consistência de ADR numbering entre §11 e §12.
 - v0.4.1 (2026-05-21): honesty fix no fuzz, §4.5 lower bound, §9.2 aborto mid-flight, gates promovidos.
 - v0.4: grace per-pool reformulado (Opção B), 6 fuzz targets, team fatigue, selection bias.
 - v0.3: Genesis Canary como fase 0, caveats de devnet.
