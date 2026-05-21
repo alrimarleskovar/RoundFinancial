@@ -1,9 +1,9 @@
-# Pre-Ceremony Beta — Proposta de Design (v0.5.2)
+# Pre-Ceremony Beta — Proposta de Design (v0.5.3)
 
 **Status:** rascunho para discussão de time
-**Versão:** 0.5.2 — 9 items operacionais adicionados a §10 + critical path
+**Versão:** 0.5.3 — separação de poderes em §9.2 (severidade vem da rubrica, não do lead eng)
 **Data alvo de decisão:** TBD
-**Mudanças vs. v0.5.1:** ver §15
+**Mudanças vs. v0.5.2:** ver §15
 
 Todas as referências `arquivo:linha` desta versão foram confirmadas via grep direto.
 
@@ -322,10 +322,11 @@ Cenário: SEV aparece no ciclo 4 do Canary (de 10). O que fazer?
 **Política:**
 
 - **Pausar o pool em curso** (não permitir novos `contribute`/`claim_payout` até decisão).
+- **Trigger automático de pausa:** qualquer SEV ≥ Medium descoberto durante a fase.
+- **Separação de poderes:** lead eng decide **ação** (pause / fix / abort), mas **não decide severidade**. Severidade vem da rubrica em `docs/security/internal-audit-findings.md`. Se rubrica classifica Critical/High/Medium, gate dispara automaticamente — independente de quem achou o SEV ou quem é o lead eng. Isso fecha o COI estrutural entre quem descobre o SEV (ex: security engineer) e quem decide aborto do trabalho que ele próprio empurrou.
 - **Decisão técnica do lead eng**, não democrática. Opções:
   - (a) Fix + redeploy + retomar pool do mesmo ponto (se fix preserva estado).
   - (b) Abortar fase, refund devnet USDC (trivial, mintado), reiniciar fase pós-fix.
-- **Trigger automático de pausa:** qualquer SEV ≥ Medium descoberto durante a fase.
 - **Comunicação aos testers:** dentro de 24h, no canal dedicado, com plano de retomada ou aborto.
 
 Refunds em devnet são triviais (USDC mintado), mas o procedimento de comunicar testers e re-onboard precisa estar pré-escrito antes do start.
@@ -525,7 +526,17 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 ---
 
-## 15. O que mudou de v0.5.1 para v0.5.2
+## 15. O que mudou de v0.5.2 para v0.5.3
+
+| Ponto v0.5.2 → v0.5.3 |
+|---|
+| **§9.2 separação de poderes:** lead eng decide ação (pause / fix / abort), mas **não decide severidade**. Severidade vem da rubrica em `docs/security/internal-audit-findings.md`. Fecha COI estrutural entre quem descobre SEV e quem decide aborto. Trigger automático passa a ser independente do julgamento do lead. |
+
+**Nota explícita:** este é o último patch de design previsto. v0.5.3 trava o doc. Próxima mudança vira execução (PRs do critical path em §10) ou nova versão do **produto**, não da doc.
+
+**v0.5.2 está obsoleta. Substituída por esta v0.5.3.**
+
+## 16. O que mudou de v0.5.1 para v0.5.2
 
 | Ponto v0.5.1 → v0.5.2 |
 |---|
@@ -537,7 +548,7 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 **v0.5.1 está obsoleta. Substituída por esta v0.5.2.**
 
-## 16. O que mudou de v0.5 para v0.5.1
+## 17. O que mudou de v0.5 para v0.5.1
 
 | Ponto v0.5 → v0.5.1 |
 |---|
@@ -546,7 +557,7 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 | **§10 Pré-Fase 0 novo item:** criar GitHub label `sev-low-deadline-canary` que o SEV gate de §5 referencia. 1 clique, mas precisa existir antes do gate ser avaliável. |
 | **§10 Pré-Fase 1 spec de normalização:** `discord_messages_normalized` agora especificado como min-max em [0,1] sobre o universo do Canary. `on_time_rate` já está em [0,1]. Tie-breaker explícito (mais ciclos sem default → decisão do lead). |
 
-## 17. O que mudou de v0.4.2 para v0.5
+## 18. O que mudou de v0.4.2 para v0.5
 
 | Ponto v0.4.2 → v0.5 |
 |---|
@@ -562,14 +573,14 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 **v0.4.2 está obsoleta. Substituída por esta v0.5.**
 
-## 18. O que mudou de v0.4.1 para v0.4.2
+## 19. O que mudou de v0.4.1 para v0.4.2
 
 | Ponto v0.4.1 → v0.4.2 |
 |---|
 | §11 alinhado ao mesmo padrão flexível de §12 — número 0008 marcado como provisório com referência cruzada à nota de §12 |
 | §12 nota de ADR atualizada com a confirmação do reviewer: ADR 0008 `treasury-custody-squads-multisig` existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando mergear, esta proposta shifta para 0009 (referral) e 0010 (grace per-pool) |
 
-## 19. O que mudou de v0.4 para v0.4.1
+## 20. O que mudou de v0.4 para v0.4.1
 
 | Ponto v0.4 → v0.4.1 |
 |---|
@@ -583,6 +594,7 @@ Itens de execução que valem registro explícito mas não bloqueiam start:
 
 ## Histórico de versões
 
+- v0.5.3 (2026-05-21): §9.2 separação de poderes — severidade vem da rubrica, não do lead eng. **Último patch de design previsto.**
 - v0.5.2 (2026-05-21): 9 items operacionais adicionados em §10 (Pré-Fase 0 reestruturado em 5 grupos) + nova subseção "Critical path" com sequência ordenada por dependências e bottlenecks explícitos.
 - v0.5.1 (2026-05-21): fix de inconsistência da prosa §5 (Medium aparecia em dois lados) + on-time estrito definido + label criada na checklist + spec de normalização min-max.
 - v0.5 (2026-05-21): fecha 5 decisões da §13 (SEV gate, composição 3+7, comunicação híbrida, cap 3 ativos, manter pool unit) + 4 detalhes de execução + correção de 3 bugs preexistentes.
