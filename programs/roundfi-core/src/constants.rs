@@ -46,7 +46,24 @@ pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
 /// design. The devnet rehearsal flow now compensates by using a
 /// fast-forwarded clock on the test harness (per pool, not protocol-
 /// wide) rather than a constant patch.
+///
+/// **Pre-Ceremony Beta exception (feature `devnet-canary`):** the
+/// Genesis Canary phase uses cycle = 48h, which makes 7d grace
+/// ridiculous (3.5× the cycle duration). The `devnet-canary` build
+/// flag lowers the const to 86_400 (24h, exactly at the SEV-002 floor)
+/// for that phase only. The floor pinning test below (`grace_period_above_mainnet_floor`)
+/// still passes because 86_400 >= 86_400. The "≠ 604_800" pinning is
+/// gated by the feature to allow this devnet-only override.
+///
+/// See docs/pt/pre-ceremony-beta-proposta.md §6.3 (Opção B). Per-pool
+/// grace on-chain is the proper fix for mainnet — tracked separately
+/// (ADR pending, depends on PR #401 ADR numbering).
+#[cfg(not(feature = "devnet-canary"))]
 pub const GRACE_PERIOD_SECS: i64 = 604_800;
+
+/// Devnet Canary override. See main const doc above.
+#[cfg(feature = "devnet-canary")]
+pub const GRACE_PERIOD_SECS: i64 = 86_400;
 
 /// Time-lock on treasury rotation. Authority can `propose_new_treasury`
 /// any time, but `commit_new_treasury` only succeeds after this window
@@ -278,6 +295,7 @@ mod tests {
         assert_eq!(DEFAULT_GUARANTEE_FUND_BPS, 15_000);
     }
 
+    #[cfg(not(feature = "devnet-canary"))]
     #[test]
     fn grace_period_is_seven_days() {
         // Pinned by Adevar Labs SEV-002 fix: the constant was previously
@@ -287,8 +305,23 @@ mod tests {
         // (the original whitepaper value) and re-pinned correctly so
         // any future regression fails this test loudly rather than
         // silently passing.
+        //
+        // Gated by `not(feature = "devnet-canary")` — the Canary build
+        // intentionally sets grace = 86_400 (24h), exactly at the
+        // SEV-002 floor. The floor pinning test (below) still runs
+        // in both configurations to guard against grace < 1 day.
         assert_eq!(GRACE_PERIOD_SECS, 7 * 24 * 60 * 60);
         assert_eq!(GRACE_PERIOD_SECS, 604_800);
+    }
+
+    #[cfg(feature = "devnet-canary")]
+    #[test]
+    fn grace_period_is_canary_24h() {
+        // Mirror pinning for the Canary build. If anyone bumps the
+        // value below 86_400, this and the floor test both fail —
+        // double-layer SEV-002 regression guard.
+        assert_eq!(GRACE_PERIOD_SECS, 86_400);
+        assert_eq!(GRACE_PERIOD_SECS, 24 * 60 * 60);
     }
 
     #[test]
