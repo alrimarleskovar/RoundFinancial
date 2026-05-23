@@ -3,7 +3,10 @@
 **Documento operacional executável durante as fases 0 e 1 do beta.**
 **Referência:** §9.2 da proposta v0.5.3 (`docs/pt/pre-ceremony-beta-proposta.md`)
 **Rubrica de severidade:** `docs/security/internal-audit-findings.md`
-**Data:** 2026-05-21
+**Label Low SEV:** `sev-low-deadline-canary` — spec em `docs/pt/pre-canary-label-spec.md`
+**Data:** 2026-05-21 (criado) · 2026-05-23 (cross-refs adicionados)
+
+> **⚠️ Escopo:** este doc cobre o caso **DURANTE** o Canary ou Fase 1 (tester real dentro do pool, USDC mintado, comunicação ≤24h obrigatória). Para SEV detectado no **smoke test pré-start (Dia 13-14 do critical path)**, usar `docs/pt/pre-ceremony-beta-flow-sev-smoke-test.md` — mesma rubrica, mas zero comunicação externa devida e fricção de abortar é baixa.
 
 ---
 

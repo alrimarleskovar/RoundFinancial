@@ -464,7 +464,7 @@ Dia 15   │ START Canary
 
 Inalterado. Após beta:
 
-- Novo ADR a criar (número provisório 0008 — confirmar contra PRs abertos em `docs/adr/` antes de criar; ver nota em §12)
+- Novo ADR a criar — **número 0009 confirmado** (ver nota de numeração atualizada em §12)
 - Schema final de `Member.inviter` + counters
 - Path de migração: instrução administrativa "bootstrap reputation" com snapshot off-chain → freeze → emissão on-chain → unfreeze
 
@@ -474,14 +474,14 @@ Inalterado. Após beta:
 
 A Opção B (§6.3) resolve o beta atual via redeploy devnet, mas **não escala para mainnet**. Para mainnet beta, grace per-pool tem que ser on-chain real.
 
-- Novo ADR a criar (número depende da última ADR mergeada em main no momento da criação — ver nota abaixo)
+- Novo ADR a criar — **número 0010 confirmado** (ver nota de numeração atualizada abaixo)
 - Mudanças: campo `grace_period: i64` em `Pool`, leitura em `settle_default`, arg em `create_pool`, preservar SEV-002 floor (`grace_period >= 86_400`), atualizar pinning test
 - Tratado como SEV-equivalent: account migration ou versionamento de Pool, FREEZE exception, re-escopo de audit surface
 - Custo estimado: 3-5 dias engenharia + ciclo de review
 
 **Não é escopo do beta atual** — registrado aqui para que o mainnet beta não seja surpreendido.
 
-**Nota sobre numeração de ADR (§11 e §12):** confirmado via `git ls-tree -r origin/main -- docs/adr/` em 2026-05-21 — última ADR em main é `0007-bankrun-compat-shim.md`. Os números 0008 (referral migration) e 0009 (grace per-pool) estão **provisoriamente reservados** nesta proposta. Reviewer confirmou que ADR 0008 (`treasury-custody-squads-multisig`) existe em PR aberto na branch `claude/setup-copilot-api-config-PuGXP`. Quando essa branch mergear em main, esta proposta precisará shiftar para 0009 (referral) e 0010 (grace per-pool). **Antes de criar os ADRs, confirmar estado dos PRs abertos em `docs/adr/`.**
+**Nota sobre numeração de ADR (§11 e §12) — atualizada 2026-05-23:** confirmado via `git ls-tree -r origin/main -- docs/adr/` em 2026-05-23 — main agora contém ADRs `0001-0008`, sendo `0008-treasury-custody-squads-multisig.md` mergeada via PR #401 (2026-05-23, item 8 do FREEZE.md — governance ADR). Numeração desta proposta consolidada: **0009 = referral migration (§11)**, **0010 = grace per-pool (§12)**. Provisorialidade removida — numbers travados.
 
 ---
 
