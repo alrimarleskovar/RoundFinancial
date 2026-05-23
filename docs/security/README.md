@@ -4,21 +4,21 @@
 
 ## TL;DR
 
-| Time to read | What                                | When to read                                                                                                                  |
-| ------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 5 min        | `../../AUDIT_SCOPE.md` (1-pager)    | Before everything else                                                                                                        |
-| 10 min       | `audit-readiness.md`                | Strategic context                                                                                                             |
-| 10 min       | `internal-audit-findings.md`        | Internal pre-audit tracker (47 SEVs, status, PRs) — methodology modeled on external auditor format, NOT a formal engagement   |
-| 5 min        | `constants-audit-2026-05.md`        | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                           |
-| 30 min       | `self-audit.md`                     | Deep dive on protocol guarantees                                                                                              |
-| 15 min       | `adversarial-threat-model.md`       | Sybil / ordering / griefing surface                                                                                           |
-| 15 min       | `mev-front-running.md`              | Solana-specific ordering attacks (9 ix)                                                                                       |
-| 10 min       | `frontend-security-checklist.md`    | UX trust path (out of on-chain audit scope)                                                                                   |
-| 10 min       | `indexer-threat-model.md`           | Off-chain consistency (Phase 3 B2B oracle)                                                                                    |
-| 10 min       | `passport-bridge-threat-model.md`   | Civic→Human-Passport PoP bridge trust boundary                                                                                |
-| 10 min       | `economic-config-governance.md`     | Timelock target tiers for ProtocolConfig fields                                                                               |
-| 5 min        | `immunefi-submission-package.md`    | Pre-mainnet program packet for bug bounty submission                                                                          |
-| 5 min        | `bug-bounty.md`                     | Disclosure policy + reward tiers                                                                                              |
+| Time to read | What                              | When to read                                                                                                                |
+| ------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 5 min        | `../../AUDIT_SCOPE.md` (1-pager)  | Before everything else                                                                                                      |
+| 10 min       | `audit-readiness.md`              | Strategic context                                                                                                           |
+| 10 min       | `internal-audit-findings.md`      | Internal pre-audit tracker (47 SEVs, status, PRs) — methodology modeled on external auditor format, NOT a formal engagement |
+| 5 min        | `constants-audit-2026-05.md`      | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                         |
+| 30 min       | `self-audit.md`                   | Deep dive on protocol guarantees                                                                                            |
+| 15 min       | `adversarial-threat-model.md`     | Sybil / ordering / griefing surface                                                                                         |
+| 15 min       | `mev-front-running.md`            | Solana-specific ordering attacks (9 ix)                                                                                     |
+| 10 min       | `frontend-security-checklist.md`  | UX trust path (out of on-chain audit scope)                                                                                 |
+| 10 min       | `indexer-threat-model.md`         | Off-chain consistency (Phase 3 B2B oracle)                                                                                  |
+| 10 min       | `passport-bridge-threat-model.md` | Civic→Human-Passport PoP bridge trust boundary                                                                              |
+| 10 min       | `economic-config-governance.md`   | Timelock target tiers for ProtocolConfig fields                                                                             |
+| 5 min        | `immunefi-submission-package.md`  | Pre-mainnet program packet for bug bounty submission                                                                        |
+| 5 min        | `bug-bounty.md`                   | Disclosure policy + reward tiers                                                                                            |
 
 **Total first-pass: ~2h15m.**
 

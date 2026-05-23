@@ -15,14 +15,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: number;
     changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
   }> = [
-    { path: "/",          priority: 1.0, changeFrequency: "weekly" },
-    { path: "/lab",       priority: 0.9, changeFrequency: "weekly" },
-    { path: "/home",      priority: 0.7, changeFrequency: "weekly" },
-    { path: "/grupos",    priority: 0.7, changeFrequency: "weekly" },
+    { path: "/", priority: 1.0, changeFrequency: "weekly" },
+    { path: "/lab", priority: 0.9, changeFrequency: "weekly" },
+    { path: "/home", priority: 0.7, changeFrequency: "weekly" },
+    { path: "/grupos", priority: 0.7, changeFrequency: "weekly" },
     { path: "/reputacao", priority: 0.7, changeFrequency: "weekly" },
-    { path: "/mercado",   priority: 0.6, changeFrequency: "weekly" },
-    { path: "/insights",  priority: 0.6, changeFrequency: "weekly" },
-    { path: "/carteira",  priority: 0.5, changeFrequency: "weekly" },
+    { path: "/mercado", priority: 0.6, changeFrequency: "weekly" },
+    { path: "/insights", priority: 0.6, changeFrequency: "weekly" },
+    { path: "/carteira", priority: 0.5, changeFrequency: "weekly" },
   ];
 
   return routes.map(({ path, priority, changeFrequency }) => ({
