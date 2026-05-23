@@ -1,35 +1,38 @@
 # Briefing Pré-Reunião Canary — 1 página
 
-**Leitura:** ~3 min · **Reunião:** ~50 min · **Output esperado:** 9 decisões com owner + deadline + artefato
+**Leitura:** ~3 min · **Reunião:** ~45 min · **Output esperado:** 8 decisões com owner + deadline + artefato (+ 1 ack rápido)
 
 ---
 
 ## Estado em uma frase
 
-PR #401 (treasury ADR 0008) mergeou hoje, destravando numeração futura. Doc da proposta v0.5.3 e infra do critical path estão prontos no PR #400. **Falta só este time bater martelo nas 9 decisões pra começar Dia 1-2 do critical path (~2-3 semanas até start do Canary).**
+PRs #401 (treasury ADR 0008) e #403 (Pass-18 judge readiness — 47 SEVs / 13-13 C+H / 300+ testes sincados) mergearam hoje. Doc da proposta v0.5.3 + 3 templates operacionais (procedimento aborto, termo participação, onboarding) + infra do critical path estão prontos no PR #400. **Falta só este time bater martelo nas 8 decisões pra começar Dia 1-2 do critical path (~2-3 semanas até start do Canary).**
 
 ---
 
-## As 9 decisões — visão rápida
+## As 8 decisões + 1 ack — visão rápida
 
 ### Originais da pauta (5)
 
 | # | Decisão | Trade-off central | Recomendação |
 |---|---|---|---|
-| **1** | Schema do indexer | 6 campos brutos (sem `default_reason`) vs 7 campos (com) vs 8 (com `pool_state_hash`) | **(B) 7 campos com `default_reason`** — contestabilidade do score FCRA |
+| **1** | Schema do indexer | 6 campos brutos (sem `default_reason`) vs **7 campos (6+`default_reason`)** vs 8 (com `pool_state_hash`) | **(B) 7 campos** — contestabilidade do score FCRA |
 | **2** | Data layer mode | Interno-only vs exportável via CPI vs API HTTPS | **(B) Exportável** — caminho do produto fundacional, exige opinion letter FCRA |
 | **3** | Persona dos 7 newbies | Sem filtro / soft filter / pergunta-filtro do fundacional | **(C) Pergunta fundacional** — "Você já enfrentou dificuldade de acessar crédito…" |
 | **4** | Wyoming LLC | Auto-filing online / via advogado / BVI combo | **(A) Auto-filing** — $200-400, 2-5d, Yvina organizer |
-| **5** | v0.6 da proposta | Eu escrevo first-draft / skip / pós-Canary | **(A) First-draft** depois das 4 decisões acima registradas |
 
 ### Adicionadas pelo relatório de infra (4)
 
 | # | Decisão | Realidade | Recomendação |
 |---|---|---|---|
-| **6** | Cranker production-grade | Não existe (orchestrator é demo-first). 3-5d eng | **Owner: Alrimar.** Estender orchestrator OU rebuild. SLA: max 1h downtime pré-mainnet. |
-| **7** | USDC mint script pros testers | Só `airdrop.ts` (SOL). 30-60min eng | **Owner: Alrimar/Caio.** Build `scripts/devnet/mint-usdc-testers.ts` |
-| **8** | Push notification | Não implementado (zero hits). 3 opções: OneSignal (~1d) / email diário / Discord manual | **OneSignal pra Fase 1.** Pra Canary: aceitar email/Discord manual |
-| **9** | Discord bot auto-tracking | Não implementado. Fórmula min-max do §10 D2 (selecao de vets) depende disso | **(A) Statbot/MEE6 free tier** — ~30min setup |
+| **5** | Cranker production-grade | Não existe (orchestrator é demo-first). 2-3d eng | **Owner: Alrimar.** Estender orchestrator. SLA: max 1h downtime pré-mainnet. |
+| **6** | USDC mint script pros testers | Só `airdrop.ts` (SOL). 30-60min eng | **Owner: Caio** (desafoga Alrimar). Build `scripts/devnet/mint-usdc-testers.ts` |
+| **7** | Push notification (2 camadas) | Não implementado. **Canary** (curto) ≠ **Fase 1** (longo, hábito) | **Canary: Discord/email manual (Yvina, 0 eng) · Fase 1: OneSignal (~1d eng, build pós-Canary)** |
+| **8** | Discord bot auto-tracking | Não implementado. Fórmula min-max do §10 D2 (selecao de vets) depende disso | **(A) Statbot/MEE6 free tier** — ~30min setup. Confirmar rate limit pra 30 testers × 70d. |
+
+### Ack rápido (não precisa de slot dedicado)
+
+- **v0.6 da proposta** — Claude rascunha após reunião, Alrimar revisa. Não é decisão, é processo. 1 linha na ata.
 
 ---
 
@@ -38,6 +41,18 @@ PR #401 (treasury ADR 0008) mergeou hoje, destravando numeração futura. Doc da
 - ✅ Nomeações (lead eng, fuzz owner, on-call) — já mapeadas: Alrimar/Gabriel/Yvina/Caio
 - ✅ Label `sev-low-deadline-canary` — 1 clique do Yvina
 - ✅ Capacidade ops — Yvina confirmou primary on-call
+- ✅ v0.6 da proposta — Claude rascunha, Alrimar revisa (ack rápido, não decisão)
+
+## ⚠️ Risco operacional pra flagar na reunião
+
+**Alrimar está sobrecarregado.** Tasks atribuídas/sugeridas:
+
+- Decisão 5 (Cranker) — 2-3d eng focado
+- Lead eng on-call durante 3 meses (Canary + Fase 1)
+- Fuzz Canary fixture (6 targets × 1M iter + analisar findings)
+- Revisar v0.6 que Claude rascunha
+
+**Pergunta pra reunião:** se Alrimar afundar em algum item, qual é o backup? Decisão 6 (USDC mint script) já desviada pro Caio. Outras opções de descarga: Gabriel pode owner sub-tarefa do cranker (ex: healthcheck endpoint)?
 
 ---
 
@@ -54,7 +69,7 @@ PR #401 (treasury ADR 0008) mergeou hoje, destravando numeração futura. Doc da
 ## Pós-reunião (1h, Yvina)
 
 - [ ] Postar ata no canal interno (1 linha por decisão)
-- [ ] Criar 9 issues no GitHub com label `pre-canary-blocker` (texto pronto em `docs/pt/pre-canary-issues-draft.md`)
+- [ ] Criar 8 issues no GitHub com label `pre-canary-blocker` (texto pronto em `docs/pt/pre-canary-issues-draft.md`) + registrar v0.6 como follow-up de Claude
 - [ ] Atualizar checklist §10 do PR #400
 - [ ] Agendar follow-up 15 min em 7 dias pra status check
 
@@ -65,11 +80,11 @@ PR #401 (treasury ADR 0008) mergeou hoje, destravando numeração futura. Doc da
 | Item adiado | Custo |
 |---|---|
 | #1 Schema indexer | **Irrecuperável após Dia 1 do Canary.** Sem `paid_at` desde início, 70d de dados da Fase 1 perdem valor pro produto = score |
-| #6 Cranker | Sem cranker, ciclo não avança no Dia 15. Beta morre no Dia 1 |
 | #2 Data layer mode | Afeta schema do #1. Decisão tardia = retrabalho do indexer |
+| #5 Cranker | Sem cranker, ciclo não avança no Dia 15. Beta morre no Dia 1 |
 | Outros | Atraso de 1-7 dias por decisão, mas reversíveis |
 
-**Conclusão:** itens #1, #2, #6 são bloqueadores não-negociáveis. Outros podem virar GitHub issue com 24-48h pra decidir off-line se faltar tempo.
+**Conclusão:** itens #1, #2, #5 são bloqueadores não-negociáveis. Outros podem virar GitHub issue com 24-48h pra decidir off-line se faltar tempo.
 
 ---
 

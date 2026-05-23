@@ -263,14 +263,16 @@
       <!-- SLIDE 1: Capa -->
       <section class="slide active">
         <span class="slide-num">01 / 11</span>
-        <div class="eyebrow">Reunião pré-Canary · 50 min · 4 founders</div>
-        <h1>9 decisões.<br />Cada uma sai com<br />owner + deadline + artefato.</h1>
+        <div class="eyebrow">Reunião pré-Canary · 45 min · 4 founders</div>
+        <h1>8 decisões + 1 ack.<br />Cada decisão sai com<br />owner + deadline + artefato.</h1>
         <p class="subtitle">Sem "vamos pensar mais." Output é decisão registrada, não discussão.</p>
         <div class="context">
-          <strong>Realidade:</strong> 5 decisões originais da pauta + 4 que o relatório de infra adicionou.
-          Itens <span class="pill danger">#1 Schema</span> <span class="pill danger">#2 Data layer</span>
-          <span class="pill danger">#6 Cranker</span> são bloqueadores não-negociáveis. Outros podem virar
+          <strong>Realidade:</strong> 4 decisões originais da pauta + 4 que o relatório de infra adicionou + 1 ack rápido (v0.6).
+          Itens <span class="pill danger">D1 Schema</span> <span class="pill danger">D2 Data layer</span>
+          <span class="pill danger">D5 Cranker</span> são bloqueadores não-negociáveis. Outros podem virar
           GitHub issue com 24-48h pra decidir off-line se faltar tempo.
+          <br /><br />
+          <strong>⚠️ Risco operacional flagado:</strong> Alrimar é owner de D5 (Cranker, 2-3d) + lead eng on-call 3m + fuzz. D6 (USDC mint) desviada pro Caio pra desafogar. Pergunta de backup pra cranker fica em aberto.
         </div>
         <div class="meta">
           <div class="meta-item">
@@ -279,7 +281,7 @@
           </div>
           <div class="meta-item">
             <span class="meta-label">Output</span>
-            <span class="meta-value">9 issues criadas</span>
+            <span class="meta-value">8 issues + 1 ack registrado</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Pós-reunião</span>
@@ -302,11 +304,11 @@
             <div class="option-desc">paid_at, due_at, delta_seconds, grace_used, slot_position, cycle_number. Sem default_reason.</div>
           </div>
           <div class="option rec">
-            <div class="option-label">(B) 6 campos + default_reason</div>
+            <div class="option-label">(B) 7 campos (6 brutos + default_reason)</div>
             <div class="option-desc">Adiciona contestabilidade do score (FCRA right-to-dispute). Necessário se produto vai mainnet.</div>
           </div>
           <div class="option">
-            <div class="option-label">(C) 7 campos + pool_state_hash</div>
+            <div class="option-label">(C) 8 campos (7 + pool_state_hash)</div>
             <div class="option-desc">Integridade futura, storage maior. Overkill pre-beta.</div>
           </div>
         </div>
@@ -404,26 +406,22 @@
         </div>
       </section>
 
-      <!-- SLIDE 6: Decisão 5 -->
+      <!-- SLIDE 6: ACK rápido — v0.6 -->
       <section class="slide">
         <span class="slide-num">06 / 11</span>
-        <div class="eyebrow">Decisão 5 · Processo</div>
+        <div class="eyebrow">Ack rápido · ~30s · NÃO é decisão</div>
         <h2>v0.6 da proposta</h2>
-        <div class="context">
-          v0.5.3 está incompleta — não articula produto = score. <strong>v0.6 documenta decisões já tomadas, não é o processo de tomar decisões.</strong> Vem depois das outras 8.
+        <div class="context" style="border-left-color: var(--accent);">
+          v0.6 só documenta decisões já tomadas — é o output, não o input. <strong>Sem trade-off real, então não merece slot de decisão.</strong> Cabe confirmar:
         </div>
-        <div class="options">
-          <div class="option rec">
-            <div class="option-label">(A) Eu rascunho v0.6 em 3-5d</div>
-            <div class="option-desc">Absorve decisões D1-D8. Alrimar revisa. PR novo separado.</div>
+        <div class="grid-2">
+          <div>
+            <h3 style="color: var(--accent);">✅ Plano</h3>
+            <p>Claude rascunha v0.6 absorvendo D1-D8 (Dia 5 do CP). Alrimar revisa. PR novo separado.</p>
           </div>
-          <div class="option">
-            <div class="option-label">(B) Skip v0.6, issues por gap</div>
-            <div class="option-desc">Cada gap vira issue GitHub. Perde rastreabilidade narrativa.</div>
-          </div>
-          <div class="option">
-            <div class="option-label">(C) v0.6 pós-Canary com dados</div>
-            <div class="option-desc">Beta começa em v0.5.3 com issues abertas. v0.6 vira transição Canary → Fase 1.</div>
+          <div>
+            <h3 style="color: var(--muted);">⏭ Próximo slide</h3>
+            <p>Cranker — o real bloqueador de eng.</p>
           </div>
         </div>
         <div class="meta">
@@ -436,7 +434,7 @@
       <!-- SLIDE 7: Decisão 6 -->
       <section class="slide">
         <span class="slide-num">07 / 11</span>
-        <div class="eyebrow danger">Decisão 6 · BLOQUEADOR · NOVA (relatório infra)</div>
+        <div class="eyebrow danger">Decisão 5 · BLOQUEADOR · NOVA (relatório infra)</div>
         <h2>Cranker production-grade</h2>
         <div class="context">
           <span class="pill danger">CRÍTICO</span> Verificado hoje: <code>services/orchestrator</code> é demo-first, comment literal "the orchestrator never calls settle_default". <strong>Sem cranker real, ciclo não avança no Dia 15 = beta morre Dia 1.</strong>
@@ -465,7 +463,7 @@
       <!-- SLIDE 8: Decisão 7 -->
       <section class="slide">
         <span class="slide-num">08 / 11</span>
-        <div class="eyebrow warn">Decisão 7 · Quick win · NOVA</div>
+        <div class="eyebrow warn">Decisão 6 · Quick win · NOVA</div>
         <h2>Script USDC mint pros testers</h2>
         <div class="context">
           Verificado: <code>scripts/devnet/airdrop.ts</code> só dá SOL. Pra dar USDC devnet pros 10 testers, precisa script novo OU usar faucet público (Circle/Solana).
@@ -481,7 +479,7 @@
           </div>
         </div>
         <div class="meta">
-          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value">Alrimar ou Caio</span></div>
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value">Caio (desafoga Alrimar)</span></div>
           <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 11 do CP</span></div>
           <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">scripts/devnet/mint-usdc-testers.ts</span></div>
         </div>
@@ -490,36 +488,48 @@
       <!-- SLIDE 9: Decisão 8 -->
       <section class="slide">
         <span class="slide-num">09 / 11</span>
-        <div class="eyebrow warn">Decisão 8 · Observabilidade · NOVA</div>
+        <div class="eyebrow warn">Decisão 7 · Observabilidade · NOVA · 2 camadas</div>
         <h2>Push notification infra</h2>
         <div class="context">
           Verificado: zero implementação no código. <strong>§2 do fundacional lista push notif como variável observada — sem infra, variável não é observável.</strong>
+          <br /><br />
+          <strong>Decisão é em 2 camadas:</strong> (1) o que fazer pra Canary (curto, ~21d) e (2) o que comprometer pra Fase 1 (longo, ~70d, hábito recorrente).
+        </div>
+        <div class="grid-2" style="margin-bottom: 16px;">
+          <div>
+            <h3 style="color: var(--info);">Pra Canary (decidir hoje)</h3>
+            <p style="font-size: 13px; margin-top: 4px;">Cycle 48h, 10 testers. Aceita-se UX pior.</p>
+          </div>
+          <div>
+            <h3 style="color: var(--warn);">Pra Fase 1 (compromisso, build pós-Canary)</h3>
+            <p style="font-size: 13px; margin-top: 4px;">Cycle 7d, 10 testers, 70 dias. Sem push real, retenção sofre.</p>
+          </div>
         </div>
         <div class="options">
-          <div class="option">
-            <div class="option-label">(A) OneSignal free tier</div>
-            <div class="option-desc">Até 10k MAU grátis. ~1d eng (SDK + endpoint backend). Melhor UX. Necessário pra Fase 1.</div>
-          </div>
           <div class="option rec">
-            <div class="option-label">(B) Email diário (Resend)</div>
-            <div class="option-desc">Free até 3000 emails/mês. ~3-4h eng. Pior UX mas aceitável pra Canary (cycle 48h).</div>
+            <div class="option-label">(A) Canary: Discord/email manual · Fase 1: OneSignal</div>
+            <div class="option-desc">Yvina dispara avisos no Canary (zero eng). Build OneSignal nas ~3 semanas entre Canary e Fase 1 (~1d eng). Recomendado.</div>
           </div>
           <div class="option">
-            <div class="option-label">(C) Discord manual (Yvina)</div>
-            <div class="option-desc">Zero eng. Pior UX. Yvina dispara cada ciclo. Aceitável só pro Canary curto.</div>
+            <div class="option-label">(B) Canary + Fase 1: email diário (Resend)</div>
+            <div class="option-desc">Free até 3k emails/mês. ~3-4h eng. UX pior do que push mas funciona pras 2 fases sem retrabalho.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) OneSignal já pro Canary</div>
+            <div class="option-desc">~1d eng agora. Melhor UX. Risco: atrasa Dia 11-13 do CP se outro item explodir.</div>
           </div>
         </div>
         <div class="meta">
-          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">_____________</span></div>
-          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 11-13 do CP</span></div>
-          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">PR app + endpoint OR commitment</span></div>
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">Yvina (Canary) + ___ (Fase 1)</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Canary: Dia 11 · Fase 1: pré-start</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">Issue Canary + issue Fase 1 separadas</span></div>
         </div>
       </section>
 
       <!-- SLIDE 10: Decisão 9 -->
       <section class="slide">
         <span class="slide-num">10 / 11</span>
-        <div class="eyebrow warn">Decisão 9 · Dependência crítica · NOVA</div>
+        <div class="eyebrow warn">Decisão 8 · Dependência crítica · NOVA</div>
         <h2>Discord bot auto-tracking</h2>
         <div class="context">
           §10 D2 da v0.5.3: seleção dos 3 vets usa <code>discord_messages_normalized</code>. <strong>Sem bot logando desde Dia 1 do Canary, fórmula min-max vira teatro.</strong>
@@ -527,7 +537,7 @@
         <div class="options">
           <div class="option rec">
             <div class="option-label">(A) Statbot/MEE6 free tier</div>
-            <div class="option-desc">~30min setup. Bot existente, conta mensagens por usuário. Suficiente pra dados Canary.</div>
+            <div class="option-desc">~30min setup. Bot existente, conta mensagens por usuário. Suficiente pra dados Canary. <em>Confirmar rate limit pra 30 testers × 70d antes de comprometer.</em></div>
           </div>
           <div class="option">
             <div class="option-label">(B) Bot custom Node.js</div>
@@ -552,7 +562,7 @@
         <h2>O que sai da call</h2>
         <ul class="checklist">
           <li>Postar ata no canal interno: 1 linha por decisão (owner + deadline + artefato)</li>
-          <li>Criar 9 issues no GitHub com label <code>pre-canary-blocker</code> (texto pronto em <code>docs/pt/pre-canary-issues-draft.md</code>)</li>
+          <li>Criar 8 issues no GitHub com label <code>pre-canary-blocker</code> (texto pronto em <code>docs/pt/pre-canary-issues-draft.md</code>) + registrar v0.6 como follow-up de Claude</li>
           <li>Criar label <code>sev-low-deadline-canary</code> (1 clique)</li>
           <li>Atualizar checklist §10 do PR #400 marcando itens decididos</li>
           <li>Agendar follow-up 15min em 7 dias pra status check</li>
@@ -560,15 +570,15 @@
         <div class="grid-2">
           <div>
             <h3>🟢 Já mergeado hoje</h3>
-            <p>PR #401 — ADR 0008 treasury (destrava numeração ADR 0009/0010)</p>
+            <p>PR #401 — ADR 0008 treasury (destrava numeração ADR 0009/0010)<br />PR #403 — Pass-18 judge readiness (47 SEVs / 13-13 C+H / 300+ testes sincados)</p>
           </div>
           <div>
-            <h3>⏳ Pendente merge</h3>
-            <p>PR #403 — Pass-18 judge readiness (CI travado, aguardando re-run)</p>
+            <h3>⏳ Pós-reunião</h3>
+            <p>PR #402 — feature-gate <code>devnet-canary</code>. Mergeio quando time bater martelo nas decisões D1-D5.</p>
           </div>
         </div>
         <div class="context" style="margin-top: 24px;">
-          <strong>Próximo passo se ⩾7 das 9 decisões saírem:</strong> Claude pode começar Dia 1-2 do critical path hoje mesmo (templates de procedimento de aborto, termo de participação, onboarding já prontos no PR #400). Mergear PR #402 (feature-gate <code>devnet-canary</code>) destrava o redeploy devnet do Dia 3-5.
+          <strong>Próximo passo se ⩾6 das 8 decisões saírem:</strong> Claude pode começar Dia 1-2 do critical path hoje mesmo. Templates operacionais já commitados no PR #400 (verificados — 166/161/200 linhas, conteúdo real): <code>docs/pt/pre-ceremony-beta-procedimento-aborto.md</code>, <code>pre-ceremony-beta-termo-participacao.md</code>, <code>pre-ceremony-beta-onboarding-testers.md</code>. Mergear PR #402 (feature-gate <code>devnet-canary</code>) destrava o redeploy devnet do Dia 3-5.
         </div>
       </section>
 
