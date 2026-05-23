@@ -49,14 +49,14 @@ This is the same pattern used by every production Solana DeFi protocol we've aud
 
 This ADR records that **Path B** (program-owned PDA treasury with on-chain `withdraw_treasury` ix carrying rate-limit + allowlist) is a deliberately deferred option, not a rejected one. The migration is mechanically straightforward post-fact (one-time SPL transfer from the old Squads-owned ATA into the new program PDA, plus a new ix + state, plus updates to `harvest_yield` and any future fee-flow paths to point at the new vault). Migrate if **any** of the following triggers materialises:
 
-| #   | Trigger                                                                                        | Why it changes the calculus                                                                                            |
-| --- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 1   | An institutional LP / partner contractually requires on-chain enforcement of withdrawal caps   | Squads spending policies are off-program; an LP audit may insist on bytecode-level enforcement                         |
-| 2   | Cumulative TVL > $X (concrete threshold to be set by the team at the time, e.g. $5M)           | Above some size, custom on-chain enforcement amortises its audit cost vs. multisig policy alone                        |
-| 3   | Squads spending policies prove inadequate in practice (UX gaps, missing controls, etc.)        | The "Squads handles it" argument depends on Squads being fit-for-purpose                                               |
-| 4   | An external auditor (Adevar Labs, OtterSec, etc.) recommends migrating in writing              | External recommendation > internal preference, given the auditor sees the broader landscape                            |
-| 5   | A peer protocol's incident reveals a multisig-only treasury pattern was the proximate cause    | Update the prior on whether Squads custody is sufficient; would prompt a re-evaluation                                 |
-| 6   | We add a fee-flow that doesn't fit the "USDC → external ATA via CPI" mould                     | E.g. multi-mint treasury, performance fees crystallised on-chain, etc. — may require program-PDA custody anyway        |
+| #   | Trigger                                                                                      | Why it changes the calculus                                                                                     |
+| --- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1   | An institutional LP / partner contractually requires on-chain enforcement of withdrawal caps | Squads spending policies are off-program; an LP audit may insist on bytecode-level enforcement                  |
+| 2   | Cumulative TVL > $X (concrete threshold to be set by the team at the time, e.g. $5M)         | Above some size, custom on-chain enforcement amortises its audit cost vs. multisig policy alone                 |
+| 3   | Squads spending policies prove inadequate in practice (UX gaps, missing controls, etc.)      | The "Squads handles it" argument depends on Squads being fit-for-purpose                                        |
+| 4   | An external auditor (Adevar Labs, OtterSec, etc.) recommends migrating in writing            | External recommendation > internal preference, given the auditor sees the broader landscape                     |
+| 5   | A peer protocol's incident reveals a multisig-only treasury pattern was the proximate cause  | Update the prior on whether Squads custody is sufficient; would prompt a re-evaluation                          |
+| 6   | We add a fee-flow that doesn't fit the "USDC → external ATA via CPI" mould                   | E.g. multi-mint treasury, performance fees crystallised on-chain, etc. — may require program-PDA custody anyway |
 
 When any trigger fires, the migration steps are:
 

@@ -51,14 +51,14 @@ Before the **first** treasury withdrawal on mainnet:
 
 Multisig members agree on the recipient allowlist **out-of-band** (1Password / Signal / written charter) before any withdrawal is proposed. Suggested categories — adjust per the legal entity's actual structure:
 
-| Category                 | Example recipient                                                | Frequency   | Notes                                                                                                  |
-| ------------------------ | ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
-| Operating expenses       | Ops wallet (e.g. `OpsXX...XX` ATA on USDC)                       | Monthly     | Server costs, RPC subscriptions, audit retainers, etc.                                                 |
-| Contractor payouts       | Per-contractor ATA, recorded in a shared payouts ledger          | As invoiced | One ATA per long-term contractor; ad-hoc contractors use the ops wallet as relay                       |
-| Founder distributions    | Per-founder ATA, distinct from any pool-participating wallet     | Quarterly   | Subject to vesting / cliff per the cap-table; do not commingle with member-signing keys                |
-| External audit fees      | Audit-firm-provided ATA (Adevar Labs, OtterSec, etc.)            | Per audit   | Cross-check with the firm's published payment address — they should publish out-of-band, not via email |
-| Bug bounty payouts       | Researcher-provided ATA (per [`bug-bounty.md`](../security/bug-bounty.md)) | Per finding | One-shot; ATA captured in the bounty report                                                            |
-| Off-ramp deposits        | Centralised exchange deposit ATA (Coinbase / Kraken / Bitso etc.) | As needed   | Triple-check the ATA — exchange deposit addresses sometimes rotate                                     |
+| Category              | Example recipient                                                          | Frequency   | Notes                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
+| Operating expenses    | Ops wallet (e.g. `OpsXX...XX` ATA on USDC)                                 | Monthly     | Server costs, RPC subscriptions, audit retainers, etc.                                                 |
+| Contractor payouts    | Per-contractor ATA, recorded in a shared payouts ledger                    | As invoiced | One ATA per long-term contractor; ad-hoc contractors use the ops wallet as relay                       |
+| Founder distributions | Per-founder ATA, distinct from any pool-participating wallet               | Quarterly   | Subject to vesting / cliff per the cap-table; do not commingle with member-signing keys                |
+| External audit fees   | Audit-firm-provided ATA (Adevar Labs, OtterSec, etc.)                      | Per audit   | Cross-check with the firm's published payment address — they should publish out-of-band, not via email |
+| Bug bounty payouts    | Researcher-provided ATA (per [`bug-bounty.md`](../security/bug-bounty.md)) | Per finding | One-shot; ATA captured in the bounty report                                                            |
+| Off-ramp deposits     | Centralised exchange deposit ATA (Coinbase / Kraken / Bitso etc.)          | As needed   | Triple-check the ATA — exchange deposit addresses sometimes rotate                                     |
 
 **Recipient capture rule:** every recipient ATA goes through 3 checks before being proposed:
 
@@ -74,12 +74,12 @@ Squads v4 supports **spending limits** — per-token, per-window caps that can b
 
 Recommended policy (set once, post-Step-4):
 
-| Policy                             | Cap                            | Approval threshold     | Window                  | Notes                                                                                                |
-| ---------------------------------- | ------------------------------ | ---------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| Routine operating expenses         | 10% of treasury balance        | 2 of 5 (sub-threshold) | 30-day rolling          | Lets one duty-officer + one approver release small amounts without convening the full multisig       |
-| Large distributions / payouts      | > 10% of treasury balance      | Full threshold (3/5)   | n/a                     | Default. Anything above the 10% policy escalates to full multisig                                    |
-| Recipient not on documented list   | 0 (blocked)                    | Full threshold (3/5)   | n/a                     | Squads doesn't enforce a recipient allowlist on-chain; the **policy** is "any unknown recipient triggers a full review". Members reject the propose if the recipient isn't on the documented list |
-| Emergency drain (incident response)| 100% of balance                | Full threshold (3/5)   | n/a                     | For the case where the treasury ATA itself is suspected at-risk; drain to a fresh ATA. See § "Emergency drain" below |
+| Policy                              | Cap                       | Approval threshold     | Window         | Notes                                                                                                                                                                                             |
+| ----------------------------------- | ------------------------- | ---------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Routine operating expenses          | 10% of treasury balance   | 2 of 5 (sub-threshold) | 30-day rolling | Lets one duty-officer + one approver release small amounts without convening the full multisig                                                                                                    |
+| Large distributions / payouts       | > 10% of treasury balance | Full threshold (3/5)   | n/a            | Default. Anything above the 10% policy escalates to full multisig                                                                                                                                 |
+| Recipient not on documented list    | 0 (blocked)               | Full threshold (3/5)   | n/a            | Squads doesn't enforce a recipient allowlist on-chain; the **policy** is "any unknown recipient triggers a full review". Members reject the propose if the recipient isn't on the documented list |
+| Emergency drain (incident response) | 100% of balance           | Full threshold (3/5)   | n/a            | For the case where the treasury ATA itself is suspected at-risk; drain to a fresh ATA. See § "Emergency drain" below                                                                              |
 
 These are policy decisions enforced **socially** at the Squads layer + technically at the spending-limit layer. ADR 0008 records that bytecode-level enforcement is a deferred option (Path B) with explicit triggers.
 
