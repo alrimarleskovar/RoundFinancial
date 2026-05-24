@@ -301,6 +301,39 @@ export const DICT: Record<Lang, Dict> = {
     "lab.presets.tripleVeteranDefault": "Triplo Calote L3",
     "lab.presets.tripleVeteranDefaultHint":
       "Cenário canônico do whitepaper · 24 membros · carta $10k · Veterano · 3 contemplados (ciclos 2/3/4) defaultam após receber upfront. Esperado: solvente por construção (~+$4k).",
+    "lab.presets.healthyMin4": "Mín 4",
+    "lab.presets.healthyMin4Hint":
+      "Pool mínimo · 4 membros · Comprovado · carta $4k. Estressa Sorteio Semente (threshold pequeno).",
+    "lab.presets.healthySmall8": "Pequeno 8",
+    "lab.presets.healthySmall8Hint":
+      "Pool pequeno · 8 membros · Comprovado · carta $8k. Saudável sem calotes.",
+    "lab.presets.healthyLarge24": "Grande 24",
+    "lab.presets.healthyLarge24Hint":
+      "Pool grande · 24 membros · Comprovado · carta $24k. Isola shape de tamanho do shape de tier.",
+    "lab.presets.healthyMax36": "Máx 36",
+    "lab.presets.healthyMax36Hint":
+      "Pool máximo · 36 membros · Comprovado · carta $36k. Estressa economia por membro em ciclos longos.",
+    "lab.presets.iniciantePostDefault": "Calote pós L1",
+    "lab.presets.iniciantePostDefaultHint":
+      "Iniciante (10% stake) · 12 membros · 1 calote pós-contemplação. Stake mínimo — pior recuperação.",
+    "lab.presets.veteranoPostDefault": "Calote pós L3",
+    "lab.presets.veteranoPostDefaultHint":
+      "Veterano (30% stake) · 12 membros · 1 calote pós-contemplação. Stake máximo — melhor recuperação.",
+    "lab.presets.earlyCycleDefault": "Calote cedo",
+    "lab.presets.earlyCycleDefaultHint":
+      "Primeiro slot recebe upfront no ciclo 1, defaulta no ciclo 2. Ataque 'recebe primeiro, foge primeiro'.",
+    "lab.presets.lateCycleDefault": "Calote tarde",
+    "lab.presets.lateCycleDefaultHint":
+      "Penúltimo slot defaulta no ciclo 11. Estressa cascata perto do fim, opções de recuperação consumidas.",
+    "lab.presets.terminalDefault": "Calote terminal",
+    "lab.presets.terminalDefaultHint":
+      "Último slot defaulta no ciclo final (12). Boundary case: zero parcelas futuras pra confiscar, só escrow + stake.",
+    "lab.presets.zeroYieldTripleDefault": "Triplo · APY 0%",
+    "lab.presets.zeroYieldTripleDefaultHint":
+      "Triplo Calote L3 com Kamino APY = 0%. Remove contribuição de yield à cascata — solvência tem que segurar sozinha.",
+    "lab.presets.highYieldTripleDefault": "Triplo · APY 20%",
+    "lab.presets.highYieldTripleDefaultHint":
+      "Triplo Calote L3 com Kamino APY = 20%. Amplifica buffer de yield — limite superior da cascata.",
     "lab.chart.poolBalance": "Saldo do Cofre por Ciclo",
     "lab.controls.title": "Variáveis do Fundo",
     "lab.controls.level": "Nível do Grupo (Muda o Stake)",
@@ -1251,6 +1284,39 @@ export const DICT: Record<Lang, Dict> = {
     "lab.presets.tripleVeteranDefault": "Triple L3 Default",
     "lab.presets.tripleVeteranDefaultHint":
       "Canonical whitepaper stress · 24 members · $10k carta · Veterano · 3 contemplated (cycles 2/3/4) default after receiving upfront. Expected: solvent by construction (~+$4k).",
+    "lab.presets.healthyMin4": "Min 4",
+    "lab.presets.healthyMin4Hint":
+      "Minimum pool · 4 members · Comprovado · $4k carta. Stresses Seed Draw (small threshold).",
+    "lab.presets.healthySmall8": "Small 8",
+    "lab.presets.healthySmall8Hint":
+      "Small pool · 8 members · Comprovado · $8k carta. Healthy with no defaults.",
+    "lab.presets.healthyLarge24": "Large 24",
+    "lab.presets.healthyLarge24Hint":
+      "Large pool · 24 members · Comprovado · $24k carta. Isolates pool-size shape from tier-shape.",
+    "lab.presets.healthyMax36": "Max 36",
+    "lab.presets.healthyMax36Hint":
+      "Maximum pool · 36 members · Comprovado · $36k carta. Stresses per-member economics under longer cycle counts.",
+    "lab.presets.iniciantePostDefault": "L1 post-default",
+    "lab.presets.iniciantePostDefaultHint":
+      "Iniciante (10% stake) · 12 members · 1 post-contemplation default. Minimum stake — worst recovery.",
+    "lab.presets.veteranoPostDefault": "L3 post-default",
+    "lab.presets.veteranoPostDefaultHint":
+      "Veterano (30% stake) · 12 members · 1 post-contemplation default. Maximum stake — best recovery.",
+    "lab.presets.earlyCycleDefault": "Early default",
+    "lab.presets.earlyCycleDefaultHint":
+      "First slot receives upfront at cycle 1, defaults at cycle 2. 'First to receive, first to skip' attack pattern.",
+    "lab.presets.lateCycleDefault": "Late default",
+    "lab.presets.lateCycleDefaultHint":
+      "Second-to-last slot defaults at cycle 11. Stresses cascade near terminal state with recovery options drained.",
+    "lab.presets.terminalDefault": "Terminal default",
+    "lab.presets.terminalDefaultHint":
+      "Last slot defaults at final cycle (12). Boundary case: zero future installments to seize, only escrow + stake.",
+    "lab.presets.zeroYieldTripleDefault": "Triple · APY 0%",
+    "lab.presets.zeroYieldTripleDefaultHint":
+      "Triple L3 default with Kamino APY = 0%. Removes yield contribution to cascade — solvency must hold alone.",
+    "lab.presets.highYieldTripleDefault": "Triple · APY 20%",
+    "lab.presets.highYieldTripleDefaultHint":
+      "Triple L3 default with Kamino APY = 20%. Amplifies yield buffer — upper bound of the cascade.",
     "lab.chart.poolBalance": "Vault balance by cycle",
     "lab.controls.title": "Fund variables",
     "lab.controls.level": "Group tier (drives the stake)",
