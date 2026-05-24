@@ -110,10 +110,27 @@ export interface FrameMetrics {
    */
   participantsDistribution: number;
   /**
-   * `poolBalance − outstandingEscrow − outstandingStakeRefund`.
-   * Net cash the protocol is sitting on after honoring every open
-   * obligation to ok members. The SOLVENT/INSOLVENT verdict
-   * derives from this — positive ≡ solvent.
+   * Net position at the END of the pool's life:
+   *   `poolBalance + solidarityVault + guaranteeFund
+   *      − outstandingEscrow − outstandingStakeRefund`
+   * i.e. all protocol-held buffers (main float + solidarity + GF) minus
+   * the obligations still owed to ok members.
+   *
+   * **ECO-001 / ECO-004 caveat (audit 2026-05-24):** this is an
+   * END-OF-LIFE / immediate-liquidation measure — it does NOT credit
+   * future installments still to be collected. For a ROSCA, that makes
+   * intermediate-frame `netSolvency` structurally negative (obligations
+   * exist before the installments that fund them arrive), and it lets a
+   * default "improve" the number on an intermediate frame (the defaulter's
+   * un-disbursed escrow stays in poolBalance while their outstanding
+   * obligation drops). **Only the FINAL frame is meaningful as a solvency
+   * read, and even then it is yield-dependent**: at 0% Kamino APY a healthy
+   * pool closes at exactly $0 (zero-sum ROSCA) and the triple-default
+   * stress closes NEGATIVE (~−$3.75k). The positive surplus seen with
+   * yield (healthy ≈ +$2.76k, triple-default ≈ +$28 @ 6.5% APY) comes from
+   * the yield buffer, NOT "by construction". Do NOT cite an intermediate
+   * frame, and do NOT claim 0%-yield solvency under stress. See
+   * `docs/security/internal-audit-findings.md` ECO-001..004.
    */
   netSolvency: number;
 }
