@@ -102,8 +102,8 @@ pub mod roundfi_reputation {
     /// SEV-047 defense-in-depth — authority sets the identity-gate floor
     /// (`required_min_level`: 0 = off/default, 2 or 3 = require verified
     /// identity at that tier+). Creates the `IdentityGateConfig` PDA on first
-    /// call (init_if_needed). Enforcement is wired into `promote_level` in a
-    /// follow-up (needs the reputation localnet lane to validate).
+    /// call (init_if_needed). Enforced in `promote_level` (caps unverified
+    /// subjects below the floor).
     pub fn set_identity_gate(ctx: Context<SetIdentityGate>, required_min_level: u8) -> Result<()> {
         instructions::set_identity_gate::handler(ctx, required_min_level)
     }
