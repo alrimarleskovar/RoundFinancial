@@ -462,7 +462,7 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
 
   // ─── Scenario F: deposit guard protects GF earmark ─────────────────
 
-  it("rejects deposit amount that would push vault below GF+LP earmark (F)", async function () {
+  it("rejects deposit that pushes vault below GF+LP earmark — SEV-048 regression (F)", async function () {
     // The GF *and* the LP-distribution balance are logical earmarks inside
     // pool_usdc_vault — the deposit guard in `deposit_idle_to_yield` enforces
     // that neither earmark leaks out to the adapter (SEV-048 added the LP leg).
@@ -473,13 +473,29 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     //   args.amount    > spendable_idle          → InsufficientStake
     const vaultBefore = await balanceOf(env, pool.poolUsdcVault);
     const p = await poolState(env, pool.pool);
-    const earmark = bn(p.guaranteeFundBalance) + bn(p.lpDistributionBalance);
+    const gf = bn(p.guaranteeFundBalance);
+    const lp = bn(p.lpDistributionBalance);
+    const earmark = gf + lp;
     expect(earmark > 0n).to.equal(true); // else this test is trivially vacuous
     const spendable = vaultBefore - earmark;
     const overshoot = spendable + 1n;
 
     const msg = await expectRejected(() => depositIdleToYield(env, { pool, amount: overshoot }));
     expect(msg).to.match(/InsufficientStake/);
+
+    // ── SEV-048 regression marker ──────────────────────────────────────
+    // This is the EXACT amount the pre-SEV-048 code allowed: `vault - GF`,
+    // reserving ONLY the guarantee fund and sweeping the *entire* LP earmark
+    // into the adapter. Pre-fix (earmark = GF only) this PASSED; post-fix
+    // (earmark = GF + LP) it must REJECT. The harvests in scenarios B/C/D
+    // populated lp_distribution_balance > 0, so this assertion is live and
+    // FAILS on pre-SEV-048 code — pinning the regression.
+    expect(lp > 0n, "lp_distribution_balance must be > 0 for this to bite").to.equal(true);
+    const lpEating = vaultBefore - gf; // = spendable + lp  (> spendable)
+    const sev048 = await expectRejected(() => depositIdleToYield(env, { pool, amount: lpEating }));
+    expect(sev048, "SEV-048: sweeping the LP-distribution earmark must reject").to.match(
+      /InsufficientStake/,
+    );
 
     // Control: depositing the exact spendable amount still succeeds and
     // leaves vault == earmark (GF + LP). Not strictly required by the spec,
