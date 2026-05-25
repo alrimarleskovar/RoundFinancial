@@ -38,6 +38,10 @@ pub fn handler(ctx: Context<PromoteLevel>) -> Result<()> {
         profile.score,
         LEVEL_2_THRESHOLD,
         LEVEL_3_THRESHOLD,
+        // SEV-047: cycles_completed gate — see resolve_level + constants.rs.
+        profile.cycles_completed,
+        LEVEL_2_MIN_CYCLES,
+        LEVEL_3_MIN_CYCLES,
     );
 
     // Monotonic up: the ladder is advance-only in this instruction.

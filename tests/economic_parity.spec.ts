@@ -180,14 +180,17 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
     const preDefaults = final.ledgerSnapshot.filter((l) => l.status === "calote_pre");
     expect(preDefaults.length, "zero calote_pre members").to.equal(0);
 
-    // (d) Pool solvent by construction — the whitepaper headline claim.
-    // `poolBalance` is the running cash balance after every cycle.
-    // After three sequential post-contemplation calotes the cascade of
-    // recoveries (escrow retained + stake slashed + cycle-1 cushion +
-    // solidarity vault + yield) must still leave the pool > 0.
+    // (d) Loss bounded by construction (NOT "solvent by construction at 0%
+    // yield" — ECO-005: that overclaim is refutable; the ROSCA is zero-sum
+    // without yield). `poolBalance` is the running cash balance after every
+    // cycle. The retained capital (escrow retained + stake slashed + cycle-1
+    // cushion + solidarity vault) is physically held in the pool, so cash on
+    // hand stays > 0 after three post-contemplation calotes — i.e. loss is
+    // bounded, no transaction drives the pool underwater. Surplus (if any) is
+    // yield-backed and asserted separately.
     expect(
       finalMetrics.poolBalance,
-      "pool ends solvent (cash balance > 0 after 3 calotes)",
+      "pool cash balance > 0 after 3 calotes (loss-bounded)",
     ).to.be.greaterThan(0);
 
     // (e) Recovery ≥ losses — protocol absorbed the calotes without
