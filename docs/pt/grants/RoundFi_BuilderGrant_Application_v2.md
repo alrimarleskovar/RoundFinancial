@@ -22,7 +22,7 @@ A proposta central: usuários entram em pools de 10–24 membros, contribuem men
 
 O Solana Seeker é o canal de GTM ideal para o RoundFi: o público é on-chain nativo, o Seeker ID resolve o problema de identidade resistente a Sybil attacks, e o Seed Vault elimina a principal fricção de onboarding em protocolos DeFi. O RoundFi foi originado no ecossistema Colosseum e tem fit direto com o programa de grants da Solana Mobile.
 
-**Estado atual (maio/2026):** 4 programas Anchor deployed em devnet · pre-audit interno completo com 47 findings catalogados e 13/13 Critical+High remediados · math foundation validada com ~9.85B fuzz inputs e 0 crashes · Kamino CPI estrutural validado contra mainnet-cloned state (17/17 testes passando). Time em transição final devnet → mainnet, com Genesis Canary planejado para 10 testers Seeker.
+**Estado atual (maio/2026):** 4 programas Anchor deployed em devnet · pre-audit interno completo com 49 findings catalogados e 14/14 Critical+High remediados · math foundation validada com ~9.85B fuzz inputs e 0 crashes · Kamino CPI estrutural validado contra mainnet-cloned state (17/17 testes passando). Time em transição final devnet → mainnet, com Genesis Canary planejado para 10 testers Seeker.
 
 ---
 
@@ -102,7 +102,7 @@ Estimativa conservadora de tier atingível na Season 2: Vanguard → Luminary. *
 | Smart contracts deployed | **4 programas em devnet**: roundfi-core (6,157 LoC) · roundfi-reputation (1,744 LoC) · roundfi-yield-kamino (754 LoC, **CPI validado contra mainnet-clone state**) · roundfi-yield-mock (348 LoC, devnet-only) |
 | Cobertura de testes | **314+ testes** distribuídos em 25 spec files: 53 security-specific bankrun + 58 app-encoder structural + 7 bankrun round-trips + 10 canary-control negative + 36 audit-regression unit/proptest + 109 lifecycle/edge/parity + 24 frontend allowlist + 10 indexer JSON-shape + 7 mainnet-hardening |
 | Math foundation | **6 cargo-fuzz targets** sobre `roundfi-math` — ~9.85B inputs cumulativos (503M historical + 600M re-validation 2026-05-24 + 8.75B overnight sweep), **0 crashes em todo o histórico**, coverage estável (saturação atingida no input space coberto pelo corpus atual) |
-| Pre-audit interno | **5-pass red-team + 1 integration-testing wave + 9 follow-up waves** simulando metodologia de auditor externo — **47 findings catalogados, 43+ closed (Critical/High 13/13)**, 1 upstream-blocked (mpl-core/Anchor compat), 3 design-intentional. Tracker público: `docs/security/internal-audit-findings.md` |
+| Pre-audit interno | **5-pass red-team + 1 integration-testing wave + 9 follow-up waves** simulando metodologia de auditor externo + 1 external-audit pass (2026-05-24, SEV-047/048) — **49 findings catalogados, 45+ closed (Critical/High 14/14)**, 1 upstream-blocked (mpl-core/Anchor compat), 3 design-intentional. Tracker público (canônico): `docs/security/internal-audit-findings.md` |
 | Treasury custody | **ADR-0008 mergeado**: Squads multisig 3-of-5 documentado como path de custody para mainnet (governance ready) |
 | CD pipeline | **SEV-046 fechado**: `.github/workflows/{devnet,mainnet}-deploy.yml` live, rehearsal devnet 2026-05-19 green, Squads-approval gate documentado |
 | Reproducible build | Attestation on-chain via `docs/verified-build.md` flow |
@@ -132,7 +132,7 @@ Estimativa conservadora de tier atingível na Season 2: Vanguard → Luminary. *
 
 | Item | Valor | Justificativa |
 | :- | :- | :- |
-| **Audit comunitário pre-mainnet** (roundfi-core + roundfi-yield-kamino) | $5.000 | Tier comunitário (Superteam ou equivalente) suficiente para validação pre-Canary. Auditor externo formal (Adevar / Halborn / OtterSec / Sec3) é post-traction round — escopo + custo (~$30–50k) negociados após dados Canary. Pre-audit interno já fechou Critical/High 13/13 |
+| **Audit comunitário pre-mainnet** (roundfi-core + roundfi-yield-kamino) | $5.000 | Tier comunitário (Superteam ou equivalente) suficiente para validação pre-Canary. Auditor externo formal (Adevar / Halborn / OtterSec / Sec3) é post-traction round — escopo + custo (~$30–50k) negociados após dados Canary. Pre-audit interno já fechou Critical/High 14/14 |
 | **Infraestrutura mainnet** (RPC premium, indexer, orchestrator) | $2.500 | Helius RPC premium (off-chain reads + webhooks), servidor 24/7 para orchestrator/crank + indexer Prisma+PostgreSQL, monitoring stack |
 | **Mobile app dev** (React Native + MWA integration + APK build pipeline) | $1.500 | Setup React Native + workspace no monorepo + Mobile Wallet Adapter integration + Seed Vault flows + EAS Build pipeline. Reusa SDK IDL-free existente |
 | **Canary incentivos + custos USDC de teste** | $1.000 | Capital de seed para primeiros pools Canary com usuários Seeker reais (USDC devnet → bridge se necessário) |
@@ -145,7 +145,7 @@ O ecossistema Seeker tem hoje ~150.000 usuários on-chain nativos em 57 países 
 
 O RoundFi não é um dApp DeFi genérico portado para mobile. É um protocolo cujo produto central — o behavioral history score — só tem valor com dados de identidade vinculados a hardware real e atividade recorrente. O Seeker é literalmente a infraestrutura que torna o produto possível na escala necessária.
 
-O suporte de lançamento e a rede de distribuição da Solana Mobile são o complemento natural para um time técnico que já construiu a arquitetura certa (4 programas, 314+ testes, 9.85B fuzz inputs, pre-audit 47 findings com 13/13 Critical+High closed), agora em transição de devnet para mainnet.
+O suporte de lançamento e a rede de distribuição da Solana Mobile são o complemento natural para um time técnico que já construiu a arquitetura certa (4 programas, 314+ testes, 9.85B fuzz inputs, pre-audit 49 findings com 14/14 Critical+High closed), agora em transição de devnet para mainnet.
 
 ---
 
@@ -175,7 +175,7 @@ Doc original (v1, semana de 2026-05-17) revisado em 2026-05-24 absorvendo:
 1. **Programas:** 3 → **4** (acrescentado roundfi-yield-mock como devnet-only test adapter, conforme AUDIT_SCOPE)
 2. **Kamino status:** "stub / em desenvolvimento" → **"CPI estrutural validado contra mainnet-clone state, 17/17 tests passing"** (PR #383 fechou SEV-040/041/042; bankrun spike Phase 2b green em 2026-05-24)
 3. **Contradição PWA vs Seed Vault:** roadmap Fase 4 substituiu "PWA → APK" por **"React Native + Mobile Wallet Adapter"** — PWA wrapper não acessa Seed Vault nativamente, conflitando com a promessa central de "Seed Vault elimina fricção"
-4. **Tração:** acrescentados números reais — pre-audit 47 SEVs (13/13 Critical+High closed), fuzz 9.85B cumulative, Squads multisig ADR-0008 mergeado, CD pipeline SEV-046 fechado, 314+ tests
+4. **Tração:** acrescentados números reais — pre-audit 49 SEVs (14/14 Critical+High closed), fuzz 9.85B cumulative, Squads multisig ADR-0008 mergeado, CD pipeline SEV-046 fechado, 314+ tests
 5. **Yield range:** 5–8% → **4–7%** (alinhado com APY real Kamino USDC observado)
 6. **Audit tier:** $5k explicitado como **audit comunitário pre-mainnet** (Superteam tier), auditor externo formal como post-traction round
 7. **Canary numbers:** "10–20 usuários" → **10 + 10** (Genesis Canary + Pre-Ceremony Semanal, conforme proposta v0.5.3 §10)

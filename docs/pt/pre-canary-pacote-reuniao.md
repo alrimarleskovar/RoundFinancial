@@ -50,7 +50,7 @@
 - Proposta v0.5.3 (doc completo): `docs/pt/pre-ceremony-beta-proposta.md`
 - Critical path §10: dentro da proposta, "Critical path do Pré-Fase 0"
 - FREEZE.md: política de mudança durante o freeze + Active exceptions atualizadas até hoje
-- Internal audit tracker: `docs/security/internal-audit-findings.md` (47 SEVs, 43+ closed)
+- Internal audit tracker: `docs/security/internal-audit-findings.md` (49 SEVs, 45+ closed; Critical/High 14/14)
 
 ---
 
