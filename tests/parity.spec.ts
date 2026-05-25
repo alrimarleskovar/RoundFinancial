@@ -19,8 +19,8 @@
  */
 
 import { expect } from "chai";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 // Direct sub-path imports (not the barrel) so legacy ts-node 7's
 // CommonJS resolver doesn't try to load the `.js`-suffixed re-exports
@@ -336,5 +336,52 @@ describe("Rust ↔ TS constants parity", () => {
         IDENTITY_STATUS as unknown as Record<string, number>,
       );
     });
+  });
+});
+
+// ─── ECO-001 reachability guard (cryptoeconomic audit 2026-05-24) ─────────
+// ECO-001 (netSolvency mis-measures cycle solvency — it credits no future
+// installments, only the immediate-liquidation frame) was downgraded
+// Critical → Medium on a REACHABILITY argument: `netSolvency` has ZERO
+// call-sites in `programs/`. It is a display/analysis metric in the TS
+// Stress Lab only — it gates NO on-chain instruction, transfer, seizure, or
+// guard, so the mis-definition can never move funds. This test pins that
+// argument so a future change can't silently wire the broken metric into
+// on-chain logic and quietly invalidate the downgrade.
+describe("ECO-001 reachability — netSolvency must not leak into programs/", () => {
+  const PROGRAMS_DIR = resolve(process.cwd(), "programs");
+  const NET_SOLVENCY_RE = /net[_]?[Ss]olvency/;
+
+  function rustFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Skip build artifacts and fuzz corpora — only first-party src.
+        if (entry.name === "target" || entry.name === "fuzz") continue;
+        out.push(...rustFiles(full));
+      } else if (entry.name.endsWith(".rs")) {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  it("no on-chain Rust source references netSolvency / net_solvency", () => {
+    const offenders: string[] = [];
+    for (const file of rustFiles(PROGRAMS_DIR)) {
+      readFileSync(file, "utf-8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (NET_SOLVENCY_RE.test(line)) {
+            offenders.push(`${file}:${i + 1}: ${line.trim()}`);
+          }
+        });
+    }
+    expect(
+      offenders,
+      `netSolvency is a display-only L1 metric (ECO-001 reachability argument). ` +
+        `Any on-chain reference breaks the Critical→Medium downgrade rationale.\n${offenders.join("\n")}`,
+    ).to.deep.equal([]);
   });
 });
