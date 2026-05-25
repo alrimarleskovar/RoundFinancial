@@ -106,6 +106,31 @@ impl ReputationProfile {
             1
         }
     }
+
+    /// SEV-047 defense-in-depth (identity gate). Caps the score/cycles-resolved
+    /// level when the subject lacks a verified identity AND the protocol has
+    /// enabled an identity floor via `IdentityGateConfig`.
+    ///
+    /// `required_min_level`:
+    ///   - `0` → gate disabled; returns `resolved_level` unchanged (default —
+    ///     devnet / Canary behaviour, no identity needed).
+    ///   - `N` (2..=LEVEL_MAX) → reaching level >= N requires `identity_verified`;
+    ///     an unverified subject is capped at `N - 1`.
+    ///
+    /// Pure + monotonic-safe: only ever caps DOWN, never raises a level.
+    /// Layered on top of the cycles gate (`resolve_level`) — the cycles gate is
+    /// the unbypassable primary anti-farming defense; this adds an identity
+    /// floor for the highest tiers when enabled for mainnet.
+    pub fn cap_level_for_identity(
+        resolved_level: u8,
+        identity_verified: bool,
+        required_min_level: u8,
+    ) -> u8 {
+        if required_min_level == 0 || identity_verified {
+            return resolved_level;
+        }
+        resolved_level.min(required_min_level.saturating_sub(1))
+    }
 }
 
 #[cfg(test)]
@@ -187,5 +212,30 @@ mod tests {
         // exact attack vector closed: 200 parallel 1-member pools give score
         // 2000+ in hours, but cycles_completed stays 0 (no CYCLE_COMPLETE).
         assert_eq!(ReputationProfile::resolve_level(50_000, 500, 2_000, 0, 1, 3), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_disabled_is_noop_sev047() {
+        // required_min_level = 0 → gate OFF (default). No cap, regardless of
+        // identity. This is the devnet / Canary path — testers promote freely.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 0), 3);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 0), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 0), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_gates_unverified_sev047() {
+        // floor = 2 (L2+ needs identity): unverified caps at L1; verified passes.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 2), 3);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, true, 2), 2);
+
+        // floor = 3 (only L3 needs identity): unverified caps at L2.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 3), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 3), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 3), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 3), 3);
     }
 }
