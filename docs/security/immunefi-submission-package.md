@@ -206,14 +206,14 @@ solana, anchor, lending, defi, rosca, behavioral-credit, brazil, emerging-market
 
 ## 11. Additional artifacts to upload alongside submission
 
-| File                                                         | Purpose                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------ |
-| [`AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md)                     | Formal scope doc (Statement of Work shape)                         |
+| File                                                         | Purpose                                                           |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| [`AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md)                     | Formal scope doc (Statement of Work shape)                        |
 | [`internal-audit-findings.md`](./internal-audit-findings.md) | Pre-existing 49 findings — researchers should NOT re-report these |
-| [`self-audit.md`](./self-audit.md)                           | Trust model + invariants + per-ix privilege table                  |
-| [`mev-front-running.md`](./mev-front-running.md)             | Solana ordering threat model                                       |
-| [`bug-bounty.md`](./bug-bounty.md) (source policy)           | Master policy this package derives from                            |
-| `programs/roundfi-{core,reputation,yield-kamino}/Cargo.toml` | Build manifests for SBF compilation                                |
+| [`self-audit.md`](./self-audit.md)                           | Trust model + invariants + per-ix privilege table                 |
+| [`mev-front-running.md`](./mev-front-running.md)             | Solana ordering threat model                                      |
+| [`bug-bounty.md`](./bug-bounty.md) (source policy)           | Master policy this package derives from                           |
+| `programs/roundfi-{core,reputation,yield-kamino}/Cargo.toml` | Build manifests for SBF compilation                               |
 
 ## 12. Submission checklist
 
