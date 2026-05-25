@@ -17,9 +17,9 @@
  *
  * Plus the two guards on `deposit_idle_to_yield`:
  *   E. amount == 0 → InvalidAmount
- *   F. amount > (vault - guarantee_fund_balance) → InsufficientStake
- *      (the GF solvency guard — protects earmarked reserves from being
- *       pushed out to the adapter)
+ *   F. amount > (vault - guarantee_fund_balance - lp_distribution_balance) → InsufficientStake
+ *      (the GF+LP solvency guard — protects earmarked reserves from being
+ *       pushed out to the adapter; SEV-048 added the LP-distribution leg)
  *
  * Numbers are all small integers (base units of USDC with the default
  * 6 decimals) chosen so every waterfall split hits exact bps arithmetic
@@ -462,16 +462,18 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
 
   // ─── Scenario F: deposit guard protects GF earmark ─────────────────
 
-  it("rejects deposit amount that would push vault below GF earmark (F)", async function () {
-    // The GF is a logical earmark inside pool_usdc_vault — the deposit
-    // guard in `deposit_idle_to_yield` enforces that this earmark
-    // never leaks out to the adapter.
+  it("rejects deposit amount that would push vault below GF+LP earmark (F)", async function () {
+    // The GF *and* the LP-distribution balance are logical earmarks inside
+    // pool_usdc_vault — the deposit guard in `deposit_idle_to_yield` enforces
+    // that neither earmark leaks out to the adapter (SEV-048 added the LP leg).
     //
-    //   spendable_idle = pool_vault.amount - pool.guarantee_fund_balance
+    //   spendable_idle = pool_vault.amount
+    //                    - pool.guarantee_fund_balance
+    //                    - pool.lp_distribution_balance
     //   args.amount    > spendable_idle          → InsufficientStake
     const vaultBefore = await balanceOf(env, pool.poolUsdcVault);
     const p = await poolState(env, pool.pool);
-    const earmark = bn(p.guaranteeFundBalance);
+    const earmark = bn(p.guaranteeFundBalance) + bn(p.lpDistributionBalance);
     expect(earmark > 0n).to.equal(true); // else this test is trivially vacuous
     const spendable = vaultBefore - earmark;
     const overshoot = spendable + 1n;
@@ -480,8 +482,8 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
     expect(msg).to.match(/InsufficientStake/);
 
     // Control: depositing the exact spendable amount still succeeds and
-    // leaves vault == earmark. Not strictly required by the spec, but
-    // verifies the boundary is tight, not conservative.
+    // leaves vault == earmark (GF + LP). Not strictly required by the spec,
+    // but verifies the boundary is tight, not conservative.
     await depositIdleToYield(env, { pool, amount: spendable });
     expect(await balanceOf(env, pool.poolUsdcVault)).to.equal(earmark);
   });
@@ -489,13 +491,14 @@ describe("yield_integration — deposit / harvest / waterfall", function () {
   // ─── Closing sanity: claim cycle 0 to prove pool is still healthy ───
 
   it("claims cycle 0 payout normally after all yield ops", async function () {
-    // After draining the pool_vault to == GF earmark, the slot-0 claimer
+    // After draining the pool_vault to == GF+LP earmark, the slot-0 claimer
     // now needs the pool to have ≥ credit_amount spendable. Mint the
     // exact shortfall directly into pool_usdc_vault — this is a smoke
-    // test for "did we break the pool?" not a yield assertion.
+    // test for "did we break the pool?" not a yield assertion. claim_payout
+    // reserves GF + LP-distribution (SEV-048), so spendable nets out both.
     const p = await poolState(env, pool.pool);
     const vault = await balanceOf(env, pool.poolUsdcVault);
-    const spendable = vault - bn(p.guaranteeFundBalance);
+    const spendable = vault - bn(p.guaranteeFundBalance) - bn(p.lpDistributionBalance);
     if (spendable < CREDIT_BASE) {
       await mintToAta(env, usdcMint, pool.poolUsdcVault, CREDIT_BASE - spendable);
     }

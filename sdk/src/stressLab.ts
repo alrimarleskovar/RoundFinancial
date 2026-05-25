@@ -407,7 +407,11 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   //     150% of credit. Segregated.
   //   - lpDistribution: residual yield after the GF cap is hit.
   // Solvency adds the three protocol-controlled buckets together;
-  // lpDistribution is already paid out and doesn't count.
+  // lpDistribution is treated here as already paid out and doesn't count.
+  // NOTE (ECO-007): this diverges from on-chain post-SEV-048, where
+  // `claim_payout`/`deposit_idle_to_yield` reserve lp_distribution_balance as a
+  // non-spendable earmark in the vault until M3 LP-withdrawal ships. Inert today
+  // (L2 parity blocks skipped); reconcile or document before wiring L2 parity.
   const SOLIDARITY_FEE_PCT = 0.01;
   const GUARANTEE_FUND_CAP = 1.5 * credit;
   // Yield-waterfall residual split: 65% LPs / 35% participants.
@@ -774,15 +778,20 @@ export const PRESETS: Record<PresetId, ScenarioPreset> = {
   },
   // Canonical whitepaper stress test: 24-member Veteran pool, $10k carta,
   // three contemplated members (cycles 2/3/4) default *after* receiving
-  // their upfront. This is the scenario the pitch deck quotes:
-  //   passivo bruto = 3 × $10,000 = -$30,000
-  //   ↓ recovery via:
-  //     escrow retained (65% × 3 × credit) = +$19,500
-  //     stake slashed   (3 × 10% × credit) =  +$3,000
-  //     cycle-1 cushion (Sorteio Semente)  =  +$9,152
-  //     solidarity vault + yield           =  +$2,500
-  //     net = +$4,152 (solvent by construction)
-  // Used to verify the L1 simulator produces the canonical outcome.
+  // their upfront. ECO-005 (audit 2026-05-24) corrected the old decomposition:
+  // the components below are RETAINED CAPITAL that bounds per-tx loss, NOT net
+  // surplus — adding them as "net recovery" double-counts capital that is later
+  // redistributed. The protocol is LOSS-BOUNDED by construction (D/C + Seed-Draw
+  // invariants cap loss to the defaulter's collateral); SURPLUS is yield-backed,
+  // not "by construction". Verified by execution: healthy 0% yield = $0 (zero-sum),
+  // healthy 6.5% APY = +$2,756, triple-default 6.5% ≈ +$28. Do NOT cite a
+  // "+$4,152 solvent at 0% yield" figure — it is refutable in the public Stress Lab.
+  //   gross liability         = 3 × $10,000              = -$30,000
+  //   loss-bounding buffers (retained capital, redistributed — not net):
+  //     escrow retained (65% × 3 × credit) = $19,500
+  //     stake slashed   (3 × 10% × credit) =  $3,000
+  //     cycle-1 cushion (Seed Draw)        =  $9,152
+  // Used to verify the L1 simulator produces the canonical (loss-bounded) outcome.
   tripleVeteranDefault: {
     id: "tripleVeteranDefault",
     config: {

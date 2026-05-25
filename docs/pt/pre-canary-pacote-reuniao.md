@@ -84,7 +84,7 @@ Pra compartilhar como confidence signal antes da reunião:
 ✅ Lint (prettier): limpo
 🟡 cargo audit: 2 vulns + 8 warnings — todos toolchain Solana (SEV-011 tracked)
 ✅ Fuzz baseline: 6 targets × 100M iter = 600M iter novos, 0 crashes,
-   coverage estável. Cumulativo total ~1.1B inputs (README atualizado).
+   coverage estável. Cumulativo total ~9.85B inputs (503M histórico + 600M re-validação 2026-05-24 + 8.75B overnight sweep 2026-05-24; README atualizado).
 ✅ cargo build-sbf --workspace: 3 programs compilam, só warnings
    anchor-debug (SEV-012 upstream)
 ✅ pnpm app build: 17 static pages incluindo robots.txt + sitemap.xml

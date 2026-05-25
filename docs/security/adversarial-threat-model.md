@@ -204,10 +204,10 @@ Pre-mainnet MEV analysis is its own work item; this doc references but doesn't d
 
 | Attack class                                      | Stopped by Triple Shield?                                                       | Additional mitigation needed                        |
 | ------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Direct default (single member)                    | ✅ Yes — Shield 1 (Seed Draw), Shield 2 (GF Solvency), Shield 3 (D/C invariant) | None — protocol-solvent by construction             |
+| Direct default (single member)                    | ✅ Yes — Shield 1 (Seed Draw), Shield 2 (GF Solvency), Shield 3 (D/C invariant) | None — loss **bounded by construction** (per-tx loss ≤ defaulter's collateral); surplus is yield-backed (ECO-005) |
 | Coordinated default (N members)                   | ✅ Yes — same Shields apply at scale, stress-tested in `tripleVeteranDefault`   | None — extended fuzzing #228 to confirm at larger N |
 | Sybil (multi-wallet, same human)                  | ❌ No — Shields are pool-internal, Sybil is cross-pool/cross-protocol           | PoP integration #227 + consumer-side weighting      |
-| Reputation farming (low-installment attestations) | ❌ No — attestation count vs USD-value                                          | Installment floor + B2B oracle USD-weighted reads   |
+| Reputation farming (low-installment attestations) | ⚠️ Partial — SEV-047 fix gates L2+ promotion on `cycles_completed` (≥3 real cycles, 6-day per-subject cooldown ⇒ ~18d min to L3), blocking the PAYMENT-spam path | Installment floor + B2B oracle USD-weighted reads; mainnet defense-in-depth = identity gate at promote_level L2+ (follow-up) |
 | Strategic ordering / griefing                     | ⚠️ Mostly — front-running on claim_payout / escape_valve_buy unmitigated        | MEV review #232                                     |
 | Malicious Community Pool leader                   | N/A today (admin-only pool creation)                                            | Community Pool spec gating (post-mainnet)           |
 | Pool spam                                         | N/A today (admin-only)                                                          | Community Pool rate limit (post-mainnet)            |

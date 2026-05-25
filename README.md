@@ -55,7 +55,7 @@ The boxes alone don't make us right — Aave, Goldfinch, and Credix are real bus
 
 - **Phase 3 is the revenue model from day 1, not an afterthought.** WeTrust's protocol _was_ the product, so when retention slipped there was nothing left to sell. RociFi's NFT score didn't read outside their pools, so there was no B2B moat. RoundFi treats Phase 1 (ROSCAs) explicitly as the data-acquisition engine for Phase 3 (per-call B2B oracle subscriptions to neobanks + DeFi protocols). The Triple Shield + Yield Cascade exist to keep Phase 1 solvent **while** the on-chain dataset compounds.
 - **Score is SAS-compatible from the first attestation.** Every paid installment mints against the Solana Attestation Service schema — the protocol shipped this end-to-end (see `roundfi-reputation` program + `tests/reputation_cpi.spec.ts`). On the user-facing side, the `/reputacao` surface today mixes on-chain reads (real devnet attestations from member-3's contribute and others) with a session-reducer reflection used in Demo Studio mock mode. The portability infrastructure is on-chain; B2B subscription consumers are roadmap (Phase 3). RociFi's score died with RociFi — SAS-compatible attestations exist independent of any front-end going forward.
-- **Solvency is mathematical, not aspirational.** WeTrust's retention model was "members keep paying because trust." RoundFi's Triple Shield gives a **91.6% Month-1 retention floor** as a deterministic property of the contract — encoded in [`programs/roundfi-core/src/math/waterfall.rs`](programs/roundfi-core/src/math/waterfall.rs) and parity-tested against the [Stress Lab L1 simulator](sdk/src/stressLab.ts). Stake decays 50% → 30% → 10% but only after on-chain attestations confirm cycle completion — no honor system.
+- **Solvency is mathematical, not aspirational.** WeTrust's retention model was "members keep paying because trust." RoundFi's Triple Shield gives a **91.6% Month-1 retention floor** as a deterministic property of the contract — encoded in [`crates/math/src/waterfall.rs`](crates/math/src/waterfall.rs) and parity-tested against the [Stress Lab L1 simulator](sdk/src/stressLab.ts). Stake decays 50% → 30% → 10% but only after on-chain attestations confirm cycle completion — no honor system.
 
 ## Security & Audit
 
@@ -116,7 +116,7 @@ RoundFi is a **behavioral-credit primitive disguised as a savings protocol**. Th
 
 ## Stress Lab (L1 reference impl)
 
-The protocol's economic spec is encoded in a **pure-TypeScript actuarial simulator** that runs every Triple-Shield rule end-to-end. Lives in [`sdk/src/stressLab.ts`](sdk/src/stressLab.ts) and ships the [`/lab`](app/src/app/lab/page.tsx) interactive route. Used as:
+The protocol's economic spec is encoded in a **pure-TypeScript actuarial simulator** that runs every Triple-Shield rule end-to-end. Lives in [`sdk/src/stressLab.ts`](sdk/src/stressLab.ts) and ships the [`/lab`](app/src/app/%28app%29/lab/page.tsx) interactive route. Used as:
 
 - **Reference implementation** for the on-chain Anchor programs (M2 of the grant roadmap parity-tests against `runSimulation()` outputs).
 - **Whitepaper-faithful playground** — pick credit/members/tier/maturity/APY and watch the matrix unfold. 4 canonical presets (Healthy / Pre-default / Post-default / Cascade) load with one click.
