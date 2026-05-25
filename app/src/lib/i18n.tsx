@@ -300,7 +300,7 @@ export const DICT: Record<Lang, Dict> = {
     "lab.presets.cascadeHint": "Três calotes pré-contemplação em ciclos próximos.",
     "lab.presets.tripleVeteranDefault": "Triplo Calote L3",
     "lab.presets.tripleVeteranDefaultHint":
-      "Cenário canônico do whitepaper · 24 membros · carta $10k · Veterano · 3 contemplados (ciclos 2/3/4) defaultam após receber upfront. Esperado: solvente por construção (~+$4k).",
+      "Cenário canônico do whitepaper · 24 membros · carta $10k · Veterano · 3 contemplados (ciclos 2/3/4) defaultam após receber upfront. Esperado: perdas limitadas por construção; superávit lastreado em yield (~+$2,8k @ 6,5% APY, $0 a 0% yield — ECO-005).",
     "lab.presets.healthyMin4": "Mín 4",
     "lab.presets.healthyMin4Hint":
       "Pool mínimo · 4 membros · Comprovado · carta $4k. Estressa Sorteio Semente (threshold pequeno).",
@@ -1283,7 +1283,7 @@ export const DICT: Record<Lang, Dict> = {
     "lab.presets.cascadeHint": "Three pre-contemplation defaults in nearby cycles.",
     "lab.presets.tripleVeteranDefault": "Triple L3 Default",
     "lab.presets.tripleVeteranDefaultHint":
-      "Canonical whitepaper stress · 24 members · $10k carta · Veterano · 3 contemplated (cycles 2/3/4) default after receiving upfront. Expected: solvent by construction (~+$4k).",
+      "Canonical whitepaper stress · 24 members · $10k carta · Veterano · 3 contemplated (cycles 2/3/4) default after receiving upfront. Expected: loss-bounded by construction; surplus is yield-backed (~+$2.8k @ 6.5% APY, $0 at 0% yield — ECO-005).",
     "lab.presets.healthyMin4": "Min 4",
     "lab.presets.healthyMin4Hint":
       "Minimum pool · 4 members · Comprovado · $4k carta. Stresses Seed Draw (small threshold).",
