@@ -5,6 +5,7 @@ pub const SEED_REP_CONFIG: &[u8] = b"rep-config";
 pub const SEED_PROFILE:    &[u8] = b"reputation";
 pub const SEED_ATTESTATION: &[u8] = b"attestation";
 pub const SEED_IDENTITY:   &[u8] = b"identity";
+pub const SEED_IDENTITY_GATE: &[u8] = b"identity-gate"; // SEV-047 identity-gate config (singleton)
 pub const SEED_POOL:       &[u8] = b"pool"; // mirrored from roundfi-core for issuer-PDA derivation
 
 /// Attestation schemas — stable integer IDs.
