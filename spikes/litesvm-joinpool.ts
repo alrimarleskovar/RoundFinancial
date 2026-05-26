@@ -266,7 +266,7 @@ async function main(): Promise<void> {
 
   const member = Keypair.generate();
   await step("5. joinMembers (CPIs CreateV2 for the member position NFT)", () =>
-    h.joinMembers(env_, pool, [{ member }]),
+    h.joinMembers(env_, pool, [{ member, reputationLevel: 1 }]),
   );
 
   hr("VERDICT");
