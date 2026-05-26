@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { QRCodeSVG } from "qrcode.react";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { Modal } from "@/components/ui/Modal";
@@ -25,8 +27,11 @@ export function ReceiveModal({ open, onClose }: { open: boolean; onClose: () => 
   // Prefer the real connected pubkey when Phantom is hooked in;
   // fall back to the session placeholder so the modal is never
   // empty in demo mode.
-  const address =
-    wallet.status === "connected" && wallet.publicKey ? wallet.publicKey : user.walletShort;
+  const fullAddress = wallet.status === "connected" && wallet.publicKey ? wallet.publicKey : null;
+  // The session placeholder (`walletShort`) is an ellipsized display
+  // string, NOT a scannable address — so the QR only renders for a real
+  // connected pubkey; otherwise we keep the placeholder block.
+  const address = fullAddress ?? user.walletShort;
 
   useEffect(() => {
     if (!copied) return;
@@ -79,43 +84,71 @@ export function ReceiveModal({ open, onClose }: { open: boolean; onClose: () => 
         SOLANA · DEVNET
       </div>
 
-      {/* QR placeholder */}
-      <div
-        style={{
-          marginTop: 14,
-          aspectRatio: "1 / 1",
-          maxWidth: 200,
-          marginInline: "auto",
-          borderRadius: 14,
-          background: `repeating-linear-gradient(45deg, ${tokens.fillSoft} 0, ${tokens.fillSoft} 6px, ${tokens.fillMed} 6px, ${tokens.fillMed} 12px)`,
-          border: `1px solid ${tokens.borderStr}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: tokens.muted,
-          flexDirection: "column",
-          gap: 6,
-        }}
-      >
-        <span
+      {/* QR — real, scannable code for the connected pubkey; the
+          placeholder block shows only in demo mode (no full address). */}
+      {fullAddress ? (
+        <div
           style={{
-            fontSize: 9,
-            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-            letterSpacing: "0.12em",
+            marginTop: 14,
+            maxWidth: 200,
+            marginInline: "auto",
+            borderRadius: 14,
+            background: "#ffffff",
+            border: `1px solid ${tokens.borderStr}`,
+            padding: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          QR · DEMO
-        </span>
-        <span
+          <QRCodeSVG
+            value={fullAddress}
+            size={172}
+            level="M"
+            marginSize={2}
+            bgColor="#ffffff"
+            fgColor="#0a0a0a"
+            style={{ width: "100%", height: "auto" }}
+          />
+        </div>
+      ) : (
+        <div
           style={{
-            fontSize: 9,
-            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            marginTop: 14,
+            aspectRatio: "1 / 1",
+            maxWidth: 200,
+            marginInline: "auto",
+            borderRadius: 14,
+            background: `repeating-linear-gradient(45deg, ${tokens.fillSoft} 0, ${tokens.fillSoft} 6px, ${tokens.fillMed} 6px, ${tokens.fillMed} 12px)`,
+            border: `1px solid ${tokens.borderStr}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             color: tokens.muted,
+            flexDirection: "column",
+            gap: 6,
           }}
         >
-          M3 wires real QR
-        </span>
-      </div>
+          <span
+            style={{
+              fontSize: 9,
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              letterSpacing: "0.12em",
+            }}
+          >
+            QR
+          </span>
+          <span
+            style={{
+              fontSize: 9,
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              color: tokens.muted,
+            }}
+          >
+            Connect wallet for QR
+          </span>
+        </div>
+      )}
 
       {/* Address row */}
       <button
