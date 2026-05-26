@@ -365,6 +365,17 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   // derived: each of the N members contributes 1/N of the credit
   // per cycle, and there are exactly N cycles (one contemplation
   // per cycle per member).
+  //
+  // ECO-002 (reconcile-by-doc, see docs/security/eco-l1-l2-reconciliation.md):
+  // this is the pure ZERO-SUM ROSCA installment (e.g. $416.67 for $10k/24).
+  // On-chain uses an INDEPENDENT installment (SEV-025 set the demo pool to
+  // $600/cycle), which L1 cannot yet express. Combined with L1's optimistic
+  // default-recovery (vs the conservative on-chain `settle_default`, which
+  // seizes `missed = installment.min(d_rem)` once and leaves collateral
+  // locked), treat L1 as an OPTIMISTIC upper-bound recovery model — it errs
+  // optimistic, never on the dangerous side, and L2 is the source of truth.
+  // Independent-installment + surplus-accounting rebalance is a deferred
+  // model change (needs lab-UI validation — the ECO-005 lesson).
   const credit = config.creditAmountUsdc;
   const inst = credit / N;
   const params = LEVEL_PARAMS[config.level];
@@ -408,10 +419,15 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   //   - lpDistribution: residual yield after the GF cap is hit.
   // Solvency adds the three protocol-controlled buckets together;
   // lpDistribution is treated here as already paid out and doesn't count.
-  // NOTE (ECO-007): this diverges from on-chain post-SEV-048, where
+  // ECO-007 DECISION (reconcile-by-doc — intentional L1 simplification, see
+  // docs/security/eco-l1-l2-reconciliation.md): on-chain post-SEV-048,
   // `claim_payout`/`deposit_idle_to_yield` reserve lp_distribution_balance as a
-  // non-spendable earmark in the vault until M3 LP-withdrawal ships. Inert today
-  // (L2 parity blocks skipped); reconcile or document before wiring L2 parity.
+  // non-spendable earmark in the vault. This is economically EQUIVALENT for the
+  // solvency verdict — both models exclude LP from funds available to cover
+  // obligations — so excluding it here is sound. ⚠️ NOT sound for a raw-vault-
+  // balance L2 parity assertion (on-chain vault carries the earmark, L1 does
+  // not): before un-skipping the L2 parity blocks or shipping M3 LP-withdrawal,
+  // make L1 reserve lpDistribution in the float the same way on-chain does.
   const SOLIDARITY_FEE_PCT = 0.01;
   const GUARANTEE_FUND_CAP = 1.5 * credit;
   // Yield-waterfall residual split: 65% LPs / 35% participants.
@@ -629,7 +645,8 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
     // Net solvency now sums *all* protocol-controlled assets
     // (float + solidarity + guarantee fund) and subtracts the
     // outstanding obligations to ok members. lpDistribution is
-    // already paid out and doesn't count.
+    // excluded — see the ECO-007 decision note at the capital-structure
+    // block above (intentional L1 simplification, sound for the verdict).
     const netSolvency =
       totalPoolBalance +
       solidarityVault +
