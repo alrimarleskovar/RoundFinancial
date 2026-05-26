@@ -556,16 +556,40 @@ jobs:
           file "$SO" || true
           sha256sum "$SO" || true
 
-      - name: Diagnostics (node + SBF artifacts)
+      - name: Diagnostics (node + SBF artifacts + limits)
         run: |
           node --version
           ls -la target/deploy/*.so
           file target/deploy/*.so || true
+          echo "--- nproc / memory / limits ---"
+          nproc || true
+          free -m || true
+          head -n 5 /proc/meminfo || true
+          ulimit -a || true
 
       - name: Run litesvm mpl_core-path lifecycle spec
         # createUsdcMint → initializeProtocol → createPool → joinMembers;
         # create_pool mints the pool Collection NFT and join_pool the
         # member position NFT, both via the mpl_core CreateV2 CPI — the
-        # exact path bankrun can't execute. Skips cleanly if artifacts are
-        # missing (they won't be here — built + dumped above).
-        run: pnpm test:litesvm
+        # exact path bankrun can't execute. On a std::bad_alloc/SIGABRT
+        # abort, re-run the in-process `_mocha` runner under gdb to capture
+        # the C++ backtrace (which library throws the allocation): the abort
+        # is environment-specific (identical binary + litesvm pass locally),
+        # so the backtrace is the only way to pin the root cause.
+        run: |
+          set -uo pipefail
+          if pnpm test:litesvm; then
+            exit 0
+          fi
+          rc=$?
+          echo "::group::litesvm abort backtrace (gdb)"
+          command -v gdb >/dev/null || (sudo apt-get update -y && sudo apt-get install -y gdb) || true
+          gdb -q -batch \
+            -ex 'set pagination off' \
+            -ex 'run' \
+            -ex 'bt' \
+            -ex 'thread apply all bt' \
+            --args node --import=tsx node_modules/mocha/bin/_mocha \
+            -t 120000 tests/litesvm_join_pool.spec.ts || true
+          echo "::endgroup::"
+          exit "$rc"
