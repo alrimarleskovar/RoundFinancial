@@ -462,20 +462,10 @@ jobs:
   # tests/_harness/litesvm.ts). This closes the SEV-012 coverage gap for
   # the mpl_core path without waiting on the #230 anchor-0.31 bump.
   litesvm-mpl-core:
-    name: litesvm · mpl-core path (advisory)
+    name: litesvm · mpl-core path (join_pool lifecycle)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: anchor
-    # ADVISORY (best-effort): the spec passes locally (`pnpm test:litesvm`,
-    # the documented SEV-012 proof — the mpl_core CreateV2 CPI executes on
-    # anchor 0.30.1), but on GitHub's runner litesvm's native binding aborts
-    # with `std::bad_alloc` (SIGABRT) while loading the SBFv2 mpl_core.so.
-    # It is NOT RAM pressure — a 10G swap on top of 7G RAM + 4G default swap
-    # (~21G) still aborts, so it's a pathological native allocation specific
-    # to this environment, not a roundfi bug. Kept running every CI as a
-    # tripwire: when litesvm/the runner stops aborting, drop continue-on-error
-    # and promote this to a required check. Tracked in SEV-012.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -513,21 +503,64 @@ jobs:
           bash scripts/dev/rebuild-idls.sh
 
       - name: Cache mpl_core.so (Metaplex Core mainnet binary)
-        # ~1MB SBFv2 binary, hashed against the Metaplex Core program ID.
-        # Bump the date suffix to refresh (rare — Core redeploys seldom).
+        # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
+        # W22 cache held a truncated dump that made litesvm abort (SEV-012).
         id: mplcore-cache
         uses: actions/cache@v4
         with:
           path: target/deploy/mpl_core.so
-          key: mpl-core-so-2026-W22
+          key: mpl-core-so-2026-W22c
 
-      - name: Download mpl_core.so (cache miss only)
-        if: steps.mplcore-cache.outputs.cache-hit != 'true'
+      - name: Ensure a complete, valid mpl_core.so
+        # ROOT CAUSE of the std::bad_alloc / SIGABRT: a truncated or corrupt
+        # mpl_core.so makes litesvm's SBFv2 loader read a bogus section length
+        # and try to allocate it — which no amount of swap can satisfy, hence
+        # the deterministic abort regardless of RAM. Guard against ever feeding
+        # litesvm a bad ELF: (re)dump with retries whenever the file is missing
+        # or fails the ELF-magic + size sanity check, and fail hard if a good
+        # binary can't be produced.
         run: |
+          set -euo pipefail
           mkdir -p target/deploy
-          solana program dump -u mainnet-beta \
-            CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d \
-            target/deploy/mpl_core.so
+          SO=target/deploy/mpl_core.so
+          MIN_BYTES=524288   # ~512KB; Core is ~1MB — a truncated dump is far smaller
+
+          valid() {
+            [ -f "$SO" ] || return 1
+            printf '\x7fELF' | cmp -s -n 4 - "$SO" || return 1
+            [ "$(stat -c%s "$SO")" -ge "$MIN_BYTES" ] || return 1
+          }
+
+          if valid; then
+            echo "Cached mpl_core.so looks valid ($(stat -c%s "$SO") bytes)."
+          else
+            echo "mpl_core.so missing/invalid — dumping from mainnet."
+            rm -f "$SO"
+            for i in 1 2 3 4; do
+              if solana program dump -u mainnet-beta \
+                   CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d "$SO" && valid; then
+                break
+              fi
+              echo "dump attempt $i failed/invalid; retrying in $((i * 2))s"
+              rm -f "$SO"; sleep "$((i * 2))"
+            done
+          fi
+
+          if ! valid; then
+            echo "::error::could not obtain a valid mpl_core.so"
+            ls -la target/deploy || true
+            file "$SO" 2>/dev/null || true
+            exit 1
+          fi
+          echo "mpl_core.so OK: $(stat -c%s "$SO") bytes"
+          file "$SO" || true
+          sha256sum "$SO" || true
+
+      - name: Diagnostics (node + SBF artifacts)
+        run: |
+          node --version
+          ls -la target/deploy/*.so
+          file target/deploy/*.so || true
 
       - name: Run litesvm mpl_core-path lifecycle spec
         # createUsdcMint → initializeProtocol → createPool → joinMembers;
