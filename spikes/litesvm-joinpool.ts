@@ -232,7 +232,7 @@ async function main(): Promise<void> {
   const authority = Keypair.generate();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pool = (await step("4. createPool (CPIs mpl_core CreateV2 for the Collection)", () =>
-    h.createPool(env_, { authority, membersTarget: 2 }),
+    h.createPool(env_, { authority, usdcMint, membersTarget: 2 }),
   )) as any;
   console.log("   ✓✓ mpl_core CreateV2 CPI EXECUTED under litesvm (collection minted)");
 
