@@ -61,31 +61,30 @@ async function main(): Promise<void> {
     data,
   );
 
-  hr("1. seed the Mint via setAccount — try v2 account shapes");
-  // litesvm 1.x setAccount(address, account). Try the documented v2 shape
-  // first, then variants, reporting which the binding accepts.
-  const baseAccount = {
+  hr("1. seed the Mint via setAccount(EncodedAccount) — single arg");
+  // litesvm 1.x: setAccount(account: EncodedAccount) — ONE arg, kit shape,
+  // mirroring what getAccount returns: { address, data, executable,
+  // lamports, programAddress, space } (owner is called `programAddress`).
+  const encoded = {
+    address: mint.toBase58(),
+    data,
     executable: false,
     lamports: 10_000_000_000n,
-    data,
-    owner: TOKEN_PROGRAM_ID.toBase58(),
-    rentEpoch: 0n,
+    programAddress: TOKEN_PROGRAM_ID.toBase58(),
     space: BigInt(MINT_SIZE),
   };
-  const variants: Array<[string, unknown, unknown]> = [
-    ["addr=string, account v2 (bigint lamports, owner string)", mint.toBase58(), baseAccount],
+  const variants: Array<[string, unknown]> = [
+    ["EncodedAccount (bigint lamports/space)", encoded],
     [
-      "addr=string, lamports number, owner string",
-      mint.toBase58(),
-      { ...baseAccount, lamports: Number(baseAccount.lamports), rentEpoch: 0 },
+      "EncodedAccount (number lamports/space)",
+      { ...encoded, lamports: 10_000_000_000, space: MINT_SIZE },
     ],
-    ["addr=PublicKey, account v2", mint, baseAccount],
   ];
   let seeded = false;
   let lastErr: unknown = null;
-  for (const [label, addr, acct] of variants) {
+  for (const [label, acct] of variants) {
     try {
-      svm.setAccount(addr, acct);
+      svm.setAccount(acct);
       console.log(`✓ setAccount accepted: ${label}`);
       seeded = true;
       break;
@@ -96,9 +95,9 @@ async function main(): Promise<void> {
   }
   if (!seeded) {
     console.error(
-      `\n✗ setAccount rejected all shapes. last: ${(lastErr as Error)?.message ?? lastErr}`,
+      `\n✗ setAccount rejected both shapes. last: ${(lastErr as Error)?.message ?? lastErr}`,
     );
-    console.error("  Paste this — I'll adjust the account shape to litesvm 1.1.0's setAccount.\n");
+    console.error("  Paste this — I'll adjust the EncodedAccount fields to litesvm 1.1.0.\n");
     process.exit(1);
   }
 
