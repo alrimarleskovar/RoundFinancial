@@ -59,7 +59,7 @@ import { BankrunProvider } from "anchor-bankrun";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
 
 import type { Env } from "./env.js";
-import { setupBankrunEnv, type BankrunEnv } from "./bankrun.js";
+import { setupBankrunEnv, type BankrunEnv, type BankrunSetupOptions } from "./bankrun.js";
 
 /**
  * `BankrunEnvCompat` extends `BankrunEnv` with the `connection` field
@@ -81,8 +81,10 @@ export interface BankrunEnvCompat extends Env {
  * RPC connection, so clock-warpable specs (`setBankrunUnixTs`) become
  * possible without losing the helper layer.
  */
-export async function setupBankrunEnvCompat(): Promise<BankrunEnvCompat> {
-  const bankrunEnv = await setupBankrunEnv();
+export async function setupBankrunEnvCompat(
+  options: BankrunSetupOptions = {},
+): Promise<BankrunEnvCompat> {
+  const bankrunEnv = await setupBankrunEnv(options);
   return wrapBankrunEnv(bankrunEnv);
 }
 

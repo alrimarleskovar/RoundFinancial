@@ -58,6 +58,7 @@ import {
   promoteLevel,
   reputationProfileFor,
   revokeAttestation,
+  setIdentityGate,
   setupEnv,
   type Env,
 } from "./_harness/index.js";
@@ -134,6 +135,10 @@ describe("reputation — revoke + promote_level", function () {
     // the reputation program directly (admin-path attest + revoke +
     // promote_level) without routing through core.
     await initializeReputation(env, { coreProgram: env.ids.core });
+    // SEV-047: promote_level REQUIRES the IdentityGateConfig PDA. Create it
+    // with the gate OFF (required_min_level=0) so the promote tests below run
+    // unchanged; the dedicated gate test toggles it on/off itself.
+    await setIdentityGate(env, { requiredMinLevel: 0 });
   });
 
   // ═══════════════════════════════════════════════════════════════════
@@ -455,6 +460,45 @@ describe("reputation — revoke + promote_level", function () {
 
       // Sanity check SCORE_DEFAULT_ABS matches what we deducted.
       expect(SCORE_DEFAULT_ABS).to.equal(500n);
+    });
+
+    it("SEV-047 identity gate: floor=2 caps an unverified L2-qualifier at L1", async function () {
+      // Fresh subject, independent of the shared-state tests above.
+      const gated = keypairFromSeed("replife/gate/sev047");
+      await initProfile(env, gated.publicKey);
+
+      // Drive to an L2-qualifying state WITHOUT identity:
+      //   1 CycleComplete (+25) + 95 Payments (+475) = score 500, cycles 1.
+      await adminAttest(env, {
+        subject: gated.publicKey,
+        schemaId: SCHEMA.CycleComplete,
+        nonce: 0x0470_0000n,
+      });
+      for (let i = 0; i < 95; i++) {
+        await adminAttest(env, {
+          subject: gated.publicKey,
+          schemaId: SCHEMA.Payment,
+          nonce: BigInt(0x0470_0100 + i),
+        });
+      }
+      const pre = await snapshotProfile(env, gated.publicKey);
+      expect(pre.score).to.equal(LEVEL_2_THRESHOLD);
+      expect(pre.cyclesCompleted).to.be.at.least(1);
+      expect(pre.level).to.equal(LEVEL_MIN);
+
+      // Enable the gate: L2+ now requires a verified identity.
+      await setIdentityGate(env, { requiredMinLevel: 2 });
+
+      // Promote WITHOUT an identity record → resolved=2 but capped to L1.
+      await promoteLevel(env, { subject: gated.publicKey });
+      const gatedSnap = await snapshotProfile(env, gated.publicKey);
+      expect(gatedSnap.level, "unverified subject must stay L1 under the gate").to.equal(LEVEL_MIN);
+
+      // Positive control: disable the gate → the same subject promotes to L2.
+      await setIdentityGate(env, { requiredMinLevel: 0 });
+      await promoteLevel(env, { subject: gated.publicKey });
+      const ungated = await snapshotProfile(env, gated.publicKey);
+      expect(ungated.level, "with gate off, L2 score+cycles promotes").to.equal(LEVEL_2);
     });
   });
 });
