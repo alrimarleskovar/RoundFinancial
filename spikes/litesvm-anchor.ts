@@ -105,18 +105,41 @@ async function main(): Promise<void> {
     wallet,
     // anchor's .rpc() delegates here.
     sendAndConfirm: async (tx: Transaction, signers: Keypair[] = []) => {
+      console.log("  · setting blockhash/feePayer + signing");
       tx.recentBlockhash = svm.latestBlockhash();
       tx.feePayer = payer.publicKey;
       tx.sign(payer, ...signers);
-      const res = svm.sendTransaction(tx);
-      // Diagnostic: surface the result shape once so we know litesvm's
-      // success/failure contract for the harness.
-      console.log("  sendTransaction →", res?.constructor?.name ?? typeof res);
-      // Defensive failure detection across litesvm result shapes.
-      const maybeErr =
-        res && typeof res === "object" && typeof res.err === "function" ? res.err() : null;
+
+      // litesvm 1.x sendTransaction: try the v1 Transaction object first,
+      // then the serialized bytes, then a VersionedTransaction — report
+      // which the binding accepts (this is the harness's tx contract).
+      const attempts: Array<[string, unknown]> = [
+        ["v1 Transaction object", tx],
+        ["serialized Uint8Array", tx.serialize()],
+      ];
+      let res: unknown = null;
+      let sent = false;
+      let lastErr: unknown = null;
+      for (const [label, arg] of attempts) {
+        try {
+          res = svm.sendTransaction(arg);
+          console.log(
+            `  sendTransaction(${label}) → ${(res as any)?.constructor?.name ?? typeof res}`,
+          );
+          sent = true;
+          break;
+        } catch (e) {
+          console.log(`  · sendTransaction(${label}) threw: ${(e as Error)?.message ?? e}`);
+          lastErr = e;
+        }
+      }
+      if (!sent) throw lastErr ?? new Error("sendTransaction failed for all arg forms");
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = res as any;
+      const maybeErr = r && typeof r.err === "function" ? r.err() : null;
       if (maybeErr) {
-        throw new Error(`litesvm tx failed: ${JSON.stringify(maybeErr)}\n  logs: ${res.logs?.()}`);
+        throw new Error(`litesvm tx failed: ${JSON.stringify(maybeErr)}`);
       }
       const sig = tx.signatures?.[0]?.signature;
       return sig ? Buffer.from(sig).toString("base64") : "ok";
@@ -130,10 +153,13 @@ async function main(): Promise<void> {
     const sig = await program.methods.ping().accounts({ signer: payer.publicKey }).rpc();
     console.log(`✓ ping executed — sig: ${sig}`);
   } catch (e) {
+    console.error(`\n✗ ping failed: ${(e as Error)?.message ?? e}`);
+    console.error("\n--- full stack (shows whether it's litesvm or anchor) ---");
+    console.error((e as Error)?.stack ?? e);
     console.error(
-      `\n✗ ping failed: ${(e as Error)?.message ?? e}\n` +
-        `  Paste this + the "sendTransaction →" line above; the fix is usually\n` +
-        `  the litesvm result-shape contract or an anchor provider-method gap.\n`,
+      `\n  Paste everything above; the marker lines pinpoint whether it died\n` +
+        `  in tx-build (anchor), in svm.sendTransaction (litesvm tx contract),\n` +
+        `  or in result handling.\n`,
     );
     process.exit(1);
   }
