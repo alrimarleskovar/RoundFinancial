@@ -65,7 +65,9 @@ import {
   runSimulation,
   toggleCell,
   type FrameMetrics,
+  type MatrixCell,
   type PresetId,
+  type StressLabConfig,
   type StressLabFrame,
 } from "@roundfi/sdk/stressLab";
 
@@ -538,6 +540,158 @@ describe("runSimulation — stake cashback phase", () => {
 
     const last = frames[frames.length - 1]!.ledgerSnapshot[N - 1]!;
     expect(last.stakeRefunded, "no refund for last contemplation").to.equal(0);
+  });
+});
+
+// ─── ECO-002 — independent installment ───────────────────────────────
+// L1 historically forced `installment = credit / members` (zero-sum
+// ROSCA). On-chain, `installment_amount` and `credit_amount` are
+// independent pool fields (SEV-025 set the demo to $600/cycle). The
+// optional `config.installmentUsdc` decouples them; over/under-collection
+// vs the zero-sum baseline flows through the float and is surfaced as
+// `FrameMetrics.overCollection`. The default (omitted) MUST stay byte-
+// identical to the old behaviour — guarded here.
+describe("runSimulation — independent installment (ECO-002)", () => {
+  it("omitting installmentUsdc keeps overCollection at 0 on every frame", () => {
+    for (const id of PRESET_ORDER) {
+      const preset = PRESETS[id];
+      const frames = runSimulation(preset.config, preset.matrix);
+      for (const f of frames) {
+        expect(f.metrics.overCollection, `${id} cycle ${f.cycle} overCollection`).to.equal(0);
+      }
+    }
+  });
+
+  it("explicit installmentUsdc === credit/members is identical to omitting it", () => {
+    const N = 8;
+    const credit = N * 1000; // referenceInst = 1000
+    const m = defaultMatrix(N);
+    const base = {
+      level: "Comprovado" as const,
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    const omitted = runSimulation(base, m);
+    const explicit = runSimulation({ ...base, installmentUsdc: credit / N }, m);
+    expect(JSON.stringify(explicit), "frames identical when installment === credit/N").to.equal(
+      JSON.stringify(omitted),
+    );
+  });
+
+  it("over-collecting installment surfaces positive overCollection that flows through the float", () => {
+    const N = 8;
+    const credit = N * 1000; // referenceInst = 1000
+    const indep = 1200; // $200 over the zero-sum baseline per installment
+    const m = defaultMatrix(N); // healthy: every member pays every cycle
+    const base = {
+      level: "Comprovado" as const,
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 0,
+      yieldFeePct: 0,
+    };
+    const baseline = runSimulation(base, m);
+    const over = runSimulation({ ...base, installmentUsdc: indep }, m);
+
+    const lastBase = baseline[baseline.length - 1]!.metrics;
+    const lastOver = over[over.length - 1]!.metrics;
+
+    // Healthy, no defaults → N×N installments paid.
+    const expected = N * N * (indep - credit / N);
+    expect(lastOver.overCollection, "overCollection = installments × (inst − credit/N)").to.equal(
+      expected,
+    );
+    // The surplus is NOT refunded — it stays in the float, so net solvency
+    // rises by exactly the over-collection vs the zero-sum baseline.
+    expect(
+      lastOver.netSolvency - lastBase.netSolvency,
+      "surplus flows through the float (residual, not refunded)",
+    ).to.be.closeTo(expected, 1e-6);
+  });
+
+  it("under-collecting installment surfaces negative overCollection", () => {
+    const N = 8;
+    const credit = N * 1000;
+    const indep = 800; // $200 under the baseline
+    const m = defaultMatrix(N);
+    const base = {
+      level: "Comprovado" as const,
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 0,
+      yieldFeePct: 0,
+    };
+    const baseline = runSimulation(base, m);
+    const under = runSimulation({ ...base, installmentUsdc: indep }, m);
+
+    const expected = N * N * (indep - credit / N); // negative
+    expect(under[under.length - 1]!.metrics.overCollection).to.equal(expected);
+    expect(
+      under[under.length - 1]!.metrics.netSolvency -
+        baseline[baseline.length - 1]!.metrics.netSolvency,
+    ).to.be.closeTo(expected, 1e-6);
+  });
+});
+
+// ─── ECO-003 — breakpoint re-derivation ──────────────────────────────
+// The audit claimed a "non-monotonic thin solvency margin, breakpoint
+// ~16.7%". This pins the re-derivation (docs/security/eco-l1-l2-reconciliation.md):
+//   1. Under the RETRACTED premises (zero-sum $416.67 installment +
+//      end-of-life netSolvency, 6.5% APY), the claim REPRODUCES exactly:
+//      final-frame netSolvency dips below 0 at k=4 defaults (4/24 = 16.7%)
+//      and RECOVERS at k=5 — the non-monotonic U-shape is the ECO-001
+//      end-of-life artifact (the defaulter's un-disbursed escrow lingers in
+//      poolBalance while their obligation drops).
+//   2. Under the on-chain INDEPENDENT $600 installment (ECO-002), the
+//      breakpoint DOES NOT reproduce: final-frame netSolvency stays positive
+//      and monotonically decreasing through k=8 (33%). The large buffer is
+//      over-collection (surfaced as overCollection), so the figures are
+//      PROVISIONAL pending lab-UI validation — see the doc.
+describe("runSimulation — ECO-003 breakpoint re-derivation", () => {
+  const N = 24;
+  const credit = 10_000;
+  const matrixK = (k: number): MatrixCell[][] => {
+    const m = defaultMatrix(N);
+    for (let row = 1; row <= k; row++) for (let j = row + 1; j < N; j++) m[row]![j] = "X";
+    return m;
+  };
+  const finalNet = (cfg: StressLabConfig, k: number): number => {
+    const f = runSimulation(cfg, matrixK(k));
+    return f[f.length - 1]!.metrics.netSolvency;
+  };
+
+  it("RETRACTED premises ($416.67 zero-sum + 6.5% APY) reproduce the 16.7% non-monotonic dip", () => {
+    const cfg: StressLabConfig = {
+      level: "Veterano",
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    // Breakpoint at k=4 = 16.7%, and the margin RECOVERS at k=5 (non-monotonic).
+    expect(finalNet(cfg, 3), "k=3 still solvent").to.be.greaterThan(0);
+    expect(finalNet(cfg, 4), "k=4 (16.7%) dips below 0").to.be.lessThan(0);
+    expect(finalNet(cfg, 5), "k=5 recovers — non-monotonic").to.be.greaterThan(0);
+  });
+
+  it("on-chain independent $600 installment removes the breakpoint (monotonic, stays solvent)", () => {
+    const cfg: StressLabConfig = {
+      level: "Veterano",
+      members: N,
+      creditAmountUsdc: credit,
+      installmentUsdc: 600,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    let prev = Infinity;
+    for (let k = 0; k <= 8; k++) {
+      const ns = finalNet(cfg, k);
+      expect(ns, `k=${k} stays solvent under $600`).to.be.greaterThan(0);
+      expect(ns, `k=${k} monotonically decreasing (no dip/recovery)`).to.be.lessThan(prev);
+      prev = ns;
+    }
   });
 });
 
