@@ -73,6 +73,7 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       releaseEscrow,
       closePool,
       fetchPool,
+      fetchMember,
       fundUsdc,
       balanceOf,
     } = harness;
@@ -157,12 +158,23 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       pool,
       members,
       matrix: PRESETS.preDefault.matrix,
-      beforeSettle: async () => {
+      beforeSettle: async (cycle, slot) => {
         const p = await fetchPool(env, pool.pool);
         // next_cycle_at is a BN/bigint depending on the IDL coder.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = (p as any).nextCycleAt ?? (p as any).next_cycle_at;
         const nextCycleAt = BigInt(raw.toString());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mem = (await fetchMember(env, members[slot]!.member)) as any;
+        // eslint-disable-next-line no-console
+        console.log("SETTLE-DEBUG", {
+          loopCycle: cycle,
+          slot,
+          poolCurrentCycle: String((p as any).currentCycle ?? (p as any).current_cycle),
+          memberSlotIndex: String(mem.slotIndex ?? mem.slot_index),
+          subject: members[slot]!.wallet.publicKey.toBase58(),
+          issuer: pool.pool.toBase58(),
+        });
         await setLitesvmUnixTs(env.svm, nextCycleAt + GRACE_PERIOD_SECS + 60n);
       },
     });
