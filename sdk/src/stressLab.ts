@@ -133,6 +133,19 @@ export interface FrameMetrics {
    * `docs/security/internal-audit-findings.md` ECO-001..004.
    */
   netSolvency: number;
+  /**
+   * ECO-002 — cumulative over-collection vs the zero-sum baseline:
+   * `(actual installment − creditAmountUsdc / members) × installments paid
+   * so far`. Zero whenever the installment is the zero-sum default (so it
+   * is 0 across every preset that doesn't set `installmentUsdc`). Positive
+   * when the independent installment over-collects (members pay more over
+   * the pool than the credit they receive), negative when it under-collects.
+   * This is a DECOMPOSITION of `poolBalance`/`netSolvency` (the surplus
+   * already flows through the float), surfaced so the divergence from a
+   * pure ROSCA is explicit rather than hidden — the ECO-005 lesson. See
+   * docs/security/eco-l1-l2-reconciliation.md.
+   */
+  overCollection: number;
 }
 
 export interface StressLabFrame {
@@ -225,6 +238,20 @@ export interface StressLabConfig {
    * member, one contemplation per cycle).
    */
   creditAmountUsdc: number;
+  /**
+   * Optional INDEPENDENT monthly installment, in USDC (ECO-002). When
+   * omitted, the installment defaults to the zero-sum ROSCA value
+   * `creditAmountUsdc / members` (every existing preset relies on this —
+   * the default keeps their numbers byte-identical). When set, it decouples
+   * the installment from `credit / members` exactly like on-chain, where
+   * `installment_amount` and `credit_amount` are independent pool fields
+   * (SEV-025 set the demo pool to $600/cycle). Over- or under-collection
+   * relative to the zero-sum baseline is surfaced as `FrameMetrics.overCollection`
+   * and flows through the float (it is NOT refunded — matches on-chain, where
+   * the surplus sits in the vault and safety comes from the D/C invariant, not
+   * zero-sum). See docs/security/eco-l1-l2-reconciliation.md.
+   */
+  installmentUsdc?: number;
   kaminoApy: number; // % annual
   yieldFeePct: number; // % of yield kept by the protocol as admin fee
   memberNames?: string[];
@@ -366,18 +393,20 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   // per cycle, and there are exactly N cycles (one contemplation
   // per cycle per member).
   //
-  // ECO-002 (reconcile-by-doc, see docs/security/eco-l1-l2-reconciliation.md):
-  // this is the pure ZERO-SUM ROSCA installment (e.g. $416.67 for $10k/24).
-  // On-chain uses an INDEPENDENT installment (SEV-025 set the demo pool to
-  // $600/cycle), which L1 cannot yet express. Combined with L1's optimistic
-  // default-recovery (vs the conservative on-chain `settle_default`, which
-  // seizes `missed = installment.min(d_rem)` once and leaves collateral
-  // locked), treat L1 as an OPTIMISTIC upper-bound recovery model — it errs
-  // optimistic, never on the dangerous side, and L2 is the source of truth.
-  // Independent-installment + surplus-accounting rebalance is a deferred
-  // model change (needs lab-UI validation — the ECO-005 lesson).
+  // ECO-002 (see docs/security/eco-l1-l2-reconciliation.md): the installment
+  // defaults to the pure ZERO-SUM ROSCA value `credit / N` (e.g. $416.67 for
+  // $10k/24), but can be set INDEPENDENTLY via `config.installmentUsdc` — just
+  // like on-chain, where `installment_amount` and `credit_amount` are separate
+  // pool fields (SEV-025 set the demo pool to $600/cycle). When the independent
+  // installment over- or under-collects relative to `credit / N`, the
+  // difference flows through the float and is surfaced as `overCollection`
+  // (not refunded — matches on-chain, where the surplus sits in the vault and
+  // safety comes from the D/C invariant, not zero-sum). L1 still errs OPTIMISTIC
+  // on default-recovery vs the conservative on-chain `settle_default`, so it
+  // remains an upper-bound recovery model; L2 is the source of truth.
   const credit = config.creditAmountUsdc;
-  const inst = credit / N;
+  const referenceInst = credit / N; // zero-sum ROSCA baseline
+  const inst = config.installmentUsdc ?? referenceInst;
   const params = LEVEL_PARAMS[config.level];
   const stake = credit * (params.stakePct / 100);
   // Mature groups get the accelerated drip schedule (3/2/1 across
@@ -444,6 +473,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   let totalNetYield = 0;
   let totalProtocolFeeRevenue = 0;
   let totalInstallments = 0;
+  let totalInstallmentCount = 0; // ECO-002: # of installments paid (for overCollection)
   let totalPaidOut = 0;
   let totalRetained = 0;
   let totalLoss = 0;
@@ -477,6 +507,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
       if (action === "P" || action === "C") {
         cycleInstallments += inst;
         ledger[m]!.installmentsPaid += inst;
+        totalInstallmentCount += 1;
       }
 
       if (
@@ -654,6 +685,10 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
       outstandingEscrow -
       outstandingStakeRefund;
 
+    // ECO-002: cumulative excess collected vs the zero-sum baseline. 0 when
+    // `inst === referenceInst` (every preset that doesn't set installmentUsdc).
+    const overCollection = totalInstallmentCount * (inst - referenceInst);
+
     frames.push({
       cycle: c,
       metrics: {
@@ -673,6 +708,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
         lpDistribution,
         participantsDistribution,
         netSolvency,
+        overCollection,
       },
       // Deep clone so future cycles can't retroactively mutate snapshots.
       ledgerSnapshot: ledger.map((l) => ({ ...l })),
@@ -702,6 +738,7 @@ export function emptyFrame(): StressLabFrame {
       lpDistribution: 0,
       participantsDistribution: 0,
       netSolvency: 0,
+      overCollection: 0,
     },
     ledgerSnapshot: [],
   };
