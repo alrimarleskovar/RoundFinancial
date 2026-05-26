@@ -438,3 +438,15 @@ jobs:
         # would shift the failure class to `AccountValidationFailed`
         # / `Constraint*` and surface immediately.
         run: pnpm test:bankrun:no-mpl-core
+
+      - name: Run bankrun spec (SEV-047 identity gate — no mpl_core needed)
+        # Validates promote_level's identity-gate enforcement (SEV-047
+        # Part 2) end-to-end: drives a profile to the L2 threshold
+        # (score 500 + 1 cycle) by warping the clock +61s between each
+        # admin attest (defeats MIN_ADMIN_ATTEST_COOLDOWN_SECS — the
+        # reason the localnet reputation specs can't run this path),
+        # then asserts floor=2 caps an unverified subject at L1 and
+        # floor=0 promotes it to L2. roundfi-reputation has no mpl-core
+        # CPI, so the spec boots with loadMplCore:false (eligible for
+        # this lane, unlike the SEV-012-gated localnet reputation specs).
+        run: pnpm test:bankrun:reputation-gate
