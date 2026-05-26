@@ -25,6 +25,7 @@
     "devnet:deploy": "tsx scripts/devnet/deploy.ts",
     "devnet:export-pk": "tsx scripts/devnet/export-pk.ts",
     "devnet:init": "tsx scripts/devnet/init-protocol.ts",
+    "devnet:migrate-reputation-config": "tsx scripts/devnet/migrate-reputation-config.ts",
     "devnet:set-identity-gate": "tsx scripts/devnet/set-identity-gate.ts",
     "devnet:seed": "tsx scripts/devnet/seed-pool.ts",
     "devnet:seed-members": "tsx scripts/devnet/seed-members.ts",
