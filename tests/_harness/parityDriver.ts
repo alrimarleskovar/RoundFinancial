@@ -113,10 +113,19 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       recipient: null,
     };
 
-    // ─── Phase 1: settle_default for newly-X members ────────────────
+    // ─── Phase 1: settle_default for members now BEHIND ─────────────
+    // On-chain `settle_default` requires `member.contributions_paid <
+    // pool.current_cycle` (MemberNotBehind) AND `args.cycle ==
+    // current_cycle`. A member who skips cycle j (cell X) is NOT yet
+    // behind during cycle j — they only become behind once the cycle-j
+    // claim advances current_cycle to j+1. So we settle on the cycle
+    // AFTER the first skipped cycle, with args.cycle == this loop cycle
+    // (== on-chain current_cycle). Verified shape: edge_grace_default
+    // settles with contributions_paid=1, current_cycle=2, args.cycle=2.
     for (let m = 0; m < N; m++) {
       if (defaulted.has(m) || exited.has(m)) continue;
-      if (matrix[m]![cycle] !== "X") continue;
+      if (cycle === 0) continue; // nobody is behind before a cycle advances
+      if (matrix[m]![cycle - 1] !== "X") continue; // didn't skip the prior cycle
       if (opts.beforeSettle) await opts.beforeSettle(cycle, m);
       await settleDefault(env, {
         pool,

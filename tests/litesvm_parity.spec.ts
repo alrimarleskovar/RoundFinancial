@@ -96,7 +96,9 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       installmentAmount: installmentUsdc,
       creditAmount: creditAmountUsdc,
       cyclesTotal: N,
-      cycleDurationSec: 3_600,
+      // MIN_CYCLE_DURATION on-chain is 86_400 (1 day, SEV-023). litesvm
+      // clock is warped explicitly, so the wall-clock duration is irrelevant.
+      cycleDurationSec: 86_400,
     });
 
     // Pre-fund every wallet with the full position (N×installment + stake)
