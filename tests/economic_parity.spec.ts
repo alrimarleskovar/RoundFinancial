@@ -695,6 +695,54 @@ describe("runSimulation — ECO-003 breakpoint re-derivation", () => {
   });
 });
 
+// ─── ECO-007 — reserve LP in float (raw-vault parity) ────────────────
+// On-chain (post-SEV-048) the LP yield slice sits in the pool USDC vault
+// as a non-spendable earmark; L1 historically treated it as already paid
+// out. The opt-in `reserveLpInFloat` keeps lpDistribution inside the float
+// so L1 matches the on-chain RAW vault balance (needed before un-skipping
+// the L2 raw-balance parity blocks), while leaving the solvency verdict
+// (and every preset's default display) unchanged. See
+// docs/security/eco-l1-l2-reconciliation.md (ECO-007).
+describe("runSimulation — reserve LP in float (ECO-007)", () => {
+  it("omitting the flag is identical to reserveLpInFloat:false (presets unchanged)", () => {
+    const preset = PRESETS.highYieldTripleDefault;
+    const omitted = runSimulation(preset.config, preset.matrix);
+    const explicitFalse = runSimulation(
+      { ...preset.config, reserveLpInFloat: false },
+      preset.matrix,
+    );
+    expect(JSON.stringify(explicitFalse)).to.equal(JSON.stringify(omitted));
+  });
+
+  it("reserving LP adds it to poolBalance but leaves netSolvency unchanged", () => {
+    // High APY so the Guarantee Fund fills and the LP slice is non-zero.
+    const cfg: StressLabConfig = {
+      level: "Comprovado",
+      members: 12,
+      creditAmountUsdc: 12_000,
+      kaminoApy: 500,
+      yieldFeePct: 20,
+    };
+    const m = defaultMatrix(12);
+    const base = runSimulation(cfg, m)[11]!.metrics;
+    const reserved = runSimulation({ ...cfg, reserveLpInFloat: true }, m)[11]!.metrics;
+
+    expect(base.lpDistribution, "LP slice is non-zero (GF filled)").to.be.greaterThan(0);
+    // lpDistribution accumulator itself is unchanged by the flag.
+    expect(reserved.lpDistribution).to.be.closeTo(base.lpDistribution, 1e-6);
+    // poolBalance rises by exactly the reserved LP earmark.
+    expect(
+      reserved.poolBalance - base.poolBalance,
+      "poolBalance carries the LP earmark when reserved",
+    ).to.be.closeTo(base.lpDistribution, 1e-6);
+    // The solvency verdict is invariant — LP is never spendable for obligations.
+    expect(reserved.netSolvency, "netSolvency invariant under the flag").to.be.closeTo(
+      base.netSolvency,
+      1e-6,
+    );
+  });
+});
+
 // ─── Layer 1e — net solvency vs gross cash ───────────────────────────
 // `poolBalance` (gross cash) was being read as a solvency signal, but
 // it includes member stakes (a *liability* — owed back to ok members)

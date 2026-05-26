@@ -61,15 +61,18 @@ So the economic substance for solvency is identical; the divergence is purely
 **bookkeeping location** (conceptually-paid-out vs earmarked-in-vault), which
 does not change any L1 verdict.
 
-**Guard for the future.** This simplification is sound for the solvency
-verdict, but it is NOT sound for a parity test that asserts **raw vault
-balances** between L1 and L2 — there, the on-chain vault carries the LP
-earmark and L1 does not. The L2 economic-parity blocks that would exercise
-this are currently `describe.skip` / `this.skip()` and LP-withdrawal (M3) has
-not shipped, so the gap is **inert today**. Whoever un-skips those blocks (or
-ships LP-withdrawal) MUST first make L1 reserve `lpDistribution` in the float
-the same way on-chain does, or the raw-balance assertion will diverge. The
-inline notes at `stressLab.ts:408-414` and `:629-632` carry this warning.
+**Guard for the future — now an opt-in, shipped.** The default simplification
+is sound for the solvency verdict but NOT for a parity test that asserts **raw
+vault balances** (the on-chain vault carries the LP earmark, default-L1 does
+not). The prerequisite for un-skipping those L2 raw-balance blocks (or shipping
+M3 LP-withdrawal) is now shipped as an opt-in: `StressLabConfig.reserveLpInFloat`
+(default `false`). When `true`, `lpDistribution` is reported inside
+`poolBalance` as a non-spendable earmark — matching the on-chain raw vault —
+while `netSolvency` is computed on the spendable float and is therefore
+**invariant** under the flag (verified by `tests/economic_parity.spec.ts` →
+"reserve LP in float (ECO-007)"). Default `false` keeps every preset's displayed
+`poolBalance` byte-identical, so nothing public changes until a test/preset
+opts in. The L2 raw-balance parity blocks set the flag when they are un-skipped.
 
 ---
 
@@ -181,11 +184,11 @@ on-chain params** (provisional).
 
 ## Summary
 
-| Finding | Decision                                                  | What changed                                                                                                                                                                                    | Deferred                                                                             |
-| ------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| ECO-002 | Reconcile-by-doc + ship additive installment-independence | Optional `installmentUsdc` decouples installment from `credit/members` (opt-in; presets byte-identical, `overCollection===0` guarded); surplus = residual-in-float surfaced as `overCollection` | Surplus _disposition_ + any public over-collecting preset (needs lab-UI validation)  |
-| ECO-003 | Retract original claim; re-derive (provisional)           | 16.7% dip reproduces only under the retracted premises ($416.67 + netSolvency); under on-chain `$600` there is **no breakpoint** (monotonic, solvent through 33%) — CI-pinned                   | Quantitative magnitudes under `$600` (over-collection dominated) pending lab-UI run  |
-| ECO-007 | Reconcile-by-doc (intentional L1 simplification)          | Firmed-up inline notes + this doc: sound for the solvency verdict, with a guard for raw-balance L2 parity                                                                                       | Reserve `lpDistribution` in L1 before un-skipping L2 parity / shipping LP-withdrawal |
+| Finding | Decision                                                  | What changed                                                                                                                                                                                    | Deferred                                                                            |
+| ------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| ECO-002 | Reconcile-by-doc + ship additive installment-independence | Optional `installmentUsdc` decouples installment from `credit/members` (opt-in; presets byte-identical, `overCollection===0` guarded); surplus = residual-in-float surfaced as `overCollection` | Surplus _disposition_ + any public over-collecting preset (needs lab-UI validation) |
+| ECO-003 | Retract original claim; re-derive (provisional)           | 16.7% dip reproduces only under the retracted premises ($416.67 + netSolvency); under on-chain `$600` there is **no breakpoint** (monotonic, solvent through 33%) — CI-pinned                   | Quantitative magnitudes under `$600` (over-collection dominated) pending lab-UI run |
+| ECO-007 | Reconcile-by-doc + ship opt-in raw-vault reservation      | Opt-in `reserveLpInFloat` (default false; presets byte-identical) reports `lpDistribution` inside `poolBalance` for raw-vault parity, `netSolvency` invariant (CI-pinned)                       | L2 raw-balance parity blocks set the flag when un-skipped; M3 LP-withdrawal         |
 
 **Bottom line.** None of ECO-002/003/007 is a fund-drain or an on-chain
 correctness issue — they are L1-model accuracy / parity items. L2 (the

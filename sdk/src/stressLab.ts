@@ -252,6 +252,22 @@ export interface StressLabConfig {
    * zero-sum). See docs/security/eco-l1-l2-reconciliation.md.
    */
   installmentUsdc?: number;
+  /**
+   * ECO-007 — when true, the LP slice of the yield waterfall
+   * (`lpDistribution`) is reserved INSIDE the float (`poolBalance`) as a
+   * non-spendable earmark, exactly like on-chain post-SEV-048
+   * (`claim_payout`/`deposit_idle_to_yield` keep `lp_distribution_balance`
+   * in the pool USDC vault until M3 LP-withdrawal ships). Default `false`
+   * keeps the legacy L1 simplification (LP treated as already paid out, not
+   * in the float), so every preset's displayed `poolBalance` is byte-identical.
+   * Set it true ONLY for L2 raw-vault-balance parity tests, where the
+   * on-chain vault physically carries the LP earmark and L1 must match.
+   * `netSolvency` is invariant under this flag (the reserved LP is added to
+   * the float then subtracted back out of the verdict — it never counts as
+   * funds available to cover obligations, in either mode). See
+   * docs/security/eco-l1-l2-reconciliation.md (ECO-007).
+   */
+  reserveLpInFloat?: boolean;
   kaminoApy: number; // % annual
   yieldFeePct: number; // % of yield kept by the protocol as admin fee
   memberNames?: string[];
@@ -415,6 +431,8 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
     config.maturity === "mature" ? params.releaseMonthsMature : params.releaseMonths;
   const apy = config.kaminoApy;
   const adminFee = config.yieldFeePct;
+  // ECO-007: reserve the LP yield slice inside the float (raw-vault parity).
+  const reserveLpInFloat = config.reserveLpInFloat ?? false;
 
   // Pad with generic names if N exceeds the curated list — keeps the
   // simulator flexible for stress runs at Community Pool scale (issue
@@ -678,12 +696,17 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
     // outstanding obligations to ok members. lpDistribution is
     // excluded — see the ECO-007 decision note at the capital-structure
     // block above (intentional L1 simplification, sound for the verdict).
+    // ECO-007: the spendable float (used for the solvency verdict) never
+    // includes the LP earmark — netSolvency is computed on `totalPoolBalance`
+    // and is therefore invariant under `reserveLpInFloat`. Only the REPORTED
+    // poolBalance below carries the earmark (raw-vault parity).
     const netSolvency =
       totalPoolBalance +
       solidarityVault +
       guaranteeFund -
       outstandingEscrow -
       outstandingStakeRefund;
+    const reportedPoolBalance = totalPoolBalance + (reserveLpInFloat ? lpDistribution : 0);
 
     // ECO-002: cumulative excess collected vs the zero-sum baseline. 0 when
     // `inst === referenceInst` (every preset that doesn't set installmentUsdc).
@@ -695,7 +718,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
         collectedInstallments: totalInstallments,
         kaminoNetYield: totalNetYield,
         protocolFeeRevenue: totalProtocolFeeRevenue,
-        poolBalance: totalPoolBalance,
+        poolBalance: reportedPoolBalance,
         paidOut: totalPaidOut,
         totalStake: stake * N,
         totalRetained,
