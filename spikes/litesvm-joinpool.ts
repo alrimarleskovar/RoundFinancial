@@ -103,9 +103,23 @@ async function main(): Promise<void> {
       } catch {
         /* ignore */
       }
-      throw new Error(
-        `litesvm tx failed: ${String(err)} / ${JSON.stringify(err)}\n  logs:\n  ${logs.join("\n  ")}`,
-      );
+      // Print directly — anchor's translateError needs err.logs to parse
+      // the program error, and otherwise swallows it to a bare Error.
+      console.error(`\n  ⛔ on-chain tx FAILED: ${String(err)}`);
+      if (logs.length) {
+        console.error("  program logs:\n    " + logs.join("\n    "));
+      } else {
+        const proto = Object.getPrototypeOf(r);
+        console.error(
+          "  (no logs via meta().logs(); FailedTransactionMetadata API: " +
+            Object.getOwnPropertyNames(proto).join(", ") +
+            ")",
+        );
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e: any = new Error(`litesvm tx failed: ${String(err)}`);
+      e.logs = logs;
+      throw e;
     }
     return "litesvm-sig";
   };
