@@ -292,10 +292,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
     // ─── Snapshot member fields for the reputation CPI below ───────────
     let member_slot_index = member.slot_index;
     let member_wallet     = member.wallet;
-    // SEV-050: the collateral left locked after this seizure (D/C-conservative
-    // — settle only takes `missed`). The defaulter can't release_escrow, so
-    // track it here so close_pool can proceed once healthy members release.
-    let member_residual_escrow = member.escrow_balance;
 
     // ─── Irreversible state transition ──────────────────────────────────
     member.defaulted = true;
@@ -312,11 +308,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
     pool.escrow_balance = pool
         .escrow_balance
         .saturating_sub(from_escrow.saturating_add(from_stake));
-    // SEV-050: record the defaulter's residual locked collateral so close_pool
-    // can distinguish "healthy escrow still owed" from "forfeited collateral".
-    pool.defaulted_escrow_locked = pool
-        .defaulted_escrow_locked
-        .saturating_add(member_residual_escrow);
 
     msg!(
         "roundfi-core: settle_default cycle={} member={} seized_total={} solidarity={} escrow={} stake={} d_rem={} c_init={} c_after={}",

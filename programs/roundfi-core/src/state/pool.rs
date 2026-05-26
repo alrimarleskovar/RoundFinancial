@@ -74,18 +74,6 @@ pub struct Pool {
     /// hostile authority could inflate the global counter to DoS the
     /// `max_protocol_tvl_usdc` cap.
     pub vaults_initialized: bool,
-
-    // ─── Liveness — defaulted-pool close path (SEV-050) ───────────────
-    /// Sum of defaulted members' RESIDUAL escrow/collateral still held in
-    /// `escrow_vault` after `settle_default` (which only seizes `missed`,
-    /// leaving the rest locked per the D/C invariant). A defaulted member
-    /// can't `release_escrow`, so this collateral would pin
-    /// `pool.escrow_balance > 0` forever and block `close_pool`. Tracking it
-    /// lets `close_pool` proceed once every NON-defaulted member has released
-    /// (`escrow_balance <= defaulted_escrow_locked`); the residual then drains
-    /// to the closing authority as forfeit. Surfaced by the litesvm L2 parity
-    /// slice. Appended (not inserted) to preserve existing field offsets.
-    pub defaulted_escrow_locked: u64,
 }
 
 #[repr(u8)]
@@ -117,7 +105,6 @@ impl Pool {
         + 8                    // slots_bitmap (64 bits = 8 bytes)
         + 4                    // four bumps
         + 1                    // vaults_initialized (Adevar SEV-004)
-        + 8                    // SEV-050: defaulted_escrow_locked (u64)
         + 6;                   // padding (was 7, consumed 1 for vaults_initialized)
 
     #[inline]
