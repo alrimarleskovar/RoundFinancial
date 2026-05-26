@@ -72,10 +72,21 @@ pub struct ClosePool<'info> {
 pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
     let pool_key = ctx.accounts.pool.key();
 
-    require!(
-        ctx.accounts.pool.defaulted_members == 0 || ctx.accounts.pool.escrow_balance == 0,
-        RoundfiError::OutstandingDefaults,
-    );
+    // SEV-050 (liveness): the former guard required
+    // `defaulted_members == 0 || escrow_balance == 0` for a defaulted pool.
+    // But `settle_default` only ever INCREMENTS `defaulted_members` (never
+    // zeroes it) and `escrow_balance` ends at `Σ total_escrow_deposited > 0`
+    // for any pool that took contributions (release_escrow vests only the
+    // STAKE, never the escrow deposits) — so BOTH clauses are unsatisfiable
+    // once anyone defaults: a defaulted pool could NEVER close, stranding its
+    // funds AND leaking its committed TVL forever (the decrement below never
+    // ran → a griefing DoS on the global cap).
+    //
+    // close_pool is a pure terminal-state transition: it moves NO funds (vault
+    // drain/rent reclaim is deferred — see the module header / SEV-039) and the
+    // `status == Completed` account constraint already proves every cycle ran
+    // (defaulters resolved via settle_default / skip_defaulted_payout). So the
+    // guard protected no funds; it only blocked legitimate closes. Removed.
 
     // ─── Decrement committed TVL (symmetric with init_pool_vaults) ───
     // Use the same computation: pool's max committed flow is

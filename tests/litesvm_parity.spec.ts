@@ -182,18 +182,10 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       if (i === defaulterSlot) continue;
       await releaseEscrow(env, { pool, member: members[i]!, checkpoint: N });
     }
-    // close_pool is best-effort: a defaulted pool can't reach escrow_balance==0
-    // (every member legitimately retains escrow at pool end, and the defaulter
-    // can't release_escrow) → it throws OutstandingDefaults. That's a CONFIRMED
-    // separate liveness finding (SEV-050, deferred — the on-chain fix needs the
-    // release_escrow escrow-model studied interactively). It does NOT affect the
-    // per-member deltas (close drains residual to the AUTHORITY, not members),
-    // which are final after the releases above.
-    try {
-      await closePool(env, { pool });
-    } catch {
-      /* SEV-050 (deferred) — irrelevant to the member-delta parity asserted below */
-    }
+    // close_pool now succeeds for a defaulted pool (SEV-050): it's a pure
+    // terminal-state transition (no fund movement), and the unsatisfiable
+    // escrow/defaulted guard was removed. A hard call validates the fix.
+    await closePool(env, { pool });
 
     const after = await Promise.all(members.map((m) => balanceOf(env, m.memberUsdc)));
     onChainDeltas = before.map((b, i) => after[i]! - b);
