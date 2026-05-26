@@ -67,6 +67,12 @@ export interface DriveOpts {
    *  pool.creditAmount — irrelevant for Healthy (no E cells) but plumbed
    *  for the post-default suites. */
   escapeValvePriceUsdc?: bigint;
+  /** Optional hook run immediately BEFORE each `settle_default` (Phase 1),
+   *  with the (0-indexed) cycle + defaulter slot. Used by the litesvm
+   *  parity scenarios to warp the clock past the 7-day grace window
+   *  (`settle_default` requires `clock >= next_cycle_at + GRACE_PERIOD_SECS`).
+   *  Default: no-op (bankrun/localnet healthy path unaffected). */
+  beforeSettle?: (cycle: number, slot: number) => Promise<void>;
 }
 
 /**
@@ -111,6 +117,7 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
     for (let m = 0; m < N; m++) {
       if (defaulted.has(m) || exited.has(m)) continue;
       if (matrix[m]![cycle] !== "X") continue;
+      if (opts.beforeSettle) await opts.beforeSettle(cycle, m);
       await settleDefault(env, {
         pool,
         defaulter: members[m]!,
