@@ -172,8 +172,10 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
           slot,
           poolCurrentCycle: String((p as any).currentCycle ?? (p as any).current_cycle),
           memberSlotIndex: String(mem.slotIndex ?? mem.slot_index),
+          handleSlotIndex: String(members[slot]!.slotIndex),
           subject: members[slot]!.wallet.publicKey.toBase58(),
           issuer: pool.pool.toBase58(),
+          repProgram: env.ids.reputation.toBase58(),
         });
         await setLitesvmUnixTs(env.svm, nextCycleAt + GRACE_PERIOD_SECS + 60n);
       },
