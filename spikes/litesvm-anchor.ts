@@ -105,41 +105,37 @@ async function main(): Promise<void> {
     wallet,
     // anchor's .rpc() delegates here.
     sendAndConfirm: async (tx: Transaction, signers: Keypair[] = []) => {
-      console.log("  · setting blockhash/feePayer + signing");
+      console.log("  · setting blockhash/feePayer + signing (v1)");
       tx.recentBlockhash = svm.latestBlockhash();
       tx.feePayer = payer.publicKey;
       tx.sign(payer, ...signers);
 
-      // litesvm 1.x sendTransaction: try the v1 Transaction object first,
-      // then the serialized bytes, then a VersionedTransaction — report
-      // which the binding accepts (this is the harness's tx contract).
-      const attempts: Array<[string, unknown]> = [
-        ["v1 Transaction object", tx],
-        ["serialized Uint8Array", tx.serialize()],
-      ];
-      let res: unknown = null;
-      let sent = false;
-      let lastErr: unknown = null;
-      for (const [label, arg] of attempts) {
-        try {
-          res = svm.sendTransaction(arg);
-          console.log(
-            `  sendTransaction(${label}) → ${(res as any)?.constructor?.name ?? typeof res}`,
-          );
-          sent = true;
-          break;
-        } catch (e) {
-          console.log(`  · sendTransaction(${label}) threw: ${(e as Error)?.message ?? e}`);
-          lastErr = e;
-        }
+      // litesvm 1.x sendTransaction wants a web3.js-v2 (kit) transaction
+      // (it runs `assertIsFullySignedTransaction` on a v2-shaped object).
+      // The wire format is SHARED between v1 and v2, so the bridge is one
+      // step: serialize the fully-signed legacy tx → decode into a v2
+      // transaction → hand THAT to litesvm.
+      const wire = tx.serialize(); // fully-signed legacy wire bytes
+      // @solana/transactions is present (litesvm's own dep).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const txMod: any = await import("@solana/transactions");
+      const decoderFactory = txMod.getTransactionDecoder ?? txMod.getTransactionCodec;
+      if (typeof decoderFactory !== "function") {
+        throw new Error(
+          `no getTransactionDecoder in @solana/transactions exports: ${Object.keys(txMod).join(", ")}`,
+        );
       }
-      if (!sent) throw lastErr ?? new Error("sendTransaction failed for all arg forms");
+      const decoder = decoderFactory();
+      const v2tx = typeof decoder.decode === "function" ? decoder.decode(wire) : decoder(wire);
+      console.log("  · decoded v1→v2 tx; signatures:", Object.keys(v2tx.signatures ?? {}).length);
 
+      const res = svm.sendTransaction(v2tx);
+      console.log(`  sendTransaction(v2) → ${(res as any)?.constructor?.name ?? typeof res}`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = res as any;
       const maybeErr = r && typeof r.err === "function" ? r.err() : null;
       if (maybeErr) {
-        throw new Error(`litesvm tx failed: ${JSON.stringify(maybeErr)}`);
+        throw new Error(`litesvm tx failed: ${JSON.stringify(maybeErr)} logs=${r.logs?.()}`);
       }
       const sig = tx.signatures?.[0]?.signature;
       return sig ? Buffer.from(sig).toString("base64") : "ok";
