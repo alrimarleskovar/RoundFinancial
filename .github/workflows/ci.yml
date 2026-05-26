@@ -470,7 +470,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
+          # pretenuring-feedback hashtable rehash (Heap::PerformGarbageCollection
+          # → PretenuringHandler::ProcessPretenuringFeedback → std::__throw_bad_alloc),
+          # a non-deterministic V8 bug in Node 20.20.2's V8 — NOT litesvm and NOT
+          # RAM (14GB free, ulimit -v unlimited). It never reproduces on the
+          # author's local Node 25; Node 24's newer V8 carries the fix. (SEV-012)
+          node-version: 24
       - name: Install gdb (for abort backtrace capture)
         run: sudo apt-get update -y && sudo apt-get install -y gdb
       - uses: dtolnay/rust-toolchain@stable
