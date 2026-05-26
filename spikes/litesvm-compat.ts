@@ -54,7 +54,14 @@ async function main(): Promise<void> {
   // ── Connection shim (port of bankrun_compat) ──
   // Routes the @solana/spl-token JS path through litesvm. Only the
   // methods createMint/mintTo actually call are implemented.
-  const sendV1 = (tx: Transaction): string => {
+  // web3.js sendAndConfirmTransaction calls connection.sendTransaction(tx,
+  // signers) expecting the connection to set the blockhash + sign. So the
+  // shim does that (mirrors the provider's sendAndConfirm), then bridges
+  // v1→v2 and hands to litesvm.
+  const sendV1 = (tx: Transaction, signers: Keypair[]): string => {
+    tx.recentBlockhash = svm.latestBlockhash();
+    if (!tx.feePayer) tx.feePayer = signers[0]?.publicKey ?? payer.publicKey;
+    if (signers.length) tx.sign(...signers);
     const wire = tx.serialize();
     const v2 = txDecoder.decode(wire);
     const res = svm.sendTransaction(v2);
@@ -113,8 +120,11 @@ async function main(): Promise<void> {
       }
       return "litesvm-sig";
     },
-    sendTransaction: async (tx: Transaction | VersionedTransaction): Promise<string> => {
-      if (tx instanceof Transaction) return sendV1(tx);
+    sendTransaction: async (
+      tx: Transaction | VersionedTransaction,
+      signers: Keypair[] = [],
+    ): Promise<string> => {
+      if (tx instanceof Transaction) return sendV1(tx, signers);
       // versioned: already signed; encode + send
       const res = svm.sendTransaction(tx);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
