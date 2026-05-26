@@ -8,7 +8,7 @@
 | ------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | 5 min        | `../../AUDIT_SCOPE.md` (1-pager)  | Before everything else                                                                                                      |
 | 10 min       | `audit-readiness.md`              | Strategic context                                                                                                           |
-| 10 min       | `internal-audit-findings.md`      | Internal pre-audit tracker (49 SEVs, status, PRs) — methodology modeled on external auditor format, NOT a formal engagement |
+| 10 min       | `internal-audit-findings.md`      | Internal pre-audit tracker (51 SEVs, status, PRs) — methodology modeled on external auditor format, NOT a formal engagement |
 | 5 min        | `constants-audit-2026-05.md`      | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                         |
 | 30 min       | `self-audit.md`                   | Deep dive on protocol guarantees                                                                                            |
 | 15 min       | `adversarial-threat-model.md`     | Sybil / ordering / griefing surface                                                                                         |
@@ -51,8 +51,8 @@ One-pager for security firms:
 
 Public accountability record for the internal pre-audit (May 2026) — **NOT** a formal external-firm engagement (Adevar / Halborn / OtterSec / Sec3 — selection pending; cost/timeline negotiation). Methodology was deliberately modeled on the published external-auditor format so the eventual paid auditor can re-validate quickly against a clean baseline.
 
-- **Live counts are canonical in [`internal-audit-findings.md`](./internal-audit-findings.md) — see its [Summary table](./internal-audit-findings.md#summary).** This index intentionally does not duplicate the totals (they drift); the tracker is the SSOT. As of the 2026-05-24 external-audit pass: 49 findings, 46 closed, Critical/High 14/14.
-- Coverage: 5-pass internal pre-audit W1..W5 + 1 integration-testing wave (SEV-034b) + 9 follow-up waves through 2026-05-19 (incl. Kamino-spike Criticals SEV-040/041/042) + 1 external-audit pass 2026-05-24 (SEV-047 reputation-farming gate + SEV-048 LP-distribution earmark). 0 upstream-blocked; SEV-012 closed via the required litesvm·mpl-core CI lane, 3 design-intentional.
+- **Live counts are canonical in [`internal-audit-findings.md`](./internal-audit-findings.md) — see its [Summary table](./internal-audit-findings.md#summary).** This index intentionally does not duplicate the totals (they drift); the tracker is the SSOT. As of 2026-05-26: 51 findings, 47 closed, 1 🟡 OPEN (SEV-050, High — mainnet blocker), Critical/High 15 of 16.
+- Coverage: 5-pass internal pre-audit W1..W5 + 1 integration-testing wave (SEV-034b) + 9 follow-up waves through 2026-05-19 (incl. Kamino-spike Criticals SEV-040/041/042) + 1 external-audit pass 2026-05-24 (SEV-047 reputation-farming gate + SEV-048 LP-distribution earmark) + the litesvm L1↔L2 parity slice (SEV-049 pre-contemplation-default liveness High — closed via the new permissionless `skip_defaulted_payout` instruction; SEV-050 defaulted-pool `close_pool` liveness High — 🟡 OPEN, a mainnet blocker, fix deferred). 0 upstream-blocked; SEV-012 closed via the required litesvm·mpl-core CI lane, 3 design-intentional.
 - One row per SEV — severity, status (🟢 Closed / 🟡 Deferred / 🟠 Blocked / 🔵 Won't fix), PR, technical note
 - Disclosure timeline + summary table
 - Methodology notes — pattern fingerprinting after SEV-002 / SEV-023; integration-testing wave rationale post-W5; Kamino-spike pattern generalization SEV-040 → SEV-042 → SEV-043 → SEV-044
