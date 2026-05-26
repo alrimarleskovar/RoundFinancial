@@ -42,6 +42,7 @@ import {
   contribute,
   claimPayout,
   settleDefault,
+  skipDefaultedPayout,
   escapeValveList,
   escapeValveBuy,
 } from "./actions.js";
@@ -181,18 +182,28 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       summary.contributed.push(m);
     }
 
-    // ─── Phase 4: claim_payout for the C-cell row in this column ────
-    let recipientRow: number | null = null;
-    for (let m = 0; m < N; m++) {
-      if (matrix[m]![cycle] === "C") {
-        if (defaulted.has(m) || exited.has(m)) continue;
-        recipientRow = m;
-        break;
+    // ─── Phase 4: advance the cycle ─────────────────────────────────
+    // The contemplated slot for cycle `cycle` is slot `cycle` (claim_payout
+    // enforces slot_index == cycle). If that member defaulted PRE-
+    // contemplation, claim_payout is blocked (it requires !defaulted) and the
+    // pool would lock — advance permissionlessly via skip_defaulted_payout
+    // (no payout; forfeited pot stays in the float). Otherwise the C-cell
+    // member claims normally.
+    if (defaulted.has(cycle)) {
+      await skipDefaultedPayout(env, { pool, defaulter: members[cycle]!, cycle });
+    } else {
+      let recipientRow: number | null = null;
+      for (let m = 0; m < N; m++) {
+        if (matrix[m]![cycle] === "C") {
+          if (defaulted.has(m) || exited.has(m)) continue;
+          recipientRow = m;
+          break;
+        }
       }
-    }
-    if (recipientRow !== null) {
-      await claimPayout(env, { pool, member: members[recipientRow]!, cycle });
-      summary.recipient = recipientRow;
+      if (recipientRow !== null) {
+        await claimPayout(env, { pool, member: members[recipientRow]!, cycle });
+        summary.recipient = recipientRow;
+      }
     }
 
     summaries.push(summary);

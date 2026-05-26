@@ -89,6 +89,17 @@ pub mod roundfi_core {
         instructions::settle_default::handler(ctx, args)
     }
 
+    /// Permissionless cycle advance for a slot whose contemplated member
+    /// defaulted pre-contemplation (otherwise the pool locks — claim_payout
+    /// requires `!defaulted` but only it advances the cycle). No payout; the
+    /// forfeited pot stays in the float. See `instructions::skip_defaulted_payout`.
+    pub fn skip_defaulted_payout(
+        ctx: Context<SkipDefaultedPayout>,
+        args: SkipDefaultedPayoutArgs,
+    ) -> Result<()> {
+        instructions::skip_defaulted_payout::handler(ctx, args)
+    }
+
     pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
         instructions::escape_valve_list::handler(ctx, args)
     }

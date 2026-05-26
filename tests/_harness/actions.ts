@@ -302,6 +302,37 @@ export async function settleDefault(env: Env, opts: SettleDefaultOpts): Promise<
     .rpc();
 }
 
+// ─── skip_defaulted_payout ─────────────────────────────────────────────
+// Permissionless cycle advance for a slot whose contemplated member
+// defaulted pre-contemplation (claim_payout can't run on a defaulted slot,
+// and only claim_payout advances the cycle — so the pool would lock). No
+// payout; the forfeited pot stays in the float.
+export interface SkipDefaultedPayoutOpts {
+  pool: PoolHandle;
+  defaulter: MemberHandle;
+  cycle: number;
+  caller?: Keypair; // defaults to env.payer
+}
+
+export async function skipDefaultedPayout(
+  env: Env,
+  opts: SkipDefaultedPayoutOpts,
+): Promise<string> {
+  const caller = opts.caller ?? env.payer;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (env.programs.core.methods as any)
+    .skipDefaultedPayout({ cycle: opts.cycle })
+    .accounts({
+      caller: caller.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      member: opts.defaulter.member,
+      defaultedMemberWallet: opts.defaulter.wallet.publicKey,
+    })
+    .signers([caller])
+    .rpc();
+}
+
 // ─── escape_valve_list ─────────────────────────────────────────────────
 // Active, current member lists their position for sale. Returns the
 // listing PDA so the matching buy call can reference it.

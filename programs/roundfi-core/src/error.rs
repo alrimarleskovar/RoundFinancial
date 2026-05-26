@@ -172,4 +172,13 @@ pub enum RoundfiError {
     FeeBpsYieldProposalAlreadyPending,
     #[msg("Direct mutation of fee_bps_yield is disabled — use propose/cancel/commit timelock flow")]
     DirectFeeBpsYieldMutationDisabled,
+
+    // ─── Liveness — skip_defaulted_payout guard ───────────────────────
+    // Surfaced by the litesvm L1↔L2 parity slice: a pre-contemplation
+    // defaulter's contemplation cycle can't be claimed (claim_payout requires
+    // !defaulted) and only claim_payout advances the cycle, so the pool would
+    // lock. `skip_defaulted_payout` advances such a cycle, and only such a
+    // cycle — this guards it against being called on a non-defaulted slot.
+    #[msg("Slot's contemplated member is not defaulted — use claim_payout, not skip_defaulted_payout")]
+    SlotNotDefaulted,
 }

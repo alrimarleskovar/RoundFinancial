@@ -26,6 +26,7 @@ pub mod propose_new_fee_bps_yield;
 pub mod propose_new_treasury;
 pub mod release_escrow;
 pub mod settle_default;
+pub mod skip_defaulted_payout;
 pub mod update_protocol_config;
 
 // Each handler module re-exports its `handler` fn + Accounts struct +
@@ -64,6 +65,7 @@ mod reexports {
     pub use super::propose_new_treasury::*;
     pub use super::release_escrow::*;
     pub use super::settle_default::*;
+    pub use super::skip_defaulted_payout::*;
     pub use super::update_protocol_config::*;
 }
 pub use reexports::*;
