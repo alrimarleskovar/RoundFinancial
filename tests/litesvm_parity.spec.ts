@@ -101,6 +101,14 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     const installmentUsdc = BigInt(INSTALLMENT_USDC) * 1_000_000n;
     const creditAmountUsdc = 12_000n * 1_000_000n;
 
+    // litesvm's genesis clock starts at unix_timestamp ~0, which trips the
+    // reputation CYCLE_COMPLETE cooldown on the FIRST attestation
+    // (`now − last_cycle_complete_at(0) < MIN_CYCLE_COOLDOWN_SECS`). Real
+    // validators/bankrun start at a real epoch (~1.7e9) so they never hit
+    // this. Anchor the litesvm clock to a realistic base before any pool
+    // timestamps are set; the grace warp later adds +7d on top.
+    await setLitesvmUnixTs(env.svm, 1_750_000_000n);
+
     const usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
     // settle_default CPIs into reputation::attest (writes the SCHEMA_DEFAULT
