@@ -12,7 +12,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Semver: [Sem
 
 ### Added
 
-- (None yet.)
+- **Optional independent installment** — `StressLabConfig.installmentUsdc` decouples the per-cycle installment from `credit / members` (ECO-002). Opt-in; omitted (default) collapses to the zero-sum `credit / members` value, so all 16 presets remain byte-identical.
+- **`FrameMetrics.overCollection`** — `(installment − credit / members) × installments paid`, surfacing structural over-collection when `installmentUsdc` is set (ECO-003). `0` for every current preset.
 
 ---
 

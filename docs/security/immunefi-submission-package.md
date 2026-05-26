@@ -20,7 +20,7 @@ RoundFi is an open-source ROSCA (Rotating Savings & Credit Association) primitiv
   - roundfi-reputation (~1200 LoC): SAS-compatible attestation issuance, level promotion, identity scaffold
   - roundfi-yield-kamino (~770 LoC): adapter to Kamino Lend for yield-bearing idle USDC
 
-Pre-engagement internal audit completed (49 findings, 45+ closed, Critical/High 14/14) — see https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/security/internal-audit-findings.md.
+Pre-engagement internal audit completed (49 findings, 46 closed, Critical/High 14/14) — see https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/security/internal-audit-findings.md.
 
 The protocol is live on devnet today; mainnet GA is gated on formal external audit (Adevar Labs engagement in scoping) + Squads multisig ceremony + this bug bounty going live.
 ```
@@ -113,7 +113,7 @@ Devnet addresses (for testnet bounty mirror, if Immunefi supports):
 - Indexer (services/indexer/) - except where it compromises on-chain trust path
 - UX bugs / UI inconsistencies / styling — not bounty-eligible
 - Best-practice recommendations without concrete exploit (e.g. "consider adding constraint X") — open a regular issue
-- Findings already documented in internal-audit-findings.md (40+ public SEVs as of submission) — only NET-NEW vulnerabilities qualify
+- Findings already documented in internal-audit-findings.md (48 public SEVs (SEV-001..048) as of submission) — only NET-NEW vulnerabilities qualify
 - Out-of-scope items per AUDIT_SCOPE.md: harvest yield-mock path, frontend, tests, mainnet operational keys, indexer cron schedulers
 ```
 
