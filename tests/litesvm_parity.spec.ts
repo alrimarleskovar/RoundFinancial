@@ -79,6 +79,7 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       releaseEscrow,
       closePool,
       fetchPool,
+      fetchMember,
       fundUsdc,
       balanceOf,
     } = harness;
@@ -182,11 +183,29 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       if (i === defaulterSlot) continue;
       await releaseEscrow(env, { pool, member: members[i]!, checkpoint: N });
     }
-    // close_pool now succeeds for a defaulted pool (SEV-050): once every
-    // NON-defaulted member has released, the only escrow left is the
-    // defaulter's forfeited collateral (escrow_balance <= defaulted_escrow_locked),
-    // which drains to the authority. Before SEV-050 this threw OutstandingDefaults
-    // forever (2nd liveness lock). A hard call here validates the fix.
+    // TEMP diagnostic: pool escrow tallies + per-member escrow/stake at close.
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p = (await fetchPool(env, pool.pool)) as any;
+      // eslint-disable-next-line no-console
+      console.log("CLOSE-DEBUG pool", {
+        escrowBalance: String(p.escrowBalance ?? p.escrow_balance),
+        defaultedEscrowLocked: String(p.defaultedEscrowLocked ?? p.defaulted_escrow_locked),
+        defaultedMembers: String(p.defaultedMembers ?? p.defaulted_members),
+      });
+      for (let i = 0; i < members.length; i++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const m = (await fetchMember(env, members[i]!.member)) as any;
+        // eslint-disable-next-line no-console
+        console.log(
+          `CLOSE-DEBUG mem ${i}`,
+          "escrow=" + String(m.escrowBalance ?? m.escrow_balance),
+          "stake=" + String(m.stakeDeposited ?? m.stake_deposited),
+          "defaulted=" + String(m.defaulted),
+        );
+      }
+    }
+    // close_pool should now succeed for a defaulted pool (SEV-050).
     await closePool(env, { pool });
 
     const after = await Promise.all(members.map((m) => balanceOf(env, m.memberUsdc)));
