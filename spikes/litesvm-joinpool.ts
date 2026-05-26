@@ -256,8 +256,11 @@ async function main(): Promise<void> {
 
   const authority = Keypair.generate();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Use the SDK's POOL_DEFAULTS (square + viable — cycles_total ==
+  // members_target per SEV-038, passes the SEV-031 viability guard).
+  // Overriding only membersTarget broke cycles_total == members_target.
   const pool = (await step("4. createPool (CPIs mpl_core CreateV2 for the Collection)", () =>
-    h.createPool(env_, { authority, usdcMint, membersTarget: 2 }),
+    h.createPool(env_, { authority, usdcMint }),
   )) as any;
   console.log("   ✓✓ mpl_core CreateV2 CPI EXECUTED under litesvm (collection minted)");
 
