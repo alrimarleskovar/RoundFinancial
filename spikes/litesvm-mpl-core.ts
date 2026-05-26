@@ -116,40 +116,50 @@ async function main(): Promise<void> {
   }
 
   hr("2. load the SBFv2 mpl_core.so — THE decisive check");
-  // Try the documented name first, then known aliases across versions.
-  const loadFns = ["addProgramFromFile", "add_program_from_file"] as const;
+  // The first cut passed a web3.js v1 PublicKey object and hit
+  // "value.split is not a function" — litesvm 1.1.0 likely wants the
+  // address as a base58 string (or raw bytes), not the object. Try the
+  // variants and report which the binding accepts, so getAccount can
+  // reuse the same form.
+  const idVariants: Array<[string, unknown]> = [
+    ["base58 string", MPL_CORE_ID.toBase58()],
+    ["Uint8Array", MPL_CORE_ID.toBytes()],
+    ["PublicKey object", MPL_CORE_ID],
+  ];
   let loaded = false;
+  let workingId: unknown = null;
   let lastErr: unknown = null;
-  for (const fn of loadFns) {
-    if (typeof svm[fn] !== "function") continue;
+  for (const [label, idArg] of idVariants) {
     try {
-      svm[fn](MPL_CORE_ID, MPL_CORE_SO);
-      console.log(`✓ ${fn}(...) did not throw`);
+      svm.addProgramFromFile(idArg, MPL_CORE_SO);
+      console.log(`✓ addProgramFromFile accepted the program id as: ${label}`);
       loaded = true;
+      workingId = idArg;
       break;
     } catch (e) {
+      console.log(`  · ${label} → ${(e as Error)?.message ?? e}`);
       lastErr = e;
     }
   }
   if (!loaded) {
     console.error(
-      `\n✗ LiteSVM did not load mpl_core.so via ${loadFns.join(" / ")}.\n` +
-        `  last error: ${(lastErr as Error)?.message ?? lastErr ?? "(no load fn found — see API surface above)"}\n` +
-        `  If it's an SBF-arch error, LiteSVM shares bankrun's limitation →\n` +
-        `  SEV-012 runtime blocker NOT cleared; pivot to the #230 full bump.\n` +
-        `  If it's a missing-method error, tell me the method list above and I'll fix the call.\n`,
+      `\n✗ LiteSVM did not load mpl_core.so (tried base58 / bytes / object).\n` +
+        `  last error: ${(lastErr as Error)?.message ?? lastErr}\n` +
+        `  If every variant gives an SBF-arch / ELF error, LiteSVM shares\n` +
+        `  bankrun's limitation → SEV-012 NOT cleared; pivot to the #230 bump.\n` +
+        `  If it's a different TypeError, paste it and I'll adjust the call.\n`,
     );
     process.exit(1);
   }
 
   hr("3. verify the program is registered + executable");
-  // getAccount return shape varies by version — print it raw so field
-  // names (executable / data) are visible, then assert defensively.
+  // Reuse the arg form that the loader accepted. Print the shape raw so
+  // field names (executable / data) are visible, then assert defensively.
   let acct: { executable?: boolean; data?: Uint8Array } | null = null;
-  if (typeof svm.getAccount === "function") {
-    acct = svm.getAccount(MPL_CORE_ID);
-  } else if (typeof svm.get_account === "function") {
-    acct = svm.get_account(MPL_CORE_ID);
+  try {
+    acct = svm.getAccount(workingId);
+  } catch (e) {
+    console.log(`  getAccount threw: ${(e as Error)?.message ?? e}`);
   }
   console.log("getAccount(mpl_core) →", acct ? Object.keys(acct) : acct);
   if (acct && acct.executable) {
