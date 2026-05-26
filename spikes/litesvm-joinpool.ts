@@ -95,8 +95,16 @@ async function main(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = res as any;
     if (r && typeof r.err === "function" && r.err()) {
+      const err = r.err();
+      // FailedTransactionMetadata keeps logs under .meta().logs().
+      let logs: string[] = [];
+      try {
+        logs = r.meta?.().logs?.() ?? r.logs?.() ?? [];
+      } catch {
+        /* ignore */
+      }
       throw new Error(
-        `litesvm tx failed: ${JSON.stringify(r.err())}\n  logs: ${r.logs?.().join("\n  ")}`,
+        `litesvm tx failed: ${String(err)} / ${JSON.stringify(err)}\n  logs:\n  ${logs.join("\n  ")}`,
       );
     }
     return "litesvm-sig";
