@@ -31,6 +31,12 @@ import { PRESETS, runSimulation } from "@roundfi/sdk/stressLab";
 
 const GRACE_PERIOD_SECS = 604_800n; // 7 days — protocol constant (settle_default.rs)
 const EPSILON = 1_000_000n; // 1 USDC base unit
+// litesvm's clock doesn't auto-advance; anchor it to a real epoch so the
+// reputation CYCLE_COMPLETE cooldown (now − last) passes on the first
+// attestation. Kept BELOW every next_cycle_at so contributes stay on-time
+// (a late contribute writes SCHEMA_LATE, whose PDA the harness's on-time
+// PAYMENT path doesn't match). The grace warp is restored back to this.
+const BASE_TS = 1_750_000_000n;
 
 describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
   this.timeout(180_000);
@@ -73,9 +79,6 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       releaseEscrow,
       closePool,
       fetchPool,
-      fetchMember,
-      attestationFor,
-      attestationNonce,
       fundUsdc,
       balanceOf,
     } = harness;
@@ -110,7 +113,7 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     // validators/bankrun start at a real epoch (~1.7e9) so they never hit
     // this. Anchor the litesvm clock to a realistic base before any pool
     // timestamps are set; the grace warp later adds +7d on top.
-    await setLitesvmUnixTs(env.svm, 1_750_000_000n);
+    await setLitesvmUnixTs(env.svm, BASE_TS);
 
     const usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
@@ -160,34 +163,17 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       pool,
       members,
       matrix: PRESETS.preDefault.matrix,
-      beforeSettle: async (cycle, slot) => {
+      // Warp just past the 7-day grace so settle_default is allowed…
+      beforeSettle: async () => {
         const p = await fetchPool(env, pool.pool);
-        // next_cycle_at is a BN/bigint depending on the IDL coder.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = (p as any).nextCycleAt ?? (p as any).next_cycle_at;
         const nextCycleAt = BigInt(raw.toString());
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mem = (await fetchMember(env, members[slot]!.member)) as any;
-        // eslint-disable-next-line no-console
-        console.log("SETTLE-DEBUG", {
-          loopCycle: cycle,
-          slot,
-          poolCurrentCycle: String((p as any).currentCycle ?? (p as any).current_cycle),
-          memberSlotIndex: String(mem.slotIndex ?? mem.slot_index),
-          handleSlotIndex: String(members[slot]!.slotIndex),
-          subject: members[slot]!.wallet.publicKey.toBase58(),
-          issuer: pool.pool.toBase58(),
-          repProgram: env.ids.reputation.toBase58(),
-          nonce: String(attestationNonce(cycle, members[slot]!.slotIndex)),
-          harnessAttn: attestationFor(
-            env,
-            pool.pool,
-            members[slot]!.wallet.publicKey,
-            3,
-            attestationNonce(cycle, members[slot]!.slotIndex),
-          ).toBase58(),
-        });
         await setLitesvmUnixTs(env.svm, nextCycleAt + GRACE_PERIOD_SECS + 60n);
+      },
+      // …then restore the base clock so subsequent contributes stay on-time.
+      afterSettle: async () => {
+        await setLitesvmUnixTs(env.svm, BASE_TS);
       },
     });
 

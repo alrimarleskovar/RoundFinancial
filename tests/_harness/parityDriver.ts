@@ -73,6 +73,12 @@ export interface DriveOpts {
    *  (`settle_default` requires `clock >= next_cycle_at + GRACE_PERIOD_SECS`).
    *  Default: no-op (bankrun/localnet healthy path unaffected). */
   beforeSettle?: (cycle: number, slot: number) => Promise<void>;
+  /** Optional hook run immediately AFTER each `settle_default`. The litesvm
+   *  scenarios use it to RESTORE the clock that `beforeSettle` warped past
+   *  the grace window — otherwise every later `contribute` is on-chain LATE
+   *  (clock > next_cycle_at), which makes the program write a SCHEMA_LATE
+   *  attestation whose PDA the on-time-PAYMENT harness path doesn't match. */
+  afterSettle?: (cycle: number, slot: number) => Promise<void>;
 }
 
 /**
@@ -127,13 +133,8 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       if (cycle === 0) continue; // nobody is behind before a cycle advances
       if (matrix[m]![cycle - 1] !== "X") continue; // didn't skip the prior cycle
       if (opts.beforeSettle) await opts.beforeSettle(cycle, m);
-      try {
-        await settleDefault(env, { pool, defaulter: members[m]!, cycle });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.log("DRIVE-FAIL settle", { cycle, m });
-        throw e;
-      }
+      await settleDefault(env, { pool, defaulter: members[m]!, cycle });
+      if (opts.afterSettle) await opts.afterSettle(cycle, m);
       defaulted.add(m);
       summary.defaultedNewly.push(m);
     }
@@ -176,13 +177,7 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       if (defaulted.has(m) || exited.has(m)) continue;
       const cell = matrix[m]![cycle];
       if (cell !== "P" && cell !== "C") continue;
-      try {
-        await contribute(env, { pool, member: members[m]!, cycle });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.log("DRIVE-FAIL contribute", { cycle, m });
-        throw e;
-      }
+      await contribute(env, { pool, member: members[m]!, cycle });
       summary.contributed.push(m);
     }
 
@@ -196,13 +191,7 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       }
     }
     if (recipientRow !== null) {
-      try {
-        await claimPayout(env, { pool, member: members[recipientRow]!, cycle });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.log("DRIVE-FAIL claim", { cycle, recipientRow });
-        throw e;
-      }
+      await claimPayout(env, { pool, member: members[recipientRow]!, cycle });
       summary.recipient = recipientRow;
     }
 
