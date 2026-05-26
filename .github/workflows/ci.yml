@@ -477,8 +477,6 @@ jobs:
           # RAM (14GB free, ulimit -v unlimited). It never reproduces on the
           # author's local Node 25; Node 24's newer V8 carries the fix. (SEV-012)
           node-version: 24
-      - name: Install gdb (for abort backtrace capture)
-        run: sudo apt-get update -y && sudo apt-get install -y gdb
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -520,13 +518,12 @@ jobs:
           key: mpl-core-so-2026-W22c
 
       - name: Ensure a complete, valid mpl_core.so
-        # ROOT CAUSE of the std::bad_alloc / SIGABRT: a truncated or corrupt
-        # mpl_core.so makes litesvm's SBFv2 loader read a bogus section length
-        # and try to allocate it — which no amount of swap can satisfy, hence
-        # the deterministic abort regardless of RAM. Guard against ever feeding
-        # litesvm a bad ELF: (re)dump with retries whenever the file is missing
-        # or fails the ELF-magic + size sanity check, and fail hard if a good
-        # binary can't be produced.
+        # Hygiene guard (not the SEV-012 root cause — that was a V8-GC bad_alloc
+        # on Node 20, fixed by the Node 24 bump above): a truncated/corrupt dump
+        # would make litesvm's SBFv2 loader choke, so never feed it a bad ELF —
+        # (re)dump with retries whenever the file is missing or fails the
+        # ELF-magic + size sanity check, and fail hard if a good binary can't
+        # be produced.
         run: |
           set -euo pipefail
           mkdir -p target/deploy
@@ -564,40 +561,9 @@ jobs:
           file "$SO" || true
           sha256sum "$SO" || true
 
-      - name: Diagnostics (node + SBF artifacts + limits)
-        run: |
-          node --version
-          ls -la target/deploy/*.so
-          file target/deploy/*.so || true
-          echo "--- nproc / memory / limits ---"
-          nproc || true
-          free -m || true
-          head -n 5 /proc/meminfo || true
-          ulimit -a || true
-
       - name: Run litesvm mpl_core-path lifecycle spec
         # createUsdcMint → initializeProtocol → createPool → joinMembers;
         # create_pool mints the pool Collection NFT and join_pool the
         # member position NFT, both via the mpl_core CreateV2 CPI — the
-        # exact path bankrun can't execute. On a std::bad_alloc/SIGABRT
-        # abort, re-run the in-process `_mocha` runner under gdb to capture
-        # the C++ backtrace (which library throws the allocation): the abort
-        # is environment-specific (identical binary + litesvm pass locally),
-        # so the backtrace is the only way to pin the root cause.
-        run: |
-          set -uo pipefail
-          if pnpm test:litesvm; then
-            exit 0
-          fi
-          rc=$?
-          echo "::group::litesvm abort backtrace (gdb)"
-          gdb -q -batch \
-            -ex 'set pagination off' \
-            -ex 'run' \
-            -ex 'bt' \
-            -ex 'thread apply all bt' \
-            -ex 'info sharedlibrary' \
-            --args node --import=tsx node_modules/mocha/bin/_mocha \
-            -t 120000 tests/litesvm_join_pool.spec.ts || true
-          echo "::endgroup::"
-          exit "$rc"
+        # exact path bankrun can't execute.
+        run: pnpm test:litesvm
