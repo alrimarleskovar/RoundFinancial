@@ -76,11 +76,21 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       balanceOf,
     } = harness;
 
-    // ─── Build the env to match PRESETS.preDefault.config ────────────
-    // preDefault: { level: "Comprovado" (Lv2 / 30% stake), members: 12,
-    //   creditAmountUsdc: 12_000, kaminoApy: 6.5, yieldFeePct: 20 } with
-    //   member 4 defaulting at cycle 3 (pre-contemplation).
+    // ─── Build the env: preDefault MATRIX at Iniciante (Lv1) ─────────
+    // Fresh on-chain ReputationProfiles are level 1 (the canonical
+    // "fresh wallet = Iniciante"); promoting to Lv2 needs score+cycle
+    // thresholds, out of scope for a parity fixture. So run the
+    // pre-contemplation-default matrix at Iniciante (50% stake). The
+    // parity claim (on-chain net delta == L1 net) holds at any level.
     const N = 12;
+    const L1_CONFIG = {
+      level: "Iniciante" as const,
+      members: N,
+      creditAmountUsdc: 12_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+      installmentUsdc: 1_500,
+    };
     // ECO-002: the zero-sum installment (credit/members = $1000) fails the
     // on-chain Seed-Draw viability guard (members×inst×(1−solidarity−escrow)
     // = 12×1000×0.74 = 8880 < 12000 credit). Use a viable INDEPENDENT
@@ -109,8 +119,8 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
 
     // Pre-fund every wallet with the full position (N×installment + stake)
     // so the join→close delta is exactly (received − stake − installments).
-    const stakeLv2 = (creditAmountUsdc * 3_000n) / 10_000n; // 30%
-    const totalPerMember = BigInt(N) * installmentUsdc + stakeLv2;
+    const stakeUsdc = (creditAmountUsdc * 5_000n) / 10_000n; // Iniciante = 50%
+    const totalPerMember = BigInt(N) * installmentUsdc + stakeUsdc;
 
     const wallets = memberKeypairs(N, "predefault-parity");
     const memberAtas: PublicKey[] = [];
@@ -123,7 +133,7 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     members = await joinMembers(
       env,
       pool,
-      wallets.map((w) => ({ member: w, reputationLevel: 2 as const })),
+      wallets.map((w) => ({ member: w, reputationLevel: 1 as const })),
     );
 
     // ─── Drive the matrix; warp past grace before each settle_default ─
@@ -153,10 +163,7 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     onChainDeltas = before.map((b, i) => after[i]! - b);
 
     // ─── L1 reference on the same preset ─────────────────────────────
-    const frames = runSimulation(
-      { ...PRESETS.preDefault.config, installmentUsdc: INSTALLMENT_USDC },
-      PRESETS.preDefault.matrix,
-    );
+    const frames = runSimulation(L1_CONFIG, PRESETS.preDefault.matrix);
     const final = frames[frames.length - 1]!;
     l1Net = final.ledgerSnapshot.map((row) =>
       BigInt(Math.round((row.received - row.stakePaid - row.installmentsPaid) * 1_000_000)),
