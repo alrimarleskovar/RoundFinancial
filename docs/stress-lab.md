@@ -11,7 +11,7 @@
 | What                                                | Where                                                                                                       |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | 16 scenario presets (5 canonical + 11 extended)     | `PRESETS` in `sdk/src/stressLab.ts`                                                                         |
-| 45 economic-parity tests across all 16 presets      | `pnpm test:economic-parity-l1`                                                                              |
+| 51 economic-parity tests across all 16 presets      | `pnpm test:economic-parity-l1`                                                                              |
 | User-configurable matrix UI for arbitrary scenarios | `/lab` page (`app/src/components/lab/StressLabClient.tsx`)                                                  |
 | Closed-form conservation expectations               | `tests/economic_parity.spec.ts` — every preset asserts `sum(member.delta) + protocol.delta + GF.delta == 0` |
 | Solvency under triple post-contemplation default    | `tripleVeteranDefault` preset — canonical whitepaper stress test                                            |
@@ -42,6 +42,8 @@ The canonical 5 above cover N=12 and N=24 with a single tier / yield profile. Th
 | Tier-mix variants | `iniciantePostDefault` (50% stake) · `veteranoPostDefault` (10% stake)                                              | Post-contemplation default behavior at extremes of the stake ladder; D/C invariant holds in both bounds |
 | Default-position  | `earlyCycleDefault` (row 0, cycle 2) · `lateCycleDefault` (row 10, cycle 11) · `terminalDefault` (row 11, cycle 12) | Recovery waterfall sequencing across early / late / terminal cycle positions                            |
 | Yield-extreme     | `zeroYieldTripleDefault` (APY 0%) · `highYieldTripleDefault` (APY 20%)                                              | Solvency under canonical 3-default stress at both yield bounds                                          |
+
+> **Installment decoupling (`StressLabConfig.installmentUsdc`, ECO-002/003).** The per-cycle installment can be set independently of `credit / members` via the optional `StressLabConfig.installmentUsdc` field. It is **opt-in**: omitted (the default) means the installment collapses to the zero-sum `credit / members` value, so **every shipped preset is byte-identical** — none of the 16 presets sets `installmentUsdc`, and all displayed numbers are unchanged. When set, the new `FrameMetrics.overCollection = (installment − credit / members) × installments paid` surfaces the structural over-collection (it is **0 for every current preset**). The earlier "16.7% non-monotonic breakpoint" claim has been **re-derived/retracted** (ECO-003): it reproduces only under the retracted premises ($416.67 zero-sum installment + an end-of-life `netSolvency` reading), and **no breakpoint exists** under the on-chain $600 installment.
 
 ---
 

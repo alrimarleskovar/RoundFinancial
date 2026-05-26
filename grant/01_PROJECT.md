@@ -49,7 +49,7 @@ RoundFinancial/                       ← github.com/alrimarleskovar/RoundFinanc
 │   ├── src/lib/                            # theme · i18n · wallet · network · session
 │   │                                       #         · motion · groups · useRedirectOnDisconnect
 │   └── src/data/                           # typed mock fixtures
-├── tests/                            # 14 spec files (Anchor + bankrun harness)
+├── tests/                            # 27 *.spec.ts files (Anchor + bankrun + litesvm harness)
 ├── scripts/devnet/                   # deploy / airdrop / seed
 ├── config/                           # cluster + program-ID registry
 └── docs/
@@ -91,7 +91,7 @@ RoundFinancial/                       ← github.com/alrimarleskovar/RoundFinanc
   - `roundfi-core` — 14 instructions implemented (`initialize_protocol`, `create_pool`, `join_pool`, `contribute`, `claim_payout`, `release_escrow`, `deposit_idle_to_yield`, `harvest_yield`, `settle_default`, `escape_valve_list`, `escape_valve_buy`, `close_pool`, `update_protocol_config`, `pause`) plus full math modules (`bps`, `cascade`, `dc`, `escrow_vesting`, `seed_draw`, `waterfall`) and state types — ~4,300 LoC.
   - `roundfi-reputation`, `roundfi-yield-kamino`, `roundfi-yield-mock` — also drafted.
 - `tests/parity.spec.ts` runs today and asserts **constants/seeds parity** between Rust and the `@roundfi/sdk` TypeScript SDK (zero Solana infra needed).
-- Drafted but not yet green: 13 specs covering lifecycle / edge cases / security / yield / reputation under `solana-bankrun`.
+- The mpl_core `join_pool` / `escape_valve_buy` path now runs green via the required `litesvm · mpl-core path` CI lane; the broader suite spans 27 `*.spec.ts` files covering lifecycle / edge cases / security / yield / reputation under `solana-bankrun` plus the litesvm lane, with the L1 economic-parity lane at 51 passing.
 - **What the grant validates:** running those drafts green, plus the new economic parity test that ties L2 (`roundfi-core`) to L1 (`runSimulation()` / Stress Lab presets) on FrameMetrics — that's the load-bearing claim of the protocol's correctness.
 - Mock orchestrator at `services/orchestrator/` produces lifecycle events the front-end already consumes — this is the bridge that swaps to real CPI calls when programs land on devnet.
 

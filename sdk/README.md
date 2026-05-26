@@ -95,7 +95,7 @@ const frames = runSimulation(preset.config, preset.matrix);
 console.log(frames[frames.length - 1].metrics.poolBalance);
 ```
 
-45 economic-parity tests run against these presets — see [`docs/stress-lab.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/stress-lab.md).
+51 economic-parity tests run against these presets — see [`docs/stress-lab.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/stress-lab.md).
 
 ## Security
 

@@ -9,17 +9,17 @@ Bridge the in-memory mock orchestrator (`app/src/lib/session.tsx`, shipped in PR
 The protocol is being built in three layers:
 
 - **L1 — Stress Lab (TypeScript reference impl)** — pure-TS actuarial engine + interactive `/lab` route with 4 canonical scenario presets (Healthy / Pre-default / Post-default / Cascade). Validates the **Triple Shield** economics (50/30/10 stake + 65/30/5 split + Kamino yield + admin fee) against arbitrary default scenarios. **Shipped in PR #40 + PR #42 before this grant kicks off** — it is the spec the on-chain programs must match.
-- **L2 — Anchor programs (drafts → validated)** — `roundfi-core` (~4,300 LoC, 14 instructions implemented), `roundfi-reputation`, `roundfi-yield-mock`, `roundfi-yield-kamino`. Drafts exist; what's missing is the validation that turns drafts into shippable software: **economic parity against L1**, **green bankrun runs** of the 13 drafted specs, and a **reproducible devnet deploy**. **This grant.**
+- **L2 — Anchor programs (drafts → validated)** — `roundfi-core` (~4,300 LoC, 14 instructions implemented), `roundfi-reputation`, `roundfi-yield-mock`, `roundfi-yield-kamino`. Drafts exist; what's missing is the validation that turns drafts into shippable software: **economic parity against L1**, **green bankrun runs** across the 27 `*.spec.ts` files (the mpl_core `join_pool` / `escape_valve_buy` path now runs green as a **required `litesvm · mpl-core path` CI lane**), and a **reproducible devnet deploy**. **This grant.**
 - **L3 — Frontend bridge** — `SessionProvider` reducer dispatches replaced with Anchor CPIs via `@roundfi/sdk`; `/home` Activity feed renders real on-chain events. **This grant.**
 
-The frontend is feature-complete (42 PRs merged on main). The Anchor programs are drafted but not yet validated end-to-end. The 6 weeks close the loop.
+The frontend is feature-complete (through #413 on main). The Anchor programs are drafted but not yet validated end-to-end. The 6 weeks close the loop.
 
 ## Honest framing — what already exists vs what this grant adds
 
 A reviewer reading `programs/roundfi-core/src/` will see ~4,300 LoC of Rust across 14 instructions and full math modules. This is **drafted infrastructure**, not validated software. The validation that's missing — and that this grant pays for — is what separates a Rust draft from a credibly-shippable on-chain program:
 
 - No economic-parity test exists today. `tests/parity.spec.ts` (which runs green) only checks **constants and PDA seeds** between Rust and the TS SDK. The economic parity test — running the same scenario through `runSimulation()` (L1) and `roundfi-core` (L2) and asserting identical `FrameMetrics` — is the load-bearing claim of the protocol's correctness, and it does not exist yet.
-- The 13 drafted bankrun specs (`tests/lifecycle.spec.ts`, `edge_cycle_boundary`, `edge_grace_default`, `edge_tiny_lifecycle`, `edge_degenerate_shapes`, `reputation_cpi`, `reputation_lifecycle`, `reputation_guards`, `security_cpi`, `security_economic`, `security_inputs`, `security_lifecycle`, `yield_integration`) are not yet running green.
+- The drafted bankrun specs (`tests/lifecycle.spec.ts`, `edge_cycle_boundary`, `edge_grace_default`, `edge_tiny_lifecycle`, `edge_degenerate_shapes`, `reputation_cpi`, `reputation_lifecycle`, `reputation_guards`, `security_cpi`, `security_economic`, `security_inputs`, `security_lifecycle`, `yield_integration`) span the 27 `*.spec.ts` files in `tests/`. The mpl_core `join_pool` / `escape_valve_buy` path now runs green as a required `litesvm · mpl-core path` CI lane (`tests/_harness/litesvm.ts` + `tests/litesvm_join_pool.spec.ts`).
 - No devnet deploy has happened. `scripts/devnet/deploy.ts` exists but has not been driven against a live deployment.
 - The frontend still reads from fixtures — `lib/session.tsx` dispatches against an in-memory reducer.
 
@@ -40,6 +40,7 @@ Acceptance criteria:
 
 - `pnpm run test:parity` stays green (constants/seeds parity).
 - `pnpm run test:bankrun` green for `economic_parity.spec.ts`, `lifecycle.spec.ts`, and the 4 `edge_*.spec.ts` files.
+- The required `litesvm · mpl-core path` CI lane stays green for the mpl_core `join_pool` / `escape_valve_buy` path.
 - 3–4 merged PRs in main, each with structured body + linked Claude session.
 
 ### M2 — Weeks 3–4: `roundfi-reputation` parity + cross-program CPI green
@@ -79,7 +80,7 @@ Acceptance criteria:
 
 ## Total estimated PR count
 
-8–10 merged PRs over 6 weeks. Aligned with the 42 PRs / project lifetime cadence already documented in `03_PR_LOG.md`.
+8–10 merged PRs over 6 weeks. Aligned with the project lifetime cadence (through #413) already documented in `03_PR_LOG.md`.
 
 ## What's explicitly out of scope for this grant
 

@@ -1,6 +1,6 @@
 # 03 · PR Log — every shipped change in order
 
-Concrete velocity evidence. 42 PRs merged into `main`, every one through the same Claude Code session running on top of `solana.new`. Listed in chronological order with the actual title (verifiable on GitHub).
+Concrete velocity evidence. 42 PRs merged into `main` (snapshot through PR #42; the project has since shipped through #413), every one through the same Claude Code session running on top of `solana.new`. Listed in chronological order with the actual title (verifiable on GitHub).
 
 | # | Title | Theme |
 |---|---|---|
@@ -55,7 +55,7 @@ Concrete velocity evidence. 42 PRs merged into `main`, every one through the sam
 
 ## A note on cadence
 
-42 PRs over the course of the project's active lifetime. Not every day, not every week — bursts of agentic sessions where the loop runs cleanly. The point isn't "42 in a fixed time window"; it's that **every single one is shippable**, scoped, and reviewable.
+42 PRs over the course of the project's active lifetime (snapshot through PR #42; the project has since shipped through #413). Not every day, not every week — bursts of agentic sessions where the loop runs cleanly. The point isn't "42 in a fixed time window"; it's that **every single one is shippable**, scoped, and reviewable.
 
 For comparison: traditional solo dev cadence on a side project often has either (a) one giant PR every two weeks that nobody can review, or (b) 200 messy commits to main. This is neither.
 

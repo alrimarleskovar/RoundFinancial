@@ -1,9 +1,10 @@
 # Internal Pre-Audit — Findings Tracker
 
 > **Current count (canonical — this is the SSOT all other docs point to):**
-> **49 findings** · **45 🟢 closed** · 1 🟡 partial (SEV-012, upstream-blocked) ·
+> **49 findings** · **46 🟢 closed** · 0 partial ·
 > 3 🔵 design-intentional · **Critical/High 14 of 14 🟢 closed** (6 Critical +
-> 8 High). SEV-047 (High) + SEV-048 (Medium) added by the 2026-05-24
+> 8 High). SEV-012 closed via the required `litesvm · mpl-core path` CI lane
+> (was the last partial/upstream-blocked item). SEV-047 (High) + SEV-048 (Medium) added by the 2026-05-24
 > external-audit pass (OtterSec-methodology). Cryptoeconomic ECO-001..006 are a
 > **separate series** (see below) — modeling/representation, not fund-drain.
 > Full breakdown in the [Summary table](#summary).
@@ -16,7 +17,7 @@
 > re-validate quickly against a clean baseline.
 >
 > **Why we did this ourselves first:** an external audit's clock is
-> expensive. By running the methodology in-house and closing 45 of 49
+> expensive. By running the methodology in-house and closing 46 of 49
 > findings against a public tracker first, the formal Adevar
 > engagement (scoping in progress) can spend its hours on the harder
 > questions a competent paid red-team will reach. The commit history
@@ -189,18 +190,19 @@ em `programs/`).
 | ------------- | ------ | --------- | ---------------------------- | ---------- | ------------------ |
 | Critical      | 6      | 6         | 0                            | 0          | 0                  |
 | High          | 8      | 8         | 0                            | 0          | 0                  |
-| Medium        | 14     | 13        | 1                            | 0          | 0                  |
+| Medium        | 14     | 14        | 0                            | 0          | 0                  |
 | Low           | 12     | 12        | 0                            | 0          | 0                  |
 | Informational | 9      | 6         | 0                            | 0          | 3                  |
-| **Total**     | **49** | **45**    | **1**                        | **0**      | **3**              |
+| **Total**     | **49** | **46**    | **0**                        | **0**      | **3**              |
 
 > SEV-047 (High) + SEV-048 (Medium) added by the 2026-05-24 external-audit pass — both 🟢 closed on branch `claude/implement-roundfi-desktop-SRV6l`. The ECO-001..006 cryptoeconomic series is tracked separately above (modeling/representation, not code-security).
 
 **Mainnet-blocker status:** all 🟢 Closed for Critical / High (14 of 14 — 6 Critical + 8 High).
-The 🟡 Partial entry (SEV-012, bankrun-in-CI) is a coverage-gap finding — the
-no-mpl-core path now runs in CI via the `bankrun-no-mpl-core` lane (Kamino spike
-~17 tests); the mpl_core-dependent path (`join_pool`, `escape_valve_buy`) runs
-locally and stays upstream-blocked. The 🔵 entries (SEV-018 design-intentional
+SEV-012 (bankrun-in-CI coverage gap) is now 🟢 Closed: the no-mpl-core path runs
+via the `bankrun · no-mpl-core` lane (Kamino spike ~17 tests) AND the
+mpl_core-dependent path (`join_pool`, `escape_valve_buy`) runs via the required
+`litesvm · mpl-core path` lane (`tests/_harness/litesvm.ts` + `tests/litesvm_join_pool.spec.ts`,
+pinned to Node 24). No findings remain partial or upstream-blocked. The 🔵 entries (SEV-018 design-intentional
 pause bypass, SEV-032 design-constraint padding, SEV-039 design-constraint
 close_pool rent) are acknowledged by the auditor as documented design
 trade-offs, not vulnerabilities.

@@ -33,11 +33,13 @@ The `programs/roundfi-core` + `programs/roundfi-reputation` + `programs/roundfi-
 
 `cargo tarpaulin` runs on the host target. So coverage is available **only for crates that have zero on-chain deps** — which today is exclusively `crates/math/`.
 
+> **Runtime coverage of the on-chain path (separate from tarpaulin line coverage).** The mpl_core CPI path is no longer uncovered or bankrun-only: it now runs in a **required** `litesvm · mpl-core path` CI lane, which loads the SBFv2 `mpl_core.so` that bankrun's `solana-program-test 1.18` panics on and exercises the `create_pool` / `join_pool` NFT-minting lifecycle. The `bankrun · no-mpl-core` lane covers the no-mpl-core subset. These exercise the programs at runtime; the host-target tarpaulin line numbers below still wait on #230.
+
 **Path to full workspace coverage:**
 
 1. Land [#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230) (Agave 2.x migration) — fixes the mpl-core ↔ solana-pubkey conflict at the host level
 2. Then tarpaulin can run against the full workspace
-3. Estimated coverage post-migration: high (most logic paths are exercised by `tests/security_*.spec.ts` via bankrun)
+3. Estimated coverage post-migration: high (most logic paths are exercised at runtime by `tests/security_*.spec.ts` via bankrun (`bankrun · no-mpl-core` lane) and by the mpl_core-dependent specs via the required `litesvm · mpl-core path` lane)
 
 ## How to regenerate
 
