@@ -32,7 +32,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import * as anchor from "@coral-xyz/anchor";
-import { Keypair, Transaction } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 
 const REP_IDL_PATH = resolve(process.cwd(), "target", "idl", "roundfi_reputation.json");
 const REP_SO_PATH = resolve(process.cwd(), "target", "deploy", "roundfi_reputation.so");
@@ -98,10 +98,40 @@ async function main(): Promise<void> {
     },
   };
 
+  // Connection shim: anchor's program.account.X.fetch() calls
+  // connection.getAccountInfo[AndContext]; map litesvm's v2 account shape
+  // (owner = `programAddress`, data → bytes) → v1 AccountInfo.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getAccountInfo = async (pk: PublicKey): Promise<any> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let a: any;
+    try {
+      a = svm.getAccount(pk.toBase58());
+    } catch {
+      return null;
+    }
+    if (!a || a.exists === false || a.data == null) return null;
+    return {
+      data: Buffer.from(a.data),
+      owner: new PublicKey(a.owner ?? a.programAddress),
+      lamports: Number(a.lamports ?? 0),
+      executable: !!a.executable,
+      rentEpoch: Number(a.rentEpoch ?? 0),
+    };
+  };
+  const connection = {
+    rpcEndpoint: "litesvm",
+    getAccountInfo,
+    getAccountInfoAndContext: async (pk: PublicKey) => ({
+      context: { slot: 0 },
+      value: await getAccountInfo(pk),
+    }),
+    getMultipleAccountsInfo: async (pks: PublicKey[]) =>
+      Promise.all(pks.map((pk) => getAccountInfo(pk))),
+  };
+
   const provider = {
-    // anchor reads connection for some paths; ping needs none, but keep a
-    // stub so property access doesn't crash.
-    connection: { rpcEndpoint: "litesvm" },
+    connection,
     publicKey: payer.publicKey,
     wallet,
     // anchor's .rpc() delegates here.
@@ -176,12 +206,49 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  hr("4. read path — initialize_reputation + fetch via the Connection shim");
+  try {
+    const repId = new PublicKey(programIdStr);
+    const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("rep-config")], repId);
+    await program.methods
+      .initializeReputation({
+        roundfiCoreProgram: payer.publicKey, // frozen at init; not validated against a loaded program
+        passportAttestationAuthority: new PublicKey("gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs"),
+        passportNetwork: new PublicKey("ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6"),
+      })
+      .accounts({
+        authority: payer.publicKey,
+        config: configPda,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+    console.log("  ✓ initialize_reputation executed (PDA created)");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cfg: any = await (program.account as any).reputationConfig.fetch(configPda);
+    console.log(`  ✓ fetched ReputationConfig.authority = ${cfg.authority.toBase58()}`);
+    if (cfg.authority.toBase58() !== payer.publicKey.toBase58()) {
+      throw new Error("authority mismatch — read path returned wrong/garbled data");
+    }
+    console.log("  ✓ read path round-trips correctly (shim → anchor deserialize)");
+  } catch (e) {
+    console.error(`\n✗ read-path step failed: ${(e as Error)?.message ?? e}`);
+    console.error("\n--- full stack ---");
+    console.error((e as Error)?.stack ?? e);
+    console.error(
+      `\n  This isolates the Connection shim (getAccountInfo v2→v1) or the\n` +
+        `  initialize_reputation arg/account names. Paste it and I'll adjust.\n`,
+    );
+    process.exit(1);
+  }
+
   hr("VERDICT");
   console.log(
-    "✅ anchor-over-litesvm-1.1.0 FOUNDATION WORKS via a custom provider —\n" +
-      "   no anchor-litesvm needed, stays on anchor 0.30.1. Next (increment 2):\n" +
-      "   load mpl_core.so + drive a single join_pool round-trip and confirm\n" +
-      "   the CreateV2 CPI executes (the SEV-012 gold standard).\n",
+    "✅ anchor-over-litesvm-1.1.0 FOUNDATION + READ PATH WORK via a custom\n" +
+      "   provider — instruction send (sendAndConfirm + v1→v2 bridge) AND\n" +
+      "   account fetch (Connection shim v2→v1) both validated on anchor 0.30.1,\n" +
+      "   no anchor-litesvm. Next (increment 2b): load mpl_core.so + SPL token,\n" +
+      "   drive a single join_pool round-trip, confirm the CreateV2 CPI executes\n" +
+      "   (the SEV-012 gold standard). Then promote to tests/_harness/litesvm.ts.\n",
   );
 }
 
