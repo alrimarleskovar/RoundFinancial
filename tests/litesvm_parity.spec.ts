@@ -63,6 +63,7 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     const {
       createUsdcMint,
       initializeProtocol,
+      initializeReputation,
       createPool,
       joinMembers,
       memberKeypairs,
@@ -102,6 +103,12 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
 
     const usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
+    // settle_default CPIs into reputation::attest (writes the SCHEMA_DEFAULT
+    // attestation) because config.reputation_program is the real program —
+    // so the reputation config must exist (the profile is init_if_needed by
+    // the attest CPI). join_pool only READS the profile (level-1 default if
+    // absent), which is why litesvm_join_pool.spec.ts doesn't need this.
+    await initializeReputation(env, { coreProgram: env.ids.core });
     const authority = keypairFromSeed("predefault-parity-authority");
     await ensureFunded(env, [authority], 5);
 
