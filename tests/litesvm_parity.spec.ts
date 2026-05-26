@@ -81,7 +81,13 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     //   creditAmountUsdc: 12_000, kaminoApy: 6.5, yieldFeePct: 20 } with
     //   member 4 defaulting at cycle 3 (pre-contemplation).
     const N = 12;
-    const installmentUsdc = 1_000n * 1_000_000n;
+    // ECO-002: the zero-sum installment (credit/members = $1000) fails the
+    // on-chain Seed-Draw viability guard (members×inst×(1−solidarity−escrow)
+    // = 12×1000×0.74 = 8880 < 12000 credit). Use a viable INDEPENDENT
+    // installment and run L1 with the same value via installmentUsdc, so the
+    // two sides are comparable. 12×1500×0.74 = 13320 ≥ 12000. ✓
+    const INSTALLMENT_USDC = 1_500; // whole USDC (independent installment)
+    const installmentUsdc = BigInt(INSTALLMENT_USDC) * 1_000_000n;
     const creditAmountUsdc = 12_000n * 1_000_000n;
 
     const usdcMint = await createUsdcMint(env);
@@ -147,7 +153,10 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
     onChainDeltas = before.map((b, i) => after[i]! - b);
 
     // ─── L1 reference on the same preset ─────────────────────────────
-    const frames = runSimulation(PRESETS.preDefault.config, PRESETS.preDefault.matrix);
+    const frames = runSimulation(
+      { ...PRESETS.preDefault.config, installmentUsdc: INSTALLMENT_USDC },
+      PRESETS.preDefault.matrix,
+    );
     const final = frames[frames.length - 1]!;
     l1Net = final.ledgerSnapshot.map((row) =>
       BigInt(Math.round((row.received - row.stakePaid - row.installmentsPaid) * 1_000_000)),
