@@ -87,6 +87,16 @@ pub mod roundfi_reputation {
         instructions::init_profile::handler(ctx, wallet)
     }
 
+    /// Authority-gated in-place migration of the `ReputationConfig`
+    /// singleton to the current struct layout. Reallocs the account up to
+    /// the current `LEN` (zero-initializing the grown region) so a config
+    /// PDA created by an older program build — which would otherwise fail
+    /// to deserialize after the struct grew (e.g. the SEV-021 authority
+    /// rotation fields) — becomes loadable again. Idempotent.
+    pub fn migrate_reputation_config(ctx: Context<MigrateReputationConfig>) -> Result<()> {
+        instructions::migrate_reputation_config::handler(ctx)
+    }
+
     pub fn attest(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         instructions::attest::handler(ctx, args)
     }
