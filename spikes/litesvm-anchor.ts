@@ -23,6 +23,7 @@
  *   # anchor-litesvm must NOT be installed (it forces litesvm 0.3.x):
  *   pnpm remove anchor-litesvm 2>/dev/null || true
  *   pnpm add -D -w litesvm@^1.1.0
+ *   pnpm add -D -w @solana/transactions@6.9.0   # v1→v2 tx bridge (match litesvm)
  *   anchor build                       # target/idl + target/deploy
  *   pnpm tsx spikes/litesvm-anchor.ts
  */
@@ -116,9 +117,24 @@ async function main(): Promise<void> {
       // step: serialize the fully-signed legacy tx → decode into a v2
       // transaction → hand THAT to litesvm.
       const wire = tx.serialize(); // fully-signed legacy wire bytes
-      // @solana/transactions is present (litesvm's own dep).
+      // @solana/transactions is litesvm's own (transitive) dep — pnpm's
+      // isolated store won't expose it to a bare import from here, so it
+      // must be a DIRECT devDep (pin 6.9.0 to match litesvm). Try the bare
+      // specifier, then the explicit subpath the resolver suggests.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const txMod: any = await import("@solana/transactions");
+      let txMod: any;
+      try {
+        txMod = await import("@solana/transactions");
+      } catch {
+        try {
+          txMod = await import("@solana/transactions/dist/index.node.cjs");
+        } catch (e) {
+          throw new Error(
+            `cannot import @solana/transactions — add it directly: ` +
+              `pnpm add -D -w @solana/transactions@6.9.0 (err: ${(e as Error)?.message ?? e})`,
+          );
+        }
+      }
       const decoderFactory = txMod.getTransactionDecoder ?? txMod.getTransactionCodec;
       if (typeof decoderFactory !== "function") {
         throw new Error(
