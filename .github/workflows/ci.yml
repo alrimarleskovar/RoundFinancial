@@ -464,13 +464,15 @@ jobs:
   litesvm-mpl-core:
     name: litesvm · mpl-core path (join_pool lifecycle)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     needs: anchor
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install gdb (for abort backtrace capture)
+        run: sudo apt-get update -y && sudo apt-get install -y gdb
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -583,12 +585,12 @@ jobs:
           fi
           rc=$?
           echo "::group::litesvm abort backtrace (gdb)"
-          command -v gdb >/dev/null || (sudo apt-get update -y && sudo apt-get install -y gdb) || true
           gdb -q -batch \
             -ex 'set pagination off' \
             -ex 'run' \
             -ex 'bt' \
             -ex 'thread apply all bt' \
+            -ex 'info sharedlibrary' \
             --args node --import=tsx node_modules/mocha/bin/_mocha \
             -t 120000 tests/litesvm_join_pool.spec.ts || true
           echo "::endgroup::"
