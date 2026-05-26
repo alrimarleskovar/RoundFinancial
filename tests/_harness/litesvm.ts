@@ -72,10 +72,11 @@ export async function setupLitesvmEnv(): Promise<LitesvmEnv> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { LiteSVM } = (await import("litesvm")) as unknown as { LiteSVM: new () => any };
+  // @solana/transactions is a direct devDep, so the bare specifier
+  // resolves (no subpath fallback — that path has no type decls and
+  // breaks `tsc`).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const txMod: any = await import("@solana/transactions").catch(
-    () => import("@solana/transactions/dist/index.node.cjs"),
-  );
+  const txMod: any = await import("@solana/transactions");
   const txDecoder = (txMod.getTransactionDecoder ?? txMod.getTransactionCodec)();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

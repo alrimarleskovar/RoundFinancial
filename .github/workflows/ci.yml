@@ -450,3 +450,79 @@ jobs:
         # CPI, so the spec boots with loadMplCore:false (eligible for
         # this lane, unlike the SEV-012-gated localnet reputation specs).
         run: pnpm test:bankrun:reputation-gate
+
+  # ─── litesvm · mpl-core path (SEV-012 unblock) ───────────────────
+  # The mpl_core-dependent path (join_pool / escape_valve_buy) that
+  # bankrun CANNOT run: solana-bankrun's solana-program-test 1.18 only
+  # reads eBPF/SBFv1 and panics loading the current mainnet SBFv2
+  # mpl_core.so. litesvm 1.x tracks current Agave and loads SBFv2 fine,
+  # so this lane runs the full pool-formation lifecycle — each step
+  # minting an mpl_core asset via the CreateV2 CPI — on the repo's anchor
+  # 0.30.1, via a thin custom Provider + one-point v1→v2 tx bridge (see
+  # tests/_harness/litesvm.ts). This closes the SEV-012 coverage gap for
+  # the mpl_core path without waiting on the #230 anchor-0.31 bump.
+  litesvm-mpl-core:
+    name: litesvm · mpl-core path (join_pool lifecycle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: anchor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Solana Agave 3.0.0 (matches anchor · build lane)
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli
+
+      - name: anchor build (--no-idl) + IDL regen (#319 workaround)
+        run: |
+          anchor build --no-idl
+          bash scripts/dev/rebuild-idls.sh
+
+      - name: Cache mpl_core.so (Metaplex Core mainnet binary)
+        # ~1MB SBFv2 binary, hashed against the Metaplex Core program ID.
+        # Bump the date suffix to refresh (rare — Core redeploys seldom).
+        id: mplcore-cache
+        uses: actions/cache@v4
+        with:
+          path: target/deploy/mpl_core.so
+          key: mpl-core-so-2026-W22
+
+      - name: Download mpl_core.so (cache miss only)
+        if: steps.mplcore-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p target/deploy
+          solana program dump -u mainnet-beta \
+            CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d \
+            target/deploy/mpl_core.so
+
+      - name: Run litesvm mpl_core-path lifecycle spec
+        # createUsdcMint → initializeProtocol → createPool → joinMembers;
+        # create_pool mints the pool Collection NFT and join_pool the
+        # member position NFT, both via the mpl_core CreateV2 CPI — the
+        # exact path bankrun can't execute. Skips cleanly if artifacts are
+        # missing (they won't be here — built + dumped above).
+        run: pnpm test:litesvm
