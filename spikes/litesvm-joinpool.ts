@@ -83,7 +83,10 @@ async function main(): Promise<void> {
   // ── provider tx send (v1 → v2 bridge) ──
   const sendV1 = (tx: Transaction, signers: Keypair[]): string => {
     tx.recentBlockhash = svm.latestBlockhash();
-    if (!tx.feePayer) tx.feePayer = signers[0]?.publicKey ?? payer.publicKey;
+    // Fee payer is the provider wallet (anchor's default); the extra
+    // .signers([...]) are ADDITIONAL required signers. Signing with payer
+    // when it isn't the fee payer / a required signer → "unknown signer".
+    if (!tx.feePayer) tx.feePayer = payer.publicKey;
     const uniq = new Map<string, Keypair>();
     for (const s of [payer, ...signers]) uniq.set(s.publicKey.toBase58(), s);
     tx.sign(...uniq.values());
