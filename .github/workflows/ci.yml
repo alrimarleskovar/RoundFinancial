@@ -522,16 +522,18 @@ jobs:
       - name: Add swap space (litesvm SBFv2 program load is memory-heavy)
         # litesvm's native binding allocates a large buffer when loading
         # the SBFv2 mpl_core.so + the 3 roundfi programs into the in-memory
-        # SVM. On a stock ubuntu-latest runner (~7GB) that allocation can
-        # overshoot and abort with `std::bad_alloc` (SIGABRT) — even though
-        # the same spec passes on a dev box with more RAM. An 8GB swap file
-        # gives malloc headroom so the load succeeds.
+        # SVM. On a stock ubuntu-latest runner the default ~4GB swap +7GB
+        # RAM can still abort with `std::bad_alloc` (SIGABRT) — the same
+        # spec passes on a dev box with more RAM. ubuntu-latest already has
+        # an active /swapfile (can't recreate it — "Text file busy"), so add
+        # a fresh large swap on the roomy /mnt ephemeral disk instead.
         run: |
-          sudo fallocate -l 8G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          sudo fallocate -l 10G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
           free -h
+          swapon --show
 
       - name: Run litesvm mpl_core-path lifecycle spec
         # createUsdcMint → initializeProtocol → createPool → joinMembers;
