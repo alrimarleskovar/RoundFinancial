@@ -72,8 +72,16 @@ pub struct ClosePool<'info> {
 pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
     let pool_key = ctx.accounts.pool.key();
 
+    // SEV-050 (liveness): a defaulted member can't release_escrow, so their
+    // residual locked collateral pins escrow_balance > 0 forever. Before, that
+    // made `escrow_balance == 0` unreachable for any defaulted pool → it could
+    // never close (funds stranded). Now close is allowed once every
+    // NON-defaulted member has released (the only escrow left is the
+    // defaulters' forfeited collateral: escrow_balance <= defaulted_escrow_locked),
+    // which then drains to the closing authority below as forfeit.
     require!(
-        ctx.accounts.pool.defaulted_members == 0 || ctx.accounts.pool.escrow_balance == 0,
+        ctx.accounts.pool.defaulted_members == 0
+            || ctx.accounts.pool.escrow_balance <= ctx.accounts.pool.defaulted_escrow_locked,
         RoundfiError::OutstandingDefaults,
     );
 

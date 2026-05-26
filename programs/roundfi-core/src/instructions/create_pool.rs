@@ -262,6 +262,7 @@ pub fn handler(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
     pool.solidarity_balance = 0;
     pool.escrow_balance     = 0;
     pool.yield_accrued      = 0;
+    pool.defaulted_escrow_locked = 0; // SEV-050
     pool.slots_bitmap       = [0u8; 8];
 
     pool.bump                  = ctx.bumps.pool;
