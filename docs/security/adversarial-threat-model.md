@@ -77,7 +77,60 @@ Same shape as Sybil from a consumer's perspective — many attestations per doll
 | Attestation weighting   | ❌ Schema records `installment` field but no on-chain enforcement    | ✅ B2B oracle weights by USD-value-times-cycles, not count                                                             |
 | Cycle-completion factor | ❌ Single attestation per contribute, not weighted by cycle position | ✅ Reputation score formula in `roundfi-reputation` already factors `cycle_index / cycles_total` as a completion ratio |
 
-**Honest assessment:** Farming is **harder than Sybil** because consumer-side weighting by USD-value is well-understood (see Esusu's $1.2B valuation built on similar principle). Pre-mainnet review: confirm installment floor for Community Pool variant.
+### SEV-047 — on-chain promotion gate (two-layer, implemented)
+
+The farming finding above had a sharper sub-vector flagged by the external
+audit pass (SEV-047, 2026-05-24): promotion to a higher reputation **level**
+— not just the score number — was farmable, and level is what
+`roundfi-core::join_pool` reads to set the collateral discount
+(`stake_bps_for_level`: L1 = 50%, L3 = 10%). The original chain was:
+`create_pool` allows 1-member pools → `promote_level` resolved the tier from
+`profile.score` alone → `SCORE_PAYMENT (+10)` had no global per-subject
+rate-limit → spin up ~200 one-member pools, contribute once in each in
+parallel → score 2000 = L3 in hours → enter a real pool at the 10% Veteran
+stake and early-payout-then-default. This is **economic, not direct-drain**
+(the Triple Shield still bounds per-tx loss), but it cheapens the collateral
+that backs the whole solvency argument, so it is fixed in two layers at the
+single chokepoint every promotion must pass through — `promote_level`:
+
+**Layer 1 — cycles gate (always-on, unbypassable).** `resolve_level` now
+requires BOTH a score threshold AND `cycles_completed >= LEVEL_N_MIN_CYCLES`
+(L2 = 1, L3 = 3). `cycles_completed` only increments on
+`SCHEMA_CYCLE_COMPLETE`, which carries a 6-day per-subject cooldown
+(`MIN_CYCLE_COOLDOWN_SECS`). So L3 needs ≥3 real completed cycles spaced ≥6
+days apart — **~18 days minimum**, which destroys the "L3 in hours"
+economics. This layer has no configuration and no off switch: it protects
+devnet, Canary, and mainnet identically. Residual farming vectors checked
+against it: **rejoin** (cycles_completed is additive-only, never resets →
+no bypass), **micro-cycles** (each CycleComplete still burns the 6-day
+cooldown regardless of pool size → gate holds), **self-referral** (referral
+is off-chain, never touches on-chain score → outside this vector).
+
+**Layer 2 — identity gate (config-gated, default-OFF).** `promote_level`
+additionally loads the `IdentityGateConfig` singleton and the subject's
+optional `IdentityRecord`, then applies `cap_level_for_identity`: when the
+authority has set `required_min_level = N` (2 or 3), a subject **without a
+verified identity** is capped at `N − 1`, regardless of score/cycles. The
+floor defaults to `0` (disabled), so devnet/Canary are unaffected and a
+missing `IdentityRecord` is never required there; mainnet can raise it to
+require Human-Passport-grade identity for L2+/L3 as defense-in-depth on top
+of the cycles gate. The cap is pure and monotonic — it only ever lowers a
+level, never raises one — so it can never accidentally _promote_ a subject.
+
+**Validation:** `cap_level_for_identity` + `resolve_level` are exhaustively
+unit-tested in the Rust module; the end-to-end enforcement (drive a subject
+to the L2 threshold, assert floor=2 caps it at L1 and floor=0 promotes to
+L2) runs in `tests/reputation_gate_bankrun.spec.ts` via bankrun clock-warp
+(the only runner that can satisfy the 60-second admin-attest cooldown across
+the ~96 serial attestations needed to reach the threshold), wired into the
+CI `bankrun · no-mpl-core` lane.
+
+**Not claimed:** this closes the PAYMENT-spam vector found plus the three
+residual vectors above; it is **not** a proof of farming-completeness. A
+formal exhaustive farming threat model (multi-wallet collusion inside a real
+pool, promote/join timing games) remains a modeling follow-up.
+
+**Honest assessment:** Farming is **harder than Sybil** because consumer-side weighting by USD-value is well-understood (see Esusu's $1.2B valuation built on similar principle). The on-chain promotion gate (SEV-047, two layers above) closes the cheap-L3 path; the remaining surface (consumer-side attestation _counting_ without USD weighting) is an oracle-side concern. Pre-mainnet review: confirm installment floor for Community Pool variant, and decide the mainnet `required_min_level` setting.
 
 ---
 
@@ -202,15 +255,15 @@ Pre-mainnet MEV analysis is its own work item; this doc references but doesn't d
 
 ## 7. Summary — adversarial surface vs Triple Shield coverage
 
-| Attack class                                      | Stopped by Triple Shield?                                                                                                                                        | Additional mitigation needed                                                                                                 |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Direct default (single member)                    | ✅ Yes — Shield 1 (Seed Draw), Shield 2 (GF Solvency), Shield 3 (D/C invariant)                                                                                  | None — loss **bounded by construction** (per-tx loss ≤ defaulter's collateral); surplus is yield-backed (ECO-005)            |
-| Coordinated default (N members)                   | ✅ Yes — same Shields apply at scale, stress-tested in `tripleVeteranDefault`                                                                                    | None — extended fuzzing #228 to confirm at larger N                                                                          |
-| Sybil (multi-wallet, same human)                  | ❌ No — Shields are pool-internal, Sybil is cross-pool/cross-protocol                                                                                            | PoP integration #227 + consumer-side weighting                                                                               |
-| Reputation farming (low-installment attestations) | ⚠️ Partial — SEV-047 fix gates L2+ promotion on `cycles_completed` (≥3 real cycles, 6-day per-subject cooldown ⇒ ~18d min to L3), blocking the PAYMENT-spam path | Installment floor + B2B oracle USD-weighted reads; mainnet defense-in-depth = identity gate at promote_level L2+ (follow-up) |
-| Strategic ordering / griefing                     | ⚠️ Mostly — front-running on claim_payout / escape_valve_buy unmitigated                                                                                         | MEV review #232                                                                                                              |
-| Malicious Community Pool leader                   | N/A today (admin-only pool creation)                                                                                                                             | Community Pool spec gating (post-mainnet)                                                                                    |
-| Pool spam                                         | N/A today (admin-only)                                                                                                                                           | Community Pool rate limit (post-mainnet)                                                                                     |
+| Attack class                                      | Stopped by Triple Shield?                                                                                                                                                                                                                                                                                       | Additional mitigation needed                                                                                                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direct default (single member)                    | ✅ Yes — Shield 1 (Seed Draw), Shield 2 (GF Solvency), Shield 3 (D/C invariant)                                                                                                                                                                                                                                 | None — loss **bounded by construction** (per-tx loss ≤ defaulter's collateral); surplus is yield-backed (ECO-005)                                                                  |
+| Coordinated default (N members)                   | ✅ Yes — same Shields apply at scale, stress-tested in `tripleVeteranDefault`                                                                                                                                                                                                                                   | None — extended fuzzing #228 to confirm at larger N                                                                                                                                |
+| Sybil (multi-wallet, same human)                  | ❌ No — Shields are pool-internal, Sybil is cross-pool/cross-protocol                                                                                                                                                                                                                                           | PoP integration #227 + consumer-side weighting                                                                                                                                     |
+| Reputation farming (low-installment attestations) | ⚠️ Partial — SEV-047 two-layer gate at `promote_level`: (1) cycles gate (always-on) requires `cycles_completed` ≥ 3 real cycles, 6-day per-subject cooldown ⇒ ~18d min to L3, blocking the PAYMENT-spam path; (2) identity gate (config-gated, default-OFF) caps unverified subjects below `required_min_level` | Installment floor + B2B oracle USD-weighted reads; mainnet sets identity-gate `required_min_level` (2 or 3) as defense-in-depth — wiring shipped, value is an operational decision |
+| Strategic ordering / griefing                     | ⚠️ Mostly — front-running on claim_payout / escape_valve_buy unmitigated                                                                                                                                                                                                                                        | MEV review #232                                                                                                                                                                    |
+| Malicious Community Pool leader                   | N/A today (admin-only pool creation)                                                                                                                                                                                                                                                                            | Community Pool spec gating (post-mainnet)                                                                                                                                          |
+| Pool spam                                         | N/A today (admin-only)                                                                                                                                                                                                                                                                                          | Community Pool rate limit (post-mainnet)                                                                                                                                           |
 
 The Triple Shield protects against the **fund-movement attack classes** (default, coordination at scale). The **reputation-level attack classes** (Sybil, farming) require Phase-3 oracle-side mitigation + PoP integration that's explicitly out of current scope.
 
