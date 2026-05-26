@@ -74,6 +74,8 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
       closePool,
       fetchPool,
       fetchMember,
+      attestationFor,
+      attestationNonce,
       fundUsdc,
       balanceOf,
     } = harness;
@@ -176,6 +178,14 @@ describe("L1↔L2 parity (litesvm) — Pre-default preset", function () {
           subject: members[slot]!.wallet.publicKey.toBase58(),
           issuer: pool.pool.toBase58(),
           repProgram: env.ids.reputation.toBase58(),
+          nonce: String(attestationNonce(cycle, members[slot]!.slotIndex)),
+          harnessAttn: attestationFor(
+            env,
+            pool.pool,
+            members[slot]!.wallet.publicKey,
+            3,
+            attestationNonce(cycle, members[slot]!.slotIndex),
+          ).toBase58(),
         });
         await setLitesvmUnixTs(env.svm, nextCycleAt + GRACE_PERIOD_SECS + 60n);
       },
