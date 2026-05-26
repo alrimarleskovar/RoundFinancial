@@ -127,11 +127,13 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       if (cycle === 0) continue; // nobody is behind before a cycle advances
       if (matrix[m]![cycle - 1] !== "X") continue; // didn't skip the prior cycle
       if (opts.beforeSettle) await opts.beforeSettle(cycle, m);
-      await settleDefault(env, {
-        pool,
-        defaulter: members[m]!,
-        cycle,
-      });
+      try {
+        await settleDefault(env, { pool, defaulter: members[m]!, cycle });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log("DRIVE-FAIL settle", { cycle, m });
+        throw e;
+      }
       defaulted.add(m);
       summary.defaultedNewly.push(m);
     }
@@ -174,11 +176,13 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       if (defaulted.has(m) || exited.has(m)) continue;
       const cell = matrix[m]![cycle];
       if (cell !== "P" && cell !== "C") continue;
-      await contribute(env, {
-        pool,
-        member: members[m]!,
-        cycle,
-      });
+      try {
+        await contribute(env, { pool, member: members[m]!, cycle });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log("DRIVE-FAIL contribute", { cycle, m });
+        throw e;
+      }
       summary.contributed.push(m);
     }
 
@@ -192,11 +196,13 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       }
     }
     if (recipientRow !== null) {
-      await claimPayout(env, {
-        pool,
-        member: members[recipientRow]!,
-        cycle,
-      });
+      try {
+        await claimPayout(env, { pool, member: members[recipientRow]!, cycle });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log("DRIVE-FAIL claim", { cycle, recipientRow });
+        throw e;
+      }
       summary.recipient = recipientRow;
     }
 
