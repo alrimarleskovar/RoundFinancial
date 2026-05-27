@@ -29,6 +29,8 @@ Sign-In-With-Solana: connect wallet → server issues a nonce → client signs �
 
 **Acceptable shortcut for the FIRST vertical slice only:** deploy-level protection (Vercel Access / basic-auth) also gates the endpoints and is real auth — but SIWS is the target and must not be deferred past the first slice.
 
+**Status — server-side core + endpoints landed.** `app/src/lib/admin/{siws,challenge,session,allowlist,auth}.ts` implement the gate (ed25519 verify via Node `crypto`, no new dep; HMAC session in an httpOnly cookie; stateless single-use challenge; allowlist = `ADMIN_ALLOWLIST` env ∪ best-effort IDL-free `ProtocolConfig.authority` read). Endpoints: `POST /api/admin/auth/nonce`, `POST /api/admin/auth/verify`, `GET /api/admin/auth/session`, `POST /api/admin/auth/logout`, and `GET /api/admin/ping` as the protected-route template (call `requireAdmin` FIRST). Fail-closed: missing `ADMIN_SESSION_SECRET` refuses to authenticate; empty allowlist authorizes no one. Covered by `tests/admin_auth.spec.ts` (15 cases: real ed25519 sign/verify, challenge expiry/forgery/replay, session expiry/tamper, allowlist). The client sign-in button + the authority-union live wiring land with the `/admin/ops` shell in Phase 1; since real SIWS endpoints exist, the basic-auth interim is unnecessary.
+
 ### 2. One canonical `events` table + Option B fields + `details` JSONB
 
 A single normalized `events` table is the base record; metrics / profiles / insights are **views** over it. Columns (Recommendation 1 + Option B):
