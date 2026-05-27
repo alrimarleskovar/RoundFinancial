@@ -724,3 +724,192 @@ export async function recordExportAudit(
     },
   });
 }
+
+// ─── Economy: protocol-wide financial + risk + moat aggregates (ADR 0009) ──
+//
+// INSTRUMENTATION, NOT TRACTION. On devnet these are test/seed numbers — the
+// SAME panel measures mainnet once traffic arrives. Everything here is a
+// direct sum / count / percentage from the indexer (pools + members + the
+// typed event tables); correlation/cohort analysis is INSIGHTS (deferred
+// until real volume). Filters re-scope the natural domain of each block.
+
+export interface EconomyFilter {
+  status?: "Forming" | "Active" | "Completed" | "Liquidated" | "Closed";
+  level?: 1 | 2 | 3;
+  fromUnix?: number;
+  toUnix?: number;
+}
+
+export interface Economy {
+  capital: {
+    /** Σ pool.credit_amount — credit committed across pools (capability). */
+    committedCredit: string;
+    /** Σ buffers held in vaults (solidarity + escrow + guarantee) per indexer. */
+    custodied: string;
+    contributed: string;
+    paidOut: string;
+    /** Σ pool.yield_accrued — mock-adapter on devnet; real Kamino on mainnet. */
+    yieldAccrued: string;
+    /** Σ pool.total_protocol_fee_accrued → treasury. */
+    protocolFees: string;
+    guaranteeFund: string;
+    solidarity: string;
+  };
+  risk: {
+    totalMembers: number;
+    defaultedMembers: number;
+    defaultRateBps: number | null;
+    /** Σ collateral SEIZED by settle_default (coverage, NOT protocol loss). */
+    seizedTotal: string;
+    seizedSolidarity: string;
+    seizedEscrow: string;
+    seizedStake: string;
+    defaultEvents: number;
+    defaultsByPool: { poolPda: string; defaulted: number }[];
+  };
+  moat: {
+    /** Distinct-wallet count by on-chain level snapshot (via backfill). */
+    levelDistribution: { l1: number; l2: number; l3: number };
+    distinctWallets: number;
+    onTime: number;
+    timedContributions: number;
+    onTimeRateBps: number | null;
+    /** Wallets in 2+ pools + retention share. */
+    repeatWallets: number;
+    retentionBps: number | null;
+  };
+  health: {
+    byStatus: Record<string, number>;
+    totalPools: number;
+    completionRateBps: number | null;
+  };
+  indexer: IndexerHealth;
+}
+
+function sumBig(rows: bigint[]): bigint {
+  return rows.reduce((a, b) => a + b, 0n);
+}
+
+export async function getEconomy(
+  prisma: PrismaClient,
+  filter: EconomyFilter = {},
+): Promise<Economy> {
+  const [pools, members, indexer] = await Promise.all([
+    prisma.pool.findMany(),
+    prisma.member.findMany({
+      select: { wallet: true, poolId: true, reputationLevel: true, defaulted: true },
+    }),
+    computeIndexerHealth(prisma),
+  ]);
+
+  // ── Capital (scoped by pool status when filtered) ──
+  const capPools = filter.status ? pools.filter((p) => p.status === filter.status) : pools;
+  const capital = {
+    committedCredit: sumBig(capPools.map((p) => p.creditAmount)).toString(),
+    custodied: sumBig(
+      capPools.map((p) => p.solidarityBalance + p.escrowBalance + p.guaranteeFundBalance),
+    ).toString(),
+    contributed: sumBig(capPools.map((p) => p.totalContributed)).toString(),
+    paidOut: sumBig(capPools.map((p) => p.totalPaidOut)).toString(),
+    yieldAccrued: sumBig(capPools.map((p) => p.yieldAccrued)).toString(),
+    protocolFees: sumBig(capPools.map((p) => p.totalProtocolFeeAccrued)).toString(),
+    guaranteeFund: sumBig(capPools.map((p) => p.guaranteeFundBalance)).toString(),
+    solidarity: sumBig(capPools.map((p) => p.solidarityBalance)).toString(),
+  };
+
+  // ── Risk (members scoped by level; seizures scoped by time window) ──
+  const riskMembers = filter.level
+    ? members.filter((m) => m.reputationLevel === filter.level)
+    : members;
+  const defaultedMembers = riskMembers.filter((m) => m.defaulted).length;
+  const tsWindow: Prisma.BigIntFilter = {};
+  if (filter.fromUnix != null) tsWindow.gte = BigInt(filter.fromUnix);
+  if (filter.toUnix != null) tsWindow.lte = BigInt(filter.toUnix);
+  const seizeWhere: Prisma.DefaultEventWhereInput = { resolvedAt: { not: null } };
+  if (filter.fromUnix != null || filter.toUnix != null) seizeWhere.blockTime = tsWindow;
+  const [seize, defaultEventsCount, defaultsByPoolRows] = await Promise.all([
+    prisma.defaultEvent.aggregate({
+      where: seizeWhere,
+      _sum: { seizedSolidarity: true, seizedEscrow: true, seizedStake: true },
+    }),
+    prisma.defaultEvent.count({ where: seizeWhere }),
+    prisma.event.groupBy({
+      by: ["poolPda"],
+      where: { eventType: "Default" },
+      _count: { _all: true },
+    }),
+  ]);
+  const seizedSol = seize._sum.seizedSolidarity ?? 0n;
+  const seizedEsc = seize._sum.seizedEscrow ?? 0n;
+  const seizedStk = seize._sum.seizedStake ?? 0n;
+  const risk = {
+    totalMembers: riskMembers.length,
+    defaultedMembers,
+    defaultRateBps:
+      riskMembers.length > 0 ? Math.round((defaultedMembers / riskMembers.length) * 10_000) : null,
+    seizedTotal: (seizedSol + seizedEsc + seizedStk).toString(),
+    seizedSolidarity: seizedSol.toString(),
+    seizedEscrow: seizedEsc.toString(),
+    seizedStake: seizedStk.toString(),
+    defaultEvents: defaultEventsCount,
+    defaultsByPool: defaultsByPoolRows.map((r) => ({
+      poolPda: r.poolPda,
+      defaulted: r._count._all,
+    })),
+  };
+
+  // ── Moat (protocol-wide distribution; on-time scoped by window) ──
+  const walletMaxLevel = new Map<string, number>();
+  const walletPools = new Map<string, Set<string>>();
+  for (const m of members) {
+    walletMaxLevel.set(m.wallet, Math.max(walletMaxLevel.get(m.wallet) ?? 0, m.reputationLevel));
+    const set = walletPools.get(m.wallet) ?? new Set<string>();
+    set.add(m.poolId);
+    walletPools.set(m.wallet, set);
+  }
+  const dist = { l1: 0, l2: 0, l3: 0 };
+  for (const lv of walletMaxLevel.values()) {
+    if (lv >= 3) dist.l3 += 1;
+    else if (lv === 2) dist.l2 += 1;
+    else dist.l1 += 1;
+  }
+  const distinctWallets = walletMaxLevel.size;
+  const repeatWallets = [...walletPools.values()].filter((s) => s.size >= 2).length;
+  const contribTimedWhere: Prisma.EventWhereInput = {
+    eventType: "Contribute",
+    dueTs: { not: null },
+  };
+  if (filter.fromUnix != null || filter.toUnix != null) contribTimedWhere.onChainTs = tsWindow;
+  const [timed, onTime] = await Promise.all([
+    prisma.event.count({ where: contribTimedWhere }),
+    prisma.event.count({ where: { ...contribTimedWhere, deltaSeconds: { lte: 0 } } }),
+  ]);
+  const moat = {
+    levelDistribution: dist,
+    distinctWallets,
+    onTime,
+    timedContributions: timed,
+    onTimeRateBps: timed > 0 ? Math.round((onTime / timed) * 10_000) : null,
+    repeatWallets,
+    retentionBps:
+      distinctWallets > 0 ? Math.round((repeatWallets / distinctWallets) * 10_000) : null,
+  };
+
+  // ── Health (status breakdown over ALL pools) ──
+  const byStatus: Record<string, number> = {
+    Forming: 0,
+    Active: 0,
+    Completed: 0,
+    Liquidated: 0,
+    Closed: 0,
+  };
+  for (const p of pools) byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
+  const health = {
+    byStatus,
+    totalPools: pools.length,
+    completionRateBps:
+      pools.length > 0 ? Math.round((byStatus.Completed! / pools.length) * 10_000) : null,
+  };
+
+  return { capital, risk, moat, health, indexer };
+}

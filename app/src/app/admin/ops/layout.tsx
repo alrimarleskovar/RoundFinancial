@@ -20,6 +20,7 @@ const NAV = [
   { href: "/admin/ops/pools", key: "adminops.nav.pools" },
   { href: "/admin/ops/users", key: "adminops.nav.users" },
   { href: "/admin/ops/events", key: "adminops.nav.events" },
+  { href: "/admin/ops/economy", key: "adminops.nav.economy" },
 ];
 
 function errorText(

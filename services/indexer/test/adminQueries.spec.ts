@@ -10,6 +10,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   computeIndexerHealth,
   getCanaryOverview,
+  getEconomy,
   listPoolsForAdmin,
   listUsersForAdmin,
 } from "../src/adminQueries.js";
@@ -229,5 +230,35 @@ describe("adminQueries — structural + health (ADR 0009 Phase 1)", function () 
     expect(u.onTimeRateBps).to.equal(null);
     // The seeded Default event for this wallet is counted.
     expect(u.defaults).to.equal(1);
+  });
+
+  it("getEconomy aggregates exactly (capital Σ, default rate, distribution, completion)", async () => {
+    const e = await getEconomy(prisma);
+    // 3 pools × creditAmount 10_000_000_000.
+    expect(e.capital.committedCredit).to.equal("30000000000");
+    // 1 member, not defaulted.
+    expect(e.risk.totalMembers).to.equal(1);
+    expect(e.risk.defaultedMembers).to.equal(0);
+    expect(e.risk.defaultRateBps).to.equal(0);
+    // 1 distinct wallet at level 1.
+    expect(e.moat.levelDistribution).to.deep.equal({ l1: 1, l2: 0, l3: 0 });
+    expect(e.moat.distinctWallets).to.equal(1);
+    // seeded events have no due_ts → no timed contributions.
+    expect(e.moat.timedContributions).to.equal(0);
+    expect(e.moat.onTimeRateBps).to.equal(null);
+    // status breakdown + completion (1 Completed of 3).
+    expect(e.health.totalPools).to.equal(3);
+    expect(e.health.byStatus.Active).to.equal(2);
+    expect(e.health.byStatus.Completed).to.equal(1);
+    expect(e.health.completionRateBps).to.equal(3333);
+    // no typed default_events rows seeded → zero seizure.
+    expect(e.risk.seizedTotal).to.equal("0");
+    expect(e.risk.defaultEvents).to.equal(0);
+  });
+
+  it("getEconomy honors the pool-status filter for capital", async () => {
+    // Only the Completed pool (PoolC) → still creditAmount 10_000_000_000.
+    const e = await getEconomy(prisma, { status: "Completed" });
+    expect(e.capital.committedCredit).to.equal("10000000000");
   });
 });
