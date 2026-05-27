@@ -253,6 +253,32 @@ export async function closePool(env: Env, opts: ClosePoolOpts): Promise<string> 
     .rpc();
 }
 
+// ─── close_member ──────────────────────────────────────────────────────
+// Reclaim a finalized pool's per-member rent (SEV-039, partial). Closes one
+// Member PDA after the pool is Closed, returning its rent to the member's
+// wallet. Caller is the pool/protocol authority or the member themselves.
+export interface CloseMemberOpts {
+  pool: PoolHandle;
+  member: MemberHandle;
+  authority?: Keypair; // defaults to pool.authority (== config.authority in tests)
+}
+
+export async function closeMember(env: Env, opts: CloseMemberOpts): Promise<string> {
+  const authority = opts.authority ?? opts.pool.authority;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (env.programs.core.methods as any)
+    .closeMember()
+    .accounts({
+      authority: authority.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      memberWallet: opts.member.wallet.publicKey,
+      member: opts.member.member,
+    })
+    .signers([authority])
+    .rpc();
+}
+
 // ─── settle_default ────────────────────────────────────────────────────
 // Permissionless settlement of a defaulted member. Anyone can crank;
 // caller pays the rent for the attestation PDA. The cycle parameter is

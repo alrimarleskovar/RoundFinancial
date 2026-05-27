@@ -181,4 +181,8 @@ pub enum RoundfiError {
     // cycle — this guards it against being called on a non-defaulted slot.
     #[msg("Slot's contemplated member is not defaulted — use claim_payout, not skip_defaulted_payout")]
     SlotNotDefaulted,
+
+    // ─── SEV-039 — close_member rent reclaim ──────────────────────────
+    #[msg("Pool is not in Closed state — call close_pool first before close_member")]
+    PoolNotClosed,
 }

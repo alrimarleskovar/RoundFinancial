@@ -3,6 +3,7 @@ pub mod cancel_new_fee_bps_yield;
 pub mod cancel_new_treasury;
 pub mod cancel_pending_listing;
 pub mod claim_payout;
+pub mod close_member;
 pub mod close_pool;
 pub mod commit_new_authority;
 pub mod commit_new_fee_bps_yield;
@@ -42,6 +43,7 @@ mod reexports {
     pub use super::cancel_new_treasury::*;
     pub use super::cancel_pending_listing::*;
     pub use super::claim_payout::*;
+    pub use super::close_member::*;
     pub use super::close_pool::*;
     pub use super::commit_new_authority::*;
     pub use super::commit_new_fee_bps_yield::*;

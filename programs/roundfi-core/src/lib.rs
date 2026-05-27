@@ -142,6 +142,13 @@ pub mod roundfi_core {
         instructions::close_pool::handler(ctx)
     }
 
+    /// SEV-039 (partial): reclaim a finalized pool's per-member rent by
+    /// closing one Member PDA after the pool is Closed. See
+    /// `instructions::close_member`.
+    pub fn close_member(ctx: Context<CloseMember>) -> Result<()> {
+        instructions::close_member::handler(ctx)
+    }
+
     pub fn update_protocol_config(
         ctx: Context<UpdateProtocolConfig>,
         args: UpdateProtocolConfigArgs,

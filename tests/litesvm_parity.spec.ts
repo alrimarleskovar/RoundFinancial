@@ -53,7 +53,15 @@ interface ScenarioResult {
   onChainDeltas: bigint[];
   l1Net: bigint[];
   vaultTotal: bigint;
+  // SEV-039: after close_pool, each Member PDA is closed via close_member to
+  // reclaim its rent. `membersRemaining` counts PDAs still on chain (must be 0).
+  membersRemaining: number;
 }
+
+// Substrings that mean "litesvm build artifacts are absent" — the only case
+// where a clean `this.skip()` is correct. Anything else is a real failure that
+// must surface (the previous blanket catch masked on-chain reverts as skips).
+const ARTIFACT_MISSING = /mpl_core\.so|IDL not found|anchor build|target\/deploy|ENOENT|\.so\b/i;
 
 // Drives one default scenario end-to-end on a fresh litesvm Env and returns
 // the on-chain per-member deltas + the reconciled L1 reference. Throws if the
@@ -80,6 +88,7 @@ async function driveParityScenario(opts: {
     driveMatrix,
     releaseEscrow,
     closePool,
+    closeMember,
     fetchPool,
     fundUsdc,
     balanceOf,
@@ -179,10 +188,25 @@ async function driveParityScenario(opts: {
   // deposit_idle_to_yield / harvest_yield), so NO USDC is created on-chain.
   // Every minted dollar therefore sits in either a member wallet or one of the
   // three pool vaults — `Σ(member deltas) + Σ(vault balances) == 0`.
+  // (USDC ATAs only — close_member below reclaims the Member PDA's SOL rent,
+  // which is unrelated to the USDC accounting.)
   const vaultTotal =
     (await balanceOf(env, pool.poolUsdcVault)) +
     (await balanceOf(env, pool.escrowVault)) +
     (await balanceOf(env, pool.solidarityVault));
+
+  // SEV-039: reclaim per-member rent now that the pool is Closed. Each
+  // close_member closes the Member PDA and returns its rent to the member's
+  // wallet. Verify every PDA is actually gone (fetchNullable → null).
+  for (const m of members) {
+    await closeMember(env, { pool, member: m, authority });
+  }
+  let membersRemaining = 0;
+  for (const m of members) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const acct = await (env.programs.core.account as any).member.fetchNullable(m.member);
+    if (acct !== null) membersRemaining++;
+  }
 
   // L1 reference, reconciled to what on-chain actually disburses/seizes:
   //   - on-chain `claim_payout` pays the FULL credit at contemplation (one
@@ -206,7 +230,7 @@ async function driveParityScenario(opts: {
     return BigInt(Math.round((base + owedCredit + owedStake) * 1_000_000));
   });
 
-  return { members, onChainDeltas, l1Net, vaultTotal };
+  return { members, onChainDeltas, l1Net, vaultTotal, membersRemaining };
 }
 
 const SCENARIOS: Array<{
@@ -246,12 +270,19 @@ for (const scenario of SCENARIOS) {
       try {
         result = await driveParityScenario(scenario);
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `litesvm parity (${scenario.label}): setup failed (${(e as Error).message ?? String(e)}). ` +
-            `Needs 'anchor build' + target/deploy/mpl_core.so — skipping.`,
-        );
-        this.skip();
+        const msg = (e as Error).message ?? String(e);
+        // Only an absent build artifact is a legitimate skip. A real on-chain
+        // revert or accounting mismatch must surface as a failure — the old
+        // blanket catch masked those as green skips (SEV-039 follow-up).
+        if (ARTIFACT_MISSING.test(msg)) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `litesvm parity (${scenario.label}): build artifacts absent (${msg}). ` +
+              `Needs 'anchor build' + target/deploy/mpl_core.so — skipping.`,
+          );
+          this.skip();
+        }
+        throw e;
       }
     });
 
@@ -287,6 +318,13 @@ for (const scenario of SCENARIOS) {
         abs <= EPSILON,
         `conservation drift > 1 USDC: Σdeltas=${sumDeltas} vaults=${result.vaultTotal} total=${total}`,
       ).to.equal(true);
+    });
+
+    it("close_member reclaims every Member PDA's rent (SEV-039)", function () {
+      expect(
+        result.membersRemaining,
+        `${result.membersRemaining} Member PDA(s) still allocated after close_member`,
+      ).to.equal(0);
     });
   });
 }
