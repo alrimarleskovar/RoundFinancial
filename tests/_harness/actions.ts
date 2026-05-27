@@ -279,6 +279,44 @@ export async function closeMember(env: Env, opts: CloseMemberOpts): Promise<stri
     .rpc();
 }
 
+// ─── close_pool_vaults ─────────────────────────────────────────────────
+// SEV-039 final step: drain the 4 vaults' residual USDC to treasury, close the
+// 4 vault ATAs, and close the Pool PDA. Requires every Member PDA closed first
+// (pool.members_joined == 0). Ceremony: close_pool → close_member × N →
+// close_pool_vaults.
+export interface ClosePoolVaultsOpts {
+  pool: PoolHandle;
+  treasuryUsdc: PublicKey;
+  authority?: Keypair; // defaults to pool.authority
+  rentRecipient?: PublicKey; // defaults to the authority's wallet
+}
+
+export async function closePoolVaults(env: Env, opts: ClosePoolVaultsOpts): Promise<string> {
+  const authority = opts.authority ?? opts.pool.authority;
+  const rentRecipient = opts.rentRecipient ?? authority.publicKey;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (env.programs.core.methods as any)
+    .closePoolVaults()
+    .accounts({
+      authority: authority.publicKey,
+      config: configPda(env),
+      rentRecipient,
+      pool: opts.pool.pool,
+      usdcMint: opts.pool.usdcMint,
+      treasuryUsdc: opts.treasuryUsdc,
+      escrowVaultAuthority: opts.pool.escrowVaultAuthority,
+      solidarityVaultAuthority: opts.pool.solidarityVaultAuthority,
+      yieldVaultAuthority: opts.pool.yieldVaultAuthority,
+      poolUsdcVault: opts.pool.poolUsdcVault,
+      escrowVault: opts.pool.escrowVault,
+      solidarityVault: opts.pool.solidarityVault,
+      yieldVault: opts.pool.yieldVault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .signers([authority])
+    .rpc();
+}
+
 // ─── settle_default ────────────────────────────────────────────────────
 // Permissionless settlement of a defaulted member. Anyone can crank;
 // caller pays the rent for the attestation PDA. The cycle parameter is

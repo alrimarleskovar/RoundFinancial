@@ -13,7 +13,9 @@
  *   - Post-default (postDefault preset, slot 1): claims at its
  *     contemplation cycle THEN defaults later → calote_pos / real loss;
  *     no skip needed (the slot's cycle already advanced via the claim).
- * Both then `close_pool` the defaulted pool (SEV-050 fix).
+ * Both then `close_pool` the defaulted pool (SEV-050 fix), then run the full
+ * SEV-039 rent-reclaim ceremony: `close_member` × N → `close_pool_vaults`
+ * (drains the 4 vaults to treasury + closes the ATAs + the Pool PDA).
  *
  * Comparison: on-chain `release_escrow` / `settle_default` disburse or seize
  * exactly what L1 books as still-owed at pool end, so on-chain net = L1 net +
@@ -56,6 +58,12 @@ interface ScenarioResult {
   // SEV-039: after close_pool, each Member PDA is closed via close_member to
   // reclaim its rent. `membersRemaining` counts PDAs still on chain (must be 0).
   membersRemaining: number;
+  // SEV-039 final step: close_pool_vaults drains the 4 vaults to treasury and
+  // closes them + the Pool PDA. `treasuryDrained` is the USDC the treasury
+  // received (must equal `vaultTotal`); `vaultsAndPoolClosed` is true iff all 4
+  // vault ATAs AND the Pool PDA are gone afterward.
+  treasuryDrained: bigint;
+  vaultsAndPoolClosed: boolean;
 }
 
 // Substrings that mean "litesvm build artifacts are absent" — the only case
@@ -89,6 +97,7 @@ async function driveParityScenario(opts: {
     releaseEscrow,
     closePool,
     closeMember,
+    closePoolVaults,
     fetchPool,
     fundUsdc,
     balanceOf,
@@ -114,7 +123,8 @@ async function driveParityScenario(opts: {
   await setLitesvmUnixTs(env.svm, BASE_TS);
 
   const usdcMint = await createUsdcMint(env);
-  await initializeProtocol(env, { usdcMint });
+  const proto = await initializeProtocol(env, { usdcMint });
+  const treasuryUsdc = proto.treasury;
   // settle_default CPIs into reputation::attest (config.reputation_program is
   // the real program), so the reputation config must exist (the profile is
   // init_if_needed by the attest CPI).
@@ -208,6 +218,32 @@ async function driveParityScenario(opts: {
     if (acct !== null) membersRemaining++;
   }
 
+  // SEV-039 final step: drain the 4 vaults to treasury + close them + the Pool
+  // PDA. Treasury starts empty (no yield CPI ran → no protocol fee), so the
+  // delta it receives must equal the conservation `vaultTotal` above.
+  const treasuryBefore = await balanceOf(env, treasuryUsdc);
+  await closePoolVaults(env, { pool, treasuryUsdc, authority });
+  const treasuryDrained = (await balanceOf(env, treasuryUsdc)) - treasuryBefore;
+
+  // Every vault ATA must be gone (balanceOf → getAccount throws) and the Pool
+  // PDA must be closed (fetchNullable → null).
+  const isClosed = async (ata: PublicKey): Promise<boolean> => {
+    try {
+      await balanceOf(env, ata);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const vaultsClosed =
+    (await isClosed(pool.poolUsdcVault)) &&
+    (await isClosed(pool.escrowVault)) &&
+    (await isClosed(pool.solidarityVault)) &&
+    (await isClosed(pool.yieldVault));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const poolAcct = await (env.programs.core.account as any).pool.fetchNullable(pool.pool);
+  const vaultsAndPoolClosed = vaultsClosed && poolAcct === null;
+
   // L1 reference, reconciled to what on-chain actually disburses/seizes:
   //   - on-chain `claim_payout` pays the FULL credit at contemplation (one
   //     transfer); L1 drips it as upfront + gradual escrow. A contemplated
@@ -230,7 +266,15 @@ async function driveParityScenario(opts: {
     return BigInt(Math.round((base + owedCredit + owedStake) * 1_000_000));
   });
 
-  return { members, onChainDeltas, l1Net, vaultTotal, membersRemaining };
+  return {
+    members,
+    onChainDeltas,
+    l1Net,
+    vaultTotal,
+    membersRemaining,
+    treasuryDrained,
+    vaultsAndPoolClosed,
+  };
 }
 
 const SCENARIOS: Array<{
@@ -325,6 +369,24 @@ for (const scenario of SCENARIOS) {
         result.membersRemaining,
         `${result.membersRemaining} Member PDA(s) still allocated after close_member`,
       ).to.equal(0);
+    });
+
+    it("close_pool_vaults drains every vault residual to treasury (SEV-039)", function () {
+      const drift =
+        result.treasuryDrained > result.vaultTotal
+          ? result.treasuryDrained - result.vaultTotal
+          : result.vaultTotal - result.treasuryDrained;
+      expect(
+        drift <= EPSILON,
+        `treasury drain != vault residual: drained=${result.treasuryDrained} vaultTotal=${result.vaultTotal}`,
+      ).to.equal(true);
+    });
+
+    it("close_pool_vaults closes all 4 vault ATAs + the Pool PDA (SEV-039)", function () {
+      expect(
+        result.vaultsAndPoolClosed,
+        "a vault ATA or the Pool PDA is still allocated after close_pool_vaults",
+      ).to.equal(true);
     });
   });
 }

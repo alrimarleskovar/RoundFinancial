@@ -185,4 +185,8 @@ pub enum RoundfiError {
     // ─── SEV-039 — close_member rent reclaim ──────────────────────────
     #[msg("Pool is not in Closed state — call close_pool first before close_member")]
     PoolNotClosed,
+
+    // ─── SEV-039 — close_pool_vaults ordering guard ───────────────────
+    #[msg("Pool still has open Member PDAs — close them all via close_member before close_pool_vaults")]
+    MembersStillOpen,
 }
