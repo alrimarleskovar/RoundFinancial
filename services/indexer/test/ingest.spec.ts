@@ -9,7 +9,15 @@ import { PrismaClient } from "@prisma/client";
 
 import { bumpCursor, upsertEventsFromLogs } from "../src/ingest.js";
 import { rebuildEvents } from "../src/projector.js";
-import { getCanaryBehavioral, getPoolDetail, getUserProfile } from "../src/adminQueries.js";
+import {
+  getCanaryBehavioral,
+  getPoolDetail,
+  getUserProfile,
+  queryEvents,
+  exportEventRows,
+  eventsToCsv,
+  recordExportAudit,
+} from "../src/adminQueries.js";
 import type { CoreEvent } from "../src/decoder.js";
 
 const prisma = new PrismaClient();
@@ -26,6 +34,7 @@ async function reset() {
   await prisma.member.deleteMany({});
   await prisma.pool.deleteMany({});
   await prisma.indexerCursor.deleteMany({});
+  await prisma.exportAudit.deleteMany({});
 }
 
 const contribute = (slotIndex: number, onTime: boolean): CoreEvent => ({
@@ -211,6 +220,39 @@ describe("ingest — resolve-when-possible / else NULL (ADR 0009 B)", function (
     expect(profile!.timeline[0]!.poolPda).to.equal(POOL_PDA);
     // chain-truth counters cross-check (seeded member has 0/0).
     expect(profile!.chainCounters.onTimeCount).to.equal(0);
+  });
+
+  it("queryEvents filters + paginates over the recorder", async () => {
+    const all = await queryEvents(prisma, {}, { limit: 50, offset: 0 });
+    expect(all.total).to.equal(1);
+    expect(all.rows[0]!.txSig).to.equal("sig-resolved");
+    expect(all.rows[0]!.eventType).to.equal("Contribute");
+
+    // The projected contribution is late-within-grace.
+    expect((await queryEvents(prisma, { timing: "grace" }, {})).total).to.equal(1);
+    expect((await queryEvents(prisma, { timing: "on_time" }, {})).total).to.equal(0);
+    expect((await queryEvents(prisma, { eventType: "Default" }, {})).total).to.equal(0);
+    expect((await queryEvents(prisma, { subjectWallet: WALLET }, {})).total).to.equal(1);
+  });
+
+  it("export reproduces the filtered slice + records an audit row", async () => {
+    const rows = await exportEventRows(prisma, {});
+    expect(rows).to.have.length(1);
+    const csv = eventsToCsv(rows);
+    expect(csv.split("\n")).to.have.length(2); // header + 1 row
+    expect(csv).to.include("sig-resolved");
+
+    await recordExportAudit(prisma, {
+      actor: "OperatorWallet111",
+      format: "csv",
+      filter: {},
+      rowCount: rows.length,
+    });
+    const audits = await prisma.exportAudit.findMany();
+    expect(audits).to.have.length(1);
+    expect(audits[0]!.actor).to.equal("OperatorWallet111");
+    expect(audits[0]!.format).to.equal("csv");
+    expect(audits[0]!.rowCount).to.equal(1);
   });
 
   it("bumpCursor is monotonic", async () => {

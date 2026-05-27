@@ -17,6 +17,7 @@ const NAV = [
   { href: "/admin/ops", label: "Canary" },
   { href: "/admin/ops/pools", label: "Pools" },
   { href: "/admin/ops/users", label: "Usuários" },
+  { href: "/admin/ops/events", label: "Eventos" },
 ];
 
 function errorText(code: string | null): string | null {

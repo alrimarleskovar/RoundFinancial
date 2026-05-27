@@ -410,3 +410,23 @@ enum DefaultReason {
 enum DefaultReasonProvenance {
   Inferred
 }
+
+// ─── Export audit (ADR 0009) ──────────────────────────────────────────────
+//
+// The events export is the product asset + sensitive credit data, so every
+// export is recorded: WHO (authenticated pubkey), WHEN, the filter applied,
+// the format, and how many rows left. Append-only audit trail.
+model ExportAudit {
+  id        String   @id @default(cuid())
+  /// Authenticated operator pubkey that performed the export.
+  actor     String
+  format    String // "csv" | "json"
+  /// The exact filter object applied (for reproducibility / dispute).
+  filter    Json
+  rowCount  Int
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actor])
+  @@map("export_audit")
+}

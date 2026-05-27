@@ -14,7 +14,7 @@
  * live pool/member status ← fresh RPC in the route handler.
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 // ─── Indexer health / staleness ──────────────────────────────────────────
 
@@ -547,4 +547,180 @@ export async function getUserProfile(
       defaultReasonProvenance: e.defaultReasonProvenance,
     })),
   };
+}
+
+// ─── Events: filterable "black-box recorder" + export (ADR 0009) ───────────
+//
+// The single normalized `events` table is the queryable/exportable record.
+// Filters are exact (pool, wallet, type) + a behavioral timing facet +
+// a time window. The SAME filter drives the paginated table and the export,
+// so the export reproduces exactly what the operator saw.
+
+export interface EventFilter {
+  poolPda?: string;
+  subjectWallet?: string;
+  eventType?: "Contribute" | "Claim" | "Default";
+  /** Behavioral facet (Contribute only; forces eventType=Contribute). */
+  timing?: "on_time" | "grace" | "late";
+  /** Inclusive on_chain_ts window, unix seconds. */
+  fromUnix?: number;
+  toUnix?: number;
+}
+
+export interface EventRow {
+  txSig: string;
+  eventType: string;
+  subjectWallet: string;
+  poolPda: string;
+  cycle: number;
+  slotIndex: number;
+  slotNumber: string;
+  onChainTsUnix: number;
+  dueTsUnix: number | null;
+  deltaSeconds: number | null;
+  graceUsed: boolean;
+  defaultReason: string | null;
+  defaultReasonProvenance: string | null;
+}
+
+function buildEventWhere(f: EventFilter): Prisma.EventWhereInput {
+  const where: Prisma.EventWhereInput = {};
+  if (f.poolPda) where.poolPda = f.poolPda;
+  if (f.subjectWallet) where.subjectWallet = f.subjectWallet;
+  if (f.eventType) where.eventType = f.eventType;
+  if (f.fromUnix != null || f.toUnix != null) {
+    const ts: Prisma.BigIntFilter = {};
+    if (f.fromUnix != null) ts.gte = BigInt(f.fromUnix);
+    if (f.toUnix != null) ts.lte = BigInt(f.toUnix);
+    where.onChainTs = ts;
+  }
+  if (f.timing) {
+    where.eventType = "Contribute"; // timing only applies to contributions
+    if (f.timing === "on_time") where.deltaSeconds = { lte: 0 };
+    else if (f.timing === "grace") where.graceUsed = true;
+    else if (f.timing === "late") {
+      where.graceUsed = false;
+      where.deltaSeconds = { gt: 0 };
+    }
+  }
+  return where;
+}
+
+type RawEventRow = {
+  txSig: string;
+  eventType: string;
+  subjectWallet: string;
+  poolPda: string;
+  cycle: number;
+  slotIndex: number;
+  slotNumber: bigint;
+  onChainTs: bigint;
+  dueTs: bigint | null;
+  deltaSeconds: number | null;
+  graceUsed: boolean;
+  defaultReason: string | null;
+  defaultReasonProvenance: string | null;
+};
+
+function mapEventRow(e: RawEventRow): EventRow {
+  return {
+    txSig: e.txSig,
+    eventType: e.eventType,
+    subjectWallet: e.subjectWallet,
+    poolPda: e.poolPda,
+    cycle: e.cycle,
+    slotIndex: e.slotIndex,
+    slotNumber: e.slotNumber.toString(),
+    onChainTsUnix: Number(e.onChainTs),
+    dueTsUnix: e.dueTs != null ? Number(e.dueTs) : null,
+    deltaSeconds: e.deltaSeconds,
+    graceUsed: e.graceUsed,
+    defaultReason: e.defaultReason,
+    defaultReasonProvenance: e.defaultReasonProvenance,
+  };
+}
+
+export interface EventQueryResult {
+  rows: EventRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Paginated, filtered events for the recorder table (newest first). */
+export async function queryEvents(
+  prisma: PrismaClient,
+  filter: EventFilter,
+  opts: { limit?: number; offset?: number },
+): Promise<EventQueryResult> {
+  const where = buildEventWhere(filter);
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const [total, rows] = await Promise.all([
+    prisma.event.count({ where }),
+    prisma.event.findMany({
+      where,
+      orderBy: [{ onChainTs: "desc" }, { txSig: "asc" }],
+      take: limit,
+      skip: offset,
+    }),
+  ]);
+  return { rows: rows.map(mapEventRow), total, limit, offset };
+}
+
+/** All matching rows (chronological), capped — the export payload. */
+export async function exportEventRows(
+  prisma: PrismaClient,
+  filter: EventFilter,
+  cap = 50_000,
+): Promise<EventRow[]> {
+  const rows = await prisma.event.findMany({
+    where: buildEventWhere(filter),
+    orderBy: [{ onChainTs: "asc" }, { txSig: "asc" }],
+    take: cap,
+  });
+  return rows.map(mapEventRow);
+}
+
+const CSV_COLUMNS: (keyof EventRow)[] = [
+  "onChainTsUnix",
+  "eventType",
+  "subjectWallet",
+  "poolPda",
+  "cycle",
+  "slotIndex",
+  "slotNumber",
+  "dueTsUnix",
+  "deltaSeconds",
+  "graceUsed",
+  "defaultReason",
+  "defaultReasonProvenance",
+  "txSig",
+];
+
+function csvCell(v: unknown): string {
+  if (v == null) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function eventsToCsv(rows: EventRow[]): string {
+  const header = CSV_COLUMNS.join(",");
+  const lines = rows.map((r) => CSV_COLUMNS.map((c) => csvCell(r[c])).join(","));
+  return [header, ...lines].join("\n");
+}
+
+/** Record an export in the append-only audit trail (who/when/filter/count). */
+export async function recordExportAudit(
+  prisma: PrismaClient,
+  args: { actor: string; format: "csv" | "json"; filter: EventFilter; rowCount: number },
+): Promise<void> {
+  await prisma.exportAudit.create({
+    data: {
+      actor: args.actor,
+      format: args.format,
+      filter: args.filter as Prisma.InputJsonValue,
+      rowCount: args.rowCount,
+    },
+  });
 }
