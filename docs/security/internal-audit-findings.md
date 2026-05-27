@@ -1,9 +1,8 @@
 # Internal Pre-Audit — Findings Tracker
 
 > **Current count (canonical — this is the SSOT all other docs point to):**
-> **51 findings** · **48 🟢 closed** · 0 open ·
-> 1 🟡 partial (SEV-039 — `close_member` rent reclaim shipped, vault/Pool-PDA
-> close ceremony deferred) · 2 🔵 design-intentional · **Critical/High 16 of 16 🟢 closed** (6 Critical +
+> **51 findings** · **49 🟢 closed** · 0 open ·
+> 2 🔵 design-intentional · **Critical/High 16 of 16 🟢 closed** (6 Critical +
 > 10 High). SEV-049 + SEV-050 (both High liveness locks, found by the litesvm
 > L2 parity slice) are CLOSED: `skip_defaulted_payout` (pre-contemplation default
 > cycle advance) + dropping `close_pool`'s unsatisfiable defaulted-pool guard.
@@ -188,7 +187,7 @@ em `programs/`).
 | SEV-032 | 🔵 Acknowledged | —                                                                  | `ReputationConfig` padding exhausted by SEV-021                | W3 re-audit observation. The 30-byte padding budget was fully consumed by the SEV-021 `pending_authority` + `pending_authority_eta` additions. Future field additions require an explicit migration (re-init or `realloc`). Documented as a design constraint; no action this sprint.                                                                                                          |
 | SEV-033 | 🟢 Closed       | [#344](https://github.com/alrimarleskovar/roundfinancial/pull/344) | Webhook auth fails open when env var unset                     | Fase 5 batch. Indexer (`services/indexer/src/server.ts:187-215`) now refuses to start when `WEBHOOK_HMAC_SECRET` is unset AND `NODE_ENV != development`. Dev runs still allow no-auth for local convenience; production mode is fail-closed. Cross-referenced with SEV-009 (HMAC verification was already added; SEV-033 closes the env-var-missing → fail-open hole).                         |
 | SEV-037 | 🟢 Closed       | W5 batch                                                           | `commit_new_fee_bps_yield` missing `Signer` field              | W5 audit. Style inconsistency vs other `commit_new_*` ixs (treasury, authority both have `pub caller: Signer`). Added the field for shape consistency. No semantic change — crank stays permissionless (gate is the timelock).                                                                                                                                                                 |
-| SEV-039 | 🟡 Partially fixed | _(branch `claude/implement-roundfi-desktop-SRV6l`; repro `tests/litesvm_parity.spec.ts`)_ | `close_pool` does not close PDAs / ATAs | W5 audit. Rent on Pool PDA (~0.0035 SOL) + 4 vault ATAs + N Member PDAs stays locked after pool finalization; sub-min-rent dust in vaults inaccessible. Real but bounded, NOT a fund-loss vector. **Partial fix shipped:** new `close_member` ix (`instructions/close_member.rs`) closes ONE Member PDA after the pool is `Closed`, returning its rent to the member's wallet — the tractable bulk (N Member PDAs) of the trapped rent. Permissioned to pool/protocol authority or the member themselves; guarded by `PoolStatus::Closed` (new `PoolNotClosed` error). Validated by the litesvm parity slice, which now closes every Member PDA after `close_pool` and asserts `membersRemaining == 0`. **Still deferred:** draining vault dust + closing the 4 vault ATAs + the Pool PDA is a larger multi-tx ceremony (drain → close ATAs → close Pool PDA), tracked as the remainder of SEV-039. Requires devnet redeploy + verify-build refresh. |
+| SEV-039 | 🟢 Closed | _(branch `claude/implement-roundfi-desktop-SRV6l`; repro `tests/litesvm_parity.spec.ts`)_ | `close_pool` does not close PDAs / ATAs | W5 audit. Rent on Pool PDA (~0.0035 SOL) + 4 vault ATAs + N Member PDAs stayed locked after pool finalization; sub-min-rent dust in vaults inaccessible. Real but bounded, NOT a fund-loss vector. **Closed via a full rent-reclaim ceremony** (`close_pool` → `close_member` × N → `close_pool_vaults`): (1) `close_member` (`instructions/close_member.rs`) closes one Member PDA after the pool is `Closed`, refunding its rent to the member's wallet, and decrements `members_joined` (repurposed post-close as the live open-Member count); (2) `close_pool_vaults` (`instructions/close_pool_vaults.rs`) drains every vault's residual USDC to `config.treasury`, closes the four vault ATAs, and closes the Pool PDA — all rent reclaimed. Ordering is enforced on chain: `close_pool_vaults` requires `members_joined == 0` (new `MembersStillOpen` error) so the Pool PDA isn't closed while Member PDAs still depend on its seed. Residual→treasury is safe: a `Closed` pool has no remaining on-chain member claim, and treasury is governed by the 7-day rotation timelock + Squads multisig. Validated by the litesvm parity slice (19 passing), which runs the full ceremony in all 3 default scenarios and asserts the treasury drain equals the conservation `vaultTotal` and that all 4 vault ATAs + the Pool PDA are gone. Requires devnet redeploy + verify-build refresh. |
 
 ## Summary
 
@@ -198,8 +197,8 @@ em `programs/`).
 | High          | 10     | 10        | 0                            | 0          | 0                  |
 | Medium        | 14     | 14        | 0                            | 0          | 0                  |
 | Low           | 12     | 12        | 0                            | 0          | 0                  |
-| Informational | 9      | 6         | 1 (SEV-039 partial)          | 0          | 2                  |
-| **Total**     | **51** | **48**    | **1**                        | **0**      | **2**              |
+| Informational | 9      | 7         | 0                            | 0          | 2                  |
+| **Total**     | **51** | **49**    | **0**                        | **0**      | **2**              |
 
 > SEV-047 (High) + SEV-048 (Medium) added by the 2026-05-24 external-audit pass — both 🟢 closed. SEV-049 + SEV-050 (both High liveness, found by the litesvm L1↔L2 parity slice 2026-05-26) — both 🟢 closed. The ECO-001..008 cryptoeconomic series is tracked separately above (modeling/representation, not code-security).
 
@@ -211,8 +210,9 @@ mpl*core-dependent path (`join_pool`, `escape_valve_buy`) runs via the required
 pinned to Node 24). The 🔵 entries (SEV-018 design-intentional
 pause bypass, SEV-032 design-constraint padding) are acknowledged by the
 auditor as documented design trade-offs, not vulnerabilities. SEV-039
-(close_pool rent) is now 🟡 partial — `close_member` reclaims the per-member
-PDA rent; the vault-ATA + Pool-PDA close ceremony is the deferred remainder.
+(close_pool rent) is now 🟢 closed — the full rent-reclaim ceremony
+(`close_pool` → `close_member` × N → `close_pool_vaults`) drains the vaults to
+treasury and closes every Member PDA, the 4 vault ATAs, and the Pool PDA.
 
 The "**High — fund-leak**" regression chain (SEV-016 → SEV-029 → SEV-034 → SEV-034b)
 is fully closed in main. SEV-016 stays in Low (the original surface area was

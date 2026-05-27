@@ -10,29 +10,22 @@
 //!     know the pool is permanently finalized.
 //!   • Emits a summary msg! log with final balances.
 //!
-//! Actual vault-close and rent-return is deferred: closing an ATA
-//! requires knowing it's empty, which in turn requires the authority
-//! to have drained leftover dust to treasury. That drain is a
-//! follow-up chore; for the hackathon demo a Completed pool is
-//! effectively closed.
+//! Actual vault-close and rent-return happens in `close_pool_vaults`
+//! (the final step of the rent-reclaim ceremony) — closing an ATA
+//! requires it to be empty, so that ix drains leftover residual to
+//! treasury first. `close_pool` itself stays a pure terminal-state
+//! transition.
 //!
-//! **Adevar Labs SEV-039 (Informational, deferred):** the auditor's
-//! W5 pass flagged that close_pool does not close the Pool PDA, the
-//! Member PDAs, or the four vault ATAs (escrow / solidarity / yield /
-//! pool_usdc). Consequence: rent stays locked in the closed pool's
-//! accounts forever; sub-MIN_RENT-EXEMPT dust in the vaults becomes
-//! inaccessible. Per-pool rent waste is ~0.0035 SOL on the Pool PDA
-//! plus the ATAs; cumulative across the protocol's lifetime, real but
-//! bounded.
-//!
-//! Why deferred: a true close needs (a) drain-to-treasury for any
-//! lingering vault USDC dust, (b) close_account on each ATA + Pool
-//! PDA + Member PDAs (typically dozens), (c) rent return to a
-//! designated wallet. That's a multi-tx ceremony that doesn't fit the
-//! single-ix close_pool shape. Tracked as future operational work;
-//! NOT a fund-loss vector (the dust was never claimable beyond the
-//! rounding it represents). Documented in the public tracker as
-//! 🔵 Acknowledged design constraint.
+//! **Adevar Labs SEV-039 (Informational) — CLOSED.** The auditor's W5
+//! pass flagged that close_pool does not close the Pool PDA, the Member
+//! PDAs, or the four vault ATAs (escrow / solidarity / yield /
+//! pool_usdc), leaving their rent locked. This is now resolved by the
+//! full ceremony: `close_pool` → `close_member` × N → `close_pool_vaults`.
+//! `close_member` reclaims each Member PDA's rent (and decrements the
+//! live-member count); `close_pool_vaults` drains every vault residual
+//! to `config.treasury`, closes the four vault ATAs, and closes the Pool
+//! PDA. Ordering is enforced on chain (close_pool_vaults requires
+//! `members_joined == 0`). Validated by the litesvm parity slice.
 
 use anchor_lang::prelude::*;
 
