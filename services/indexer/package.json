@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
     "backfill": "tsx src/backfill.ts",
+    "backfill:events": "tsx src/backfill-events.ts",
     "reconcile": "tsx src/reconciler.ts",
     "reconcile:once": "tsx src/reconciler.ts --once",
     "project-events": "tsx src/projector.ts",
