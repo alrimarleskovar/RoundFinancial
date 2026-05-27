@@ -151,10 +151,15 @@ model Attestation {
 model ContributeEvent {
   id                String    @id @default(cuid())
   txSignature       String    @unique
-  pool              Pool      @relation(fields: [poolId], references: [id])
-  poolId            String
-  member            Member    @relation(fields: [memberId], references: [id])
-  memberId          String
+  /// poolId/memberId are NULLABLE (ADR 0009 — fast-ingest, resolve-later).
+  /// The ingest path resolves them when pool/member state is already in the
+  /// DB (backfill), else writes NULL and the reconciler fills them. A hard
+  /// FK + an "_unresolved" string sentinel were incompatible (every insert
+  /// violated the FK); NULL is the FK-valid "not yet resolved" marker.
+  pool              Pool?     @relation(fields: [poolId], references: [id])
+  poolId            String?
+  member            Member?   @relation(fields: [memberId], references: [id])
+  memberId          String?
   /// Raw wallet pubkey from the on-chain log. **Nullable since
   /// Adevar Labs SEV-014 fix** — the program's actual `msg!` emission
   /// does NOT include the member wallet (only the slot_index, see
@@ -210,10 +215,11 @@ model ContributeEvent {
 model ClaimEvent {
   id              String    @id @default(cuid())
   txSignature     String    @unique
-  pool            Pool      @relation(fields: [poolId], references: [id])
-  poolId          String
-  member          Member    @relation(fields: [memberId], references: [id])
-  memberId        String
+  /// Nullable until resolved — see ContributeEvent (ADR 0009).
+  pool            Pool?     @relation(fields: [poolId], references: [id])
+  poolId          String?
+  member          Member?   @relation(fields: [memberId], references: [id])
+  memberId        String?
   /// Raw wallet pubkey of the payout recipient. **Nullable since
   /// Adevar Labs SEV-014 fix** — the program's `payout` msg (NOT
   /// `claim_payout`, which was a decoder fiction) does NOT include
@@ -236,8 +242,9 @@ model ClaimEvent {
 model DefaultEvent {
   id               String    @id @default(cuid())
   txSignature      String    @unique
-  pool             Pool      @relation(fields: [poolId], references: [id])
-  poolId           String
+  /// Nullable until resolved — see ContributeEvent (ADR 0009).
+  pool             Pool?     @relation(fields: [poolId], references: [id])
+  poolId           String?
   /// The defaulted member — denormalized as wallet because the Member
   /// row may have been closed by a subsequent escape_valve_buy.
   defaultedWallet  String

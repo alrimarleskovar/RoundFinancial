@@ -134,9 +134,17 @@ async function main(): Promise<void> {
 
       const slot = BigInt(tx!.slot);
       const blockTime = BigInt(tx!.blockTime ?? Math.floor(Date.now() / 1000));
+      // Account keys for resolve-at-ingest (the Pool PDA is among them on
+      // any core tx). Static keys + ALT-loaded addresses, like the reconciler.
+      const msg = tx!.transaction.message;
+      const accountKeys = [
+        ...msg.staticAccountKeys.map((k) => k.toBase58()),
+        ...(tx!.meta?.loadedAddresses?.writable ?? []).map((k) => k.toString()),
+        ...(tx!.meta?.loadedAddresses?.readonly ?? []).map((k) => k.toString()),
+      ];
       const n = await upsertEventsFromLogs(
         prisma,
-        { txSignature: info.signature, slot, blockTime },
+        { txSignature: info.signature, slot, blockTime, accountKeys },
         events,
       );
       if (n > 0) {

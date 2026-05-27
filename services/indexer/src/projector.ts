@@ -94,8 +94,8 @@ async function projectContribute(
     slot: bigint;
     blockTime: bigint;
     resolvedAt: Date | null;
-    poolId: string;
-    memberId: string;
+    poolId: string | null;
+    memberId: string | null;
     schemaId: number;
     onTime: boolean;
     solidarityAmt: bigint;
@@ -166,8 +166,8 @@ async function projectClaim(
     slot: bigint;
     blockTime: bigint;
     resolvedAt: Date | null;
-    poolId: string;
-    memberId: string;
+    poolId: string | null;
+    memberId: string | null;
     amountPaid: bigint;
   },
   pool: { id: string; pda: string; startedAt: bigint | null; cycleDurationSec: bigint },
@@ -207,7 +207,7 @@ async function projectDefault(
     slot: bigint;
     blockTime: bigint;
     resolvedAt: Date | null;
-    poolId: string;
+    poolId: string | null;
     defaultedWallet: string;
     seizedSolidarity: bigint;
     seizedEscrow: bigint;
@@ -271,28 +271,43 @@ export async function rebuildEvents(
   const result: ProjectionResult = { contribute: 0, claim: 0, default: 0 };
 
   const contributes = await prisma.contributeEvent.findMany({
-    where: { orphaned: false, resolvedAt: { not: null }, poolId: { not: "_unresolved" } },
+    where: {
+      orphaned: false,
+      resolvedAt: { not: null },
+      poolId: { not: null },
+      memberId: { not: null },
+    },
     include: { pool: true, member: true },
   });
   for (const row of contributes) {
+    // Relations are non-null given the WHERE (poolId/memberId not null) +
+    // the FK, but Prisma types them optional — guard to satisfy the types.
+    if (!row.pool || !row.member) continue;
     await projectContribute(prisma, row, row.pool, row.member);
     result.contribute += 1;
   }
 
   const claims = await prisma.claimEvent.findMany({
-    where: { orphaned: false, resolvedAt: { not: null }, poolId: { not: "_unresolved" } },
+    where: {
+      orphaned: false,
+      resolvedAt: { not: null },
+      poolId: { not: null },
+      memberId: { not: null },
+    },
     include: { pool: true, member: true },
   });
   for (const row of claims) {
+    if (!row.pool || !row.member) continue;
     await projectClaim(prisma, row, row.pool, row.member);
     result.claim += 1;
   }
 
   const defaults = await prisma.defaultEvent.findMany({
-    where: { orphaned: false, resolvedAt: { not: null }, poolId: { not: "_unresolved" } },
+    where: { orphaned: false, resolvedAt: { not: null }, poolId: { not: null } },
     include: { pool: true },
   });
   for (const row of defaults) {
+    if (!row.pool) continue;
     await projectDefault(prisma, row, row.pool);
     result.default += 1;
   }
