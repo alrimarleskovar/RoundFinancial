@@ -49,4 +49,10 @@ impl fmt::Display for MathError {
     }
 }
 
-impl core::error::Error for MathError {}
+// No `core::error::Error` impl: it was stabilized only in Rust 1.81, but the
+// solana-verify reproducible-build image (Solana 1.18.26 platform-tools) ships
+// an older rustc that rejects it (`error_in_core`). The trait is unused in the
+// workspace anyway — every call site takes `MathError` by value via
+// `Result<_, MathError>`, never as `dyn Error`. Re-add behind
+// `#[cfg(feature = "std")]` with `std::error::Error` if host ergonomics ever
+// need it, so the SBF/no_std build stays clean.
