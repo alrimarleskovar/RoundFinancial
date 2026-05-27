@@ -1374,17 +1374,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
 // locks). The stubs that used to live here are superseded by that file.
 
 // ─── Layer 3 — orthogonal conservation invariant ─────────────────────
-
-describe.skip("Conservation invariant — every cent accounted for", () => {
-  it("sum(member_net_positions) + protocol_retention + remaining_vaults ≡ harvested_yield", async () => {
-    // For each preset:
-    //   For L1: sum of every ledger entry's signed net position
-    //           (received - stakePaid - installmentsPaid) +
-    //           totalRetained - totalLoss
-    //           must equal totalNetYield (kaminoNetYield).
-    //   For L2: the same quantity, computed from on-chain balances
-    //           after close_pool.
-    //   Both must be within a 1-USDC-unit epsilon — anything bigger
-    //   is a parity bug.
-  });
-});
+// Also IMPLEMENTED in tests/litesvm_parity.spec.ts: each default scenario
+// asserts `Σ(member on-chain deltas) + Σ(pool vault balances) == 0` (no yield
+// CPI runs, so no USDC is created → every minted dollar is in a member wallet
+// or a pool vault). The stub that used to live here is superseded by that file.
