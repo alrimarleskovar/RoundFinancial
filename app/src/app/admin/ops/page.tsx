@@ -6,7 +6,7 @@
 
 import { useApi } from "@/lib/admin/useApi";
 import { useTheme } from "@/lib/theme";
-import { agoLabel, Empty, GatedNote, Section, StatCard } from "@/components/adminops/ui";
+import { agoLabel, Empty, fmtDuration, Section, StatCard } from "@/components/adminops/ui";
 
 interface IndexerHealth {
   lastSlot: string | null;
@@ -18,14 +18,23 @@ interface IndexerHealth {
   lastProjectionUnix: number | null;
   projectedEventCount: number;
 }
+interface Behavioral {
+  timedContributions: number;
+  onTime: number;
+  late: number;
+  graceUsed: number;
+  onTimeRateBps: number | null;
+  avgDelaySecondsLate: number | null;
+  defaults: number;
+}
 interface CanaryResponse {
   overview: {
     pools: { total: number; byStatus: Record<string, number>; atRisk: number };
     members: { total: number };
     events: { contribute: number; claim: number; default: number };
-    behavioralGated: true;
     indexer: IndexerHealth;
   };
+  behavioral: Behavioral;
   servedAtUnix: number;
 }
 
@@ -42,6 +51,7 @@ export default function CanaryPage() {
     return <Empty>Não foi possível carregar o overview ({error ?? "sem dados"}).</Empty>;
 
   const { overview: o } = data;
+  const b = data.behavioral;
   const ix = o.indexer;
   const grid = {
     display: "grid",
@@ -78,12 +88,38 @@ export default function CanaryPage() {
         )}
       </Section>
 
-      <Section title="Comportamento agregado">
-        <GatedNote>
-          Pagamento em dia, atraso médio, uso de grace e defaults derivam das attestations
-          projetadas. Liberados após o smoke on-devnet validar o mapeamento de ingestão (due_ts ==
-          next_cycle_at, delta/grace, segundos vs ms) — ADR 0009 #5.
-        </GatedNote>
+      <Section
+        title="Comportamento agregado"
+        note={`${b.timedContributions} contribuições com prazo · derivado de events`}
+      >
+        {b.timedContributions === 0 ? (
+          <Empty>Sem contribuições com prazo ainda (rode backfill:events + project-events).</Empty>
+        ) : (
+          <div style={grid}>
+            <StatCard
+              label="Em dia"
+              value={b.onTimeRateBps == null ? "—" : `${(b.onTimeRateBps / 100).toFixed(1)}%`}
+              sub={`${b.onTime} de ${b.timedContributions}`}
+            />
+            <StatCard
+              label="Atrasados"
+              value={b.late}
+              sub={`${b.graceUsed} dentro do grace`}
+              tone={b.late === 0 ? "muted" : "default"}
+            />
+            <StatCard
+              label="Atraso médio"
+              value={fmtDuration(b.avgDelaySecondsLate)}
+              sub="média dos atrasados"
+            />
+            <StatCard
+              label="Defaults"
+              value={b.defaults}
+              sub="settle_default on-chain"
+              tone={b.defaults === 0 ? "muted" : "default"}
+            />
+          </div>
+        )}
       </Section>
 
       <Section

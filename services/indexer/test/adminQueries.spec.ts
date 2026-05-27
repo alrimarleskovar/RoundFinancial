@@ -197,7 +197,6 @@ describe("adminQueries — structural + health (ADR 0009 Phase 1)", function () 
     expect(o.members.total).to.equal(1);
     expect(o.events.contribute).to.equal(2);
     expect(o.events.default).to.equal(1);
-    expect(o.behavioralGated).to.equal(true);
   });
 
   it("listPoolsForAdmin maps fields + labels structural health", async () => {

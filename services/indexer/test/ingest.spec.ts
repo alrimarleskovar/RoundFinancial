@@ -9,6 +9,7 @@ import { PrismaClient } from "@prisma/client";
 
 import { bumpCursor, upsertEventsFromLogs } from "../src/ingest.js";
 import { rebuildEvents } from "../src/projector.js";
+import { getCanaryBehavioral, getPoolDetail } from "../src/adminQueries.js";
 import type { CoreEvent } from "../src/decoder.js";
 
 const prisma = new PrismaClient();
@@ -166,6 +167,30 @@ describe("ingest — resolve-when-possible / else NULL (ADR 0009 B)", function (
     expect(ev.deltaSeconds).to.equal(100);
     expect(ev.graceUsed).to.equal(true);
     expect(ev.subjectWallet).to.equal(WALLET);
+  });
+
+  it("getCanaryBehavioral aggregates the projected events (gate #5 cleared)", async () => {
+    // The single projected contribution is late-within-grace (delta +100).
+    const b = await getCanaryBehavioral(prisma);
+    expect(b.timedContributions).to.equal(1);
+    expect(b.onTime).to.equal(0);
+    expect(b.late).to.equal(1);
+    expect(b.graceUsed).to.equal(1);
+    expect(b.onTimeRateBps).to.equal(0);
+    expect(b.avgDelaySecondsLate).to.equal(100);
+    expect(b.defaults).to.equal(0);
+  });
+
+  it("getPoolDetail returns members + the behavioral timeline", async () => {
+    const detail = await getPoolDetail(prisma, POOL_PDA);
+    expect(detail).to.not.equal(null);
+    expect(detail!.members).to.have.length(1);
+    expect(detail!.timeline).to.have.length(1);
+    const t = detail!.timeline[0]!;
+    expect(t.eventType).to.equal("Contribute");
+    expect(t.deltaSeconds).to.equal(100);
+    expect(t.graceUsed).to.equal(true);
+    expect(t.subjectWallet).to.equal(WALLET);
   });
 
   it("bumpCursor is monotonic", async () => {

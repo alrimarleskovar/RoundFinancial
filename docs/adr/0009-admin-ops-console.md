@@ -5,6 +5,13 @@
 **Decision-makers:** Engineering (canary)
 **Related:** Indexer score-fields migration (`services/indexer/prisma/migrations/2026-05-canary-score-fields-options/`), ADR [0002](./0002-idl-free-sdk-encoders.md) (IDL-free decoders), ADR [0005](./0005-indexer-finality-gate.md) (reconciler finality gate), `MAINNET_READINESS.md` §6.1 (attestation as "credit data").
 
+> **Gate #5 — CLEARED (2026-05-27).** The on-devnet exact-value smoke passed
+> against 16 real `contribute` events: `due_ts_ok` / `delta_ok` / `grace_ok`
+> TRUE on every row, timestamps confirmed in **seconds** (no ms bug), grace
+> zones (early / within / past-7d) consistent. Behavioral aggregates + the
+> per-cycle behavioral timeline are therefore unblocked and now shown in the
+> console (no longer "gated").
+
 ## Context
 
 RoundFi needs an internal **operational console** for the devnet canary — a read-only "black box recorder" over protocol reputation: pool health, per-cycle behavior, user behavioral profiles, and an exportable event log. This is the moat (the behavioral credit dataset), so it must be access-gated and must never tell a different story than the chain.
@@ -73,7 +80,7 @@ Validated by `tests/behavioral.spec.ts` (exact-value parity, including iterated-
 ### Amendments folded in (this is what "do it right" means here)
 
 - **(2) `due_ts` corrected to `(c + 1)`** and undefined pre-Active — an earlier draft used `c * cycle_duration`, which is one cycle early and would mark every payment late.
-- **(2) Phase-0 smoke asserts EXACT values:** take a real devnet contribution and confirm the computed `due_ts == next_cycle_at` for that cycle on-chain, and that `delta_seconds` / `grace_used` match. "Field populated" is **not** a passing criterion.
+- **(2) Phase-0 smoke asserts EXACT values:** take a real devnet contribution and confirm the computed `due_ts == next_cycle_at` for that cycle on-chain, and that `delta_seconds` / `grace_used` match. "Field populated" is **not** a passing criterion. **CLEARED 2026-05-27** (16 contribute events, all exact-value TRUE, seconds confirmed — see the gate note at the top).
 - **(3a) Composite unique `(tx_sig, event_type)`** on `events` — not `tx_sig` alone: a claim both pays and advances the cycle in one tx, and it keeps Helius redelivery idempotent.
 - **(3b) `default_reason` is INFERRED by the indexer**, not on-chain fact. The contract records no reason — `settle_default` only seizes the `missed` installment. Provenance is marked `inferred` and never displayed as an on-chain fact. Inference rules:
   - `MissedDeadline` — base case: a `settle_default` event exists, whose on-chain precondition IS missed-deadline + elapsed grace. Default for every settle event.

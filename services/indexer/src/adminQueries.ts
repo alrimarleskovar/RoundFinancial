@@ -99,12 +99,6 @@ export interface CanaryOverview {
   };
   members: { total: number };
   events: { contribute: number; claim: number; default: number };
-  /**
-   * Behavioral aggregates (on-time rate, avg delay, grace rate, defaults)
-   * are intentionally absent until the on-devnet smoke confirms the
-   * ingestion mapping (ADR 0009 #5). The UI renders this flag, not a fake 0.
-   */
-  behavioralGated: true;
   indexer: IndexerHealth;
 }
 
@@ -141,7 +135,6 @@ export async function getCanaryOverview(
     pools: { total: totalPools, byStatus, atRisk },
     members: { total: members },
     events,
-    behavioralGated: true,
     indexer,
   };
 }
@@ -204,4 +197,150 @@ export async function listPoolsForAdmin(prisma: PrismaClient): Promise<AdminPool
     health: structuralHealth(p.defaultedMembers, p.membersTarget),
     updatedAtUnix: Math.floor(p.updatedAt.getTime() / 1000),
   }));
+}
+
+// ─── Behavioral aggregates (unblocked — ADR 0009 gate #5 cleared) ──────────
+//
+// Derived from the projected `events` table (`behavioral.ts` semantics):
+//   on_time ⟺ delta_seconds <= 0 ; late ⟺ delta_seconds > 0 ;
+//   grace_used = late-but-within-7d. Only Contribute events carry payment
+//   timing; defaults are counted from Default events. Rates are bps of the
+//   timed-contribution population (events with a non-null due_ts — i.e. the
+//   pool was Active). The on-devnet smoke (2026-05-27) confirmed these
+//   exact values against the chain.
+
+export interface BehavioralAggregate {
+  /** Contribute events with a computable deadline (pool was Active). */
+  timedContributions: number;
+  onTime: number;
+  late: number;
+  graceUsed: number;
+  /** On-time share, in basis points of timedContributions (null if none). */
+  onTimeRateBps: number | null;
+  /** Mean positive delay over LATE contributions, seconds (null if none). */
+  avgDelaySecondsLate: number | null;
+  defaults: number;
+}
+
+export async function getCanaryBehavioral(prisma: PrismaClient): Promise<BehavioralAggregate> {
+  const contributeTimed = { eventType: "Contribute" as const, dueTs: { not: null } };
+  const [timed, onTime, late, graceUsed, lateAgg, defaults] = await Promise.all([
+    prisma.event.count({ where: contributeTimed }),
+    prisma.event.count({ where: { ...contributeTimed, deltaSeconds: { lte: 0 } } }),
+    prisma.event.count({ where: { ...contributeTimed, deltaSeconds: { gt: 0 } } }),
+    prisma.event.count({ where: { eventType: "Contribute", graceUsed: true } }),
+    prisma.event.aggregate({
+      where: { ...contributeTimed, deltaSeconds: { gt: 0 } },
+      _avg: { deltaSeconds: true },
+    }),
+    prisma.event.count({ where: { eventType: "Default" } }),
+  ]);
+
+  return {
+    timedContributions: timed,
+    onTime,
+    late,
+    graceUsed,
+    onTimeRateBps: timed > 0 ? Math.round((onTime / timed) * 10_000) : null,
+    avgDelaySecondsLate:
+      lateAgg._avg.deltaSeconds != null ? Math.round(lateAgg._avg.deltaSeconds) : null,
+    defaults,
+  };
+}
+
+// ─── Pool detail: structural members + behavioral cycle timeline ───────────
+
+export interface AdminMemberRow {
+  wallet: string;
+  slotIndex: number;
+  reputationLevel: number;
+  contributionsPaid: number;
+  onTimeCount: number;
+  lateCount: number;
+  defaulted: boolean;
+  paidOut: boolean;
+  escrowBalance: string;
+}
+
+export interface TimelineEntry {
+  txSig: string;
+  eventType: string;
+  subjectWallet: string;
+  cycle: number;
+  slotIndex: number;
+  onChainTsUnix: number;
+  dueTsUnix: number | null;
+  deltaSeconds: number | null;
+  graceUsed: boolean;
+  defaultReason: string | null;
+  defaultReasonProvenance: string | null;
+}
+
+export interface PoolDetail {
+  pool: AdminPoolRow;
+  /** On-chain member counters (chain truth via backfill) — NOT events. */
+  members: AdminMemberRow[];
+  /** Per-cycle behavioral timeline from the projected `events` (resolved). */
+  timeline: TimelineEntry[];
+}
+
+export async function getPoolDetail(prisma: PrismaClient, pda: string): Promise<PoolDetail | null> {
+  const p = await prisma.pool.findUnique({ where: { pda } });
+  if (!p) return null;
+
+  const [members, events] = await Promise.all([
+    prisma.member.findMany({ where: { poolId: p.id }, orderBy: { slotIndex: "asc" } }),
+    prisma.event.findMany({
+      where: { poolId: p.id },
+      orderBy: [{ cycle: "asc" }, { slotNumber: "asc" }],
+    }),
+  ]);
+
+  const pool: AdminPoolRow = {
+    pda: p.pda,
+    authority: p.authority,
+    seedId: p.seedId.toString(),
+    status: p.status,
+    currentCycle: p.currentCycle,
+    cyclesTotal: p.cyclesTotal,
+    membersJoined: p.membersJoined,
+    membersTarget: p.membersTarget,
+    defaultedMembers: p.defaultedMembers,
+    startedAtUnix: p.startedAt != null ? Number(p.startedAt) : null,
+    nextCycleAtUnix: p.nextCycleAt != null ? Number(p.nextCycleAt) : null,
+    totalContributed: p.totalContributed.toString(),
+    totalPaidOut: p.totalPaidOut.toString(),
+    solidarityBalance: p.solidarityBalance.toString(),
+    escrowBalance: p.escrowBalance.toString(),
+    health: structuralHealth(p.defaultedMembers, p.membersTarget),
+    updatedAtUnix: Math.floor(p.updatedAt.getTime() / 1000),
+  };
+
+  return {
+    pool,
+    members: members.map((m) => ({
+      wallet: m.wallet,
+      slotIndex: m.slotIndex,
+      reputationLevel: m.reputationLevel,
+      contributionsPaid: m.contributionsPaid,
+      onTimeCount: m.onTimeCount,
+      lateCount: m.lateCount,
+      defaulted: m.defaulted,
+      paidOut: m.paidOut,
+      escrowBalance: m.escrowBalance.toString(),
+    })),
+    timeline: events.map((e) => ({
+      txSig: e.txSig,
+      eventType: e.eventType,
+      subjectWallet: e.subjectWallet,
+      cycle: e.cycle,
+      slotIndex: e.slotIndex,
+      onChainTsUnix: Number(e.onChainTs),
+      dueTsUnix: e.dueTs != null ? Number(e.dueTs) : null,
+      deltaSeconds: e.deltaSeconds,
+      graceUsed: e.graceUsed,
+      defaultReason: e.defaultReason,
+      defaultReasonProvenance: e.defaultReasonProvenance,
+    })),
+  };
 }

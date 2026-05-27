@@ -23,6 +23,16 @@ export function agoLabel(unix: number | null | undefined): string {
   return `${Math.floor(s / 86_400)}d atrás`;
 }
 
+/** Humanized duration from seconds; "—" when null. */
+export function fmtDuration(seconds: number | null | undefined): string {
+  if (seconds == null) return "—";
+  const s = Math.abs(seconds);
+  if (s < 60) return `${seconds}s`;
+  if (s < 3600) return `${Math.round(s / 60)}m`;
+  if (s < 86_400) return `${(s / 3600).toFixed(1)}h`;
+  return `${(s / 86_400).toFixed(1)}d`;
+}
+
 export function MonoLabel({ children }: { children: ReactNode }) {
   const { tokens } = useTheme();
   return (

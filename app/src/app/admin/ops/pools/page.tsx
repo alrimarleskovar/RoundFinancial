@@ -1,8 +1,9 @@
 "use client";
 
-// /admin/ops/pools — structural pools table from the indexer DB. The
-// per-pool behavioral timeline (events-derived who-paid/late/defaulted) is
-// a separate, gated increment that lands after the on-devnet smoke.
+// /admin/ops/pools — structural pools table from the indexer DB. Each row
+// links to the pool detail (structural + RPC-live + behavioral timeline).
+
+import Link from "next/link";
 
 import { useApi } from "@/lib/admin/useApi";
 import { useTheme } from "@/lib/theme";
@@ -90,7 +91,12 @@ export default function PoolsPage() {
               {data.pools.map((p) => (
                 <tr key={p.pda}>
                   <td style={{ ...td, paddingLeft: 16 }}>
-                    <MonoLabel>{shortAddr(p.pda, 6, 6)}</MonoLabel>
+                    <Link
+                      href={`/admin/ops/pools/${p.pda}`}
+                      style={{ color: tokens.text, textDecoration: "none" }}
+                    >
+                      <MonoLabel>{shortAddr(p.pda, 6, 6)}</MonoLabel>
+                    </Link>
                   </td>
                   <td style={td}>
                     <StatusPill status={p.status} />
