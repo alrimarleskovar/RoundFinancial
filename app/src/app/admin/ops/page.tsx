@@ -93,7 +93,7 @@ export default function CanaryPage() {
         <div style={grid}>
           <StatCard
             label="Lag (slots)"
-            value={ix.slotsBehind == null ? "desconhecido" : ix.slotsBehind}
+            value={ix.slotsBehind == null ? "—" : ix.slotsBehind}
             sub={
               ix.slotsBehind == null ? "cluster slot indisponível" : `último slot ${ix.lastSlot}`
             }

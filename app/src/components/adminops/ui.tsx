@@ -92,6 +92,7 @@ export function StatCard({
           color: tone === "muted" ? tokens.muted : tokens.text,
           fontVariantNumeric: "tabular-nums",
           lineHeight: 1.1,
+          overflowWrap: "anywhere",
         }}
       >
         {value}
