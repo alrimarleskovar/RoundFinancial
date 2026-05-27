@@ -12,6 +12,7 @@
     "backfill": "tsx src/backfill.ts",
     "reconcile": "tsx src/reconciler.ts",
     "reconcile:once": "tsx src/reconciler.ts --once",
+    "project-events": "tsx src/projector.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },

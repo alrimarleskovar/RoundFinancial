@@ -36,9 +36,14 @@ A single normalized `events` table is the base record; metrics / profiles / insi
 `subject_wallet, pool, cycle, slot_index, event_type (contribute|claim|default), on_chain_ts, due_ts, delta_seconds, grace_used, default_reason?, tx_sig, slot_number, orphaned, resolved_at, details JSONB`.
 
 - Type-specific payload (e.g. payout `credit` / `retained_at_payout`, seizure cascade breakdown) lives in `details` JSONB.
-- `due_ts` / `delta_seconds` / `grace_used` are **pure functions** of `(event, on-chain schedule)` — never write-once. The table is **rebuildable from chain via backfill**.
-- The three typed tables become **views** over `events` (or SDK helpers) so existing consumers keep working.
-- **Fallback** (if rewriting the decoder/webhook write-path proves invasive): keep the typed tables as the ingestion + reconciliation surface and **derive** `events` from them — still backfill-rebuildable, but accepting some drift surface. Attempt the collapse first; the cost of touching the reconciler's three per-table functions + the webhook `_unresolved` fast-path is the cut criterion.
+- `due_ts` / `delta_seconds` / `grace_used` are **pure functions** of `(event, on-chain schedule)` — never write-once. The table is **rebuildable from the resolved typed rows via the projector** (`rebuildEvents`).
+- `due_ts` is filled at **projection time, post-resolution**, because it needs `Pool.started_at`, which is only known once the reconciler has resolved the row's canonical pool (the webhook writes with `_unresolved` placeholders).
+
+**Decision taken — FALLBACK (evidence-based, step-1 close-out criterion #1).** We attempted the collapse and cut to the fallback: keep the typed tables (`contribute/claim/default`) as the ingestion + reconciliation surface and derive `events` as a deterministic projection of the resolved typed rows (`services/indexer/src/projector.ts`).
+
+_Why the collapse was invasive (1–2 lines):_ the collapse forces rewriting both the webhook fast-path **and** the reconciler's three finality/orphan/RPC-quorum functions (ADR 0005, load-bearing, **zero unit tests**, not end-to-end validatable without finalized devnet txs in this environment). The fallback yields the **same zero-drift guarantee** — `events` is a pure function of `(typed row + pool schedule)`, so a re-projection cannot diverge — at materially lower risk, and leaves the truth-path untouched.
+
+- The three typed tables remain the base; the normalized `events` is the derived query surface. The `*_events_v` views (criterion #7) reproduce the typed shape **on top of** `events` (extracting type-specific fields from `details`), proving the normalized table + JSONB carry every field and giving a forward-compat path toward a future true collapse. `events` (and thus the `_v` views) hold only **resolved, non-orphaned** rows; the base typed tables remain the place to inspect unresolved/orphaned rows.
 
 ### 3. Next.js route handlers (`app/api/admin/**`) are the sole backend
 
