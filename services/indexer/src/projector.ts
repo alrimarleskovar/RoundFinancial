@@ -271,29 +271,23 @@ export async function rebuildEvents(
   const result: ProjectionResult = { contribute: 0, claim: 0, default: 0 };
 
   const contributes = await prisma.contributeEvent.findMany({
-    where: {
-      orphaned: false,
-      resolvedAt: { not: null },
-      poolId: { not: null },
-      memberId: { not: null },
-    },
+    // `resolvedAt != null` IS the "resolved" predicate: ingest/reconciler set
+    // it ONLY when poolId+memberId resolved (all-or-nothing), so it already
+    // implies non-null FKs — no separate poolId/memberId filter needed (and
+    // `{ not: null }` on those is a Prisma footgun across client versions).
+    where: { orphaned: false, resolvedAt: { not: null } },
     include: { pool: true, member: true },
   });
   for (const row of contributes) {
-    // Relations are non-null given the WHERE (poolId/memberId not null) +
-    // the FK, but Prisma types them optional — guard to satisfy the types.
+    // resolvedAt implies the FKs are set; guard anyway to satisfy the types
+    // (Prisma types included relations as optional).
     if (!row.pool || !row.member) continue;
     await projectContribute(prisma, row, row.pool, row.member);
     result.contribute += 1;
   }
 
   const claims = await prisma.claimEvent.findMany({
-    where: {
-      orphaned: false,
-      resolvedAt: { not: null },
-      poolId: { not: null },
-      memberId: { not: null },
-    },
+    where: { orphaned: false, resolvedAt: { not: null } },
     include: { pool: true, member: true },
   });
   for (const row of claims) {
@@ -303,7 +297,7 @@ export async function rebuildEvents(
   }
 
   const defaults = await prisma.defaultEvent.findMany({
-    where: { orphaned: false, resolvedAt: { not: null }, poolId: { not: null } },
+    where: { orphaned: false, resolvedAt: { not: null } },
     include: { pool: true },
   });
   for (const row of defaults) {
