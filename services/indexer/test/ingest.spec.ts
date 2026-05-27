@@ -9,7 +9,7 @@ import { PrismaClient } from "@prisma/client";
 
 import { bumpCursor, upsertEventsFromLogs } from "../src/ingest.js";
 import { rebuildEvents } from "../src/projector.js";
-import { getCanaryBehavioral, getPoolDetail } from "../src/adminQueries.js";
+import { getCanaryBehavioral, getPoolDetail, getUserProfile } from "../src/adminQueries.js";
 import type { CoreEvent } from "../src/decoder.js";
 
 const prisma = new PrismaClient();
@@ -191,6 +191,26 @@ describe("ingest — resolve-when-possible / else NULL (ADR 0009 B)", function (
     expect(t.deltaSeconds).to.equal(100);
     expect(t.graceUsed).to.equal(true);
     expect(t.subjectWallet).to.equal(WALLET);
+  });
+
+  it("getUserProfile aggregates across pools (derived) + timeline", async () => {
+    const profile = await getUserProfile(prisma, WALLET);
+    expect(profile).to.not.equal(null);
+    expect(profile!.pools.total).to.equal(1);
+    expect(profile!.pools.active).to.equal(1);
+    const b = profile!.behavioral;
+    expect(b.timedContributions).to.equal(1);
+    expect(b.onTime).to.equal(0);
+    expect(b.late).to.equal(1);
+    expect(b.graceUsed).to.equal(1);
+    expect(b.avgDelaySecondsLate).to.equal(100);
+    // Late-but-within-grace is NOT a setback → no recovery context.
+    expect(b.hadSetback).to.equal(false);
+    expect(b.recovered).to.equal(false);
+    expect(profile!.timeline).to.have.length(1);
+    expect(profile!.timeline[0]!.poolPda).to.equal(POOL_PDA);
+    // chain-truth counters cross-check (seeded member has 0/0).
+    expect(profile!.chainCounters.onTimeCount).to.equal(0);
   });
 
   it("bumpCursor is monotonic", async () => {

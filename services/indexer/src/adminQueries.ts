@@ -416,3 +416,135 @@ export async function listUsersForAdmin(prisma: PrismaClient): Promise<AdminUser
     })
     .sort((a, b) => b.defaults - a.defaults || a.wallet.localeCompare(b.wallet));
 }
+
+// ─── User profile: across-pool behavioral view (derived · experimental) ────
+
+export interface UserBehavioral {
+  timedContributions: number;
+  onTime: number;
+  late: number;
+  graceUsed: number;
+  onTimeRateBps: number | null;
+  avgDelaySecondsLate: number | null;
+  defaults: number;
+  /**
+   * Recovery (experimental heuristic, ADR 0009): an on-time-or-grace
+   * contribution that landed AFTER the wallet's first setback (a
+   * past-grace late contribution or a default). Boolean, not a score.
+   */
+  hadSetback: boolean;
+  recovered: boolean;
+}
+
+export interface UserTimelineEntry extends TimelineEntry {
+  poolPda: string;
+}
+
+export interface UserProfile {
+  wallet: string;
+  firstEventUnix: number | null;
+  pools: { total: number; active: number; completed: number };
+  /** Chain-truth counters summed across memberships (Member account, via
+   *  backfill) — cross-check against the events-derived `behavioral`. */
+  chainCounters: {
+    onTimeCount: number;
+    lateCount: number;
+    contributionsPaid: number;
+    defaultedMemberships: number;
+  };
+  behavioral: UserBehavioral;
+  timeline: UserTimelineEntry[];
+}
+
+export async function getUserProfile(
+  prisma: PrismaClient,
+  wallet: string,
+): Promise<UserProfile | null> {
+  const [members, events] = await Promise.all([
+    prisma.member.findMany({
+      where: { wallet },
+      include: { pool: { select: { status: true } } },
+    }),
+    prisma.event.findMany({
+      where: { subjectWallet: wallet },
+      orderBy: [{ onChainTs: "asc" }],
+    }),
+  ]);
+  if (members.length === 0 && events.length === 0) return null;
+
+  const active = members.filter((m) => m.pool?.status === "Active").length;
+  const completed = members.filter((m) => m.pool?.status === "Completed").length;
+
+  const chainCounters = members.reduce(
+    (acc, m) => ({
+      onTimeCount: acc.onTimeCount + m.onTimeCount,
+      lateCount: acc.lateCount + m.lateCount,
+      contributionsPaid: acc.contributionsPaid + m.contributionsPaid,
+      defaultedMemberships: acc.defaultedMemberships + (m.defaulted ? 1 : 0),
+    }),
+    { onTimeCount: 0, lateCount: 0, contributionsPaid: 0, defaultedMemberships: 0 },
+  );
+
+  // Behavioral aggregates from the projected events (behavioral.ts timing).
+  const contribTimed = events.filter((e) => e.eventType === "Contribute" && e.dueTs != null);
+  const onTime = contribTimed.filter((e) => (e.deltaSeconds ?? 0) <= 0).length;
+  const lateRows = contribTimed.filter((e) => (e.deltaSeconds ?? 0) > 0);
+  const graceUsed = events.filter((e) => e.eventType === "Contribute" && e.graceUsed).length;
+  const defaults = events.filter((e) => e.eventType === "Default").length;
+  const avgDelaySecondsLate =
+    lateRows.length > 0
+      ? Math.round(lateRows.reduce((s, e) => s + (e.deltaSeconds ?? 0), 0) / lateRows.length)
+      : null;
+
+  // Recovery (experimental): on-time/grace contribution after a setback.
+  const setbackTimes = events
+    .filter(
+      (e) =>
+        e.eventType === "Default" ||
+        (e.eventType === "Contribute" && (e.deltaSeconds ?? 0) > 0 && !e.graceUsed),
+    )
+    .map((e) => Number(e.onChainTs));
+  const hadSetback = setbackTimes.length > 0;
+  const firstSetback = hadSetback ? Math.min(...setbackTimes) : Infinity;
+  const recovered =
+    hadSetback &&
+    events.some(
+      (e) =>
+        e.eventType === "Contribute" &&
+        ((e.deltaSeconds ?? 1) <= 0 || e.graceUsed) &&
+        Number(e.onChainTs) > firstSetback,
+    );
+
+  return {
+    wallet,
+    firstEventUnix: events.length > 0 ? Number(events[0]!.onChainTs) : null,
+    pools: { total: members.length, active, completed },
+    chainCounters,
+    behavioral: {
+      timedContributions: contribTimed.length,
+      onTime,
+      late: lateRows.length,
+      graceUsed,
+      onTimeRateBps:
+        contribTimed.length > 0 ? Math.round((onTime / contribTimed.length) * 10_000) : null,
+      avgDelaySecondsLate,
+      defaults,
+      hadSetback,
+      recovered,
+    },
+    timeline: events.map((e) => ({
+      txSig: e.txSig,
+      eventType: e.eventType,
+      subjectWallet: e.subjectWallet,
+      poolPda: e.poolPda,
+      cycle: e.cycle,
+      slotIndex: e.slotIndex,
+      onChainTsUnix: Number(e.onChainTs),
+      dueTsUnix: e.dueTs != null ? Number(e.dueTs) : null,
+      deltaSeconds: e.deltaSeconds,
+      graceUsed: e.graceUsed,
+      defaultReason: e.defaultReason,
+      defaultReasonProvenance: e.defaultReasonProvenance,
+    })),
+  };
+}

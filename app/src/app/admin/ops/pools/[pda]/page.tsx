@@ -19,6 +19,7 @@ import {
   Section,
   StatCard,
   StatusPill,
+  TimingPill,
 } from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
 
@@ -75,17 +76,6 @@ interface DetailResponse {
   live: LiveSnapshot | null;
   indexer: { lastUpdateUnix: number | null; lastProjectionUnix: number | null };
   servedAtUnix: number;
-}
-
-function TimingPill({ e }: { e: TimelineEntry }) {
-  const { tokens } = useTheme();
-  if (e.eventType === "Claim") return <Pill text="payout" color={tokens.teal} />;
-  if (e.eventType === "Default") return <Pill text="default" color={tokens.red} />;
-  // Contribute timing from delta_seconds + grace (behavioral.ts semantics).
-  if (e.deltaSeconds == null) return <Pill text="—" color={tokens.muted} />;
-  if (e.deltaSeconds <= 0) return <Pill text="em dia" color={tokens.green} />;
-  if (e.graceUsed) return <Pill text="grace" color={tokens.amber} />;
-  return <Pill text="atrasado" color={tokens.red} />;
 }
 
 const TH: React.CSSProperties = {
@@ -272,7 +262,11 @@ export default function PoolDetailPage() {
                       <MonoLabel>{shortAddr(e.subjectWallet, 5, 5)}</MonoLabel>
                     </td>
                     <td style={td}>
-                      <TimingPill e={e} />
+                      <TimingPill
+                        eventType={e.eventType}
+                        deltaSeconds={e.deltaSeconds}
+                        graceUsed={e.graceUsed}
+                      />
                     </td>
                     <td style={{ ...td, color: tokens.muted }}>
                       {e.deltaSeconds == null

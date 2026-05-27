@@ -158,6 +158,27 @@ export function StatusPill({ status }: { status: string }) {
   return <Pill text={status} color={color} />;
 }
 
+/** Behavioral timing pill for a timeline row (behavioral.ts semantics):
+ *  contribute → em dia / grace / atrasado from delta+grace; claim/default
+ *  get their own label. Shared by the pool detail + user profile timelines. */
+export function TimingPill({
+  eventType,
+  deltaSeconds,
+  graceUsed,
+}: {
+  eventType: string;
+  deltaSeconds: number | null;
+  graceUsed: boolean;
+}) {
+  const { tokens } = useTheme();
+  if (eventType === "Claim") return <Pill text="payout" color={tokens.teal} />;
+  if (eventType === "Default") return <Pill text="default" color={tokens.red} />;
+  if (deltaSeconds == null) return <Pill text="—" color={tokens.muted} />;
+  if (deltaSeconds <= 0) return <Pill text="em dia" color={tokens.green} />;
+  if (graceUsed) return <Pill text="grace" color={tokens.amber} />;
+  return <Pill text="atrasado" color={tokens.red} />;
+}
+
 /** Honest empty state — never fill with fake data on thin devnet. */
 export function Empty({ children }: { children: ReactNode }) {
   const { tokens } = useTheme();
