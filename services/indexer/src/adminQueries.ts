@@ -344,3 +344,75 @@ export async function getPoolDetail(prisma: PrismaClient, pda: string): Promise<
     })),
   };
 }
+
+// ─── Users: behavioral profile per wallet (the moat — ADR 0009) ────────────
+//
+// Identity = WALLET (reputation is per-wallet on-chain; escape-valve mints a
+// NEW identity — no cross-wallet linking). The canonical score/level comes
+// from the on-chain ReputationProfile (fetched via RPC in the route); the
+// helpers here expose the indexer-side STRUCTURAL + behavioral-derived view,
+// all aggregated ACROSS pools (a wallet joins many). Derived metrics are
+// "experimental"; behavioral.ts is the single source of timing semantics.
+
+export interface AdminUserRow {
+  wallet: string;
+  /** Distinct pools this wallet is a member of. */
+  pools: number;
+  /** Max on-chain reputationLevel snapshot across memberships (DB; the
+   *  canonical live level is on the profile via RPC). */
+  level: number;
+  timedContributions: number;
+  onTime: number;
+  onTimeRateBps: number | null;
+  defaults: number;
+}
+
+export async function listUsersForAdmin(prisma: PrismaClient): Promise<AdminUserRow[]> {
+  const members = await prisma.member.findMany({
+    select: { wallet: true, poolId: true, reputationLevel: true },
+  });
+  const byWallet = new Map<string, { pools: Set<string>; level: number }>();
+  for (const m of members) {
+    const e = byWallet.get(m.wallet) ?? { pools: new Set<string>(), level: 0 };
+    e.pools.add(m.poolId);
+    e.level = Math.max(e.level, m.reputationLevel);
+    byWallet.set(m.wallet, e);
+  }
+
+  const [timed, onTime, defaults] = await Promise.all([
+    prisma.event.groupBy({
+      by: ["subjectWallet"],
+      where: { eventType: "Contribute", dueTs: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.event.groupBy({
+      by: ["subjectWallet"],
+      where: { eventType: "Contribute", dueTs: { not: null }, deltaSeconds: { lte: 0 } },
+      _count: { _all: true },
+    }),
+    prisma.event.groupBy({
+      by: ["subjectWallet"],
+      where: { eventType: "Default" },
+      _count: { _all: true },
+    }),
+  ]);
+  const timedMap = new Map(timed.map((r) => [r.subjectWallet, r._count._all]));
+  const onTimeMap = new Map(onTime.map((r) => [r.subjectWallet, r._count._all]));
+  const defMap = new Map(defaults.map((r) => [r.subjectWallet, r._count._all]));
+
+  return [...byWallet.entries()]
+    .map(([wallet, info]) => {
+      const t = timedMap.get(wallet) ?? 0;
+      const ot = onTimeMap.get(wallet) ?? 0;
+      return {
+        wallet,
+        pools: info.pools.size,
+        level: info.level,
+        timedContributions: t,
+        onTime: ot,
+        onTimeRateBps: t > 0 ? Math.round((ot / t) * 10_000) : null,
+        defaults: defMap.get(wallet) ?? 0,
+      };
+    })
+    .sort((a, b) => b.defaults - a.defaults || a.wallet.localeCompare(b.wallet));
+}

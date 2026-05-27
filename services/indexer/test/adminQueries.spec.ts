@@ -7,7 +7,12 @@
 import { expect } from "chai";
 import { PrismaClient } from "@prisma/client";
 
-import { computeIndexerHealth, getCanaryOverview, listPoolsForAdmin } from "../src/adminQueries.js";
+import {
+  computeIndexerHealth,
+  getCanaryOverview,
+  listPoolsForAdmin,
+  listUsersForAdmin,
+} from "../src/adminQueries.js";
 
 const prisma = new PrismaClient();
 const CYCLE = 2_592_000n;
@@ -210,5 +215,19 @@ describe("adminQueries — structural + health (ADR 0009 Phase 1)", function () 
     expect(byPda["PoolA11111111111111111111111111111111111"]!.startedAtUnix).to.equal(
       1_700_000_000,
     );
+  });
+
+  it("listUsersForAdmin summarizes by wallet (1 member, 1 default, untimed events)", async () => {
+    const users = await listUsersForAdmin(prisma);
+    expect(users).to.have.length(1);
+    const u = users[0]!;
+    expect(u.wallet).to.equal("WalletAAA1111111111111111111111111111111111");
+    expect(u.pools).to.equal(1);
+    expect(u.level).to.equal(1);
+    // The seeded events have no due_ts → no timed contributions → null rate.
+    expect(u.timedContributions).to.equal(0);
+    expect(u.onTimeRateBps).to.equal(null);
+    // The seeded Default event for this wallet is counted.
+    expect(u.defaults).to.equal(1);
   });
 });

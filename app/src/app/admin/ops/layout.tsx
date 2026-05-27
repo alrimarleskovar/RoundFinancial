@@ -16,6 +16,7 @@ import { shortAddr, useWallet } from "@/lib/wallet";
 const NAV = [
   { href: "/admin/ops", label: "Canary" },
   { href: "/admin/ops/pools", label: "Pools" },
+  { href: "/admin/ops/users", label: "Usuários" },
 ];
 
 function errorText(code: string | null): string | null {
@@ -151,7 +152,12 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
         <>
           <nav style={{ display: "flex", gap: 4, padding: "12px 28px 0" }}>
             {NAV.map((item) => {
-              const active = pathname === item.href;
+              // Exact match for the root tab; prefix match for sections so
+              // a detail page (/pools/[pda], /users/[wallet]) keeps its tab lit.
+              const active =
+                item.href === "/admin/ops"
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
