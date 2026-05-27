@@ -52,6 +52,7 @@ interface ScenarioResult {
   members: any[];
   onChainDeltas: bigint[];
   l1Net: bigint[];
+  vaultTotal: bigint;
 }
 
 // Drives one default scenario end-to-end on a fresh litesvm Env and returns
@@ -174,6 +175,15 @@ async function driveParityScenario(opts: {
   const after = await Promise.all(members.map((m) => balanceOf(env, m.memberUsdc)));
   const onChainDeltas = before.map((b, i) => after[i]! - b);
 
+  // Pool-level conservation reference: no yield CPI runs in driveMatrix (no
+  // deposit_idle_to_yield / harvest_yield), so NO USDC is created on-chain.
+  // Every minted dollar therefore sits in either a member wallet or one of the
+  // three pool vaults — `Σ(member deltas) + Σ(vault balances) == 0`.
+  const vaultTotal =
+    (await balanceOf(env, pool.poolUsdcVault)) +
+    (await balanceOf(env, pool.escrowVault)) +
+    (await balanceOf(env, pool.solidarityVault));
+
   // L1 reference, reconciled to what on-chain actually disburses/seizes:
   //   - on-chain `claim_payout` pays the FULL credit at contemplation (one
   //     transfer); L1 drips it as upfront + gradual escrow. A contemplated
@@ -196,7 +206,7 @@ async function driveParityScenario(opts: {
     return BigInt(Math.round((base + owedCredit + owedStake) * 1_000_000));
   });
 
-  return { members, onChainDeltas, l1Net };
+  return { members, onChainDeltas, l1Net, vaultTotal };
 }
 
 const SCENARIOS: Array<{
@@ -267,6 +277,16 @@ for (const scenario of SCENARIOS) {
           `defaulter slot ${slot} drift > 1 USDC: l1=${l1} onChain=${onChain}`,
         ).to.equal(true);
       }
+    });
+
+    it("pool-level conservation: Σ member deltas + Σ vault balances == 0", function () {
+      const sumDeltas = result.onChainDeltas.reduce((acc, d) => acc + d, 0n);
+      const total = sumDeltas + result.vaultTotal;
+      const abs = total < 0n ? -total : total;
+      expect(
+        abs <= EPSILON,
+        `conservation drift > 1 USDC: Σdeltas=${sumDeltas} vaults=${result.vaultTotal} total=${total}`,
+      ).to.equal(true);
     });
   });
 }
