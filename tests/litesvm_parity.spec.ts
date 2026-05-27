@@ -174,20 +174,26 @@ async function driveParityScenario(opts: {
   const after = await Promise.all(members.map((m) => balanceOf(env, m.memberUsdc)));
   const onChainDeltas = before.map((b, i) => after[i]! - b);
 
-  // L1 reference, reconciled to include obligations on-chain release_escrow
-  // pays out (owed stake + un-dripped escrow) for ok members; owed=0 for
-  // defaulters (their net is already the seized/loss position).
+  // L1 reference, reconciled to what on-chain actually disburses/seizes:
+  //   - on-chain `claim_payout` pays the FULL credit at contemplation (one
+  //     transfer); L1 drips it as upfront + gradual escrow. A contemplated
+  //     member (received > 0 → got the upfront) therefore has
+  //     `credit − creditReceived` of un-dripped credit that on-chain already
+  //     paid — true for ok members AND for a post-contemplation defaulter
+  //     (calote_pos), whose seized COLLATERAL (not the disbursed credit) is
+  //     taken by settle_default (so its wallet keeps the full credit).
+  //   - on-chain `release_escrow` refunds the stake only to ok members.
+  //   - a pre-contemplation defaulter (calote_pre) was never contemplated
+  //     (received == 0) and gets no refund → owed = 0.
   const frames = runSimulation(L1_CONFIG, opts.matrix);
   const final = frames[frames.length - 1]!;
   const l1Net = final.ledgerSnapshot.map((row) => {
     const base = row.received - row.stakePaid - row.installmentsPaid;
-    let owed = 0;
-    if (row.status === "ok") {
-      const creditReceived = row.received - row.stakeRefunded;
-      owed =
-        Math.max(0, row.stakePaid - row.stakeRefunded) + Math.max(0, CREDIT_WHOLE - creditReceived);
-    }
-    return BigInt(Math.round((base + owed) * 1_000_000));
+    const creditReceived = row.received - row.stakeRefunded;
+    const contemplated = row.received > 0;
+    const owedCredit = contemplated ? Math.max(0, CREDIT_WHOLE - creditReceived) : 0;
+    const owedStake = row.status === "ok" ? Math.max(0, row.stakePaid - row.stakeRefunded) : 0;
+    return BigInt(Math.round((base + owedCredit + owedStake) * 1_000_000));
   });
 
   return { members, onChainDeltas, l1Net };
