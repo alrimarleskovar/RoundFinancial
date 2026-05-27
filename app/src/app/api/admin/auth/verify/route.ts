@@ -6,7 +6,12 @@ import { NextResponse } from "next/server";
 import { getAdminDomain, getSessionSecret, resolveAllowlist } from "@/lib/admin/auth";
 import { isAllowed } from "@/lib/admin/allowlist";
 import { verifyChallenge } from "@/lib/admin/challenge";
-import { ADMIN_SESSION_COOKIE, SESSION_TTL_SECONDS, signSession } from "@/lib/admin/session";
+import {
+  ADMIN_SESSION_COOKIE,
+  SESSION_TTL_SECONDS,
+  adminCookieOptions,
+  signSession,
+} from "@/lib/admin/session";
 import { verifySignInSignature } from "@/lib/admin/siws";
 
 export const runtime = "nodejs";
@@ -80,12 +85,6 @@ export async function POST(req: Request): Promise<NextResponse> {
   // 4. Mint the session.
   const token = signSession({ secret, pubkey });
   const res = NextResponse.json({ ok: true, pubkey });
-  res.cookies.set(ADMIN_SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    path: "/",
-    maxAge: SESSION_TTL_SECONDS,
-  });
+  res.cookies.set(ADMIN_SESSION_COOKIE, token, adminCookieOptions(SESSION_TTL_SECONDS));
   return res;
 }

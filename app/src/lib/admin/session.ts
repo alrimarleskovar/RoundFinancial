@@ -16,6 +16,29 @@ export const ADMIN_SESSION_COOKIE = "rfi_admin_session";
 /** Session lifetime. Short — the console is internal + re-auth is cheap. */
 export const SESSION_TTL_SECONDS = 30 * 60;
 
+/**
+ * Cookie attributes for the admin session. `secure` is true everywhere
+ * EXCEPT local `development`, because a `Secure` cookie is dropped by the
+ * browser over plain `http://localhost` — which would make the SIWS flow
+ * appear to "not stick" in dev. Production posture (devnet/prod) keeps
+ * `Secure` on. `httpOnly` + `sameSite=strict` always (CSRF + no JS read).
+ */
+export function adminCookieOptions(maxAgeSeconds: number): {
+  httpOnly: true;
+  secure: boolean;
+  sameSite: "strict";
+  path: string;
+  maxAge: number;
+} {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== "development",
+    sameSite: "strict",
+    path: "/",
+    maxAge: maxAgeSeconds,
+  };
+}
+
 interface SessionPayload {
   sub: string;
   exp: number;

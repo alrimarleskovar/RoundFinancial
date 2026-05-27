@@ -5,6 +5,11 @@
   "description": "RoundFi indexer — Helius webhook subscriber + on-chain backfiller. Hydrates a Postgres event store from Pool / Member / Attestation accounts and contribute / claim_payout / settle_default txs. Phase 3 (B2B oracle) reads from this DB.",
   "license": "Apache-2.0",
   "main": "./src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./db": "./src/db.ts",
+    "./admin": "./src/adminQueries.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",

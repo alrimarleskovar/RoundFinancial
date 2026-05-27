@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // @roundfi/sdk and @roundfi/orchestrator ship as TypeScript source
-  // (workspace linked), so Next.js needs to transpile them.
-  transpilePackages: ["@roundfi/sdk", "@roundfi/orchestrator"],
+  // @roundfi/sdk, @roundfi/orchestrator, and @roundfi/indexer ship as
+  // TypeScript source (workspace linked), so Next.js needs to transpile
+  // them. The admin console imports @roundfi/indexer/{db,admin} (ADR 0009).
+  transpilePackages: ["@roundfi/sdk", "@roundfi/orchestrator", "@roundfi/indexer"],
+  // Prisma's client loads a native query engine that webpack must not
+  // bundle — keep it external on the server (admin route handlers).
+  experimental: {
+    serverComponentsExternalPackages: ["@prisma/client", "@prisma/engines", "prisma"],
+  },
   webpack: (config, { isServer }) => {
     // The @roundfi/sdk and @roundfi/orchestrator packages ship as raw TS
     // with NodeNext-style imports (`from "./foo.js"`). Webpack needs this
