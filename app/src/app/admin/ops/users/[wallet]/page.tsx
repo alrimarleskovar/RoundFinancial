@@ -2,13 +2,14 @@
 
 // /admin/ops/users/[wallet] — behavioral profile (the credit data, auth-only).
 // Score/level = CANONICAL on-chain ReputationProfile (RPC). Behavioral
-// metrics = derived from events, clearly marked "derivado · experimental".
-// Chain-truth Member counters are shown alongside for cross-check.
+// metrics = derived from events, marked "derived · experimental". Chain-truth
+// Member counters shown alongside for cross-check. i18n via @/lib/i18n.
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { useApi } from "@/lib/admin/useApi";
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import {
   agoLabel,
@@ -77,14 +78,16 @@ const TH: React.CSSProperties = {
 
 export default function UserProfilePage() {
   const { tokens } = useTheme();
+  const t = useT();
   const params = useParams<{ wallet: string }>();
   const wallet = params.wallet;
   const { data, loading, error, status } = useApi<ProfileResponse>(`/api/admin/users/${wallet}`);
+  const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
-  if (loading) return <div style={{ color: tokens.muted, fontSize: 13 }}>carregando…</div>;
-  if (status === 404) return <Empty>Wallet não encontrada no indexer.</Empty>;
-  if (error || !data)
-    return <Empty>Não foi possível carregar o perfil ({error ?? "sem dados"}).</Empty>;
+  if (loading)
+    return <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>;
+  if (status === 404) return <Empty>{t("adminops.user.notFound")}</Empty>;
+  if (error || !data) return <Empty>{t("adminops.user.err", { err: error ?? "—" })}</Empty>;
 
   const { behavioral: b, chainCounters: cc, reputation: rep } = data;
   const grid = {
@@ -101,7 +104,7 @@ export default function UserProfilePage() {
     color: tokens.text,
     fontVariantNumeric: "tabular-nums",
   };
-  const experimental = <Pill text="derivado · experimental" color={tokens.purple} />;
+  const experimental = <Pill text={t("adminops.experimental")} color={tokens.purple} />;
 
   return (
     <div>
@@ -110,29 +113,35 @@ export default function UserProfilePage() {
           href="/admin/ops/users"
           style={{ fontSize: 12, color: tokens.muted, textDecoration: "none" }}
         >
-          ← Usuários
+          {t("adminops.user.back")}
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
           <MonoLabel>{shortAddr(wallet, 10, 10)}</MonoLabel>
-          {rep ? <Pill text={`nível ${rep.level} · on-chain`} color={tokens.green} /> : null}
+          {rep ? (
+            <Pill text={t("adminops.user.levelOnchain", { lv: rep.level })} color={tokens.green} />
+          ) : null}
         </div>
       </div>
 
-      <Section title="Reputação on-chain (canônico)">
+      <Section title={t("adminops.user.repTitle")}>
         {rep == null ? (
-          <Empty>ReputationProfile via RPC indisponível — score/nível canônico não exibido.</Empty>
+          <Empty>{t("adminops.user.repUnavailable")}</Empty>
         ) : (
           <div style={grid}>
             <StatCard
-              label="Nível"
+              label={t("adminops.user.repLevel")}
               value={rep.level}
-              sub={rep.exists ? "ReputationProfile" : "perfil ausente → fresh"}
+              sub={rep.exists ? t("adminops.user.repProfile") : t("adminops.user.repFresh")}
             />
-            <StatCard label="Score" value={rep.score} sub="on-chain · saturating" />
-            <StatCard label="On-time (chain)" value={rep.onTimePayments} />
-            <StatCard label="Late (chain)" value={rep.latePayments} />
             <StatCard
-              label="Defaults (chain)"
+              label={t("adminops.user.repScore")}
+              value={rep.score}
+              sub={t("adminops.user.repScoreSub")}
+            />
+            <StatCard label={t("adminops.user.repOnTime")} value={rep.onTimePayments} />
+            <StatCard label={t("adminops.user.repLate")} value={rep.latePayments} />
+            <StatCard
+              label={t("adminops.user.repDefaults")}
               value={rep.defaults}
               tone={rep.defaults === 0 ? "muted" : "default"}
             />
@@ -140,77 +149,86 @@ export default function UserProfilePage() {
         )}
       </Section>
 
-      <Section title="Básico">
+      <Section title={t("adminops.user.basic")}>
         <div style={grid}>
           <StatCard
-            label="Idade no protocolo"
+            label={t("adminops.user.age")}
             value={fmtDuration(ageSecs)}
-            sub="desde o 1º evento"
+            sub={t("adminops.user.ageSub")}
           />
           <StatCard
-            label="Pools"
+            label={t("adminops.col.pools")}
             value={data.pools.total}
-            sub={`${data.pools.active} ativos · ${data.pools.completed} concluídos`}
+            sub={t("adminops.user.poolsSub", { a: data.pools.active, c: data.pools.completed })}
           />
         </div>
       </Section>
 
-      <Section title="Comportamental" note={experimental}>
+      <Section title={t("adminops.user.behavioral")} note={experimental}>
         {b.timedContributions === 0 ? (
-          <Empty>Sem contribuições com prazo ainda para esta wallet.</Empty>
+          <Empty>{t("adminops.user.behavioralEmpty")}</Empty>
         ) : (
           <div style={grid}>
             <StatCard
-              label="Em dia"
+              label={t("adminops.col.onTime")}
               value={b.onTimeRateBps == null ? "—" : `${(b.onTimeRateBps / 100).toFixed(0)}%`}
               sub={`${b.onTime}/${b.timedContributions}`}
             />
             <StatCard
-              label="Atrasados"
+              label={t("adminops.user.late")}
               value={b.late}
-              sub={`${b.graceUsed} com grace`}
+              sub={t("adminops.user.lateSub", { g: b.graceUsed })}
               tone={b.late === 0 ? "muted" : "default"}
             />
             <StatCard
-              label="Atraso médio"
+              label={t("adminops.user.avgDelay")}
               value={fmtDuration(b.avgDelaySecondsLate)}
-              sub="dos atrasados"
+              sub={t("adminops.user.avgDelaySub")}
             />
             <StatCard
-              label="Defaults"
+              label={t("adminops.col.defaults")}
               value={b.defaults}
               tone={b.defaults === 0 ? "muted" : "default"}
             />
             <StatCard
-              label="Recovery"
-              value={!b.hadSetback ? "n/a" : b.recovered ? "sim" : "não"}
-              sub={!b.hadSetback ? "sem setback" : "pagou em dia após setback"}
+              label={t("adminops.user.recovery")}
+              value={
+                !b.hadSetback
+                  ? t("adminops.user.recoveryNa")
+                  : b.recovered
+                    ? t("adminops.user.recoveryYes")
+                    : t("adminops.user.recoveryNo")
+              }
+              sub={
+                !b.hadSetback
+                  ? t("adminops.user.recoveryNoSetback")
+                  : t("adminops.user.recoverySub")
+              }
               tone={b.hadSetback && b.recovered ? "default" : "muted"}
             />
           </div>
         )}
       </Section>
 
-      <Section
-        title="Cross-check chain-truth"
-        note="contadores Member (on-chain) vs derivado dos events"
-      >
+      <Section title={t("adminops.user.crossCheck")} note={t("adminops.user.crossCheckNote")}>
         <div style={grid}>
           <StatCard
-            label="On-time"
+            label={t("adminops.col.onTime")}
             value={`${cc.onTimeCount} / ${b.onTime}`}
-            sub={cc.onTimeCount === b.onTime ? "chain = events" : "≠ (investigar)"}
+            sub={
+              cc.onTimeCount === b.onTime ? t("adminops.user.chainEq") : t("adminops.user.chainNe")
+            }
             tone={cc.onTimeCount === b.onTime ? "muted" : "default"}
           />
           <StatCard
-            label="Late"
+            label={t("adminops.col.late")}
             value={`${cc.lateCount} / ${b.late}`}
-            sub={cc.lateCount === b.late ? "chain = events" : "≠ (investigar)"}
+            sub={cc.lateCount === b.late ? t("adminops.user.chainEq") : t("adminops.user.chainNe")}
             tone={cc.lateCount === b.late ? "muted" : "default"}
           />
-          <StatCard label="Contribuições (chain)" value={cc.contributionsPaid} />
+          <StatCard label={t("adminops.user.contribsChain")} value={cc.contributionsPaid} />
           <StatCard
-            label="Memberships em default"
+            label={t("adminops.user.defaultedMemberships")}
             value={cc.defaultedMemberships}
             tone={cc.defaultedMemberships === 0 ? "muted" : "default"}
           />
@@ -218,11 +236,11 @@ export default function UserProfilePage() {
       </Section>
 
       <Section
-        title="Timeline across pools"
-        note={`events · projeção ${agoLabel(data.indexer.lastProjectionUnix)}`}
+        title={t("adminops.user.timeline")}
+        note={t("adminops.user.timelineNote", { ago: ago(data.indexer.lastProjectionUnix) })}
       >
         {data.timeline.length === 0 ? (
-          <Empty>Sem eventos resolvidos para esta wallet ainda.</Empty>
+          <Empty>{t("adminops.user.timelineEmpty")}</Empty>
         ) : (
           <div
             style={{
@@ -235,12 +253,12 @@ export default function UserProfilePage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>Pool</th>
-                  <th style={TH}>Ciclo</th>
-                  <th style={TH}>Evento</th>
-                  <th style={TH}>Timing</th>
-                  <th style={TH}>Delta</th>
-                  <th style={TH}>Motivo</th>
+                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.pool")}</th>
+                  <th style={TH}>{t("adminops.col.cycle")}</th>
+                  <th style={TH}>{t("adminops.col.event")}</th>
+                  <th style={TH}>{t("adminops.col.timing")}</th>
+                  <th style={TH}>{t("adminops.col.delta")}</th>
+                  <th style={TH}>{t("adminops.col.reason")}</th>
                 </tr>
               </thead>
               <tbody>

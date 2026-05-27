@@ -3,53 +3,51 @@
 // /admin/ops — operational console shell (ADR 0009). Separate namespace +
 // data path from the Demo Studio (/admin) and the cranker (/admin/cranker):
 // this console reads REAL indexer data behind a server-side SIWS gate; the
-// studio uses isolated fake state. They never mix.
+// studio uses isolated fake state. They never mix. i18n: reuses the app's
+// @/lib/i18n (PT default, EN toggle) — only /admin/ops chrome is translated.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { useAdminSession } from "@/lib/admin/useAdminSession";
+import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
 const NAV = [
-  { href: "/admin/ops", label: "Canary" },
-  { href: "/admin/ops/pools", label: "Pools" },
-  { href: "/admin/ops/users", label: "Usuários" },
-  { href: "/admin/ops/events", label: "Eventos" },
+  { href: "/admin/ops", key: "adminops.nav.canary" },
+  { href: "/admin/ops/pools", key: "adminops.nav.pools" },
+  { href: "/admin/ops/users", key: "adminops.nav.users" },
+  { href: "/admin/ops/events", key: "adminops.nav.events" },
 ];
 
-function errorText(code: string | null): string | null {
+function errorText(
+  code: string | null,
+  t: (k: string, p?: Record<string, string>) => string,
+): string | null {
   if (!code) return null;
-  switch (code) {
-    case "connect_wallet":
-      return "Conecte uma carteira antes de assinar.";
-    case "wallet_cannot_sign":
-      return "Esta carteira não suporta assinatura de mensagem (SIWS).";
-    case "not_allowlisted":
-      return "Carteira autenticada, mas fora da allowlist de operadores.";
-    case "bad_signature":
-    case "challenge_rejected":
-      return "Falha na verificação da assinatura. Tente novamente.";
-    default:
-      return `Erro: ${code}`;
+  if (code === "bad_signature" || code === "challenge_rejected")
+    return t("adminops.err.bad_signature");
+  if (code === "connect_wallet" || code === "wallet_cannot_sign" || code === "not_allowlisted") {
+    return t(`adminops.err.${code}`);
   }
+  return t("adminops.err.generic", { code });
 }
 
 function SignInPanel({ session }: { session: ReturnType<typeof useAdminSession> }) {
   const { tokens } = useTheme();
+  const t = useT();
   const wallet = useWallet();
-  const err = errorText(session.error);
+  const err = errorText(session.error, t);
 
   return (
     <div style={{ maxWidth: 440, margin: "64px auto", textAlign: "center" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: tokens.text }}>
-        Acesso restrito
+        {t("adminops.signin.title")}
       </h1>
       <p style={{ fontSize: 14, color: tokens.text2, lineHeight: 1.6, margin: "12px 0 24px" }}>
-        Console operacional interno. Autentique com a carteira de operador (assinatura verificada no
-        servidor — nenhum segredo trafega pelo cliente).
+        {t("adminops.signin.body")}
       </p>
 
       {!wallet.publicKey ? (
@@ -58,7 +56,7 @@ function SignInPanel({ session }: { session: ReturnType<typeof useAdminSession> 
           onClick={() => void wallet.connect()}
           style={primaryBtn(tokens.green, tokens.bg)}
         >
-          Conectar carteira
+          {t("adminops.signin.connect")}
         </button>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
@@ -69,7 +67,7 @@ function SignInPanel({ session }: { session: ReturnType<typeof useAdminSession> 
             onClick={() => void session.signIn()}
             style={primaryBtn(tokens.green, tokens.bg, session.busy || !session.canSign)}
           >
-            {session.busy ? "Assinando…" : "Entrar — assinar mensagem"}
+            {session.busy ? t("adminops.signin.signing") : t("adminops.signin.enter")}
           </button>
         </div>
       )}
@@ -95,8 +93,31 @@ function primaryBtn(bg: string, fg: string, disabled = false): React.CSSProperti
 
 export default function OpsLayout({ children }: { children: ReactNode }) {
   const { tokens } = useTheme();
+  const t = useT();
+  const { lang, setLang } = useI18n();
   const session = useAdminSession();
   const pathname = usePathname();
+
+  const langToggle = (
+    <button
+      type="button"
+      onClick={() => setLang(lang === "pt" ? "en" : "pt")}
+      title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
+      style={{
+        background: "none",
+        border: `1px solid ${tokens.border}`,
+        color: tokens.text2,
+        borderRadius: 8,
+        padding: "5px 10px",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+        textTransform: "uppercase",
+      }}
+    >
+      {lang === "pt" ? "EN" : "PT"}
+    </button>
+  );
 
   return (
     <main
@@ -119,9 +140,18 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
       >
         <div>
           <div style={{ fontSize: 15, fontWeight: 700 }}>RoundFi — Canary Ops</div>
-          <div style={{ fontSize: 12, color: tokens.muted }}>console operacional · read-only</div>
+          <div style={{ fontSize: 12, color: tokens.muted }}>{t("adminops.subtitle")}</div>
         </div>
-        <div style={{ fontSize: 12, color: tokens.text2 }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 12,
+            color: tokens.text2,
+          }}
+        >
+          {langToggle}
           {session.status === "authed" ? (
             <span style={{ display: "inline-flex", gap: 12, alignItems: "center" }}>
               <span style={{ color: tokens.green }}>● {shortAddr(session.pubkey)}</span>
@@ -138,13 +168,13 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
                   cursor: "pointer",
                 }}
               >
-                sair
+                {t("adminops.signOut")}
               </button>
             </span>
           ) : session.status === "loading" ? (
             <span style={{ color: tokens.muted }}>…</span>
           ) : (
-            <span style={{ color: tokens.muted }}>não autenticado</span>
+            <span style={{ color: tokens.muted }}>{t("adminops.notAuthed")}</span>
           )}
         </div>
       </header>
@@ -153,8 +183,6 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
         <>
           <nav style={{ display: "flex", gap: 4, padding: "12px 28px 0" }}>
             {NAV.map((item) => {
-              // Exact match for the root tab; prefix match for sections so
-              // a detail page (/pools/[pda], /users/[wallet]) keeps its tab lit.
               const active =
                 item.href === "/admin/ops"
                   ? pathname === item.href
@@ -172,7 +200,7 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
                     borderBottom: `2px solid ${active ? tokens.green : "transparent"}`,
                   }}
                 >
-                  {item.label}
+                  {t(item.key)}
                 </Link>
               );
             })}
@@ -180,7 +208,9 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
           <div style={{ padding: "28px", maxWidth: 1100, margin: "0 auto" }}>{children}</div>
         </>
       ) : session.status === "loading" ? (
-        <div style={{ padding: 64, textAlign: "center", color: tokens.muted }}>carregando…</div>
+        <div style={{ padding: 64, textAlign: "center", color: tokens.muted }}>
+          {t("adminops.loading")}
+        </div>
       ) : (
         <SignInPanel session={session} />
       )}

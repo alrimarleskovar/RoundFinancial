@@ -9,18 +9,21 @@
 
 import type { ReactNode } from "react";
 
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
 const MONO = "var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, monospace)";
 
-/** Relative time label from a unix-seconds timestamp; "—" when null. */
+/** Relative time MAGNITUDE from a unix-seconds timestamp; "—" when null.
+ *  Language-neutral (no "ago"/"atrás") — callers wrap with t("adminops.ago")
+ *  when they want the localized "X ago" phrasing. */
 export function agoLabel(unix: number | null | undefined): string {
   if (unix == null) return "—";
   const s = Math.max(0, Math.floor(Date.now() / 1000) - unix);
-  if (s < 60) return `${s}s atrás`;
-  if (s < 3600) return `${Math.floor(s / 60)}m atrás`;
-  if (s < 86_400) return `${Math.floor(s / 3600)}h atrás`;
-  return `${Math.floor(s / 86_400)}d atrás`;
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86_400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86_400)}d`;
 }
 
 /** Humanized duration from seconds; "—" when null. */
@@ -138,9 +141,10 @@ export function Pill({ text, color }: { text: string; color: string }) {
 
 export function HealthPill({ health }: { health: "healthy" | "at_risk" | "distressed" }) {
   const { tokens } = useTheme();
-  if (health === "healthy") return <Pill text="saudável" color={tokens.green} />;
-  if (health === "at_risk") return <Pill text="em risco" color={tokens.amber} />;
-  return <Pill text="crítico" color={tokens.red} />;
+  const t = useT();
+  const color =
+    health === "healthy" ? tokens.green : health === "at_risk" ? tokens.amber : tokens.red;
+  return <Pill text={t(`adminops.health.${health}`)} color={color} />;
 }
 
 export function StatusPill({ status }: { status: string }) {
@@ -171,12 +175,14 @@ export function TimingPill({
   graceUsed: boolean;
 }) {
   const { tokens } = useTheme();
+  const t = useT();
+  // "payout"/"default" are technical event labels — kept verbatim, not chrome.
   if (eventType === "Claim") return <Pill text="payout" color={tokens.teal} />;
   if (eventType === "Default") return <Pill text="default" color={tokens.red} />;
   if (deltaSeconds == null) return <Pill text="—" color={tokens.muted} />;
-  if (deltaSeconds <= 0) return <Pill text="em dia" color={tokens.green} />;
-  if (graceUsed) return <Pill text="grace" color={tokens.amber} />;
-  return <Pill text="atrasado" color={tokens.red} />;
+  if (deltaSeconds <= 0) return <Pill text={t("adminops.timing.onTime")} color={tokens.green} />;
+  if (graceUsed) return <Pill text={t("adminops.timing.grace")} color={tokens.amber} />;
+  return <Pill text={t("adminops.timing.late")} color={tokens.red} />;
 }
 
 /** Honest empty state — never fill with fake data on thin devnet. */

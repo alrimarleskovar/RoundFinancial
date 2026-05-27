@@ -1,10 +1,10 @@
 "use client";
 
-// /admin/ops — Canary home. Protocol + indexer health, STRUCTURAL only.
-// Behavioral aggregates stay gated until the on-devnet exact-value smoke
-// (ADR 0009 #5) — we render a "gated" note, never a fake number.
+// /admin/ops — Canary home. Protocol + indexer health + behavioral
+// aggregates (ADR 0009; gate #5 cleared 2026-05-27). i18n via @/lib/i18n.
 
 import { useApi } from "@/lib/admin/useApi";
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { agoLabel, Empty, fmtDuration, Section, StatCard } from "@/components/adminops/ui";
 
@@ -44,11 +44,14 @@ function sum(o: { contribute: number; claim: number; default: number }): number 
 
 export default function CanaryPage() {
   const { tokens } = useTheme();
+  const t = useT();
   const { data, loading, error } = useApi<CanaryResponse>("/api/admin/canary");
+  const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
-  if (loading) return <div style={{ color: tokens.muted, fontSize: 13 }}>carregando…</div>;
+  if (loading)
+    return <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>;
   if (error || !data)
-    return <Empty>Não foi possível carregar o overview ({error ?? "sem dados"}).</Empty>;
+    return <Empty>{t("adminops.canary.empty.overview", { err: error ?? "—" })}</Empty>;
 
   const { overview: o } = data;
   const b = data.behavioral;
@@ -66,56 +69,71 @@ export default function CanaryPage() {
 
   return (
     <div>
-      <Section title="Saúde do protocolo">
+      <Section title={t("adminops.canary.protocolHealth")}>
         {o.pools.total === 0 ? (
-          <Empty>Nenhum pool indexado ainda. (devnet — dado real escasso é esperado.)</Empty>
+          <Empty>{t("adminops.canary.empty.pools")}</Empty>
         ) : (
           <div style={grid}>
-            <StatCard label="Pools" value={o.pools.total} sub={byStatusSub || "—"} />
             <StatCard
-              label="Em risco"
+              label={t("adminops.canary.card.pools")}
+              value={o.pools.total}
+              sub={byStatusSub || "—"}
+            />
+            <StatCard
+              label={t("adminops.canary.card.atRisk")}
               value={o.pools.atRisk}
-              sub="pools com ≥1 default on-chain"
+              sub={t("adminops.canary.card.atRiskSub")}
               tone={o.pools.atRisk === 0 ? "muted" : "default"}
             />
-            <StatCard label="Usuários" value={o.members.total} sub="members indexados" />
             <StatCard
-              label="Eventos"
+              label={t("adminops.canary.card.users")}
+              value={o.members.total}
+              sub={t("adminops.canary.card.usersSub")}
+            />
+            <StatCard
+              label={t("adminops.canary.card.events")}
               value={o.events.contribute + o.events.claim + o.events.default}
-              sub={`${o.events.contribute} contrib · ${o.events.claim} payout · ${o.events.default} default`}
+              sub={t("adminops.canary.card.eventsSub", {
+                c: o.events.contribute,
+                p: o.events.claim,
+                d: o.events.default,
+              })}
             />
           </div>
         )}
       </Section>
 
       <Section
-        title="Comportamento agregado"
-        note={`${b.timedContributions} contribuições com prazo · derivado de events`}
+        title={t("adminops.canary.behavioral")}
+        note={t("adminops.canary.note.behavioral", { n: b.timedContributions })}
       >
         {b.timedContributions === 0 ? (
-          <Empty>Sem contribuições com prazo ainda (rode backfill:events + project-events).</Empty>
+          <Empty>{t("adminops.canary.empty.behavioral")}</Empty>
         ) : (
           <div style={grid}>
             <StatCard
-              label="Em dia"
+              label={t("adminops.canary.card.onTime")}
               value={b.onTimeRateBps == null ? "—" : `${(b.onTimeRateBps / 100).toFixed(1)}%`}
-              sub={`${b.onTime} de ${b.timedContributions}`}
+              sub={t("adminops.canary.card.onTimeSub", {
+                ot: b.onTime,
+                total: b.timedContributions,
+              })}
             />
             <StatCard
-              label="Atrasados"
+              label={t("adminops.canary.card.late")}
               value={b.late}
-              sub={`${b.graceUsed} dentro do grace`}
+              sub={t("adminops.canary.card.lateSub", { g: b.graceUsed })}
               tone={b.late === 0 ? "muted" : "default"}
             />
             <StatCard
-              label="Atraso médio"
+              label={t("adminops.canary.card.avgDelay")}
               value={fmtDuration(b.avgDelaySecondsLate)}
-              sub="média dos atrasados"
+              sub={t("adminops.canary.card.avgDelaySub")}
             />
             <StatCard
-              label="Defaults"
+              label={t("adminops.canary.card.defaults")}
               value={b.defaults}
-              sub="settle_default on-chain"
+              sub={t("adminops.canary.card.defaultsSub")}
               tone={b.defaults === 0 ? "muted" : "default"}
             />
           </div>
@@ -123,39 +141,48 @@ export default function CanaryPage() {
       </Section>
 
       <Section
-        title="Saúde do indexer"
-        note={`events até ${agoLabel(ix.lastProjectionUnix)} · servido ${agoLabel(data.servedAtUnix)}`}
+        title={t("adminops.canary.indexerHealth")}
+        note={t("adminops.canary.note.events", {
+          proj: ago(ix.lastProjectionUnix),
+          served: ago(data.servedAtUnix),
+        })}
       >
         <div style={grid}>
           <StatCard
-            label="Lag (slots)"
-            value={ix.slotsBehind == null ? "—" : ix.slotsBehind}
+            label={t("adminops.canary.card.lag")}
+            value={ix.slotsBehind == null ? t("adminops.lagUnknown") : ix.slotsBehind}
             sub={
-              ix.slotsBehind == null ? "cluster slot indisponível" : `último slot ${ix.lastSlot}`
+              ix.slotsBehind == null
+                ? t("adminops.canary.card.lagUnknownSub")
+                : t("adminops.canary.card.lagSlotSub", { s: ix.lastSlot ?? "—" })
             }
             tone={ix.slotsBehind == null || ix.slotsBehind > 64 ? "default" : "muted"}
           />
-          <StatCard label="Última atualização" value={agoLabel(ix.lastUpdateUnix)} />
+          <StatCard label={t("adminops.canary.card.lastUpdate")} value={ago(ix.lastUpdateUnix)} />
           <StatCard
-            label="Backfill"
+            label={t("adminops.canary.card.backfill")}
             value={ix.lastBackfill?.status ?? "—"}
-            sub={ix.lastBackfill ? agoLabel(ix.lastBackfill.startedAtUnix) : "nunca rodou"}
+            sub={
+              ix.lastBackfill
+                ? ago(ix.lastBackfill.startedAtUnix)
+                : t("adminops.canary.card.backfillNever")
+            }
           />
           <StatCard
-            label="Projeção events"
+            label={t("adminops.canary.card.projection")}
             value={ix.projectedEventCount}
-            sub={`atualizada ${agoLabel(ix.lastProjectionUnix)}`}
+            sub={t("adminops.canary.card.projectionSub", { ago: ago(ix.lastProjectionUnix) })}
           />
           <StatCard
-            label="Não-resolvidos"
+            label={t("adminops.canary.card.unresolved")}
             value={sum(ix.unresolved)}
-            sub="aguardando reconciliação"
+            sub={t("adminops.canary.card.unresolvedSub")}
             tone={sum(ix.unresolved) === 0 ? "muted" : "default"}
           />
           <StatCard
-            label="Órfãos"
+            label={t("adminops.canary.card.orphaned")}
             value={sum(ix.orphaned)}
-            sub="tx não finalizou (fora do canon)"
+            sub={t("adminops.canary.card.orphanedSub")}
             tone={sum(ix.orphaned) === 0 ? "muted" : "default"}
           />
         </div>

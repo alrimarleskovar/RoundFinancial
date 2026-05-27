@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { useApi } from "@/lib/admin/useApi";
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import {
   agoLabel,
@@ -31,12 +32,8 @@ interface PoolRow {
   membersJoined: number;
   membersTarget: number;
   defaultedMembers: number;
-  startedAtUnix: number | null;
-  nextCycleAtUnix: number | null;
   totalContributed: string;
   totalPaidOut: string;
-  solidarityBalance: string;
-  escrowBalance: string;
   health: "healthy" | "at_risk" | "distressed";
   updatedAtUnix: number;
 }
@@ -55,9 +52,6 @@ interface TimelineEntry {
   eventType: string;
   subjectWallet: string;
   cycle: number;
-  slotIndex: number;
-  onChainTsUnix: number;
-  dueTsUnix: number | null;
   deltaSeconds: number | null;
   graceUsed: boolean;
   defaultReason: string | null;
@@ -89,14 +83,16 @@ const TH: React.CSSProperties = {
 
 export default function PoolDetailPage() {
   const { tokens } = useTheme();
+  const t = useT();
   const params = useParams<{ pda: string }>();
   const pda = params.pda;
   const { data, loading, error, status } = useApi<DetailResponse>(`/api/admin/pools/${pda}`);
+  const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
-  if (loading) return <div style={{ color: tokens.muted, fontSize: 13 }}>carregando…</div>;
-  if (status === 404) return <Empty>Pool não encontrado no indexer.</Empty>;
-  if (error || !data)
-    return <Empty>Não foi possível carregar o pool ({error ?? "sem dados"}).</Empty>;
+  if (loading)
+    return <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>;
+  if (status === 404) return <Empty>{t("adminops.pool.notFound")}</Empty>;
+  if (error || !data) return <Empty>{t("adminops.pool.err", { err: error ?? "—" })}</Empty>;
 
   const { pool: p, members, timeline, live } = data;
   const grid = {
@@ -111,6 +107,8 @@ export default function PoolDetailPage() {
     color: tokens.text,
     fontVariantNumeric: "tabular-nums",
   };
+  const cmp = (a: unknown, b: unknown) =>
+    a === b ? t("adminops.pool.eqIndexer") : t("adminops.pool.neIndexer");
 
   return (
     <div>
@@ -119,7 +117,7 @@ export default function PoolDetailPage() {
           href="/admin/ops/pools"
           style={{ fontSize: 12, color: tokens.muted, textDecoration: "none" }}
         >
-          ← Pools
+          {t("adminops.pool.back")}
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
           <MonoLabel>{shortAddr(p.pda, 8, 8)}</MonoLabel>
@@ -128,44 +126,62 @@ export default function PoolDetailPage() {
         </div>
       </div>
 
-      <Section title="Estado do pool" note={`indexer · atualizado ${agoLabel(p.updatedAtUnix)}`}>
+      <Section
+        title={t("adminops.pool.state")}
+        note={t("adminops.pool.stateNote", { ago: ago(p.updatedAtUnix) })}
+      >
         <div style={grid}>
-          <StatCard label="Ciclo" value={`${p.currentCycle}/${p.cyclesTotal}`} />
-          <StatCard label="Membros" value={`${p.membersJoined}/${p.membersTarget}`} />
+          <StatCard label={t("adminops.col.cycle")} value={`${p.currentCycle}/${p.cyclesTotal}`} />
           <StatCard
-            label="Defaults"
+            label={t("adminops.col.members")}
+            value={`${p.membersJoined}/${p.membersTarget}`}
+          />
+          <StatCard
+            label={t("adminops.col.defaults")}
             value={p.defaultedMembers}
             tone={p.defaultedMembers === 0 ? "muted" : "default"}
           />
-          <StatCard label="Contribuído" value={p.totalContributed} sub="USDC base units" />
-          <StatCard label="Pago" value={p.totalPaidOut} sub="USDC base units" />
+          <StatCard
+            label={t("adminops.pool.contributed")}
+            value={p.totalContributed}
+            sub={t("adminops.pool.usdcUnits")}
+          />
+          <StatCard
+            label={t("adminops.pool.paid")}
+            value={p.totalPaidOut}
+            sub={t("adminops.pool.usdcUnits")}
+          />
         </div>
       </Section>
 
-      <Section title="RPC ao vivo (cross-check)" note="estado on-chain fresco vs indexer">
+      <Section title={t("adminops.pool.rpc")} note={t("adminops.pool.rpcNote")}>
         {live == null ? (
-          <Empty>RPC indisponível — exibindo apenas o estado do indexer acima.</Empty>
+          <Empty>{t("adminops.pool.rpcUnavailable")}</Empty>
         ) : (
           <div style={grid}>
             <StatCard
-              label="Status (live)"
+              label={t("adminops.pool.statusLive")}
               value={live.status}
-              sub={live.status.toLowerCase() === p.status.toLowerCase() ? "= indexer" : "≠ indexer"}
+              sub={cmp(live.status.toLowerCase(), p.status.toLowerCase())}
               tone={live.status.toLowerCase() === p.status.toLowerCase() ? "muted" : "default"}
             />
             <StatCard
-              label="Ciclo (live)"
+              label={t("adminops.pool.cycleLive")}
               value={live.currentCycle}
-              sub={live.currentCycle === p.currentCycle ? "= indexer" : `indexer ${p.currentCycle}`}
+              sub={
+                live.currentCycle === p.currentCycle
+                  ? t("adminops.pool.eqIndexer")
+                  : t("adminops.pool.indexerVal", { v: p.currentCycle })
+              }
               tone={live.currentCycle === p.currentCycle ? "muted" : "default"}
             />
             <StatCard
-              label="Defaults (live)"
+              label={t("adminops.pool.defaultsLive")}
               value={live.defaultedMembers}
               sub={
                 live.defaultedMembers === p.defaultedMembers
-                  ? "= indexer"
-                  : `indexer ${p.defaultedMembers}`
+                  ? t("adminops.pool.eqIndexer")
+                  : t("adminops.pool.indexerVal", { v: p.defaultedMembers })
               }
               tone={live.defaultedMembers === p.defaultedMembers ? "muted" : "default"}
             />
@@ -173,9 +189,9 @@ export default function PoolDetailPage() {
         )}
       </Section>
 
-      <Section title="Membros" note="contadores on-chain (chain truth, via backfill)">
+      <Section title={t("adminops.col.members")} note={t("adminops.pool.membersNote")}>
         {members.length === 0 ? (
-          <Empty>Nenhum member indexado.</Empty>
+          <Empty>{t("adminops.pool.membersEmpty")}</Empty>
         ) : (
           <div
             style={{
@@ -188,13 +204,13 @@ export default function PoolDetailPage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>Slot</th>
-                  <th style={TH}>Wallet</th>
-                  <th style={TH}>Nível</th>
-                  <th style={TH}>Pagos</th>
-                  <th style={TH}>Em dia</th>
-                  <th style={TH}>Atrasos</th>
-                  <th style={TH}>Estado</th>
+                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.slot")}</th>
+                  <th style={TH}>{t("adminops.col.wallet")}</th>
+                  <th style={TH}>{t("adminops.col.level")}</th>
+                  <th style={TH}>{t("adminops.col.paid")}</th>
+                  <th style={TH}>{t("adminops.col.onTime")}</th>
+                  <th style={TH}>{t("adminops.col.late")}</th>
+                  <th style={TH}>{t("adminops.col.state")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,11 +228,11 @@ export default function PoolDetailPage() {
                     </td>
                     <td style={td}>
                       {m.defaulted ? (
-                        <Pill text="default" color={tokens.red} />
+                        <Pill text={t("adminops.member.default")} color={tokens.red} />
                       ) : m.paidOut ? (
-                        <Pill text="contemplado" color={tokens.teal} />
+                        <Pill text={t("adminops.member.contemplated")} color={tokens.teal} />
                       ) : (
-                        <Pill text="ativo" color={tokens.green} />
+                        <Pill text={t("adminops.member.active")} color={tokens.green} />
                       )}
                     </td>
                   </tr>
@@ -228,11 +244,11 @@ export default function PoolDetailPage() {
       </Section>
 
       <Section
-        title="Timeline comportamental"
-        note={`events · projeção ${agoLabel(data.indexer.lastProjectionUnix)}`}
+        title={t("adminops.pool.timeline")}
+        note={t("adminops.pool.timelineNote", { ago: ago(data.indexer.lastProjectionUnix) })}
       >
         {timeline.length === 0 ? (
-          <Empty>Sem eventos resolvidos para este pool ainda.</Empty>
+          <Empty>{t("adminops.pool.timelineEmpty")}</Empty>
         ) : (
           <div
             style={{
@@ -245,12 +261,12 @@ export default function PoolDetailPage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>Ciclo</th>
-                  <th style={TH}>Evento</th>
-                  <th style={TH}>Sujeito</th>
-                  <th style={TH}>Timing</th>
-                  <th style={TH}>Delta</th>
-                  <th style={TH}>Motivo</th>
+                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.cycle")}</th>
+                  <th style={TH}>{t("adminops.col.event")}</th>
+                  <th style={TH}>{t("adminops.col.subject")}</th>
+                  <th style={TH}>{t("adminops.col.timing")}</th>
+                  <th style={TH}>{t("adminops.col.delta")}</th>
+                  <th style={TH}>{t("adminops.col.reason")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -276,16 +292,9 @@ export default function PoolDetailPage() {
                           : `+${fmtDuration(e.deltaSeconds)}`}
                     </td>
                     <td style={{ ...td, color: tokens.muted, fontSize: 12 }}>
-                      {e.defaultReason ? (
-                        <span>
-                          {e.defaultReason}{" "}
-                          <span style={{ color: tokens.amber }}>
-                            ({e.defaultReasonProvenance?.toLowerCase() ?? "inferred"})
-                          </span>
-                        </span>
-                      ) : (
-                        "—"
-                      )}
+                      {e.defaultReason
+                        ? `${e.defaultReason} (${e.defaultReasonProvenance?.toLowerCase() ?? "inferred"})`
+                        : "—"}
                     </td>
                   </tr>
                 ))}

@@ -1,12 +1,13 @@
 "use client";
 
 // /admin/ops/users — indexed wallets with a behavioral summary. Identity =
-// wallet (per-wallet on-chain reputation; escape-valve mints a new identity,
-// no cross-wallet linking). Each row links to the behavioral profile.
+// wallet (per-wallet on-chain reputation; no cross-wallet linking). Rows
+// link to the behavioral profile.
 
 import Link from "next/link";
 
 import { useApi } from "@/lib/admin/useApi";
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { agoLabel, Empty, MonoLabel, Pill, Section } from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
@@ -37,11 +38,13 @@ const TH: React.CSSProperties = {
 
 export default function UsersPage() {
   const { tokens } = useTheme();
+  const t = useT();
   const { data, loading, error } = useApi<UsersResponse>("/api/admin/users");
+  const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
-  if (loading) return <div style={{ color: tokens.muted, fontSize: 13 }}>carregando…</div>;
-  if (error || !data)
-    return <Empty>Não foi possível carregar os usuários ({error ?? "sem dados"}).</Empty>;
+  if (loading)
+    return <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>;
+  if (error || !data) return <Empty>{t("adminops.users.err", { err: error ?? "—" })}</Empty>;
 
   const td: React.CSSProperties = {
     padding: "12px",
@@ -53,11 +56,14 @@ export default function UsersPage() {
 
   return (
     <Section
-      title="Usuários"
-      note={`${data.users.length} wallets indexadas · derivado de events (projeção ${agoLabel(data.indexer.lastProjectionUnix)})`}
+      title={t("adminops.users.title")}
+      note={t("adminops.users.note", {
+        n: data.users.length,
+        ago: ago(data.indexer.lastProjectionUnix),
+      })}
     >
       {data.users.length === 0 ? (
-        <Empty>Nenhuma wallet indexada ainda. (rode o backfill do indexer.)</Empty>
+        <Empty>{t("adminops.users.empty")}</Empty>
       ) : (
         <div
           style={{
@@ -70,11 +76,11 @@ export default function UsersPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ color: tokens.muted }}>
-                <th style={{ ...TH, paddingLeft: 16 }}>Wallet</th>
-                <th style={TH}>Nível</th>
-                <th style={TH}>Pools</th>
-                <th style={TH}>Em dia</th>
-                <th style={TH}>Defaults</th>
+                <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.wallet")}</th>
+                <th style={TH}>{t("adminops.col.level")}</th>
+                <th style={TH}>{t("adminops.col.pools")}</th>
+                <th style={TH}>{t("adminops.col.onTime")}</th>
+                <th style={TH}>{t("adminops.col.defaults")}</th>
               </tr>
             </thead>
             <tbody>

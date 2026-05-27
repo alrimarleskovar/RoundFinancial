@@ -1,11 +1,12 @@
 "use client";
 
-// /admin/ops/pools — structural pools table from the indexer DB. Each row
-// links to the pool detail (structural + RPC-live + behavioral timeline).
+// /admin/ops/pools — structural pools table from the indexer DB. Rows link
+// to the pool detail (structural + RPC-live + behavioral timeline).
 
 import Link from "next/link";
 
 import { useApi } from "@/lib/admin/useApi";
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import {
   agoLabel,
@@ -45,11 +46,13 @@ const TH: React.CSSProperties = {
 
 export default function PoolsPage() {
   const { tokens } = useTheme();
+  const t = useT();
   const { data, loading, error } = useApi<PoolsResponse>("/api/admin/pools");
+  const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
-  if (loading) return <div style={{ color: tokens.muted, fontSize: 13 }}>carregando…</div>;
-  if (error || !data)
-    return <Empty>Não foi possível carregar os pools ({error ?? "sem dados"}).</Empty>;
+  if (loading)
+    return <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>;
+  if (error || !data) return <Empty>{t("adminops.pools.err", { err: error ?? "—" })}</Empty>;
 
   const td: React.CSSProperties = {
     padding: "12px",
@@ -61,11 +64,14 @@ export default function PoolsPage() {
 
   return (
     <Section
-      title="Pools"
-      note={`${data.pools.length} indexados · estado estrutural até ${agoLabel(data.indexer.lastUpdateUnix)}`}
+      title={t("adminops.pools.title")}
+      note={t("adminops.pools.note", {
+        n: data.pools.length,
+        ago: ago(data.indexer.lastUpdateUnix),
+      })}
     >
       {data.pools.length === 0 ? (
-        <Empty>Nenhum pool indexado ainda. (devnet — rode o backfill do indexer.)</Empty>
+        <Empty>{t("adminops.pools.empty")}</Empty>
       ) : (
         <div
           style={{
@@ -78,13 +84,13 @@ export default function PoolsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ color: tokens.muted }}>
-                <th style={{ ...TH, paddingLeft: 16 }}>Pool</th>
-                <th style={TH}>Status</th>
-                <th style={TH}>Ciclo</th>
-                <th style={TH}>Membros</th>
-                <th style={TH}>Defaults</th>
-                <th style={TH}>Saúde</th>
-                <th style={TH}>Atualizado</th>
+                <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.pool")}</th>
+                <th style={TH}>{t("adminops.col.status")}</th>
+                <th style={TH}>{t("adminops.col.cycle")}</th>
+                <th style={TH}>{t("adminops.col.members")}</th>
+                <th style={TH}>{t("adminops.col.defaults")}</th>
+                <th style={TH}>{t("adminops.col.health")}</th>
+                <th style={TH}>{t("adminops.col.updated")}</th>
               </tr>
             </thead>
             <tbody>
@@ -116,7 +122,7 @@ export default function PoolsPage() {
                     <HealthPill health={p.health} />
                   </td>
                   <td style={{ ...td, color: tokens.muted, fontSize: 12 }}>
-                    {agoLabel(p.updatedAtUnix)}
+                    {ago(p.updatedAtUnix)}
                   </td>
                 </tr>
               ))}
