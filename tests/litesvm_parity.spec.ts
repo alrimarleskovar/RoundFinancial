@@ -199,18 +199,30 @@ async function driveParityScenario(opts: {
   return { members, onChainDeltas, l1Net };
 }
 
-const SCENARIOS = [
+const SCENARIOS: Array<{
+  label: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  matrix: any;
+  defaulterSlots: number[];
+  seedPrefix: string;
+}> = [
   {
     label: "Pre-default",
     matrix: PRESETS.preDefault.matrix,
-    defaulterSlot: 4, // defaults BEFORE contemplation → calote_pre (negative net)
+    defaulterSlots: [4], // defaults BEFORE contemplation → calote_pre
     seedPrefix: "predefault-parity",
   },
   {
     label: "Post-default",
     matrix: PRESETS.postDefault.matrix,
-    defaulterSlot: 1, // claims THEN defaults → calote_pos (real loss to pool)
+    defaulterSlots: [1], // claims THEN defaults → calote_pos (real loss)
     seedPrefix: "postdefault-parity",
+  },
+  {
+    label: "Cascade",
+    matrix: PRESETS.cascade.matrix,
+    defaulterSlots: [5, 7, 9], // three pre-contemplation defaults (cycles 4/5/6)
+    seedPrefix: "cascade-parity",
   },
 ];
 
@@ -245,14 +257,16 @@ for (const scenario of SCENARIOS) {
       }
     });
 
-    it("the defaulter's net matches L1 directly (owed=0)", function () {
-      const onChain = result.onChainDeltas[scenario.defaulterSlot]!;
-      const l1 = result.l1Net[scenario.defaulterSlot]!;
-      const drift = onChain > l1 ? onChain - l1 : l1 - onChain;
-      expect(
-        drift <= EPSILON,
-        `defaulter slot ${scenario.defaulterSlot} drift > 1 USDC: l1=${l1} onChain=${onChain}`,
-      ).to.equal(true);
+    it("each defaulter slot reconciles to L1", function () {
+      for (const slot of scenario.defaulterSlots) {
+        const onChain = result.onChainDeltas[slot]!;
+        const l1 = result.l1Net[slot]!;
+        const drift = onChain > l1 ? onChain - l1 : l1 - onChain;
+        expect(
+          drift <= EPSILON,
+          `defaulter slot ${slot} drift > 1 USDC: l1=${l1} onChain=${onChain}`,
+        ).to.equal(true);
+      }
     });
   });
 }
