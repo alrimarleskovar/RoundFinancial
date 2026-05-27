@@ -2,7 +2,8 @@
 
 > **Current count (canonical — this is the SSOT all other docs point to):**
 > **51 findings** · **48 🟢 closed** · 0 open ·
-> 3 🔵 design-intentional · **Critical/High 16 of 16 🟢 closed** (6 Critical +
+> 1 🟡 partial (SEV-039 — `close_member` rent reclaim shipped, vault/Pool-PDA
+> close ceremony deferred) · 2 🔵 design-intentional · **Critical/High 16 of 16 🟢 closed** (6 Critical +
 > 10 High). SEV-049 + SEV-050 (both High liveness locks, found by the litesvm
 > L2 parity slice) are CLOSED: `skip_defaulted_payout` (pre-contemplation default
 > cycle advance) + dropping `close_pool`'s unsatisfiable defaulted-pool guard.
@@ -197,8 +198,8 @@ em `programs/`).
 | High          | 10     | 10        | 0                            | 0          | 0                  |
 | Medium        | 14     | 14        | 0                            | 0          | 0                  |
 | Low           | 12     | 12        | 0                            | 0          | 0                  |
-| Informational | 9      | 6         | 0                            | 0          | 3                  |
-| **Total**     | **51** | **48**    | **0**                        | **0**      | **3**              |
+| Informational | 9      | 6         | 1 (SEV-039 partial)          | 0          | 2                  |
+| **Total**     | **51** | **48**    | **1**                        | **0**      | **2**              |
 
 > SEV-047 (High) + SEV-048 (Medium) added by the 2026-05-24 external-audit pass — both 🟢 closed. SEV-049 + SEV-050 (both High liveness, found by the litesvm L1↔L2 parity slice 2026-05-26) — both 🟢 closed. The ECO-001..008 cryptoeconomic series is tracked separately above (modeling/representation, not code-security).
 
@@ -208,9 +209,10 @@ via the `bankrun · no-mpl-core` lane (Kamino spike ~17 tests) AND the
 mpl*core-dependent path (`join_pool`, `escape_valve_buy`) runs via the required
 `litesvm · mpl-core path` lane (`tests/_harness/litesvm.ts` + `tests/litesvm*\*.spec.ts`,
 pinned to Node 24). The 🔵 entries (SEV-018 design-intentional
-pause bypass, SEV-032 design-constraint padding, SEV-039 design-constraint
-close_pool rent) are acknowledged by the auditor as documented design
-trade-offs, not vulnerabilities.
+pause bypass, SEV-032 design-constraint padding) are acknowledged by the
+auditor as documented design trade-offs, not vulnerabilities. SEV-039
+(close_pool rent) is now 🟡 partial — `close_member` reclaims the per-member
+PDA rent; the vault-ATA + Pool-PDA close ceremony is the deferred remainder.
 
 The "**High — fund-leak**" regression chain (SEV-016 → SEV-029 → SEV-034 → SEV-034b)
 is fully closed in main. SEV-016 stays in Low (the original surface area was
