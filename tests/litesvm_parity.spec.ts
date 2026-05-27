@@ -1,0 +1,392 @@
+/**
+ * L1 ↔ L2 economic parity on litesvm — default scenarios (SEV-012 follow-up).
+ *
+ * The Healthy canary in `economic_parity.spec.ts` proves the no-default
+ * per-member delta parity on a localnet validator. This file runs the
+ * DEFAULT scenarios — which need `settle_default` (NFT burn via mpl_core)
+ * + the 7-day grace window — on the litesvm Env, the only automated
+ * environment that loads the SBFv2 `mpl_core.so` (bankrun panics on it).
+ *
+ * Scenarios (one `describe` each, same harness path):
+ *   - Pre-default  (preDefault preset, slot 4): defaults BEFORE its
+ *     contemplation cycle → exercises `skip_defaulted_payout` (SEV-049).
+ *   - Post-default (postDefault preset, slot 1): claims at its
+ *     contemplation cycle THEN defaults later → calote_pos / real loss;
+ *     no skip needed (the slot's cycle already advanced via the claim).
+ * Both then `close_pool` the defaulted pool (SEV-050 fix), then run the full
+ * SEV-039 rent-reclaim ceremony: `close_member` × N → `close_pool_vaults`
+ * (drains the 4 vaults to treasury + closes the ATAs + the Pool PDA).
+ *
+ * Comparison: on-chain `release_escrow` / `settle_default` disburse or seize
+ * exactly what L1 books as still-owed at pool end, so on-chain net = L1 net +
+ * L1's tracked obligations (owed stake + un-dripped escrow). For an ok member
+ * that simplifies to `credit − installmentsPaid`; for the defaulter owed=0, so
+ * the defaulter's net matches L1 directly. No change to the (conservation-
+ * correct) L1 model.
+ *
+ * Grace handling: `driveMatrix`'s `beforeSettle` hook warps the litesvm clock
+ * past `next_cycle_at + GRACE_PERIOD_SECS` right before each `settle_default`,
+ * and `afterSettle` restores the base clock so later contributes stay on-time
+ * (a late contribute writes SCHEMA_LATE, whose PDA the on-time PAYMENT path
+ * doesn't match).
+ *
+ * Skips cleanly when the IDL/.so/mpl_core.so artifacts are absent, so it is a
+ * no-op outside the litesvm CI lane.
+ */
+
+import { expect } from "chai";
+import type { PublicKey } from "@solana/web3.js";
+
+import { PRESETS, runSimulation } from "@roundfi/sdk/stressLab";
+
+const GRACE_PERIOD_SECS = 604_800n; // 7 days — protocol constant (settle_default.rs)
+const EPSILON = 1_000_000n; // 1 USDC base unit
+// litesvm's clock doesn't auto-advance; anchor it to a real epoch so the
+// reputation CYCLE_COMPLETE cooldown (now − last) passes on the first
+// attestation. Kept BELOW every next_cycle_at so contributes stay on-time.
+// The grace warp is restored back to this after each settle.
+const BASE_TS = 1_750_000_000n;
+const N = 12;
+const CREDIT_WHOLE = 12_000;
+
+interface ScenarioResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  members: any[];
+  onChainDeltas: bigint[];
+  l1Net: bigint[];
+  vaultTotal: bigint;
+  // SEV-039: after close_pool, each Member PDA is closed via close_member to
+  // reclaim its rent. `membersRemaining` counts PDAs still on chain (must be 0).
+  membersRemaining: number;
+  // SEV-039 final step: close_pool_vaults drains the 4 vaults to treasury and
+  // closes them + the Pool PDA. `treasuryDrained` is the USDC the treasury
+  // received (must equal `vaultTotal`); `vaultsAndPoolClosed` is true iff all 4
+  // vault ATAs AND the Pool PDA are gone afterward.
+  treasuryDrained: bigint;
+  vaultsAndPoolClosed: boolean;
+}
+
+// Substrings that mean "litesvm build artifacts are absent" — the only case
+// where a clean `this.skip()` is correct. Anything else is a real failure that
+// must surface (the previous blanket catch masked on-chain reverts as skips).
+const ARTIFACT_MISSING = /mpl_core\.so|IDL not found|anchor build|target\/deploy|ENOENT|\.so\b/i;
+
+// Drives one default scenario end-to-end on a fresh litesvm Env and returns
+// the on-chain per-member deltas + the reconciled L1 reference. Throws if the
+// litesvm artifacts are missing (caller turns that into a clean `this.skip()`).
+async function driveParityScenario(opts: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  matrix: any;
+  seedPrefix: string;
+}): Promise<ScenarioResult> {
+  const { setupLitesvmEnv, setLitesvmUnixTs } = await import("./_harness/litesvm.js");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const env: any = await setupLitesvmEnv();
+
+  const harness = await import("./_harness/index.js");
+  const {
+    createUsdcMint,
+    initializeProtocol,
+    initializeReputation,
+    createPool,
+    joinMembers,
+    memberKeypairs,
+    ensureFunded,
+    keypairFromSeed,
+    driveMatrix,
+    releaseEscrow,
+    closePool,
+    closeMember,
+    closePoolVaults,
+    fetchPool,
+    fundUsdc,
+    balanceOf,
+  } = harness;
+
+  // Iniciante (Lv1) on both sides — fresh on-chain profiles are level 1
+  // (promoting to Lv2 needs score+cycle thresholds, out of scope here). The
+  // parity claim holds at any level. ECO-002: the zero-sum installment
+  // (credit/members = $1000) fails the Seed-Draw viability guard
+  // (12×1000×0.74 < 12000), so use a viable INDEPENDENT installment and run
+  // L1 with the same value (12×1500×0.74 = 13320 ≥ 12000). ✓
+  const L1_CONFIG = {
+    level: "Iniciante" as const,
+    members: N,
+    creditAmountUsdc: CREDIT_WHOLE,
+    kaminoApy: 6.5,
+    yieldFeePct: 20,
+    installmentUsdc: 1_500,
+  };
+  const installmentUsdc = 1_500n * 1_000_000n;
+  const creditAmountUsdc = BigInt(CREDIT_WHOLE) * 1_000_000n;
+
+  await setLitesvmUnixTs(env.svm, BASE_TS);
+
+  const usdcMint = await createUsdcMint(env);
+  const proto = await initializeProtocol(env, { usdcMint });
+  const treasuryUsdc = proto.treasury;
+  // settle_default CPIs into reputation::attest (config.reputation_program is
+  // the real program), so the reputation config must exist (the profile is
+  // init_if_needed by the attest CPI).
+  await initializeReputation(env, { coreProgram: env.ids.core });
+  const authority = keypairFromSeed(`${opts.seedPrefix}-authority`);
+  await ensureFunded(env, [authority], 5);
+
+  const pool = await createPool(env, {
+    authority,
+    usdcMint,
+    membersTarget: N,
+    installmentAmount: installmentUsdc,
+    creditAmount: creditAmountUsdc,
+    cyclesTotal: N,
+    cycleDurationSec: 86_400, // MIN_CYCLE_DURATION (SEV-023); clock is warped explicitly
+  });
+
+  // Pre-fund the full position (N×installment + stake) so each join→close
+  // delta is exactly (received − stake − installments).
+  const stakeUsdc = (creditAmountUsdc * 5_000n) / 10_000n; // Iniciante = 50%
+  const totalPerMember = BigInt(N) * installmentUsdc + stakeUsdc;
+
+  const wallets = memberKeypairs(N, opts.seedPrefix);
+  const memberAtas: PublicKey[] = [];
+  for (const w of wallets) {
+    memberAtas.push(await fundUsdc(env, usdcMint, w.publicKey, totalPerMember));
+  }
+
+  const before = await Promise.all(memberAtas.map((ata) => balanceOf(env, ata)));
+
+  const members = await joinMembers(
+    env,
+    pool,
+    wallets.map((w) => ({ member: w, reputationLevel: 1 as const })),
+  );
+
+  // Track who's defaulted so the escrow-release loop skips them (a defaulted
+  // member can't release_escrow). driveMatrix flips them via settle_default.
+  const defaultedSlots = new Set<number>();
+
+  await driveMatrix({
+    env,
+    pool,
+    members,
+    matrix: opts.matrix,
+    beforeSettle: async () => {
+      const p = await fetchPool(env, pool.pool);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = (p as any).nextCycleAt ?? (p as any).next_cycle_at;
+      const nextCycleAt = BigInt(raw.toString());
+      await setLitesvmUnixTs(env.svm, nextCycleAt + GRACE_PERIOD_SECS + 60n);
+    },
+    afterSettle: async (_cycle: number, slot: number) => {
+      defaultedSlots.add(slot);
+      await setLitesvmUnixTs(env.svm, BASE_TS);
+    },
+  });
+
+  for (let i = 0; i < members.length; i++) {
+    if (defaultedSlots.has(i)) continue;
+    await releaseEscrow(env, { pool, member: members[i]!, checkpoint: N });
+  }
+  // close_pool succeeds for a defaulted pool (SEV-050): pure terminal-state
+  // transition, the unsatisfiable defaulted-pool guard was removed.
+  await closePool(env, { pool });
+
+  const after = await Promise.all(members.map((m) => balanceOf(env, m.memberUsdc)));
+  const onChainDeltas = before.map((b, i) => after[i]! - b);
+
+  // Pool-level conservation reference: no yield CPI runs in driveMatrix (no
+  // deposit_idle_to_yield / harvest_yield), so NO USDC is created on-chain.
+  // Every minted dollar therefore sits in either a member wallet or one of the
+  // three pool vaults — `Σ(member deltas) + Σ(vault balances) == 0`.
+  // (USDC ATAs only — close_member below reclaims the Member PDA's SOL rent,
+  // which is unrelated to the USDC accounting.)
+  const vaultTotal =
+    (await balanceOf(env, pool.poolUsdcVault)) +
+    (await balanceOf(env, pool.escrowVault)) +
+    (await balanceOf(env, pool.solidarityVault));
+
+  // SEV-039: reclaim per-member rent now that the pool is Closed. Each
+  // close_member closes the Member PDA and returns its rent to the member's
+  // wallet. Verify every PDA is actually gone (fetchNullable → null).
+  for (const m of members) {
+    await closeMember(env, { pool, member: m, authority });
+  }
+  let membersRemaining = 0;
+  for (const m of members) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const acct = await (env.programs.core.account as any).member.fetchNullable(m.member);
+    if (acct !== null) membersRemaining++;
+  }
+
+  // SEV-039 final step: drain the 4 vaults to treasury + close them + the Pool
+  // PDA. Treasury starts empty (no yield CPI ran → no protocol fee), so the
+  // delta it receives must equal the conservation `vaultTotal` above.
+  const treasuryBefore = await balanceOf(env, treasuryUsdc);
+  await closePoolVaults(env, { pool, treasuryUsdc, authority });
+  const treasuryDrained = (await balanceOf(env, treasuryUsdc)) - treasuryBefore;
+
+  // Every vault ATA must be gone (balanceOf → getAccount throws) and the Pool
+  // PDA must be closed (fetchNullable → null).
+  const isClosed = async (ata: PublicKey): Promise<boolean> => {
+    try {
+      await balanceOf(env, ata);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const vaultsClosed =
+    (await isClosed(pool.poolUsdcVault)) &&
+    (await isClosed(pool.escrowVault)) &&
+    (await isClosed(pool.solidarityVault)) &&
+    (await isClosed(pool.yieldVault));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const poolAcct = await (env.programs.core.account as any).pool.fetchNullable(pool.pool);
+  const vaultsAndPoolClosed = vaultsClosed && poolAcct === null;
+
+  // L1 reference, reconciled to what on-chain actually disburses/seizes:
+  //   - on-chain `claim_payout` pays the FULL credit at contemplation (one
+  //     transfer); L1 drips it as upfront + gradual escrow. A contemplated
+  //     member (received > 0 → got the upfront) therefore has
+  //     `credit − creditReceived` of un-dripped credit that on-chain already
+  //     paid — true for ok members AND for a post-contemplation defaulter
+  //     (calote_pos), whose seized COLLATERAL (not the disbursed credit) is
+  //     taken by settle_default (so its wallet keeps the full credit).
+  //   - on-chain `release_escrow` refunds the stake only to ok members.
+  //   - a pre-contemplation defaulter (calote_pre) was never contemplated
+  //     (received == 0) and gets no refund → owed = 0.
+  const frames = runSimulation(L1_CONFIG, opts.matrix);
+  const final = frames[frames.length - 1]!;
+  const l1Net = final.ledgerSnapshot.map((row) => {
+    const base = row.received - row.stakePaid - row.installmentsPaid;
+    const creditReceived = row.received - row.stakeRefunded;
+    const contemplated = row.received > 0;
+    const owedCredit = contemplated ? Math.max(0, CREDIT_WHOLE - creditReceived) : 0;
+    const owedStake = row.status === "ok" ? Math.max(0, row.stakePaid - row.stakeRefunded) : 0;
+    return BigInt(Math.round((base + owedCredit + owedStake) * 1_000_000));
+  });
+
+  return {
+    members,
+    onChainDeltas,
+    l1Net,
+    vaultTotal,
+    membersRemaining,
+    treasuryDrained,
+    vaultsAndPoolClosed,
+  };
+}
+
+const SCENARIOS: Array<{
+  label: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  matrix: any;
+  defaulterSlots: number[];
+  seedPrefix: string;
+}> = [
+  {
+    label: "Pre-default",
+    matrix: PRESETS.preDefault.matrix,
+    defaulterSlots: [4], // defaults BEFORE contemplation → calote_pre
+    seedPrefix: "predefault-parity",
+  },
+  {
+    label: "Post-default",
+    matrix: PRESETS.postDefault.matrix,
+    defaulterSlots: [1], // claims THEN defaults → calote_pos (real loss)
+    seedPrefix: "postdefault-parity",
+  },
+  {
+    label: "Cascade",
+    matrix: PRESETS.cascade.matrix,
+    defaulterSlots: [5, 7, 9], // three pre-contemplation defaults (cycles 4/5/6)
+    seedPrefix: "cascade-parity",
+  },
+];
+
+for (const scenario of SCENARIOS) {
+  describe(`L1↔L2 parity (litesvm) — ${scenario.label} preset`, function () {
+    this.timeout(180_000);
+
+    let result: ScenarioResult;
+
+    before(async function () {
+      try {
+        result = await driveParityScenario(scenario);
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        // Only an absent build artifact is a legitimate skip. A real on-chain
+        // revert or accounting mismatch must surface as a failure — the old
+        // blanket catch masked those as green skips (SEV-039 follow-up).
+        if (ARTIFACT_MISSING.test(msg)) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `litesvm parity (${scenario.label}): build artifacts absent (${msg}). ` +
+              `Needs 'anchor build' + target/deploy/mpl_core.so — skipping.`,
+          );
+          this.skip();
+        }
+        throw e;
+      }
+    });
+
+    it("every member's on-chain net reconciles to L1 net + tracked obligations", function () {
+      for (let i = 0; i < result.members.length; i++) {
+        const onChain = result.onChainDeltas[i]!;
+        const l1 = result.l1Net[i]!;
+        const drift = onChain > l1 ? onChain - l1 : l1 - onChain;
+        expect(
+          drift <= EPSILON,
+          `slot ${i} drift > 1 USDC: l1=${l1} onChain=${onChain} drift=${drift}`,
+        ).to.equal(true);
+      }
+    });
+
+    it("each defaulter slot reconciles to L1", function () {
+      for (const slot of scenario.defaulterSlots) {
+        const onChain = result.onChainDeltas[slot]!;
+        const l1 = result.l1Net[slot]!;
+        const drift = onChain > l1 ? onChain - l1 : l1 - onChain;
+        expect(
+          drift <= EPSILON,
+          `defaulter slot ${slot} drift > 1 USDC: l1=${l1} onChain=${onChain}`,
+        ).to.equal(true);
+      }
+    });
+
+    it("pool-level conservation: Σ member deltas + Σ vault balances == 0", function () {
+      const sumDeltas = result.onChainDeltas.reduce((acc, d) => acc + d, 0n);
+      const total = sumDeltas + result.vaultTotal;
+      const abs = total < 0n ? -total : total;
+      expect(
+        abs <= EPSILON,
+        `conservation drift > 1 USDC: Σdeltas=${sumDeltas} vaults=${result.vaultTotal} total=${total}`,
+      ).to.equal(true);
+    });
+
+    it("close_member reclaims every Member PDA's rent (SEV-039)", function () {
+      expect(
+        result.membersRemaining,
+        `${result.membersRemaining} Member PDA(s) still allocated after close_member`,
+      ).to.equal(0);
+    });
+
+    it("close_pool_vaults drains every vault residual to treasury (SEV-039)", function () {
+      const drift =
+        result.treasuryDrained > result.vaultTotal
+          ? result.treasuryDrained - result.vaultTotal
+          : result.vaultTotal - result.treasuryDrained;
+      expect(
+        drift <= EPSILON,
+        `treasury drain != vault residual: drained=${result.treasuryDrained} vaultTotal=${result.vaultTotal}`,
+      ).to.equal(true);
+    });
+
+    it("close_pool_vaults closes all 4 vault ATAs + the Pool PDA (SEV-039)", function () {
+      expect(
+        result.vaultsAndPoolClosed,
+        "a vault ATA or the Pool PDA is still allocated after close_pool_vaults",
+      ).to.equal(true);
+    });
+  });
+}

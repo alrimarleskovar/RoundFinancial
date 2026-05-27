@@ -48,6 +48,22 @@ export interface LitesvmEnv extends Env {
 const DEPLOY = (n: string): string => resolve(process.cwd(), "target", "deploy", `${n}.so`);
 const IDL = (n: string): string => resolve(process.cwd(), "target", "idl", `${n}.json`);
 
+/**
+ * Overwrite `clock.unix_timestamp` on a litesvm instance, leaving the
+ * slot/epoch fields at their current values — the litesvm analogue of
+ * the bankrun `setBankrunUnixTs` helper. Needed for the post-grace leg
+ * of `settle_default` (7-day `GRACE_PERIOD_SECS`), which the parity
+ * default scenarios cross. Every on-chain `Clock::get()?` afterwards
+ * observes the new timestamp.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function setLitesvmUnixTs(svm: any, unixTs: bigint): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { Clock } = (await import("litesvm")) as unknown as { Clock: any };
+  const c = svm.getClock();
+  svm.setClock(new Clock(c.slot, c.epochStartTimestamp, c.epoch, c.leaderScheduleEpoch, unixTs));
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function loadIdl(n: string): any {
   const p = IDL(n);

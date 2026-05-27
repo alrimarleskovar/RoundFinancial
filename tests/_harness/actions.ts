@@ -253,6 +253,70 @@ export async function closePool(env: Env, opts: ClosePoolOpts): Promise<string> 
     .rpc();
 }
 
+// ─── close_member ──────────────────────────────────────────────────────
+// Reclaim a finalized pool's per-member rent (SEV-039, partial). Closes one
+// Member PDA after the pool is Closed, returning its rent to the member's
+// wallet. Caller is the pool/protocol authority or the member themselves.
+export interface CloseMemberOpts {
+  pool: PoolHandle;
+  member: MemberHandle;
+  authority?: Keypair; // defaults to pool.authority (== config.authority in tests)
+}
+
+export async function closeMember(env: Env, opts: CloseMemberOpts): Promise<string> {
+  const authority = opts.authority ?? opts.pool.authority;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (env.programs.core.methods as any)
+    .closeMember()
+    .accounts({
+      authority: authority.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      memberWallet: opts.member.wallet.publicKey,
+      member: opts.member.member,
+    })
+    .signers([authority])
+    .rpc();
+}
+
+// ─── close_pool_vaults ─────────────────────────────────────────────────
+// SEV-039 final step: drain the 4 vaults' residual USDC to treasury, close the
+// 4 vault ATAs, and close the Pool PDA. Requires every Member PDA closed first
+// (pool.members_joined == 0). Ceremony: close_pool → close_member × N →
+// close_pool_vaults.
+export interface ClosePoolVaultsOpts {
+  pool: PoolHandle;
+  treasuryUsdc: PublicKey;
+  authority?: Keypair; // defaults to pool.authority
+  rentRecipient?: PublicKey; // defaults to the authority's wallet
+}
+
+export async function closePoolVaults(env: Env, opts: ClosePoolVaultsOpts): Promise<string> {
+  const authority = opts.authority ?? opts.pool.authority;
+  const rentRecipient = opts.rentRecipient ?? authority.publicKey;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (env.programs.core.methods as any)
+    .closePoolVaults()
+    .accounts({
+      authority: authority.publicKey,
+      config: configPda(env),
+      rentRecipient,
+      pool: opts.pool.pool,
+      usdcMint: opts.pool.usdcMint,
+      treasuryUsdc: opts.treasuryUsdc,
+      escrowVaultAuthority: opts.pool.escrowVaultAuthority,
+      solidarityVaultAuthority: opts.pool.solidarityVaultAuthority,
+      yieldVaultAuthority: opts.pool.yieldVaultAuthority,
+      poolUsdcVault: opts.pool.poolUsdcVault,
+      escrowVault: opts.pool.escrowVault,
+      solidarityVault: opts.pool.solidarityVault,
+      yieldVault: opts.pool.yieldVault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .signers([authority])
+    .rpc();
+}
+
 // ─── settle_default ────────────────────────────────────────────────────
 // Permissionless settlement of a defaulted member. Anyone can crank;
 // caller pays the rent for the attestation PDA. The cycle parameter is
@@ -297,6 +361,37 @@ export async function settleDefault(env: Env, opts: SettleDefaultOpts): Promise<
       identityRecord: env.ids.reputation,
       attestation,
       systemProgram: SystemProgram.programId,
+    })
+    .signers([caller])
+    .rpc();
+}
+
+// ─── skip_defaulted_payout ─────────────────────────────────────────────
+// Permissionless cycle advance for a slot whose contemplated member
+// defaulted pre-contemplation (claim_payout can't run on a defaulted slot,
+// and only claim_payout advances the cycle — so the pool would lock). No
+// payout; the forfeited pot stays in the float.
+export interface SkipDefaultedPayoutOpts {
+  pool: PoolHandle;
+  defaulter: MemberHandle;
+  cycle: number;
+  caller?: Keypair; // defaults to env.payer
+}
+
+export async function skipDefaultedPayout(
+  env: Env,
+  opts: SkipDefaultedPayoutOpts,
+): Promise<string> {
+  const caller = opts.caller ?? env.payer;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (env.programs.core.methods as any)
+    .skipDefaultedPayout({ cycle: opts.cycle })
+    .accounts({
+      caller: caller.publicKey,
+      config: configPda(env),
+      pool: opts.pool.pool,
+      member: opts.defaulter.member,
+      defaultedMemberWallet: opts.defaulter.wallet.publicKey,
     })
     .signers([caller])
     .rpc();

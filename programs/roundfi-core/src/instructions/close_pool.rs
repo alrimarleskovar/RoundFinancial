@@ -10,29 +10,22 @@
 //!     know the pool is permanently finalized.
 //!   • Emits a summary msg! log with final balances.
 //!
-//! Actual vault-close and rent-return is deferred: closing an ATA
-//! requires knowing it's empty, which in turn requires the authority
-//! to have drained leftover dust to treasury. That drain is a
-//! follow-up chore; for the hackathon demo a Completed pool is
-//! effectively closed.
+//! Actual vault-close and rent-return happens in `close_pool_vaults`
+//! (the final step of the rent-reclaim ceremony) — closing an ATA
+//! requires it to be empty, so that ix drains leftover residual to
+//! treasury first. `close_pool` itself stays a pure terminal-state
+//! transition.
 //!
-//! **Adevar Labs SEV-039 (Informational, deferred):** the auditor's
-//! W5 pass flagged that close_pool does not close the Pool PDA, the
-//! Member PDAs, or the four vault ATAs (escrow / solidarity / yield /
-//! pool_usdc). Consequence: rent stays locked in the closed pool's
-//! accounts forever; sub-MIN_RENT-EXEMPT dust in the vaults becomes
-//! inaccessible. Per-pool rent waste is ~0.0035 SOL on the Pool PDA
-//! plus the ATAs; cumulative across the protocol's lifetime, real but
-//! bounded.
-//!
-//! Why deferred: a true close needs (a) drain-to-treasury for any
-//! lingering vault USDC dust, (b) close_account on each ATA + Pool
-//! PDA + Member PDAs (typically dozens), (c) rent return to a
-//! designated wallet. That's a multi-tx ceremony that doesn't fit the
-//! single-ix close_pool shape. Tracked as future operational work;
-//! NOT a fund-loss vector (the dust was never claimable beyond the
-//! rounding it represents). Documented in the public tracker as
-//! 🔵 Acknowledged design constraint.
+//! **Adevar Labs SEV-039 (Informational) — CLOSED.** The auditor's W5
+//! pass flagged that close_pool does not close the Pool PDA, the Member
+//! PDAs, or the four vault ATAs (escrow / solidarity / yield /
+//! pool_usdc), leaving their rent locked. This is now resolved by the
+//! full ceremony: `close_pool` → `close_member` × N → `close_pool_vaults`.
+//! `close_member` reclaims each Member PDA's rent (and decrements the
+//! live-member count); `close_pool_vaults` drains every vault residual
+//! to `config.treasury`, closes the four vault ATAs, and closes the Pool
+//! PDA. Ordering is enforced on chain (close_pool_vaults requires
+//! `members_joined == 0`). Validated by the litesvm parity slice.
 
 use anchor_lang::prelude::*;
 
@@ -72,10 +65,21 @@ pub struct ClosePool<'info> {
 pub fn handler(ctx: Context<ClosePool>) -> Result<()> {
     let pool_key = ctx.accounts.pool.key();
 
-    require!(
-        ctx.accounts.pool.defaulted_members == 0 || ctx.accounts.pool.escrow_balance == 0,
-        RoundfiError::OutstandingDefaults,
-    );
+    // SEV-050 (liveness): the former guard required
+    // `defaulted_members == 0 || escrow_balance == 0` for a defaulted pool.
+    // But `settle_default` only ever INCREMENTS `defaulted_members` (never
+    // zeroes it) and `escrow_balance` ends at `Σ total_escrow_deposited > 0`
+    // for any pool that took contributions (release_escrow vests only the
+    // STAKE, never the escrow deposits) — so BOTH clauses are unsatisfiable
+    // once anyone defaults: a defaulted pool could NEVER close, stranding its
+    // funds AND leaking its committed TVL forever (the decrement below never
+    // ran → a griefing DoS on the global cap).
+    //
+    // close_pool is a pure terminal-state transition: it moves NO funds (vault
+    // drain/rent reclaim is deferred — see the module header / SEV-039) and the
+    // `status == Completed` account constraint already proves every cycle ran
+    // (defaulters resolved via settle_default / skip_defaulted_payout). So the
+    // guard protected no funds; it only blocked legitimate closes. Removed.
 
     // ─── Decrement committed TVL (symmetric with init_pool_vaults) ───
     // Use the same computation: pool's max committed flow is

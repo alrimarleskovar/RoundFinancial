@@ -695,6 +695,54 @@ describe("runSimulation — ECO-003 breakpoint re-derivation", () => {
   });
 });
 
+// ─── ECO-007 — reserve LP in float (raw-vault parity) ────────────────
+// On-chain (post-SEV-048) the LP yield slice sits in the pool USDC vault
+// as a non-spendable earmark; L1 historically treated it as already paid
+// out. The opt-in `reserveLpInFloat` keeps lpDistribution inside the float
+// so L1 matches the on-chain RAW vault balance (needed before un-skipping
+// the L2 raw-balance parity blocks), while leaving the solvency verdict
+// (and every preset's default display) unchanged. See
+// docs/security/eco-l1-l2-reconciliation.md (ECO-007).
+describe("runSimulation — reserve LP in float (ECO-007)", () => {
+  it("omitting the flag is identical to reserveLpInFloat:false (presets unchanged)", () => {
+    const preset = PRESETS.highYieldTripleDefault;
+    const omitted = runSimulation(preset.config, preset.matrix);
+    const explicitFalse = runSimulation(
+      { ...preset.config, reserveLpInFloat: false },
+      preset.matrix,
+    );
+    expect(JSON.stringify(explicitFalse)).to.equal(JSON.stringify(omitted));
+  });
+
+  it("reserving LP adds it to poolBalance but leaves netSolvency unchanged", () => {
+    // High APY so the Guarantee Fund fills and the LP slice is non-zero.
+    const cfg: StressLabConfig = {
+      level: "Comprovado",
+      members: 12,
+      creditAmountUsdc: 12_000,
+      kaminoApy: 500,
+      yieldFeePct: 20,
+    };
+    const m = defaultMatrix(12);
+    const base = runSimulation(cfg, m)[11]!.metrics;
+    const reserved = runSimulation({ ...cfg, reserveLpInFloat: true }, m)[11]!.metrics;
+
+    expect(base.lpDistribution, "LP slice is non-zero (GF filled)").to.be.greaterThan(0);
+    // lpDistribution accumulator itself is unchanged by the flag.
+    expect(reserved.lpDistribution).to.be.closeTo(base.lpDistribution, 1e-6);
+    // poolBalance rises by exactly the reserved LP earmark.
+    expect(
+      reserved.poolBalance - base.poolBalance,
+      "poolBalance carries the LP earmark when reserved",
+    ).to.be.closeTo(base.lpDistribution, 1e-6);
+    // The solvency verdict is invariant — LP is never spendable for obligations.
+    expect(reserved.netSolvency, "netSolvency invariant under the flag").to.be.closeTo(
+      base.netSolvency,
+      1e-6,
+    );
+  });
+});
+
 // ─── Layer 1e — net solvency vs gross cash ───────────────────────────
 // `poolBalance` (gross cash) was being read as a solvency signal, but
 // it includes member stakes (a *liability* — owed back to ok members)
@@ -1315,46 +1363,18 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
   });
 });
 
-describe.skip("L1 ↔ L2 parity — Pre-default preset", () => {
-  it("defaulter's stake + installments retained on-chain ≡ L1 retained", async () => {
-    // Drive the scenario, then settle_default on the defaulter at the
-    // configured cycle. After settle_default + close_pool:
-    //   solidarity_vault.amount + escrow_vault.amount  (the protocol
-    //   retention) − initial_protocol_balance ≡ ledger.retained for
-    //   that defaulter (within 1 USDC unit).
-  });
-});
-
-describe.skip("L1 ↔ L2 parity — Post-default preset", () => {
-  it("loss-caused on-chain (via solidarity vault drain) ≡ L1 lossCaused", async () => {
-    // Drive the scenario. The contemplated-then-defaulted member
-    // received their upfront from the pool. settle_default reclaims
-    // what's left in their NFT position; the gap == lossCaused. The
-    // gap manifests on-chain as the solidarity vault's drain to
-    // cover it.
-  });
-});
-
-describe.skip("L1 ↔ L2 parity — Cascade preset", () => {
-  it("cumulative retention + losses match across multiple defaulters", async () => {
-    // Per-preset assertion: applying preDefault + postDefault claims
-    // additively across the 3 cascade defaulters. Tightest check —
-    // surfaces interaction bugs that single-default scenarios miss.
-  });
-});
+// ─── L1 ↔ L2 default-scenario parity — IMPLEMENTED in tests/litesvm_parity.spec.ts ──
+// The Pre-default / Post-default / Cascade default scenarios need the mpl_core
+// path (join_pool / settle_default NFT burn) + the 7-day grace clock-warp,
+// which the localnet `setupEnv()` path above can't drive in CI. They are now
+// implemented for real on the litesvm Env in `tests/litesvm_parity.spec.ts`
+// (parameterized over the three presets; runs in the `litesvm · mpl-core path`
+// CI lane), reconciling each member's on-chain net to L1 net + tracked
+// obligations. That work also surfaced + fixed SEV-049 + SEV-050 (two liveness
+// locks). The stubs that used to live here are superseded by that file.
 
 // ─── Layer 3 — orthogonal conservation invariant ─────────────────────
-
-describe.skip("Conservation invariant — every cent accounted for", () => {
-  it("sum(member_net_positions) + protocol_retention + remaining_vaults ≡ harvested_yield", async () => {
-    // For each preset:
-    //   For L1: sum of every ledger entry's signed net position
-    //           (received - stakePaid - installmentsPaid) +
-    //           totalRetained - totalLoss
-    //           must equal totalNetYield (kaminoNetYield).
-    //   For L2: the same quantity, computed from on-chain balances
-    //           after close_pool.
-    //   Both must be within a 1-USDC-unit epsilon — anything bigger
-    //   is a parity bug.
-  });
-});
+// Also IMPLEMENTED in tests/litesvm_parity.spec.ts: each default scenario
+// asserts `Σ(member on-chain deltas) + Σ(pool vault balances) == 0` (no yield
+// CPI runs, so no USDC is created → every minted dollar is in a member wallet
+// or a pool vault). The stub that used to live here is superseded by that file.
