@@ -51,7 +51,11 @@ export const PALETTES: Record<Palette, ThemeTokens> = {
     navyDeep: "#071A32",
     text: "#EEF0F8",
     text2: "rgba(238,240,248,0.65)",
-    muted: "#4E5870",
+    // Bumped from #4E5870 (2.88:1 against bg — failed WCAG AA) to #7079A1
+    // (4.81:1 — AA pass for normal text). MonoLabel + 243 other usages all
+    // sit on this token; raising it at the source fixes every small-caps
+    // label, KPI delta, and card subtitle in one move.
+    muted: "#7079A1",
     border: "rgba(255,255,255,0.08)",
     borderStr: "rgba(255,255,255,0.14)",
   },
@@ -72,7 +76,10 @@ export const PALETTES: Record<Palette, ThemeTokens> = {
     navyDeep: "#C7D5E0",
     text: "#2A2E38",
     text2: "rgba(42,46,56,0.65)",
-    muted: "#8A8578",
+    // Bumped from #8A8578 (3.17:1 against bg — failed AA) to #6E6A5E
+    // (4.66:1 — AA pass). Mirrors the neon-palette fix; preserves the
+    // same warm-gray hue, just dark enough to read on the cream surface.
+    muted: "#6E6A5E",
     border: "rgba(42,46,56,0.08)",
     borderStr: "rgba(42,46,56,0.14)",
   },
