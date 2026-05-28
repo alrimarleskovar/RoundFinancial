@@ -1348,13 +1348,13 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.insights.ordinal.3plus": "3º pool em diante",
     // — tooltips for sections —
     "adminops.tip.insights.retention":
-      "Taxa de conclusão (paidOut) e default agrupadas por Member.reputationLevel no momento do join. Gate: N≥30 por cohort.",
+      "Para cada nível de reputação (L1, L2, L3): quantos membros concluíram o pool em dia e quantos deram default. Mostra os números só quando o nível tem pelo menos 30 membros.",
     "adminops.tip.insights.predictor":
-      "Comparação simples por feature (3 features pré-definidas no ADR 0010, sem ML, sem fishing). Wilson 95% nos rates.",
+      "Verifica se comportamentos passados — atrasar uma contribuição, usar carência — aumentam a chance de default. As três comparações foram fixadas antes de olhar os dados (não é modelo, não é descoberta posterior).",
     "adminops.tip.insights.progression":
-      "Para wallets com ≥1 pool concluído: % que atingiu L2 / L3 + média de pools até atingir cada nível.",
+      "Entre as wallets que já concluíram pelo menos um pool: que porcentagem subiu para L2 e L3, e quantos pools em média foram necessários para cada subida.",
     "adminops.tip.insights.improvement":
-      "Para wallets com ≥3 pools: rate em-dia (onTimeCount/contributionsPaid) no 1º, 2º e 3º+ pool participado.",
+      "Entre as wallets que participaram de pelo menos três pools: que porcentagem das contribuições saiu em dia no primeiro pool, no segundo, e do terceiro em diante. Indica se há aprendizado com a experiência.",
   },
   en: {
     "nav.home": "Home",
@@ -2665,12 +2665,12 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.insights.ordinal.3plus": "3rd pool onward",
     // — tooltips for sections —
     "adminops.tip.insights.retention":
-      "Completion rate (paidOut) and default rate grouped by Member.reputationLevel at join time. Gate: N≥30 per cohort.",
+      "For each reputation tier (L1, L2, L3): how many members finished the pool on time and how many defaulted. Renders the numbers only once a tier has at least 30 members.",
     "adminops.tip.insights.predictor":
-      "Simple feature-cohort comparison (3 features pinned in ADR 0010, no ML, no fishing). 95% Wilson CIs on rates.",
+      "Checks whether past behaviors — paying late, using a grace period — raise the chance of default. The three comparisons were fixed before looking at the data (no ML model, no post-hoc discovery).",
     "adminops.tip.insights.progression":
-      "For wallets with ≥1 completed pool: share that reached L2 / L3 + mean pools to reach each tier.",
+      "Among wallets that have completed at least one pool: what share moved up to L2 and L3, and on average how many pools it took to reach each tier.",
     "adminops.tip.insights.improvement":
-      "For wallets with ≥3 pool memberships: on-time rate (onTimeCount/contributionsPaid) at 1st, 2nd, 3rd+ pool.",
+      "Among wallets that joined at least three pools: what share of contributions was on time in the 1st pool, the 2nd, and from the 3rd onward. Signals whether there's learning from experience.",
   },
 };

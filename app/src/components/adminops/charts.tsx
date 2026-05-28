@@ -425,7 +425,7 @@ export function LineChart({
               .join(" ")}
             fill="none"
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -435,26 +435,30 @@ export function LineChart({
             // Adaptive label placement: above the point by default; flip
             // below when the natural y would clip the top of the viewBox
             // (yBps ≈ 100% case), and flip back above when at the floor
-            // (yBps ≈ 0% case). 12 unit margin keeps the glyph fully
-            // inside the plot frame at either extreme.
+            // (yBps ≈ 0% case).
             const labelAboveY = cy - 8;
-            const labelBelowY = cy + 16;
-            const labelY =
-              labelAboveY < PAD_T + 8
-                ? labelBelowY
-                : labelBelowY > PAD_T + PLOT_H - 2
-                  ? labelAboveY
-                  : labelAboveY;
+            const labelBelowY = cy + 14;
+            const labelY = labelAboveY < PAD_T + 8 ? labelBelowY : labelAboveY;
+            // Edge labels otherwise collide with the Y-axis tick numbers on
+            // the left and would clip on the right. Anchor + nudge inward.
+            const isFirst = i === 0;
+            const isLast = i === points.length - 1;
+            const anchor: "start" | "end" | "middle" = isFirst
+              ? "start"
+              : isLast
+                ? "end"
+                : "middle";
+            const labelX = isFirst ? xs[i] + 4 : isLast ? xs[i] - 4 : xs[i];
             return (
               <g key={i}>
-                <circle cx={xs[i]} cy={cy} r={4} fill={color} />
+                <circle cx={xs[i]} cy={cy} r={3} fill={color} />
                 <text
-                  x={xs[i]}
+                  x={labelX}
                   y={labelY}
                   fill={tokens.text}
                   fontSize={10}
                   fontWeight={700}
-                  textAnchor="middle"
+                  textAnchor={anchor}
                 >
                   {Math.round(p.yBps / 100)}%
                 </text>

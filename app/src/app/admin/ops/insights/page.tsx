@@ -96,7 +96,13 @@ export default function InsightsPage() {
     return <Pill text={t("adminops.insights.status.insufficient")} color={tokens.muted} />;
   }
 
-  function Legend({ entries }: { entries: { color: string; label: string }[] }) {
+  function Legend({
+    entries,
+    markerType = "swatch",
+  }: {
+    entries: { color: string; label: string }[];
+    markerType?: "swatch" | "line";
+  }) {
     return (
       <div
         style={{
@@ -110,15 +116,27 @@ export default function InsightsPage() {
       >
         {entries.map((e, idx) => (
           <span key={idx} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 2,
-                background: e.color,
-                display: "inline-block",
-              }}
-            />
+            {markerType === "line" ? (
+              <span
+                style={{
+                  width: 14,
+                  height: 2,
+                  borderRadius: 1,
+                  background: e.color,
+                  display: "inline-block",
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  background: e.color,
+                  display: "inline-block",
+                }}
+              />
+            )}
             {e.label}
           </span>
         ))}
@@ -495,7 +513,10 @@ export default function InsightsPage() {
           {i.improvement.status === "insufficient" ? (
             <InsufficientMsg text={t("adminops.insights.insufficient.improvement")} />
           ) : null}
-          <Legend entries={[{ color: tokens.green, label: t("adminops.insights.onTimeAxis") }]} />
+          <Legend
+            entries={[{ color: tokens.green, label: t("adminops.insights.onTimeAxis") }]}
+            markerType="line"
+          />
           <div style={{ marginTop: 12, display: "grid", gap: 4 }}>
             {i.improvement.buckets.map((b) => (
               <MetricRow
