@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { useAdminSession } from "@/lib/admin/useAdminSession";
+import { RFILogoMark } from "@/components/brand/brand";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
@@ -106,14 +107,15 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
       title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
       style={{
         background: "none",
-        border: `1px solid ${tokens.border}`,
+        border: `1px solid ${tokens.borderStr}`,
         color: tokens.text2,
         borderRadius: 8,
-        padding: "5px 10px",
-        fontSize: 12,
-        fontWeight: 600,
+        padding: "6px 11px",
+        fontSize: 13,
+        fontWeight: 700,
         cursor: "pointer",
         textTransform: "uppercase",
+        letterSpacing: "0.04em",
       }}
     >
       {lang === "pt" ? "EN" : "PT"}
@@ -139,9 +141,22 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
           gap: 16,
         }}
       >
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>RoundFi — Canary Ops</div>
-          <div style={{ fontSize: 12, color: tokens.muted }}>{t("adminops.subtitle")}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          <RFILogoMark size={30} />
+          <div>
+            <div
+              style={{
+                fontFamily: "Syne, system-ui",
+                fontWeight: 700,
+                fontSize: 16,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Round<span style={{ fontWeight: 800 }}>Fi</span>{" "}
+              <span style={{ color: tokens.teal, fontWeight: 600 }}>Canary Ops</span>
+            </div>
+            <div style={{ fontSize: 12, color: tokens.muted }}>{t("adminops.subtitle")}</div>
+          </div>
         </div>
         <div
           style={{
@@ -193,8 +208,8 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   style={{
-                    padding: "8px 14px",
-                    fontSize: 13,
+                    padding: "10px 16px",
+                    fontSize: 14,
                     fontWeight: 600,
                     textDecoration: "none",
                     color: active ? tokens.text : tokens.muted,

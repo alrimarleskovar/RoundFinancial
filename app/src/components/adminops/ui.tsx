@@ -102,8 +102,18 @@ export function Section({
   const { tokens } = useTheme();
   return (
     <section style={{ marginBottom: 32 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: tokens.text2 }}>{title}</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        {/* Small brand accent — chrome only; data/tables stay clean. */}
+        <span
+          style={{
+            width: 3,
+            height: 15,
+            borderRadius: 2,
+            background: tokens.teal,
+            flexShrink: 0,
+          }}
+        />
+        <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: tokens.text }}>{title}</h2>
         {note ? <span style={{ fontSize: 12, color: tokens.muted }}>{note}</span> : null}
       </div>
       {children}
