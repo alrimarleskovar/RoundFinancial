@@ -7,7 +7,7 @@
 
 import { expect } from "chai";
 
-import { DICT } from "../app/src/lib/i18n.js";
+import { DICT } from "../app/src/lib/i18n-dict.js";
 
 const adminKeys = (lang: "pt" | "en") =>
   Object.keys(DICT[lang]).filter((k) => k.startsWith("adminops."));
