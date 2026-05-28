@@ -268,6 +268,50 @@ describe("Insights v0 — retentionByLevel (gate: 30 per cohort)", function () {
   });
 });
 
+describe("Insights v0 — L1 default when ReputationProfile is unhydrated", function () {
+  this.timeout(30_000);
+
+  it("members with reputationLevel = 0 still land in L1 (no undercounting)", async () => {
+    await reset();
+    const { id: poolId } = await createPool("L1def0");
+    const rows = Array.from({ length: 5 }, (_, k) =>
+      memberData({
+        pda: id("Z", k, 44),
+        poolId,
+        wallet: id("Zw", k, 44),
+        slotIndex: k,
+        level: 0, // sentinel for "RP not seen yet"; matches the program's L1 default
+        paidOut: false,
+        defaulted: false,
+      }),
+    );
+    await prisma.member.createMany({ data: rows });
+    const v = await retentionByLevel(prisma);
+    const l1 = v.cohorts.find((c) => c.level === 1)!;
+    expect(l1.n).to.equal(5);
+  });
+
+  it("level=1 also lands in L1 (the canonical fresh-wallet level)", async () => {
+    await reset();
+    const { id: poolId } = await createPool("L1def1");
+    const rows = Array.from({ length: 7 }, (_, k) =>
+      memberData({
+        pda: id("O", k, 44),
+        poolId,
+        wallet: id("Ow", k, 44),
+        slotIndex: k,
+        level: 1,
+        paidOut: false,
+        defaulted: false,
+      }),
+    );
+    await prisma.member.createMany({ data: rows });
+    const v = await retentionByLevel(prisma);
+    const l1 = v.cohorts.find((c) => c.level === 1)!;
+    expect(l1.n).to.equal(7);
+  });
+});
+
 describe("Insights v0 — defaultPredictor (gate: 100 wallets)", function () {
   this.timeout(30_000);
 
@@ -290,6 +334,7 @@ describe("Insights v0 — defaultPredictor (gate: 100 wallets)", function () {
     expect(v.totalWallets).to.equal(10);
     expect(v.status).to.equal("insufficient");
     expect(v.buckets).to.deep.equal([]);
+    expect(v.overallDefaultRateBps).to.equal(null);
   });
 
   describe("with 120 wallets / 30 late / 20 grace / 15 defaulted", function () {
@@ -337,6 +382,11 @@ describe("Insights v0 — defaultPredictor (gate: 100 wallets)", function () {
       const v = await defaultPredictor(prisma);
       expect(v.totalWallets).to.equal(120);
       expect(v.status).to.equal("preliminary");
+    });
+
+    it("overallDefaultRateBps is 15/120 (the chart baseline)", async () => {
+      const v = await defaultPredictor(prisma);
+      expect(v.overallDefaultRateBps).to.equal(Math.round((15 / 120) * 10_000));
     });
 
     it("late_gte_1 splits 30 / 90 with the documented default rates", async () => {

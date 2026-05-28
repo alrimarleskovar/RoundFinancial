@@ -1315,6 +1315,10 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.insights.defaulted": "Default",
     "adminops.insights.withFeature": "Com a feature (n={n})",
     "adminops.insights.withoutFeature": "Sem a feature (n={n})",
+    "adminops.insights.withFeatureLegend": "Com a feature",
+    "adminops.insights.withoutFeatureLegend": "Sem a feature",
+    "adminops.insights.baseline": "baseline (geral)",
+    "adminops.insights.onTimeAxis": "Em-dia (%)",
     // — retention —
     "adminops.insights.retention.title": "Retenção por nível (moat)",
     "adminops.insights.insufficient.retention":
@@ -2628,6 +2632,10 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.insights.defaulted": "Default",
     "adminops.insights.withFeature": "With feature (n={n})",
     "adminops.insights.withoutFeature": "Without feature (n={n})",
+    "adminops.insights.withFeatureLegend": "With feature",
+    "adminops.insights.withoutFeatureLegend": "Without feature",
+    "adminops.insights.baseline": "baseline (overall)",
+    "adminops.insights.onTimeAxis": "On-time (%)",
     // — retention —
     "adminops.insights.retention.title": "Retention by level (moat)",
     "adminops.insights.insufficient.retention":

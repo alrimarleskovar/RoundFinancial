@@ -66,6 +66,23 @@ Per-view thresholds:
 | Progression | `Member` ordered by `joinedAt`    | — (structural; level history is the per-join snapshot) |
 | Improvement | `Member` ordered by `joinedAt`    | — (`onTimeCount` is the chain counter)                 |
 
+**Why `Member.reputationLevel` and not `ReputationProfile` directly.** The
+on-chain `Member.reputation_level` field is the **snapshot the program writes at
+join time** (`programs/roundfi-core/src/instructions/join_pool.rs ::
+derive_trusted_reputation_level`). When the wallet has no `ReputationProfile`
+PDA yet — the devnet baseline — the program **defaults to L1** and writes that
+value to `Member`. Reading `Member.reputationLevel` therefore stays consistent
+with the chain (including the L1 default), without requiring the indexer to
+hydrate `ReputationProfile`. `retentionByLevel` also maps any `< 1` sentinel to
+L1 as belt-and-suspenders against future "level unset" rows.
+
+**Follow-up (not in v0).** Hydrate `ReputationProfile` PDAs via a dedicated
+backfill pass (same shape as `Pool` / `Member`: `getProgramAccounts` against
+`roundfi_reputation` filtered by the account discriminator). That lets a future
+Insights amendment derive `progression` from the _current_ on-chain level
+rather than the per-join snapshot. Out of scope for v0 — tracked as an ADR
+0010 amendment when the data shape matters.
+
 ### 5. Confidence intervals
 
 For proportions (retention rates, share-reached-level), we render a 95% **Wilson score** interval — honest near 0/1 where the Wald interval lies. CIs only render when status ≥ `preliminary`. For mean-pools-to-reach-L2/L3 we report the point estimate at 1 decimal; CIs on the mean are out of scope for v0.

@@ -93,6 +93,15 @@ export async function retentionByLevel(prisma: PrismaClient): Promise<RetentionV
     3: { n: 0, completed: 0, defaulted: 0 },
   };
   for (const m of members) {
+    // Member.reputationLevel is the on-chain snapshot the program wrote at
+    // join time (programs/roundfi-core/src/instructions/join_pool.rs ::
+    // derive_trusted_reputation_level). When the wallet has no
+    // ReputationProfile PDA yet, the program defaults to L1 — so an
+    // unhydrated reputation surface still surfaces every member as L1 here
+    // (consistent with the IDL-free reader). 0 is mapped to L1 too as
+    // belt-and-suspenders against any future "level unset" sentinel; >3 to
+    // L3. Indexer never reads ReputationProfile directly; the L1 default
+    // is documented in ADR 0010 §4 as a follow-up to hydrate that PDA.
     const lv = (m.reputationLevel <= 1 ? 1 : m.reputationLevel >= 3 ? 3 : 2) as 1 | 2 | 3;
     tally[lv].n += 1;
     if (m.paidOut) tally[lv].completed += 1;
@@ -135,6 +144,9 @@ export interface PredictorView {
   threshold: number;
   totalWallets: number;
   status: SampleStatus;
+  /** Overall default rate across all observed wallets (baseline for the
+   *  chart). Null when status === "insufficient". */
+  overallDefaultRateBps: number | null;
   /** Empty array when status === "insufficient". */
   buckets: PredictorBucket[];
 }
@@ -177,9 +189,10 @@ export async function defaultPredictor(prisma: PrismaClient): Promise<PredictorV
   const threshold = INSIGHTS_THRESHOLDS.predictorTotalWallets;
   const status = classifySample(totalWallets, threshold);
   if (status === "insufficient") {
-    return { threshold, totalWallets, status, buckets: [] };
+    return { threshold, totalWallets, status, overallDefaultRateBps: null, buckets: [] };
   }
   const wallets = [...byWallet.values()];
+  const overallDefaultRateBps = rateBps(wallets.filter((a) => a.defaulted).length, wallets.length);
   const make = (
     feature: PredictorBucket["feature"],
     has: (a: WalletAgg) => boolean,
@@ -203,7 +216,7 @@ export async function defaultPredictor(prisma: PrismaClient): Promise<PredictorV
     make("grace_used_gte_1", (a) => a.grace >= 1),
     make("late_gte_2", (a) => a.late >= 2),
   ];
-  return { threshold, totalWallets, status, buckets };
+  return { threshold, totalWallets, status, overallDefaultRateBps, buckets };
 }
 
 // ── 3. L1→L2→L3 progression ────────────────────────────────────────────
