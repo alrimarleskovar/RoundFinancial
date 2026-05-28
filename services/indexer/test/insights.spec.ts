@@ -9,6 +9,17 @@
  *
  * `classifySample` and `wilson95Bps` are pure functions and get exact-
  * value coverage of their own.
+ *
+ * Fixture topology: the schema enforces `@@unique([poolId, slotIndex])` on
+ * Member, so synthetic cohorts can't all share the same pool with
+ * slotIndex=0. Two patterns below:
+ *   - Single-pool cohort (retention, predictor): N members in ONE pool
+ *     with slotIndex = 0..N-1. The DB doesn't enforce `membersTarget`;
+ *     the unique constraint is the only invariant.
+ *   - Wallet-across-pools history (progression, improvement): K pools, one
+ *     per ordinal membership. Wallet w's k-th membership lives in
+ *     `pool[k]` at slotIndex=w. That mirrors the real semantic ("wallet
+ *     joined pool A then pool B") and keeps slotIndex unique per pool.
  */
 
 import { expect } from "chai";
@@ -26,12 +37,12 @@ import {
 
 const prisma = new PrismaClient();
 const CYCLE = 2_592_000n;
-const POOL_PDA = "PoolInsights1111111111111111111111111111";
 
 function memberData(opts: {
   pda: string;
   poolId: string;
   wallet: string;
+  slotIndex: number;
   level: number;
   paidOut: boolean;
   defaulted: boolean;
@@ -46,7 +57,7 @@ function memberData(opts: {
     poolId: opts.poolId,
     wallet: opts.wallet,
     nftAsset: `Nft${opts.pda.slice(3, 10)}`,
-    slotIndex: 0,
+    slotIndex: opts.slotIndex,
     reputationLevel: opts.level,
     stakeBps: 5000,
     stakeDeposited: 0n,
@@ -75,10 +86,13 @@ async function reset() {
   await prisma.pool.deleteMany({});
 }
 
-async function createPool(): Promise<string> {
+/** Create a Pool with a unique PDA derived from `tag`. Multiple pools can
+ *  coexist per scenario — each "ordinal membership" lives in its own. */
+async function createPool(tag: string): Promise<{ id: string; pda: string }> {
+  const pda = `Pool${tag}`.padEnd(44, "1");
   const p = await prisma.pool.create({
     data: {
-      pda: POOL_PDA,
+      pda,
       authority: "Auth1111111111111111111111111111111111111111",
       seedId: 1n,
       usdcMint: "Usdc1111111111111111111111111111111111111111",
@@ -108,7 +122,7 @@ async function createPool(): Promise<string> {
       slotsBitmapHex: "0000000000000000",
     },
   });
-  return p.id;
+  return { id: p.id, pda };
 }
 
 // Distinct, schema-valid pseudo-base58 string of the requested length —
@@ -163,21 +177,23 @@ describe("Insights v0 — pure helpers", function () {
 
 describe("Insights v0 — retentionByLevel (gate: 30 per cohort)", function () {
   this.timeout(30_000);
-  let poolId = "";
 
   before(async () => {
     await reset();
-    poolId = await createPool();
-    // L1: 30 members → preliminary. 10 completed, 5 defaulted.
-    // L2: 5 members → insufficient.
-    // L3: 60 members → significant. 30 completed, 0 defaulted.
+    // L1, L2, L3 all share ONE pool with sequential slotIndex 0..94.
+    //   L1: 30 members → preliminary. 10 completed, 5 defaulted.
+    //   L2: 5 members  → insufficient.
+    //   L3: 60 members → significant. 30 completed, 0 defaulted.
+    const { id: poolId } = await createPool("Ret");
     const rows: ReturnType<typeof memberData>[] = [];
+    let slot = 0;
     for (let k = 0; k < 30; k++) {
       rows.push(
         memberData({
           pda: id("L1m", k, 44),
           poolId,
           wallet: id("L1w", k, 44),
+          slotIndex: slot++,
           level: 1,
           paidOut: k < 10,
           defaulted: k >= 10 && k < 15,
@@ -190,6 +206,7 @@ describe("Insights v0 — retentionByLevel (gate: 30 per cohort)", function () {
           pda: id("L2m", k, 44),
           poolId,
           wallet: id("L2w", k, 44),
+          slotIndex: slot++,
           level: 2,
           paidOut: false,
           defaulted: false,
@@ -202,6 +219,7 @@ describe("Insights v0 — retentionByLevel (gate: 30 per cohort)", function () {
           pda: id("L3m", k, 44),
           poolId,
           wallet: id("L3w", k, 44),
+          slotIndex: slot++,
           level: 3,
           paidOut: k < 30,
           defaulted: false,
@@ -255,12 +273,13 @@ describe("Insights v0 — defaultPredictor (gate: 100 wallets)", function () {
 
   it("below threshold (n=10) → status=insufficient, buckets=[]", async () => {
     await reset();
-    const poolId = await createPool();
+    const { id: poolId } = await createPool("PredLow");
     const rows = Array.from({ length: 10 }, (_, k) =>
       memberData({
         pda: id("Pm", k, 44),
         poolId,
         wallet: id("Pw", k, 44),
+        slotIndex: k,
         level: 1,
         paidOut: false,
         defaulted: false,
@@ -274,19 +293,23 @@ describe("Insights v0 — defaultPredictor (gate: 100 wallets)", function () {
   });
 
   describe("with 120 wallets / 30 late / 20 grace / 15 defaulted", function () {
+    let poolPdaStr = "";
     before(async () => {
       await reset();
-      const poolId = await createPool();
-      // 120 distinct wallets. 30 of them have one late event (wallets
-      // 0..29). 20 of those 30 also used grace (0..19). 10 of the 30 late
-      // ones defaulted (0..9). 5 wallets WITHOUT a late event also
-      // defaulted (30..34) — random pool members who never paid.
+      const { id: poolId, pda } = await createPool("Pred");
+      poolPdaStr = pda;
+      // 120 distinct wallets, each in this pool with sequential slotIndex
+      // 0..119. 30 wallets (0..29) have one late event; 20 of those used
+      // grace (0..19). Default outcome: wallets 0..9 (late+defaulted) and
+      // 30..34 (no-late+defaulted) — 15 defaulted in total, with 10 of
+      // them in the late cohort.
       const members = Array.from({ length: 120 }, (_, k) => {
         const defaulted = k < 10 || (k >= 30 && k < 35);
         return memberData({
           pda: id("Pm", k, 44),
           poolId,
           wallet: id("Pw", k, 44),
+          slotIndex: k,
           level: 1,
           paidOut: false,
           defaulted,
@@ -298,7 +321,7 @@ describe("Insights v0 — defaultPredictor (gate: 100 wallets)", function () {
         eventType: "Contribute" as const,
         subjectWallet: id("Pw", k, 44),
         poolId,
-        poolPda: POOL_PDA,
+        poolPda: poolPdaStr,
         cycle: 0,
         slotIndex: 0,
         slotNumber: 1n + BigInt(k),
@@ -347,12 +370,13 @@ describe("Insights v0 — progression (gate: 50 completed wallets)", function ()
 
   it("below threshold → insufficient with null shares", async () => {
     await reset();
-    const poolId = await createPool();
+    const { id: poolId } = await createPool("ProgLow");
     const rows = Array.from({ length: 10 }, (_, k) =>
       memberData({
         pda: id("Gm", k, 44),
         poolId,
         wallet: id("Gw", k, 44),
+        slotIndex: k,
         level: 1,
         paidOut: k < 5,
         defaulted: false,
@@ -368,44 +392,54 @@ describe("Insights v0 — progression (gate: 50 completed wallets)", function ()
 
   it("above threshold: exact reach shares + mean pools", async () => {
     await reset();
-    const poolId = await createPool();
-    // 60 wallets eligible (paidOut=true). For each wallet we create a
-    // 2-membership history ordered by joinedAt — first at L1, second at
-    // (L2 for 30 of them; L1 for the other 30). 10 of the L2-reachers
-    // also climb to L3 in a third membership.
+    // 60 wallets each with up to 3 ordinal memberships, ordered by
+    // joinedAt. Each ordinal lives in its OWN pool so (poolId, slotIndex)
+    // stays unique with slotIndex = wallet index. That also matches the
+    // real semantic: a wallet's "1st pool" and "2nd pool" are distinct
+    // pools.
+    const pool1 = await createPool("Prog1");
+    const pool2 = await createPool("Prog2");
+    const pool3 = await createPool("Prog3");
+
     type Row = ReturnType<typeof memberData>;
     const rows: Row[] = [];
     for (let k = 0; k < 60; k++) {
       const wallet = id("Gw", k, 44);
+      // Pool 1: every wallet, level 1, paidOut=true (the "completed" gate).
       rows.push(
         memberData({
           pda: id("Gm1", k, 44),
-          poolId,
+          poolId: pool1.id,
           wallet,
+          slotIndex: k,
           level: 1,
           paidOut: true,
           defaulted: false,
           joinedAt: 1_700_000_000n + BigInt(k),
         }),
       );
+      // Pool 2: every wallet. First 30 graduate to L2; the rest stay L1.
       const secondLevel = k < 30 ? 2 : 1;
       rows.push(
         memberData({
           pda: id("Gm2", k, 44),
-          poolId,
+          poolId: pool2.id,
           wallet,
+          slotIndex: k,
           level: secondLevel,
           paidOut: false,
           defaulted: false,
           joinedAt: 1_700_000_000n + BigInt(k) + 1_000_000n,
         }),
       );
+      // Pool 3: first 10 wallets — they reach L3 on their 3rd membership.
       if (k < 10) {
         rows.push(
           memberData({
             pda: id("Gm3", k, 44),
-            poolId,
+            poolId: pool3.id,
             wallet,
+            slotIndex: k,
             level: 3,
             paidOut: false,
             defaulted: false,
@@ -433,17 +467,23 @@ describe("Insights v0 — behavioralImprovement (gate: 30 wallets with ≥3 pool
 
   it("below threshold: walletsAtOrdinal still counted, onTimeRateBps null", async () => {
     await reset();
-    const poolId = await createPool();
-    // 10 wallets × 3 memberships each → 10 eligible, < 30 threshold.
+    // 10 wallets × 3 ordinal memberships each. One pool per ordinal so
+    // each (poolId, slotIndex=wallet) pair is unique.
+    const pools = [
+      await createPool("ImpLow1"),
+      await createPool("ImpLow2"),
+      await createPool("ImpLow3"),
+    ];
     type Row = ReturnType<typeof memberData>;
     const rows: Row[] = [];
     for (let w = 0; w < 10; w++) {
       for (let m = 0; m < 3; m++) {
         rows.push(
           memberData({
-            pda: id(`Iw${w}m`, m, 44),
-            poolId,
+            pda: id(`ILw${w}m`, m, 44),
+            poolId: pools[m]!.id,
             wallet: id("Iw", w, 44),
+            slotIndex: w,
             level: 1,
             paidOut: false,
             defaulted: false,
@@ -466,11 +506,12 @@ describe("Insights v0 — behavioralImprovement (gate: 30 wallets with ≥3 pool
 
   it("above threshold: 1st < 2nd < 3rd+ on-time rate (monotonic improvement)", async () => {
     await reset();
-    const poolId = await createPool();
-    // 35 wallets × 3 memberships. Per-ordinal on-time rate:
+    // 35 wallets × 3 ordinal memberships. Per-ordinal on-time rate:
     //   1st pool: 1/5 on-time (rate 2000 bps)
     //   2nd pool: 3/5 on-time (rate 6000 bps)
     //   3rd pool: 5/5 on-time (rate 10000 bps)
+    // One pool per ordinal so slotIndex=wallet is unique within each.
+    const pools = [await createPool("Imp1"), await createPool("Imp2"), await createPool("Imp3")];
     type Row = ReturnType<typeof memberData>;
     const rows: Row[] = [];
     for (let w = 0; w < 35; w++) {
@@ -484,8 +525,9 @@ describe("Insights v0 — behavioralImprovement (gate: 30 wallets with ≥3 pool
         rows.push(
           memberData({
             pda: id(`Iw${w}m`, m, 44),
-            poolId,
+            poolId: pools[m]!.id,
             wallet,
+            slotIndex: w,
             level: 1,
             paidOut: false,
             defaulted: false,
