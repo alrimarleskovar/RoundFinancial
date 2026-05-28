@@ -68,6 +68,16 @@ export const DICT: Record<Lang, Dict> = {
     "home.shield.tile3.title": "Cofre + Yield",
     "home.shield.tile3.desc": "1% cofre + 6,8% APY Kamino",
     "home.activity": "◆ Atividade recente",
+    // devnet showcase tiles (live on-chain pools)
+    "home.devnet.pool1.label": "Pool 1 · 3 membros · Concluído",
+    "home.devnet.pool1.headline":
+      "Ciclo completo do começo ao fim: contribuições, sorteios, liberação de escrow e fechamento.",
+    "home.devnet.pool2.label": "Pool 2 · 3 membros · ciclo 1h · Ativo",
+    "home.devnet.pool2.headline":
+      "Ciclos rodando em produção com depósito automático no cofre de rendimento e uma cota listada à venda.",
+    "home.devnet.pool3.label": "Pool 3 · 3 membros · carência 60s · Default",
+    "home.devnet.pool3.headline":
+      "Mecanismos de proteção em ação: default resolvido com retenção da garantia do membro inadimplente.",
     // levels
     "level.proven": "COMPROVADO Nv.2",
     "level.beginner": "Iniciante",
@@ -1408,6 +1418,16 @@ export const DICT: Record<Lang, Dict> = {
     "home.shield.tile3.title": "Vault + Yield",
     "home.shield.tile3.desc": "1% vault + 6.8% APY Kamino",
     "home.activity": "◆ Recent activity",
+    // devnet showcase tiles (live on-chain pools)
+    "home.devnet.pool1.label": "Pool 1 · 3 members · Completed",
+    "home.devnet.pool1.headline":
+      "Full lifecycle from start to finish: contributions, payouts, escrow release, and close.",
+    "home.devnet.pool2.label": "Pool 2 · 3 members · 1h cycle · Active",
+    "home.devnet.pool2.headline":
+      "Cycles running in production with automatic deposits into the yield vault and a share listed for sale.",
+    "home.devnet.pool3.label": "Pool 3 · 3 members · 60s grace · Default",
+    "home.devnet.pool3.headline":
+      "Protection mechanisms in action: default resolved by seizing the delinquent member's collateral.",
     "level.proven": "PROVEN Lv.2",
     "level.beginner": "Beginner",
     "level.provenName": "Proven",

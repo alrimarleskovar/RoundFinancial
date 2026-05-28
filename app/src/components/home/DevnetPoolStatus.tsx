@@ -36,7 +36,7 @@ function statusColor(name: string | undefined, tokens: ThemeTokens): string {
 export function DevnetPoolStatus() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
-  const { fmtMoney } = useI18n();
+  const { fmtMoney, t } = useI18n();
   const { explorerAddr } = useWallet();
 
   const pool1 = usePool("pool1");
@@ -133,7 +133,7 @@ export function DevnetPoolStatus() {
                       letterSpacing: "-0.01em",
                     }}
                   >
-                    {meta.label.split("·")[0]?.trim()}
+                    {t(`home.devnet.${key}.label`).split("·")[0]?.trim()}
                   </div>
                   <div
                     style={{
@@ -143,7 +143,7 @@ export function DevnetPoolStatus() {
                       lineHeight: 1.35,
                     }}
                   >
-                    {meta.headline}
+                    {t(`home.devnet.${key}.headline`)}
                   </div>
                 </div>
                 <span
