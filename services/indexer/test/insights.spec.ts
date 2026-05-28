@@ -126,9 +126,11 @@ async function createPool(tag: string): Promise<{ id: string; pda: string }> {
 }
 
 // Distinct, schema-valid pseudo-base58 string of the requested length —
-// good enough for unique PDA/wallet identity in tests.
+// good enough for unique PDA/wallet identity in tests. The number is
+// zero-padded so the suffix can't be confused with the "1" padding (else
+// `id(p, 1)` and `id(p, 11)` would both produce "p1" + 41 ones).
 function id(prefix: string, n: number, len = 44): string {
-  const s = `${prefix}${n}`;
+  const s = `${prefix}${String(n).padStart(4, "0")}`;
   return (s + "1".repeat(Math.max(0, len - s.length))).slice(0, len);
 }
 
