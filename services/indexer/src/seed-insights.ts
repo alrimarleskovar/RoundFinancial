@@ -81,7 +81,11 @@ function memberData(opts: {
 }
 
 async function createPool(tag: string): Promise<{ id: string; pda: string }> {
-  const pda = `Pool${tag}`.padEnd(44, "1");
+  // tag goes FIRST so the differentiator (e.g. "Imp1" vs "Imp2") sits at
+  // positions 0-3 — inside the 6-char window that shortAddr() shows in the
+  // admin tables. The old `Pool${tag}` form pushed the digit to position 7
+  // and made every Imp1/Imp2/Imp3 row read as "POOLIM…111111" in the UI.
+  const pda = `${tag}Pool`.padEnd(44, "1");
   const p = await prisma.pool.create({
     data: {
       pda,
