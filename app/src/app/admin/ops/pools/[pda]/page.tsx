@@ -21,6 +21,7 @@ import {
   Section,
   StatCard,
   StatusPill,
+  tableHeadStyles,
   TimingPill,
 } from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
@@ -73,18 +74,10 @@ interface DetailResponse {
   servedAtUnix: number;
 }
 
-const TH: React.CSSProperties = {
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.5,
-  textTransform: "uppercase",
-  padding: "0 12px 10px",
-};
-
 export default function PoolDetailPage() {
   const { tokens } = useTheme();
   const t = useT();
+  const TH = tableHeadStyles(tokens);
   const params = useParams<{ pda: string }>();
   const pda = params.pda;
   const { data, loading, error, status } = useApi<DetailResponse>(`/api/admin/pools/${pda}`);
@@ -204,14 +197,14 @@ export default function PoolDetailPage() {
           >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.slot")}</th>
-                  <th style={TH}>{t("adminops.col.wallet")}</th>
-                  <th style={TH}>{t("adminops.col.level")}</th>
-                  <th style={TH}>{t("adminops.col.paid")}</th>
-                  <th style={TH}>{t("adminops.col.onTime")}</th>
-                  <th style={TH}>{t("adminops.col.late")}</th>
-                  <th style={TH}>{t("adminops.col.state")}</th>
+                <tr style={TH.row}>
+                  <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.slot")}</th>
+                  <th style={TH.cell}>{t("adminops.col.wallet")}</th>
+                  <th style={TH.cell}>{t("adminops.col.level")}</th>
+                  <th style={TH.cell}>{t("adminops.col.paid")}</th>
+                  <th style={TH.cell}>{t("adminops.col.onTime")}</th>
+                  <th style={TH.cell}>{t("adminops.col.late")}</th>
+                  <th style={TH.cell}>{t("adminops.col.state")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,13 +254,13 @@ export default function PoolDetailPage() {
           >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.cycle")}</th>
-                  <th style={TH}>{t("adminops.col.event")}</th>
-                  <th style={TH}>{t("adminops.col.subject")}</th>
-                  <th style={TH}>{t("adminops.col.timing")}</th>
-                  <th style={TH}>{t("adminops.col.delta")}</th>
-                  <th style={TH}>{t("adminops.col.reason")}</th>
+                <tr style={TH.row}>
+                  <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.cycle")}</th>
+                  <th style={TH.cell}>{t("adminops.col.event")}</th>
+                  <th style={TH.cell}>{t("adminops.col.subject")}</th>
+                  <th style={TH.cell}>{t("adminops.col.timing")}</th>
+                  <th style={TH.cell}>{t("adminops.col.delta")}</th>
+                  <th style={TH.cell}>{t("adminops.col.reason")}</th>
                 </tr>
               </thead>
               <tbody>

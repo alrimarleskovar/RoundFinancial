@@ -9,7 +9,14 @@ import Link from "next/link";
 import { useApi } from "@/lib/admin/useApi";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
-import { agoLabel, Empty, MonoLabel, Pill, Section } from "@/components/adminops/ui";
+import {
+  agoLabel,
+  Empty,
+  MonoLabel,
+  Pill,
+  Section,
+  tableHeadStyles,
+} from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
 
 interface UserRow {
@@ -27,18 +34,10 @@ interface UsersResponse {
   servedAtUnix: number;
 }
 
-const TH: React.CSSProperties = {
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.5,
-  textTransform: "uppercase",
-  padding: "0 12px 10px",
-};
-
 export default function UsersPage() {
   const { tokens } = useTheme();
   const t = useT();
+  const TH = tableHeadStyles(tokens);
   const { data, loading, error } = useApi<UsersResponse>("/api/admin/users");
   const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
@@ -75,12 +74,12 @@ export default function UsersPage() {
         >
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ color: tokens.muted }}>
-                <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.wallet")}</th>
-                <th style={TH}>{t("adminops.col.level")}</th>
-                <th style={TH}>{t("adminops.col.pools")}</th>
-                <th style={TH}>{t("adminops.col.onTime")}</th>
-                <th style={TH}>{t("adminops.col.defaults")}</th>
+              <tr style={TH.row}>
+                <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.wallet")}</th>
+                <th style={TH.cell}>{t("adminops.col.level")}</th>
+                <th style={TH.cell}>{t("adminops.col.pools")}</th>
+                <th style={TH.cell}>{t("adminops.col.onTime")}</th>
+                <th style={TH.cell}>{t("adminops.col.defaults")}</th>
               </tr>
             </thead>
             <tbody>

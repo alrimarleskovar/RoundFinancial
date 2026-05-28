@@ -15,6 +15,7 @@ import {
   fmtDuration,
   MonoLabel,
   Section,
+  tableHeadStyles,
   TimingPill,
 } from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
@@ -75,19 +76,12 @@ function buildQuery(f: Filters, extra: Record<string, string | number>): string 
   return p.toString();
 }
 
-const TH: React.CSSProperties = {
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.5,
-  textTransform: "uppercase",
-  padding: "0 12px 10px",
-};
 const PAGE = 50;
 
 export default function EventsPage() {
   const { tokens } = useTheme();
   const t = useT();
+  const TH = tableHeadStyles(tokens);
   const [form, setForm] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [offset, setOffset] = useState(0);
@@ -240,14 +234,14 @@ export default function EventsPage() {
           >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.when")}</th>
-                  <th style={TH}>{t("adminops.col.event")}</th>
-                  <th style={TH}>{t("adminops.col.subject")}</th>
-                  <th style={TH}>{t("adminops.col.pool")}</th>
-                  <th style={TH}>{t("adminops.col.cycle")}</th>
-                  <th style={TH}>{t("adminops.col.timing")}</th>
-                  <th style={TH}>{t("adminops.col.delta")}</th>
+                <tr style={TH.row}>
+                  <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.when")}</th>
+                  <th style={TH.cell}>{t("adminops.col.event")}</th>
+                  <th style={TH.cell}>{t("adminops.col.subject")}</th>
+                  <th style={TH.cell}>{t("adminops.col.pool")}</th>
+                  <th style={TH.cell}>{t("adminops.col.cycle")}</th>
+                  <th style={TH.cell}>{t("adminops.col.timing")}</th>
+                  <th style={TH.cell}>{t("adminops.col.delta")}</th>
                 </tr>
               </thead>
               <tbody>

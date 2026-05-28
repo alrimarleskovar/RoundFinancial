@@ -12,16 +12,17 @@ import type { ReactNode } from "react";
 
 import { useAdminSession } from "@/lib/admin/useAdminSession";
 import { RFILogoMark } from "@/components/brand/brand";
+import { Icons } from "@/components/brand/icons";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
 const NAV = [
-  { href: "/admin/ops", key: "adminops.nav.canary" },
-  { href: "/admin/ops/pools", key: "adminops.nav.pools" },
-  { href: "/admin/ops/users", key: "adminops.nav.users" },
-  { href: "/admin/ops/events", key: "adminops.nav.events" },
-  { href: "/admin/ops/economy", key: "adminops.nav.economy" },
+  { href: "/admin/ops", key: "adminops.nav.canary", icon: Icons.pulse },
+  { href: "/admin/ops/pools", key: "adminops.nav.pools", icon: Icons.layers },
+  { href: "/admin/ops/users", key: "adminops.nav.users", icon: Icons.people },
+  { href: "/admin/ops/events", key: "adminops.nav.events", icon: Icons.listBell },
+  { href: "/admin/ops/economy", key: "adminops.nav.economy", icon: Icons.chart },
 ];
 
 function errorText(
@@ -197,25 +198,40 @@ export default function OpsLayout({ children }: { children: ReactNode }) {
 
       {session.status === "authed" ? (
         <>
-          <nav style={{ display: "flex", gap: 4, padding: "12px 28px 0" }}>
+          <nav style={{ display: "flex", gap: 6, padding: "14px 28px 0" }}>
             {NAV.map((item) => {
               const active =
                 item.href === "/admin/ops"
                   ? pathname === item.href
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   style={{
-                    padding: "10px 16px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 14px 12px",
                     fontSize: 14,
                     fontWeight: 600,
                     textDecoration: "none",
-                    color: active ? tokens.text : tokens.muted,
+                    color: active ? tokens.text : tokens.text2,
+                    background: active ? tokens.surface3 : "transparent",
+                    borderRadius: "10px 10px 0 0",
                     borderBottom: `2px solid ${active ? tokens.green : "transparent"}`,
+                    transition: "color 120ms, background 120ms",
                   }}
                 >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      color: active ? tokens.green : tokens.muted,
+                    }}
+                  >
+                    <Icon size={16} sw={1.8} />
+                  </span>
                   {t(item.key)}
                 </Link>
               );

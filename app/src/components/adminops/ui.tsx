@@ -7,7 +7,7 @@
  * pills, never for decoration.
  */
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -230,6 +230,29 @@ export function TimingPill({
   if (deltaSeconds <= 0) return <Pill text={t("adminops.timing.onTime")} color={tokens.green} />;
   if (graceUsed) return <Pill text={t("adminops.timing.grace")} color={tokens.amber} />;
   return <Pill text={t("adminops.timing.late")} color={tokens.red} />;
+}
+
+/** Shared <thead> styling: subtle surface tint + teal accent rule + heavier
+ *  label weight so headers stand out vs clean data rows. Returned as a styles
+ *  bag so pages can spread directly into their <tr>/<th>. */
+export function tableHeadStyles(tokens: ReturnType<typeof useTheme>["tokens"]) {
+  return {
+    row: {
+      background: tokens.surface2,
+      borderBottom: `1px solid ${tokens.teal}55`,
+    } as CSSProperties,
+    cell: {
+      textAlign: "left" as const,
+      fontFamily: MONO,
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: 0.6,
+      textTransform: "uppercase" as const,
+      padding: "10px 12px",
+      color: tokens.text2,
+      whiteSpace: "nowrap" as const,
+    } as CSSProperties,
+  };
 }
 
 /** Honest empty state — never fill with fake data on thin devnet. */

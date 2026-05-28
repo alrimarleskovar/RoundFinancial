@@ -19,6 +19,7 @@ import {
   Pill,
   Section,
   StatCard,
+  tableHeadStyles,
   TimingPill,
 } from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
@@ -67,18 +68,10 @@ interface ProfileResponse {
   indexer: { lastProjectionUnix: number | null };
 }
 
-const TH: React.CSSProperties = {
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.5,
-  textTransform: "uppercase",
-  padding: "0 12px 10px",
-};
-
 export default function UserProfilePage() {
   const { tokens } = useTheme();
   const t = useT();
+  const TH = tableHeadStyles(tokens);
   const params = useParams<{ wallet: string }>();
   const wallet = params.wallet;
   const { data, loading, error, status } = useApi<ProfileResponse>(`/api/admin/users/${wallet}`);
@@ -252,13 +245,13 @@ export default function UserProfilePage() {
           >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ color: tokens.muted }}>
-                  <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.pool")}</th>
-                  <th style={TH}>{t("adminops.col.cycle")}</th>
-                  <th style={TH}>{t("adminops.col.event")}</th>
-                  <th style={TH}>{t("adminops.col.timing")}</th>
-                  <th style={TH}>{t("adminops.col.delta")}</th>
-                  <th style={TH}>{t("adminops.col.reason")}</th>
+                <tr style={TH.row}>
+                  <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.pool")}</th>
+                  <th style={TH.cell}>{t("adminops.col.cycle")}</th>
+                  <th style={TH.cell}>{t("adminops.col.event")}</th>
+                  <th style={TH.cell}>{t("adminops.col.timing")}</th>
+                  <th style={TH.cell}>{t("adminops.col.delta")}</th>
+                  <th style={TH.cell}>{t("adminops.col.reason")}</th>
                 </tr>
               </thead>
               <tbody>

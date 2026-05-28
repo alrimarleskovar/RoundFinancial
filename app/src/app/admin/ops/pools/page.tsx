@@ -15,6 +15,7 @@ import {
   MonoLabel,
   Section,
   StatusPill,
+  tableHeadStyles,
 } from "@/components/adminops/ui";
 import { shortAddr } from "@/lib/wallet";
 
@@ -35,18 +36,10 @@ interface PoolsResponse {
   servedAtUnix: number;
 }
 
-const TH: React.CSSProperties = {
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.5,
-  textTransform: "uppercase",
-  padding: "0 12px 10px",
-};
-
 export default function PoolsPage() {
   const { tokens } = useTheme();
   const t = useT();
+  const TH = tableHeadStyles(tokens);
   const { data, loading, error } = useApi<PoolsResponse>("/api/admin/pools");
   const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
@@ -83,14 +76,14 @@ export default function PoolsPage() {
         >
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ color: tokens.muted }}>
-                <th style={{ ...TH, paddingLeft: 16 }}>{t("adminops.col.pool")}</th>
-                <th style={TH}>{t("adminops.col.status")}</th>
-                <th style={TH}>{t("adminops.col.cycle")}</th>
-                <th style={TH}>{t("adminops.col.members")}</th>
-                <th style={TH}>{t("adminops.col.defaults")}</th>
-                <th style={TH}>{t("adminops.col.health")}</th>
-                <th style={TH}>{t("adminops.col.updated")}</th>
+              <tr style={TH.row}>
+                <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.pool")}</th>
+                <th style={TH.cell}>{t("adminops.col.status")}</th>
+                <th style={TH.cell}>{t("adminops.col.cycle")}</th>
+                <th style={TH.cell}>{t("adminops.col.members")}</th>
+                <th style={TH.cell}>{t("adminops.col.defaults")}</th>
+                <th style={TH.cell}>{t("adminops.col.health")}</th>
+                <th style={TH.cell}>{t("adminops.col.updated")}</th>
               </tr>
             </thead>
             <tbody>
