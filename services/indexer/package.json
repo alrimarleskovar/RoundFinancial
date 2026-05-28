@@ -11,6 +11,7 @@
     "./admin": "./src/adminQueries.ts"
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
