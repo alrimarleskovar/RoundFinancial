@@ -104,17 +104,17 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondModal.attestationCount": "Atestados emitidos",
     "score.bondModal.weight": "Peso no SAS",
     "score.bondModal.weightActive": "1× por parcela",
-    "score.bondModal.weightCompleted": "5× (CycleComplete)",
-    "score.bondModal.onchainTitle": "PATH ON-CHAIN",
+    "score.bondModal.weightCompleted": "5× por ciclo completo",
+    "score.bondModal.onchainTitle": "REGISTRO ON-CHAIN",
     "score.bondModal.onchainBody":
-      "{n}× roundfi-core::contribute → roundfi-reputation::mint_attestation. Cada chamada cria uma conta SAS-compatible cuja PDA deriva de (pool, member, schema, nonce).",
+      "Foram {n} parcelas pagas, cada uma com seu atestado SAS individual gravado on-chain. Cada atestado tem identificador único derivado de (grupo, membro, esquema, sequência).",
     "score.bondModal.demoBadge": "MODO DEMO",
     "score.bondModal.demoBody":
-      "Hash da transação Solana ficará disponível quando o indexer entrar (M3 do roadmap).",
+      "O comprovante da transação Solana ficará disponível quando o indexer entrar em produção (próxima fase do roadmap).",
     "score.bondModal.close": "Fechar",
     "score.dataSource.title": "Fonte dos dados",
     "score.dataSource.body":
-      "Score e atestados nesta tela refletem o session reducer do Demo Studio. A infraestrutura SAS on-chain (programa roundfi-reputation) está implantada no devnet — atestações reais são mintadas a cada contribute() pelo CPI. O caminho de leitura on-chain do passport entra com o wiring app↔chain pós-hackathon.",
+      "Os números desta tela refletem o estado simulado do Demo Studio. O sistema SAS de atestados já está rodando no devnet — atestados reais são gerados a cada contribuição. A leitura ao vivo do passaporte direto do contrato entra na próxima fase do produto.",
     "score.dataSource.devnetBadge": "DEVNET · SAS schema implantado",
     "score.dataSource.demoBadge": "DEMO STUDIO · reflexo da sessão local",
     // mercado / secondary market
@@ -166,7 +166,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.savings": "Economia",
     "market.buyModal.demoBadge": "MODO DEMO",
     "market.buyModal.demoBody":
-      "Operação simulada. A liquidação on-chain via roundfi-core::escape_valve_buy entra em devnet no M3 do roadmap.",
+      "Operação simulada. A compra real, liquidada on-chain, entra em devnet na próxima fase do roadmap.",
     "market.buyModal.cancel": "Cancelar",
     "market.buyModal.confirm": "Confirmar compra (demo)",
     "market.buyModal.successTitle": "Compra simulada",
@@ -190,7 +190,7 @@ export const DICT: Record<Lang, Dict> = {
       "Todas as suas cotas já estão listadas. Cancele uma listagem para reabrir.",
     "market.sellList.escapeValveTitle": "Válvula de Escape ativa.",
     "market.sellList.escapeValveBody":
-      "Vender preserva sua reputação SAS. A dívida da cota é quitada na transação. Slashing só ocorre se nenhum comprador aparecer em 7 dias.",
+      "Vender preserva sua reputação SAS. A dívida da cota é quitada na transação. A garantia só é retida se nenhum comprador aparecer em 7 dias.",
     "market.listings.title": "Minhas listagens",
     "market.listings.count": "{n} ativa(s)",
     "market.listings.statusActive": "Ativa",
@@ -200,7 +200,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.listingDetails.windowLabel": "Janela da Válvula de Escape",
     "market.listingDetails.daysRemaining": "{n}/{total} dias restantes",
     "market.listingDetails.windowBody":
-      "Sua cota fica exposta ao mercado pelos 7 dias do whitepaper. Se ninguém comprar, a Válvula expira e o slashing entra em vigor.",
+      "Sua cota fica exposta ao mercado por 7 dias. Se ninguém comprar, a Válvula expira e a garantia passa a ser retida.",
     "market.listingDetails.activity": "Atividade simulada",
     "market.listingDetails.act.view": "{n} arbitradores visualizaram",
     "market.listingDetails.act.watch": "{n} adicionaram à watchlist",
@@ -219,10 +219,10 @@ export const DICT: Record<Lang, Dict> = {
       "Sua dívida com o fundo é quitada automaticamente na liquidação.",
     "market.sellModal.protectionSas": "Reputação SAS preservada — saída limpa, sem flag de calote.",
     "market.sellModal.protectionSlashing":
-      "Sem comprador em {days} dias, slashing automático da garantia entra em cena.",
+      "Sem comprador em {days} dias, sua garantia é retida automaticamente.",
     "market.sellModal.demoBadge": "MODO DEMO",
     "market.sellModal.demoBody":
-      "Listagem simulada. A liquidação on-chain via roundfi-core::escape_valve_list entra em devnet no M3 do roadmap.",
+      "Listagem simulada. A listagem real, registrada on-chain, entra em devnet na próxima fase do roadmap.",
     "market.sellModal.cancel": "Cancelar",
     "market.sellModal.confirm": "Listar cota (demo)",
     "market.sellModal.successTitle": "Cota listada",
@@ -265,15 +265,15 @@ export const DICT: Record<Lang, Dict> = {
     "insights.modal.anticipate.why":
       "Antecipar parcelas é o sinal mais limpo de disciplina financeira. O contrato registra o timestamp do pagamento, e qualquer parcela paga antes da janela de vencimento gera um atestado SAS adicional. O score acelera proporcionalmente.",
     "insights.modal.anticipate.onchain":
-      "roundfi-core::contribute → roundfi-reputation::mint_attestation com kind=Anticipated. Um atestado por parcela antecipada.",
+      "Cada parcela paga antes do vencimento gera um atestado SAS automático. Um atestado por parcela antecipada — o seu histórico fica registrado on-chain.",
     "insights.modal.diversify.why":
       "Cohorts de PME têm dinâmica de payouts diferente das de retail (ciclos mais curtos, valores maiores). Um histórico em mais de um vertical mostra perfil multi-categoria, o que reduz o risco-percebido pelo protocolo.",
     "insights.modal.diversify.onchain":
-      "join_pool em group_kind != atual → mint_attestation com kind=Diversity. Bônus único por vertical novo.",
+      "Entrar em um grupo de uma categoria diferente das que você já participou gera um atestado de diversidade. Bônus único por categoria nova.",
     "insights.modal.complete.why":
       "Completar um ciclo inteiro sem atraso é a maior fonte de pontos no SAS. O atestado CycleComplete é o único que carrega peso 5x — é o que separa Comprovado de Veterano na ladder.",
     "insights.modal.complete.onchain":
-      "Ao final do ciclo, claim_payout do último mês emite um CycleComplete attestation. Esse é o gatilho da transição de nível.",
+      "Quando você recebe o pagamento do último mês do ciclo, é emitido um atestado de ciclo completo. É esse atestado que dispara a subida de nível.",
     // stress lab (M1 of grant roadmap)
     "lab.back": "Voltar à página inicial",
     "lab.title": "Stress Lab",
@@ -944,7 +944,7 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} de {t} conectadas",
     "conn.connected": "conectado",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle": "Integração em modo demo · liquidação on-chain entra no M3 do roadmap.",
+    "conn.demoTitle": "Integração em modo demo · liquidação on-chain entra na próxima fase do roadmap.",
     "conn.disconnected": "desconectado",
     "conn.pending": "pendente",
     "conn.since": "desde {d}",
@@ -1443,17 +1443,17 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondModal.attestationCount": "Attestations minted",
     "score.bondModal.weight": "SAS weight",
     "score.bondModal.weightActive": "1× per installment",
-    "score.bondModal.weightCompleted": "5× (CycleComplete)",
-    "score.bondModal.onchainTitle": "ON-CHAIN PATH",
+    "score.bondModal.weightCompleted": "5× per completed cycle",
+    "score.bondModal.onchainTitle": "ON-CHAIN RECORD",
     "score.bondModal.onchainBody":
-      "{n}× roundfi-core::contribute → roundfi-reputation::mint_attestation. Each call creates an SAS-compatible account whose PDA derives from (pool, member, schema, nonce).",
+      "{n} installments paid, each with its own SAS attestation recorded on chain. Every attestation has a unique identifier derived from (group, member, schema, sequence).",
     "score.bondModal.demoBadge": "DEMO MODE",
     "score.bondModal.demoBody":
-      "Solana transaction hash will be available once the indexer ships (M3 of the roadmap).",
+      "The Solana transaction receipt will be available once the indexer ships in production (next roadmap phase).",
     "score.bondModal.close": "Close",
     "score.dataSource.title": "Data source",
     "score.dataSource.body":
-      "Score and attestation data on this screen reflect the Demo Studio session reducer. On-chain SAS infrastructure (roundfi-reputation program) is deployed on devnet — real attestations are minted on every contribute() via CPI. The on-chain read path for this passport lands with the app↔chain wiring post-hackathon.",
+      "The numbers on this screen reflect the simulated Demo Studio state. The SAS attestation system is already running on devnet — real attestations are generated on every contribution. Live on-chain passport reads land in the next product phase.",
     "score.dataSource.devnetBadge": "DEVNET · SAS schema deployed",
     "score.dataSource.demoBadge": "DEMO STUDIO · local session reflection",
     // mercado / secondary market
@@ -1504,7 +1504,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.savings": "Savings",
     "market.buyModal.demoBadge": "DEMO MODE",
     "market.buyModal.demoBody":
-      "Simulated action. On-chain settlement via roundfi-core::escape_valve_buy ships on devnet at M3 of the roadmap.",
+      "Simulated action. The real, on-chain-settled purchase ships on devnet in the next roadmap phase.",
     "market.buyModal.cancel": "Cancel",
     "market.buyModal.confirm": "Confirm purchase (demo)",
     "market.buyModal.successTitle": "Simulated purchase",
@@ -1527,7 +1527,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.sellList.allListed": "All your shares are listed. Cancel a listing to free one up.",
     "market.sellList.escapeValveTitle": "Escape Valve active.",
     "market.sellList.escapeValveBody":
-      "Selling preserves your SAS reputation. The position's debt is settled in the same tx. Slashing only kicks in if no buyer is found in 7 days.",
+      "Selling preserves your SAS reputation. The position's debt is settled in the same transaction. Your collateral is only seized if no buyer shows up within 7 days.",
     "market.listings.title": "My listings",
     "market.listings.count": "{n} active",
     "market.listings.statusActive": "Active",
@@ -1537,7 +1537,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.listingDetails.windowLabel": "Escape Valve window",
     "market.listingDetails.daysRemaining": "{n}/{total} days remaining",
     "market.listingDetails.windowBody":
-      "Your share is exposed to the market for the whitepaper's 7-day window. If no buyer is found, the Valve expires and slashing kicks in.",
+      "Your share is exposed to the market for 7 days. If no buyer shows up, the Valve expires and your collateral starts to be seized.",
     "market.listingDetails.activity": "Simulated activity",
     "market.listingDetails.act.view": "{n} arbitrageurs viewed",
     "market.listingDetails.act.watch": "{n} added to watchlist",
@@ -1554,10 +1554,10 @@ export const DICT: Record<Lang, Dict> = {
     "market.sellModal.protectionDebt": "Your debt to the pool is settled automatically on closing.",
     "market.sellModal.protectionSas": "SAS reputation preserved — clean exit, no default flag.",
     "market.sellModal.protectionSlashing":
-      "No buyer in {days} days → automatic slashing of the collateral.",
+      "No buyer in {days} days → your collateral is seized automatically.",
     "market.sellModal.demoBadge": "DEMO MODE",
     "market.sellModal.demoBody":
-      "Simulated listing. On-chain settlement via roundfi-core::escape_valve_list ships on devnet at M3 of the roadmap.",
+      "Simulated listing. The real, on-chain-recorded listing ships on devnet in the next roadmap phase.",
     "market.sellModal.cancel": "Cancel",
     "market.sellModal.confirm": "List share (demo)",
     "market.sellModal.successTitle": "Share listed",
@@ -1600,15 +1600,15 @@ export const DICT: Record<Lang, Dict> = {
     "insights.modal.anticipate.why":
       "Anticipating installments is the cleanest signal of financial discipline. The contract logs the payment timestamp, and any installment paid before its due window mints an extra SAS attestation. Score accelerates proportionally.",
     "insights.modal.anticipate.onchain":
-      "roundfi-core::contribute → roundfi-reputation::mint_attestation with kind=Anticipated. One attestation per anticipated installment.",
+      "Every installment paid before its due date triggers an automatic SAS attestation. One attestation per anticipated installment — your record stays on chain.",
     "insights.modal.diversify.why":
       "SME cohorts have different payout dynamics than retail (shorter cycles, larger amounts). A track record across multiple verticals signals a multi-category profile, which lowers protocol-perceived risk.",
     "insights.modal.diversify.onchain":
-      "join_pool with group_kind != current → mint_attestation with kind=Diversity. One-time bonus per new vertical.",
+      "Joining a group in a category you haven't been part of yet mints a diversity attestation. One-time bonus per new category.",
     "insights.modal.complete.why":
       "Completing a full cycle without delay is the largest single point source in SAS. The CycleComplete attestation is the only one with 5x weight — it's what separates Proven from Veteran on the ladder.",
     "insights.modal.complete.onchain":
-      "At cycle end, the final claim_payout emits a CycleComplete attestation. That's the level-transition trigger.",
+      "When you receive the last month's payout of a cycle, a cycle-complete attestation is minted. That's the attestation that triggers the level transition.",
     // stress lab
     "lab.back": "Back to landing",
     "lab.title": "Stress Lab",
@@ -2271,7 +2271,7 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} of {t} connected",
     "conn.connected": "connected",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle": "Integration in demo mode · on-chain settlement ships at M3 of the roadmap.",
+    "conn.demoTitle": "Integration in demo mode · on-chain settlement ships in the next roadmap phase.",
     "conn.disconnected": "disconnected",
     "conn.pending": "pending",
     "conn.since": "since {d}",
