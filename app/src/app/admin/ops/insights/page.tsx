@@ -126,6 +126,29 @@ export default function InsightsPage() {
     );
   }
 
+  // SVG <text> can't word-wrap, so the chart Veil only carries the short
+  // "n / threshold" counter. Long localized descriptions render here in
+  // HTML, directly below the chart, where they wrap inside the card.
+  function InsufficientMsg({ text }: { text: string }) {
+    return (
+      <p
+        style={{
+          marginTop: 10,
+          marginBottom: 0,
+          fontSize: 12,
+          color: tokens.muted,
+          lineHeight: 1.5,
+          maxWidth: 560,
+          textAlign: "center",
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        {text}
+      </p>
+    );
+  }
+
   function MetricRow({ label, value }: { label: string; value: ReactNode }) {
     return (
       <div
@@ -146,11 +169,12 @@ export default function InsightsPage() {
   // ── RETENTION ────────────────────────────────────────────────────
   // Each cohort has its own threshold check; "insufficient" overlay is
   // applied per-chart by passing the per-cohort n vs the shared threshold.
-  // To keep the chart honest, we render one grouped chart with all three
-  // cohorts, but if ANY cohort is insufficient we display per-cohort
-  // numeric breakdown beside it (or "—" for insufficient ones).
+  // We pass `n` per group so the chart can render a ghost bar + "n=0" tag
+  // for empty cohorts (distinguishable from "no data") and a minimum-height
+  // bar when the rate is a real-but-zero 0% (not invisible).
   const retentionGroups: GroupSpec[] = i.retention.cohorts.map((c) => ({
     label: `L${c.level}`,
+    n: c.n,
     bars: [
       { valueBps: c.completedShareBps, color: tokens.green },
       { valueBps: c.defaultedShareBps, color: tokens.red },
@@ -160,8 +184,12 @@ export default function InsightsPage() {
   const retentionTotalN = i.retention.cohorts.reduce((a, c) => a + c.n, 0);
 
   // ── PREDICTOR ───────────────────────────────────────────────────
+  // One group per feature, two bars (with vs without). Group-level n is
+  // the sum so the "entire feature has no wallets" edge ghost-bars; per-
+  // bar zero rates are rescued by the chart's min-height fix.
   const predictorGroups: GroupSpec[] = i.predictor.buckets.map((b) => ({
     label: t(`adminops.insights.feature.${b.feature}`),
+    n: b.withFeature + b.withoutFeature,
     bars: [
       { valueBps: b.withFeatureDefaultRateBps, color: tokens.red },
       { valueBps: b.withoutFeatureDefaultRateBps, color: tokens.teal },
@@ -250,6 +278,9 @@ export default function InsightsPage() {
                 : undefined
             }
           />
+          {retentionAllInsufficient ? (
+            <InsufficientMsg text={t("adminops.insights.insufficient.retention")} />
+          ) : null}
           <Legend
             entries={[
               { color: tokens.green, label: t("adminops.insights.completed") },
@@ -327,6 +358,9 @@ export default function InsightsPage() {
                 : undefined
             }
           />
+          {i.predictor.status === "insufficient" ? (
+            <InsufficientMsg text={t("adminops.insights.insufficient.predictor")} />
+          ) : null}
           <Legend
             entries={[
               { color: tokens.red, label: t("adminops.insights.withFeatureLegend") },
@@ -391,6 +425,9 @@ export default function InsightsPage() {
                 : undefined
             }
           />
+          {i.progression.status === "insufficient" ? (
+            <InsufficientMsg text={t("adminops.insights.insufficient.progression")} />
+          ) : null}
           <Legend
             entries={[
               { color: tokens.muted, label: "L1" },
@@ -455,6 +492,9 @@ export default function InsightsPage() {
                 : undefined
             }
           />
+          {i.improvement.status === "insufficient" ? (
+            <InsufficientMsg text={t("adminops.insights.insufficient.improvement")} />
+          ) : null}
           <Legend entries={[{ color: tokens.green, label: t("adminops.insights.onTimeAxis") }]} />
           <div style={{ marginTop: 12, display: "grid", gap: 4 }}>
             {i.improvement.buckets.map((b) => (

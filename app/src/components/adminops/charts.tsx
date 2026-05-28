@@ -100,6 +100,10 @@ function Veil({
   tokens: ReturnType<typeof useTheme>["tokens"];
   insufficient: InsufficientProps;
 }) {
+  // Only the n / threshold counter renders inside the SVG — short, fits.
+  // The descriptive `insufficient.message` is rendered as HTML by the
+  // page directly below the chart, where it can word-wrap. SVG <text>
+  // can't wrap, and long PT strings overflow the 400-unit viewBox.
   return (
     <g>
       <rect
@@ -112,19 +116,9 @@ function Veil({
       />
       <text
         x={PAD_L + PLOT_W / 2}
-        y={PAD_T + PLOT_H / 2 - 6}
-        fill={tokens.text}
-        fontSize={11}
-        fontWeight={600}
-        textAnchor="middle"
-      >
-        {insufficient.message}
-      </text>
-      <text
-        x={PAD_L + PLOT_W / 2}
-        y={PAD_T + PLOT_H / 2 + 10}
+        y={PAD_T + PLOT_H / 2 + 4}
         fill={tokens.muted}
-        fontSize={10}
+        fontSize={12}
         fontFamily={MONO}
         textAnchor="middle"
       >
@@ -164,6 +158,84 @@ export interface BarSpec {
 export interface GroupSpec {
   label: string;
   bars: BarSpec[];
+  /** Cohort size for this group. When `n === 0` the chart renders a
+   *  ghost bar + "n=0" tag instead of zero-height invisible rects, so
+   *  an empty cohort is distinguishable from "no data". When omitted,
+   *  ghost-bar handling is skipped (back-compat). */
+  n?: number;
+}
+
+/** Minimum bar height (in viewBox units) when valueBps === 0 but the
+ *  cohort has observations. Without it, a real-but-zero rate is
+ *  indistinguishable from a missing rate. */
+const ZERO_BAR_MIN_H = 2;
+
+function GhostGroup({
+  tokens,
+  groupStart,
+  groupW,
+}: {
+  tokens: ReturnType<typeof useTheme>["tokens"];
+  groupStart: number;
+  groupW: number;
+}) {
+  // Dashed outline spanning the group's plot column + "n=0" tag.
+  const innerW = groupW * 0.7;
+  return (
+    <g>
+      <rect
+        x={groupStart}
+        y={PAD_T + 2}
+        width={innerW}
+        height={PLOT_H - 4}
+        fill="none"
+        stroke={tokens.muted}
+        strokeDasharray="3 2"
+        strokeWidth={1}
+        rx={2}
+        opacity={0.5}
+      />
+      <text
+        x={groupStart + innerW / 2}
+        y={PAD_T + PLOT_H / 2 + 3}
+        fill={tokens.muted}
+        fontSize={9}
+        fontFamily={MONO}
+        textAnchor="middle"
+      >
+        n=0
+      </text>
+    </g>
+  );
+}
+
+function renderBarsForGroup(
+  tokens: ReturnType<typeof useTheme>["tokens"],
+  g: GroupSpec,
+  groupStart: number,
+  groupW: number,
+  barW: number,
+) {
+  if (g.n === 0) {
+    return <GhostGroup tokens={tokens} groupStart={groupStart} groupW={groupW} />;
+  }
+  return (
+    <>
+      {g.bars.map((b, bi) => {
+        if (b.valueBps == null) return null;
+        const x = groupStart + bi * barW;
+        const y0 = yFromBps(b.valueBps);
+        const naturalH = Math.max(0, PAD_T + PLOT_H - y0);
+        // valueBps === 0: render a minimum-height bar so a real-but-zero
+        // rate is visible, anchored to the baseline.
+        const height = b.valueBps === 0 ? ZERO_BAR_MIN_H : naturalH;
+        const y = b.valueBps === 0 ? PAD_T + PLOT_H - ZERO_BAR_MIN_H : y0;
+        return (
+          <rect key={bi} x={x} y={y} width={barW * 0.9} height={height} fill={b.color} rx={2} />
+        );
+      })}
+    </>
+  );
 }
 
 export function GroupedBarChart({
@@ -183,26 +255,7 @@ export function GroupedBarChart({
       {!insufficient
         ? groups.map((g, gi) => {
             const groupStart = PAD_L + groupW * gi + groupW * 0.15;
-            return (
-              <g key={gi}>
-                {g.bars.map((b, bi) => {
-                  if (b.valueBps == null) return null;
-                  const x = groupStart + bi * barW;
-                  const y = yFromBps(b.valueBps);
-                  return (
-                    <rect
-                      key={bi}
-                      x={x}
-                      y={y}
-                      width={barW * 0.9}
-                      height={Math.max(0, PAD_T + PLOT_H - y)}
-                      fill={b.color}
-                      rx={2}
-                    />
-                  );
-                })}
-              </g>
-            );
+            return <g key={gi}>{renderBarsForGroup(tokens, g, groupStart, groupW, barW)}</g>;
           })
         : null}
       {insufficient ? <Veil tokens={tokens} insufficient={insufficient} /> : null}
@@ -265,6 +318,7 @@ function GroupedBarsInner({
   groups: GroupSpec[];
   insufficient?: InsufficientProps;
 }) {
+  const { tokens } = useTheme();
   if (insufficient) return null;
   const groupW = PLOT_W / groups.length;
   const barsPerGroup = Math.max(1, groups[0]?.bars.length ?? 1);
@@ -273,26 +327,7 @@ function GroupedBarsInner({
     <g>
       {groups.map((g, gi) => {
         const groupStart = PAD_L + groupW * gi + groupW * 0.15;
-        return (
-          <g key={gi}>
-            {g.bars.map((b, bi) => {
-              if (b.valueBps == null) return null;
-              const x = groupStart + bi * barW;
-              const y = yFromBps(b.valueBps);
-              return (
-                <rect
-                  key={bi}
-                  x={x}
-                  y={y}
-                  width={barW * 0.9}
-                  height={Math.max(0, PAD_T + PLOT_H - y)}
-                  fill={b.color}
-                  rx={2}
-                />
-              );
-            })}
-          </g>
-        );
+        return <g key={gi}>{renderBarsForGroup(tokens, g, groupStart, groupW, barW)}</g>;
       })}
     </g>
   );
@@ -394,13 +429,28 @@ export function LineChart({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          {points.map((p, i) =>
-            p.yBps == null ? null : (
+          {points.map((p, i) => {
+            if (p.yBps == null) return null;
+            const cy = yFromBps(p.yBps);
+            // Adaptive label placement: above the point by default; flip
+            // below when the natural y would clip the top of the viewBox
+            // (yBps ≈ 100% case), and flip back above when at the floor
+            // (yBps ≈ 0% case). 12 unit margin keeps the glyph fully
+            // inside the plot frame at either extreme.
+            const labelAboveY = cy - 8;
+            const labelBelowY = cy + 16;
+            const labelY =
+              labelAboveY < PAD_T + 8
+                ? labelBelowY
+                : labelBelowY > PAD_T + PLOT_H - 2
+                  ? labelAboveY
+                  : labelAboveY;
+            return (
               <g key={i}>
-                <circle cx={xs[i]} cy={yFromBps(p.yBps)} r={4} fill={color} />
+                <circle cx={xs[i]} cy={cy} r={4} fill={color} />
                 <text
                   x={xs[i]}
-                  y={yFromBps(p.yBps) - 8}
+                  y={labelY}
                   fill={tokens.text}
                   fontSize={10}
                   fontWeight={700}
@@ -409,8 +459,8 @@ export function LineChart({
                   {Math.round(p.yBps / 100)}%
                 </text>
               </g>
-            ),
-          )}
+            );
+          })}
         </g>
       ) : null}
       {insufficient ? <Veil tokens={tokens} insufficient={insufficient} /> : null}
