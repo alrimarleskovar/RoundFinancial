@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/server.ts",
     "./db": "./src/db.ts",
-    "./admin": "./src/adminQueries.ts"
+    "./admin": "./src/adminQueries.ts",
+    "./insights": "./src/insights.ts"
   },
   "scripts": {
     "postinstall": "prisma generate",

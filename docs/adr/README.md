@@ -17,6 +17,7 @@
 | [0007](./0007-bankrun-compat-shim.md)              | ✅ Accepted | `bankrun_compat` Connection shim for time-warp-bound specs           |
 | [0008](./0008-treasury-custody-squads-multisig.md) | ✅ Accepted | Treasury custody via Squads multisig (external ATA, not program PDA) |
 | [0009](./0009-admin-ops-console.md)                | 🟡 Proposed | Operational admin console (`/admin/ops`) for the devnet canary       |
+| [0010](./0010-insights-v0.md)                      | 🟡 Proposed | Insights v0 — analytics with honest sample-size gates                |
 
 **Future ADRs land alongside their implementing PR.** PR author writes the ADR as part of the PR (template below).
 

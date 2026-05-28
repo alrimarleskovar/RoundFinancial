@@ -23,6 +23,7 @@ const NAV = [
   { href: "/admin/ops/users", key: "adminops.nav.users", icon: Icons.people },
   { href: "/admin/ops/events", key: "adminops.nav.events", icon: Icons.listBell },
   { href: "/admin/ops/economy", key: "adminops.nav.economy", icon: Icons.chart },
+  { href: "/admin/ops/insights", key: "adminops.nav.insights", icon: Icons.trend },
 ];
 
 function errorText(

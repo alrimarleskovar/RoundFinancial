@@ -1299,6 +1299,58 @@ export const DICT: Record<Lang, Dict> = {
       "Wallets que participaram de 2+ pools / wallets distintos indexados.",
     "adminops.tip.eco.completion":
       "Pools com status Completed / total — sucesso estrutural do portfólio.",
+    // ── insights v0 (ADR 0010) ──────────────────────────────────
+    "adminops.nav.insights": "Insights",
+    "adminops.insights.err": "Não consegui carregar Insights ({err}).",
+    "adminops.insights.banner":
+      "devnet · sem volume estatístico — instrumentação pronta, números reais com tráfego.",
+    "adminops.insights.status.insufficient": "amostra insuficiente",
+    "adminops.insights.status.preliminary": "preliminar",
+    "adminops.insights.status.significant": "significativo",
+    "adminops.insights.progress": "{n} / {t} amostras",
+    "adminops.insights.ci95": "IC 95%:",
+    "adminops.insights.nMembers": "{n} membros",
+    "adminops.insights.nWallets": "{n} wallets",
+    "adminops.insights.completed": "Conclusão",
+    "adminops.insights.defaulted": "Default",
+    "adminops.insights.withFeature": "Com a feature (n={n})",
+    "adminops.insights.withoutFeature": "Sem a feature (n={n})",
+    // — retention —
+    "adminops.insights.retention.title": "Retenção por nível (moat)",
+    "adminops.insights.insufficient.retention":
+      "Cada cohort L1/L2/L3 precisa de ≥30 membros antes de renderizar. Devnet não bate; mainnet vai.",
+    // — predictor —
+    "adminops.insights.predictor.title": "Preditor de default — comparação por feature",
+    "adminops.insights.insufficient.predictor":
+      "Preditor exige ≥100 wallets distintos. Abaixo desse N, qualquer correlação é ruído — por isso só mostramos o progresso.",
+    "adminops.insights.feature.late_gte_1": "≥1 contribuição atrasada",
+    "adminops.insights.feature.grace_used_gte_1": "≥1 uso de grace",
+    "adminops.insights.feature.late_gte_2": "≥2 contribuições atrasadas",
+    // — progression —
+    "adminops.insights.progression.title": "Progressão L1 → L2 → L3",
+    "adminops.insights.insufficient.progression":
+      "Progressão exige ≥50 wallets com pelo menos 1 pool concluído. Mostra os números reais só após o threshold.",
+    "adminops.insights.reachedL2": "Atingiu L2",
+    "adminops.insights.reachedL3": "Atingiu L3",
+    "adminops.insights.avgPoolsToL2": "Pools médias até L2",
+    "adminops.insights.avgPoolsToL3": "Pools médias até L3",
+    "adminops.insights.poolsMean": "média (1 casa decimal)",
+    // — improvement —
+    "adminops.insights.improvement.title": "Melhoria comportamental — em-dia por pool ordinal",
+    "adminops.insights.insufficient.improvement":
+      "Melhoria exige ≥30 wallets com 3+ pools participados. Sem isso, comparar pools 1 vs 3 é só ruído.",
+    "adminops.insights.ordinal.1": "1º pool",
+    "adminops.insights.ordinal.2": "2º pool",
+    "adminops.insights.ordinal.3plus": "3º pool em diante",
+    // — tooltips for sections —
+    "adminops.tip.insights.retention":
+      "Taxa de conclusão (paidOut) e default agrupadas por Member.reputationLevel no momento do join. Gate: N≥30 por cohort.",
+    "adminops.tip.insights.predictor":
+      "Comparação simples por feature (3 features pré-definidas no ADR 0010, sem ML, sem fishing). Wilson 95% nos rates.",
+    "adminops.tip.insights.progression":
+      "Para wallets com ≥1 pool concluído: % que atingiu L2 / L3 + média de pools até atingir cada nível.",
+    "adminops.tip.insights.improvement":
+      "Para wallets com ≥3 pools: rate em-dia (onTimeCount/contributionsPaid) no 1º, 2º e 3º+ pool participado.",
   },
   en: {
     "nav.home": "Home",
@@ -2560,5 +2612,57 @@ export const DICT: Record<Lang, Dict> = {
       "Wallets that participated in 2+ pools / total distinct wallets indexed.",
     "adminops.tip.eco.completion":
       "Pools with status Completed / total — structural portfolio success.",
+    // ── insights v0 (ADR 0010) ──────────────────────────────────
+    "adminops.nav.insights": "Insights",
+    "adminops.insights.err": "Could not load Insights ({err}).",
+    "adminops.insights.banner":
+      "devnet · no statistical volume — instrumentation ready, real numbers with traffic.",
+    "adminops.insights.status.insufficient": "insufficient sample",
+    "adminops.insights.status.preliminary": "preliminary",
+    "adminops.insights.status.significant": "significant",
+    "adminops.insights.progress": "{n} / {t} samples",
+    "adminops.insights.ci95": "95% CI:",
+    "adminops.insights.nMembers": "{n} members",
+    "adminops.insights.nWallets": "{n} wallets",
+    "adminops.insights.completed": "Completion",
+    "adminops.insights.defaulted": "Default",
+    "adminops.insights.withFeature": "With feature (n={n})",
+    "adminops.insights.withoutFeature": "Without feature (n={n})",
+    // — retention —
+    "adminops.insights.retention.title": "Retention by level (moat)",
+    "adminops.insights.insufficient.retention":
+      "Each L1/L2/L3 cohort needs ≥30 members before rendering. Devnet does not clear; mainnet will.",
+    // — predictor —
+    "adminops.insights.predictor.title": "Default predictor — cohort comparison",
+    "adminops.insights.insufficient.predictor":
+      "Predictor requires ≥100 distinct wallets. Below that N, any correlation is noise — so we only render the progress bar.",
+    "adminops.insights.feature.late_gte_1": "≥1 late contribution",
+    "adminops.insights.feature.grace_used_gte_1": "≥1 grace used",
+    "adminops.insights.feature.late_gte_2": "≥2 late contributions",
+    // — progression —
+    "adminops.insights.progression.title": "Progression L1 → L2 → L3",
+    "adminops.insights.insufficient.progression":
+      "Progression requires ≥50 wallets with at least 1 completed pool. Numbers render only past the threshold.",
+    "adminops.insights.reachedL2": "Reached L2",
+    "adminops.insights.reachedL3": "Reached L3",
+    "adminops.insights.avgPoolsToL2": "Mean pools to L2",
+    "adminops.insights.avgPoolsToL3": "Mean pools to L3",
+    "adminops.insights.poolsMean": "mean (1 decimal)",
+    // — improvement —
+    "adminops.insights.improvement.title": "Behavioral improvement — on-time by pool ordinal",
+    "adminops.insights.insufficient.improvement":
+      "Improvement requires ≥30 wallets with 3+ pool memberships. Without it, comparing pool 1 vs 3 is noise.",
+    "adminops.insights.ordinal.1": "1st pool",
+    "adminops.insights.ordinal.2": "2nd pool",
+    "adminops.insights.ordinal.3plus": "3rd pool onward",
+    // — tooltips for sections —
+    "adminops.tip.insights.retention":
+      "Completion rate (paidOut) and default rate grouped by Member.reputationLevel at join time. Gate: N≥30 per cohort.",
+    "adminops.tip.insights.predictor":
+      "Simple feature-cohort comparison (3 features pinned in ADR 0010, no ML, no fishing). 95% Wilson CIs on rates.",
+    "adminops.tip.insights.progression":
+      "For wallets with ≥1 completed pool: share that reached L2 / L3 + mean pools to reach each tier.",
+    "adminops.tip.insights.improvement":
+      "For wallets with ≥3 pool memberships: on-time rate (onTimeCount/contributionsPaid) at 1st, 2nd, 3rd+ pool.",
   },
 };
