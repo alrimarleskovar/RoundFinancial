@@ -137,10 +137,10 @@ export function DevnetPoolStatus() {
                   </div>
                   <div
                     style={{
-                      fontSize: 10,
+                      fontSize: 11,
                       color: tokens.muted,
                       marginTop: 2,
-                      lineHeight: 1.35,
+                      lineHeight: 1.4,
                     }}
                   >
                     {t(`home.devnet.${key}.headline`)}

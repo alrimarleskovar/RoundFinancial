@@ -180,7 +180,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         </div>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 12,
             color: tokens.muted,
             marginTop: 4,
             fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
