@@ -10,7 +10,15 @@ import { useState } from "react";
 import { useApi } from "@/lib/admin/useApi";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
-import { agoLabel, Empty, Section, StatCard } from "@/components/adminops/ui";
+import {
+  agoLabel,
+  Empty,
+  formatInt,
+  formatPct,
+  formatUsdc,
+  Section,
+  StatCard,
+} from "@/components/adminops/ui";
 
 interface Economy {
   capital: {
@@ -74,7 +82,9 @@ function buildQuery(f: Filters): string {
   if (to != null) p.set("toUnix", String(to));
   return p.toString();
 }
-const pct = (bps: number | null) => (bps == null ? "—" : `${(bps / 100).toFixed(1)}%`);
+/** Integer-percent of a count vs total, for the level distribution display. */
+const lvPct = (n: number, total: number) =>
+  total > 0 ? `${Math.round((n / total) * 100)}%` : "0%";
 
 export default function EconomyPage() {
   const { tokens } = useTheme();
@@ -204,42 +214,42 @@ export default function EconomyPage() {
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.committedCredit")}
-                    value={e.capital.committedCredit}
+                    value={formatUsdc(e.capital.committedCredit)}
                     sub={t("adminops.economy.committedCreditSub")}
                   />
                   <StatCard
                     label={t("adminops.economy.custodied")}
-                    value={e.capital.custodied}
+                    value={formatUsdc(e.capital.custodied)}
                     sub={t("adminops.economy.custodiedSub")}
                   />
                   <StatCard
                     label={t("adminops.economy.contributed")}
-                    value={e.capital.contributed}
+                    value={formatUsdc(e.capital.contributed)}
                     sub={t("adminops.economy.usdcUnits")}
                   />
                   <StatCard
                     label={t("adminops.economy.paidOut")}
-                    value={e.capital.paidOut}
+                    value={formatUsdc(e.capital.paidOut)}
                     sub={t("adminops.economy.usdcUnits")}
                   />
                   <StatCard
                     label={t("adminops.economy.yield")}
-                    value={e.capital.yieldAccrued}
+                    value={formatUsdc(e.capital.yieldAccrued)}
                     sub={t("adminops.economy.yieldSub")}
                   />
                   <StatCard
                     label={t("adminops.economy.fees")}
-                    value={e.capital.protocolFees}
+                    value={formatUsdc(e.capital.protocolFees)}
                     sub={t("adminops.economy.feesSub")}
                   />
                   <StatCard
                     label={t("adminops.economy.guaranteeFund")}
-                    value={e.capital.guaranteeFund}
+                    value={formatUsdc(e.capital.guaranteeFund)}
                     sub={t("adminops.economy.usdcUnits")}
                   />
                   <StatCard
                     label={t("adminops.economy.solidarity")}
-                    value={e.capital.solidarity}
+                    value={formatUsdc(e.capital.solidarity)}
                     sub={t("adminops.economy.usdcUnits")}
                   />
                 </div>
@@ -249,7 +259,7 @@ export default function EconomyPage() {
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.defaultRate")}
-                    value={pct(e.risk.defaultRateBps)}
+                    value={formatPct(e.risk.defaultRateBps)}
                     sub={t("adminops.economy.defaultRateSub", {
                       d: e.risk.defaultedMembers,
                       n: e.risk.totalMembers,
@@ -258,7 +268,7 @@ export default function EconomyPage() {
                   />
                   <StatCard
                     label={t("adminops.economy.seized")}
-                    value={e.risk.seizedTotal}
+                    value={formatUsdc(e.risk.seizedTotal)}
                     sub={t("adminops.economy.seizedSub")}
                   />
                   <StatCard
@@ -273,12 +283,16 @@ export default function EconomyPage() {
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.levelDist")}
-                    value={`${e.moat.levelDistribution.l1} / ${e.moat.levelDistribution.l2} / ${e.moat.levelDistribution.l3}`}
-                    sub={t("adminops.economy.levelDistSub")}
+                    value={
+                      e.moat.distinctWallets === 0
+                        ? "—"
+                        : `L1 ${lvPct(e.moat.levelDistribution.l1, e.moat.distinctWallets)} · L2 ${lvPct(e.moat.levelDistribution.l2, e.moat.distinctWallets)} · L3 ${lvPct(e.moat.levelDistribution.l3, e.moat.distinctWallets)}`
+                    }
+                    sub={`${formatInt(e.moat.levelDistribution.l1)} / ${formatInt(e.moat.levelDistribution.l2)} / ${formatInt(e.moat.levelDistribution.l3)} · ${t("adminops.economy.levelDistSub")}`}
                   />
                   <StatCard
                     label={t("adminops.economy.onTimeAgg")}
-                    value={pct(e.moat.onTimeRateBps)}
+                    value={formatPct(e.moat.onTimeRateBps)}
                     sub={t("adminops.economy.onTimeAggSub", {
                       ot: e.moat.onTime,
                       total: e.moat.timedContributions,
@@ -286,20 +300,50 @@ export default function EconomyPage() {
                   />
                   <StatCard
                     label={t("adminops.economy.retention")}
-                    value={pct(e.moat.retentionBps)}
+                    value={formatPct(e.moat.retentionBps)}
                     sub={t("adminops.economy.retentionSub", {
                       r: e.moat.repeatWallets,
                       n: e.moat.distinctWallets,
                     })}
                   />
                 </div>
+                {e.moat.distinctWallets > 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      height: 8,
+                      marginTop: 12,
+                      borderRadius: 999,
+                      overflow: "hidden",
+                      background: tokens.fillSoft,
+                    }}
+                  >
+                    {(
+                      [
+                        ["l1", tokens.muted],
+                        ["l2", tokens.teal],
+                        ["l3", tokens.green],
+                      ] as const
+                    ).map(([k, c]) => {
+                      const n = e.moat.levelDistribution[k];
+                      const w = (n / e.moat.distinctWallets) * 100;
+                      return w > 0 ? (
+                        <div
+                          key={k}
+                          title={`${k.toUpperCase()} ${n}`}
+                          style={{ width: `${w}%`, background: c }}
+                        />
+                      ) : null;
+                    })}
+                  </div>
+                ) : null}
               </Section>
 
               <Section title={t("adminops.economy.health")}>
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.completion")}
-                    value={pct(e.health.completionRateBps)}
+                    value={formatPct(e.health.completionRateBps)}
                     sub={t("adminops.economy.completionSub")}
                   />
                   {(["Forming", "Active", "Completed", "Liquidated", "Closed"] as const).map(

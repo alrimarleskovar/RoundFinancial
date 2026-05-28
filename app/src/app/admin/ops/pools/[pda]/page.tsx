@@ -14,6 +14,7 @@ import {
   agoLabel,
   Empty,
   fmtDuration,
+  formatUsdc,
   HealthPill,
   MonoLabel,
   Pill,
@@ -143,12 +144,12 @@ export default function PoolDetailPage() {
           />
           <StatCard
             label={t("adminops.pool.contributed")}
-            value={p.totalContributed}
+            value={formatUsdc(p.totalContributed)}
             sub={t("adminops.pool.usdcUnits")}
           />
           <StatCard
             label={t("adminops.pool.paid")}
-            value={p.totalPaidOut}
+            value={formatUsdc(p.totalPaidOut)}
             sub={t("adminops.pool.usdcUnits")}
           />
         </div>

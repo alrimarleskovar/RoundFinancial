@@ -36,6 +36,43 @@ export function fmtDuration(seconds: number | null | undefined): string {
   return `${(s / 86_400).toFixed(1)}d`;
 }
 
+/** Thousands grouping for an integer-ish value (en-US grouping). */
+function group(intStr: string): string {
+  return intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/** Integer with thousands separators. Scales to large counts (1M+ users). */
+export function formatInt(n: number | string): string {
+  const s = String(n);
+  const neg = s.startsWith("-");
+  return (neg ? "-" : "") + group(neg ? s.slice(1) : s);
+}
+
+/**
+ * Format USDC base units (6 decimals) → human "1,234.56". Uses BigInt so it
+ * stays exact at any scale (no f64 rounding). DISPLAY ONLY — the canonical
+ * base-unit value is never mutated. Accepts the serialized string the API
+ * sends. "—" on bad input.
+ */
+export function formatUsdc(baseUnits: string | number | bigint): string {
+  let b: bigint;
+  try {
+    b = BigInt(baseUnits);
+  } catch {
+    return "—";
+  }
+  const neg = b < 0n;
+  const abs = neg ? -b : b;
+  const whole = abs / 1_000_000n;
+  const cents = ((abs % 1_000_000n) / 10_000n).toString().padStart(2, "0"); // truncated, 2dp
+  return `${neg ? "-" : ""}${group(whole.toString())}.${cents}`;
+}
+
+/** Basis points → "12.3%"; "—" when null. */
+export function formatPct(bps: number | null | undefined): string {
+  return bps == null ? "—" : `${(bps / 100).toFixed(1)}%`;
+}
+
 export function MonoLabel({ children }: { children: ReactNode }) {
   const { tokens } = useTheme();
   return (
