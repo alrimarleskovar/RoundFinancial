@@ -320,7 +320,7 @@ async function reconcileContributeEvents(
   logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.contributeEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -395,7 +395,7 @@ async function reconcileClaimEvents(
   logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.claimEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -467,7 +467,7 @@ async function reconcileDefaultEvents(
   logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.defaultEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 

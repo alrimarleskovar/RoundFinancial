@@ -39,11 +39,17 @@ import { PrismaClient } from "@prisma/client";
 import { decodePoolRaw, decodeMemberRaw } from "@roundfi/sdk";
 
 import { createLogger } from "./log.js";
+import { accountDiscriminatorBase58 } from "./discriminator.js";
 
-// Pool::SIZE = 244 bytes (8 disc + 236 fields). Member::SIZE = 187.
-// These are the dataSize filters we hand to getProgramAccounts.
-const POOL_ACCOUNT_SIZE = 244;
-const MEMBER_ACCOUNT_SIZE = 187;
+// getProgramAccounts filters by the 8-byte Anchor account DISCRIMINATOR
+// (memcmp at offset 0), NOT by dataSize. A dataSize filter is brittle: when
+// a struct gains/loses a field the size drifts and the filter silently
+// returns 0 rows (this exact bug shipped — Pool::SIZE is 255, not 244, so a
+// `dataSize: 244` filter found no pools and orphaned every member). The
+// discriminator only changes if the account's *type name* changes, so it
+// survives layout edits.
+const POOL_DISCRIMINATOR = accountDiscriminatorBase58("Pool");
+const MEMBER_DISCRIMINATOR = accountDiscriminatorBase58("Member");
 
 const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
@@ -85,7 +91,7 @@ async function main(): Promise<void> {
     // ─── Pools ──────────────────────────────────────────────────────
     const poolAccounts = await connection.getProgramAccounts(programId, {
       commitment: "confirmed",
-      filters: [{ dataSize: POOL_ACCOUNT_SIZE }],
+      filters: [{ memcmp: { offset: 0, bytes: POOL_DISCRIMINATOR } }],
     });
     logger.info(
       { event_type: "backfill_pools_fetched", count: poolAccounts.length },
@@ -149,7 +155,7 @@ async function main(): Promise<void> {
     // ─── Members ────────────────────────────────────────────────────
     const memberAccounts = await connection.getProgramAccounts(programId, {
       commitment: "confirmed",
-      filters: [{ dataSize: MEMBER_ACCOUNT_SIZE }],
+      filters: [{ memcmp: { offset: 0, bytes: MEMBER_DISCRIMINATOR } }],
     });
     logger.info(
       { event_type: "backfill_members_fetched", count: memberAccounts.length },
