@@ -19,7 +19,7 @@
 
 import { Connection, PublicKey } from "@solana/web3.js";
 
-import { poolPda as derivePoolPda } from "./pda.js";
+import { poolPda as derivePoolPda, reputationProfilePda } from "./pda.js";
 
 // ─── Pool offsets (declaration-order Borsh, no padding) ────────────────
 //
@@ -369,4 +369,70 @@ export async function fetchActivePoolListings(
     .map(({ pubkey, account }) => decodeListingRaw(pubkey, account.data as Buffer))
     .filter((l) => l.status === "active")
     .sort((a, b) => a.slotIndex - b.slotIndex);
+}
+
+// ─── ReputationProfile (roundfi-reputation) ──────────────────────────────
+//
+// IDL-free decode of the per-wallet on-chain score. Source of truth:
+// programs/roundfi-reputation/src/state/profile.rs. Layout after the
+// 8-byte Anchor discriminator:
+//   off  8: wallet                 Pubkey (32)
+//   off 40: level                  u8     ( 1)
+//   off 41: cycles_completed       u32    ( 4)
+//   off 45: on_time_payments       u32    ( 4)
+//   off 49: late_payments          u32    ( 4)
+//   off 53: defaults               u32    ( 4)
+//   off 57: total_participated     u32    ( 4)
+//   off 61: score                  u64    ( 8)
+//   off 69: last_cycle_complete_at i64    ( 8)
+//   off 77: first_seen_at          i64    ( 8)
+//   off 85: last_updated_at        i64    ( 8)
+//   off 93: bump                   u8     ( 1)
+//   off 94: last_admin_attest_at   i64    ( 8)
+//   off102: _padding               [u8;7] ( 7)  → size 8 + 105 = 113
+
+export interface RawReputationProfile {
+  address: PublicKey;
+  wallet: PublicKey;
+  level: number;
+  cyclesCompleted: number;
+  onTimePayments: number;
+  latePayments: number;
+  defaults: number;
+  totalParticipated: number;
+  score: bigint;
+  firstSeenAt: bigint;
+  lastUpdatedAt: bigint;
+}
+
+export function decodeReputationProfileRaw(address: PublicKey, data: Buffer): RawReputationProfile {
+  return {
+    address,
+    wallet: new PublicKey(data.subarray(8, 40)),
+    level: data.readUInt8(40),
+    cyclesCompleted: data.readUInt32LE(41),
+    onTimePayments: data.readUInt32LE(45),
+    latePayments: data.readUInt32LE(49),
+    defaults: data.readUInt32LE(53),
+    totalParticipated: data.readUInt32LE(57),
+    score: data.readBigUInt64LE(61),
+    firstSeenAt: data.readBigInt64LE(77),
+    lastUpdatedAt: data.readBigInt64LE(85),
+  };
+}
+
+/**
+ * Fetch a wallet's on-chain ReputationProfile. Returns null when the
+ * account does not exist — which the program treats as a fresh wallet
+ * (level 1, score 0), so callers should render that default, not an error.
+ */
+export async function fetchReputationProfileRaw(
+  connection: Connection,
+  reputationProgram: PublicKey,
+  wallet: PublicKey,
+): Promise<RawReputationProfile | null> {
+  const [address] = reputationProfilePda(reputationProgram, wallet);
+  const info = await connection.getAccountInfo(address, "confirmed");
+  if (!info) return null;
+  return decodeReputationProfileRaw(address, info.data as Buffer);
 }

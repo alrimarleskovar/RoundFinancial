@@ -17,10 +17,13 @@ From the moment `v0.4-canary` is tagged onward, the following **does NOT merge t
 What **CAN** merge during the freeze:
 
 1. **Bug fixes** that close a tracked SEV — must reference the SEV ID in the PR title.
-2. **Audit findings remediation** — Adevar Labs findings (when the formal engagement starts) take priority.
+2. **Audit findings remediation** — formal engagement findings (Adevar / Halborn / OtterSec / Sec3 — selection pending) take priority.
 3. **CI / tooling fixes** that unblock the canary path (e.g. the deferred `bankrun-no-mpl-core` lane).
 4. **Operational docs** filled out post-event (ceremony reports, drill logs, postmortems) — these are evidence captures, not new work.
 5. **Security patches** for newly-disclosed CVEs in our dep tree.
+6. **Pass-N doc-alignment sweeps** that keep auditor- and judge-facing docs (README, MAINNET_READINESS, AUDIT_SCOPE, SECURITY, security/\*, FREEZE) in sync with the live SEV tracker. These are stale-prevention against `docs/security/internal-audit-findings.md`, not new work. PR title must reference the sweep (e.g. `Pass-N`) and the table below must be updated.
+7. **Pre-judge visibility fixes** during hackathon judging weeks — SEO files, README test-count sync, broken-link fixes that affect what a non-aligned reviewer sees first. Bounded scope (no behavior change), tracked here.
+8. **Governance ADRs** that document an already-made decision (e.g. ADR 0008 treasury custody — confirms current Squads-multisig path rather than introducing it).
 
 ## Why this freeze exists
 
@@ -33,11 +36,11 @@ The session that produced `v0.4-canary` ran 252 commits in 22 days — well abov
 
 The freeze lifts when **any one** of the following is true:
 
-| Condition                                       | Status                                            |
-| ----------------------------------------------- | ------------------------------------------------- |
-| Mainnet GA achieved + first cycle complete      | 🔴 Pending (Q4 2026 target)                       |
-| Adevar Labs audit report received               | 🔴 Pending (engagement in scoping)                |
-| Founder + tech lead joint unfreeze in this file | 🔴 Pending (intentional friction — requires both) |
+| Condition                                                                                        | Status                                            |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Mainnet GA achieved + first cycle complete                                                       | 🔴 Pending (Q4 2026 target)                       |
+| Formal external auditor report received (Adevar / Halborn / OtterSec / Sec3 — selection pending) | 🔴 Pending (engagement in scoping)                |
+| Founder + tech lead joint unfreeze in this file                                                  | 🔴 Pending (intentional friction — requires both) |
 
 ## Reviewer requirement during freeze
 
@@ -53,8 +56,16 @@ The `.github/workflows/freeze-enforcement.yml` workflow automates checks #1 and 
 
 (Approved during freeze, tracked here for audit trail.)
 
-| Date | Approver | PR  | Reason |
-| ---- | -------- | --- | ------ |
+| Date       | Approver | PR / Commit                              | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------- | -------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-21 | Founder  | `db93a05`                                | Tooling (item 3): `.env.example` stub for Colosseum Copilot API. No protocol behavior change.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2026-05-21 | Founder  | `6f0dd06`                                | Tooling (item 3): `.agents/skills/colosseum-copilot/` install via skills CLI. No protocol behavior change.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2026-05-21 | Founder  | `485e8dd` (PR #401)                      | Governance ADR (item 8): ADR 0008 `treasury-custody-squads-multisig` + runbook. Documents current path, doesn't introduce new behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-05-21 | Founder  | `3dd0bd9`                                | Pre-judge visibility (item 7): `robots.ts` + `sitemap.ts` + README test count bump 280+→300+. Bounded, no behavior change.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2026-05-23 | Founder  | `claude/colosseum-judge-readiness` PR    | Pass-18 doc-alignment sweep (item 6): README + AUDIT_SCOPE + internal-audit-findings + security/README numerics synced with live tracker (33→47 SEVs, 10/10→13/13 C+H). Pitch-deck-EN PT translation. Broken ADR-0007 + ADEVAR_AUDIT_REPORT.md link fixes.                                                                                                                                                                                                                                                                                                                        |
+| 2026-05-24 | Founder  | `claude/implement-roundfi-desktop-SRV6l` | Pre-judge visibility (item 7): README fuzz cumulative 503M→9.85B reflecting fresh 600M iter afternoon re-validation + **8.75B overnight sweep 2026-05-24** (6 targets × 1h each, all stable cov 50-66 ft 52-68, 0 crashes across entire history). Pre-Canary critical path Dia 1-2 deliverables: ADR numbering shift (0008→0009 referral, 0009→0010 grace) + label spec + SEV-in-smoke flow + D1 schema 3 alternativas Prisma. Briefing + slides + verificação infra pra reunião do Canary. i18n fix Stress Lab (22 keys for 11 new presets from issue #228). No behavior change. |
+| 2026-05-26 | Founder  | PR #412 (`[FREEZE-EXCEPTION]`)           | ECO-002/003 (item 5 — additive economics surface): `StressLabConfig.installmentUsdc` opt-in independent installment (presets byte-identical) + `FrameMetrics.overCollection`; ECO-003 "16.7% breakpoint" re-derived (artifact of retracted premises; gone under on-chain $600). Founder-approved.                                                                                                                                                                                                                                                                                 |
+| 2026-05-26 | Founder  | PR #413 (`[FREEZE-EXCEPTION]`)           | Wallet receive QR (item 7 — bounded front-end visibility): `/carteira` Receive modal QR code. No protocol behavior change. Founder-approved.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ## Self-imposed escape valve
 

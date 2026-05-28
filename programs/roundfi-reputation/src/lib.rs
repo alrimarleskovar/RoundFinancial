@@ -87,6 +87,16 @@ pub mod roundfi_reputation {
         instructions::init_profile::handler(ctx, wallet)
     }
 
+    /// Authority-gated in-place migration of the `ReputationConfig`
+    /// singleton to the current struct layout. Reallocs the account up to
+    /// the current `LEN` (zero-initializing the grown region) so a config
+    /// PDA created by an older program build — which would otherwise fail
+    /// to deserialize after the struct grew (e.g. the SEV-021 authority
+    /// rotation fields) — becomes loadable again. Idempotent.
+    pub fn migrate_reputation_config(ctx: Context<MigrateReputationConfig>) -> Result<()> {
+        instructions::migrate_reputation_config::handler(ctx)
+    }
+
     pub fn attest(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         instructions::attest::handler(ctx, args)
     }
@@ -97,6 +107,15 @@ pub mod roundfi_reputation {
 
     pub fn promote_level(ctx: Context<PromoteLevel>) -> Result<()> {
         instructions::promote_level::handler(ctx)
+    }
+
+    /// SEV-047 defense-in-depth — authority sets the identity-gate floor
+    /// (`required_min_level`: 0 = off/default, 2 or 3 = require verified
+    /// identity at that tier+). Creates the `IdentityGateConfig` PDA on first
+    /// call (init_if_needed). Enforced in `promote_level` (caps unverified
+    /// subjects below the floor).
+    pub fn set_identity_gate(ctx: Context<SetIdentityGate>, required_min_level: u8) -> Result<()> {
+        instructions::set_identity_gate::handler(ctx, required_min_level)
     }
 
     pub fn link_passport_identity(ctx: Context<LinkPassportIdentity>) -> Result<()> {

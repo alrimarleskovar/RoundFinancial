@@ -3,7 +3,7 @@
 > **One-pager for security firms.** The "why we are audit-ready in 2 weeks, not 6" summary. Companion to:
 >
 > - [`../../AUDIT_SCOPE.md`](../../AUDIT_SCOPE.md) — formal scope (in/out + LoC + prior hardening PR list + mainnet timeline)
-> - [`./internal-audit-findings.md`](./internal-audit-findings.md) — **internal pre-audit tracker (40 findings, 36 closed)** — read this first to see what the team's own red-team already surfaced
+> - [`./internal-audit-findings.md`](./internal-audit-findings.md) — **internal pre-audit tracker (canonical counts in its [Summary table](./internal-audit-findings.md#summary); 51 findings / 49 closed / 0 open / Critical/High 16 of 16 as of 2026-05-27)** — read this first to see what the team's own red-team already surfaced
 > - [`./self-audit.md`](./self-audit.md) — full 228-line self-audit + threat model
 > - [`../../SECURITY.md`](../../SECURITY.md) — disclosure channel + SLAs
 
@@ -11,41 +11,43 @@
 
 ## TL;DR
 
-| Signal                                      | Value                                                                                                 | Where to verify                                                                                                |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Internal pre-audit (Adevar methodology)** | **40 findings catalogued, 36 🟢 closed, 1 🟠 upstream-blocked, 3 🔵 design-intentional**              | [`internal-audit-findings.md`](./internal-audit-findings.md) — public tracker, SEV-001..SEV-039 + SEV-034b     |
-| **Critical / High fixes**                   | **10/10 🟢 closed** (3 Critical + 7 High) with negative regression tests per "test-before-merge" gate | PRs [#326..#365](https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged+SEV)            |
-| **Pre-audit methodology**                   | **5 passes** (W1..W5) + 1 integration-testing wave — each pass re-audited the prior round's fixes     | [`internal-audit-findings.md`](./internal-audit-findings.md) §"Methodology"                                    |
-| **Single-source-of-truth math**             | Cascade + cumulative-paid derivations centralized in `crates/math/`                                   | Both on-chain handlers AND test simulators delegate to crate helpers (SEV-026, SEV-034 hardening)              |
-| Test count                                  | **280+ tests** across 22 spec files                                                                   | `tests/` · `pnpm test:parity` / `pnpm test:events` / `pnpm test:economic-parity-l1` / `pnpm test:app-encoders` |
-| Security-specific tests                     | **60+ tests** across 6 bankrun spec files + ~36 audit-regression unit/proptest                        | `tests/security_*.spec.ts` + `tests/reputation_*.spec.ts` + `crates/math/src/**/tests`                         |
-| App-encoder structural tests                | **58 tests** (discriminator + account + PDA parity)                                                   | `tests/app_encoders.spec.ts` · 6 IDL-free encoders covered (#283, #287, #291)                                  |
-| App-encoder bankrun round-trips             | **7 tests** (4 happy-path + 3 negative-path)                                                          | `tests/app_encoders_bankrun.spec.ts` · #290 W1+W2 + #283 W3                                                    |
-| Math fuzz coverage                          | **6 cargo-fuzz targets** on `roundfi-math`                                                            | `crates/math/fuzz/` · 60s PR smoke + 30min weekly long-run (#284)                                              |
-| Math test coverage (tarpaulin)              | **>90%** on `roundfi-math`                                                                            | `pnpm coverage` · CI advisory lane (#269)                                                                      |
-| Typed protocol errors                       | **40+ named errors** with negative-path tests for each                                                | `programs/roundfi-core/src/error.rs` + `programs/roundfi-reputation/src/error.rs`                              |
-| Triple Shield guards captured firing        | **4/4 on real funds** on devnet                                                                       | `docs/devnet-deployment.md`                                                                                    |
-| Self-audit + threat model                   | 228 lines, file:line refs                                                                             | [`docs/security/self-audit.md`](./self-audit.md)                                                               |
-| CI required gates                           | **4 green pipelines** per PR                                                                          | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)                                                   |
-| Open source                                 | Apache-2.0                                                                                            | [`LICENSE`](../../LICENSE)                                                                                     |
-| Dependency surveillance                     | Dependabot (cargo + npm + actions)                                                                    | [`.github/dependabot.yml`](../../.github/dependabot.yml)                                                       |
-| Reproducible build                          | OtterSec verify-build PDA on-chain                                                                    | [`docs/verified-build.md`](../verified-build.md)                                                               |
-| Disclosure channel                          | `roundfinance.sol@gmail.com`                                                                          | [`SECURITY.md`](../../SECURITY.md)                                                                             |
+| Signal                                                | Value                                                                                                                                                                                         | Where to verify                                                                                                                                                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Internal pre-audit (external-auditor methodology)** | **51 findings catalogued, 49 🟢 closed, 0 open, 0 🟠 upstream-blocked, 2 🔵 design-intentional** (live counts canonical in the tracker [Summary table](./internal-audit-findings.md#summary)) | [`internal-audit-findings.md`](./internal-audit-findings.md) — public tracker, SEV-001..SEV-050 + SEV-034b                                                                                          |
+| **Critical / High fixes**                             | **16 of 16 🟢 closed** (6 Critical + 10 High; SEV-049 + SEV-050, the two High liveness locks, both closed) with negative regression tests per "test-before-merge" gate                        | PRs [#326..#413](https://github.com/alrimarleskovar/RoundFinancial/pulls?q=is%3Apr+is%3Amerged+SEV) + 2026-05-24 external-audit pass (SEV-047/048) + litesvm L1↔L2 parity slice (SEV-049 + SEV-050) |
+| **Pre-audit methodology**                             | **5 passes** (W1..W5) + 1 integration-testing wave + 9 follow-up waves + 1 external-audit pass — each re-audited the prior round's fixes                                                      | [`internal-audit-findings.md`](./internal-audit-findings.md) §"Methodology"                                                                                                                         |
+| **Single-source-of-truth math**                       | Cascade + cumulative-paid derivations centralized in `crates/math/`                                                                                                                           | Both on-chain handlers AND test simulators delegate to crate helpers (SEV-026, SEV-034 hardening)                                                                                                   |
+| Test count                                            | **280+ tests** across 27 spec files (L1 economic-parity lane = 51)                                                                                                                            | `tests/` · `pnpm test:parity` / `pnpm test:events` / `pnpm test:economic-parity-l1` / `pnpm test:app-encoders`                                                                                      |
+| Security-specific tests                               | **across the bankrun + litesvm lanes** (incl. the litesvm mpl-core lifecycle spec + SEV-047 reputation-gate spec) + ~36 audit-regression unit/proptest                                        | `tests/security_*.spec.ts` + `tests/reputation_*.spec.ts` + `tests/litesvm_join_pool.spec.ts` + `crates/math/src/**/tests`                                                                          |
+| App-encoder structural tests                          | **58 tests** (discriminator + account + PDA parity)                                                                                                                                           | `tests/app_encoders.spec.ts` · 6 IDL-free encoders covered (#283, #287, #291)                                                                                                                       |
+| App-encoder bankrun round-trips                       | **7 tests** (4 happy-path + 3 negative-path)                                                                                                                                                  | `tests/app_encoders_bankrun.spec.ts` · #290 W1+W2 + #283 W3                                                                                                                                         |
+| Math fuzz coverage                                    | **6 cargo-fuzz targets** on `roundfi-math`                                                                                                                                                    | `crates/math/fuzz/` · 60s PR smoke + 30min weekly long-run (#284)                                                                                                                                   |
+| Math test coverage (tarpaulin)                        | **>90%** on `roundfi-math`                                                                                                                                                                    | `pnpm coverage` · CI advisory lane (#269)                                                                                                                                                           |
+| Typed protocol errors                                 | **40+ named errors** with negative-path tests for each                                                                                                                                        | `programs/roundfi-core/src/error.rs` + `programs/roundfi-reputation/src/error.rs`                                                                                                                   |
+| Triple Shield guards captured firing                  | **4/4 on real funds** on devnet                                                                                                                                                               | `docs/devnet-deployment.md`                                                                                                                                                                         |
+| Self-audit + threat model                             | 228 lines, file:line refs                                                                                                                                                                     | [`docs/security/self-audit.md`](./self-audit.md)                                                                                                                                                    |
+| CI required gates                                     | **6 lanes** per PR: `js`, `audit · cargo-audit`, `deny · supply-chain`, `anchor · build`, `bankrun · no-mpl-core`, `litesvm · mpl-core path` (litesvm required)                               | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)                                                                                                                                        |
+| Open source                                           | Apache-2.0                                                                                                                                                                                    | [`LICENSE`](../../LICENSE)                                                                                                                                                                          |
+| Dependency surveillance                               | Dependabot (cargo + npm + actions)                                                                                                                                                            | [`.github/dependabot.yml`](../../.github/dependabot.yml)                                                                                                                                            |
+| Reproducible build                                    | OtterSec verify-build PDA on-chain                                                                                                                                                            | [`docs/verified-build.md`](../verified-build.md)                                                                                                                                                    |
+| Disclosure channel                                    | `roundfinance.sol@gmail.com`                                                                                                                                                                  | [`SECURITY.md`](../../SECURITY.md)                                                                                                                                                                  |
 
 ## Internal pre-audit — what we surfaced ourselves
 
 > **Framing:** this is the team's own 5-pass red-team exercise + 1 integration-testing wave modeled on Adevar Labs' methodology, run _before_ commissioning Adevar's formal engagement (scoping in progress). The paid audit's clock should go to harder questions, not findings a competent in-house red-team can surface. **Not an Adevar attestation** — full framing in [`internal-audit-findings.md`](./internal-audit-findings.md).
 
-**Severity distribution (40 findings):**
+**Severity distribution (51 findings — canonical in the [tracker Summary table](./internal-audit-findings.md#summary)):**
 
-| Severity      | Total  | 🟢 Closed | 🟠 Blocked | 🔵 Design-intentional |
-| ------------- | ------ | --------- | ---------- | --------------------- |
-| Critical      | 3      | 3         | 0          | 0                     |
-| High          | 7      | 7         | 0          | 0                     |
-| Medium        | 9      | 8         | 1          | 0                     |
-| Low           | 12     | 12        | 0          | 0                     |
-| Informational | 9      | 6         | 0          | 3                     |
-| **Total**     | **40** | **36**    | **1**      | **3**                 |
+| Severity      | Total  | 🟢 Closed | 🟡 Open | 🔵 Design-intentional |
+| ------------- | ------ | --------- | ------- | --------------------- |
+| Critical      | 6      | 6         | 0       | 0                     |
+| High          | 10     | 10        | 0       | 0                     |
+| Medium        | 14     | 14        | 0       | 0                     |
+| Low           | 12     | 12        | 0       | 0                     |
+| Informational | 9      | 6         | 0       | 3                     |
+| **Total**     | **51** | **48**    | **0**   | **3**                 |
+
+> 🟢 No findings remain open. SEV-049 + SEV-050 (both High liveness locks from the litesvm L1↔L2 parity slice) are closed: SEV-049 via the new permissionless `skip_defaulted_payout` instruction; SEV-050 by removing `close_pool`'s unsatisfiable defaulted-pool guard. Critical/High is all-closed.
 
 **Highlights worth the auditor's attention:**
 
@@ -55,7 +57,7 @@
 - **SEV-029 → SEV-034 chain (High, fund-leak, regression-of-regression):** the SEV-016 partial-pay fix (#334) introduced an overpay in `release_escrow` (SEV-029, #342). The SEV-029 fix itself was wrong — derivation `stake - escrow_balance` ignored that `contribute()` mutates `escrow_balance`. **Caught by W4 pre-audit; closed by [#349](https://github.com/alrimarleskovar/RoundFinancial/pull/349) with correct derivation, [#350](https://github.com/alrimarleskovar/RoundFinancial/pull/350) ships bankrun integration test, [#351](https://github.com/alrimarleskovar/RoundFinancial/pull/351) extracts the derivation to the math crate as single source of truth.** Methodological insight from this chain: pure-math simulators prove function properties, not on-chain behavior — Critical / High fixes now require integration-level tests.
 - **SEV-026 (Low):** `settle_default` cascade math refactored to delegate to `roundfi_math::seize_for_default` — same single-source-of-truth pattern. The SEV-034 chain re-validated why this matters.
 
-**Remaining surface:** SEV-012 (bankrun-in-CI coverage gap) is **upstream-blocked** on mpl-core 0.8 → Anchor 0.31 borsh compat ([mpl-core#282](https://github.com/metaplex-foundation/mpl-core/issues/282)) — tests run locally, just not in CI. SEV-018 (`settle_default` deliberately bypasses pause) and SEV-032 (`ReputationConfig` padding exhausted by SEV-021 additions) are documented **design constraints**, not vulnerabilities.
+**Remaining surface:** SEV-012 (mpl-core-path CI coverage gap) is **CLOSED** — the `join_pool` / `escape_valve_buy` mpl_core path now runs as a **REQUIRED `litesvm · mpl-core path` CI lane** (`tests/_harness/litesvm.ts` + `tests/litesvm_join_pool.spec.ts`); the Node-24 pin fixed the V8-GC `std::bad_alloc` seen under Node 20. SEV-018 (`settle_default` deliberately bypasses pause) and SEV-032 (`ReputationConfig` padding exhausted by SEV-021 additions) are documented **design constraints**, not vulnerabilities.
 
 **Why this is signal, not noise:** every Critical / High fix ships with a **negative regression test before merge**. The two-layer constants defense (pinning + floor-guard) + the single-source-of-truth math crate pattern (SEV-026, SEV-034) close the structural classes the chain exposed.
 
@@ -121,7 +123,7 @@ Explicitly deferred to mainnet migration, listed here so audit hours don't go to
 - release_escrow cumulative-paid derivation (SEV-029 → SEV-034) — single source of truth in `roundfi_math::escrow_vesting::compute_release_delta_target`, used by handler AND simulator AND bankrun integration test
 - settle_default cascade math (SEV-026) — delegated to `roundfi_math::seize_for_default`, no inline duplicate
 
-See [`internal-audit-findings.md`](./internal-audit-findings.md) for the per-finding status. **The auditor's W4 evaluation explicitly cleared all fund-loss-shaped findings as 🟢 closed.**
+See [`internal-audit-findings.md`](./internal-audit-findings.md) for the per-finding status. **The auditor's W4 evaluation cleared every fund-loss-shaped finding it reached as 🟢 closed; no fund-loss-shaped finding remains open — SEV-050 (High, defaulted pool cannot `close_pool`) is now closed by removing `close_pool`'s unsatisfiable defaulted-pool guard.**
 
 ## High-leverage areas to spend audit hours on
 
@@ -136,7 +138,7 @@ Sorted by where adversarial creativity gets the most value given the pre-audit c
 
 ## Engagement format
 
-The internal pre-audit (W1..W5 + 1 integration-testing wave, 40 findings, 36 closed) ran _before_ commissioning the formal Adevar engagement. Recommended formal scope:
+The internal pre-audit (W1..W5 + 1 integration-testing wave + 9 follow-up waves + 1 external-audit pass + litesvm L1↔L2 parity slice, 51 findings, 49 closed, 0 open) ran _before_ commissioning the formal external engagement. Recommended formal scope:
 
 **1-2 week re-validation engagement** against `main` HEAD, focused on:
 
@@ -148,10 +150,10 @@ Out: `services/indexer/`, `app/`, `packages/sdk/` — those don't custody funds.
 
 **Deliverables on our side, ready before kickoff:**
 
-- Internal pre-audit tracker — [`internal-audit-findings.md`](./internal-audit-findings.md) (40 SEVs, 36 closed, 1 upstream-blocked, 3 design-intentional)
+- Internal pre-audit tracker — [`internal-audit-findings.md`](./internal-audit-findings.md) (51 SEVs, 49 closed, 0 open, 0 upstream-blocked, 2 design-intentional; canonical [Summary table](./internal-audit-findings.md#summary))
 - Self-audit doc (this folder) + threat models (adversarial, MEV, indexer, passport bridge)
 - Constants audit methodology — [`constants-audit-2026-05.md`](./constants-audit-2026-05.md)
-- Test suite passing — CI green on `main` (anchor build / js lint+parity / cargo audit / cargo deny); bankrun lane runs locally pending SEV-012 upstream unblock
+- Test suite passing — CI green on `main` across all 6 required lanes (`js` lint+parity / `audit · cargo-audit` / `deny · supply-chain` / `anchor · build` / `bankrun · no-mpl-core` / `litesvm · mpl-core path`); the litesvm lane is now required and exercises the mpl_core `join_pool` / `escape_valve_buy` path (SEV-012 closed)
 - Reproducible build attestation (OtterSec PDA on devnet — see [`docs/verified-build.md`](../verified-build.md))
 - Single point of contact: `roundfinance.sol@gmail.com`
 

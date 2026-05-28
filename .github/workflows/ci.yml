@@ -438,3 +438,132 @@ jobs:
         # would shift the failure class to `AccountValidationFailed`
         # / `Constraint*` and surface immediately.
         run: pnpm test:bankrun:no-mpl-core
+
+      - name: Run bankrun spec (SEV-047 identity gate — no mpl_core needed)
+        # Validates promote_level's identity-gate enforcement (SEV-047
+        # Part 2) end-to-end: drives a profile to the L2 threshold
+        # (score 500 + 1 cycle) by warping the clock +61s between each
+        # admin attest (defeats MIN_ADMIN_ATTEST_COOLDOWN_SECS — the
+        # reason the localnet reputation specs can't run this path),
+        # then asserts floor=2 caps an unverified subject at L1 and
+        # floor=0 promotes it to L2. roundfi-reputation has no mpl-core
+        # CPI, so the spec boots with loadMplCore:false (eligible for
+        # this lane, unlike the SEV-012-gated localnet reputation specs).
+        run: pnpm test:bankrun:reputation-gate
+
+  # ─── litesvm · mpl-core path (SEV-012 unblock) ───────────────────
+  # The mpl_core-dependent path (join_pool / escape_valve_buy) that
+  # bankrun CANNOT run: solana-bankrun's solana-program-test 1.18 only
+  # reads eBPF/SBFv1 and panics loading the current mainnet SBFv2
+  # mpl_core.so. litesvm 1.x tracks current Agave and loads SBFv2 fine,
+  # so this lane runs the full pool-formation lifecycle — each step
+  # minting an mpl_core asset via the CreateV2 CPI — on the repo's anchor
+  # 0.30.1, via a thin custom Provider + one-point v1→v2 tx bridge (see
+  # tests/_harness/litesvm.ts). This closes the SEV-012 coverage gap for
+  # the mpl_core path without waiting on the #230 anchor-0.31 bump.
+  litesvm-mpl-core:
+    name: litesvm · mpl-core path (join_pool lifecycle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: anchor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
+          # pretenuring-feedback hashtable rehash (Heap::PerformGarbageCollection
+          # → PretenuringHandler::ProcessPretenuringFeedback → std::__throw_bad_alloc),
+          # a non-deterministic V8 bug in Node 20.20.2's V8 — NOT litesvm and NOT
+          # RAM (14GB free, ulimit -v unlimited). It never reproduces on the
+          # author's local Node 25; Node 24's newer V8 carries the fix. (SEV-012)
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Solana Agave 3.0.0 (matches anchor · build lane)
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor \
+            --tag v0.30.1 anchor-cli
+
+      - name: anchor build (--no-idl) + IDL regen (#319 workaround)
+        run: |
+          anchor build --no-idl
+          bash scripts/dev/rebuild-idls.sh
+
+      - name: Cache mpl_core.so (Metaplex Core mainnet binary)
+        # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
+        # W22 cache held a truncated dump that made litesvm abort (SEV-012).
+        id: mplcore-cache
+        uses: actions/cache@v4
+        with:
+          path: target/deploy/mpl_core.so
+          key: mpl-core-so-2026-W22c
+
+      - name: Ensure a complete, valid mpl_core.so
+        # Hygiene guard (not the SEV-012 root cause — that was a V8-GC bad_alloc
+        # on Node 20, fixed by the Node 24 bump above): a truncated/corrupt dump
+        # would make litesvm's SBFv2 loader choke, so never feed it a bad ELF —
+        # (re)dump with retries whenever the file is missing or fails the
+        # ELF-magic + size sanity check, and fail hard if a good binary can't
+        # be produced.
+        run: |
+          set -euo pipefail
+          mkdir -p target/deploy
+          SO=target/deploy/mpl_core.so
+          MIN_BYTES=524288   # ~512KB; Core is ~1MB — a truncated dump is far smaller
+
+          valid() {
+            [ -f "$SO" ] || return 1
+            printf '\x7fELF' | cmp -s -n 4 - "$SO" || return 1
+            [ "$(stat -c%s "$SO")" -ge "$MIN_BYTES" ] || return 1
+          }
+
+          if valid; then
+            echo "Cached mpl_core.so looks valid ($(stat -c%s "$SO") bytes)."
+          else
+            echo "mpl_core.so missing/invalid — dumping from mainnet."
+            rm -f "$SO"
+            for i in 1 2 3 4; do
+              if solana program dump -u mainnet-beta \
+                   CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d "$SO" && valid; then
+                break
+              fi
+              echo "dump attempt $i failed/invalid; retrying in $((i * 2))s"
+              rm -f "$SO"; sleep "$((i * 2))"
+            done
+          fi
+
+          if ! valid; then
+            echo "::error::could not obtain a valid mpl_core.so"
+            ls -la target/deploy || true
+            file "$SO" 2>/dev/null || true
+            exit 1
+          fi
+          echo "mpl_core.so OK: $(stat -c%s "$SO") bytes"
+          file "$SO" || true
+          sha256sum "$SO" || true
+
+      - name: Run litesvm mpl_core-path lifecycle spec
+        # createUsdcMint → initializeProtocol → createPool → joinMembers;
+        # create_pool mints the pool Collection NFT and join_pool the
+        # member position NFT, both via the mpl_core CreateV2 CPI — the
+        # exact path bankrun can't execute.
+        run: pnpm test:litesvm

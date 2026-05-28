@@ -448,11 +448,11 @@ This entry supplements §3 with evidence from the **SEV-034 integration spec ses
 
 ### Off-chain validation (math + fuzz)
 
-| Lane                                          | Result                                                          |
-| --------------------------------------------- | --------------------------------------------------------------- |
-| `cargo test -p roundfi-math --release`        | ✅ 98 passing, 0 failed                                         |
-| `cargo +nightly fuzz run <target>` × 6 × 5min | ✅ ~500M inputs, 0 crashes, 0 artifacts                         |
-| `cargo clippy --all-targets` (post fix sweep) | ✅ No actionable warnings (only doc-list cosmetic + Anchor cfg) |
+| Lane                                          | Result                                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `cargo test -p roundfi-math --release`        | ✅ 98 passing, 0 failed                                                                                             |
+| `cargo +nightly fuzz run <target>` × 6        | ✅ ~9.85B inputs cumulative (8.75B overnight 2026-05-24 + 600M afternoon + 503M historical), 0 crashes, 0 artifacts |
+| `cargo clippy --all-targets` (post fix sweep) | ✅ No actionable warnings (only doc-list cosmetic + Anchor cfg)                                                     |
 
 ### Why this matters for the demo / pitch
 

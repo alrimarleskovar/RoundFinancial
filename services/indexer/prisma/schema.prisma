@@ -24,48 +24,48 @@ datasource db {
 // ─── Pools ───────────────────────────────────────────────────────────
 
 model Pool {
-  id                    String   @id @default(cuid())
+  id                      String            @id @default(cuid())
   /// PDA address — the canonical identity, indexed for lookup
-  pda                   String   @unique
+  pda                     String            @unique
   /// (authority, seedId) tuple — used to re-derive the PDA off-chain
-  authority             String
-  seedId                BigInt
+  authority               String
+  seedId                  BigInt
   /// Snapshot of pool config at the time of last update
-  usdcMint              String
-  yieldAdapter          String
-  membersTarget         Int
-  installmentAmount     BigInt
-  creditAmount          BigInt
-  cyclesTotal           Int
-  cycleDurationSec      BigInt
-  seedDrawBps           Int
-  solidarityBps         Int
-  escrowReleaseBps      Int
+  usdcMint                String
+  yieldAdapter            String
+  membersTarget           Int
+  installmentAmount       BigInt
+  creditAmount            BigInt
+  cyclesTotal             Int
+  cycleDurationSec        BigInt
+  seedDrawBps             Int
+  solidarityBps           Int
+  escrowReleaseBps        Int
   /// Mutable state (refreshed every event)
-  membersJoined         Int
-  status                PoolStatus
-  startedAt             BigInt?
-  currentCycle          Int
-  nextCycleAt           BigInt?
-  totalContributed      BigInt
-  totalPaidOut          BigInt
-  solidarityBalance     BigInt
-  escrowBalance         BigInt
-  yieldAccrued          BigInt
-  guaranteeFundBalance  BigInt
+  membersJoined           Int
+  status                  PoolStatus
+  startedAt               BigInt?
+  currentCycle            Int
+  nextCycleAt             BigInt?
+  totalContributed        BigInt
+  totalPaidOut            BigInt
+  solidarityBalance       BigInt
+  escrowBalance           BigInt
+  yieldAccrued            BigInt
+  guaranteeFundBalance    BigInt
   totalProtocolFeeAccrued BigInt
   yieldPrincipalDeposited BigInt
-  defaultedMembers      Int
+  defaultedMembers        Int
   /// Slot bitmap — packed [u8; 8], stored as base16 hex for portability
-  slotsBitmapHex        String
+  slotsBitmapHex          String
   /// Audit trail
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
   /// Reverse relations
-  members               Member[]
-  contributeEvents      ContributeEvent[]
-  claimEvents           ClaimEvent[]
-  defaultEvents         DefaultEvent[]
+  members                 Member[]
+  contributeEvents        ContributeEvent[]
+  claimEvents             ClaimEvent[]
+  defaultEvents           DefaultEvent[]
 
   @@index([authority])
   @@map("pools")
@@ -82,39 +82,39 @@ enum PoolStatus {
 // ─── Members ─────────────────────────────────────────────────────────
 
 model Member {
-  id                       String   @id @default(cuid())
+  id                     String            @id @default(cuid())
   /// PDA address (= [b"member", pool, wallet] under core program)
-  pda                      String   @unique
-  pool                     Pool     @relation(fields: [poolId], references: [id])
-  poolId                   String
+  pda                    String            @unique
+  pool                   Pool              @relation(fields: [poolId], references: [id])
+  poolId                 String
   /// The wallet that joined (= subject of attestations)
-  wallet                   String
-  nftAsset                 String
-  slotIndex                Int
-  reputationLevel          Int
-  stakeBps                 Int
-  stakeDeposited           BigInt
-  contributionsPaid        Int
-  totalContributed         BigInt
-  totalReceived            BigInt
-  escrowBalance            BigInt
-  onTimeCount              Int
-  lateCount                Int
-  defaulted                Boolean
-  paidOut                  Boolean
-  lastReleasedCheckpoint   Int
-  joinedAt                 BigInt
+  wallet                 String
+  nftAsset               String
+  slotIndex              Int
+  reputationLevel        Int
+  stakeBps               Int
+  stakeDeposited         BigInt
+  contributionsPaid      Int
+  totalContributed       BigInt
+  totalReceived          BigInt
+  escrowBalance          BigInt
+  onTimeCount            Int
+  lateCount              Int
+  defaulted              Boolean
+  paidOut                Boolean
+  lastReleasedCheckpoint Int
+  joinedAt               BigInt
   /// Step 4c invariants — initials never mutated
-  stakeDepositedInitial    BigInt
-  totalEscrowDeposited     BigInt
-  lastTransferredAt        BigInt
+  stakeDepositedInitial  BigInt
+  totalEscrowDeposited   BigInt
+  lastTransferredAt      BigInt
   /// Audit trail
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
   /// Reverse relations
-  attestations             Attestation[]
-  contributeEvents         ContributeEvent[]
-  claimEvents              ClaimEvent[]
+  attestations           Attestation[]
+  contributeEvents       ContributeEvent[]
+  claimEvents            ClaimEvent[]
 
   @@unique([poolId, slotIndex])
   @@index([wallet])
@@ -124,23 +124,23 @@ model Member {
 // ─── Attestations (SAS-compatible) ───────────────────────────────────
 
 model Attestation {
-  id            String      @id @default(cuid())
+  id          String   @id @default(cuid())
   /// PDA address (= [b"attestation", issuer, subject, schemaId, nonce])
-  pda           String      @unique
+  pda         String   @unique
   /// Issuer = pool PDA. Subject = wallet (member's identity).
-  issuer        String
-  subject       String
-  schemaId      Int
+  issuer      String
+  subject     String
+  schemaId    Int
   /// nonce = (cycle << 32) | slotIndex
-  nonce         BigInt
+  nonce       BigInt
   /// Optional FK back to Member (when issuer is a known pool +
   /// subject is a member of that pool). NULL for orphan attestations.
-  member        Member?     @relation(fields: [memberId], references: [id])
-  memberId      String?
-  payload       String?
+  member      Member?  @relation(fields: [memberId], references: [id])
+  memberId    String?
+  payload     String?
   /// Audit trail
-  mintedAt      DateTime    @default(now())
-  txSignature   String
+  mintedAt    DateTime @default(now())
+  txSignature String
 
   @@index([subject, schemaId])
   @@map("attestations")
@@ -149,12 +149,17 @@ model Attestation {
 // ─── Events (immutable log, one row per landed tx) ───────────────────
 
 model ContributeEvent {
-  id              String   @id @default(cuid())
-  txSignature     String   @unique
-  pool            Pool     @relation(fields: [poolId], references: [id])
-  poolId          String
-  member          Member   @relation(fields: [memberId], references: [id])
-  memberId        String
+  id                String    @id @default(cuid())
+  txSignature       String    @unique
+  /// poolId/memberId are NULLABLE (ADR 0009 — fast-ingest, resolve-later).
+  /// The ingest path resolves them when pool/member state is already in the
+  /// DB (backfill), else writes NULL and the reconciler fills them. A hard
+  /// FK + an "_unresolved" string sentinel were incompatible (every insert
+  /// violated the FK); NULL is the FK-valid "not yet resolved" marker.
+  pool              Pool?     @relation(fields: [poolId], references: [id])
+  poolId            String?
+  member            Member?   @relation(fields: [memberId], references: [id])
+  memberId          String?
   /// Raw wallet pubkey from the on-chain log. **Nullable since
   /// Adevar Labs SEV-014 fix** — the program's actual `msg!` emission
   /// does NOT include the member wallet (only the slot_index, see
@@ -170,37 +175,37 @@ model ContributeEvent {
   /// schema (mistakenly — the program never emitted installment).
   /// Repurposed as the slot index. New event rows write slot_index
   /// here; pre-fix rows carry the old (incorrect) installment value.
-  cycle           Int
-  schemaId        Int
+  cycle             Int
+  schemaId          Int
   /// **Note:** column kept for back-compat with pre-SEV-014 rows.
   /// New events write 0 — the program never emitted installment
   /// per-event (it's a Pool-level constant, not a contribute log
   /// field).
-  installment     BigInt
-  solidarityAmt   BigInt
-  escrowAmt       BigInt
+  installment       BigInt
+  solidarityAmt     BigInt
+  escrowAmt         BigInt
   /// **Renamed from `pool_float`** — program emits `pool=` (the
   /// portion routed to pool_usdc_vault after solidarity + escrow).
   /// Column name kept for backward compatibility with pre-SEV-014
   /// rows.
-  poolFloatAmt    BigInt
+  poolFloatAmt      BigInt
   /// Slot index — Adevar SEV-014: program emits `slot=`, the
   /// reconciler uses this to resolve canonical Member via
   /// `(poolId, slotIndex)` instead of the previously-fictional
   /// `contributorWallet` field.
-  slotIndex       Int      @default(0)
-  onTime          Boolean
-  blockTime       BigInt
-  slot            BigInt
+  slotIndex         Int       @default(0)
+  onTime            Boolean
+  blockTime         BigInt
+  slot              BigInt
   /// Reconciler state (issue #234). `false` while unresolved or
   /// resolved-successfully; `true` when finality lookup failed
   /// past the orphan-grace window (tx dropped or reorged out).
   /// Orphaned rows are kept for audit trail but skipped by the
   /// B2B oracle's canonical-state reads.
-  orphaned        Boolean  @default(false)
+  orphaned          Boolean   @default(false)
   /// Timestamp at which the reconciler resolved `poolId` + `memberId`
   /// to canonical IDs (NULL = still unresolved).
-  resolvedAt      DateTime?
+  resolvedAt        DateTime?
 
   @@index([poolId, cycle])
   @@index([orphaned, slot])
@@ -208,25 +213,26 @@ model ContributeEvent {
 }
 
 model ClaimEvent {
-  id            String   @id @default(cuid())
-  txSignature   String   @unique
-  pool          Pool     @relation(fields: [poolId], references: [id])
-  poolId        String
-  member        Member   @relation(fields: [memberId], references: [id])
-  memberId      String
+  id              String    @id @default(cuid())
+  txSignature     String    @unique
+  /// Nullable until resolved — see ContributeEvent (ADR 0009).
+  pool            Pool?     @relation(fields: [poolId], references: [id])
+  poolId          String?
+  member          Member?   @relation(fields: [memberId], references: [id])
+  memberId        String?
   /// Raw wallet pubkey of the payout recipient. **Nullable since
   /// Adevar Labs SEV-014 fix** — the program's `payout` msg (NOT
   /// `claim_payout`, which was a decoder fiction) does NOT include
   /// recipient. Reconciler resolves canonical memberId via
   /// (poolId, slotIndex) instead.
   recipientWallet String?
-  cycle         Int
-  slotIndex     Int
-  amountPaid    BigInt
-  blockTime     BigInt
-  slot          BigInt
-  orphaned      Boolean  @default(false)
-  resolvedAt    DateTime?
+  cycle           Int
+  slotIndex       Int
+  amountPaid      BigInt
+  blockTime       BigInt
+  slot            BigInt
+  orphaned        Boolean   @default(false)
+  resolvedAt      DateTime?
 
   @@index([poolId, cycle])
   @@index([orphaned, slot])
@@ -234,28 +240,29 @@ model ClaimEvent {
 }
 
 model DefaultEvent {
-  id              String   @id @default(cuid())
-  txSignature     String   @unique
-  pool            Pool     @relation(fields: [poolId], references: [id])
-  poolId          String
+  id               String    @id @default(cuid())
+  txSignature      String    @unique
+  /// Nullable until resolved — see ContributeEvent (ADR 0009).
+  pool             Pool?     @relation(fields: [poolId], references: [id])
+  poolId           String?
   /// The defaulted member — denormalized as wallet because the Member
   /// row may have been closed by a subsequent escape_valve_buy.
-  defaultedWallet String
-  cycle           Int
-  slotIndex       Int
+  defaultedWallet  String
+  cycle            Int
+  slotIndex        Int
   /// Triple Shield seizure breakdown, all in USDC base units
   seizedSolidarity BigInt
   seizedEscrow     BigInt
   seizedStake      BigInt
   /// D/C invariant snapshot at seizure time
-  dInit         BigInt
-  dRem          BigInt
-  cInit         BigInt
-  cAfter        BigInt
-  blockTime     BigInt
-  slot          BigInt
-  orphaned      Boolean  @default(false)
-  resolvedAt    DateTime?
+  dInit            BigInt
+  dRem             BigInt
+  cInit            BigInt
+  cAfter           BigInt
+  blockTime        BigInt
+  slot             BigInt
+  orphaned         Boolean   @default(false)
+  resolvedAt       DateTime?
 
   @@index([poolId, slotIndex])
   @@index([orphaned, slot])
@@ -269,11 +276,11 @@ model DefaultEvent {
 // left off. Webhook handler updates this on every successful insert.
 
 model IndexerCursor {
-  id          String   @id @default(cuid())
-  programId   String   @unique
-  lastSlot    BigInt
-  lastSig     String?
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  programId String   @unique
+  lastSlot  BigInt
+  lastSig   String?
+  updatedAt DateTime @updatedAt
 
   @@map("indexer_cursors")
 }
@@ -285,17 +292,141 @@ model IndexerCursor {
 // the trail audit-traceable (when did backfills start failing?)
 // without requiring a separate event store.
 model BackfillRun {
-  id           String    @id @default(cuid())
-  programId    String
-  status       String   // "ok" | "error" | "running"
-  startedAt    DateTime  @default(now())
-  finishedAt   DateTime?
-  durationMs   Int?
-  poolsTouched Int       @default(0)
-  membersTouched Int     @default(0)
-  errorMessage String?
+  id             String    @id @default(cuid())
+  programId      String
+  status         String // "ok" | "error" | "running"
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  durationMs     Int?
+  poolsTouched   Int       @default(0)
+  membersTouched Int       @default(0)
+  errorMessage   String?
 
   @@index([startedAt])
   @@index([programId, startedAt])
   @@map("backfill_runs")
+}
+
+// ─── Canonical normalized event store (ADR 0009) ──────────────────────
+//
+// The single normalized, exportable, backfill-rebuildable record the
+// admin console queries. Per ADR 0009 we adopted the FALLBACK shape: the
+// typed tables (contribute/claim/default) remain the ingestion +
+// reconciliation surface (the load-bearing reconciler.ts truth-path is
+// untouched), and THIS table is a deterministic PROJECTION of the
+// already-reconciled typed rows. Because every column here is a pure
+// function of (typed row + pool schedule), the table is rebuildable from
+// zero (`projector.rebuildEvents`) and carries zero drift vs the typed
+// rows — never write-once.
+//
+// Derived behavioral fields (dueTs / deltaSeconds / graceUsed) are
+// computed via `@roundfi/sdk` `behavioral.ts` — the SAME definitions the
+// app renders, mirroring the on-chain program (ADR 0009 §5). They are
+// filled at projection time (post-resolution), because dueTs depends on
+// `Pool.startedAt`, which is only known once the reconciler resolves the
+// row's canonical pool.
+//
+// Only RESOLVED, non-orphaned typed rows are projected: orphaned rows are
+// kept in the typed tables for audit but excluded from this canonical
+// surface (ADR 0005 / 0009).
+model Event {
+  id                      String                   @id @default(cuid())
+  /// Source tx signature. NOT unique alone — a claim both pays and
+  /// advances the cycle in one tx, so a single signature can carry more
+  /// than one event_type. Uniqueness is the (txSig, eventType) pair,
+  /// which also keeps Helius redelivery idempotent (ADR 0009 amendment 3a).
+  txSig                   String
+  eventType               EventType
+  /// Behavioral subject. contribute/claim: resolved Member.wallet;
+  /// default: DefaultEvent.defaultedWallet (on the log directly).
+  subjectWallet           String
+  /// Canonical Pool.id + denormalized PDA (PDA lets the admin export /
+  /// filter without a join).
+  poolId                  String
+  poolPda                 String
+  /// Canonical Member.id when the source row resolved one (null for
+  /// default rows — DefaultEvent has no Member FK in the schema).
+  memberId                String?
+  /// Cycle the tx acted on — taken from the on-chain log (so it is the
+  /// cycle CURRENT at the tx's slot, not "now"; ADR 0009 backfill care #1).
+  cycle                   Int
+  slotIndex               Int
+  /// Solana slot number of the source tx.
+  slotNumber              BigInt
+  /// On-chain block time (UNIX seconds) — the canonical `paid_at`.
+  onChainTs               BigInt
+  /// Cycle deadline = started_at + (cycle+1)*cycle_duration. NULL when
+  /// the pool was not yet Active (started_at == 0). behavioral.dueTs.
+  dueTs                   BigInt?
+  /// onChainTs - dueTs. Only meaningful for `Contribute` (payment
+  /// timing); NULL for claim/default (no payment timing).
+  deltaSeconds            Int?
+  /// Late-but-within-grace. Only set for `Contribute`. behavioral.usedGrace.
+  graceUsed               Boolean                  @default(false)
+  /// INFERRED by the indexer (the contract records no reason). Only set
+  /// for `Default`. Always paired with `defaultReasonProvenance` so the
+  /// admin never presents it as an on-chain fact (ADR 0009 amendment 3b).
+  defaultReason           DefaultReason?
+  defaultReasonProvenance DefaultReasonProvenance?
+  /// Type-specific payload (payout credit/retained, seizure cascade
+  /// breakdown, contribute split). Keeps the normalized columns lean
+  /// while preserving every field for export/audit (ADR 0009).
+  details                 Json
+  /// Mirrors the source typed row's reconciliation state. orphaned rows
+  /// are NOT projected; resolvedAt is copied from the typed row.
+  resolvedAt              DateTime?
+  /// When the projector last (re)wrote this row. Distinct from
+  /// resolvedAt — proves rebuildability is observable.
+  builtAt                 DateTime                 @default(now())
+
+  @@unique([txSig, eventType])
+  @@index([poolId, cycle])
+  @@index([subjectWallet])
+  @@index([eventType])
+  @@index([slotNumber])
+  @@map("events")
+}
+
+enum EventType {
+  Contribute
+  Claim
+  Default
+}
+
+/// Inferred default cause (ADR 0009 amendment 3b). The contract emits no
+/// reason — these are derived by the indexer and ALWAYS provenance-tagged.
+enum DefaultReason {
+  SolvencyGuardTriggered
+  MissedDeadline
+  InsufficientStake
+  EscapeValveLeavingDefault
+  Other
+}
+
+/// Provenance marker for `defaultReason`. Today the only value is
+/// `Inferred`; the enum exists so a future on-chain reason field could
+/// add `OnChain` without a column rename — and so the admin can render a
+/// clear "inferred" badge.
+enum DefaultReasonProvenance {
+  Inferred
+}
+
+// ─── Export audit (ADR 0009) ──────────────────────────────────────────────
+//
+// The events export is the product asset + sensitive credit data, so every
+// export is recorded: WHO (authenticated pubkey), WHEN, the filter applied,
+// the format, and how many rows left. Append-only audit trail.
+model ExportAudit {
+  id        String   @id @default(cuid())
+  /// Authenticated operator pubkey that performed the export.
+  actor     String
+  format    String // "csv" | "json"
+  /// The exact filter object applied (for reproducibility / dispute).
+  filter    Json
+  rowCount  Int
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actor])
+  @@map("export_audit")
 }

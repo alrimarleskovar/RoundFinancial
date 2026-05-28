@@ -89,6 +89,17 @@ pub mod roundfi_core {
         instructions::settle_default::handler(ctx, args)
     }
 
+    /// Permissionless cycle advance for a slot whose contemplated member
+    /// defaulted pre-contemplation (otherwise the pool locks — claim_payout
+    /// requires `!defaulted` but only it advances the cycle). No payout; the
+    /// forfeited pot stays in the float. See `instructions::skip_defaulted_payout`.
+    pub fn skip_defaulted_payout(
+        ctx: Context<SkipDefaultedPayout>,
+        args: SkipDefaultedPayoutArgs,
+    ) -> Result<()> {
+        instructions::skip_defaulted_payout::handler(ctx, args)
+    }
+
     pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
         instructions::escape_valve_list::handler(ctx, args)
     }
@@ -129,6 +140,23 @@ pub mod roundfi_core {
 
     pub fn close_pool(ctx: Context<ClosePool>) -> Result<()> {
         instructions::close_pool::handler(ctx)
+    }
+
+    /// SEV-039: reclaim a finalized pool's per-member rent by closing one
+    /// Member PDA after the pool is Closed (decrements the live-member count
+    /// so `close_pool_vaults` knows when it's safe to close the Pool PDA).
+    /// See `instructions::close_member`.
+    pub fn close_member(ctx: Context<CloseMember>) -> Result<()> {
+        instructions::close_member::handler(ctx)
+    }
+
+    /// SEV-039 (final step): drain the four vaults' residual USDC to the
+    /// protocol treasury, close the four vault ATAs, and close the Pool PDA —
+    /// reclaiming all of that rent. Requires every Member PDA closed first
+    /// (`pool.members_joined == 0`). Ceremony: `close_pool` → `close_member`
+    /// × N → `close_pool_vaults`. See `instructions::close_pool_vaults`.
+    pub fn close_pool_vaults(ctx: Context<ClosePoolVaults>) -> Result<()> {
+        instructions::close_pool_vaults::handler(ctx)
     }
 
     pub fn update_protocol_config(

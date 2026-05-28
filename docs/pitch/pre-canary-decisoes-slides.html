@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reunião Canary — 9 Decisões em ~50min</title>
+    <style>
+      :root {
+        --bg: #0a0e14;
+        --surface: #11161f;
+        --surface-2: #1a212d;
+        --border: #2a3441;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --accent: #14f195;
+        --warn: #f5a623;
+        --danger: #ff6b6b;
+        --info: #00c8ff;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        overflow: hidden;
+      }
+      .deck {
+        height: 100vh;
+        width: 100vw;
+        position: relative;
+      }
+      .slide {
+        position: absolute;
+        inset: 0;
+        padding: 48px 64px;
+        display: none;
+        flex-direction: column;
+        overflow: auto;
+      }
+      .slide.active {
+        display: flex;
+      }
+      .slide-num {
+        position: absolute;
+        top: 24px;
+        right: 32px;
+        font-size: 14px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .eyebrow {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        margin-bottom: 8px;
+      }
+      .eyebrow.warn {
+        color: var(--warn);
+      }
+      .eyebrow.danger {
+        color: var(--danger);
+      }
+      h1 {
+        font-size: 56px;
+        line-height: 1.1;
+        margin-bottom: 16px;
+        font-weight: 700;
+      }
+      h2 {
+        font-size: 36px;
+        line-height: 1.2;
+        margin-bottom: 16px;
+        font-weight: 700;
+      }
+      .subtitle {
+        font-size: 20px;
+        color: var(--muted);
+        margin-bottom: 32px;
+      }
+      .context {
+        background: var(--surface);
+        border-left: 3px solid var(--info);
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        border-radius: 4px;
+        font-size: 15px;
+        color: var(--muted);
+      }
+      .options {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .option {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 20px;
+      }
+      .option.rec {
+        border-color: var(--accent);
+        background: linear-gradient(180deg, rgba(20, 241, 149, 0.08), var(--surface));
+      }
+      .option-label {
+        font-weight: 700;
+        font-size: 16px;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+      .option.rec .option-label::after {
+        content: " ← RECOMENDADO";
+        color: var(--accent);
+        font-size: 12px;
+        letter-spacing: 0.05em;
+      }
+      .option-desc {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .meta {
+        margin-top: auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        font-size: 14px;
+      }
+      .meta-item {
+        display: flex;
+        flex-direction: column;
+      }
+      .meta-label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .meta-value {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .meta-value.empty {
+        color: var(--muted);
+        font-weight: 400;
+        font-style: italic;
+      }
+      .pill {
+        display: inline-block;
+        background: var(--surface-2);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-right: 8px;
+        margin-bottom: 8px;
+        border: 1px solid var(--border);
+      }
+      .pill.danger {
+        background: rgba(255, 107, 107, 0.1);
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      .pill.warn {
+        background: rgba(245, 166, 35, 0.1);
+        border-color: var(--warn);
+        color: var(--warn);
+      }
+      .pill.new {
+        background: rgba(0, 200, 255, 0.1);
+        border-color: var(--info);
+        color: var(--info);
+      }
+      .nav {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        background: var(--surface);
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .nav button {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 4px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .nav button:hover {
+        border-color: var(--accent);
+      }
+      .nav-counter {
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+      }
+      .checklist {
+        list-style: none;
+        margin-bottom: 24px;
+      }
+      .checklist li {
+        padding: 8px 0;
+        font-size: 15px;
+        color: var(--text);
+        display: flex;
+        align-items: start;
+        gap: 12px;
+      }
+      .checklist li::before {
+        content: "☐";
+        font-size: 18px;
+        color: var(--muted);
+        flex-shrink: 0;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 16px;
+      }
+      .grid-2 > div {
+        background: var(--surface);
+        padding: 16px;
+        border-radius: 8px;
+      }
+      .grid-2 h3 {
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+      .grid-2 p {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .kbd {
+        background: var(--surface-2);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        border: 1px solid var(--border);
+      }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div class="deck" id="deck">
+
+      <!-- SLIDE 1: Capa -->
+      <section class="slide active">
+        <span class="slide-num">01 / 11</span>
+        <div class="eyebrow">Reunião pré-Canary · 45 min · 4 founders</div>
+        <h1>8 decisões + 1 ack.<br />Cada decisão sai com<br />owner + deadline + artefato.</h1>
+        <p class="subtitle">Sem "vamos pensar mais." Output é decisão registrada, não discussão.</p>
+        <div class="context">
+          <strong>Realidade:</strong> 4 decisões originais da pauta + 4 que o relatório de infra adicionou + 1 ack rápido (v0.6).
+          Itens <span class="pill danger">D1 Schema</span> <span class="pill danger">D2 Data layer</span>
+          <span class="pill danger">D5 Cranker</span> são bloqueadores não-negociáveis. Outros podem virar
+          GitHub issue com 24-48h pra decidir off-line se faltar tempo.
+          <br /><br />
+          <strong>⚠️ Risco operacional flagado:</strong> Alrimar é owner de D5 (Cranker, 2-3d) + lead eng on-call 3m + fuzz. D6 (USDC mint) desviada pro Caio pra desafogar. Pergunta de backup pra cranker fica em aberto.
+        </div>
+        <div class="meta">
+          <div class="meta-item">
+            <span class="meta-label">Tempo</span>
+            <span class="meta-value">~50 min</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Output</span>
+            <span class="meta-value">8 issues + 1 ack registrado</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Pós-reunião</span>
+            <span class="meta-value">Yvina executa checklist 1h</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: Decisão 1 -->
+      <section class="slide">
+        <span class="slide-num">02 / 11</span>
+        <div class="eyebrow danger">Decisão 1 · BLOQUEADOR IRRECUPERÁVEL</div>
+        <h2>Schema do indexer</h2>
+        <div class="context">
+          Doc fundacional §5: <strong>se não capturar <code>paid_at</code> desde Dia 1 do Canary, 70 dias de dados da Fase 1 perdem valor pro produto = score.</strong> Schema atual (services/indexer/prisma/schema.prisma) armazena só <code>blockTime</code>. Tudo derivado está faltando.
+        </div>
+        <div class="options">
+          <div class="option">
+            <div class="option-label">(A) 6 campos brutos</div>
+            <div class="option-desc">paid_at, due_at, delta_seconds, grace_used, slot_position, cycle_number. Sem default_reason.</div>
+          </div>
+          <div class="option rec">
+            <div class="option-label">(B) 7 campos (6 brutos + default_reason)</div>
+            <div class="option-desc">Adiciona contestabilidade do score (FCRA right-to-dispute). Necessário se produto vai mainnet.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) 8 campos (7 + pool_state_hash)</div>
+            <div class="option-desc">Integridade futura, storage maior. Overkill pre-beta.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">_____________</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 3-5 do CP</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">GitHub issue + migration plan</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: Decisão 2 -->
+      <section class="slide">
+        <span class="slide-num">03 / 11</span>
+        <div class="eyebrow danger">Decisão 2 · BLOQUEADOR</div>
+        <h2>Data layer mode</h2>
+        <div class="context">
+          Doc fundacional §2: <strong>"biggest strategic mistake"</strong> = não decidir interno vs exportável antes do Canary começar. Afeta schema da Decisão 1.
+        </div>
+        <div class="options">
+          <div class="option">
+            <div class="option-label">(A) Interno-only</div>
+            <div class="option-desc">Indexer armazena agregados. Sem CPI exportável. Mata upside descrito como tese central.</div>
+          </div>
+          <div class="option rec">
+            <div class="option-label">(B) Exportável via CPI</div>
+            <div class="option-desc">Eventos brutos verificáveis. Pool completion = oracle pra lending protocols. Exige opinion letter FCRA (Decisão 4 vinculada).</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) Híbrido (API HTTPS)</div>
+            <div class="option-desc">Meio-termo. Provavelmente não satisfaz nem upside nem simplicidade.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">_____________</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Imediato</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">ADR 0009 ou 0010</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: Decisão 3 -->
+      <section class="slide">
+        <span class="slide-num">04 / 11</span>
+        <div class="eyebrow warn">Decisão 3 · Selection bias</div>
+        <h2>Persona dos 7 newbies</h2>
+        <div class="context">
+          Doc fundacional §9 P0: se vierem de crypto-native Twitter, Fase 1 mede crypto-natives. <strong>TAM real é diáspora/imigrante com ROSCA informal + autônomo/PME sem histórico bancário.</strong>
+        </div>
+        <div class="options">
+          <div class="option">
+            <div class="option-label">(A) Sem pergunta-filtro</div>
+            <div class="option-desc">Application aberta. Risco: amostra crypto-native, signal fraco pro produto real.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(B) Pergunta-filtro suave</div>
+            <div class="option-desc">"Você se interessa por poupança em grupo?" — baixa fricção, não filtra persona certa.</div>
+          </div>
+          <div class="option rec">
+            <div class="option-label">(C) Pergunta fundacional</div>
+            <div class="option-desc">"Você já enfrentou dificuldade de acessar crédito, alugar imóvel ou comprovar renda nos últimos 12 meses?" — filtra persona-alvo sem verificação formal. Validar com opinion letter (D4).</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">Yvina / Caio</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 11-13 do CP</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">Texto do formulário em Notion</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: Decisão 4 -->
+      <section class="slide">
+        <span class="slide-num">05 / 11</span>
+        <div class="eyebrow">Decisão 4 · Não bloqueia Canary</div>
+        <h2>Wyoming LLC + Registered Agent</h2>
+        <div class="context">
+          Doc fundacional §3: IP dos smart contracts precisa de dono legal antes de mainnet. Filing leva 2-5d, <strong>paralelo Dia 1-2</strong>, não bloqueia técnico.
+        </div>
+        <div class="options">
+          <div class="option rec">
+            <div class="option-label">(A) Auto-filing online</div>
+            <div class="option-desc">$100-200 + $100-200/ano registered agent. Yvina ou Caio organizer. 2-5d.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(B) Via advogado crypto</div>
+            <div class="option-desc">+$500-1500. Combina com opinion letter FCRA. 5-10d.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) BVI + Wyoming combo</div>
+            <div class="option-desc">$1.5-3k. Overkill pre-Série A. Não recomendado agora.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">Yvina (organizer)</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Filing Dia 1-2</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">Comprovante WY + RA</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: ACK rápido — v0.6 -->
+      <section class="slide">
+        <span class="slide-num">06 / 11</span>
+        <div class="eyebrow">Ack rápido · ~30s · NÃO é decisão</div>
+        <h2>v0.6 da proposta</h2>
+        <div class="context" style="border-left-color: var(--accent);">
+          v0.6 só documenta decisões já tomadas — é o output, não o input. <strong>Sem trade-off real, então não merece slot de decisão.</strong> Cabe confirmar:
+        </div>
+        <div class="grid-2">
+          <div>
+            <h3 style="color: var(--accent);">✅ Plano</h3>
+            <p>Claude rascunha v0.6 absorvendo D1-D8 (Dia 5 do CP). Alrimar revisa. PR novo separado.</p>
+          </div>
+          <div>
+            <h3 style="color: var(--muted);">⏭ Próximo slide</h3>
+            <p>Cranker — o real bloqueador de eng.</p>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value">Claude rascunha, Alrimar revisa</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 5 do CP</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">PR docs/pt/v0.6.md</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Decisão 6 -->
+      <section class="slide">
+        <span class="slide-num">07 / 11</span>
+        <div class="eyebrow danger">Decisão 5 · BLOQUEADOR · NOVA (relatório infra)</div>
+        <h2>Cranker production-grade</h2>
+        <div class="context">
+          <span class="pill danger">CRÍTICO</span> Verificado hoje: <code>services/orchestrator</code> é demo-first, comment literal "the orchestrator never calls settle_default". <strong>Sem cranker real, ciclo não avança no Dia 15 = beta morre Dia 1.</strong>
+        </div>
+        <div class="options">
+          <div class="option rec">
+            <div class="option-label">(A) Estender orchestrator atual</div>
+            <div class="option-desc">~2-3d eng. Adicionar polling on-chain + auto-settle_default + healthcheck. Reusa código existente.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(B) Build from scratch</div>
+            <div class="option-desc">~3-5d eng. Cleaner mas mais lento. Justifica se orchestrator não escala.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) Squads multisig manual</div>
+            <div class="option-desc">Não viável pra cycle de 48h. Aceita pra mainnet, não pra Canary.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value">Alrimar (CTO)</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 3-8 do CP</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">PR cranker + SLA doc</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: Decisão 7 -->
+      <section class="slide">
+        <span class="slide-num">08 / 11</span>
+        <div class="eyebrow warn">Decisão 6 · Quick win · NOVA</div>
+        <h2>Script USDC mint pros testers</h2>
+        <div class="context">
+          Verificado: <code>scripts/devnet/airdrop.ts</code> só dá SOL. Pra dar USDC devnet pros 10 testers, precisa script novo OU usar faucet público (Circle/Solana).
+        </div>
+        <div class="options">
+          <div class="option rec">
+            <div class="option-label">(A) Build script novo</div>
+            <div class="option-desc">~30-60min eng. Usa mint authority do USDC mock. Idempotente. 150 USDC Canary / 750 USDC Semanal por tester.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(B) Faucet público Circle</div>
+            <div class="option-desc">Verificar se funciona + rate limit aceitável. Zero eng.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value">Caio (desafoga Alrimar)</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Dia 11 do CP</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">scripts/devnet/mint-usdc-testers.ts</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: Decisão 8 -->
+      <section class="slide">
+        <span class="slide-num">09 / 11</span>
+        <div class="eyebrow warn">Decisão 7 · Observabilidade · NOVA · 2 camadas</div>
+        <h2>Push notification infra</h2>
+        <div class="context">
+          Verificado: zero implementação no código. <strong>§2 do fundacional lista push notif como variável observada — sem infra, variável não é observável.</strong>
+          <br /><br />
+          <strong>Decisão é em 2 camadas:</strong> (1) o que fazer pra Canary (curto, ~21d) e (2) o que comprometer pra Fase 1 (longo, ~70d, hábito recorrente).
+        </div>
+        <div class="grid-2" style="margin-bottom: 16px;">
+          <div>
+            <h3 style="color: var(--info);">Pra Canary (decidir hoje)</h3>
+            <p style="font-size: 13px; margin-top: 4px;">Cycle 48h, 10 testers. Aceita-se UX pior.</p>
+          </div>
+          <div>
+            <h3 style="color: var(--warn);">Pra Fase 1 (compromisso, build pós-Canary)</h3>
+            <p style="font-size: 13px; margin-top: 4px;">Cycle 7d, 10 testers, 70 dias. Sem push real, retenção sofre.</p>
+          </div>
+        </div>
+        <div class="options">
+          <div class="option rec">
+            <div class="option-label">(A) Canary: Discord/email manual · Fase 1: OneSignal</div>
+            <div class="option-desc">Yvina dispara avisos no Canary (zero eng). Build OneSignal nas ~3 semanas entre Canary e Fase 1 (~1d eng). Recomendado.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(B) Canary + Fase 1: email diário (Resend)</div>
+            <div class="option-desc">Free até 3k emails/mês. ~3-4h eng. UX pior do que push mas funciona pras 2 fases sem retrabalho.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) OneSignal já pro Canary</div>
+            <div class="option-desc">~1d eng agora. Melhor UX. Risco: atrasa Dia 11-13 do CP se outro item explodir.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value empty">Yvina (Canary) + ___ (Fase 1)</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Canary: Dia 11 · Fase 1: pré-start</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">Issue Canary + issue Fase 1 separadas</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: Decisão 9 -->
+      <section class="slide">
+        <span class="slide-num">10 / 11</span>
+        <div class="eyebrow warn">Decisão 8 · Dependência crítica · NOVA</div>
+        <h2>Discord bot auto-tracking</h2>
+        <div class="context">
+          §10 D2 da v0.5.3: seleção dos 3 vets usa <code>discord_messages_normalized</code>. <strong>Sem bot logando desde Dia 1 do Canary, fórmula min-max vira teatro.</strong>
+        </div>
+        <div class="options">
+          <div class="option rec">
+            <div class="option-label">(A) Statbot/MEE6 free tier</div>
+            <div class="option-desc">~30min setup. Bot existente, conta mensagens por usuário. Suficiente pra dados Canary. <em>Confirmar rate limit pra 30 testers × 70d antes de comprometer.</em></div>
+          </div>
+          <div class="option">
+            <div class="option-label">(B) Bot custom Node.js</div>
+            <div class="option-desc">~2-4h eng. discord.js. Customizável mas overkill pre-beta.</div>
+          </div>
+          <div class="option">
+            <div class="option-label">(C) Descartar a fórmula</div>
+            <div class="option-desc">Usar só on-time rate pra ranquear vets. Simplifica mas perde signal de engajamento social.</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Owner</span><span class="meta-value">Yvina</span></div>
+          <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-value empty">Antes do Dia 15 (start)</span></div>
+          <div class="meta-item"><span class="meta-label">Artefato</span><span class="meta-value">Bot ativo no Discord</span></div>
+        </div>
+      </section>
+
+      <!-- SLIDE 11: Pós-reunião -->
+      <section class="slide">
+        <span class="slide-num">11 / 11</span>
+        <div class="eyebrow">Pós-reunião · 1h pra Yvina</div>
+        <h2>O que sai da call</h2>
+        <ul class="checklist">
+          <li>Postar ata no canal interno: 1 linha por decisão (owner + deadline + artefato)</li>
+          <li>Criar 8 issues no GitHub com label <code>pre-canary-blocker</code> (texto pronto em <code>docs/pt/pre-canary-issues-draft.md</code>) + registrar v0.6 como follow-up de Claude</li>
+          <li>Criar label <code>sev-low-deadline-canary</code> (1 clique)</li>
+          <li>Atualizar checklist §10 do PR #400 marcando itens decididos</li>
+          <li>Agendar follow-up 15min em 7 dias pra status check</li>
+        </ul>
+        <div class="grid-2">
+          <div>
+            <h3>🟢 Já mergeado hoje</h3>
+            <p>PR #401 — ADR 0008 treasury (destrava numeração ADR 0009/0010)<br />PR #403 — Pass-18 judge readiness (47 SEVs / 13-13 C+H / 300+ testes sincados)</p>
+          </div>
+          <div>
+            <h3>⏳ Pós-reunião</h3>
+            <p>PR #402 — feature-gate <code>devnet-canary</code>. Mergeio quando time bater martelo nas decisões D1-D5.</p>
+          </div>
+        </div>
+        <div class="context" style="margin-top: 24px;">
+          <strong>Próximo passo se ⩾6 das 8 decisões saírem:</strong> Claude pode começar Dia 1-2 do critical path hoje mesmo. Templates operacionais já commitados no PR #400 (verificados — 166/161/200 linhas, conteúdo real): <code>docs/pt/pre-ceremony-beta-procedimento-aborto.md</code>, <code>pre-ceremony-beta-termo-participacao.md</code>, <code>pre-ceremony-beta-onboarding-testers.md</code>. Mergear PR #402 (feature-gate <code>devnet-canary</code>) destrava o redeploy devnet do Dia 3-5.
+        </div>
+      </section>
+
+    </div>
+
+    <nav class="nav">
+      <button onclick="prev()">←</button>
+      <span class="nav-counter"><span id="cur">1</span> / 11</span>
+      <button onclick="next()">→</button>
+      <span style="color: var(--muted); font-size: 11px;">
+        <span class="kbd">←</span> <span class="kbd">→</span> ou <span class="kbd">Space</span>
+      </span>
+    </nav>
+
+    <script>
+      const slides = document.querySelectorAll(".slide");
+      let cur = 0;
+      const counter = document.getElementById("cur");
+      function show(i) {
+        slides[cur].classList.remove("active");
+        cur = Math.max(0, Math.min(slides.length - 1, i));
+        slides[cur].classList.add("active");
+        counter.textContent = cur + 1;
+      }
+      function next() { show(cur + 1); }
+      function prev() { show(cur - 1); }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { next(); e.preventDefault(); }
+        if (e.key === "ArrowLeft" || e.key === "PageUp") { prev(); e.preventDefault(); }
+        if (e.key === "Home") show(0);
+        if (e.key === "End") show(slides.length - 1);
+      });
+    </script>
+  </body>
+</html>

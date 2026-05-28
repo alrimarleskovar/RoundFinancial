@@ -20,6 +20,8 @@ export const SEED = {
   reputation: Buffer.from("reputation"),
   reputationConfig: Buffer.from("rep-config"),
   attestation: Buffer.from("attestation"),
+  identity: Buffer.from("identity"),
+  identityGate: Buffer.from("identity-gate"),
   yieldState: Buffer.from("yield-state"),
 } as const;
 
@@ -117,6 +119,16 @@ export function reputationProfilePda(
 
 export function reputationConfigPda(reputationProgram: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([SEED.reputationConfig], reputationProgram);
+}
+
+/** `IdentityRecord` PDA — `[b"identity", wallet]`. */
+export function identityPda(reputationProgram: PublicKey, wallet: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED.identity, wallet.toBuffer()], reputationProgram);
+}
+
+/** SEV-047 `IdentityGateConfig` singleton PDA — `[b"identity-gate"]`. */
+export function identityGatePda(reputationProgram: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED.identityGate], reputationProgram);
 }
 
 export function attestationPda(

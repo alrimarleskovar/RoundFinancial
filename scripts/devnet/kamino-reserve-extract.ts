@@ -29,13 +29,40 @@
  *
  * Usage:
  *
- *   solana account HV9KsS5mB4b9CFhDJVKdfxWBAomYfUk5PeUsdgMQsUrB \
+ *   # Step 1 (recommended): auto-discover the USDC reserve pubkey on Main Market
+ *   # via getProgramAccounts filtered by lending_market + liquidity.mint:
+ *   pnpm tsx scripts/devnet/kamino-find-usdc-reserve.ts
+ *
+ *   # Step 2: dump the reserve account (validated 2026-05-24 — Main Market USDC
+ *   # reserve is D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59):
+ *   solana account D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59 \
  *     --url mainnet-beta --output json > /tmp/kamino-usdc-reserve.json
  *
  *   pnpm tsx scripts/devnet/kamino-reserve-extract.ts /tmp/kamino-usdc-reserve.json
  *
  * Output: pubkeys + ready-to-run `solana account` commands for each
  * dependency. Re-runnable; idempotent.
+ *
+ * KNOWN ISSUES (2026-05-24 discovery — flagged for future fix):
+ *   1. lending_market_authority PDA derivation at line ~83-84 uses
+ *      `findProgramAddressSync([lendingMarket], KAMINO_LEND_PROGRAM_ID)` which
+ *      returns the *canonical* PDA bump (the highest valid bump). Production
+ *      Kamino reserves use a *stored* bump from the lending_market account's
+ *      `bump_seed` field, so the derived address does NOT match the real on-
+ *      chain authority. For USDC Main Market reserve, the real authority is
+ *      `9DrvZvyWh1HuAoZxvYWMvkf2XCzryCpGgHqrMjyDWpmo`, not what this script
+ *      derives. Validation: the c-token mint's `mint_authority` field is the
+ *      authoritative source.
+ *      Fix: read bump_seed from the lending_market account data and call
+ *      `createProgramAddressSync` with that bump explicitly.
+ *
+ *   2. The "no clone needed" guidance below for `lending_market_authority` is
+ *      misleading — the bankrun test harness (`tests/_harness/kamino_fixtures.ts`
+ *      line 113) DOES require a `lending-market-authority.json` file. For
+ *      production reserves the account exists on-chain and can be dumped via
+ *      `solana account <real_pda> --url mainnet-beta --output json > ...`. For
+ *      synthetic test states, an empty-data JSON pointing to the real PDA
+ *      pubkey works.
  */
 
 import { readFileSync } from "node:fs";
@@ -66,12 +93,16 @@ const OFFSETS = {
   // So ReserveCollateral starts at: 120 + 1232 + 1200 = 2552.
   // C-token mint is the first 32 bytes of ReserveCollateral.
   //
-  // Validation reference: in the USDC reserve D6q6wuQS..., the c-token
+  // Validation reference: in the USDC reserve D6q6wuQS... (Main Market,
+  // validated 2026-05-24 — see `kamino-find-usdc-reserve.ts`), the c-token
   // mint at offset 2552 is B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D
-  // (Mint, space=82, owned by SPL Token, mint_authority = AbTz488...
-  // = lending_market_authority). The collateral.supply_vault at offset
-  // 2592 is 3DzjXRfxRm6iejfyyMynR4tScddaanrePJ1NJU2XnPPL (Token
-  // Account, space=165). Both confirm the offset.
+  // (Mint, space=82, owned by SPL Token, mint_authority =
+  // 9DrvZvyWh1HuAoZxvYWMvkf2XCzryCpGgHqrMjyDWpmo = real on-chain
+  // lending_market_authority — NOT the canonical-bump PDA AbTz488... that
+  // this script's `findProgramAddressSync` derives; see KNOWN ISSUES #1 in
+  // the file header). The collateral.supply_vault at offset 2592 is
+  // 3DzjXRfxRm6iejfyyMynR4tScddaanrePJ1NJU2XnPPL (Token Account,
+  // space=165). Both confirm the offset.
   collateralMint: 2552,
   collateralSupplyVault: 2592,
 } as const;
@@ -201,9 +232,27 @@ function main() {
     );
   }
   console.log("");
+  console.log("⚠️  lending_market_authority — REQUIRED as a fixture for bankrun tests");
+  console.log("   (tests/_harness/kamino_fixtures.ts:113 loads lending-market-authority.json).");
+  console.log("   The derived PDA below is the CANONICAL bump — production Kamino reserves");
+  console.log("   use a STORED bump from lending_market.bump_seed, so the real on-chain");
+  console.log("   authority may differ. To find the REAL authority, read the c-token");
+  console.log("   mint's mint_authority field via Solscan or:");
+  console.log("");
   console.log(
-    "lending_market_authority is a derived PDA — Kamino computes it at CPI time, no clone needed.",
+    `     solana account ${collateralMint?.toBase58() ?? "<c-token-mint>"} --url mainnet-beta`,
   );
+  console.log("");
+  console.log("   For the Main Market USDC reserve, the real authority is:");
+  console.log("     9DrvZvyWh1HuAoZxvYWMvkf2XCzryCpGgHqrMjyDWpmo");
+  console.log("   (validated 2026-05-24 via Phase 2b CPI tests — see CHANGELOG).");
+  console.log("");
+  console.log("   To dump as fixture (real account exists on-chain):");
+  console.log(
+    "     solana account <real_authority_pubkey> --url mainnet-beta --output json > tests/fixtures/kamino/lending-market-authority.json",
+  );
+  console.log("");
+  console.log("   Canonical-bump PDA (for reference, may NOT match production):");
   console.log(`  PDA: ${marketAuthority.toBase58()}`);
   console.log(`  seeds: [<lending-market-pubkey>] = [${lendingMarket.toBase58()}]`);
   console.log(`  program: ${KAMINO_LEND_PROGRAM_ID.toBase58()}`);

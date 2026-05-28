@@ -5,6 +5,7 @@ pub const SEED_REP_CONFIG: &[u8] = b"rep-config";
 pub const SEED_PROFILE:    &[u8] = b"reputation";
 pub const SEED_ATTESTATION: &[u8] = b"attestation";
 pub const SEED_IDENTITY:   &[u8] = b"identity";
+pub const SEED_IDENTITY_GATE: &[u8] = b"identity-gate"; // SEV-047 identity-gate config (singleton)
 pub const SEED_POOL:       &[u8] = b"pool"; // mirrored from roundfi-core for issuer-PDA derivation
 
 /// Attestation schemas — stable integer IDs.
@@ -58,6 +59,18 @@ pub const SCORE_DEFAULT:        i64 = -500;
 /// whose threshold ≤ current score.
 pub const LEVEL_2_THRESHOLD: u64 = 500;
 pub const LEVEL_3_THRESHOLD: u64 = 2_000;
+
+/// **SEV-047 fix** — minimum `cycles_completed` per level, gating promotion
+/// alongside the score threshold. `cycles_completed` only rises on
+/// `SCHEMA_CYCLE_COMPLETE` (6-day per-subject cooldown via
+/// `MIN_CYCLE_COOLDOWN_SECS`), so these floors impose a wall-clock minimum
+/// no amount of parallel pool-farming can shortcut:
+///   - L2 requires >= 1 completed cycle (proves one full ROSCA round).
+///   - L3 requires >= 3 completed cycles (>= ~18 days at the 6-day cooldown
+///     — kills the farm-200-pools-in-hours attack economics).
+/// Legitimate members hit these naturally; only sybil-farmers are blocked.
+pub const LEVEL_2_MIN_CYCLES: u32 = 1;
+pub const LEVEL_3_MIN_CYCLES: u32 = 3;
 
 /// Maximum levels supported. Level 0 is reserved for "never initialized".
 pub const LEVEL_MIN: u8 = 1;

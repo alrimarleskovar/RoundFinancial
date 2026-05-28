@@ -25,6 +25,8 @@
     "devnet:deploy": "tsx scripts/devnet/deploy.ts",
     "devnet:export-pk": "tsx scripts/devnet/export-pk.ts",
     "devnet:init": "tsx scripts/devnet/init-protocol.ts",
+    "devnet:migrate-reputation-config": "tsx scripts/devnet/migrate-reputation-config.ts",
+    "devnet:set-identity-gate": "tsx scripts/devnet/set-identity-gate.ts",
     "devnet:seed": "tsx scripts/devnet/seed-pool.ts",
     "devnet:seed-members": "tsx scripts/devnet/seed-members.ts",
     "devnet:seed-cycle": "tsx scripts/devnet/seed-cycle.ts",
@@ -57,6 +59,8 @@
     "test:economic-parity": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts'",
     "test:bankrun": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts' 'tests/app_encoders_bankrun.spec.ts' 'tests/security_kamino_cpi.spec.ts'",
     "test:bankrun:no-mpl-core": "pnpm exec mocha -t 120000 'tests/security_kamino_cpi.spec.ts'",
+    "test:bankrun:reputation-gate": "pnpm exec mocha -t 120000 'tests/reputation_gate_bankrun.spec.ts'",
+    "test:litesvm": "pnpm exec mocha -t 120000 'tests/litesvm_*.spec.ts'",
     "test:security:localnet": "pnpm exec mocha -t 120000 'tests/security_*.spec.ts'",
     "test:fuzz": "for t in bps cascade dc_invariant escrow_vesting seed_draw waterfall; do echo \"=== fuzz target: $t ===\"; cargo fuzz run --fuzz-dir crates/math/fuzz \"$t\" -- -max_total_time=60 || exit 1; done",
     "test:mainnet-hardening": "tsx scripts/mainnet/mainnet-hardening-check.ts",
@@ -81,7 +85,9 @@
     "@metaplex-foundation/mpl-core": "^1.1.1",
     "@metaplex-foundation/umi": "^0.9.2",
     "@solana/spl-token": "^0.4.8",
+    "@solana/transactions": "6.9.0",
     "@solana/web3.js": "^1.95.3",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "litesvm": "^1.1.0"
   }
 }

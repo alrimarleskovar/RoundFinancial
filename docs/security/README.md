@@ -4,20 +4,23 @@
 
 ## TL;DR
 
-| What you have | Time to read                     | When to read                                                                                                            |
-| ------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 5 min         | `../../AUDIT_SCOPE.md` (1-pager) | Before everything else                                                                                                  |
-| 10 min        | `audit-readiness.md`             | Strategic context                                                                                                       |
-| 5 min         | `internal-audit-findings.md`     | Internal pre-audit tracker (40 SEVs, status, PRs) — methodology modeled on Adevar Labs', NOT a formal Adevar engagement |
-| 5 min         | `constants-audit-2026-05.md`     | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                     |
-| 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees                                                                                        |
-| 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface                                                                                     |
-| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)                                                                                 |
-| 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope)                                                                             |
-| 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)                                                                              |
-| 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers                                                                                        |
+| Time to read | What                              | When to read                                                                                                                |
+| ------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 5 min        | `../../AUDIT_SCOPE.md` (1-pager)  | Before everything else                                                                                                      |
+| 10 min       | `audit-readiness.md`              | Strategic context                                                                                                           |
+| 10 min       | `internal-audit-findings.md`      | Internal pre-audit tracker (51 SEVs, status, PRs) — methodology modeled on external auditor format, NOT a formal engagement |
+| 5 min        | `constants-audit-2026-05.md`      | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                         |
+| 30 min       | `self-audit.md`                   | Deep dive on protocol guarantees                                                                                            |
+| 15 min       | `adversarial-threat-model.md`     | Sybil / ordering / griefing surface                                                                                         |
+| 15 min       | `mev-front-running.md`            | Solana-specific ordering attacks (9 ix)                                                                                     |
+| 10 min       | `frontend-security-checklist.md`  | UX trust path (out of on-chain audit scope)                                                                                 |
+| 10 min       | `indexer-threat-model.md`         | Off-chain consistency (Phase 3 B2B oracle)                                                                                  |
+| 10 min       | `passport-bridge-threat-model.md` | Civic→Human-Passport PoP bridge trust boundary                                                                              |
+| 10 min       | `economic-config-governance.md`   | Timelock target tiers for ProtocolConfig fields                                                                             |
+| 5 min        | `immunefi-submission-package.md`  | Pre-mainnet program packet for bug bounty submission                                                                        |
+| 5 min        | `bug-bounty.md`                   | Disclosure policy + reward tiers                                                                                            |
 
-**Total first-pass: ~2 hours.**
+**Total first-pass: ~2h15m.**
 
 ## Recommended reading sequence
 
@@ -46,13 +49,13 @@ One-pager for security firms:
 
 ### 3. Audit findings tracker — `internal-audit-findings.md`
 
-Public accountability record for the internal pre-audit (May 2026) — **NOT** a formal Adevar Labs engagement (that's in scoping; cost/timeline negotiation). Methodology was deliberately modeled on Adevar's so the eventual paid auditor can re-validate quickly against a clean baseline.
+Public accountability record for the internal pre-audit (May 2026) — **NOT** a formal external-firm engagement (Adevar / Halborn / OtterSec / Sec3 — selection pending; cost/timeline negotiation). Methodology was deliberately modeled on the published external-auditor format so the eventual paid auditor can re-validate quickly against a clean baseline.
 
-- 40 findings total (5-pass internal pre-audit W1..W5 + 1 integration-testing wave that surfaced SEV-034b)
-- 36 closed (Critical/High 10/10 — 3 Critical + 7 High), 1 upstream-blocked (SEV-012), 3 design-intentional
+- **Live counts are canonical in [`internal-audit-findings.md`](./internal-audit-findings.md) — see its [Summary table](./internal-audit-findings.md#summary).** This index intentionally does not duplicate the totals (they drift); the tracker is the SSOT. As of 2026-05-27: 51 findings, 49 closed, 0 open, Critical/High 16 of 16.
+- Coverage: 5-pass internal pre-audit W1..W5 + 1 integration-testing wave (SEV-034b) + 9 follow-up waves through 2026-05-19 (incl. Kamino-spike Criticals SEV-040/041/042) + 1 external-audit pass 2026-05-24 (SEV-047 reputation-farming gate + SEV-048 LP-distribution earmark) + the litesvm L1↔L2 parity slice (SEV-049 pre-contemplation-default liveness High — closed via the new permissionless `skip_defaulted_payout` instruction; SEV-050 defaulted-pool `close_pool` liveness High — closed by removing the unsatisfiable defaulted-pool guard). 0 upstream-blocked; SEV-012 closed via the required litesvm·mpl-core CI lane, SEV-039 closed via the `close_member` + `close_pool_vaults` rent-reclaim ceremony, 2 design-intentional.
 - One row per SEV — severity, status (🟢 Closed / 🟡 Deferred / 🟠 Blocked / 🔵 Won't fix), PR, technical note
 - Disclosure timeline + summary table
-- Methodology notes — pattern fingerprinting after SEV-002 / SEV-023; integration-testing wave rationale post-W5
+- Methodology notes — pattern fingerprinting after SEV-002 / SEV-023; integration-testing wave rationale post-W5; Kamino-spike pattern generalization SEV-040 → SEV-042 → SEV-043 → SEV-044
 
 **Why third:** before reading the deep dive, see what the team's own red-team surfaced and how each finding was triaged.
 
@@ -179,4 +182,4 @@ Update this README whenever a security doc is added, removed, or substantively r
 
 ---
 
-_Last updated: 2026-05-16. 11 security docs indexed (plus this README): audit-readiness, internal-audit-findings, constants-audit-2026-05, self-audit, adversarial-threat-model, mev-front-running, frontend-security-checklist, indexer-threat-model, passport-bridge-threat-model, economic-config-governance, bug-bounty._
+_Last updated: 2026-05-26. 12 security docs indexed (plus this README): audit-readiness, internal-audit-findings, constants-audit-2026-05, self-audit, adversarial-threat-model, mev-front-running, frontend-security-checklist, indexer-threat-model, passport-bridge-threat-model, economic-config-governance, immunefi-submission-package, bug-bounty._
