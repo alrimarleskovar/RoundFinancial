@@ -1234,6 +1234,80 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.economy.completionSub": "completed / total",
     "adminops.economy.statusAll": "status: todos",
     "adminops.economy.levelAll": "nível: todos",
+    // ── refresh bar ─────────────────────────────────────────────
+    "adminops.refresh.button": "atualizar",
+    "adminops.refresh.auto": "atualiza a cada {s}s · servido há {ago}",
+    "adminops.refresh.manual": "atualização manual · servido há {ago}",
+    // ── tooltips (definições compactas; reusam behavioral.ts + ADR 0009) ──
+    "adminops.tip.canary.protocolHealth":
+      "Resumo do estado atual: pools indexados, membros, contagem de eventos on-chain.",
+    "adminops.tip.canary.behavioral":
+      "Métricas derivadas da tabela de eventos com a semântica de behavioral.ts (next_cycle_at + grace de 7d).",
+    "adminops.tip.canary.indexerHealth":
+      "Saúde do indexer: defasagem em slots, últimas execuções e eventos não resolvidos.",
+    "adminops.tip.card.pools": "Total de pools indexados (qualquer status).",
+    "adminops.tip.card.atRisk": "Pools com ≥1 evento Default após settle_default.",
+    "adminops.tip.card.users":
+      "Wallets distintos com pelo menos uma Member account no indexer (identidade = wallet).",
+    "adminops.tip.card.events":
+      "Eventos normalizados na tabela (Contribute, Claim, Default), únicos por (txSig, eventType).",
+    "adminops.tip.card.onTime":
+      "Contribuições pagas até next_cycle_at (delta ≤ 0 em behavioral.ts) sobre o total de contribuições com prazo.",
+    "adminops.tip.card.late":
+      "Contribuições pagas depois de next_cycle_at — dentro da grace de 7d ou já atrasadas.",
+    "adminops.tip.card.avgDelay":
+      "Média do delay (on_chain_ts − next_cycle_at) das contribuições pagas com atraso.",
+    "adminops.tip.card.defaults": "Eventos Default emitidos via settle_default.",
+    "adminops.tip.card.lag":
+      "Diferença em slots entre o slot atual do RPC e o último processado pelo indexer.",
+    "adminops.tip.card.lastUpdate":
+      "Quando o webhook/poller do indexer avançou o cursor pela última vez.",
+    "adminops.tip.card.backfill": "Status e início da última execução de backfill.",
+    "adminops.tip.card.projection":
+      "Quantidade de eventos derivados (com behavioral.ts) após o último rebuild.",
+    "adminops.tip.card.unresolved":
+      "Eventos cuja FK ficou nula no ingest (Pool/Member ainda não viam no banco). São re-resolvidos no próximo rebuild.",
+    "adminops.tip.card.orphaned":
+      "Eventos sem Pool/Member correspondente no banco — investigar antes de exportar para crédito.",
+    "adminops.tip.pools.title": "Pools indexados com cycle, membros e contadores estruturais.",
+    "adminops.tip.users.title":
+      "Wallets distintos com Member account; métricas derivadas de behavioral.ts.",
+    "adminops.tip.events.title":
+      "Black-box recorder: todos os eventos normalizados (filtros + exportação auditada).",
+    "adminops.tip.economy.capital":
+      "Σ on-chain por categoria de vault/pool (display em USDC, base units preservados).",
+    "adminops.tip.economy.risk": "Eventos de Default e cobertura (colateral apreendido).",
+    "adminops.tip.economy.moat":
+      "Sinais comportamentais: nível de reputação, on-time agregado e retenção.",
+    "adminops.tip.economy.health":
+      "Saúde estrutural do portfólio (distribuição por status e conclusão).",
+    "adminops.tip.eco.committedCredit":
+      "Σ pool.credit_amount: capacidade de crédito comprometida pelo protocolo.",
+    "adminops.tip.eco.custodied":
+      "Soma dos vaults custodiados (solidariedade + escrow + garantia) no snapshot do indexer.",
+    "adminops.tip.eco.contributed":
+      "Σ on-chain de contribuições totalizadas pelo indexer (apenas valor pago).",
+    "adminops.tip.eco.paidOut": "Σ on-chain de pagamentos/Claim distribuídos aos membros.",
+    "adminops.tip.eco.yield":
+      "Yield acumulado pelo adapter — mock no devnet, Kamino no mainnet (ADR 0009).",
+    "adminops.tip.eco.fees": "Taxa de protocolo coletada (direcionada ao treasury).",
+    "adminops.tip.eco.guaranteeFund":
+      "Vault de garantia (cobertura adicional além do colateral por membro).",
+    "adminops.tip.eco.solidarity":
+      "Vault de solidariedade (fundo coletivo do pool para cobrir default eligível).",
+    "adminops.tip.eco.defaultRate":
+      "Membros marcados defaulted / total de members. Inclui devnet — leia o banner.",
+    "adminops.tip.eco.seized":
+      "Σ de colateral apreendido em settle_default: cobertura, não perda do protocolo.",
+    "adminops.tip.eco.defaultEvents": "Contagem de eventos Default na tabela.",
+    "adminops.tip.eco.levelDist":
+      "Distribuição de wallets distintos por nível on-chain do ReputationProfile (L1/L2/L3).",
+    "adminops.tip.eco.onTimeAgg":
+      "Razão agregada de contribuições on-time (delta ≤ 0) sobre o total com prazo.",
+    "adminops.tip.eco.retention":
+      "Wallets que participaram de 2+ pools / wallets distintos indexados.",
+    "adminops.tip.eco.completion":
+      "Pools com status Completed / total — sucesso estrutural do portfólio.",
   },
   en: {
     "nav.home": "Home",
@@ -2422,6 +2496,79 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.economy.completionSub": "completed / total",
     "adminops.economy.statusAll": "status: all",
     "adminops.economy.levelAll": "level: all",
+    // ── refresh bar ─────────────────────────────────────────────
+    "adminops.refresh.button": "refresh",
+    "adminops.refresh.auto": "refreshes every {s}s · served {ago} ago",
+    "adminops.refresh.manual": "manual refresh · served {ago} ago",
+    // ── tooltips (compact definitions; reuse behavioral.ts + ADR 0009) ──
+    "adminops.tip.canary.protocolHealth":
+      "Snapshot of the current state: indexed pools, members, on-chain event counts.",
+    "adminops.tip.canary.behavioral":
+      "Metrics derived from the events table using behavioral.ts semantics (next_cycle_at + 7d grace).",
+    "adminops.tip.canary.indexerHealth":
+      "Indexer health: slot lag, last runs, unresolved event counters.",
+    "adminops.tip.card.pools": "Total indexed pools (any status).",
+    "adminops.tip.card.atRisk": "Pools with ≥1 Default event after settle_default.",
+    "adminops.tip.card.users":
+      "Distinct wallets with at least one Member account indexed (identity = wallet).",
+    "adminops.tip.card.events":
+      "Normalized events in the table (Contribute, Claim, Default), unique by (txSig, eventType).",
+    "adminops.tip.card.onTime":
+      "Contributions paid by next_cycle_at (delta ≤ 0 in behavioral.ts) over total timed contributions.",
+    "adminops.tip.card.late":
+      "Contributions paid after next_cycle_at — within the 7d grace or already late.",
+    "adminops.tip.card.avgDelay":
+      "Mean delay (on_chain_ts − next_cycle_at) across late contributions.",
+    "adminops.tip.card.defaults": "Default events emitted via settle_default.",
+    "adminops.tip.card.lag":
+      "Difference in slots between the current RPC slot and the indexer's last processed slot.",
+    "adminops.tip.card.lastUpdate": "When the webhook/poller last advanced the indexer cursor.",
+    "adminops.tip.card.backfill": "Status and start time of the last backfill run.",
+    "adminops.tip.card.projection":
+      "Count of derived events (via behavioral.ts) after the most recent rebuild.",
+    "adminops.tip.card.unresolved":
+      "Events whose FK was null at ingest (Pool/Member not yet known). Re-resolved on the next rebuild.",
+    "adminops.tip.card.orphaned":
+      "Events without a matching Pool/Member in the DB — investigate before exporting credit data.",
+    "adminops.tip.pools.title": "Indexed pools with cycle, members and structural counters.",
+    "adminops.tip.users.title":
+      "Distinct wallets with a Member account; metrics derived from behavioral.ts.",
+    "adminops.tip.events.title":
+      "Black-box recorder: every normalized event (filterable + audited export).",
+    "adminops.tip.economy.capital":
+      "Σ on-chain by vault/pool category (USDC display; base units preserved).",
+    "adminops.tip.economy.risk": "Default events and coverage (seized collateral).",
+    "adminops.tip.economy.moat":
+      "Behavioral signals: reputation level, aggregate on-time and retention.",
+    "adminops.tip.economy.health":
+      "Structural portfolio health (status distribution and completion).",
+    "adminops.tip.eco.committedCredit":
+      "Σ pool.credit_amount: credit capacity committed by the protocol.",
+    "adminops.tip.eco.custodied":
+      "Sum of custodied vaults (solidarity + escrow + guarantee) in the indexer snapshot.",
+    "adminops.tip.eco.contributed":
+      "On-chain Σ of contributions totalled by the indexer (paid amount only).",
+    "adminops.tip.eco.paidOut": "On-chain Σ of Claim payouts distributed to members.",
+    "adminops.tip.eco.yield":
+      "Yield accrued by the adapter — mock on devnet, Kamino on mainnet (ADR 0009).",
+    "adminops.tip.eco.fees": "Protocol fees collected (routed to the treasury).",
+    "adminops.tip.eco.guaranteeFund":
+      "Guarantee vault (extra coverage beyond per-member collateral).",
+    "adminops.tip.eco.solidarity":
+      "Solidarity vault (pool-level collective fund used to cover eligible defaults).",
+    "adminops.tip.eco.defaultRate":
+      "Members marked defaulted / total members. Includes devnet — read the banner.",
+    "adminops.tip.eco.seized":
+      "Σ collateral seized in settle_default: coverage, not protocol loss.",
+    "adminops.tip.eco.defaultEvents": "Count of Default events in the table.",
+    "adminops.tip.eco.levelDist":
+      "Distinct-wallet distribution by on-chain ReputationProfile level (L1/L2/L3).",
+    "adminops.tip.eco.onTimeAgg":
+      "Aggregate ratio of on-time contributions (delta ≤ 0) over total timed.",
+    "adminops.tip.eco.retention":
+      "Wallets that participated in 2+ pools / total distinct wallets indexed.",
+    "adminops.tip.eco.completion":
+      "Pools with status Completed / total — structural portfolio success.",
   },
 };
 

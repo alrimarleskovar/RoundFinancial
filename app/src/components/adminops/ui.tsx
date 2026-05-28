@@ -7,8 +7,9 @@
  * pills, never for decoration.
  */
 
-import type { CSSProperties, ReactNode } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
+import { Icons } from "@/components/brand/icons";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -73,16 +74,17 @@ export function formatPct(bps: number | null | undefined): string {
   return bps == null ? "—" : `${(bps / 100).toFixed(1)}%`;
 }
 
-export function MonoLabel({ children }: { children: ReactNode }) {
+export function MonoLabel({ children, strong = false }: { children: ReactNode; strong?: boolean }) {
   const { tokens } = useTheme();
   return (
     <span
       style={{
         fontFamily: MONO,
-        fontSize: 11,
+        fontSize: strong ? 12 : 11,
         letterSpacing: 0.6,
+        fontWeight: strong ? 700 : 400,
         textTransform: "uppercase",
-        color: tokens.muted,
+        color: strong ? tokens.text : tokens.muted,
       }}
     >
       {children}
@@ -90,13 +92,76 @@ export function MonoLabel({ children }: { children: ReactNode }) {
   );
 }
 
+/** Compact "i" icon with a hover/focus tooltip (1-2 lines, concise). Used
+ *  next to Section titles and StatCard labels to explain a definition that
+ *  reuses behavioral.ts / ADR 0009 semantics. Accessible (keyboard focus,
+ *  aria-label). Body text is passed already-translated by the caller. */
+export function InfoTooltip({ text }: { text: string }) {
+  const { tokens } = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        marginLeft: 6,
+        cursor: "help",
+        color: tokens.muted,
+        outline: "none",
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+      tabIndex={0}
+      role="img"
+      aria-label={text}
+    >
+      <Icons.info size={13} sw={1.7} />
+      {open ? (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: tokens.surface3,
+            border: `1px solid ${tokens.border}`,
+            borderRadius: 8,
+            padding: "8px 10px",
+            fontSize: 12,
+            fontWeight: 400,
+            color: tokens.text,
+            width: 240,
+            lineHeight: 1.5,
+            zIndex: 20,
+            textTransform: "none",
+            letterSpacing: 0,
+            fontFamily: "inherit",
+            textAlign: "left",
+            whiteSpace: "normal",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+            pointerEvents: "none",
+          }}
+        >
+          {text}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function Section({
   title,
   note,
+  tooltip,
   children,
 }: {
   title: string;
   note?: ReactNode;
+  tooltip?: string;
   children: ReactNode;
 }) {
   const { tokens } = useTheme();
@@ -107,13 +172,14 @@ export function Section({
         <span
           style={{
             width: 3,
-            height: 15,
+            height: 17,
             borderRadius: 2,
             background: tokens.teal,
             flexShrink: 0,
           }}
         />
-        <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: tokens.text }}>{title}</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: tokens.text }}>{title}</h2>
+        {tooltip ? <InfoTooltip text={tooltip} /> : null}
         {note ? <span style={{ fontSize: 12, color: tokens.muted }}>{note}</span> : null}
       </div>
       {children}
@@ -126,11 +192,13 @@ export function StatCard({
   value,
   sub,
   tone,
+  tooltip,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: "default" | "muted";
+  tooltip?: string;
 }) {
   const { tokens } = useTheme();
   return (
@@ -143,7 +211,10 @@ export function StatCard({
         minWidth: 0,
       }}
     >
-      <MonoLabel>{label}</MonoLabel>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <MonoLabel strong>{label}</MonoLabel>
+        {tooltip ? <InfoTooltip text={tooltip} /> : null}
+      </div>
       <div
         style={{
           fontSize: 28,
@@ -249,7 +320,7 @@ export function tableHeadStyles(tokens: ReturnType<typeof useTheme>["tokens"]) {
       letterSpacing: 0.6,
       textTransform: "uppercase" as const,
       padding: "10px 12px",
-      color: tokens.text2,
+      color: tokens.text,
       whiteSpace: "nowrap" as const,
     } as CSSProperties,
   };
@@ -271,6 +342,83 @@ export function Empty({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+    </div>
+  );
+}
+
+/** Ticks once per second so any "served Xs ago" label updates between
+ *  fetches without re-running the network request. Use in pages that read
+ *  servedAtUnix from a useApi response. */
+export function useNowSeconds(): number {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
+/** Small bar above each page showing the data's freshness and (when on a
+ *  timed cadence) when the next auto-refresh will hit. Manual reload always
+ *  available — auto-refresh just removes the click on operational pages. */
+export function RefreshBar({
+  cadenceSeconds,
+  servedAtUnix,
+  onReload,
+  loading,
+}: {
+  cadenceSeconds: number | null;
+  servedAtUnix: number | null;
+  onReload: () => void;
+  loading: boolean;
+}) {
+  const { tokens } = useTheme();
+  const t = useT();
+  const now = useNowSeconds();
+  const handle = useCallback(() => {
+    if (!loading) onReload();
+  }, [loading, onReload]);
+  const ageSeconds = servedAtUnix == null ? null : Math.max(0, now - servedAtUnix);
+  const ageLabel = ageSeconds == null ? "—" : agoLabel(now - ageSeconds);
+  const cadenceLabel =
+    cadenceSeconds == null
+      ? t("adminops.refresh.manual", { ago: ageLabel })
+      : t("adminops.refresh.auto", { s: cadenceSeconds, ago: ageLabel });
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: 12,
+        marginBottom: 16,
+        fontSize: 12,
+        color: tokens.muted,
+      }}
+    >
+      <span>{cadenceLabel}</span>
+      <button
+        type="button"
+        onClick={handle}
+        disabled={loading}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 10px",
+          fontSize: 12,
+          fontWeight: 600,
+          color: tokens.text2,
+          background: "transparent",
+          border: `1px solid ${tokens.border}`,
+          borderRadius: 8,
+          cursor: loading ? "not-allowed" : "pointer",
+          opacity: loading ? 0.5 : 1,
+        }}
+      >
+        <Icons.refresh size={13} sw={1.7} />
+        {t("adminops.refresh.button")}
+      </button>
     </div>
   );
 }

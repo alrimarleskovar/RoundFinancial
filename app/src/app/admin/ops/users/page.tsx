@@ -14,6 +14,7 @@ import {
   Empty,
   MonoLabel,
   Pill,
+  RefreshBar,
   Section,
   tableHeadStyles,
 } from "@/components/adminops/ui";
@@ -38,10 +39,10 @@ export default function UsersPage() {
   const { tokens } = useTheme();
   const t = useT();
   const TH = tableHeadStyles(tokens);
-  const { data, loading, error } = useApi<UsersResponse>("/api/admin/users");
+  const { data, loading, error, reload } = useApi<UsersResponse>("/api/admin/users");
   const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
-  if (loading)
+  if (loading && !data)
     return <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>;
   if (error || !data) return <Empty>{t("adminops.users.err", { err: error ?? "—" })}</Empty>;
 
@@ -54,76 +55,85 @@ export default function UsersPage() {
   };
 
   return (
-    <Section
-      title={t("adminops.users.title")}
-      note={t("adminops.users.note", {
-        n: data.users.length,
-        ago: ago(data.indexer.lastProjectionUnix),
-      })}
-    >
-      {data.users.length === 0 ? (
-        <Empty>{t("adminops.users.empty")}</Empty>
-      ) : (
-        <div
-          style={{
-            border: `1px solid ${tokens.border}`,
-            borderRadius: 12,
-            overflow: "hidden",
-            background: tokens.surface1,
-          }}
-        >
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={TH.row}>
-                <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.wallet")}</th>
-                <th style={TH.cell}>{t("adminops.col.level")}</th>
-                <th style={TH.cell}>{t("adminops.col.pools")}</th>
-                <th style={TH.cell}>{t("adminops.col.onTime")}</th>
-                <th style={TH.cell}>{t("adminops.col.defaults")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.users.map((u) => (
-                <tr key={u.wallet}>
-                  <td style={{ ...td, paddingLeft: 16 }}>
-                    <Link
-                      href={`/admin/ops/users/${u.wallet}`}
-                      style={{ color: tokens.text, textDecoration: "none" }}
-                    >
-                      <MonoLabel>{shortAddr(u.wallet, 6, 6)}</MonoLabel>
-                    </Link>
-                  </td>
-                  <td style={td}>
-                    <span style={{ color: tokens.muted }}>L</span>
-                    {u.level}
-                  </td>
-                  <td style={td}>{u.pools}</td>
-                  <td style={td}>
-                    {u.onTimeRateBps == null ? (
-                      <span style={{ color: tokens.muted }}>—</span>
-                    ) : (
-                      <>
-                        {(u.onTimeRateBps / 100).toFixed(0)}%
-                        <span style={{ color: tokens.muted, fontSize: 12 }}>
-                          {" "}
-                          ({u.onTime}/{u.timedContributions})
-                        </span>
-                      </>
-                    )}
-                  </td>
-                  <td style={td}>
-                    {u.defaults > 0 ? (
-                      <Pill text={String(u.defaults)} color={tokens.red} />
-                    ) : (
-                      <span style={{ color: tokens.muted }}>0</span>
-                    )}
-                  </td>
+    <>
+      <RefreshBar
+        cadenceSeconds={null}
+        servedAtUnix={data.servedAtUnix}
+        onReload={reload}
+        loading={loading}
+      />
+      <Section
+        title={t("adminops.users.title")}
+        note={t("adminops.users.note", {
+          n: data.users.length,
+          ago: ago(data.indexer.lastProjectionUnix),
+        })}
+        tooltip={t("adminops.tip.users.title")}
+      >
+        {data.users.length === 0 ? (
+          <Empty>{t("adminops.users.empty")}</Empty>
+        ) : (
+          <div
+            style={{
+              border: `1px solid ${tokens.border}`,
+              borderRadius: 12,
+              overflow: "hidden",
+              background: tokens.surface1,
+            }}
+          >
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={TH.row}>
+                  <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.wallet")}</th>
+                  <th style={TH.cell}>{t("adminops.col.level")}</th>
+                  <th style={TH.cell}>{t("adminops.col.pools")}</th>
+                  <th style={TH.cell}>{t("adminops.col.onTime")}</th>
+                  <th style={TH.cell}>{t("adminops.col.defaults")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
+              </thead>
+              <tbody>
+                {data.users.map((u) => (
+                  <tr key={u.wallet}>
+                    <td style={{ ...td, paddingLeft: 16 }}>
+                      <Link
+                        href={`/admin/ops/users/${u.wallet}`}
+                        style={{ color: tokens.text, textDecoration: "none" }}
+                      >
+                        <MonoLabel>{shortAddr(u.wallet, 6, 6)}</MonoLabel>
+                      </Link>
+                    </td>
+                    <td style={td}>
+                      <span style={{ color: tokens.muted }}>L</span>
+                      {u.level}
+                    </td>
+                    <td style={td}>{u.pools}</td>
+                    <td style={td}>
+                      {u.onTimeRateBps == null ? (
+                        <span style={{ color: tokens.muted }}>—</span>
+                      ) : (
+                        <>
+                          {(u.onTimeRateBps / 100).toFixed(0)}%
+                          <span style={{ color: tokens.muted, fontSize: 12 }}>
+                            {" "}
+                            ({u.onTime}/{u.timedContributions})
+                          </span>
+                        </>
+                      )}
+                    </td>
+                    <td style={td}>
+                      {u.defaults > 0 ? (
+                        <Pill text={String(u.defaults)} color={tokens.red} />
+                      ) : (
+                        <span style={{ color: tokens.muted }}>0</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+    </>
   );
 }

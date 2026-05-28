@@ -14,6 +14,7 @@ import {
   Empty,
   fmtDuration,
   MonoLabel,
+  RefreshBar,
   Section,
   tableHeadStyles,
   TimingPill,
@@ -87,7 +88,7 @@ export default function EventsPage() {
   const [offset, setOffset] = useState(0);
 
   const qs = buildQuery(applied, { limit: PAGE, offset });
-  const { data, loading, error } = useApi<EventsResponse>(`/api/admin/events?${qs}`);
+  const { data, loading, error, reload } = useApi<EventsResponse>(`/api/admin/events?${qs}`);
   const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
 
   const input: React.CSSProperties = {
@@ -124,196 +125,208 @@ export default function EventsPage() {
     `/api/admin/events/export?${buildQuery(applied, { format })}`;
 
   return (
-    <Section
-      title={t("adminops.events.title")}
-      note={
-        data
-          ? t("adminops.events.note", { n: data.total, ago: ago(data.indexer.lastProjectionUnix) })
-          : t("adminops.events.recorder")
-      }
-    >
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          marginBottom: 14,
-          alignItems: "center",
-        }}
+    <>
+      <RefreshBar
+        cadenceSeconds={null}
+        servedAtUnix={data?.servedAtUnix ?? null}
+        onReload={reload}
+        loading={loading}
+      />
+      <Section
+        title={t("adminops.events.title")}
+        note={
+          data
+            ? t("adminops.events.note", {
+                n: data.total,
+                ago: ago(data.indexer.lastProjectionUnix),
+              })
+            : t("adminops.events.recorder")
+        }
+        tooltip={t("adminops.tip.events.title")}
       >
-        <select
-          value={form.eventType}
-          onChange={(e) => setForm({ ...form, eventType: e.target.value })}
-          style={input}
-        >
-          <option value="">{t("adminops.events.f.typeAll")}</option>
-          <option value="Contribute">Contribute</option>
-          <option value="Claim">Claim</option>
-          <option value="Default">Default</option>
-        </select>
-        <select
-          value={form.timing}
-          onChange={(e) => setForm({ ...form, timing: e.target.value })}
-          style={input}
-        >
-          <option value="">{t("adminops.events.f.timingAll")}</option>
-          <option value="on_time">{t("adminops.timing.onTime")}</option>
-          <option value="grace">{t("adminops.timing.grace")}</option>
-          <option value="late">{t("adminops.timing.late")}</option>
-        </select>
-        <input
-          placeholder={t("adminops.events.f.poolPlaceholder")}
-          value={form.poolPda}
-          onChange={(e) => setForm({ ...form, poolPda: e.target.value })}
-          style={{ ...input, width: 150 }}
-        />
-        <input
-          placeholder={t("adminops.events.f.walletPlaceholder")}
-          value={form.subjectWallet}
-          onChange={(e) => setForm({ ...form, subjectWallet: e.target.value })}
-          style={{ ...input, width: 150 }}
-        />
-        <input
-          type="date"
-          value={form.from}
-          onChange={(e) => setForm({ ...form, from: e.target.value })}
-          style={input}
-        />
-        <input
-          type="date"
-          value={form.to}
-          onChange={(e) => setForm({ ...form, to: e.target.value })}
-          style={input}
-        />
-        <button type="button" onClick={apply} style={btn(true)}>
-          {t("adminops.events.apply")}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setForm(EMPTY);
-            setApplied(EMPTY);
-            setOffset(0);
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 14,
+            alignItems: "center",
           }}
-          style={btn(false)}
         >
-          {t("adminops.events.clear")}
-        </button>
-        <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={() => window.open(exportUrl("csv"), "_blank")}
-          style={btn(false)}
-        >
-          {t("adminops.events.exportCsv")}
-        </button>
-        <button
-          type="button"
-          onClick={() => window.open(exportUrl("json"), "_blank")}
-          style={btn(false)}
-        >
-          {t("adminops.events.exportJson")}
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>
-      ) : error || !data ? (
-        <Empty>{t("adminops.events.err", { err: error ?? "—" })}</Empty>
-      ) : data.rows.length === 0 ? (
-        <Empty>{t("adminops.events.empty")}</Empty>
-      ) : (
-        <>
-          <div
-            style={{
-              border: `1px solid ${tokens.border}`,
-              borderRadius: 12,
-              overflow: "hidden",
-              background: tokens.surface1,
-            }}
+          <select
+            value={form.eventType}
+            onChange={(e) => setForm({ ...form, eventType: e.target.value })}
+            style={input}
           >
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={TH.row}>
-                  <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.when")}</th>
-                  <th style={TH.cell}>{t("adminops.col.event")}</th>
-                  <th style={TH.cell}>{t("adminops.col.subject")}</th>
-                  <th style={TH.cell}>{t("adminops.col.pool")}</th>
-                  <th style={TH.cell}>{t("adminops.col.cycle")}</th>
-                  <th style={TH.cell}>{t("adminops.col.timing")}</th>
-                  <th style={TH.cell}>{t("adminops.col.delta")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.rows.map((e) => (
-                  <tr key={`${e.txSig}-${e.eventType}`}>
-                    <td style={{ ...td, paddingLeft: 16, color: tokens.muted, fontSize: 12 }}>
-                      {ago(e.onChainTsUnix)}
-                    </td>
-                    <td style={td}>{e.eventType}</td>
-                    <td style={td}>
-                      <MonoLabel>{shortAddr(e.subjectWallet, 5, 5)}</MonoLabel>
-                    </td>
-                    <td style={td}>
-                      <MonoLabel>{shortAddr(e.poolPda, 4, 4)}</MonoLabel>
-                    </td>
-                    <td style={td}>{e.cycle}</td>
-                    <td style={td}>
-                      <TimingPill
-                        eventType={e.eventType}
-                        deltaSeconds={e.deltaSeconds}
-                        graceUsed={e.graceUsed}
-                      />
-                    </td>
-                    <td style={{ ...td, color: tokens.muted }}>
-                      {e.deltaSeconds == null
-                        ? "—"
-                        : e.deltaSeconds <= 0
-                          ? `−${fmtDuration(-e.deltaSeconds)}`
-                          : `+${fmtDuration(e.deltaSeconds)}`}
-                    </td>
+            <option value="">{t("adminops.events.f.typeAll")}</option>
+            <option value="Contribute">Contribute</option>
+            <option value="Claim">Claim</option>
+            <option value="Default">Default</option>
+          </select>
+          <select
+            value={form.timing}
+            onChange={(e) => setForm({ ...form, timing: e.target.value })}
+            style={input}
+          >
+            <option value="">{t("adminops.events.f.timingAll")}</option>
+            <option value="on_time">{t("adminops.timing.onTime")}</option>
+            <option value="grace">{t("adminops.timing.grace")}</option>
+            <option value="late">{t("adminops.timing.late")}</option>
+          </select>
+          <input
+            placeholder={t("adminops.events.f.poolPlaceholder")}
+            value={form.poolPda}
+            onChange={(e) => setForm({ ...form, poolPda: e.target.value })}
+            style={{ ...input, width: 150 }}
+          />
+          <input
+            placeholder={t("adminops.events.f.walletPlaceholder")}
+            value={form.subjectWallet}
+            onChange={(e) => setForm({ ...form, subjectWallet: e.target.value })}
+            style={{ ...input, width: 150 }}
+          />
+          <input
+            type="date"
+            value={form.from}
+            onChange={(e) => setForm({ ...form, from: e.target.value })}
+            style={input}
+          />
+          <input
+            type="date"
+            value={form.to}
+            onChange={(e) => setForm({ ...form, to: e.target.value })}
+            style={input}
+          />
+          <button type="button" onClick={apply} style={btn(true)}>
+            {t("adminops.events.apply")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setForm(EMPTY);
+              setApplied(EMPTY);
+              setOffset(0);
+            }}
+            style={btn(false)}
+          >
+            {t("adminops.events.clear")}
+          </button>
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={() => window.open(exportUrl("csv"), "_blank")}
+            style={btn(false)}
+          >
+            {t("adminops.events.exportCsv")}
+          </button>
+          <button
+            type="button"
+            onClick={() => window.open(exportUrl("json"), "_blank")}
+            style={btn(false)}
+          >
+            {t("adminops.events.exportJson")}
+          </button>
+        </div>
+
+        {loading ? (
+          <div style={{ color: tokens.muted, fontSize: 13 }}>{t("adminops.loading")}</div>
+        ) : error || !data ? (
+          <Empty>{t("adminops.events.err", { err: error ?? "—" })}</Empty>
+        ) : data.rows.length === 0 ? (
+          <Empty>{t("adminops.events.empty")}</Empty>
+        ) : (
+          <>
+            <div
+              style={{
+                border: `1px solid ${tokens.border}`,
+                borderRadius: 12,
+                overflow: "hidden",
+                background: tokens.surface1,
+              }}
+            >
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={TH.row}>
+                    <th style={{ ...TH.cell, paddingLeft: 16 }}>{t("adminops.col.when")}</th>
+                    <th style={TH.cell}>{t("adminops.col.event")}</th>
+                    <th style={TH.cell}>{t("adminops.col.subject")}</th>
+                    <th style={TH.cell}>{t("adminops.col.pool")}</th>
+                    <th style={TH.cell}>{t("adminops.col.cycle")}</th>
+                    <th style={TH.cell}>{t("adminops.col.timing")}</th>
+                    <th style={TH.cell}>{t("adminops.col.delta")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {data.rows.map((e) => (
+                    <tr key={`${e.txSig}-${e.eventType}`}>
+                      <td style={{ ...td, paddingLeft: 16, color: tokens.muted, fontSize: 12 }}>
+                        {ago(e.onChainTsUnix)}
+                      </td>
+                      <td style={td}>{e.eventType}</td>
+                      <td style={td}>
+                        <MonoLabel>{shortAddr(e.subjectWallet, 5, 5)}</MonoLabel>
+                      </td>
+                      <td style={td}>
+                        <MonoLabel>{shortAddr(e.poolPda, 4, 4)}</MonoLabel>
+                      </td>
+                      <td style={td}>{e.cycle}</td>
+                      <td style={td}>
+                        <TimingPill
+                          eventType={e.eventType}
+                          deltaSeconds={e.deltaSeconds}
+                          graceUsed={e.graceUsed}
+                        />
+                      </td>
+                      <td style={{ ...td, color: tokens.muted }}>
+                        {e.deltaSeconds == null
+                          ? "—"
+                          : e.deltaSeconds <= 0
+                            ? `−${fmtDuration(-e.deltaSeconds)}`
+                            : `+${fmtDuration(e.deltaSeconds)}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 12,
-              fontSize: 12,
-              color: tokens.muted,
-            }}
-          >
-            <button
-              type="button"
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - PAGE))}
-              style={{ ...btn(false), opacity: offset === 0 ? 0.4 : 1 }}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginTop: 12,
+                fontSize: 12,
+                color: tokens.muted,
+              }}
             >
-              {t("adminops.events.prev")}
-            </button>
-            <span>
-              {t("adminops.events.range", {
-                from: offset + 1,
-                to: Math.min(offset + PAGE, data.total),
-                total: data.total,
-              })}
-            </span>
-            <button
-              type="button"
-              disabled={offset + PAGE >= data.total}
-              onClick={() => setOffset(offset + PAGE)}
-              style={{ ...btn(false), opacity: offset + PAGE >= data.total ? 0.4 : 1 }}
-            >
-              {t("adminops.events.next")}
-            </button>
-          </div>
-        </>
-      )}
-    </Section>
+              <button
+                type="button"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - PAGE))}
+                style={{ ...btn(false), opacity: offset === 0 ? 0.4 : 1 }}
+              >
+                {t("adminops.events.prev")}
+              </button>
+              <span>
+                {t("adminops.events.range", {
+                  from: offset + 1,
+                  to: Math.min(offset + PAGE, data.total),
+                  total: data.total,
+                })}
+              </span>
+              <button
+                type="button"
+                disabled={offset + PAGE >= data.total}
+                onClick={() => setOffset(offset + PAGE)}
+                style={{ ...btn(false), opacity: offset + PAGE >= data.total ? 0.4 : 1 }}
+              >
+                {t("adminops.events.next")}
+              </button>
+            </div>
+          </>
+        )}
+      </Section>
+    </>
   );
 }

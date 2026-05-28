@@ -16,6 +16,7 @@ import {
   formatInt,
   formatPct,
   formatUsdc,
+  RefreshBar,
   Section,
   StatCard,
 } from "@/components/adminops/ui";
@@ -91,7 +92,7 @@ export default function EconomyPage() {
   const t = useT();
   const [form, setForm] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
-  const { data, loading, error } = useApi<EconomyResponse>(
+  const { data, loading, error, reload } = useApi<EconomyResponse>(
     `/api/admin/economy?${buildQuery(applied)}`,
   );
   const ago = (u: number | null) => t("adminops.ago", { v: agoLabel(u) });
@@ -122,6 +123,12 @@ export default function EconomyPage() {
 
   return (
     <div>
+      <RefreshBar
+        cadenceSeconds={null}
+        servedAtUnix={data?.servedAtUnix ?? null}
+        onReload={reload}
+        loading={loading}
+      />
       {/* LOUD devnet banner — instrumentation, not traction. */}
       <div
         style={{
@@ -210,52 +217,61 @@ export default function EconomyPage() {
               <Section
                 title={t("adminops.economy.capital")}
                 note={t("adminops.economy.note", { ago: ago(e.indexer.lastProjectionUnix) })}
+                tooltip={t("adminops.tip.economy.capital")}
               >
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.committedCredit")}
                     value={formatUsdc(e.capital.committedCredit)}
                     sub={t("adminops.economy.committedCreditSub")}
+                    tooltip={t("adminops.tip.eco.committedCredit")}
                   />
                   <StatCard
                     label={t("adminops.economy.custodied")}
                     value={formatUsdc(e.capital.custodied)}
                     sub={t("adminops.economy.custodiedSub")}
+                    tooltip={t("adminops.tip.eco.custodied")}
                   />
                   <StatCard
                     label={t("adminops.economy.contributed")}
                     value={formatUsdc(e.capital.contributed)}
                     sub={t("adminops.economy.usdcUnits")}
+                    tooltip={t("adminops.tip.eco.contributed")}
                   />
                   <StatCard
                     label={t("adminops.economy.paidOut")}
                     value={formatUsdc(e.capital.paidOut)}
                     sub={t("adminops.economy.usdcUnits")}
+                    tooltip={t("adminops.tip.eco.paidOut")}
                   />
                   <StatCard
                     label={t("adminops.economy.yield")}
                     value={formatUsdc(e.capital.yieldAccrued)}
                     sub={t("adminops.economy.yieldSub")}
+                    tooltip={t("adminops.tip.eco.yield")}
                   />
                   <StatCard
                     label={t("adminops.economy.fees")}
                     value={formatUsdc(e.capital.protocolFees)}
                     sub={t("adminops.economy.feesSub")}
+                    tooltip={t("adminops.tip.eco.fees")}
                   />
                   <StatCard
                     label={t("adminops.economy.guaranteeFund")}
                     value={formatUsdc(e.capital.guaranteeFund)}
                     sub={t("adminops.economy.usdcUnits")}
+                    tooltip={t("adminops.tip.eco.guaranteeFund")}
                   />
                   <StatCard
                     label={t("adminops.economy.solidarity")}
                     value={formatUsdc(e.capital.solidarity)}
                     sub={t("adminops.economy.usdcUnits")}
+                    tooltip={t("adminops.tip.eco.solidarity")}
                   />
                 </div>
               </Section>
 
-              <Section title={t("adminops.economy.risk")}>
+              <Section title={t("adminops.economy.risk")} tooltip={t("adminops.tip.economy.risk")}>
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.defaultRate")}
@@ -265,21 +281,24 @@ export default function EconomyPage() {
                       n: e.risk.totalMembers,
                     })}
                     tone={e.risk.defaultedMembers === 0 ? "muted" : "default"}
+                    tooltip={t("adminops.tip.eco.defaultRate")}
                   />
                   <StatCard
                     label={t("adminops.economy.seized")}
                     value={formatUsdc(e.risk.seizedTotal)}
                     sub={t("adminops.economy.seizedSub")}
+                    tooltip={t("adminops.tip.eco.seized")}
                   />
                   <StatCard
                     label={t("adminops.economy.defaultEvents")}
                     value={e.risk.defaultEvents}
                     tone={e.risk.defaultEvents === 0 ? "muted" : "default"}
+                    tooltip={t("adminops.tip.eco.defaultEvents")}
                   />
                 </div>
               </Section>
 
-              <Section title={t("adminops.economy.moat")}>
+              <Section title={t("adminops.economy.moat")} tooltip={t("adminops.tip.economy.moat")}>
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.levelDist")}
@@ -289,6 +308,7 @@ export default function EconomyPage() {
                         : `L1 ${lvPct(e.moat.levelDistribution.l1, e.moat.distinctWallets)} · L2 ${lvPct(e.moat.levelDistribution.l2, e.moat.distinctWallets)} · L3 ${lvPct(e.moat.levelDistribution.l3, e.moat.distinctWallets)}`
                     }
                     sub={`${formatInt(e.moat.levelDistribution.l1)} / ${formatInt(e.moat.levelDistribution.l2)} / ${formatInt(e.moat.levelDistribution.l3)} · ${t("adminops.economy.levelDistSub")}`}
+                    tooltip={t("adminops.tip.eco.levelDist")}
                   />
                   <StatCard
                     label={t("adminops.economy.onTimeAgg")}
@@ -297,6 +317,7 @@ export default function EconomyPage() {
                       ot: e.moat.onTime,
                       total: e.moat.timedContributions,
                     })}
+                    tooltip={t("adminops.tip.eco.onTimeAgg")}
                   />
                   <StatCard
                     label={t("adminops.economy.retention")}
@@ -305,6 +326,7 @@ export default function EconomyPage() {
                       r: e.moat.repeatWallets,
                       n: e.moat.distinctWallets,
                     })}
+                    tooltip={t("adminops.tip.eco.retention")}
                   />
                 </div>
                 {e.moat.distinctWallets > 0 ? (
@@ -339,12 +361,16 @@ export default function EconomyPage() {
                 ) : null}
               </Section>
 
-              <Section title={t("adminops.economy.health")}>
+              <Section
+                title={t("adminops.economy.health")}
+                tooltip={t("adminops.tip.economy.health")}
+              >
                 <div style={grid}>
                   <StatCard
                     label={t("adminops.economy.completion")}
                     value={formatPct(e.health.completionRateBps)}
                     sub={t("adminops.economy.completionSub")}
+                    tooltip={t("adminops.tip.eco.completion")}
                   />
                   {(["Forming", "Active", "Completed", "Liquidated", "Closed"] as const).map(
                     (s) => (
