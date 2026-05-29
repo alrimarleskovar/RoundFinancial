@@ -405,8 +405,25 @@ jobs:
         # via `loadIdl()` for all 4 programs (core, reputation,
         # yield_mock, yield_kamino).
         run: |
+          set -x
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version 2>&1 || true
+          cargo --version
+          rustc --version
+          solana --version
+          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
+          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
+          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
+          echo "::endgroup::"
+
+          echo "::group::anchor build (--no-idl)"
           anchor build --no-idl
+          echo "::endgroup::"
+
+          echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
+          echo "::endgroup::"
 
       - name: Cache klend.so (Kamino Lend mainnet binary)
         # ~600KB binary, hashed against the Kamino program ID. Cached
@@ -505,8 +522,25 @@ jobs:
 
       - name: anchor build (--no-idl) + IDL regen (#319 workaround)
         run: |
+          set -x
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version 2>&1 || true
+          cargo --version
+          rustc --version
+          solana --version
+          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
+          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
+          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
+          echo "::endgroup::"
+
+          echo "::group::anchor build (--no-idl)"
           anchor build --no-idl
+          echo "::endgroup::"
+
+          echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
+          echo "::endgroup::"
 
       - name: Cache mpl_core.so (Metaplex Core mainnet binary)
         # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
