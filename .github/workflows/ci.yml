@@ -17,6 +17,14 @@ env:
   CARGO_INCREMENTAL: 0 # CI cache hits matter more than incremental
   RUST_BACKTRACE: 1
 
+# Default GITHUB_TOKEN on this org is restricted to `contents: read` +
+# `metadata: read`. The bankrun + litesvm diagnostic post-steps POST a
+# comment with the failing build log tail; that needs `pull-requests: write`.
+# Granted at the workflow level so every job inherits it.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
   # Seven checks:
