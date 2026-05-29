@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/server.ts",
     "./db": "./src/db.ts",
-    "./admin": "./src/adminQueries.ts"
+    "./admin": "./src/adminQueries.ts",
+    "./insights": "./src/insights.ts"
   },
   "scripts": {
     "postinstall": "prisma generate",
@@ -20,6 +21,7 @@
     "reconcile": "tsx src/reconciler.ts",
     "reconcile:once": "tsx src/reconciler.ts --once",
     "project-events": "tsx src/projector.ts",
+    "seed:insights": "tsx src/seed-insights.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },

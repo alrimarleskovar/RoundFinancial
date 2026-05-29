@@ -17,6 +17,14 @@ env:
   CARGO_INCREMENTAL: 0 # CI cache hits matter more than incremental
   RUST_BACKTRACE: 1
 
+# Default GITHUB_TOKEN on this org is restricted to `contents: read` +
+# `metadata: read`. The bankrun + litesvm diagnostic post-steps POST a
+# comment with the failing build log tail; that needs `pull-requests: write`.
+# Granted at the workflow level so every job inherits it.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
   # Seven checks:
@@ -271,7 +279,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Install Solana Agave 3.0.0 (pinned)
         # Stable channel had platform-tools download issues mid-2026
@@ -370,7 +378,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
@@ -405,8 +413,41 @@ jobs:
         # via `loadIdl()` for all 4 programs (core, reputation,
         # yield_mock, yield_kamino).
         run: |
+          set -x
+          set -o pipefail
+          # Tee everything into /tmp/build.log so the failure post-step
+          # can mirror the tail into $GITHUB_STEP_SUMMARY (visible in the
+          # workflow run page without auth) and upload the full thing as
+          # an artifact.
+          exec > >(tee -a /tmp/build.log) 2>&1
+
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version || true
+          cargo --version
+          rustc --version
+          solana --version
+          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
+          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
+          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
+          echo "::endgroup::"
+
+          echo "::group::anchor build (--no-idl)"
           anchor build --no-idl
+          echo "::endgroup::"
+
+          echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
+          echo "::endgroup::"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache klend.so (Kamino Lend mainnet binary)
         # ~600KB binary, hashed against the Kamino program ID. Cached
@@ -480,7 +521,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
@@ -505,8 +546,37 @@ jobs:
 
       - name: anchor build (--no-idl) + IDL regen (#319 workaround)
         run: |
+          set -x
+          set -o pipefail
+          exec > >(tee -a /tmp/build.log) 2>&1
+
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version || true
+          cargo --version
+          rustc --version
+          solana --version
+          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
+          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
+          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
+          echo "::endgroup::"
+
+          echo "::group::anchor build (--no-idl)"
           anchor build --no-idl
+          echo "::endgroup::"
+
+          echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
+          echo "::endgroup::"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache mpl_core.so (Metaplex Core mainnet binary)
         # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the

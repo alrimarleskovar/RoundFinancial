@@ -68,6 +68,16 @@ export const DICT: Record<Lang, Dict> = {
     "home.shield.tile3.title": "Cofre + Yield",
     "home.shield.tile3.desc": "1% cofre + 6,8% APY Kamino",
     "home.activity": "◆ Atividade recente",
+    // devnet showcase tiles (live on-chain pools)
+    "home.devnet.pool1.label": "Pool 1 · 3 membros · Concluído",
+    "home.devnet.pool1.headline":
+      "Ciclo completo do começo ao fim: contribuições, sorteios, liberação de escrow e fechamento.",
+    "home.devnet.pool2.label": "Pool 2 · 3 membros · ciclo 1h · Ativo",
+    "home.devnet.pool2.headline":
+      "Ciclos rodando em produção com depósito automático no cofre de rendimento e uma cota listada à venda.",
+    "home.devnet.pool3.label": "Pool 3 · 3 membros · carência 60s · Default",
+    "home.devnet.pool3.headline":
+      "Mecanismos de proteção em ação: default resolvido com retenção da garantia do membro inadimplente.",
     // levels
     "level.proven": "COMPROVADO Nv.2",
     "level.beginner": "Iniciante",
@@ -104,17 +114,17 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondModal.attestationCount": "Atestados emitidos",
     "score.bondModal.weight": "Peso no SAS",
     "score.bondModal.weightActive": "1× por parcela",
-    "score.bondModal.weightCompleted": "5× (CycleComplete)",
-    "score.bondModal.onchainTitle": "PATH ON-CHAIN",
+    "score.bondModal.weightCompleted": "5× por ciclo completo",
+    "score.bondModal.onchainTitle": "REGISTRO ON-CHAIN",
     "score.bondModal.onchainBody":
-      "{n}× roundfi-core::contribute → roundfi-reputation::mint_attestation. Cada chamada cria uma conta SAS-compatible cuja PDA deriva de (pool, member, schema, nonce).",
+      "Foram {n} parcelas pagas, cada uma com seu atestado SAS individual gravado on-chain. Cada atestado tem identificador único derivado de (grupo, membro, esquema, sequência).",
     "score.bondModal.demoBadge": "MODO DEMO",
     "score.bondModal.demoBody":
-      "Hash da transação Solana ficará disponível quando o indexer entrar (M3 do roadmap).",
+      "O comprovante da transação Solana ficará disponível quando o indexer entrar em produção (próxima fase do roadmap).",
     "score.bondModal.close": "Fechar",
     "score.dataSource.title": "Fonte dos dados",
     "score.dataSource.body":
-      "Score e atestados nesta tela refletem o session reducer do Demo Studio. A infraestrutura SAS on-chain (programa roundfi-reputation) está implantada no devnet — atestações reais são mintadas a cada contribute() pelo CPI. O caminho de leitura on-chain do passport entra com o wiring app↔chain pós-hackathon.",
+      "Os números desta tela refletem o estado simulado do Demo Studio. O sistema SAS de atestados já está rodando no devnet — atestados reais são gerados a cada contribuição. A leitura ao vivo do passaporte direto do contrato entra na próxima fase do produto.",
     "score.dataSource.devnetBadge": "DEVNET · SAS schema implantado",
     "score.dataSource.demoBadge": "DEMO STUDIO · reflexo da sessão local",
     // mercado / secondary market
@@ -166,7 +176,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.savings": "Economia",
     "market.buyModal.demoBadge": "MODO DEMO",
     "market.buyModal.demoBody":
-      "Operação simulada. A liquidação on-chain via roundfi-core::escape_valve_buy entra em devnet no M3 do roadmap.",
+      "Operação simulada. A compra real, liquidada on-chain, entra em devnet na próxima fase do roadmap.",
     "market.buyModal.cancel": "Cancelar",
     "market.buyModal.confirm": "Confirmar compra (demo)",
     "market.buyModal.successTitle": "Compra simulada",
@@ -190,7 +200,7 @@ export const DICT: Record<Lang, Dict> = {
       "Todas as suas cotas já estão listadas. Cancele uma listagem para reabrir.",
     "market.sellList.escapeValveTitle": "Válvula de Escape ativa.",
     "market.sellList.escapeValveBody":
-      "Vender preserva sua reputação SAS. A dívida da cota é quitada na transação. Slashing só ocorre se nenhum comprador aparecer em 7 dias.",
+      "Vender preserva sua reputação SAS. A dívida da cota é quitada na transação. A garantia só é retida se nenhum comprador aparecer em 7 dias.",
     "market.listings.title": "Minhas listagens",
     "market.listings.count": "{n} ativa(s)",
     "market.listings.statusActive": "Ativa",
@@ -200,7 +210,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.listingDetails.windowLabel": "Janela da Válvula de Escape",
     "market.listingDetails.daysRemaining": "{n}/{total} dias restantes",
     "market.listingDetails.windowBody":
-      "Sua cota fica exposta ao mercado pelos 7 dias do whitepaper. Se ninguém comprar, a Válvula expira e o slashing entra em vigor.",
+      "Sua cota fica exposta ao mercado por 7 dias. Se ninguém comprar, a Válvula expira e a garantia passa a ser retida.",
     "market.listingDetails.activity": "Atividade simulada",
     "market.listingDetails.act.view": "{n} arbitradores visualizaram",
     "market.listingDetails.act.watch": "{n} adicionaram à watchlist",
@@ -219,10 +229,10 @@ export const DICT: Record<Lang, Dict> = {
       "Sua dívida com o fundo é quitada automaticamente na liquidação.",
     "market.sellModal.protectionSas": "Reputação SAS preservada — saída limpa, sem flag de calote.",
     "market.sellModal.protectionSlashing":
-      "Sem comprador em {days} dias, slashing automático da garantia entra em cena.",
+      "Sem comprador em {days} dias, sua garantia é retida automaticamente.",
     "market.sellModal.demoBadge": "MODO DEMO",
     "market.sellModal.demoBody":
-      "Listagem simulada. A liquidação on-chain via roundfi-core::escape_valve_list entra em devnet no M3 do roadmap.",
+      "Listagem simulada. A listagem real, registrada on-chain, entra em devnet na próxima fase do roadmap.",
     "market.sellModal.cancel": "Cancelar",
     "market.sellModal.confirm": "Listar cota (demo)",
     "market.sellModal.successTitle": "Cota listada",
@@ -265,15 +275,15 @@ export const DICT: Record<Lang, Dict> = {
     "insights.modal.anticipate.why":
       "Antecipar parcelas é o sinal mais limpo de disciplina financeira. O contrato registra o timestamp do pagamento, e qualquer parcela paga antes da janela de vencimento gera um atestado SAS adicional. O score acelera proporcionalmente.",
     "insights.modal.anticipate.onchain":
-      "roundfi-core::contribute → roundfi-reputation::mint_attestation com kind=Anticipated. Um atestado por parcela antecipada.",
+      "Cada parcela paga antes do vencimento gera um atestado SAS automático. Um atestado por parcela antecipada — o seu histórico fica registrado on-chain.",
     "insights.modal.diversify.why":
       "Cohorts de PME têm dinâmica de payouts diferente das de retail (ciclos mais curtos, valores maiores). Um histórico em mais de um vertical mostra perfil multi-categoria, o que reduz o risco-percebido pelo protocolo.",
     "insights.modal.diversify.onchain":
-      "join_pool em group_kind != atual → mint_attestation com kind=Diversity. Bônus único por vertical novo.",
+      "Entrar em um grupo de uma categoria diferente das que você já participou gera um atestado de diversidade. Bônus único por categoria nova.",
     "insights.modal.complete.why":
       "Completar um ciclo inteiro sem atraso é a maior fonte de pontos no SAS. O atestado CycleComplete é o único que carrega peso 5x — é o que separa Comprovado de Veterano na ladder.",
     "insights.modal.complete.onchain":
-      "Ao final do ciclo, claim_payout do último mês emite um CycleComplete attestation. Esse é o gatilho da transição de nível.",
+      "Quando você recebe o pagamento do último mês do ciclo, é emitido um atestado de ciclo completo. É esse atestado que dispara a subida de nível.",
     // stress lab (M1 of grant roadmap)
     "lab.back": "Voltar à página inicial",
     "lab.title": "Stress Lab",
@@ -944,7 +954,8 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} de {t} conectadas",
     "conn.connected": "conectado",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle": "Integração em modo demo · liquidação on-chain entra no M3 do roadmap.",
+    "conn.demoTitle":
+      "Integração em modo demo · liquidação on-chain entra na próxima fase do roadmap.",
     "conn.disconnected": "desconectado",
     "conn.pending": "pendente",
     "conn.since": "desde {d}",
@@ -1229,76 +1240,131 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.refresh.button": "atualizar",
     "adminops.refresh.auto": "atualiza a cada {s}s · servido há {ago}",
     "adminops.refresh.manual": "atualização manual · servido há {ago}",
-    // ── tooltips (definições compactas; reusam behavioral.ts + ADR 0009) ──
+    // ── tooltips (plain language; reference behaviors, not source files or DB columns) ──
     "adminops.tip.canary.protocolHealth":
-      "Resumo do estado atual: pools indexados, membros, contagem de eventos on-chain.",
+      "Resumo do estado atual: pools indexados, membros e total de eventos registrados na blockchain.",
     "adminops.tip.canary.behavioral":
-      "Métricas derivadas da tabela de eventos com a semântica de behavioral.ts (next_cycle_at + grace de 7d).",
+      "Como os membros estão se comportando: contribuições em dia, atrasos dentro da carência de 7 dias e atrasos que viraram default.",
     "adminops.tip.canary.indexerHealth":
-      "Saúde do indexer: defasagem em slots, últimas execuções e eventos não resolvidos.",
+      "Saúde do indexer: quanto está atrasado em relação à blockchain, últimas execuções e eventos pendentes de reconexão.",
     "adminops.tip.card.pools": "Total de pools indexados (qualquer status).",
-    "adminops.tip.card.atRisk": "Pools com ≥1 evento Default após settle_default.",
+    "adminops.tip.card.atRisk": "Pools que tiveram pelo menos um default registrado.",
     "adminops.tip.card.users":
-      "Wallets distintos com pelo menos uma Member account no indexer (identidade = wallet).",
+      "Wallets distintas que já participaram de pelo menos um pool (identidade = wallet).",
     "adminops.tip.card.events":
-      "Eventos normalizados na tabela (Contribute, Claim, Default), únicos por (txSig, eventType).",
+      "Total de eventos registrados: contribuições, retiradas e defaults. Cada transação on-chain aparece uma vez.",
     "adminops.tip.card.onTime":
-      "Contribuições pagas até next_cycle_at (delta ≤ 0 em behavioral.ts) sobre o total de contribuições com prazo.",
+      "Percentual de contribuições pagas até a data prevista de cada ciclo.",
     "adminops.tip.card.late":
-      "Contribuições pagas depois de next_cycle_at — dentro da grace de 7d ou já atrasadas.",
+      "Contribuições pagas depois da data prevista — dentro da carência de 7 dias ou já em atraso.",
     "adminops.tip.card.avgDelay":
-      "Média do delay (on_chain_ts − next_cycle_at) das contribuições pagas com atraso.",
-    "adminops.tip.card.defaults": "Eventos Default emitidos via settle_default.",
+      "Quanto tempo, em média, as contribuições atrasadas demoraram além da data prevista.",
+    "adminops.tip.card.defaults": "Quantidade de defaults resolvidos pelo protocolo.",
     "adminops.tip.card.lag":
-      "Diferença em slots entre o slot atual do RPC e o último processado pelo indexer.",
+      "Quanto o indexer está atrasado em relação ao último bloco produzido na blockchain.",
     "adminops.tip.card.lastUpdate":
-      "Quando o webhook/poller do indexer avançou o cursor pela última vez.",
-    "adminops.tip.card.backfill": "Status e início da última execução de backfill.",
+      "Quando o indexer registrou o último avanço de leitura da blockchain.",
+    "adminops.tip.card.backfill": "Status e horário da última execução de backfill.",
     "adminops.tip.card.projection":
-      "Quantidade de eventos derivados (com behavioral.ts) após o último rebuild.",
+      "Quantidade de eventos comportamentais reprocessados desde a última atualização.",
     "adminops.tip.card.unresolved":
-      "Eventos cuja FK ficou nula no ingest (Pool/Member ainda não viam no banco). São re-resolvidos no próximo rebuild.",
+      "Eventos cujo pool ou membro ainda não tinha sido visto pelo indexer quando chegaram. A próxima atualização reconecta automaticamente.",
     "adminops.tip.card.orphaned":
-      "Eventos sem Pool/Member correspondente no banco — investigar antes de exportar para crédito.",
-    "adminops.tip.pools.title": "Pools indexados com cycle, membros e contadores estruturais.",
+      "Eventos sem pool ou membro correspondente — investigar antes de usar em análises de crédito.",
+    "adminops.tip.pools.title":
+      "Pools indexados com seus ciclos, membros e indicadores estruturais.",
     "adminops.tip.users.title":
-      "Wallets distintos com Member account; métricas derivadas de behavioral.ts.",
+      "Wallets que já participaram de pelo menos um pool, com suas métricas de comportamento.",
     "adminops.tip.events.title":
-      "Black-box recorder: todos os eventos normalizados (filtros + exportação auditada).",
+      "Registro completo de eventos do protocolo — com filtros e exportação auditável.",
     "adminops.tip.economy.capital":
-      "Σ on-chain por categoria de vault/pool (display em USDC, base units preservados).",
-    "adminops.tip.economy.risk": "Eventos de Default e cobertura (colateral apreendido).",
+      "Soma do capital movimentado pelo protocolo, agrupada por tipo de vault (valores em USDC).",
+    "adminops.tip.economy.risk": "Defaults registrados e colateral recolhido como cobertura.",
     "adminops.tip.economy.moat":
-      "Sinais comportamentais: nível de reputação, on-time agregado e retenção.",
+      "Sinais comportamentais do portfólio: nível de reputação, taxa de pagamento em dia e retenção entre pools.",
     "adminops.tip.economy.health":
-      "Saúde estrutural do portfólio (distribuição por status e conclusão).",
+      "Saúde estrutural do portfólio: distribuição dos pools por status e taxa de conclusão.",
     "adminops.tip.eco.committedCredit":
-      "Σ pool.credit_amount: capacidade de crédito comprometida pelo protocolo.",
+      "Soma do crédito comprometido pelo protocolo em todos os pools ativos.",
     "adminops.tip.eco.custodied":
-      "Soma dos vaults custodiados (solidariedade + escrow + garantia) no snapshot do indexer.",
-    "adminops.tip.eco.contributed":
-      "Σ on-chain de contribuições totalizadas pelo indexer (apenas valor pago).",
-    "adminops.tip.eco.paidOut": "Σ on-chain de pagamentos/Claim distribuídos aos membros.",
+      "Soma do que está sob custódia do protocolo: fundos de solidariedade, escrow e garantia.",
+    "adminops.tip.eco.contributed": "Soma de tudo que os membros já contribuíram nos pools.",
+    "adminops.tip.eco.paidOut": "Soma de tudo que já foi pago aos membros como sorteio.",
     "adminops.tip.eco.yield":
-      "Yield acumulado pelo adapter — mock no devnet, Kamino no mainnet (ADR 0009).",
-    "adminops.tip.eco.fees": "Taxa de protocolo coletada (direcionada ao treasury).",
+      "Rendimento acumulado pelo capital custodiado — simulado no devnet, real (via Kamino) no mainnet.",
+    "adminops.tip.eco.fees": "Taxa do protocolo arrecadada e direcionada ao tesouro.",
     "adminops.tip.eco.guaranteeFund":
-      "Vault de garantia (cobertura adicional além do colateral por membro).",
+      "Fundo de garantia: cobertura adicional do protocolo, além do colateral individual.",
     "adminops.tip.eco.solidarity":
-      "Vault de solidariedade (fundo coletivo do pool para cobrir default eligível).",
+      "Fundo de solidariedade do pool — usado para cobrir defaults elegíveis.",
     "adminops.tip.eco.defaultRate":
-      "Membros marcados defaulted / total de members. Inclui devnet — leia o banner.",
+      "Membros que entraram em default sobre o total de membros. Inclui devnet — confira o aviso acima.",
     "adminops.tip.eco.seized":
-      "Σ de colateral apreendido em settle_default: cobertura, não perda do protocolo.",
-    "adminops.tip.eco.defaultEvents": "Contagem de eventos Default na tabela.",
+      "Soma do colateral retido em defaults — é cobertura para os outros membros, não prejuízo do protocolo.",
+    "adminops.tip.eco.defaultEvents": "Número total de defaults registrados.",
     "adminops.tip.eco.levelDist":
-      "Distribuição de wallets distintos por nível on-chain do ReputationProfile (L1/L2/L3).",
-    "adminops.tip.eco.onTimeAgg":
-      "Razão agregada de contribuições on-time (delta ≤ 0) sobre o total com prazo.",
+      "Quantos wallets distintos estão em cada nível de reputação (L1, L2, L3).",
+    "adminops.tip.eco.onTimeAgg": "Percentual de contribuições pagas em dia em todo o portfólio.",
     "adminops.tip.eco.retention":
-      "Wallets que participaram de 2+ pools / wallets distintos indexados.",
+      "Percentual de wallets que voltaram para um segundo pool ou mais.",
     "adminops.tip.eco.completion":
-      "Pools com status Completed / total — sucesso estrutural do portfólio.",
+      "Percentual de pools que chegaram ao fim do ciclo — indica sucesso estrutural do portfólio.",
+    // ── insights v0 (ADR 0010) ──────────────────────────────────
+    "adminops.nav.insights": "Insights",
+    "adminops.insights.err": "Não consegui carregar Insights ({err}).",
+    "adminops.insights.banner":
+      "devnet · sem volume estatístico — instrumentação pronta, números reais com tráfego.",
+    "adminops.insights.status.insufficient": "amostra insuficiente",
+    "adminops.insights.status.preliminary": "preliminar",
+    "adminops.insights.status.significant": "significativo",
+    "adminops.insights.progress": "{n} / {t} amostras",
+    "adminops.insights.ci95": "IC 95%:",
+    "adminops.insights.nMembers": "{n} membros",
+    "adminops.insights.nWallets": "{n} wallets",
+    "adminops.insights.completed": "Conclusão",
+    "adminops.insights.defaulted": "Default",
+    "adminops.insights.withFeature": "Com a feature (n={n})",
+    "adminops.insights.withoutFeature": "Sem a feature (n={n})",
+    "adminops.insights.withFeatureLegend": "Com a feature",
+    "adminops.insights.withoutFeatureLegend": "Sem a feature",
+    "adminops.insights.baseline": "baseline (geral)",
+    "adminops.insights.onTimeAxis": "Em-dia (%)",
+    // — retention —
+    "adminops.insights.retention.title": "Retenção por nível (moat)",
+    "adminops.insights.insufficient.retention":
+      "Cada cohort L1/L2/L3 precisa de ≥30 membros antes de renderizar. Devnet não bate; mainnet vai.",
+    // — predictor —
+    "adminops.insights.predictor.title": "Preditor de default — comparação por feature",
+    "adminops.insights.insufficient.predictor":
+      "Preditor exige ≥100 wallets distintos. Abaixo desse N, qualquer correlação é ruído — por isso só mostramos o progresso.",
+    "adminops.insights.feature.late_gte_1": "≥1 contribuição atrasada",
+    "adminops.insights.feature.grace_used_gte_1": "≥1 uso de grace",
+    "adminops.insights.feature.late_gte_2": "≥2 contribuições atrasadas",
+    // — progression —
+    "adminops.insights.progression.title": "Progressão L1 → L2 → L3",
+    "adminops.insights.insufficient.progression":
+      "Progressão exige ≥50 wallets com pelo menos 1 pool concluído. Mostra os números reais só após o threshold.",
+    "adminops.insights.reachedL2": "Atingiu L2",
+    "adminops.insights.reachedL3": "Atingiu L3",
+    "adminops.insights.avgPoolsToL2": "Pools médias até L2",
+    "adminops.insights.avgPoolsToL3": "Pools médias até L3",
+    "adminops.insights.poolsMean": "média (1 casa decimal)",
+    // — improvement —
+    "adminops.insights.improvement.title": "Melhoria comportamental — em-dia por pool ordinal",
+    "adminops.insights.insufficient.improvement":
+      "Melhoria exige ≥30 wallets com 3+ pools participados. Sem isso, comparar pools 1 vs 3 é só ruído.",
+    "adminops.insights.ordinal.1": "1º pool",
+    "adminops.insights.ordinal.2": "2º pool",
+    "adminops.insights.ordinal.3plus": "3º pool em diante",
+    // — tooltips for sections —
+    "adminops.tip.insights.retention":
+      "Para cada nível de reputação (L1, L2, L3): quantos membros concluíram o pool em dia e quantos deram default. Mostra os números só quando o nível tem pelo menos 30 membros.",
+    "adminops.tip.insights.predictor":
+      "Verifica se comportamentos passados — atrasar uma contribuição, usar carência — aumentam a chance de default. As três comparações foram fixadas antes de olhar os dados (não é modelo, não é descoberta posterior).",
+    "adminops.tip.insights.progression":
+      "Entre as wallets que já concluíram pelo menos um pool: que porcentagem subiu para L2 e L3, e quantos pools em média foram necessários para cada subida.",
+    "adminops.tip.insights.improvement":
+      "Entre as wallets que participaram de pelo menos três pools: que porcentagem das contribuições saiu em dia no primeiro pool, no segundo, e do terceiro em diante. Indica se há aprendizado com a experiência.",
   },
   en: {
     "nav.home": "Home",
@@ -1352,6 +1418,16 @@ export const DICT: Record<Lang, Dict> = {
     "home.shield.tile3.title": "Vault + Yield",
     "home.shield.tile3.desc": "1% vault + 6.8% APY Kamino",
     "home.activity": "◆ Recent activity",
+    // devnet showcase tiles (live on-chain pools)
+    "home.devnet.pool1.label": "Pool 1 · 3 members · Completed",
+    "home.devnet.pool1.headline":
+      "Full lifecycle from start to finish: contributions, payouts, escrow release, and close.",
+    "home.devnet.pool2.label": "Pool 2 · 3 members · 1h cycle · Active",
+    "home.devnet.pool2.headline":
+      "Cycles running in production with automatic deposits into the yield vault and a share listed for sale.",
+    "home.devnet.pool3.label": "Pool 3 · 3 members · 60s grace · Default",
+    "home.devnet.pool3.headline":
+      "Protection mechanisms in action: default resolved by seizing the delinquent member's collateral.",
     "level.proven": "PROVEN Lv.2",
     "level.beginner": "Beginner",
     "level.provenName": "Proven",
@@ -1387,17 +1463,17 @@ export const DICT: Record<Lang, Dict> = {
     "score.bondModal.attestationCount": "Attestations minted",
     "score.bondModal.weight": "SAS weight",
     "score.bondModal.weightActive": "1× per installment",
-    "score.bondModal.weightCompleted": "5× (CycleComplete)",
-    "score.bondModal.onchainTitle": "ON-CHAIN PATH",
+    "score.bondModal.weightCompleted": "5× per completed cycle",
+    "score.bondModal.onchainTitle": "ON-CHAIN RECORD",
     "score.bondModal.onchainBody":
-      "{n}× roundfi-core::contribute → roundfi-reputation::mint_attestation. Each call creates an SAS-compatible account whose PDA derives from (pool, member, schema, nonce).",
+      "{n} installments paid, each with its own SAS attestation recorded on chain. Every attestation has a unique identifier derived from (group, member, schema, sequence).",
     "score.bondModal.demoBadge": "DEMO MODE",
     "score.bondModal.demoBody":
-      "Solana transaction hash will be available once the indexer ships (M3 of the roadmap).",
+      "The Solana transaction receipt will be available once the indexer ships in production (next roadmap phase).",
     "score.bondModal.close": "Close",
     "score.dataSource.title": "Data source",
     "score.dataSource.body":
-      "Score and attestation data on this screen reflect the Demo Studio session reducer. On-chain SAS infrastructure (roundfi-reputation program) is deployed on devnet — real attestations are minted on every contribute() via CPI. The on-chain read path for this passport lands with the app↔chain wiring post-hackathon.",
+      "The numbers on this screen reflect the simulated Demo Studio state. The SAS attestation system is already running on devnet — real attestations are generated on every contribution. Live on-chain passport reads land in the next product phase.",
     "score.dataSource.devnetBadge": "DEVNET · SAS schema deployed",
     "score.dataSource.demoBadge": "DEMO STUDIO · local session reflection",
     // mercado / secondary market
@@ -1448,7 +1524,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.savings": "Savings",
     "market.buyModal.demoBadge": "DEMO MODE",
     "market.buyModal.demoBody":
-      "Simulated action. On-chain settlement via roundfi-core::escape_valve_buy ships on devnet at M3 of the roadmap.",
+      "Simulated action. The real, on-chain-settled purchase ships on devnet in the next roadmap phase.",
     "market.buyModal.cancel": "Cancel",
     "market.buyModal.confirm": "Confirm purchase (demo)",
     "market.buyModal.successTitle": "Simulated purchase",
@@ -1471,7 +1547,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.sellList.allListed": "All your shares are listed. Cancel a listing to free one up.",
     "market.sellList.escapeValveTitle": "Escape Valve active.",
     "market.sellList.escapeValveBody":
-      "Selling preserves your SAS reputation. The position's debt is settled in the same tx. Slashing only kicks in if no buyer is found in 7 days.",
+      "Selling preserves your SAS reputation. The position's debt is settled in the same transaction. Your collateral is only seized if no buyer shows up within 7 days.",
     "market.listings.title": "My listings",
     "market.listings.count": "{n} active",
     "market.listings.statusActive": "Active",
@@ -1481,7 +1557,7 @@ export const DICT: Record<Lang, Dict> = {
     "market.listingDetails.windowLabel": "Escape Valve window",
     "market.listingDetails.daysRemaining": "{n}/{total} days remaining",
     "market.listingDetails.windowBody":
-      "Your share is exposed to the market for the whitepaper's 7-day window. If no buyer is found, the Valve expires and slashing kicks in.",
+      "Your share is exposed to the market for 7 days. If no buyer shows up, the Valve expires and your collateral starts to be seized.",
     "market.listingDetails.activity": "Simulated activity",
     "market.listingDetails.act.view": "{n} arbitrageurs viewed",
     "market.listingDetails.act.watch": "{n} added to watchlist",
@@ -1498,10 +1574,10 @@ export const DICT: Record<Lang, Dict> = {
     "market.sellModal.protectionDebt": "Your debt to the pool is settled automatically on closing.",
     "market.sellModal.protectionSas": "SAS reputation preserved — clean exit, no default flag.",
     "market.sellModal.protectionSlashing":
-      "No buyer in {days} days → automatic slashing of the collateral.",
+      "No buyer in {days} days → your collateral is seized automatically.",
     "market.sellModal.demoBadge": "DEMO MODE",
     "market.sellModal.demoBody":
-      "Simulated listing. On-chain settlement via roundfi-core::escape_valve_list ships on devnet at M3 of the roadmap.",
+      "Simulated listing. The real, on-chain-recorded listing ships on devnet in the next roadmap phase.",
     "market.sellModal.cancel": "Cancel",
     "market.sellModal.confirm": "List share (demo)",
     "market.sellModal.successTitle": "Share listed",
@@ -1544,15 +1620,15 @@ export const DICT: Record<Lang, Dict> = {
     "insights.modal.anticipate.why":
       "Anticipating installments is the cleanest signal of financial discipline. The contract logs the payment timestamp, and any installment paid before its due window mints an extra SAS attestation. Score accelerates proportionally.",
     "insights.modal.anticipate.onchain":
-      "roundfi-core::contribute → roundfi-reputation::mint_attestation with kind=Anticipated. One attestation per anticipated installment.",
+      "Every installment paid before its due date triggers an automatic SAS attestation. One attestation per anticipated installment — your record stays on chain.",
     "insights.modal.diversify.why":
       "SME cohorts have different payout dynamics than retail (shorter cycles, larger amounts). A track record across multiple verticals signals a multi-category profile, which lowers protocol-perceived risk.",
     "insights.modal.diversify.onchain":
-      "join_pool with group_kind != current → mint_attestation with kind=Diversity. One-time bonus per new vertical.",
+      "Joining a group in a category you haven't been part of yet mints a diversity attestation. One-time bonus per new category.",
     "insights.modal.complete.why":
       "Completing a full cycle without delay is the largest single point source in SAS. The CycleComplete attestation is the only one with 5x weight — it's what separates Proven from Veteran on the ladder.",
     "insights.modal.complete.onchain":
-      "At cycle end, the final claim_payout emits a CycleComplete attestation. That's the level-transition trigger.",
+      "When you receive the last month's payout of a cycle, a cycle-complete attestation is minted. That's the attestation that triggers the level transition.",
     // stress lab
     "lab.back": "Back to landing",
     "lab.title": "Stress Lab",
@@ -2215,7 +2291,8 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} of {t} connected",
     "conn.connected": "connected",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle": "Integration in demo mode · on-chain settlement ships at M3 of the roadmap.",
+    "conn.demoTitle":
+      "Integration in demo mode · on-chain settlement ships in the next roadmap phase.",
     "conn.disconnected": "disconnected",
     "conn.pending": "pending",
     "conn.since": "since {d}",
@@ -2491,74 +2568,127 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.refresh.button": "refresh",
     "adminops.refresh.auto": "refreshes every {s}s · served {ago} ago",
     "adminops.refresh.manual": "manual refresh · served {ago} ago",
-    // ── tooltips (compact definitions; reuse behavioral.ts + ADR 0009) ──
+    // ── tooltips (plain language; reference behaviors, not source files or DB columns) ──
     "adminops.tip.canary.protocolHealth":
-      "Snapshot of the current state: indexed pools, members, on-chain event counts.",
+      "Snapshot of the current state: indexed pools, members and total on-chain events.",
     "adminops.tip.canary.behavioral":
-      "Metrics derived from the events table using behavioral.ts semantics (next_cycle_at + 7d grace).",
+      "How members are behaving: on-time contributions, late payments within the 7-day grace period, and lateness that turned into default.",
     "adminops.tip.canary.indexerHealth":
-      "Indexer health: slot lag, last runs, unresolved event counters.",
+      "Indexer health: how far behind the chain it is, last runs, and events waiting to be reconnected.",
     "adminops.tip.card.pools": "Total indexed pools (any status).",
-    "adminops.tip.card.atRisk": "Pools with ≥1 Default event after settle_default.",
+    "adminops.tip.card.atRisk": "Pools that have had at least one default recorded.",
     "adminops.tip.card.users":
-      "Distinct wallets with at least one Member account indexed (identity = wallet).",
+      "Distinct wallets that have joined at least one pool (identity = wallet).",
     "adminops.tip.card.events":
-      "Normalized events in the table (Contribute, Claim, Default), unique by (txSig, eventType).",
-    "adminops.tip.card.onTime":
-      "Contributions paid by next_cycle_at (delta ≤ 0 in behavioral.ts) over total timed contributions.",
+      "Total events recorded: contributions, payouts and defaults. Each on-chain transaction appears once.",
+    "adminops.tip.card.onTime": "Share of contributions paid by each cycle's due date.",
     "adminops.tip.card.late":
-      "Contributions paid after next_cycle_at — within the 7d grace or already late.",
+      "Contributions paid after the due date — within the 7-day grace period or already late.",
     "adminops.tip.card.avgDelay":
-      "Mean delay (on_chain_ts − next_cycle_at) across late contributions.",
-    "adminops.tip.card.defaults": "Default events emitted via settle_default.",
-    "adminops.tip.card.lag":
-      "Difference in slots between the current RPC slot and the indexer's last processed slot.",
-    "adminops.tip.card.lastUpdate": "When the webhook/poller last advanced the indexer cursor.",
+      "How long, on average, late contributions took beyond the due date.",
+    "adminops.tip.card.defaults": "Number of defaults resolved by the protocol.",
+    "adminops.tip.card.lag": "How far the indexer is behind the latest block produced on chain.",
+    "adminops.tip.card.lastUpdate":
+      "When the indexer last advanced its read position on the chain.",
     "adminops.tip.card.backfill": "Status and start time of the last backfill run.",
     "adminops.tip.card.projection":
-      "Count of derived events (via behavioral.ts) after the most recent rebuild.",
+      "Count of behavioral events reprocessed since the last refresh.",
     "adminops.tip.card.unresolved":
-      "Events whose FK was null at ingest (Pool/Member not yet known). Re-resolved on the next rebuild.",
+      "Events whose pool or member had not been seen by the indexer yet when they arrived. The next refresh reconnects them automatically.",
     "adminops.tip.card.orphaned":
-      "Events without a matching Pool/Member in the DB — investigate before exporting credit data.",
-    "adminops.tip.pools.title": "Indexed pools with cycle, members and structural counters.",
+      "Events without a matching pool or member — investigate before using in credit analysis.",
+    "adminops.tip.pools.title":
+      "Indexed pools with their cycles, members and structural indicators.",
     "adminops.tip.users.title":
-      "Distinct wallets with a Member account; metrics derived from behavioral.ts.",
+      "Wallets that have joined at least one pool, with their behavioral metrics.",
     "adminops.tip.events.title":
-      "Black-box recorder: every normalized event (filterable + audited export).",
+      "Complete record of protocol events — with filters and auditable export.",
     "adminops.tip.economy.capital":
-      "Σ on-chain by vault/pool category (USDC display; base units preserved).",
-    "adminops.tip.economy.risk": "Default events and coverage (seized collateral).",
+      "Sum of capital moved by the protocol, grouped by vault type (values in USDC).",
+    "adminops.tip.economy.risk": "Recorded defaults and collateral seized as coverage.",
     "adminops.tip.economy.moat":
-      "Behavioral signals: reputation level, aggregate on-time and retention.",
+      "Behavioral signals across the portfolio: reputation level, on-time payment rate and retention across pools.",
     "adminops.tip.economy.health":
-      "Structural portfolio health (status distribution and completion).",
+      "Structural portfolio health: pool distribution by status and completion rate.",
     "adminops.tip.eco.committedCredit":
-      "Σ pool.credit_amount: credit capacity committed by the protocol.",
+      "Sum of credit committed by the protocol across all active pools.",
     "adminops.tip.eco.custodied":
-      "Sum of custodied vaults (solidarity + escrow + guarantee) in the indexer snapshot.",
-    "adminops.tip.eco.contributed":
-      "On-chain Σ of contributions totalled by the indexer (paid amount only).",
-    "adminops.tip.eco.paidOut": "On-chain Σ of Claim payouts distributed to members.",
+      "Sum of what's under protocol custody: solidarity, escrow and guarantee funds.",
+    "adminops.tip.eco.contributed": "Sum of everything members have contributed across all pools.",
+    "adminops.tip.eco.paidOut": "Sum of everything paid out to members as draws.",
     "adminops.tip.eco.yield":
-      "Yield accrued by the adapter — mock on devnet, Kamino on mainnet (ADR 0009).",
-    "adminops.tip.eco.fees": "Protocol fees collected (routed to the treasury).",
+      "Yield accrued on custodied capital — simulated on devnet, real (via Kamino) on mainnet.",
+    "adminops.tip.eco.fees": "Protocol fees collected and routed to the treasury.",
     "adminops.tip.eco.guaranteeFund":
-      "Guarantee vault (extra coverage beyond per-member collateral).",
-    "adminops.tip.eco.solidarity":
-      "Solidarity vault (pool-level collective fund used to cover eligible defaults).",
+      "Guarantee fund: extra protocol-level coverage beyond per-member collateral.",
+    "adminops.tip.eco.solidarity": "Pool's solidarity fund — used to cover eligible defaults.",
     "adminops.tip.eco.defaultRate":
-      "Members marked defaulted / total members. Includes devnet — read the banner.",
+      "Members who defaulted over total members. Includes devnet — see the banner above.",
     "adminops.tip.eco.seized":
-      "Σ collateral seized in settle_default: coverage, not protocol loss.",
-    "adminops.tip.eco.defaultEvents": "Count of Default events in the table.",
+      "Sum of collateral retained on defaults — coverage for the other members, not a protocol loss.",
+    "adminops.tip.eco.defaultEvents": "Total number of recorded defaults.",
     "adminops.tip.eco.levelDist":
-      "Distinct-wallet distribution by on-chain ReputationProfile level (L1/L2/L3).",
+      "How many distinct wallets are at each reputation tier (L1, L2, L3).",
     "adminops.tip.eco.onTimeAgg":
-      "Aggregate ratio of on-time contributions (delta ≤ 0) over total timed.",
-    "adminops.tip.eco.retention":
-      "Wallets that participated in 2+ pools / total distinct wallets indexed.",
+      "Share of contributions paid on time across the entire portfolio.",
+    "adminops.tip.eco.retention": "Share of wallets that returned for a second pool or more.",
     "adminops.tip.eco.completion":
-      "Pools with status Completed / total — structural portfolio success.",
+      "Share of pools that reached the end of the cycle — a signal of structural portfolio success.",
+    // ── insights v0 (ADR 0010) ──────────────────────────────────
+    "adminops.nav.insights": "Insights",
+    "adminops.insights.err": "Could not load Insights ({err}).",
+    "adminops.insights.banner":
+      "devnet · no statistical volume — instrumentation ready, real numbers with traffic.",
+    "adminops.insights.status.insufficient": "insufficient sample",
+    "adminops.insights.status.preliminary": "preliminary",
+    "adminops.insights.status.significant": "significant",
+    "adminops.insights.progress": "{n} / {t} samples",
+    "adminops.insights.ci95": "95% CI:",
+    "adminops.insights.nMembers": "{n} members",
+    "adminops.insights.nWallets": "{n} wallets",
+    "adminops.insights.completed": "Completion",
+    "adminops.insights.defaulted": "Default",
+    "adminops.insights.withFeature": "With feature (n={n})",
+    "adminops.insights.withoutFeature": "Without feature (n={n})",
+    "adminops.insights.withFeatureLegend": "With feature",
+    "adminops.insights.withoutFeatureLegend": "Without feature",
+    "adminops.insights.baseline": "baseline (overall)",
+    "adminops.insights.onTimeAxis": "On-time (%)",
+    // — retention —
+    "adminops.insights.retention.title": "Retention by level (moat)",
+    "adminops.insights.insufficient.retention":
+      "Each L1/L2/L3 cohort needs ≥30 members before rendering. Devnet does not clear; mainnet will.",
+    // — predictor —
+    "adminops.insights.predictor.title": "Default predictor — cohort comparison",
+    "adminops.insights.insufficient.predictor":
+      "Predictor requires ≥100 distinct wallets. Below that N, any correlation is noise — so we only render the progress bar.",
+    "adminops.insights.feature.late_gte_1": "≥1 late contribution",
+    "adminops.insights.feature.grace_used_gte_1": "≥1 grace used",
+    "adminops.insights.feature.late_gte_2": "≥2 late contributions",
+    // — progression —
+    "adminops.insights.progression.title": "Progression L1 → L2 → L3",
+    "adminops.insights.insufficient.progression":
+      "Progression requires ≥50 wallets with at least 1 completed pool. Numbers render only past the threshold.",
+    "adminops.insights.reachedL2": "Reached L2",
+    "adminops.insights.reachedL3": "Reached L3",
+    "adminops.insights.avgPoolsToL2": "Mean pools to L2",
+    "adminops.insights.avgPoolsToL3": "Mean pools to L3",
+    "adminops.insights.poolsMean": "mean (1 decimal)",
+    // — improvement —
+    "adminops.insights.improvement.title": "Behavioral improvement — on-time by pool ordinal",
+    "adminops.insights.insufficient.improvement":
+      "Improvement requires ≥30 wallets with 3+ pool memberships. Without it, comparing pool 1 vs 3 is noise.",
+    "adminops.insights.ordinal.1": "1st pool",
+    "adminops.insights.ordinal.2": "2nd pool",
+    "adminops.insights.ordinal.3plus": "3rd pool onward",
+    // — tooltips for sections —
+    "adminops.tip.insights.retention":
+      "For each reputation tier (L1, L2, L3): how many members finished the pool on time and how many defaulted. Renders the numbers only once a tier has at least 30 members.",
+    "adminops.tip.insights.predictor":
+      "Checks whether past behaviors — paying late, using a grace period — raise the chance of default. The three comparisons were fixed before looking at the data (no ML model, no post-hoc discovery).",
+    "adminops.tip.insights.progression":
+      "Among wallets that have completed at least one pool: what share moved up to L2 and L3, and on average how many pools it took to reach each tier.",
+    "adminops.tip.insights.improvement":
+      "Among wallets that joined at least three pools: what share of contributions was on time in the 1st pool, the 2nd, and from the 3rd onward. Signals whether there's learning from experience.",
   },
 };
