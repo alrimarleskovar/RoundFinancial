@@ -37,6 +37,18 @@ fi
 echo "→ cargo fetch (materialize anchor-syn-0.30.1 src for the patch below)"
 cargo fetch --locked 2>/dev/null || cargo fetch 2>/dev/null || true
 
+# Cargo hashes the registry URL into the directory name under
+# ~/.cargo/registry/src/. `cargo install --git anchor-cli` extracts to one
+# host hash; `anchor idl build` in this workspace uses the sparse-registry
+# hash (different). Patching only the dirs visible right now misses the
+# one `anchor idl build` will create on first invocation. Force that
+# extraction up front via a deliberately-failing first IDL build (the
+# #319 source_file() error trips, we ignore it) so the patch script
+# sees the canonical sparse-registry dir and patches it before the real
+# build calls run.
+echo "→ priming sparse-registry extraction (expected to fail with #319)"
+anchor idl build --program-name roundfi_core -o /dev/null >/dev/null 2>&1 || true
+
 bash "$(dirname "$0")/patch-anchor-syn-319.sh"
 
 mkdir -p target/idl
