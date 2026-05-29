@@ -19,30 +19,32 @@
 
 import { expect } from "chai";
 
-import {
-  __resetRateLimitForTest,
-  checkRateLimit,
-  clientKeyFromRequest,
-} from "../app/src/lib/admin/rateLimit.js";
+import { slidingWindowDecision, clientKeyFromRequest } from "../app/src/lib/admin/rateLimit.js";
+import { __resetInMemoryStoresForTest } from "../app/src/lib/admin/sharedStore.js";
 
-describe("rate limit — pure fn", () => {
-  beforeEach(() => __resetRateLimitForTest());
+describe("rate limit — sliding-window decision (pure fn)", () => {
+  // The pure decision threads state explicitly: each call returns
+  // `nextTimestamps`, which the caller persists and passes to the next
+  // call. This mirrors exactly what the store does.
 
   it("allows up to `max` requests in the window", () => {
     const t0 = 1_000_000;
+    let ts: number[] = [];
     for (let i = 0; i < 5; i++) {
-      const r = checkRateLimit({ key: "k", windowMs: 60_000, max: 5, now: t0 + i });
+      const r = slidingWindowDecision(ts, 60_000, 5, t0 + i);
       expect(r.ok, `req ${i}`).to.equal(true);
       expect(r.remaining).to.equal(4 - i);
+      ts = r.nextTimestamps;
     }
   });
 
   it("rejects the (max+1)-th request and reports retryAfterMs", () => {
     const t0 = 1_000_000;
+    let ts: number[] = [];
     for (let i = 0; i < 5; i++) {
-      checkRateLimit({ key: "k", windowMs: 60_000, max: 5, now: t0 + i });
+      ts = slidingWindowDecision(ts, 60_000, 5, t0 + i).nextTimestamps;
     }
-    const r = checkRateLimit({ key: "k", windowMs: 60_000, max: 5, now: t0 + 10 });
+    const r = slidingWindowDecision(ts, 60_000, 5, t0 + 10);
     expect(r.ok).to.equal(false);
     // Oldest entry was at t0 + 0; window expires at t0 + 60_000; we're
     // querying at t0 + 10 → retryAfterMs = 60_000 - 10 = 59_990.
@@ -52,40 +54,37 @@ describe("rate limit — pure fn", () => {
 
   it("allows again once the oldest entry falls out of the window", () => {
     const t0 = 1_000_000;
-    checkRateLimit({ key: "k", windowMs: 1000, max: 1, now: t0 });
-    const blocked = checkRateLimit({ key: "k", windowMs: 1000, max: 1, now: t0 + 500 });
+    let ts = slidingWindowDecision([], 1000, 1, t0).nextTimestamps;
+    const blocked = slidingWindowDecision(ts, 1000, 1, t0 + 500);
     expect(blocked.ok).to.equal(false);
-    const allowed = checkRateLimit({ key: "k", windowMs: 1000, max: 1, now: t0 + 1001 });
+    ts = blocked.nextTimestamps;
+    const allowed = slidingWindowDecision(ts, 1000, 1, t0 + 1001);
     expect(allowed.ok).to.equal(true);
   });
 
-  it("isolates buckets by key", () => {
+  it("isolates state by caller (the store keys; the fn is stateless)", () => {
     const t0 = 1_000_000;
-    for (let i = 0; i < 3; i++) {
-      checkRateLimit({ key: "a", windowMs: 60_000, max: 3, now: t0 + i });
-    }
-    const aBlocked = checkRateLimit({ key: "a", windowMs: 60_000, max: 3, now: t0 + 10 });
-    expect(aBlocked.ok).to.equal(false);
-    const bAllowed = checkRateLimit({ key: "b", windowMs: 60_000, max: 3, now: t0 + 10 });
-    expect(bAllowed.ok).to.equal(true);
+    let a: number[] = [];
+    for (let i = 0; i < 3; i++) a = slidingWindowDecision(a, 60_000, 3, t0 + i).nextTimestamps;
+    expect(slidingWindowDecision(a, 60_000, 3, t0 + 10).ok).to.equal(false);
+    // A fresh (different-key) timestamp list is unaffected.
+    expect(slidingWindowDecision([], 60_000, 3, t0 + 10).ok).to.equal(true);
   });
 
   it("does not grow unboundedly across windows (expired entries are dropped)", () => {
     const t0 = 1_000_000;
-    // Burn the window, advance past it, burn again — internal log must
-    // hold at most `max` entries after the second burn.
+    let ts: number[] = [];
+    for (let i = 0; i < 5; i++) ts = slidingWindowDecision(ts, 1000, 5, t0 + i).nextTimestamps;
+    // Window fully expired — five fresh accepts.
     for (let i = 0; i < 5; i++) {
-      checkRateLimit({ key: "k", windowMs: 1000, max: 5, now: t0 + i });
-    }
-    // Window fully expired.
-    for (let i = 0; i < 5; i++) {
-      const r = checkRateLimit({ key: "k", windowMs: 1000, max: 5, now: t0 + 2000 + i });
+      const r = slidingWindowDecision(ts, 1000, 5, t0 + 2000 + i);
       expect(r.ok, `second burn req ${i}`).to.equal(true);
+      ts = r.nextTimestamps;
     }
-    // A 6th request inside the SECOND window must still be blocked,
-    // proving the trim retained only the second-window entries.
-    const blocked = checkRateLimit({ key: "k", windowMs: 1000, max: 5, now: t0 + 2010 });
-    expect(blocked.ok).to.equal(false);
+    // The persisted log holds only the SECOND window's entries, so a
+    // 6th inside it is blocked — proves the trim dropped the stale ones.
+    expect(ts.length).to.equal(5);
+    expect(slidingWindowDecision(ts, 1000, 5, t0 + 2010).ok).to.equal(false);
   });
 });
 
@@ -142,7 +141,7 @@ describe("admin auth routes — HTTP rate limit", () => {
     verifyRoute = await import("../app/src/app/api/admin/auth/verify/route.js");
   });
 
-  beforeEach(() => __resetRateLimitForTest());
+  beforeEach(() => __resetInMemoryStoresForTest());
 
   function makeReq(url: string, body: unknown, ip: string): Request {
     return new Request(url, {

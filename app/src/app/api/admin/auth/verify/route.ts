@@ -11,8 +11,9 @@ import { NextResponse } from "next/server";
 
 import { getAdminDomain, getSessionSecret, resolveAllowlist } from "@/lib/admin/auth";
 import { isAllowed } from "@/lib/admin/allowlist";
-import { verifyChallenge } from "@/lib/admin/challenge";
-import { checkRateLimit, clientKeyFromRequest } from "@/lib/admin/rateLimit";
+import { CHALLENGE_TTL_MS, verifyChallengeShape } from "@/lib/admin/challenge";
+import { clientKeyFromRequest } from "@/lib/admin/rateLimit";
+import { getChallengeStore, getRateLimitStore } from "@/lib/admin/sharedStore";
 import {
   ADMIN_SESSION_COOKIE,
   SESSION_TTL_SECONDS,
@@ -37,7 +38,7 @@ interface VerifyBody {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  const rl = checkRateLimit({
+  const rl = await getRateLimitStore().check({
     key: `admin-auth-verify:${clientKeyFromRequest(req)}`,
     windowMs: VERIFY_RL_WINDOW_MS,
     max: VERIFY_RL_MAX,
@@ -77,8 +78,10 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  // 1. Challenge must be one we issued, unexpired, unused.
-  const challenge = verifyChallenge({
+  // 1. Challenge SHAPE — must be one we issued, unexpired. HMAC + TTL
+  //    only; single-use is enforced at step 3 (after signature) so a
+  //    bad-signature submission can't burn a legitimate user's nonce.
+  const challenge = verifyChallengeShape({
     secret,
     domain: getAdminDomain(),
     pubkey,
@@ -101,13 +104,24 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "bad_signature" }, { status: 401 });
   }
 
-  // 3. Authorization — pubkey must be allowlisted (env ∪ on-chain authority).
+  // 3. Single-use — consume the challenge token ATOMICALLY. The store's
+  //    insert-or-conflict (Postgres) / set-add (memory) returns false on
+  //    a replay. Consuming here (post-signature) prevents signature
+  //    replay while keeping a bad-signature attempt from burning the
+  //    nonce. The race between concurrent valid replays is resolved by
+  //    the atomic insert: exactly one consume wins.
+  const firstUse = await getChallengeStore().consume(challengeToken, issuedAt + CHALLENGE_TTL_MS);
+  if (!firstUse) {
+    return NextResponse.json({ error: "challenge_rejected" }, { status: 401 });
+  }
+
+  // 4. Authorization — pubkey must be allowlisted (env ∪ on-chain authority).
   const allowlist = await resolveAllowlist();
   if (!isAllowed(pubkey, allowlist)) {
     return NextResponse.json({ error: "not_allowlisted" }, { status: 403 });
   }
 
-  // 4. Mint the session.
+  // 5. Mint the session.
   const token = signSession({ secret, pubkey });
   const res = NextResponse.json({ ok: true, pubkey });
   res.cookies.set(ADMIN_SESSION_COOKIE, token, adminCookieOptions(SESSION_TTL_SECONDS));

@@ -139,6 +139,22 @@ jobs:
         # Sub-second.
         run: pnpm test:admin-authority-cache
 
+      - name: Admin SIWS auth core (14 tests)
+        # Pins the pure-crypto SIWS path (ADR 0009 §1): ed25519 verify,
+        # session HMAC, stateless challenge SHAPE (HMAC + TTL), allowlist
+        # set algebra. Previously ran nowhere in CI — wired in alongside
+        # the Wave 2 shared-store split. Sub-second.
+        run: pnpm test:admin-auth
+
+      - name: Admin shared store — in-memory backend (9 tests)
+        # Pins the Wave 2 pluggable store: env selector (memory default /
+        # postgres opt-in), in-memory consume-once challenge guard, and
+        # the rate-limit sliding window through the async interface. The
+        # Postgres backend's SQL behavior is operator-run (DB-backed,
+        # services/indexer/test/admin_shared_store_pg.spec.ts — no DB in
+        # this lane). Sub-second.
+        run: pnpm test:admin-shared-store
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 

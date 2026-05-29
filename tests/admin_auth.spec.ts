@@ -14,9 +14,8 @@ import { Keypair } from "@solana/web3.js";
 import { buildSignInMessage, verifySignInSignature } from "../app/src/lib/admin/siws.js";
 import {
   issueChallenge,
-  verifyChallenge,
+  verifyChallengeShape,
   CHALLENGE_TTL_MS,
-  __resetUsedTokensForTest,
 } from "../app/src/lib/admin/challenge.js";
 import { signSession, verifySession } from "../app/src/lib/admin/session.js";
 import { buildAllowlist, isAllowed, parseAllowlist } from "../app/src/lib/admin/allowlist.js";
@@ -35,8 +34,6 @@ function signWithKeypair(kp: Keypair, message: string): Uint8Array {
 }
 
 describe("admin auth — SIWS core (ADR 0009)", () => {
-  beforeEach(() => __resetUsedTokensForTest());
-
   describe("verifySignInSignature", () => {
     it("accepts a valid ed25519 signature over the exact message", () => {
       const kp = Keypair.generate();
@@ -75,7 +72,7 @@ describe("admin auth — SIWS core (ADR 0009)", () => {
     });
   });
 
-  describe("challenge (stateless, HMAC-bound, single-use)", () => {
+  describe("challenge shape (stateless, HMAC-bound; single-use is in the store)", () => {
     it("round-trips and yields the exact message to sign", () => {
       const kp = Keypair.generate();
       const c = issueChallenge({
@@ -84,7 +81,7 @@ describe("admin auth — SIWS core (ADR 0009)", () => {
         pubkey: kp.publicKey.toBase58(),
         now: 5000,
       });
-      const v = verifyChallenge({
+      const v = verifyChallengeShape({
         secret: SECRET,
         domain: DOMAIN,
         pubkey: c.pubkey,
@@ -105,7 +102,7 @@ describe("admin auth — SIWS core (ADR 0009)", () => {
         pubkey: kp.publicKey.toBase58(),
         now: 5000,
       });
-      const v = verifyChallenge({
+      const v = verifyChallengeShape({
         secret: SECRET,
         domain: DOMAIN,
         pubkey: c.pubkey,
@@ -125,7 +122,7 @@ describe("admin auth — SIWS core (ADR 0009)", () => {
         pubkey: kp.publicKey.toBase58(),
         now: 5000,
       });
-      const v = verifyChallenge({
+      const v = verifyChallengeShape({
         secret: "different-secret-different-len!!",
         domain: DOMAIN,
         pubkey: c.pubkey,
@@ -137,26 +134,9 @@ describe("admin auth — SIWS core (ADR 0009)", () => {
       expect(v.ok).to.equal(false);
     });
 
-    it("is single-use (replay rejected)", () => {
-      const kp = Keypair.generate();
-      const c = issueChallenge({
-        secret: SECRET,
-        domain: DOMAIN,
-        pubkey: kp.publicKey.toBase58(),
-        now: 5000,
-      });
-      const args = {
-        secret: SECRET,
-        domain: DOMAIN,
-        pubkey: c.pubkey,
-        nonce: c.nonce,
-        issuedAt: c.issuedAt,
-        challengeToken: c.challengeToken,
-        now: 5000,
-      };
-      expect(verifyChallenge(args).ok).to.equal(true);
-      expect(verifyChallenge(args).ok).to.equal(false); // replay
-    });
+    // Single-use is no longer enforced by verifyChallengeShape (it is
+    // pure now). The consume-once guarantee is covered against the
+    // in-memory + Postgres stores in tests/admin_shared_store.spec.ts.
   });
 
   describe("session token (HMAC, expiring)", () => {
