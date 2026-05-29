@@ -27,37 +27,81 @@
 # behavior fix.
 set -euo pipefail
 
+# Verbose tracing so the CI log identifies which materialization path
+# (registry/src direct → cache .crate → crates.io direct) fired and where
+# the source landed. Trivial cost, huge debug value the next time the
+# build environment shifts.
+echo "::group::patch-anchor-syn-319: materialize anchor-syn-0.30.1 src"
+
 REG_PATH="${HOME}/.cargo/registry/src"
+CACHE_PATH="${HOME}/.cargo/registry/cache"
+mkdir -p "$REG_PATH" "$CACHE_PATH"
+
 ANCHOR_SYN_DIR=$(find "$REG_PATH" -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null | head -1)
+echo "step 1 — find in registry/src: '${ANCHOR_SYN_DIR:-<none>}'"
 
 # Modern `Swatinem/rust-cache@v2` (≥ 2.7) strips `~/.cargo/registry/src/`
-# from the saved cache to halve its size — the expectation is that
-# `cargo` will re-extract from `~/.cargo/registry/cache/*.crate` on demand.
-# Our caller workflow (`anchor build --no-idl` then this script) never
-# actually compiles anchor-syn before us — the `--no-idl` flag skips the
-# `idl-build` feature that pulls anchor-syn into the dep graph — so on a
-# cache-restore boot the .crate sits in `cache/` but the patch can't
-# touch it: there's no source on disk yet. Manually extract it from the
-# cached .crate (which is a plain `tar.gz`) into the matching `src/`
-# index directory so the patch below can read+write the file. If no
-# .crate is in cache either, fall through to the original error.
+# from the saved cache to halve its size — cargo is expected to re-extract
+# from `registry/cache/*.crate` on demand. Our caller workflow
+# (`anchor build --no-idl` then this script) doesn't enable the
+# `idl-build` feature that pulls anchor-syn into the dep graph, so cargo
+# never extracts it for us. Recover by reading the .crate from cache.
 if [[ -z "$ANCHOR_SYN_DIR" ]]; then
-  CACHE_PATH="${HOME}/.cargo/registry/cache"
   CRATE_FILE=$(find "$CACHE_PATH" -maxdepth 2 -name "anchor-syn-0.30.1.crate" 2>/dev/null | head -1)
+  echo "step 2 — find .crate in registry/cache: '${CRATE_FILE:-<none>}'"
   if [[ -n "$CRATE_FILE" ]]; then
     INDEX_HOST=$(basename "$(dirname "$CRATE_FILE")")
     DEST_DIR="${REG_PATH}/${INDEX_HOST}"
     mkdir -p "$DEST_DIR"
-    echo "anchor-syn-0.30.1 src missing — extracting $CRATE_FILE → $DEST_DIR" >&2
+    echo "    extracting $CRATE_FILE → $DEST_DIR"
     tar -xzf "$CRATE_FILE" -C "$DEST_DIR"
     ANCHOR_SYN_DIR="${DEST_DIR}/anchor-syn-0.30.1"
   fi
 fi
 
+# Belt-and-suspenders: if cache is also empty (a fresh runner where
+# `anchor build --no-idl` didn't even download anchor-syn), grab the
+# .crate straight from crates.io and place it as if cargo had. Static
+# URL is the official CDN endpoint cargo itself uses.
 if [[ -z "$ANCHOR_SYN_DIR" || ! -d "$ANCHOR_SYN_DIR" ]]; then
-  echo "anchor-syn-0.30.1 not in $REG_PATH and no .crate in registry/cache — run 'cargo fetch' first" >&2
+  echo "step 3 — downloading anchor-syn-0.30.1 from static.crates.io"
+  TMP_CRATE=$(mktemp /tmp/anchor-syn-XXXXXX.crate)
+  if ! curl -sSL --fail -o "$TMP_CRATE" \
+        https://static.crates.io/crates/anchor-syn/anchor-syn-0.30.1.crate; then
+    echo "    direct fetch failed" >&2
+    rm -f "$TMP_CRATE"
+  else
+    # Place it into the FIRST index-host dir if one exists, else create
+    # a deterministic dir name (cargo treats the dir name as opaque when
+    # locating extracted sources — it consults the lockfile + checksum
+    # to match a candidate, not the dir name itself).
+    EXISTING_HOST=$(find "$REG_PATH" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -1)
+    if [[ -n "$EXISTING_HOST" ]]; then
+      DEST_DIR="$EXISTING_HOST"
+    else
+      DEST_DIR="${REG_PATH}/index.crates.io-direct"
+    fi
+    mkdir -p "$DEST_DIR"
+    echo "    extracting $TMP_CRATE → $DEST_DIR"
+    tar -xzf "$TMP_CRATE" -C "$DEST_DIR"
+    # Also drop the .crate into registry/cache so subsequent invocations
+    # (or cargo itself) find it without re-downloading.
+    CACHE_HOST_DIR="${CACHE_PATH}/$(basename "$DEST_DIR")"
+    mkdir -p "$CACHE_HOST_DIR"
+    cp "$TMP_CRATE" "${CACHE_HOST_DIR}/anchor-syn-0.30.1.crate"
+    rm -f "$TMP_CRATE"
+    ANCHOR_SYN_DIR="${DEST_DIR}/anchor-syn-0.30.1"
+  fi
+fi
+
+if [[ -z "$ANCHOR_SYN_DIR" || ! -d "$ANCHOR_SYN_DIR" ]]; then
+  echo "::error::failed to materialize anchor-syn-0.30.1 (no registry/src, no cache .crate, no network)" >&2
+  echo "::endgroup::"
   exit 1
 fi
+
+echo "resolved anchor-syn-0.30.1 at: $ANCHOR_SYN_DIR"
+echo "::endgroup::"
 
 DEFINED_RS="$ANCHOR_SYN_DIR/src/idl/defined.rs"
 if grep -q "SANDBOX PATCH" "$DEFINED_RS"; then
