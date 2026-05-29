@@ -443,6 +443,28 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Diagnostic — post tail of failure log as PR comment
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Post the last 150 lines as a PR comment so it can be read
+          # through the MCP / API surface that doesn't require browser
+          # auth. Bounded to ~50KB to stay under GitHub's comment limit.
+          TAIL=$(tail -n 150 /tmp/build.log 2>/dev/null || echo "(no /tmp/build.log)")
+          BODY=$(printf '<!-- ci-debug:%s -->\n### CI failure log — %s (tail 150)\n```\n%s\n```\n' \
+            "${{ github.job }}" "${{ github.job }}" "$TAIL")
+          # Cap body length defensively
+          BODY="${BODY:0:60000}"
+          jq -n --arg body "$BODY" '{body: $body}' > /tmp/comment.json
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d @/tmp/comment.json \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            > /tmp/comment_response.json || true
+          jq -r '.html_url // .message // "(no html_url)"' /tmp/comment_response.json || true
+
       - name: Diagnostic — upload full build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -582,6 +604,28 @@ jobs:
             tail -200 /tmp/build.log || echo "(no /tmp/build.log)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Diagnostic — post tail of failure log as PR comment
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Post the last 150 lines as a PR comment so it can be read
+          # through the MCP / API surface that doesn't require browser
+          # auth. Bounded to ~50KB to stay under GitHub's comment limit.
+          TAIL=$(tail -n 150 /tmp/build.log 2>/dev/null || echo "(no /tmp/build.log)")
+          BODY=$(printf '<!-- ci-debug:%s -->\n### CI failure log — %s (tail 150)\n```\n%s\n```\n' \
+            "${{ github.job }}" "${{ github.job }}" "$TAIL")
+          # Cap body length defensively
+          BODY="${BODY:0:60000}"
+          jq -n --arg body "$BODY" '{body: $body}' > /tmp/comment.json
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d @/tmp/comment.json \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            > /tmp/comment_response.json || true
+          jq -r '.html_url // .message // "(no html_url)"' /tmp/comment_response.json || true
 
       - name: Diagnostic — upload full build log on failure
         if: failure()
