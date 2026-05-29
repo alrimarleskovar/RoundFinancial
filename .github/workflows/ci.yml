@@ -129,6 +129,16 @@ jobs:
         # silently becomes brute-forceable again. Sub-second.
         run: pnpm test:admin-rate-limit
 
+      - name: Admin on-chain authority cache (11 tests)
+        # Pins the fail-closed contract on `fetchProtocolAuthority`
+        # (RoundFi internal audit follow-up): null on any RPC failure,
+        # split-TTL cache (5min hit / 30s miss) so a transient blip
+        # doesn't drop the on-chain authority for the full hit-TTL,
+        # explicit logs on RPC-unset / fetch failure / empty effective
+        # allowlist. Drift = silent fail-open or a flaky-RPC lockout.
+        # Sub-second.
+        run: pnpm test:admin-authority-cache
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
