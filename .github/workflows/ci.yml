@@ -406,9 +406,16 @@ jobs:
         # yield_mock, yield_kamino).
         run: |
           set -x
+          set -o pipefail
+          # Tee everything into /tmp/build.log so the failure post-step
+          # can mirror the tail into $GITHUB_STEP_SUMMARY (visible in the
+          # workflow run page without auth) and upload the full thing as
+          # an artifact.
+          exec > >(tee -a /tmp/build.log) 2>&1
+
           echo "::group::pre-build environment"
           which anchor cargo rustc solana
-          anchor --version 2>&1 || true
+          anchor --version || true
           cargo --version
           rustc --version
           solana --version
@@ -424,6 +431,26 @@ jobs:
           echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
           echo "::endgroup::"
+
+      - name: Diagnostic — surface build log on failure
+        if: failure()
+        run: |
+          {
+            echo "## anchor build / IDL regen failure log (tail 200)"
+            echo
+            echo '```'
+            tail -200 /tmp/build.log || echo "(no /tmp/build.log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache klend.so (Kamino Lend mainnet binary)
         # ~600KB binary, hashed against the Kamino program ID. Cached
@@ -523,9 +550,12 @@ jobs:
       - name: anchor build (--no-idl) + IDL regen (#319 workaround)
         run: |
           set -x
+          set -o pipefail
+          exec > >(tee -a /tmp/build.log) 2>&1
+
           echo "::group::pre-build environment"
           which anchor cargo rustc solana
-          anchor --version 2>&1 || true
+          anchor --version || true
           cargo --version
           rustc --version
           solana --version
@@ -541,6 +571,26 @@ jobs:
           echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
           echo "::endgroup::"
+
+      - name: Diagnostic — surface build log on failure
+        if: failure()
+        run: |
+          {
+            echo "## anchor build / IDL regen failure log (tail 200)"
+            echo
+            echo '```'
+            tail -200 /tmp/build.log || echo "(no /tmp/build.log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache mpl_core.so (Metaplex Core mainnet binary)
         # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
