@@ -91,7 +91,9 @@ describe("rate limit — pure fn", () => {
 
 describe("clientKeyFromRequest", () => {
   it("returns the first hop of X-Forwarded-For", () => {
-    const req = new Request("https://x/", { headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1, 10.0.0.2" } });
+    const req = new Request("https://x/", {
+      headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1, 10.0.0.2" },
+    });
     expect(clientKeyFromRequest(req)).to.equal("1.2.3.4");
   });
 
@@ -106,12 +108,16 @@ describe("clientKeyFromRequest", () => {
   });
 
   it("returns 'unknown' on empty/whitespace-only headers", () => {
-    const req = new Request("https://x/", { headers: { "x-forwarded-for": "  ", "x-real-ip": "  " } });
+    const req = new Request("https://x/", {
+      headers: { "x-forwarded-for": "  ", "x-real-ip": "  " },
+    });
     expect(clientKeyFromRequest(req)).to.equal("unknown");
   });
 
   it("trims whitespace around the first hop", () => {
-    const req = new Request("https://x/", { headers: { "x-forwarded-for": "   9.9.9.9   , 10.0.0.1" } });
+    const req = new Request("https://x/", {
+      headers: { "x-forwarded-for": "   9.9.9.9   , 10.0.0.1" },
+    });
     expect(clientKeyFromRequest(req)).to.equal("9.9.9.9");
   });
 });
@@ -153,7 +159,11 @@ describe("admin auth routes — HTTP rate limit", () => {
     const ip = "1.1.1.1";
     for (let i = 0; i < 3; i++) {
       const res = await nonceRoute.POST(
-        makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, ip),
+        makeReq(
+          "https://x/api/admin/auth/nonce",
+          { pubkey: "11111111111111111111111111111111" },
+          ip,
+        ),
       );
       // 200 (challenge issued) — we passed the rate limit AND a valid
       // pubkey. Any non-429 means we passed the gate, which is the
@@ -174,12 +184,20 @@ describe("admin auth routes — HTTP rate limit", () => {
   it("nonce: limits are per-IP", async () => {
     for (let i = 0; i < 3; i++) {
       await nonceRoute.POST(
-        makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, "2.2.2.2"),
+        makeReq(
+          "https://x/api/admin/auth/nonce",
+          { pubkey: "11111111111111111111111111111111" },
+          "2.2.2.2",
+        ),
       );
     }
     // Same window, different IP — should pass the gate.
     const other = await nonceRoute.POST(
-      makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, "3.3.3.3"),
+      makeReq(
+        "https://x/api/admin/auth/nonce",
+        { pubkey: "11111111111111111111111111111111" },
+        "3.3.3.3",
+      ),
     );
     expect(other.status).to.not.equal(429);
   });
@@ -211,7 +229,11 @@ describe("admin auth routes — HTTP rate limit", () => {
     // Burn the nonce budget for this IP.
     for (let i = 0; i < 3; i++) {
       await nonceRoute.POST(
-        makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, ip),
+        makeReq(
+          "https://x/api/admin/auth/nonce",
+          { pubkey: "11111111111111111111111111111111" },
+          ip,
+        ),
       );
     }
     // Verify on the SAME IP must still have its independent budget.
