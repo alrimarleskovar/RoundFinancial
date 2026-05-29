@@ -271,7 +271,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Install Solana Agave 3.0.0 (pinned)
         # Stable channel had platform-tools download issues mid-2026
@@ -370,7 +370,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
@@ -497,7 +497,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
