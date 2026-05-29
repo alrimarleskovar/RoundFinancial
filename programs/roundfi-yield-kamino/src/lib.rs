@@ -87,6 +87,27 @@ pub const SEED_STATE: &[u8] = b"yield-state";
 pub const KAMINO_LEND_PROGRAM_ID: Pubkey =
     anchor_lang::pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 
+/// Plausibility ceiling on realized yield in a SINGLE harvest, expressed
+/// as a multiple of `tracked_principal` (RoundFi internal audit Wave 3).
+///
+/// This is defense-in-depth / invariant hygiene, NOT an exploit fix: the
+/// existing `PrincipalLoss` guard already bounds redeemed USDC from
+/// BELOW (>= principal), and `roundfi-core::harvest_yield` adds the
+/// caller-supplied `min_realized_usdc` floor + the `yield_vault_drop`
+/// over-withdraw check. This adds the symmetric UPPER bound: if a single
+/// harvest realizes more than `MAX_HARVEST_YIELD_MULTIPLE × principal`,
+/// the c-token exchange rate is physically implausible for any sane
+/// lending APY × cycle (the per-cycle crank realizes low-single-digit
+/// percent), so the most likely cause is a misconfigured / wrong reserve
+/// pin (#233 part B) or a compromised reserve. Fail LOUD and roll the tx
+/// back (atomic — the redeem CPI is undone, funds stay put) rather than
+/// route an impossible amount through the pool waterfall.
+///
+/// Margin: a 30-day cycle at 50% APY realizes ~4% of principal, so a
+/// 1× ceiling carries a ~25× safety margin over realistic per-cycle
+/// yield. Tunable here as a single-line change.
+pub const MAX_HARVEST_YIELD_MULTIPLE: u64 = 1;
+
 /// Discriminator for Kamino's `deposit_reserve_liquidity` ix —
 /// sha256("global:deposit_reserve_liquidity")[..8]. Computed at runtime
 /// because `solana_program::hash::hash` is not const-eval friendly. A
@@ -439,6 +460,22 @@ pub mod roundfi_yield_kamino {
 
         let realized = total_redeemed - tracked;
 
+        // Plausibility ceiling (Wave 3 defense-in-depth — see
+        // MAX_HARVEST_YIELD_MULTIPLE). Symmetric upper bound to the
+        // PrincipalLoss lower bound: a single harvest realizing more
+        // than N× principal implies a physically implausible exchange
+        // rate (wrong/compromised reserve pin). Fail loud BEFORE moving
+        // any funds — the require rolls the whole tx back, undoing the
+        // redeem CPI, so principal stays in Kamino untouched. checked_mul
+        // guards the (huge tracked) overflow corner.
+        let ceiling = tracked
+            .checked_mul(MAX_HARVEST_YIELD_MULTIPLE)
+            .ok_or(error!(YieldKaminoError::Overflow))?;
+        require!(
+            realized <= ceiling,
+            YieldKaminoError::ImplausibleYield,
+        );
+
         // ─── Step 2: transfer realized surplus to pool vault ────────
         if realized > 0 {
             token::transfer(
@@ -457,6 +494,19 @@ pub mod roundfi_yield_kamino {
 
         // ─── Step 3: redeposit tracked_principal back into Kamino ───
         kamino_cpi_deposit(&ctx, tracked, signer_seeds_arr)?;
+
+        // Post-condition (Wave 3 defense-in-depth): redepositing `tracked`
+        // USDC must re-mint c-tokens into our position. If the c-token
+        // balance is still zero after the redeposit CPI, the position did
+        // NOT re-open and `tracked_principal` would be a phantom claim on
+        // funds that are no longer compounding. Fail loud (atomic rollback)
+        // rather than leave the accounting desynced from the on-chain
+        // position.
+        ctx.accounts.c_token_account.reload()?;
+        require!(
+            ctx.accounts.c_token_account.amount > 0,
+            YieldKaminoError::RedepositIncomplete,
+        );
 
         msg!(
             "yield-kamino: harvest realized={} principal_redeposited={} c_tokens_burned={}",
@@ -854,6 +904,10 @@ pub enum YieldKaminoError {
     KaminoCpiFailed,
     #[msg("Kamino returned less USDC than tracked principal — exchange rate regressed or out-of-band redemption occurred")]
     PrincipalLoss,
+    #[msg("realized yield exceeds the plausibility ceiling — likely a wrong/compromised reserve; failing loud (Wave 3 defense-in-depth)")]
+    ImplausibleYield,
+    #[msg("principal redeposit did not re-open the c-token position — tracked_principal would be a phantom claim")]
+    RedepositIncomplete,
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────

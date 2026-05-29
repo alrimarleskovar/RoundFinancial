@@ -22,3 +22,4 @@ export * from "./onchain-raw.js";
 export * from "./stressLab.js";
 export * from "./events.js";
 export * from "./behavioral.js";
+export * from "./yield.js";
