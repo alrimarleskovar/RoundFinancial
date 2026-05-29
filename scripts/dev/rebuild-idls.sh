@@ -25,6 +25,18 @@ if ! command -v cargo-build-sbf >/dev/null 2>&1; then
   fi
 fi
 
+# Populate the cargo registry (cache/ + src/) before we patch anchor-syn.
+# The preceding `anchor build --no-idl` resolves the workspace with the
+# `idl-build` feature OFF, so it doesn't fetch or extract anchor-syn —
+# and modern `Swatinem/rust-cache@v2` strips `registry/src/` from its
+# cache to save space. On a cache-restore boot the patch script would
+# then find nothing to edit. A plain `cargo fetch` re-materializes the
+# whole lockfile into the registry; the patch script has its own
+# `cache → src` extraction fallback for the residual case where this
+# step fetches into cache/ but not src/.
+echo "→ cargo fetch (materialize anchor-syn-0.30.1 src for the patch below)"
+cargo fetch --locked 2>/dev/null || cargo fetch 2>/dev/null || true
+
 bash "$(dirname "$0")/patch-anchor-syn-319.sh"
 
 mkdir -p target/idl

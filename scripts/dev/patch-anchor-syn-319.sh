@@ -28,10 +28,34 @@
 set -euo pipefail
 
 REG_PATH="${HOME}/.cargo/registry/src"
-ANCHOR_SYN_DIR=$(find "$REG_PATH" -maxdepth 2 -name "anchor-syn-0.30.1" -type d | head -1)
+ANCHOR_SYN_DIR=$(find "$REG_PATH" -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null | head -1)
 
+# Modern `Swatinem/rust-cache@v2` (≥ 2.7) strips `~/.cargo/registry/src/`
+# from the saved cache to halve its size — the expectation is that
+# `cargo` will re-extract from `~/.cargo/registry/cache/*.crate` on demand.
+# Our caller workflow (`anchor build --no-idl` then this script) never
+# actually compiles anchor-syn before us — the `--no-idl` flag skips the
+# `idl-build` feature that pulls anchor-syn into the dep graph — so on a
+# cache-restore boot the .crate sits in `cache/` but the patch can't
+# touch it: there's no source on disk yet. Manually extract it from the
+# cached .crate (which is a plain `tar.gz`) into the matching `src/`
+# index directory so the patch below can read+write the file. If no
+# .crate is in cache either, fall through to the original error.
 if [[ -z "$ANCHOR_SYN_DIR" ]]; then
-  echo "anchor-syn-0.30.1 not in $REG_PATH — run 'cargo fetch' first" >&2
+  CACHE_PATH="${HOME}/.cargo/registry/cache"
+  CRATE_FILE=$(find "$CACHE_PATH" -maxdepth 2 -name "anchor-syn-0.30.1.crate" 2>/dev/null | head -1)
+  if [[ -n "$CRATE_FILE" ]]; then
+    INDEX_HOST=$(basename "$(dirname "$CRATE_FILE")")
+    DEST_DIR="${REG_PATH}/${INDEX_HOST}"
+    mkdir -p "$DEST_DIR"
+    echo "anchor-syn-0.30.1 src missing — extracting $CRATE_FILE → $DEST_DIR" >&2
+    tar -xzf "$CRATE_FILE" -C "$DEST_DIR"
+    ANCHOR_SYN_DIR="${DEST_DIR}/anchor-syn-0.30.1"
+  fi
+fi
+
+if [[ -z "$ANCHOR_SYN_DIR" || ! -d "$ANCHOR_SYN_DIR" ]]; then
+  echo "anchor-syn-0.30.1 not in $REG_PATH and no .crate in registry/cache — run 'cargo fetch' first" >&2
   exit 1
 fi
 
