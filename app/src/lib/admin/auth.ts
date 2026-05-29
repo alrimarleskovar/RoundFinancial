@@ -40,41 +40,135 @@ export function getAdminDomain(): string {
 
 // ─── On-chain authority (best-effort, cached) ────────────────────────────
 
+/**
+ * Split-TTL cache for the on-chain authority lookup (RoundFi internal
+ * audit follow-up). Successful reads stick for 5 minutes — the authority
+ * is stable across redeploys, so a long TTL is cheap. Failures stick for
+ * only 30 seconds: a uniform 5-minute TTL meant a single transient RPC
+ * blip at boot poisoned the cache for the full window, dropping the
+ * on-chain authority out of the effective allowlist even after the RPC
+ * recovered. 30 seconds is short enough that a flaky RPC heals itself
+ * quickly, long enough that a sustained outage doesn't hammer the RPC.
+ */
+const AUTHORITY_TTL_HIT_MS = 5 * 60_000;
+const AUTHORITY_TTL_MISS_MS = 30_000;
+
 let authorityCache: { value: string | null; expiresAt: number } | null = null;
-const AUTHORITY_TTL_MS = 5 * 60_000;
+
+/**
+ * Underlying RPC fetcher — separated from `fetchProtocolAuthority` so it
+ * can be replaced in tests via `__setAuthorityFetcherForTest`. Returns
+ * the base58 authority on success, null on any failure (which is logged
+ * for ops visibility — see audit follow-up).
+ */
+type AuthorityFetcher = (rpcUrl: string, programId: string) => Promise<string | null>;
+
+const defaultAuthorityFetcher: AuthorityFetcher = async (rpcUrl, programId) => {
+  try {
+    const [configPda] = protocolConfigPda(new PublicKey(programId));
+    const info = await new Connection(rpcUrl, "confirmed").getAccountInfo(configPda, "confirmed");
+    if (!info) {
+      console.warn(
+        "[admin/auth] ProtocolConfig account not found at the derived PDA — " +
+          "verify ROUNDFI_CORE_PROGRAM_ID is the deployed program id. " +
+          "Falling back to ADMIN_ALLOWLIST.",
+      );
+      return null;
+    }
+    if (info.data.length < 40) {
+      console.warn(
+        `[admin/auth] ProtocolConfig data too short (${info.data.length} bytes, ` +
+          `need >=40 for discriminator + authority Pubkey). ` +
+          `Falling back to ADMIN_ALLOWLIST.`,
+      );
+      return null;
+    }
+    return new PublicKey(info.data.subarray(8, 40)).toBase58();
+  } catch (err) {
+    // Sanitized: log the message only, not the full Connection state /
+    // RPC URL, since this lands in shared infra logs.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[admin/auth] On-chain authority read failed: ${msg}. ` +
+        `Falling back to ADMIN_ALLOWLIST until next retry (TTL ${AUTHORITY_TTL_MISS_MS}ms).`,
+    );
+    return null;
+  }
+};
+
+let authorityFetcher: AuthorityFetcher = defaultAuthorityFetcher;
 
 /**
  * Best-effort read of `ProtocolConfig.authority` so the protocol owner is
  * always allowed without being re-listed. IDL-free (ADR 0002 style):
  * authority is the first field of the account, bytes 8..40 (8-byte Anchor
- * discriminator + Pubkey). Returns null on any RPC/parse failure — the env
- * allowlist is the durable floor, so a failed read never opens the gate.
+ * discriminator + Pubkey). Returns null on any RPC/parse failure — the
+ * env allowlist is the durable floor, so a failed read NEVER opens the
+ * gate. See `resolveAllowlist` for the union-with-env behavior.
+ *
+ * Caching: split-TTL (see `AUTHORITY_TTL_*`). A miss caches null for a
+ * short window so a transient RPC failure heals quickly without spamming
+ * the RPC on every admin request.
  */
 export async function fetchProtocolAuthority(): Promise<string | null> {
   if (authorityCache && authorityCache.expiresAt > Date.now()) return authorityCache.value;
+  const rpc = process.env.SOLANA_RPC_URL ?? process.env.NEXT_PUBLIC_RPC_URL;
+  const coreId = process.env.ROUNDFI_CORE_PROGRAM_ID ?? DEFAULT_CORE_PROGRAM_ID;
   let value: string | null = null;
-  try {
-    const rpc = process.env.SOLANA_RPC_URL ?? process.env.NEXT_PUBLIC_RPC_URL;
-    const coreId = process.env.ROUNDFI_CORE_PROGRAM_ID ?? DEFAULT_CORE_PROGRAM_ID;
-    if (rpc) {
-      const [configPda] = protocolConfigPda(new PublicKey(coreId));
-      const info = await new Connection(rpc, "confirmed").getAccountInfo(configPda, "confirmed");
-      if (info && info.data.length >= 40) {
-        value = new PublicKey(info.data.subarray(8, 40)).toBase58();
-      }
+  if (!rpc) {
+    console.warn(
+      "[admin/auth] Neither SOLANA_RPC_URL nor NEXT_PUBLIC_RPC_URL is set — " +
+        "skipping on-chain authority lookup. Console access is restricted to " +
+        "ADMIN_ALLOWLIST entries.",
+    );
+  } else {
+    // Defensive wrap: the contract of `fetchProtocolAuthority` is
+    // "best-effort, never throws." `defaultAuthorityFetcher` honors
+    // that internally, but a substituted fetcher might not — this
+    // guarantees the contract regardless.
+    try {
+      value = await authorityFetcher(rpc, coreId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[admin/auth] Authority fetcher threw unexpectedly: ${msg}.`);
+      value = null;
     }
-  } catch {
-    value = null;
   }
-  authorityCache = { value, expiresAt: Date.now() + AUTHORITY_TTL_MS };
+  const ttl = value === null ? AUTHORITY_TTL_MISS_MS : AUTHORITY_TTL_HIT_MS;
+  authorityCache = { value, expiresAt: Date.now() + ttl };
   return value;
 }
 
 export async function resolveAllowlist(): Promise<Set<string>> {
-  return buildAllowlist({
+  const allowlist = buildAllowlist({
     envValue: process.env.ADMIN_ALLOWLIST,
     authority: await fetchProtocolAuthority(),
   });
+  if (allowlist.size === 0) {
+    // Effective allowlist is empty — every admin request will 403. This
+    // is FAIL-CLOSED (correct), but invisible to the operator. Log loud
+    // so a "why is no one able to log in" question has a one-line answer
+    // in the logs. Emitted per resolve so log volume itself signals the
+    // misconfiguration's persistence (the cache miss TTL bounds this).
+    console.error(
+      "[admin/auth] Effective allowlist is EMPTY — every /api/admin/** request " +
+        "will reject with 403. Set ADMIN_ALLOWLIST (env) or configure " +
+        "SOLANA_RPC_URL so the on-chain authority can be read.",
+    );
+  }
+  return allowlist;
+}
+
+// ─── Test seams ──────────────────────────────────────────────────────────
+// Exported for unit tests under tests/admin_authority_cache.spec.ts. They
+// are no-ops in production paths (no caller invokes them).
+
+export function __setAuthorityFetcherForTest(f: AuthorityFetcher | null): void {
+  authorityFetcher = f ?? defaultAuthorityFetcher;
+}
+
+export function __clearAuthorityCacheForTest(): void {
+  authorityCache = null;
 }
 
 // ─── The endpoint gate ───────────────────────────────────────────────────
