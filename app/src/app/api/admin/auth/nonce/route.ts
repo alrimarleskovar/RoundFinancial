@@ -12,7 +12,8 @@ import { PublicKey } from "@solana/web3.js";
 
 import { getAdminDomain, getSessionSecret } from "@/lib/admin/auth";
 import { CHALLENGE_TTL_MS, issueChallenge } from "@/lib/admin/challenge";
-import { checkRateLimit, clientKeyFromRequest } from "@/lib/admin/rateLimit";
+import { clientKeyFromRequest } from "@/lib/admin/rateLimit";
+import { getRateLimitStore } from "@/lib/admin/sharedStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ const NONCE_RL_WINDOW_MS = 60_000;
 const NONCE_RL_MAX = Math.max(1, Number(process.env.ADMIN_RL_NONCE_PER_MIN ?? 10));
 
 export async function POST(req: Request): Promise<NextResponse> {
-  const rl = checkRateLimit({
+  const rl = await getRateLimitStore().check({
     key: `admin-auth-nonce:${clientKeyFromRequest(req)}`,
     windowMs: NONCE_RL_WINDOW_MS,
     max: NONCE_RL_MAX,

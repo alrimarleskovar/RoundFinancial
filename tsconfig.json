@@ -5,7 +5,12 @@
     "types": ["node", "mocha", "chai"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./app/src/*"]
+      "@/*": ["./app/src/*"],
+      // The admin shared store dynamically imports the indexer DB subpath.
+      // Map it so the root mocha typecheck (which pulls app/src in via the
+      // test imports) resolves the workspace export — mirrors the app's
+      // own tsconfig. Scoped to tests/+config/+scripts by `include`.
+      "@roundfi/indexer/db": ["./services/indexer/src/db.ts"]
     }
   },
   "include": ["config/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],

@@ -411,6 +411,53 @@ enum DefaultReasonProvenance {
   Inferred
 }
 
+// ─── Admin shared store (RoundFi internal audit follow-up — Wave 2) ────────
+//
+// The admin SIWS single-use guard + auth rate limiter were originally
+// in-memory (module-scope Set / Map). That is correct for a single
+// instance but does NOT sync across instances behind a load balancer
+// and does not survive process restart — the multi-instance gap flagged
+// in the audit. These two tables back a Postgres-shared implementation
+// selected by `ADMIN_SHARED_STORE=postgres`; the in-memory backend
+// remains the default for the single-instance canary + CI (no DB).
+
+// Single-use SIWS challenge guard. One row per CONSUMED challenge token.
+// `verify` inserts the token on a successful sign-in; a duplicate insert
+// (unique PK) IS the replay signal — atomic across instances, no
+// read-modify-write race. Rows are retained until `expiresAt` (the
+// challenge TTL) then swept opportunistically; a still-valid token can
+// never be replayed because its row outlives its own validity window.
+model AdminChallenge {
+  /// The challengeToken HMAC (hex) — the natural single-use key.
+  token      String   @id
+  /// Subject pubkey, denormalized for audit ("who consumed this nonce").
+  pubkey     String
+  /// issuedAt + CHALLENGE_TTL_MS. After this the row is sweepable: the
+  /// challenge is already TTL-rejected by `verifyChallengeShape`, so the
+  /// single-use row no longer needs to exist.
+  expiresAt  DateTime
+  consumedAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("admin_challenges")
+}
+
+// Sliding-window rate-limit hit log. One row per accepted request,
+// keyed by `<endpoint>:<client-ip>`. `check` deletes rows older than the
+// window, counts the survivors, and inserts a new row when under the
+// limit — the same sliding-window-log algorithm as the in-memory store,
+// made durable + shared. Low-volume (auth endpoints only), so row-per-
+// hit is cheap; the windowed DELETE keeps the table bounded.
+model AdminRateLimitHit {
+  id        String   @id @default(cuid())
+  /// "<endpoint>:<client>" — e.g. "admin-auth-nonce:1.2.3.4".
+  bucketKey String
+  hitAt     DateTime @default(now())
+
+  @@index([bucketKey, hitAt])
+  @@map("admin_rate_limit_hits")
+}
+
 // ─── Export audit (ADR 0009) ──────────────────────────────────────────────
 //
 // The events export is the product asset + sensitive credit data, so every

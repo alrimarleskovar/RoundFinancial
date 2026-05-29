@@ -1,36 +1,25 @@
 /**
- * In-memory sliding-window rate limiter for the admin auth endpoints
+ * Sliding-window rate limiter primitives for the admin auth endpoints
  * (RoundFi internal audit follow-up — defense-in-depth for
  * /api/admin/auth/nonce and /api/admin/auth/verify, which previously
  * had no throttle and were exposed to brute-force / DoS).
  *
- * Trust model + limitations
- * -------------------------
- * The buckets live in `module-scope` — they don't survive process
- * restart and don't sync across instances. This is the SAME limitation
- * that `challenge.ts:usedTokens` already has (the canary runs one
- * instance). Wave 2 of the hardening plan promotes BOTH stores to
- * Postgres-backed in lockstep so they share a transactional source of
- * truth. Until then, this gate stops brute-force from a single client
- * but does NOT stop a distributed attacker hitting multiple instances
- * behind a load balancer — the latter is the multi-instance gap
- * documented in the audit report.
+ * This module is PURE: it owns the windowing algorithm + the client-key
+ * extraction, with NO global state and NO storage. The actual store
+ * (in-memory vs Postgres-shared) lives in `sharedStore.ts`, which calls
+ * `slidingWindowDecision` for both backends so the two share one source
+ * of truth for the math. Keeping the algorithm here (prisma-free) lets
+ * the `js` CI lane unit-test it without a database.
  *
  * Algorithm
  * ---------
- * Sliding window log: a per-key array of request timestamps. On each
- * call we drop entries older than `windowMs`, check the remaining
- * count against `max`, and either record the new timestamp or compute
- * `retryAfterMs` from the oldest live entry. Cleanup is lazy — we only
- * touch a key when a request for it arrives — so an unused key
- * eventually decays to an empty array without a sweeper.
- *
- * O(N) per call where N = max (typically ≤ 10). The simplicity buys
- * deterministic test behavior; a real token-bucket would also work but
- * adds floating-point clock-rate math we don't need at these volumes.
+ * Sliding window log: a per-key list of request timestamps. Drop entries
+ * older than `windowMs`, check the survivors against `max`, and either
+ * record the new timestamp or compute `retryAfterMs` from the oldest
+ * live entry. The function is total + deterministic given (timestamps,
+ * windowMs, max, now) — the store just supplies the persisted timestamps
+ * and writes back the result.
  */
-
-const buckets = new Map<string, number[]>();
 
 export interface RateLimitVerdict {
   ok: boolean;
@@ -40,39 +29,41 @@ export interface RateLimitVerdict {
   remaining: number;
 }
 
-export interface RateLimitArgs {
-  /** Caller-provided composite key (e.g. `"nonce:1.2.3.4"`). */
-  key: string;
-  windowMs: number;
-  max: number;
-  /** Optional clock injection — required for deterministic tests. */
-  now?: number;
+export interface SlidingWindowDecision extends RateLimitVerdict {
+  /**
+   * The timestamps the store should persist for this key after the call.
+   * On accept this is `liveEntries ++ [now]`; on reject it is the trimmed
+   * `liveEntries` (so the store can prune expired rows even when
+   * rejecting). The store writes these back (in-memory: replace the
+   * array; Postgres: the DELETE + optional INSERT already reflect it).
+   */
+  nextTimestamps: number[];
 }
 
-export function checkRateLimit(args: RateLimitArgs): RateLimitVerdict {
-  const now = args.now ?? Date.now();
-  const cutoff = now - args.windowMs;
-  const prev = buckets.get(args.key) ?? [];
-  // Drop expired entries. Timestamps are append-only and monotonic
-  // within a key, so a leading-edge scan is sufficient.
-  let i = 0;
-  while (i < prev.length && prev[i]! <= cutoff) i += 1;
-  const live = i === 0 ? prev.slice() : prev.slice(i);
-  if (live.length >= args.max) {
+/**
+ * Pure sliding-window decision. `prevTimestamps` is the key's persisted
+ * hit log (any order is tolerated, but callers pass ascending). Returns
+ * the verdict plus the timestamps to persist. No I/O, no globals.
+ */
+export function slidingWindowDecision(
+  prevTimestamps: readonly number[],
+  windowMs: number,
+  max: number,
+  now: number,
+): SlidingWindowDecision {
+  const cutoff = now - windowMs;
+  const live = prevTimestamps.filter((t) => t > cutoff).sort((a, b) => a - b);
+  if (live.length >= max) {
     const oldest = live[0]!;
-    const retryAfterMs = Math.max(0, oldest + args.windowMs - now);
-    // Store the trimmed log even on rejection so memory stays bounded.
-    buckets.set(args.key, live);
-    return { ok: false, retryAfterMs, remaining: 0 };
+    return {
+      ok: false,
+      retryAfterMs: Math.max(0, oldest + windowMs - now),
+      remaining: 0,
+      nextTimestamps: live,
+    };
   }
-  live.push(now);
-  buckets.set(args.key, live);
-  return { ok: true, retryAfterMs: 0, remaining: args.max - live.length };
-}
-
-/** Test seam — clears all buckets between cases. */
-export function __resetRateLimitForTest(): void {
-  buckets.clear();
+  const next = [...live, now];
+  return { ok: true, retryAfterMs: 0, remaining: max - next.length, nextTimestamps: next };
 }
 
 /**
