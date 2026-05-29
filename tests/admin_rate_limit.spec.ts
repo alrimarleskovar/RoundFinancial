@@ -1,0 +1,221 @@
+/**
+ * Rate-limit gate on /api/admin/auth/{nonce,verify} (RoundFi internal
+ * audit follow-up).
+ *
+ * Three concerns covered:
+ *
+ *   1. Sliding-window correctness (pure-fn): under limit / at limit /
+ *      window expiry / parallel keys / retry-after computation.
+ *   2. Client-key extraction: X-Forwarded-First-hop > X-Real-IP >
+ *      "unknown". Defense against the "use last hop" footgun.
+ *   3. End-to-end on the actual route handlers: 429 with Retry-After
+ *      after exhausting the limit, isolated per IP. Uses the standard
+ *      `Request` constructor so no Next.js server is bound.
+ *
+ * Tests inject ADMIN_RL_NONCE_PER_MIN=3 / ADMIN_RL_VERIFY_PER_MIN=2 so
+ * they exhaust the window quickly without sleeping. Defaults in
+ * production (10 / 5) are not under test here — they're constants.
+ */
+
+import { expect } from "chai";
+
+import {
+  __resetRateLimitForTest,
+  checkRateLimit,
+  clientKeyFromRequest,
+} from "../app/src/lib/admin/rateLimit.js";
+
+describe("rate limit — pure fn", () => {
+  beforeEach(() => __resetRateLimitForTest());
+
+  it("allows up to `max` requests in the window", () => {
+    const t0 = 1_000_000;
+    for (let i = 0; i < 5; i++) {
+      const r = checkRateLimit({ key: "k", windowMs: 60_000, max: 5, now: t0 + i });
+      expect(r.ok, `req ${i}`).to.equal(true);
+      expect(r.remaining).to.equal(4 - i);
+    }
+  });
+
+  it("rejects the (max+1)-th request and reports retryAfterMs", () => {
+    const t0 = 1_000_000;
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit({ key: "k", windowMs: 60_000, max: 5, now: t0 + i });
+    }
+    const r = checkRateLimit({ key: "k", windowMs: 60_000, max: 5, now: t0 + 10 });
+    expect(r.ok).to.equal(false);
+    // Oldest entry was at t0 + 0; window expires at t0 + 60_000; we're
+    // querying at t0 + 10 → retryAfterMs = 60_000 - 10 = 59_990.
+    expect(r.retryAfterMs).to.equal(59_990);
+    expect(r.remaining).to.equal(0);
+  });
+
+  it("allows again once the oldest entry falls out of the window", () => {
+    const t0 = 1_000_000;
+    checkRateLimit({ key: "k", windowMs: 1000, max: 1, now: t0 });
+    const blocked = checkRateLimit({ key: "k", windowMs: 1000, max: 1, now: t0 + 500 });
+    expect(blocked.ok).to.equal(false);
+    const allowed = checkRateLimit({ key: "k", windowMs: 1000, max: 1, now: t0 + 1001 });
+    expect(allowed.ok).to.equal(true);
+  });
+
+  it("isolates buckets by key", () => {
+    const t0 = 1_000_000;
+    for (let i = 0; i < 3; i++) {
+      checkRateLimit({ key: "a", windowMs: 60_000, max: 3, now: t0 + i });
+    }
+    const aBlocked = checkRateLimit({ key: "a", windowMs: 60_000, max: 3, now: t0 + 10 });
+    expect(aBlocked.ok).to.equal(false);
+    const bAllowed = checkRateLimit({ key: "b", windowMs: 60_000, max: 3, now: t0 + 10 });
+    expect(bAllowed.ok).to.equal(true);
+  });
+
+  it("does not grow unboundedly across windows (expired entries are dropped)", () => {
+    const t0 = 1_000_000;
+    // Burn the window, advance past it, burn again — internal log must
+    // hold at most `max` entries after the second burn.
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit({ key: "k", windowMs: 1000, max: 5, now: t0 + i });
+    }
+    // Window fully expired.
+    for (let i = 0; i < 5; i++) {
+      const r = checkRateLimit({ key: "k", windowMs: 1000, max: 5, now: t0 + 2000 + i });
+      expect(r.ok, `second burn req ${i}`).to.equal(true);
+    }
+    // A 6th request inside the SECOND window must still be blocked,
+    // proving the trim retained only the second-window entries.
+    const blocked = checkRateLimit({ key: "k", windowMs: 1000, max: 5, now: t0 + 2010 });
+    expect(blocked.ok).to.equal(false);
+  });
+});
+
+describe("clientKeyFromRequest", () => {
+  it("returns the first hop of X-Forwarded-For", () => {
+    const req = new Request("https://x/", { headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1, 10.0.0.2" } });
+    expect(clientKeyFromRequest(req)).to.equal("1.2.3.4");
+  });
+
+  it("falls back to X-Real-IP when X-Forwarded-For is absent", () => {
+    const req = new Request("https://x/", { headers: { "x-real-ip": "5.6.7.8" } });
+    expect(clientKeyFromRequest(req)).to.equal("5.6.7.8");
+  });
+
+  it("returns 'unknown' when neither header is set", () => {
+    const req = new Request("https://x/");
+    expect(clientKeyFromRequest(req)).to.equal("unknown");
+  });
+
+  it("returns 'unknown' on empty/whitespace-only headers", () => {
+    const req = new Request("https://x/", { headers: { "x-forwarded-for": "  ", "x-real-ip": "  " } });
+    expect(clientKeyFromRequest(req)).to.equal("unknown");
+  });
+
+  it("trims whitespace around the first hop", () => {
+    const req = new Request("https://x/", { headers: { "x-forwarded-for": "   9.9.9.9   , 10.0.0.1" } });
+    expect(clientKeyFromRequest(req)).to.equal("9.9.9.9");
+  });
+});
+
+describe("admin auth routes — HTTP rate limit", () => {
+  // `require`-ing the route module under test env so the constants
+  // (NONCE_RL_MAX / VERIFY_RL_MAX) bind to the override values we set
+  // BEFORE the import. The handlers read env at MODULE-EVAL time, so
+  // the order matters — `delete require.cache` lets us re-import with
+  // different env between describe blocks if we ever need to.
+  let nonceRoute: typeof import("../app/src/app/api/admin/auth/nonce/route.js");
+  let verifyRoute: typeof import("../app/src/app/api/admin/auth/verify/route.js");
+
+  before(async () => {
+    process.env.ADMIN_RL_NONCE_PER_MIN = "3";
+    process.env.ADMIN_RL_VERIFY_PER_MIN = "2";
+    // Required for the nonce handler's getSessionSecret() call to
+    // succeed past the rate-limit gate (so we can observe 400 vs 429).
+    process.env.ADMIN_SESSION_SECRET = "x".repeat(32);
+    process.env.ADMIN_DOMAIN = "localhost";
+    nonceRoute = await import("../app/src/app/api/admin/auth/nonce/route.js");
+    verifyRoute = await import("../app/src/app/api/admin/auth/verify/route.js");
+  });
+
+  beforeEach(() => __resetRateLimitForTest());
+
+  function makeReq(url: string, body: unknown, ip: string): Request {
+    return new Request(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": ip,
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("nonce: allows 3, blocks the 4th with 429 + Retry-After", async () => {
+    const ip = "1.1.1.1";
+    for (let i = 0; i < 3; i++) {
+      const res = await nonceRoute.POST(
+        makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, ip),
+      );
+      // 200 (challenge issued) — we passed the rate limit AND a valid
+      // pubkey. Any non-429 means we passed the gate, which is the
+      // assertion that matters here.
+      expect(res.status, `req ${i}`).to.not.equal(429);
+    }
+    const blocked = await nonceRoute.POST(
+      makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, ip),
+    );
+    expect(blocked.status).to.equal(429);
+    const retry = blocked.headers.get("retry-after");
+    expect(retry, "Retry-After header").to.be.a("string");
+    expect(Number(retry)).to.be.greaterThan(0);
+    const body = (await blocked.json()) as { error: string };
+    expect(body.error).to.equal("rate_limited");
+  });
+
+  it("nonce: limits are per-IP", async () => {
+    for (let i = 0; i < 3; i++) {
+      await nonceRoute.POST(
+        makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, "2.2.2.2"),
+      );
+    }
+    // Same window, different IP — should pass the gate.
+    const other = await nonceRoute.POST(
+      makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, "3.3.3.3"),
+    );
+    expect(other.status).to.not.equal(429);
+  });
+
+  it("verify: allows 2, blocks the 3rd with 429", async () => {
+    const ip = "4.4.4.4";
+    for (let i = 0; i < 2; i++) {
+      const res = await verifyRoute.POST(
+        // Garbage body → 400 from the schema check; that's fine, the
+        // rate limit gate runs FIRST so anything ≠ 429 means we passed.
+        makeReq("https://x/api/admin/auth/verify", {}, ip),
+      );
+      expect(res.status, `req ${i}`).to.not.equal(429);
+    }
+    const blocked = await verifyRoute.POST(makeReq("https://x/api/admin/auth/verify", {}, ip));
+    expect(blocked.status).to.equal(429);
+  });
+
+  it("verify: limits are per-IP", async () => {
+    for (let i = 0; i < 2; i++) {
+      await verifyRoute.POST(makeReq("https://x/api/admin/auth/verify", {}, "5.5.5.5"));
+    }
+    const other = await verifyRoute.POST(makeReq("https://x/api/admin/auth/verify", {}, "6.6.6.6"));
+    expect(other.status).to.not.equal(429);
+  });
+
+  it("nonce and verify share no buckets — they have independent budgets per IP", async () => {
+    const ip = "7.7.7.7";
+    // Burn the nonce budget for this IP.
+    for (let i = 0; i < 3; i++) {
+      await nonceRoute.POST(
+        makeReq("https://x/api/admin/auth/nonce", { pubkey: "11111111111111111111111111111111" }, ip),
+      );
+    }
+    // Verify on the SAME IP must still have its independent budget.
+    const verifyOk = await verifyRoute.POST(makeReq("https://x/api/admin/auth/verify", {}, ip));
+    expect(verifyOk.status).to.not.equal(429);
+  });
+});

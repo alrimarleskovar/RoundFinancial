@@ -1,17 +1,41 @@
 // POST /api/admin/auth/nonce — issue a SIWS challenge for a pubkey.
 // Stateless (HMAC-bound); the client signs the returned `message` and
 // posts it back to /verify. ADR 0009 §1.
+//
+// Rate-limited per client (RoundFi internal audit follow-up) — the
+// canary previously exposed unlimited nonce issuance, a DoS surface
+// and a soft enumeration channel. Defaults: 10 req/min/IP. Override
+// via ADMIN_RL_NONCE_PER_MIN.
 
 import { NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
 
 import { getAdminDomain, getSessionSecret } from "@/lib/admin/auth";
 import { CHALLENGE_TTL_MS, issueChallenge } from "@/lib/admin/challenge";
+import { checkRateLimit, clientKeyFromRequest } from "@/lib/admin/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NONCE_RL_WINDOW_MS = 60_000;
+const NONCE_RL_MAX = Math.max(1, Number(process.env.ADMIN_RL_NONCE_PER_MIN ?? 10));
+
 export async function POST(req: Request): Promise<NextResponse> {
+  const rl = checkRateLimit({
+    key: `admin-auth-nonce:${clientKeyFromRequest(req)}`,
+    windowMs: NONCE_RL_WINDOW_MS,
+    max: NONCE_RL_MAX,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
+      },
+    );
+  }
+
   let secret: string;
   try {
     secret = getSessionSecret();

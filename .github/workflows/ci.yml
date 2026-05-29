@@ -111,6 +111,15 @@ jobs:
         # grouping + Loki/Datadog log queries silently. Sub-second.
         run: pnpm test:indexer-log
 
+      - name: Admin auth rate-limit gate (15 tests)
+        # Pins the sliding-window rate limiter on /api/admin/auth/nonce
+        # (default 10/min/IP) and /verify (default 5/min/IP), plus the
+        # X-Forwarded-For first-hop extraction (RoundFi internal audit
+        # follow-up — the canary previously exposed unlimited nonce
+        # issuance and signature-verify attempts). Drift = the canary
+        # silently becomes brute-forceable again. Sub-second.
+        run: pnpm test:admin-rate-limit
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
