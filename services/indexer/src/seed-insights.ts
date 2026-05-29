@@ -28,13 +28,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 const CYCLE = 2_592_000n;
 
-type Topology =
-  | "all"
-  | "clean"
-  | "retention"
-  | "predictor"
-  | "progression"
-  | "improvement";
+type Topology = "all" | "clean" | "retention" | "predictor" | "progression" | "improvement";
 
 function id(prefix: string, n: number, len = 44): string {
   const s = `${prefix}${String(n).padStart(4, "0")}`;
@@ -262,11 +256,7 @@ async function seedProgression(): Promise<void> {
 
 // 35 wallets × 3 ordinal pools, on-time rate 20% → 60% → 100% (preliminary)
 async function seedImprovement(): Promise<void> {
-  const pools = [
-    await createPool("Imp1"),
-    await createPool("Imp2"),
-    await createPool("Imp3"),
-  ];
+  const pools = [await createPool("Imp1"), await createPool("Imp2"), await createPool("Imp3")];
   const setups = [
     { onTime: 1, late: 4 },
     { onTime: 3, late: 2 },

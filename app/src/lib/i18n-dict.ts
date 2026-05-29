@@ -954,7 +954,8 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} de {t} conectadas",
     "conn.connected": "conectado",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle": "Integração em modo demo · liquidação on-chain entra na próxima fase do roadmap.",
+    "conn.demoTitle":
+      "Integração em modo demo · liquidação on-chain entra na próxima fase do roadmap.",
     "conn.disconnected": "desconectado",
     "conn.pending": "pendente",
     "conn.since": "desde {d}",
@@ -1270,7 +1271,8 @@ export const DICT: Record<Lang, Dict> = {
       "Eventos cujo pool ou membro ainda não tinha sido visto pelo indexer quando chegaram. A próxima atualização reconecta automaticamente.",
     "adminops.tip.card.orphaned":
       "Eventos sem pool ou membro correspondente — investigar antes de usar em análises de crédito.",
-    "adminops.tip.pools.title": "Pools indexados com seus ciclos, membros e indicadores estruturais.",
+    "adminops.tip.pools.title":
+      "Pools indexados com seus ciclos, membros e indicadores estruturais.",
     "adminops.tip.users.title":
       "Wallets que já participaram de pelo menos um pool, com suas métricas de comportamento.",
     "adminops.tip.events.title":
@@ -1286,8 +1288,7 @@ export const DICT: Record<Lang, Dict> = {
       "Soma do crédito comprometido pelo protocolo em todos os pools ativos.",
     "adminops.tip.eco.custodied":
       "Soma do que está sob custódia do protocolo: fundos de solidariedade, escrow e garantia.",
-    "adminops.tip.eco.contributed":
-      "Soma de tudo que os membros já contribuíram nos pools.",
+    "adminops.tip.eco.contributed": "Soma de tudo que os membros já contribuíram nos pools.",
     "adminops.tip.eco.paidOut": "Soma de tudo que já foi pago aos membros como sorteio.",
     "adminops.tip.eco.yield":
       "Rendimento acumulado pelo capital custodiado — simulado no devnet, real (via Kamino) no mainnet.",
@@ -1303,8 +1304,7 @@ export const DICT: Record<Lang, Dict> = {
     "adminops.tip.eco.defaultEvents": "Número total de defaults registrados.",
     "adminops.tip.eco.levelDist":
       "Quantos wallets distintos estão em cada nível de reputação (L1, L2, L3).",
-    "adminops.tip.eco.onTimeAgg":
-      "Percentual de contribuições pagas em dia em todo o portfólio.",
+    "adminops.tip.eco.onTimeAgg": "Percentual de contribuições pagas em dia em todo o portfólio.",
     "adminops.tip.eco.retention":
       "Percentual de wallets que voltaram para um segundo pool ou mais.",
     "adminops.tip.eco.completion":
@@ -2291,7 +2291,8 @@ export const DICT: Record<Lang, Dict> = {
     "conn.count": "{c} of {t} connected",
     "conn.connected": "connected",
     "conn.demoBadge": "DEMO",
-    "conn.demoTitle": "Integration in demo mode · on-chain settlement ships in the next roadmap phase.",
+    "conn.demoTitle":
+      "Integration in demo mode · on-chain settlement ships in the next roadmap phase.",
     "conn.disconnected": "disconnected",
     "conn.pending": "pending",
     "conn.since": "since {d}",
@@ -2580,16 +2581,15 @@ export const DICT: Record<Lang, Dict> = {
       "Distinct wallets that have joined at least one pool (identity = wallet).",
     "adminops.tip.card.events":
       "Total events recorded: contributions, payouts and defaults. Each on-chain transaction appears once.",
-    "adminops.tip.card.onTime":
-      "Share of contributions paid by each cycle's due date.",
+    "adminops.tip.card.onTime": "Share of contributions paid by each cycle's due date.",
     "adminops.tip.card.late":
       "Contributions paid after the due date — within the 7-day grace period or already late.",
     "adminops.tip.card.avgDelay":
       "How long, on average, late contributions took beyond the due date.",
     "adminops.tip.card.defaults": "Number of defaults resolved by the protocol.",
-    "adminops.tip.card.lag":
-      "How far the indexer is behind the latest block produced on chain.",
-    "adminops.tip.card.lastUpdate": "When the indexer last advanced its read position on the chain.",
+    "adminops.tip.card.lag": "How far the indexer is behind the latest block produced on chain.",
+    "adminops.tip.card.lastUpdate":
+      "When the indexer last advanced its read position on the chain.",
     "adminops.tip.card.backfill": "Status and start time of the last backfill run.",
     "adminops.tip.card.projection":
       "Count of behavioral events reprocessed since the last refresh.",
@@ -2597,7 +2597,8 @@ export const DICT: Record<Lang, Dict> = {
       "Events whose pool or member had not been seen by the indexer yet when they arrived. The next refresh reconnects them automatically.",
     "adminops.tip.card.orphaned":
       "Events without a matching pool or member — investigate before using in credit analysis.",
-    "adminops.tip.pools.title": "Indexed pools with their cycles, members and structural indicators.",
+    "adminops.tip.pools.title":
+      "Indexed pools with their cycles, members and structural indicators.",
     "adminops.tip.users.title":
       "Wallets that have joined at least one pool, with their behavioral metrics.",
     "adminops.tip.events.title":
@@ -2613,16 +2614,14 @@ export const DICT: Record<Lang, Dict> = {
       "Sum of credit committed by the protocol across all active pools.",
     "adminops.tip.eco.custodied":
       "Sum of what's under protocol custody: solidarity, escrow and guarantee funds.",
-    "adminops.tip.eco.contributed":
-      "Sum of everything members have contributed across all pools.",
+    "adminops.tip.eco.contributed": "Sum of everything members have contributed across all pools.",
     "adminops.tip.eco.paidOut": "Sum of everything paid out to members as draws.",
     "adminops.tip.eco.yield":
       "Yield accrued on custodied capital — simulated on devnet, real (via Kamino) on mainnet.",
     "adminops.tip.eco.fees": "Protocol fees collected and routed to the treasury.",
     "adminops.tip.eco.guaranteeFund":
       "Guarantee fund: extra protocol-level coverage beyond per-member collateral.",
-    "adminops.tip.eco.solidarity":
-      "Pool's solidarity fund — used to cover eligible defaults.",
+    "adminops.tip.eco.solidarity": "Pool's solidarity fund — used to cover eligible defaults.",
     "adminops.tip.eco.defaultRate":
       "Members who defaulted over total members. Includes devnet — see the banner above.",
     "adminops.tip.eco.seized":
@@ -2632,8 +2631,7 @@ export const DICT: Record<Lang, Dict> = {
       "How many distinct wallets are at each reputation tier (L1, L2, L3).",
     "adminops.tip.eco.onTimeAgg":
       "Share of contributions paid on time across the entire portfolio.",
-    "adminops.tip.eco.retention":
-      "Share of wallets that returned for a second pool or more.",
+    "adminops.tip.eco.retention": "Share of wallets that returned for a second pool or more.",
     "adminops.tip.eco.completion":
       "Share of pools that reached the end of the cycle — a signal of structural portfolio success.",
     // ── insights v0 (ADR 0010) ──────────────────────────────────
