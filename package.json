@@ -54,6 +54,7 @@
     "test:frontend-allowlist": "pnpm exec mocha -t 60000 'tests/frontend_allowlist.spec.ts'",
     "test:indexer-log": "pnpm exec mocha -t 60000 'tests/indexer_log.spec.ts'",
     "test:indexer-webhook-auth": "pnpm exec mocha -t 60000 'services/indexer/test/webhook-auth.spec.ts'",
+    "test:admin-rate-limit": "pnpm exec mocha -t 60000 'tests/admin_rate_limit.spec.ts'",
     "test:app-encoders": "pnpm exec mocha -t 60000 'tests/app_encoders.spec.ts'",
     "test:events": "pnpm exec mocha -t 60000 'tests/events.spec.ts'",
     "test:economic-parity-l1": "pnpm exec mocha -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",

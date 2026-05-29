@@ -2,7 +2,11 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "types": ["node", "mocha", "chai"]
+    "types": ["node", "mocha", "chai"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/src/*"]
+    }
   },
   "include": ["config/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "target", "dist", "**/generated/**"]
