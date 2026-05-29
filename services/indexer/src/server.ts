@@ -126,9 +126,7 @@ type WebhookAuthResult =
  *      startup gate refuses that opt-in in production-like environments
  *      as defense-in-depth.
  */
-export function checkWebhookAuth(
-  authHeader: string | string[] | undefined,
-): WebhookAuthResult {
+export function checkWebhookAuth(authHeader: string | string[] | undefined): WebhookAuthResult {
   const secret = process.env.HELIUS_WEBHOOK_SECRET;
   if (!secret) {
     if (process.env.INDEXER_ALLOW_UNAUTH_WEBHOOK === "true") {
@@ -178,10 +176,7 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
   app.post("/webhook/helius", async (req, reply) => {
     const gate = checkWebhookAuth(req.headers["authorization"]);
     if (!gate.ok) {
-      app.log.warn(
-        { ip: req.ip, reason: gate.reason },
-        "rejected webhook POST",
-      );
+      app.log.warn({ ip: req.ip, reason: gate.reason }, "rejected webhook POST");
       return reply.code(401).send({ error: "unauthorized" });
     }
     if (gate.reason === "no_secret_unauth_allowed") {
