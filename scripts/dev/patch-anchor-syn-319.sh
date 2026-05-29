@@ -63,6 +63,7 @@ fi
 # `anchor build --no-idl` didn't even download anchor-syn), grab the
 # .crate straight from crates.io and place it as if cargo had. Static
 # URL is the official CDN endpoint cargo itself uses.
+NEEDS_CHECKSUM_GEN=0
 if [[ -z "$ANCHOR_SYN_DIR" || ! -d "$ANCHOR_SYN_DIR" ]]; then
   echo "step 3 — downloading anchor-syn-0.30.1 from static.crates.io"
   TMP_CRATE=$(mktemp /tmp/anchor-syn-XXXXXX.crate)
@@ -91,6 +92,12 @@ if [[ -z "$ANCHOR_SYN_DIR" || ! -d "$ANCHOR_SYN_DIR" ]]; then
     cp "$TMP_CRATE" "${CACHE_HOST_DIR}/anchor-syn-0.30.1.crate"
     rm -f "$TMP_CRATE"
     ANCHOR_SYN_DIR="${DEST_DIR}/anchor-syn-0.30.1"
+    # When cargo extracts a .crate naturally it writes `.cargo-checksum.json`
+    # alongside the source — a JSON map of each file's SHA256. Without
+    # this file, cargo rejects the extracted directory as "not from a
+    # registry" and re-fetches, blowing away our patch. The .crate doesn't
+    # ship the checksum file, so we generate one ourselves below.
+    NEEDS_CHECKSUM_GEN=1
   fi
 fi
 
@@ -124,5 +131,32 @@ if old not in src:
 p.write_text(src.replace(old, new, 1))
 print("patched", p)
 PYEOF
+
+# Generate .cargo-checksum.json if we materialized the source via direct
+# download. Cargo expects every registry-extracted source dir to carry
+# one, and refuses to use the dir otherwise — which would cause it to
+# re-fetch the .crate and overwrite our patch. The file is a JSON map
+# of relative-path → SHA256, plus a top-level `package` SHA matching
+# the .crate file itself.
+if [[ "${NEEDS_CHECKSUM_GEN:-0}" -eq 1 ]]; then
+  echo "→ generating .cargo-checksum.json for $ANCHOR_SYN_DIR"
+  PACKAGE_SHA="f99daacb53b55cfd37ce14d6c9905929721137fd4c67bbab44a19802aecb622f"
+  python3 - "$ANCHOR_SYN_DIR" "$PACKAGE_SHA" <<'PYEOF'
+import hashlib, json, os, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+pkg_sha = sys.argv[2]
+files = {}
+for p in root.rglob("*"):
+    if not p.is_file():
+        continue
+    if p.name == ".cargo-checksum.json":
+        continue
+    rel = str(p.relative_to(root))
+    files[rel] = hashlib.sha256(p.read_bytes()).hexdigest()
+out = {"package": pkg_sha, "files": files}
+(root / ".cargo-checksum.json").write_text(json.dumps(out))
+print(f"wrote {len(files)} file checksums + package sha")
+PYEOF
+fi
 
 echo "anchor-syn-0.30.1 patched. Run 'anchor idl build --program-name <name> -o target/idl/<name>.json' for each program."
