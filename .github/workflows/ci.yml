@@ -55,7 +55,7 @@ jobs:
     name: js · lint + typecheck + parity + L1
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
@@ -216,7 +216,7 @@ jobs:
     name: audit · cargo-audit (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -284,7 +284,7 @@ jobs:
     name: deny · supply-chain (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -325,7 +325,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -423,7 +423,7 @@ jobs:
     timeout-minutes: 20
     needs: anchor # piggyback on the SBF artifact path semantics
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -560,7 +560,7 @@ jobs:
     timeout-minutes: 30
     needs: anchor
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
