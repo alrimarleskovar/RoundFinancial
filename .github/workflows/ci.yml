@@ -456,14 +456,35 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Post the last 150 lines as a PR comment so it can be read
+          # Post the last 600 lines as a PR comment so it can be read
           # through the MCP / API surface that doesn't require browser
           # auth. Bounded to ~50KB to stay under GitHub's comment limit.
-          TAIL=$(tail -n 150 /tmp/build.log 2>/dev/null || echo "(no /tmp/build.log)")
-          BODY=$(printf '<!-- ci-debug:%s -->\n### CI failure log — %s (tail 150)\n```\n%s\n```\n' \
-            "${{ github.job }}" "${{ github.job }}" "$TAIL")
-          # Cap body length defensively
-          BODY="${BODY:0:60000}"
+          TAIL=$(tail -n 600 /tmp/build.log 2>/dev/null || echo "(no /tmp/build.log)")
+          # Also dump the on-disk state of anchor-syn-0.30.1 from every
+          # registry-src host. The patch-anchor-syn-319.sh script targets
+          # this file, so the post-mortem makes obvious whether the patch
+          # marker is actually in the file cargo is using.
+          STATE_FILE=/tmp/anchor_syn_state.txt
+          : > "$STATE_FILE"
+          for d in ~/.cargo/registry/src/*/anchor-syn-0.30.1; do
+            [ -d "$d" ] || continue
+            {
+              echo "--- ${d} ---"
+              echo "listing:"
+              ls -la "$d/src/idl/" 2>&1
+              echo "defined.rs lines 488..506:"
+              sed -n '488,506p' "$d/src/idl/defined.rs" 2>&1
+              echo "grep SANDBOX PATCH:"
+              grep -n 'SANDBOX PATCH' "$d/src/idl/defined.rs" 2>&1 || echo '(no marker)'
+              echo ".cargo-checksum.json first 200 bytes:"
+              head -c 200 "$d/.cargo-checksum.json" 2>&1 || echo '(missing)'
+              echo
+            } >> "$STATE_FILE"
+          done
+          STATE=$(cat "$STATE_FILE")
+          BODY=$(printf '<!-- ci-debug:%s -->\n### CI failure log — %s\n\n#### Build log tail (last 600 lines)\n```\n%s\n```\n\n#### anchor-syn-0.30.1 on-disk state\n```\n%s\n```\n' \
+            "${{ github.job }}" "${{ github.job }}" "$TAIL" "$STATE")
+          BODY="${BODY:0:65000}"
           jq -n --arg body "$BODY" '{body: $body}' > /tmp/comment.json
           curl -sS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
@@ -618,14 +639,35 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Post the last 150 lines as a PR comment so it can be read
+          # Post the last 600 lines as a PR comment so it can be read
           # through the MCP / API surface that doesn't require browser
           # auth. Bounded to ~50KB to stay under GitHub's comment limit.
-          TAIL=$(tail -n 150 /tmp/build.log 2>/dev/null || echo "(no /tmp/build.log)")
-          BODY=$(printf '<!-- ci-debug:%s -->\n### CI failure log — %s (tail 150)\n```\n%s\n```\n' \
-            "${{ github.job }}" "${{ github.job }}" "$TAIL")
-          # Cap body length defensively
-          BODY="${BODY:0:60000}"
+          TAIL=$(tail -n 600 /tmp/build.log 2>/dev/null || echo "(no /tmp/build.log)")
+          # Also dump the on-disk state of anchor-syn-0.30.1 from every
+          # registry-src host. The patch-anchor-syn-319.sh script targets
+          # this file, so the post-mortem makes obvious whether the patch
+          # marker is actually in the file cargo is using.
+          STATE_FILE=/tmp/anchor_syn_state.txt
+          : > "$STATE_FILE"
+          for d in ~/.cargo/registry/src/*/anchor-syn-0.30.1; do
+            [ -d "$d" ] || continue
+            {
+              echo "--- ${d} ---"
+              echo "listing:"
+              ls -la "$d/src/idl/" 2>&1
+              echo "defined.rs lines 488..506:"
+              sed -n '488,506p' "$d/src/idl/defined.rs" 2>&1
+              echo "grep SANDBOX PATCH:"
+              grep -n 'SANDBOX PATCH' "$d/src/idl/defined.rs" 2>&1 || echo '(no marker)'
+              echo ".cargo-checksum.json first 200 bytes:"
+              head -c 200 "$d/.cargo-checksum.json" 2>&1 || echo '(missing)'
+              echo
+            } >> "$STATE_FILE"
+          done
+          STATE=$(cat "$STATE_FILE")
+          BODY=$(printf '<!-- ci-debug:%s -->\n### CI failure log — %s\n\n#### Build log tail (last 600 lines)\n```\n%s\n```\n\n#### anchor-syn-0.30.1 on-disk state\n```\n%s\n```\n' \
+            "${{ github.job }}" "${{ github.job }}" "$TAIL" "$STATE")
+          BODY="${BODY:0:65000}"
           jq -n --arg body "$BODY" '{body: $body}' > /tmp/comment.json
           curl -sS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
