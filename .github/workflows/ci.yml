@@ -120,6 +120,15 @@ jobs:
         # becomes unauthenticated again (the SEV-009 shape). Sub-second.
         run: pnpm test:indexer-webhook-auth
 
+      - name: Admin auth rate-limit gate (15 tests)
+        # Pins the sliding-window rate limiter on /api/admin/auth/nonce
+        # (default 10/min/IP) and /verify (default 5/min/IP), plus the
+        # X-Forwarded-For first-hop extraction (RoundFi internal audit
+        # follow-up — the canary previously exposed unlimited nonce
+        # issuance and signature-verify attempts). Drift = the canary
+        # silently becomes brute-forceable again. Sub-second.
+        run: pnpm test:admin-rate-limit
+
       - name: Admin on-chain authority cache (11 tests)
         # Pins the fail-closed contract on `fetchProtocolAuthority`
         # (RoundFi internal audit follow-up): null on any RPC failure,

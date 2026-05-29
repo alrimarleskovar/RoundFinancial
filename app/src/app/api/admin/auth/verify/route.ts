@@ -1,11 +1,18 @@
 // POST /api/admin/auth/verify — verify a signed SIWS challenge and, if the
 // pubkey is allowlisted, mint an httpOnly session cookie. ADR 0009 §1.
+//
+// Rate-limited per client (RoundFi internal audit follow-up) — the
+// stricter cap (5/min/IP vs the nonce endpoint's 10) reflects that an
+// attacker shouldn't need many attempts: each /verify involves a
+// signed message from a wallet the attacker doesn't control. Override
+// via ADMIN_RL_VERIFY_PER_MIN.
 
 import { NextResponse } from "next/server";
 
 import { getAdminDomain, getSessionSecret, resolveAllowlist } from "@/lib/admin/auth";
 import { isAllowed } from "@/lib/admin/allowlist";
 import { verifyChallenge } from "@/lib/admin/challenge";
+import { checkRateLimit, clientKeyFromRequest } from "@/lib/admin/rateLimit";
 import {
   ADMIN_SESSION_COOKIE,
   SESSION_TTL_SECONDS,
@@ -17,6 +24,9 @@ import { verifySignInSignature } from "@/lib/admin/siws";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const VERIFY_RL_WINDOW_MS = 60_000;
+const VERIFY_RL_MAX = Math.max(1, Number(process.env.ADMIN_RL_VERIFY_PER_MIN ?? 5));
+
 interface VerifyBody {
   pubkey?: unknown;
   nonce?: unknown;
@@ -27,6 +37,21 @@ interface VerifyBody {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  const rl = checkRateLimit({
+    key: `admin-auth-verify:${clientKeyFromRequest(req)}`,
+    windowMs: VERIFY_RL_WINDOW_MS,
+    max: VERIFY_RL_MAX,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
+      },
+    );
+  }
+
   let secret: string;
   try {
     secret = getSessionSecret();
