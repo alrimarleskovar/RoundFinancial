@@ -111,6 +111,15 @@ jobs:
         # grouping + Loki/Datadog log queries silently. Sub-second.
         run: pnpm test:indexer-log
 
+      - name: Indexer webhook auth gate (11 tests)
+        # Pins the three hardening properties of the Helius webhook
+        # auth gate (SEV-009 / SEV-033 + RoundFi internal audit
+        # follow-up): constant-time Bearer compare, default-DENY when
+        # HELIUS_WEBHOOK_SECRET unset, length-mismatch shortcut so
+        # timingSafeEqual never throws. Drift = the webhook silently
+        # becomes unauthenticated again (the SEV-009 shape). Sub-second.
+        run: pnpm test:indexer-webhook-auth
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
