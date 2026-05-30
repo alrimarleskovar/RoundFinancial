@@ -7,9 +7,8 @@ const nextConfig = {
   transpilePackages: ["@roundfi/sdk", "@roundfi/orchestrator", "@roundfi/indexer"],
   // Prisma's client loads a native query engine that webpack must not
   // bundle — keep it external on the server (admin route handlers).
-  experimental: {
-    serverComponentsExternalPackages: ["@prisma/client", "@prisma/engines", "prisma"],
-  },
+  // Next 15 promoted this out of `experimental` and renamed it.
+  serverExternalPackages: ["@prisma/client", "@prisma/engines", "prisma"],
   webpack: (config, { isServer }) => {
     // The @roundfi/sdk and @roundfi/orchestrator packages ship as raw TS
     // with NodeNext-style imports (`from "./foo.js"`). Webpack needs this

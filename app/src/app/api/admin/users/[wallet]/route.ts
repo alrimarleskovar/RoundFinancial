@@ -63,17 +63,19 @@ async function fetchReputation(wallet: string): Promise<Reputation | null> {
 
 export async function GET(
   req: Request,
-  { params }: { params: { wallet: string } },
+  // Next 15: dynamic route `params` is async (a Promise).
+  { params }: { params: Promise<{ wallet: string }> },
 ): Promise<NextResponse> {
   const gate = await requireAdmin(req);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
+  const { wallet } = await params;
   const prisma = getPrisma();
-  const profile = await getUserProfile(prisma, params.wallet);
+  const profile = await getUserProfile(prisma, wallet);
   if (!profile) return NextResponse.json({ error: "user_not_found" }, { status: 404 });
 
   const [reputation, indexer] = await Promise.all([
-    fetchReputation(params.wallet),
+    fetchReputation(wallet),
     computeIndexerHealth(prisma),
   ]);
 

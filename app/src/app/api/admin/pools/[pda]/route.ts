@@ -37,19 +37,18 @@ async function fetchLivePool(pda: string): Promise<Record<string, unknown> | nul
 
 export async function GET(
   req: Request,
-  { params }: { params: { pda: string } },
+  // Next 15: dynamic route `params` is async (a Promise).
+  { params }: { params: Promise<{ pda: string }> },
 ): Promise<NextResponse> {
   const gate = await requireAdmin(req);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
+  const { pda } = await params;
   const prisma = getPrisma();
-  const detail = await getPoolDetail(prisma, params.pda);
+  const detail = await getPoolDetail(prisma, pda);
   if (!detail) return NextResponse.json({ error: "pool_not_found" }, { status: 404 });
 
-  const [live, indexer] = await Promise.all([
-    fetchLivePool(params.pda),
-    computeIndexerHealth(prisma),
-  ]);
+  const [live, indexer] = await Promise.all([fetchLivePool(pda), computeIndexerHealth(prisma)]);
 
   return NextResponse.json({
     ...detail,
