@@ -38,10 +38,11 @@
  *
  * Uses deterministic keypairs from `memberKeypairs()` so addresses are
  * stable across runs — makes debugging failed assertions much easier.
- * `cycle_duration = 60` is the MIN_CYCLE_DURATION; the test never
- * waits between cycles because contribute/claim both succeed
- * immediately within the grace window and claim_payout is what
- * advances `pool.current_cycle`.
+ * `cycle_duration = 86_400` is the on-chain MIN_CYCLE_DURATION (SEV-023);
+ * the test never waits between cycles because contribute/claim both
+ * succeed immediately within the grace window and claim_payout is what
+ * advances `pool.current_cycle` (the counter is driven by claim_payout,
+ * not by Clock, so the 1-day floor has no wall-time cost here).
  */
 
 import { expect } from "chai";
@@ -85,7 +86,7 @@ import {
 
 const MEMBERS_TARGET = 4;
 const CYCLES_TOTAL = 4;
-const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (SEV-023, constants.rs:152)
 const INSTALLMENT_USDC = 1_250n; // whole USDC
 const CREDIT_USDC = 3_500n;
 

@@ -1255,7 +1255,10 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
       installmentAmount: installmentUsdc,
       creditAmount: creditAmountUsdc,
       cyclesTotal: N,
-      cycleDurationSec: 3_600,
+      // MIN_CYCLE_DURATION is 86_400 (SEV-023, constants.rs:152). The
+      // counter is driven by claim_payout, not Clock, so the 1-day floor
+      // has no wall-time cost in this parity run.
+      cycleDurationSec: 86_400,
     });
 
     // Pre-fund each wallet with the full economic position:
