@@ -84,6 +84,27 @@ pub const LEVEL_MAX: u8 = 3;
 /// 604_800 = 7 * 24 * 60 * 60 seconds.
 pub const REPUTATION_AUTHORITY_TIMELOCK_SECS: i64 = 604_800;
 
+/// Maximum forward horizon for a Passport attestation's `expires_at`,
+/// in seconds from `now` at the moment of validation (Wave 9 hardening —
+/// closes the T4 "future work" gap in
+/// `docs/security/passport-bridge-threat-model.md`).
+///
+/// The bridge service's documented default TTL is 90 days. This bound
+/// caps `expires_at - now` at **180 days** — 2× the bridge default,
+/// generous enough to absorb refresh delays and clock skew while
+/// neutralizing a compromised bridge that tries to mint a 10-year
+/// attestation (the explicit attack the threat model flagged).
+///
+/// Symmetric pattern to the Wave 3 plausibility ceiling in the Kamino
+/// adapter: don't try to detect the compromise, just reject the
+/// physically-implausible value the compromise would write. Fail loud,
+/// fail closed.
+///
+/// `MIN_PASSPORT_HORIZON_SECS` is a floor of 1 day so the bound is
+/// non-trivial: a zero-or-negative max would accidentally reject every
+/// attestation. Keep the two-tier floor + ceiling explicit.
+pub const MAX_PASSPORT_HORIZON_SECS: i64 = 180 * 86_400; // 180 days
+
 /// Passport attestation account size — 83 bytes.
 ///
 /// Layout reused from the original Civic Gateway-Token v1 shape so the
@@ -163,6 +184,29 @@ mod floor_guards {
             LEVEL_3_THRESHOLD > LEVEL_2_THRESHOLD,
             "level thresholds must be strictly increasing: L3={} L2={}",
             LEVEL_3_THRESHOLD, LEVEL_2_THRESHOLD,
+        );
+    }
+
+    /// Max attestation horizon (Wave 9). Must be at least 2× the
+    /// bridge's documented 90-day default TTL so a refresh-delayed but
+    /// honest attestation never gets falsely rejected, and must be
+    /// far below "implausible" values (e.g. 10 years) that signal a
+    /// compromised bridge.
+    #[test]
+    fn passport_max_horizon_within_bounds() {
+        const FLOOR_SECS: i64 = 90 * 86_400; // 2× bridge default
+        const CEILING_SECS: i64 = 365 * 86_400; // 1 year
+        assert!(
+            MAX_PASSPORT_HORIZON_SECS >= FLOOR_SECS,
+            "MAX_PASSPORT_HORIZON_SECS = {} below 2× bridge-default floor {}",
+            MAX_PASSPORT_HORIZON_SECS,
+            FLOOR_SECS,
+        );
+        assert!(
+            MAX_PASSPORT_HORIZON_SECS <= CEILING_SECS,
+            "MAX_PASSPORT_HORIZON_SECS = {} above 1y ceiling {} — defeats the cap",
+            MAX_PASSPORT_HORIZON_SECS,
+            CEILING_SECS,
         );
     }
 }

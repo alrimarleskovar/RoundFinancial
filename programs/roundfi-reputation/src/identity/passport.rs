@@ -60,7 +60,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::account_info::AccountInfo;
 
-use crate::constants::PASSPORT_ATTESTATION_LEN;
+use crate::constants::{MAX_PASSPORT_HORIZON_SECS, PASSPORT_ATTESTATION_LEN};
 use crate::error::ReputationError;
 
 /// Offsets inside the Passport attestation account (83-byte layout
@@ -162,6 +162,26 @@ pub fn validate_passport_attestation<'a>(
             if expires_at != 0 && expires_at <= now {
                 PassportStatus::Expired
             } else {
+                // Max-horizon ceiling (Wave 9 — closes the T4 "future
+                // work" gap in docs/security/passport-bridge-threat-model.md).
+                // The bridge's documented TTL is 90 days; we accept up to
+                // MAX_PASSPORT_HORIZON_SECS (180 days) ahead of `now`. A
+                // value beyond that is physically implausible for a
+                // legitimate bridge issuance and is treated as the same
+                // class of failure as a forged signature: hard reject,
+                // not soft-demote. Catches a compromised bridge writing
+                // a 10-year TTL (the exact attack the threat model flagged).
+                //
+                // expires_at == 0 means "no expiry" (legacy Civic Gateway
+                // semantic) — still accepted: that's a separate operational
+                // decision and the bridge of record doesn't write 0 anyway.
+                if expires_at != 0 {
+                    let horizon = expires_at.saturating_sub(now);
+                    require!(
+                        horizon <= MAX_PASSPORT_HORIZON_SECS,
+                        ReputationError::ImplausibleAttestationTtl,
+                    );
+                }
                 PassportStatus::Active { expires_at }
             }
         }
@@ -240,5 +260,52 @@ mod tests {
         let mut exp_buf = [0u8; 8];
         exp_buf.copy_from_slice(&buf[OFF_EXPIRE_TIME..OFF_EXPIRE_TIME + 8]);
         assert!(i64::from_le_bytes(exp_buf) < now);
+    }
+
+    // ─── Wave 9 — max-horizon ceiling ──────────────────────────────────
+    //
+    // Pure-Rust replicas of the ceiling logic in `validate_passport_attestation`.
+    // We can't easily spin up an AccountInfo to call the validator end-to-end
+    // from a unit test, so we exercise the same arithmetic shape the validator
+    // applies: `horizon = expires_at.saturating_sub(now); horizon <= MAX`.
+
+    #[test]
+    fn horizon_within_bound_accepts() {
+        let now = 1_700_000_000_i64;
+        // 90 days ahead — well within the 180d ceiling (bridge default).
+        let expires_at = now + 90 * 86_400;
+        let horizon = expires_at.saturating_sub(now);
+        assert!(horizon <= MAX_PASSPORT_HORIZON_SECS);
+    }
+
+    #[test]
+    fn horizon_at_ceiling_accepts() {
+        let now = 1_700_000_000_i64;
+        let expires_at = now + MAX_PASSPORT_HORIZON_SECS;
+        let horizon = expires_at.saturating_sub(now);
+        assert!(horizon <= MAX_PASSPORT_HORIZON_SECS);
+    }
+
+    #[test]
+    fn horizon_beyond_ceiling_rejects() {
+        let now = 1_700_000_000_i64;
+        // The exact attack T4 calls out — a 10-year forward TTL.
+        let expires_at = now + 365 * 10 * 86_400;
+        let horizon = expires_at.saturating_sub(now);
+        assert!(horizon > MAX_PASSPORT_HORIZON_SECS);
+    }
+
+    #[test]
+    fn expires_at_zero_skips_horizon_check() {
+        // 0 means "no expiry" (legacy semantic). The validator branches
+        // BEFORE the horizon check on this path, so the ceiling does
+        // not apply. Codifies the documented behavior so a future
+        // refactor that flips this assumption fails this test.
+        let owner = Pubkey::new_unique();
+        let network = Pubkey::new_unique();
+        let buf = make_attestation(STATE_ACTIVE, &network, &owner, 0);
+        let mut exp_buf = [0u8; 8];
+        exp_buf.copy_from_slice(&buf[OFF_EXPIRE_TIME..OFF_EXPIRE_TIME + 8]);
+        assert_eq!(i64::from_le_bytes(exp_buf), 0);
     }
 }

@@ -166,9 +166,18 @@ Passport score is now below threshold.
 
 **Gaps:**
 
-- The 90-day TTL is a bridge-service policy, not enforced on-chain.
+- ~~The 90-day TTL is a bridge-service policy, not enforced on-chain.
   A compromised bridge could write a 10-year TTL. Pinning the
-  maximum TTL on-chain is filed as future work.
+  maximum TTL on-chain is filed as future work.~~
+  **Closed (Wave 9 — 2026-05-30).** The validator now enforces
+  `expires_at - now <= MAX_PASSPORT_HORIZON_SECS` (180 days, 2× the
+  bridge default). A bridge writing a multi-year TTL fails with
+  `ImplausibleAttestationTtl` BEFORE the validator returns
+  `PassportStatus::Active`. Symmetric pattern to the Wave 3
+  Kamino plausibility ceiling: don't try to detect the compromise,
+  just reject the physically-implausible value the compromise would
+  write. `expires_at == 0` (legacy "no expiry") is still accepted —
+  the bridge of record does not write 0 anyway.
 
 ### T5 — Bridge service offline / Passport API offline
 
