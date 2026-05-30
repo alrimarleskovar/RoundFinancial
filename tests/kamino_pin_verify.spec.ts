@@ -37,9 +37,7 @@ describe("extractKaminoLendProgramId — regex correctness", () => {
   it("tolerates extra whitespace + a single-line form", () => {
     // The string inside the macro must be valid base58 (no 0, O, I, l).
     const src = `pub  const  KAMINO_LEND_PROGRAM_ID : Pubkey = pubkey ! ( "AbcDeFghJkMnPqRsTuVwXyZ123456789abcdefghjk" );`;
-    expect(extractKaminoLendProgramId(src)).to.equal(
-      "AbcDeFghJkMnPqRsTuVwXyZ123456789abcdefghjk",
-    );
+    expect(extractKaminoLendProgramId(src)).to.equal("AbcDeFghJkMnPqRsTuVwXyZ123456789abcdefghjk");
   });
 
   it("returns null when the const is missing or reshaped", () => {
