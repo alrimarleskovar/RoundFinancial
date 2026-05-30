@@ -812,7 +812,11 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
   const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
   const SETTLE_NEXT_CYCLE_AT = 1_800_000_000n;
-  const SETTLE_GRACE_PERIOD_SECS = 60n; // matches `constants.rs::GRACE_PERIOD_SECS` (devnet patch)
+  // Production GRACE_PERIOD_SECS — the SBF build under `anchor build` does
+  // NOT enable the `devnet-canary` feature, so the on-chain constant is the
+  // 604_800 (7d) production value, not the 60s devnet patch. Matches the
+  // working edge_grace_default* specs. The clock warp below must clear this.
+  const SETTLE_GRACE_PERIOD_SECS = 604_800n; // constants.rs:62 (non-devnet-canary)
   const SETTLE_INSTALLMENT = 10_000_000n; // $10 USDC
   const SETTLE_CREDIT = 30_000_000n; // 3 × installment
   const SETTLE_STAKE = 15_000_000n; // 50% of credit
