@@ -34,12 +34,13 @@ jobs:
   check-title:
     name: PR title must reference SEV or carry [FREEZE-EXCEPTION]
     runs-on: ubuntu-latest
-    # Bots that ship CVE patches don't reference internal SEV IDs;
-    # FREEZE.md explicitly allows that lane. Match the GitHub-assigned
-    # author logins for both dependabot and renovate.
-    if: >-
-      github.event.pull_request.user.login != 'dependabot[bot]' &&
-      github.event.pull_request.user.login != 'renovate[bot]'
+    # The job ALWAYS runs so branch protection sees an explicit
+    # `success` (not `skipped`) for every PR. Branch protection treats
+    # a skipped required check as "not yet passed" and refuses to
+    # merge — that is what blocked dependabot/renovate PRs whose lane
+    # FREEZE.md explicitly allows. The bypass logic moved into the
+    # step below so the bot lane STILL succeeds, just via an explicit
+    # early-return instead of a job-level skip.
     steps:
       - name: Inspect PR title
         env:
@@ -49,6 +50,16 @@ jobs:
           echo "PR author: $PR_AUTHOR"
           echo "PR title:  $PR_TITLE"
           echo ""
+
+          # Bots that ship CVE patches don't reference internal SEV IDs;
+          # FREEZE.md explicitly allows that lane. Early-return SUCCESS
+          # for the GitHub-assigned author logins for both dependabot
+          # and renovate so branch protection sees `success` rather
+          # than `skipped` (the latter blocks merge under strict mode).
+          if [ "$PR_AUTHOR" = "dependabot[bot]" ] || [ "$PR_AUTHOR" = "renovate[bot]" ]; then
+            echo "::notice::Freeze gate auto-pass — author is a dependency-bot ($PR_AUTHOR), FREEZE.md CVE-patch lane."
+            exit 0
+          fi
 
           # Match either a SEV reference (SEV-001, SEV-042, etc.) OR
           # the literal [FREEZE-EXCEPTION] tag, anywhere in the title.
@@ -70,7 +81,7 @@ jobs:
           echo "    add the literal tag '[FREEZE-EXCEPTION]' anywhere in the title"
           echo "    AND add a row to the 'Active exceptions' table in FREEZE.md"
           echo "  - a CI / tooling fix → it counts as a freeze exception; tag it"
-          echo "  - a CVE patch from dependabot/renovate → this gate auto-skips"
+          echo "  - a CVE patch from dependabot/renovate → this gate auto-passes"
           echo "    for those authors; if you're seeing this error from a bot PR,"
           echo "    file an issue."
           echo ""
