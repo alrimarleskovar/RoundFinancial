@@ -163,6 +163,17 @@ jobs:
         # explicit. Sub-second.
         run: pnpm test:yield-harvest-floor
 
+      - name: Kamino program-id pin drift gate (7 tests)
+        # Audit Wave 7 (INFO/operator follow-up). The roundfi-yield-kamino
+        # adapter hardcodes KAMINO_LEND_PROGRAM_ID — drift to a wrong
+        # address routes every yield CPI to a different program. This spec
+        # extracts the on-disk const and compares it against the canonical
+        # value in scripts/mainnet/kamino-pin.ts. Drift in EITHER side fails
+        # the lane. Liveness (`getAccountInfo` on mainnet) belongs to the
+        # operator pre-deploy script `pnpm verify:kamino-pin --verify-rpc`.
+        # Sub-second.
+        run: pnpm test:kamino-pin
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
