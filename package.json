@@ -59,6 +59,8 @@
     "test:admin-auth": "pnpm exec mocha -t 60000 'tests/admin_auth.spec.ts'",
     "test:admin-shared-store": "pnpm exec mocha -t 60000 'tests/admin_shared_store.spec.ts'",
     "test:yield-harvest-floor": "pnpm exec mocha -t 60000 'tests/yield_harvest_floor.spec.ts'",
+    "test:kamino-pin": "pnpm exec mocha -t 60000 'tests/kamino_pin_verify.spec.ts'",
+    "verify:kamino-pin": "tsx scripts/mainnet/verify-kamino-pin.ts",
     "test:app-encoders": "pnpm exec mocha -t 60000 'tests/app_encoders.spec.ts'",
     "test:events": "pnpm exec mocha -t 60000 'tests/events.spec.ts'",
     "test:economic-parity-l1": "pnpm exec mocha -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",
