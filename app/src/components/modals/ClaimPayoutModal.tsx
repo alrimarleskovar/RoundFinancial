@@ -7,6 +7,7 @@ import { PublicKey } from "@solana/web3.js";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
+import { IntentPanel } from "@/components/ui/IntentPanel";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendClaimPayout } from "@/lib/claim-payout";
@@ -51,7 +52,8 @@ export function ClaimPayoutModal({
   const { fmtMoney } = useI18n();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
-  const { explorerTx } = useWallet();
+  const chainWallet = useWallet();
+  const { explorerTx } = chainWallet;
   const { claimPayoutMock } = useSession();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -536,8 +538,23 @@ export function ClaimPayoutModal({
             </div>
           ) : null}
 
+          {/* Pre-sign intent panel (#249 W3) — gated on chain mode.
+              In claim_payout, the user RECEIVES USDC, so amountUsdc is
+              negative (convention: positive=send, negative=receive). */}
+          {chainMode && (
+            <IntentPanel
+              action="claim_payout"
+              amountUsdc={-creditUsdc}
+              poolLabel={group.name}
+              network={chainWallet.network}
+              walletLabel={chainWallet.walletLabel}
+              isHardware={chainWallet.isHardware}
+              isUnknownWallet={chainWallet.isUnknownWallet}
+            />
+          )}
+
           {/* Footer */}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
             <button type="button" onClick={reset} style={ghostBtn(tokens)}>
               Cancelar
             </button>
