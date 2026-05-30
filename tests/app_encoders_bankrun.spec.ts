@@ -758,7 +758,7 @@ describe("app encoders — escape_valve_list round-trip", function () {
     const listingAfter = await env.context.banksClient.getAccount(listingAddr);
     expect(listingAfter, "Listing PDA must exist after list").to.not.equal(null);
 
-    const listing = await (env.programs.core.account as any).listing.fetch(listingAddr);
+    const listing = await (env.programs.core.account as any).escapeValveListing.fetch(listingAddr);
     expect(listing.pool.toBase58()).to.equal(poolPk.toBase58());
     expect(listing.seller.toBase58()).to.equal(seller.publicKey.toBase58());
     expect(listing.slotIndex).to.equal(0);
