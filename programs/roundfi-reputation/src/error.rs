@@ -39,6 +39,8 @@ pub enum ReputationError {
     IdentityExpired,
     #[msg("Identity is already linked to this profile — unlink first.")]
     IdentityAlreadyLinked,
+    #[msg("Attestation expires_at is implausibly far in the future — exceeds MAX_PASSPORT_HORIZON_SECS (Wave 9 defense against a compromised bridge writing a multi-year TTL).")]
+    ImplausibleAttestationTtl,
 
     // ─── Admin ──────────────────────────────────────────────────────────
     #[msg("Caller is not the reputation program authority.")]
