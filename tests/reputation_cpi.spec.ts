@@ -58,6 +58,7 @@ import {
   createUsdcMint,
   fetchProfile,
   fundUsdc,
+  initProfile,
   initializeProtocol,
   initializeReputation,
   joinMembers,
@@ -185,7 +186,19 @@ describe("reputation CPI — happy path + score progression", function () {
       await fundUsdc(env, usdcMint, m.publicKey, BigInt(CYCLES_TOTAL) * INSTALLMENT_BASE);
     }
 
-    // Baseline: every profile was init'd by join_pool, so scores start at 0.
+    // Initialize each member's ReputationProfile. join_pool no longer
+    // creates it (Step-4d: derive_trusted_reputation_level only *reads*
+    // the PDA, treating an empty one as level 1); the profile is
+    // otherwise lazily created by the first attest CPI (init_if_needed).
+    // We init explicitly so the baseline below can read a level-1,
+    // all-zero profile — init_profile produces exactly that state, and
+    // the first Payment attest then takes the "already exists" path with
+    // identical score deltas.
+    for (const m of members) {
+      await initProfile(env, m.publicKey);
+    }
+
+    // Baseline: freshly init'd profiles start at score 0.
     const scores = await captureScores();
     for (const s of scores) expect(s).to.equal(0n);
 
