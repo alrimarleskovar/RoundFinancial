@@ -29,7 +29,7 @@ use crate::error::RoundfiError;
 /// output against the same hash so a future Anchor rename would fail
 /// loudly rather than silently miss.
 fn attest_disc() -> [u8; 8] {
-    let h = anchor_lang::solana_program::hash::hash(b"global:attest");
+    let h = solana_program::hash::hash(b"global:attest");
     let mut out = [0u8; 8];
     out.copy_from_slice(&h.to_bytes()[..8]);
     out
@@ -217,7 +217,7 @@ mod tests {
     fn attest_disc_matches_anchor_sighash() {
         // sha256("global:attest")[..8] — known good output recomputed
         // at each run. This test anchors us against the Anchor macro.
-        let h = anchor_lang::solana_program::hash::hash(b"global:attest");
+        let h = solana_program::hash::hash(b"global:attest");
         let mut expected = [0u8; 8];
         expected.copy_from_slice(&h.to_bytes()[..8]);
         assert_eq!(attest_disc(), expected);

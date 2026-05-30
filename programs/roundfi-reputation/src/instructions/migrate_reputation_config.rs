@@ -88,7 +88,7 @@ pub fn handler(ctx: Context<MigrateReputationConfig>) -> Result<()> {
     if needed > have {
         system_program::transfer(
             CpiContext::new(
-                ctx.accounts.system_program.to_account_info(),
+                ctx.accounts.system_program.key(),
                 Transfer {
                     from: ctx.accounts.authority.to_account_info(),
                     to: info.clone(),
@@ -98,7 +98,9 @@ pub fn handler(ctx: Context<MigrateReputationConfig>) -> Result<()> {
         )?;
     }
 
-    info.realloc(target, true)?;
+    // Anchor 1.0 / solana-account-info 3.x: `realloc(len, zero_init)` was
+    // replaced by `resize(len)` (the zero-init is implicit for growth).
+    info.resize(target)?;
 
     msg!(
         "roundfi-reputation: migrate_reputation_config {} -> {} bytes (authority={})",

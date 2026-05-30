@@ -4,8 +4,8 @@
  * Walks a single pool through its entire life:
  *
  *   initializeProtocol
- *     → createPool (4 members, 4 cycles, 60s duration)
- *     → joinPool × 4 (Level-2 members, 30% stake)
+ *     → createPool (4 members, 4 cycles, MIN_CYCLE_DURATION)
+ *     → joinPool × 4 (fresh Level-1 members, 50% stake)
  *         pool auto-activates when the 4th member joins
  *     → For each cycle c ∈ [0, 3]:
  *         contribute × 4
@@ -38,10 +38,11 @@
  *
  * Uses deterministic keypairs from `memberKeypairs()` so addresses are
  * stable across runs — makes debugging failed assertions much easier.
- * `cycle_duration = 60` is the MIN_CYCLE_DURATION; the test never
- * waits between cycles because contribute/claim both succeed
- * immediately within the grace window and claim_payout is what
- * advances `pool.current_cycle`.
+ * `cycle_duration = 86_400` is the on-chain MIN_CYCLE_DURATION (SEV-023);
+ * the test never waits between cycles because contribute/claim both
+ * succeed immediately within the grace window and claim_payout is what
+ * advances `pool.current_cycle` (the counter is driven by claim_payout,
+ * not by Clock, so the 1-day floor has no wall-time cost here).
  */
 
 import { expect } from "chai";
@@ -85,16 +86,21 @@ import {
 
 const MEMBERS_TARGET = 4;
 const CYCLES_TOTAL = 4;
-const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (SEV-023, constants.rs:152)
 const INSTALLMENT_USDC = 1_250n; // whole USDC
 const CREDIT_USDC = 3_500n;
 
-const LEVEL: 1 | 2 | 3 = 2; // 30% stake → 1_050 USDC per member
-const LEVEL_STAKE_BPS = 3_000;
+// join_pool derives the trusted reputation level from the on-chain
+// ReputationProfile PDA (Step 4d audit close-out). Fresh wallets have no
+// profile, so the program treats them as level 1 — asserting any higher
+// level reverts ReputationLevelMismatch. These members never paid into a
+// prior pool, so level 1 (50% stake) is their real on-chain level.
+const LEVEL: 1 | 2 | 3 = 1; // 50% stake → 1_750 USDC per member
+const LEVEL_STAKE_BPS = 5_000;
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC); // 1_250_000_000
 const CREDIT_BASE = usdc(CREDIT_USDC); // 3_500_000_000
-const STAKE_BASE = (CREDIT_BASE * BigInt(LEVEL_STAKE_BPS)) / 10_000n; // 1_050_000_000
+const STAKE_BASE = (CREDIT_BASE * BigInt(LEVEL_STAKE_BPS)) / 10_000n; // 1_750_000_000
 
 // Installment split with solidarity_bps=100, escrow_release_bps=2500:
 const SOLIDARITY_PER_INST = (INSTALLMENT_BASE * 100n) / 10_000n; //    12_500_000

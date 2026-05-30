@@ -331,18 +331,17 @@ jobs:
         # policy independent of advisories.
 
   # ─── 4. Anchor lane (required) ───────────────────────────────────────
-  # `anchor build --no-idl` against Agave 3.0.0 + Anchor 0.30.1.
+  # `anchor build` against Agave 3.0.0 + Anchor 1.0.2 (#319 migration).
   # Toolchain alignment landed in PR #138 (Anchor.toml + Cargo.lock pins);
-  # codebase fixes landed in PR #139 (Payload newtype, get_profile
-  # lifetime, mpl-core 0.8.0 pin). The lane is now required — a red badge
-  # here means a real regression, not toolchain drift.
+  # the #319 PR bumped anchor-lang 0.30.1 → 1.0 + mpl-core 0.8 → 0.12.
+  # The lane is required — a red badge here means a real regression.
   #
-  # `pnpm test:bankrun` is deliberately NOT run here yet. The bankrun
-  # harness in `tests/_harness/bankrun.ts` loads `target/idl/*.json`,
-  # but `--no-idl` skips that generation. The full IDL build path
-  # invokes anchor-syn which calls the removed `Span::source_file()` API
-  # — fixed in Anchor 0.31+. Once we bump anchor or land a workaround,
-  # bankrun goes back into this lane as required.
+  # Anchor 1.0 builds IDLs natively (the anchor-syn 0.30.1
+  # `Span::source_file()` removal that forced `--no-idl` is gone), so the
+  # full build emits target/idl/*.json. `pnpm test:bankrun` is still not
+  # run in this lane because part of its glob (economic_parity, lifecycle)
+  # uses the localnet harness which needs a running validator; the
+  # in-memory bankrun specs run in the dedicated lane below.
   anchor:
     name: anchor · build
     runs-on: ubuntu-latest
@@ -371,23 +370,30 @@ jobs:
       - name: Verify solana CLI
         run: solana --version
 
-      - name: Install Anchor 0.30.1
-        # `--locked` fails on Rust 1.85+ because anchor's pinned `time`
-        # crate doesn't compile (E0282 type inference). Without
-        # `--locked`, cargo resolves a compatible newer `time`.
+      - name: Install Anchor 1.0.2
+        # #319: migrated to anchor-lang 1.0 + mpl-core 0.12. The CLI must
+        # match the lang crate to parse the 1.0 macros / IDL. `--locked`
+        # still fails on the pinned `time` crate, so omit it and let cargo
+        # resolve a compatible newer `time`.
         run: |
           cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+            --tag v1.0.2 anchor-cli
 
-      - name: anchor build (--no-idl)
-        # `--no-idl` skips the IDL build step. anchor-syn 0.30.1's
-        # IDL builder calls `Span::source_file()` which was removed
-        # from stable rustc; until Anchor 0.31 lands the fix, IDL
-        # generation can't run. The committed Cargo.lock pins
-        # solana-program 1.18.26 + blake3 1.5.0 + mpl-core 0.8.0 so
-        # the SBF target compile itself is reproducible against
-        # platform-tools v1.51 cargo 1.84.
-        run: anchor build --no-idl
+      - name: anchor build
+        # #319: Anchor 1.0 fixed the anchor-syn `Span::source_file()`
+        # removal that forced `--no-idl` under 0.30.1, so the full IDL
+        # build runs again (and feeds the bankrun harness). The committed
+        # Cargo.lock now pins solana-program 3.x + mpl-core 0.12 (no-anchor
+        # feature + borsh-v1); the SBF compile is reproducible against the
+        # Agave 3.0.0 platform-tools.
+        #
+        # `--ignore-keys` skips Anchor 1.0's new pre-build check that
+        # compares `declare_id!` against target/deploy/*-keypair.json.
+        # On a fresh CI runner those keypair files don't exist, so Anchor
+        # generates random ones and the check fails. Our declare_id!s are
+        # the authoritative source — the keypairs are operator-side
+        # deploy artifacts (gitignored) and have no role in CI compile.
+        run: anchor build --ignore-keys
 
       # NOTE: `pnpm test:bankrun` is intentionally not in this lane.
       # The bankrun harness loads `target/idl/*.json`, which `--no-idl`
@@ -475,18 +481,17 @@ jobs:
           tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
-      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
         run: |
           cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+            --tag v1.0.2 anchor-cli
 
-      - name: anchor build (--no-idl) + IDL regen (#319 workaround)
-        # The .so binaries come from `anchor build --no-idl` (same as
-        # the anchor lane). IDLs come from rebuild-idls.sh which applies
-        # the patch-anchor-syn-319.sh patch then runs `anchor idl build`
-        # per program. The bankrun harness loads IDLs unconditionally
-        # via `loadIdl()` for all 4 programs (core, reputation,
-        # yield_mock, yield_kamino).
+      - name: anchor build (#319 — native IDL under Anchor 1.0)
+        # #319: Anchor 1.0 builds IDLs natively (the anchor-syn 0.30.1
+        # `Span::source_file()` removal that forced the --no-idl +
+        # rebuild-idls.sh patch workaround is gone). Plain `anchor build`
+        # now emits target/idl/*.json for all 4 programs, which the
+        # bankrun harness loads via `loadIdl()`.
         run: |
           set -x
           set -o pipefail
@@ -502,17 +507,10 @@ jobs:
           cargo --version
           rustc --version
           solana --version
-          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
-          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
-          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
           echo "::endgroup::"
 
-          echo "::group::anchor build (--no-idl)"
-          anchor build --no-idl
-          echo "::endgroup::"
-
-          echo "::group::IDL regen"
-          bash scripts/dev/rebuild-idls.sh
+          echo "::group::anchor build"
+          anchor build --ignore-keys
           echo "::endgroup::"
 
       - name: Diagnostic — upload full build log on failure
@@ -614,12 +612,12 @@ jobs:
           tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
-      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
         run: |
           cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+            --tag v1.0.2 anchor-cli
 
-      - name: anchor build (--no-idl) + IDL regen (#319 workaround)
+      - name: anchor build (#319 — native IDL under Anchor 1.0)
         run: |
           set -x
           set -o pipefail
@@ -631,17 +629,10 @@ jobs:
           cargo --version
           rustc --version
           solana --version
-          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
-          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
-          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
           echo "::endgroup::"
 
-          echo "::group::anchor build (--no-idl)"
-          anchor build --no-idl
-          echo "::endgroup::"
-
-          echo "::group::IDL regen"
-          bash scripts/dev/rebuild-idls.sh
+          echo "::group::anchor build"
+          anchor build --ignore-keys
           echo "::endgroup::"
 
       - name: Diagnostic — upload full build log on failure
