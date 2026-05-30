@@ -375,10 +375,10 @@ export function FeaturedGroup() {
                   gap: 8,
                   boxShadow: `0 6px 18px ${tokens.purple}55`,
                 }}
-                title="Você é o slot contemplado neste ciclo"
+                title={t("home.featured.claimTooltip")}
               >
                 <Icons.ticket size={14} stroke={tokens.text} sw={2} />
-                Receber{" "}
+                {t("home.featured.claimReceive")}{" "}
                 {fmtMoney(
                   claimReady ? (Number(onChain.pool!.creditAmount) / 1e6) * USDC_RATE : g.prize,
                   { noCents: true },
