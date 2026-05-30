@@ -120,6 +120,16 @@ jobs:
         # becomes unauthenticated again (the SEV-009 shape). Sub-second.
         run: pnpm test:indexer-webhook-auth
 
+      - name: Indexer RPC quorum (12 tests)
+        # Wave 9.1 — pins decideTxQuorum + parseRpcUrls, the pure
+        # consensus layer for the `backfill-events` ingest path. With
+        # SOLANA_RPC_URLS=<csv> set, each getTransaction is fanned out
+        # across N providers and only ingests on ≥ ceil(N/2) agreement
+        # on (slot, blockTime, logsHash). Same threshold convention as
+        # reconciler::checkFinalizedQuorum. Drift = single-RPC trust
+        # silently slips back in. Sub-second.
+        run: pnpm test:rpc-quorum
+
       - name: Admin auth rate-limit gate (21 tests)
         # Pins the sliding-window rate limiter on /api/admin/auth/nonce
         # (default 10/min/IP) and /verify (default 5/min/IP), plus the
