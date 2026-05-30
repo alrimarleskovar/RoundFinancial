@@ -73,7 +73,7 @@ import {
 
 const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (1 day, SEV-023)
 const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst with solidarity_bps=100 + escrow_bps=2500 ≈ 925 per
 // installment; 3 × 925 = 2_775. Credit must fit that float.

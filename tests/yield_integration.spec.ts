@@ -60,7 +60,7 @@ import {
 
 const MEMBERS_TARGET = 4;
 const CYCLES_TOTAL = 4;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (1 day, SEV-023)
 const INSTALLMENT_USDC = 1_250n;
 const CREDIT_USDC = 3_500n;
 const LEVEL: 1 | 2 | 3 = 2;
