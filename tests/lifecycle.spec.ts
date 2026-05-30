@@ -446,7 +446,11 @@ describe("lifecycle — full happy path", function () {
   it("closes the pool", async function () {
     await closePool(env, { pool });
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(2); // Completed (terminal)
+    // SEV-005 fix: close_pool flips the pool to a distinct terminal
+    // `Closed = 4` variant (not back to Completed = 2) so the entry
+    // constraint (status == Completed) bars any replay that would
+    // deflate `committed_protocol_tvl_usdc`.
+    expect(p.status).to.equal(4); // Closed (terminal)
   });
 
   it("global conservation: every USDC base unit is accounted for", async function () {
