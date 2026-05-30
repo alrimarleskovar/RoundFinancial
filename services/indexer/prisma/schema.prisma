@@ -458,6 +458,37 @@ model AdminRateLimitHit {
   @@map("admin_rate_limit_hits")
 }
 
+// ─── Reconciler leader election (Wave 9.2) ───────────────────────────────
+//
+// Single-row "lease" table that gates the reconciler daemon's periodic
+// runs in a multi-instance deployment. The old `setInterval` design
+// fired on EVERY replica simultaneously, racing on the same UPDATEs
+// against the typed-event tables. The audit (Wave 9 survey) flagged
+// this as a Med severity concurrency hazard.
+//
+// Lease semantics: each tick atomically attempts
+//
+//   UPDATE reconciler_leases
+//      SET acquired_at = NOW(), holder = $1
+//    WHERE id = 'main' AND acquired_at < NOW() - interval 'leaseTtlSecs'
+//   RETURNING acquired_at;
+//
+// If the UPDATE returns a row, this instance won the lease and runs the
+// tick. If it returns 0 rows, another instance is still inside its
+// lease window — this tick skips with a structured info log. Failure-
+// fail-safe: a crashed leader's lease expires after `leaseTtlSecs`
+// and the next tick (on any replica) takes over.
+//
+// Single row with id="main" — bootstrapped by the migration. No GC
+// needed: the row is recycled forever.
+model ReconcilerLease {
+  id         String   @id @default("main")
+  acquiredAt DateTime @default(now())
+  holder     String   @default("")
+
+  @@map("reconciler_leases")
+}
+
 // ─── Export audit (ADR 0009) ──────────────────────────────────────────────
 //
 // The events export is the product asset + sensitive credit data, so every
