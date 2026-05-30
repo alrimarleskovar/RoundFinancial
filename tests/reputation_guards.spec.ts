@@ -57,7 +57,6 @@ import {
   contribute,
   createPool,
   createUsdcMint,
-  fetchProfile,
   fundUsdc,
   initializeProtocol,
   initializeReputation,
@@ -66,6 +65,7 @@ import {
   reputationConfigFor,
   reputationProfileFor,
   setupEnv,
+  tryFetchProfile,
   usdc,
   type Env,
   type MemberHandle,
@@ -80,7 +80,7 @@ const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (1 day, SEV-023)
 const INSTALLMENT_USDC = 1_250n;
 const CREDIT_USDC = 2_775n;
 
-const LEVEL: 1 | 2 | 3 = 2;
+const LEVEL: 1 | 2 | 3 = 1; // join_pool asserts level vs ReputationProfile (Step-4d); fresh wallet = 1
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
 const CREDIT_BASE = usdc(CREDIT_USDC);
@@ -105,7 +105,23 @@ function bn(x: { toString(): string }): bigint {
 }
 
 async function snapshotProfile(env: Env, wallet: PublicKey): Promise<ProfileSnapshot> {
-  const raw = await fetchProfile(env, wallet);
+  const raw = await tryFetchProfile(env, wallet);
+  // join_pool no longer creates the ReputationProfile (Step-4d only
+  // reads it; the first attest CPI lazily inits it). A wallet read
+  // before any attestation has no PDA yet — that's the canonical
+  // "fresh wallet = level 1 / score 0" state, so map null → zeros.
+  if (raw === null) {
+    return {
+      score: 0n,
+      level: 1,
+      cyclesCompleted: 0,
+      onTimePayments: 0,
+      latePayments: 0,
+      defaults: 0,
+      totalParticipated: 0,
+      lastUpdatedAt: 0n,
+    };
+  }
   const p = raw as unknown as {
     score: { toString(): string };
     level: number;
