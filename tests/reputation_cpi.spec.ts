@@ -79,7 +79,7 @@ const INSTALLMENT_USDC = 1_250n;
 // installment; 3 × 925 = 2_775. Credit must fit that float.
 const CREDIT_USDC = 2_775n;
 
-const LEVEL: 1 | 2 | 3 = 2;
+const LEVEL: 1 | 2 | 3 = 1; // join_pool now asserts level vs ReputationProfile (baseline is level 1)
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
 const CREDIT_BASE = usdc(CREDIT_USDC);
