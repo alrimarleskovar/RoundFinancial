@@ -54,7 +54,6 @@ import {
   configPda,
   createPool,
   createUsdcMint,
-  ensureAta,
   fetchProtocolConfig,
   initMockVault,
   initializeProtocol,
@@ -70,7 +69,7 @@ import {
 
 const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 const INSTALLMENT_USDC = 1_000n;
 const CREDIT_USDC = 1_500n;
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
@@ -178,15 +177,29 @@ describe("security — audit error path coverage", function () {
       cyclesTotal: CYCLES_TOTAL,
       cycleDurationSec: CYCLE_DURATION_SEC,
     });
+    // `harvest_yield` requires `pool.status == Active`. Fill the
+    // members_target slots so join_pool auto-activates the pool
+    // before we probe the slippage check.
+    for (let i = 0; i < MEMBERS_TARGET; i++) {
+      await joinPool(env, pool, {
+        member: Keypair.generate(),
+        slotIndex: i,
+        reputationLevel: 1,
+      });
+    }
     await initMockVault(env, pool.pool, usdcMint);
     // No `prefundMockYield` — adapter has 0 surplus. realized will be 0.
     // min_realized_usdc=1 forces `0 >= 1` to fail with HarvestSlippageExceeded.
-    const treasuryUsdc = await ensureAta(env, usdcMint, treasury);
+    // `proto.treasury` (captured into `treasury`) is already the
+    // canonical treasury_usdc ATA — passing it through ensureAta
+    // again would derive ATA(usdcMint, treasuryAta), a different
+    // address that fails the `treasury_usdc == config.treasury`
+    // constraint (Unauthorized 6023).
     await expectRejected(
       () =>
         harvestYield(env, {
           pool,
-          treasuryUsdc,
+          treasuryUsdc: treasury,
           minRealizedUsdc: 1n,
         }),
       /HarvestSlippageExceeded|slippage/i,
@@ -220,12 +233,18 @@ describe("security — audit error path coverage", function () {
   // 6. TreasuryLocked  (LAST — permanently mutates singleton config)
   // ───────────────────────────────────────────────────────────────────
   it("TreasuryLocked — propose_new_treasury rejects after lock_treasury", async function () {
-    // Sanity: pre-state must be unlocked + no pending proposal,
-    // otherwise the test isn't actually probing TreasuryLocked.
+    // `lock_treasury` is monotonic — once flipped, it stays locked
+    // forever (no unlock ix by design). If a previous mocha run in
+    // the same validator session already exercised this test, the
+    // sanity check below would fail. Detect + skip in that case so
+    // the suite re-runs cleanly without a validator reset.
     const cfg = (await fetchProtocolConfig(env)) as {
       treasuryLocked: boolean;
       pendingTreasury: PublicKey;
     };
+    if (cfg.treasuryLocked) {
+      this.skip();
+    }
     expect(cfg.treasuryLocked, "config must start unlocked").to.equal(false);
     expect(cfg.pendingTreasury.toString(), "no pending proposal at start").to.equal(
       PublicKey.default.toString(),

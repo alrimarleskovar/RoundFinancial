@@ -55,9 +55,16 @@ async function main() {
 
   console.log(`\n━━━ RoundFi deploy → ${cluster.name} (${cluster.rpcUrl}) ━━━\n`);
 
-  run("anchor build");
+  // `--no-idl` mirrors the `anchor · build` CI lane (see ci.yml line 267).
+  // anchor-syn 0.30.1's IDL builder calls `proc_macro2::Span::source_file()`
+  // which was removed from stable rustc; the CI runner doesn't have the
+  // local `patch-anchor-syn-319.sh` patch applied. SEV-046 follow-up:
+  // surfaced empirically by rehearsal-1c (commit bb1d979 lane). IDLs are
+  // not needed for the on-chain deploy; client SDKs regenerate them
+  // separately via `bash scripts/dev/rebuild-idls.sh`.
+  run("anchor build --no-idl");
   run("anchor keys sync");
-  run("anchor build");
+  run("anchor build --no-idl");
 
   const anchorCluster = cluster.name === "localnet" ? "localnet" : "devnet";
   run(`anchor deploy --provider.cluster ${anchorCluster}`);

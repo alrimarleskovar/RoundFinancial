@@ -11,7 +11,8 @@ This guide is intentionally short. Reading the existing CI workflows (`.github/w
 corepack enable && corepack prepare pnpm@9.12.0 --activate
 
 # 2. Install Rust toolchain + Anchor for on-chain work
-# Solana 1.18.26 / Agave 2.x stable, Anchor 0.30.1
+# Solana 1.18.26, Anchor 0.30.1 (Agave 2.x migration is in progress — blocked upstream
+# on mpl-core 0.12 ↔ Anchor 1.0 borsh coexistence; see PR #319 + docs/319-agave-2x-migration-spike.md)
 sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
 cargo install --git https://github.com/coral-xyz/anchor avm --locked
 avm install 0.30.1 && avm use 0.30.1
@@ -25,18 +26,20 @@ anchor build
 
 ## Validating a change
 
-CI runs five gates on every PR — your branch must pass all of them locally before review:
+CI runs **4 required gates + 2 advisory lanes** on every PR. Required must pass before review:
 
 ```bash
-pnpm lint                       # Prettier format check
-pnpm typecheck                  # tsc --noEmit on the workspace
-pnpm test:parity                # Rust ↔ TS constants/seeds parity (7 tests)
-pnpm test:events                # LifecycleEvent shape contract (2 tests)
-pnpm test:economic-parity-l1    # Stress Lab L1 economic parity (34 tests)
+pnpm lint                       # Prettier format check (required)
+pnpm typecheck                  # tsc --noEmit on the workspace (required)
+pnpm test:parity                # Rust ↔ TS constants/seeds parity (11 tests, required)
+pnpm test:events                # LifecycleEvent shape contract (2 tests, required)
+pnpm test:economic-parity-l1    # Stress Lab L1 economic parity (45 tests)
 anchor test                     # Anchor lane — proptest invariants under SBF
+cargo audit                     # Supply-chain advisory (cargo-audit) — advisory
+cargo deny check                # Supply-chain advisory (cargo-deny) — advisory
 ```
 
-If any of these fail locally, they will fail in CI.
+If any required gate fails locally, it will fail in CI. The 2 advisory lanes (`cargo audit`, `cargo deny check`) surface upstream dep issues without blocking merge.
 
 ## Branch + commit conventions
 
@@ -55,7 +58,7 @@ Enforced by tooling — no manual style debates:
 
 ## What's in scope
 
-- Bug fixes for on-chain logic (`programs/`), SDK (`packages/sdk`), front-end (`apps/`), or indexer (`services/indexer`)
+- Bug fixes for on-chain logic (`programs/`), SDK (`sdk/`), front-end (`app/`), or indexer (`services/indexer/`)
 - New tests covering existing behavior or regressions
 - Documentation fixes (typos, broken links, clarifications)
 - Performance / readability refactors that don't change external behavior

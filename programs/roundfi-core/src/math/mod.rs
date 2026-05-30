@@ -96,6 +96,26 @@ pub fn retained_meets_seed_draw(
     .map_err(map_err)
 }
 
+/// SEV-031 runtime viability check — see
+/// `roundfi_math::seed_draw::pool_is_viable` for math + audit context.
+#[inline]
+pub fn pool_is_viable(
+    members_target: u8,
+    installment_amount: u64,
+    credit_amount: u64,
+    solidarity_bps: u16,
+    escrow_release_bps: u16,
+) -> Result<bool> {
+    roundfi_math::pool_is_viable(
+        members_target,
+        installment_amount,
+        credit_amount,
+        solidarity_bps,
+        escrow_release_bps,
+    )
+    .map_err(map_err)
+}
+
 // ─── escrow_vesting ─────────────────────────────────────────────────────
 
 #[inline]
@@ -116,6 +136,28 @@ pub fn releasable_delta(
 ) -> Result<u64> {
     roundfi_math::releasable_delta(principal, last_checkpoint, new_checkpoint, total_checkpoints)
         .map_err(map_err)
+}
+
+/// SEV-034 derivation — see `roundfi_math::escrow_vesting::compute_release_delta_target`
+/// for math + audit context. **Single source of truth** shared with
+/// the math crate's LifecycleState simulator — no inline copy in the
+/// handler.
+#[inline]
+pub fn compute_release_delta_target(
+    stake_deposited_initial: u64,
+    total_escrow_deposited: u64,
+    escrow_balance: u64,
+    checkpoint: u8,
+    cycles_total: u8,
+) -> Result<u64> {
+    roundfi_math::compute_release_delta_target(
+        stake_deposited_initial,
+        total_escrow_deposited,
+        escrow_balance,
+        checkpoint,
+        cycles_total,
+    )
+    .map_err(map_err)
 }
 
 // ─── cascade ────────────────────────────────────────────────────────────

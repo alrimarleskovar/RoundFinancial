@@ -32,19 +32,19 @@ All 20+ items in [`mainnet-canary-plan.md` §3](./mainnet-canary-plan.md#3-pre-f
 
 ## Step-by-step results
 
-| #   | Instruction                    | Tx hash                                        |   Status    | Wall-clock   | Notes                                                         |
-| --- | ------------------------------ | ---------------------------------------------- | :---------: | ------------ | ------------------------------------------------------------- |
-| 1   | `initialize_protocol`          | `_FILL_ME_` or "skipped (already initialized)" |     ✅      | `_FILL_ME_`s | Authority confirmed = Squads PDA                              |
-| 2   | `create_pool`                  | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | Multi-sig: Squads tx ID `_FILL_ME_`, signers: `_FILL_ME_`     |
-| 3   | `init_pool_vaults`             | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | 4 USDC ATAs initialized                                       |
-| 4   | `join_pool`                    | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | Stake deposited: $2.50; Position NFT minted: `_FILL_ME_`      |
-| 5   | `contribute(cycle=0)`          | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | On-time: yes/no (`clock.unix_timestamp` vs `next_cycle_at`)   |
-| 6a  | Pre-claim top-up               | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | $1.30 from deployer to pool USDC vault                        |
-| 6b  | `claim_payout(cycle=0)`        | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | `pool.status` transitioned `Active` → `Completed`             |
-| 7   | `release_escrow(checkpoint=1)` | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | $1.25 escrow released; `last_released_checkpoint` = 1         |
-| 8a  | `deposit_idle_to_yield`        | `_FILL_ME_` or "skipped (#233 not landed)"     | `_FILL_ME_` | `_FILL_ME_`s | If present: amount + Kamino reserve                           |
-| 8b  | `harvest_yield`                | `_FILL_ME_` or "skipped"                       | `_FILL_ME_` | `_FILL_ME_`s | `realized` = `_FILL_ME_`; slippage guard armed at `_FILL_ME_` |
-| 9   | `close_pool`                   | `_FILL_ME_`                                    |     ✅      | `_FILL_ME_`s | Balanced summary: total_contributed = total_paid_out = $5     |
+| #   | Instruction                    | Tx hash                                           |   Status    | Wall-clock   | Notes                                                         |
+| --- | ------------------------------ | ------------------------------------------------- | :---------: | ------------ | ------------------------------------------------------------- |
+| 1   | `initialize_protocol`          | `_FILL_ME_` or "skipped (already initialized)"    |     ✅      | `_FILL_ME_`s | Authority confirmed = Squads PDA                              |
+| 2   | `create_pool`                  | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | Multi-sig: Squads tx ID `_FILL_ME_`, signers: `_FILL_ME_`     |
+| 3   | `init_pool_vaults`             | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | 4 USDC ATAs initialized                                       |
+| 4   | `join_pool`                    | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | Stake deposited: $2.50; Position NFT minted: `_FILL_ME_`      |
+| 5   | `contribute(cycle=0)`          | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | On-time: yes/no (`clock.unix_timestamp` vs `next_cycle_at`)   |
+| 6a  | Pre-claim top-up               | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | $1.30 from deployer to pool USDC vault                        |
+| 6b  | `claim_payout(cycle=0)`        | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | `pool.status` transitioned `Active` → `Completed`             |
+| 7   | `release_escrow(checkpoint=1)` | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | $1.25 escrow released; `last_released_checkpoint` = 1         |
+| 8a  | `deposit_idle_to_yield`        | `_FILL_ME_` or "skipped (#233 part B not landed)" | `_FILL_ME_` | `_FILL_ME_`s | If present: amount + Kamino reserve                           |
+| 8b  | `harvest_yield`                | `_FILL_ME_` or "skipped"                          | `_FILL_ME_` | `_FILL_ME_`s | `realized` = `_FILL_ME_`; slippage guard armed at `_FILL_ME_` |
+| 9   | `close_pool`                   | `_FILL_ME_`                                       |     ✅      | `_FILL_ME_`s | Balanced summary: total_contributed = total_paid_out = $5     |
 
 ### Step assertions passed
 

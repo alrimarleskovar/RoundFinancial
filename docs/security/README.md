@@ -1,21 +1,26 @@
 # RoundFi Security Documentation — Reading Order
 
-> **Purpose:** navigation index for the 7 security docs in this directory. External reviewers (audit firms, partners) should follow this order on first read.
+> **Purpose:** navigation index for the security docs in this directory. External reviewers (audit firms, partners) should follow this order on first read.
 
 ## TL;DR
 
-| What you have | Time to read                     | When to read                                |
-| ------------- | -------------------------------- | ------------------------------------------- |
-| 5 min         | `../../AUDIT_SCOPE.md` (1-pager) | Before everything else                      |
-| 10 min        | `audit-readiness.md`             | Strategic context                           |
-| 30 min        | `self-audit.md`                  | Deep dive on protocol guarantees            |
-| 15 min        | `adversarial-threat-model.md`    | Sybil / ordering / griefing surface         |
-| 15 min        | `mev-front-running.md`           | Solana-specific ordering attacks (9 ix)     |
-| 10 min        | `frontend-security-checklist.md` | UX trust path (out of on-chain audit scope) |
-| 10 min        | `indexer-threat-model.md`        | Off-chain consistency (Phase 3 B2B oracle)  |
-| 5 min         | `bug-bounty.md`                  | Disclosure policy + reward tiers            |
+| Time to read | What                              | When to read                                                                                                                |
+| ------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 5 min        | `../../AUDIT_SCOPE.md` (1-pager)  | Before everything else                                                                                                      |
+| 10 min       | `audit-readiness.md`              | Strategic context                                                                                                           |
+| 10 min       | `internal-audit-findings.md`      | Internal pre-audit tracker (51 SEVs, status, PRs) — methodology modeled on external auditor format, NOT a formal engagement |
+| 5 min        | `constants-audit-2026-05.md`      | Post-audit pattern sweep (SEV-002 / SEV-023 family)                                                                         |
+| 30 min       | `self-audit.md`                   | Deep dive on protocol guarantees                                                                                            |
+| 15 min       | `adversarial-threat-model.md`     | Sybil / ordering / griefing surface                                                                                         |
+| 15 min       | `mev-front-running.md`            | Solana-specific ordering attacks (9 ix)                                                                                     |
+| 10 min       | `frontend-security-checklist.md`  | UX trust path (out of on-chain audit scope)                                                                                 |
+| 10 min       | `indexer-threat-model.md`         | Off-chain consistency (Phase 3 B2B oracle)                                                                                  |
+| 10 min       | `passport-bridge-threat-model.md` | Civic→Human-Passport PoP bridge trust boundary                                                                              |
+| 10 min       | `economic-config-governance.md`   | Timelock target tiers for ProtocolConfig fields                                                                             |
+| 5 min        | `immunefi-submission-package.md`  | Pre-mainnet program packet for bug bounty submission                                                                        |
+| 5 min        | `bug-bounty.md`                   | Disclosure policy + reward tiers                                                                                            |
 
-**Total first-pass: ~2 hours.**
+**Total first-pass: ~2h15m.**
 
 ## Recommended reading sequence
 
@@ -23,7 +28,7 @@
 
 Statement-of-Work-shape doc:
 
-- In-scope: 3 Anchor programs (8,341 LoC of Rust)
+- In-scope: 3 Anchor programs (~8,655 LoC of Rust)
 - Out-of-scope: yield-mock, harvest() path, frontend, indexer, SDK, tests
 - 6 prior internal hardening PRs catalogued
 - Mainnet timeline + engagement format
@@ -42,7 +47,29 @@ One-pager for security firms:
 
 **Why second:** strategic context before deep dive.
 
-### 3. Deep dive — `self-audit.md` (228 lines)
+### 3. Audit findings tracker — `internal-audit-findings.md`
+
+Public accountability record for the internal pre-audit (May 2026) — **NOT** a formal external-firm engagement (Adevar / Halborn / OtterSec / Sec3 — selection pending; cost/timeline negotiation). Methodology was deliberately modeled on the published external-auditor format so the eventual paid auditor can re-validate quickly against a clean baseline.
+
+- **Live counts are canonical in [`internal-audit-findings.md`](./internal-audit-findings.md) — see its [Summary table](./internal-audit-findings.md#summary).** This index intentionally does not duplicate the totals (they drift); the tracker is the SSOT. As of 2026-05-27: 51 findings, 49 closed, 0 open, Critical/High 16 of 16.
+- Coverage: 5-pass internal pre-audit W1..W5 + 1 integration-testing wave (SEV-034b) + 9 follow-up waves through 2026-05-19 (incl. Kamino-spike Criticals SEV-040/041/042) + 1 external-audit pass 2026-05-24 (SEV-047 reputation-farming gate + SEV-048 LP-distribution earmark) + the litesvm L1↔L2 parity slice (SEV-049 pre-contemplation-default liveness High — closed via the new permissionless `skip_defaulted_payout` instruction; SEV-050 defaulted-pool `close_pool` liveness High — closed by removing the unsatisfiable defaulted-pool guard). 0 upstream-blocked; SEV-012 closed via the required litesvm·mpl-core CI lane, SEV-039 closed via the `close_member` + `close_pool_vaults` rent-reclaim ceremony, 2 design-intentional.
+- One row per SEV — severity, status (🟢 Closed / 🟡 Deferred / 🟠 Blocked / 🔵 Won't fix), PR, technical note
+- Disclosure timeline + summary table
+- Methodology notes — pattern fingerprinting after SEV-002 / SEV-023; integration-testing wave rationale post-W5; Kamino-spike pattern generalization SEV-040 → SEV-042 → SEV-043 → SEV-044
+
+**Why third:** before reading the deep dive, see what the team's own red-team surfaced and how each finding was triaged.
+
+### 3a. Pattern sweep — `constants-audit-2026-05.md`
+
+Post-audit, deliberate sweep for the **SEV-002 / SEV-023 pattern** (devnet shortcut value pinned with a "MUST revert before mainnet" TODO that never closed):
+
+- Full methodology + reproducible grep commands
+- Findings table — hardcoded literals: 0; doc drift: 1 (fixed); default-permissive flags: 6 (documented)
+- Verdict: the SEV-002 / SEV-023 family is closed
+
+**Why now:** linked from the tracker as the most recent audit-driven sweep; demonstrates the "if it happened twice, sweep for instance #3" methodology.
+
+### 4. Deep dive — `self-audit.md` (228 lines)
 
 The canonical internal audit:
 
@@ -57,9 +84,9 @@ The canonical internal audit:
 - §9 Disclosure channel
 - §10 External auditor self-attestation matrix (10 auditor-first-pass concerns mapped to source + tests)
 
-**Why third:** the rest of the docs cite this one. Read it once, refer back as needed.
+**Why fourth:** the rest of the docs cite this one. Read it once, refer back as needed.
 
-### 4. Adversarial threat model — `adversarial-threat-model.md`
+### 5. Adversarial threat model — `adversarial-threat-model.md`
 
 Qualitative threat model beyond direct default:
 
@@ -72,9 +99,9 @@ Qualitative threat model beyond direct default:
 - §7 Summary table — attack class × Triple Shield coverage
 - §8 Methodology gaps
 
-**Why fourth:** complements self-audit §7 with the explicit Sybil framing.
+**Why fifth:** complements self-audit §7 with the explicit Sybil framing.
 
-### 5. MEV — `mev-front-running.md`
+### 6. MEV — `mev-front-running.md`
 
 Solana-specific ordering analysis:
 
@@ -87,9 +114,9 @@ Solana-specific ordering analysis:
 - Big-picture finding: Triple Shield constrains extraction to bounded griefing on all instructions except `escape_valve_buy` listing-race
 - Companion: [`bug-bounty.md §4.1`](./bug-bounty.md) MEV severity sub-tiering (Critical → Informational)
 
-**Why fifth:** deep on ordering-dependent attacks the on-chain audit will look at.
+**Why sixth:** deep on ordering-dependent attacks the on-chain audit will look at.
 
-### 6. Front-end attack surface — `frontend-security-checklist.md`
+### 7. Front-end attack surface — `frontend-security-checklist.md`
 
 UX-side checklist (explicitly out-of-scope of on-chain audit):
 
@@ -100,9 +127,9 @@ UX-side checklist (explicitly out-of-scope of on-chain audit):
 - §5 What this does not cover
 - §6 Verification checklist for canary smoke
 
-**Why sixth:** separates client-side from on-chain trust path; auditor needs to know what they don't cover.
+**Why seventh:** separates client-side from on-chain trust path; auditor needs to know what they don't cover.
 
-### 7. Indexer — `indexer-threat-model.md`
+### 8. Indexer — `indexer-threat-model.md`
 
 Off-chain consistency (Phase 3 B2B oracle dependency):
 
@@ -114,9 +141,9 @@ Off-chain consistency (Phase 3 B2B oracle dependency):
 - §6 Out of scope (boundary against on-chain audit)
 - §7 Methodology gaps
 
-**Why seventh:** Phase 3 product correctness. Not on the fund-movement trust path.
+**Why eighth:** Phase 3 product correctness. Not on the fund-movement trust path.
 
-### 8. Disclosure & rewards — `bug-bounty.md`
+### 9. Disclosure & rewards — `bug-bounty.md`
 
 Pre-mainnet policy draft:
 
@@ -126,7 +153,7 @@ Pre-mainnet policy draft:
 - Safe-harbor clauses
 - Scope mirror (in/out matches AUDIT_SCOPE.md)
 
-**Why eighth:** for would-be reporters once mainnet ships. Pre-mainnet uses SECURITY.md's interim policy.
+**Why ninth:** for would-be reporters once mainnet ships. Pre-mainnet uses SECURITY.md's interim policy.
 
 ## Companion docs in other directories
 
@@ -155,4 +182,4 @@ Update this README whenever a security doc is added, removed, or substantively r
 
 ---
 
-_Last updated: May 2026. 7 security docs indexed (plus this README)._
+_Last updated: 2026-05-26. 12 security docs indexed (plus this README): audit-readiness, internal-audit-findings, constants-audit-2026-05, self-audit, adversarial-threat-model, mev-front-running, frontend-security-checklist, indexer-threat-model, passport-bridge-threat-model, economic-config-governance, immunefi-submission-package, bug-bounty._

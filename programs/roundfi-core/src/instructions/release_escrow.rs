@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::constants::*;
 use crate::error::RoundfiError;
-use crate::math::releasable_delta;
+use crate::math::compute_release_delta_target;
 use crate::state::{Member, Pool, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -89,20 +89,83 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
 
     // ─── On-time requirement (invariant #2 scaffolding) ─────────────────
     require!(
-        member.on_time_count as u16 >= args.checkpoint as u16,
+        member.on_time_count >= args.checkpoint as u16,
         RoundfiError::EscrowLocked,
     );
 
-    // ─── Vesting math — linear over cycles_total ────────────────────────
-    let delta = releasable_delta(
-        member.stake_deposited,
-        member.last_released_checkpoint,
+    // ─── Vesting math — single source of truth via math crate ──────────
+    //
+    // **Adevar Labs SEV-034 fix** — regression-of-regression chain:
+    //
+    //   SEV-016 (#334): partial-pay handling on vault shortfall.
+    //   SEV-029 (#342): introduced "total_paid = stake - escrow_balance"
+    //                   derivation. False invariant — contribute() also
+    //                   increments escrow_balance.
+    //   SEV-034 (#349): correct derivation uses
+    //                   "total_paid = (stake_initial + total_escrow_deposited)
+    //                                 - escrow_balance"
+    //
+    // Final refactor (this PR): the derivation now lives in the math
+    // crate as `compute_release_delta_target`. Both the on-chain handler
+    // AND the test-only `LifecycleState` simulator delegate to the same
+    // crate function — no inline copy, no drift surface. This is the
+    // pattern SEV-026 established (avoid duplicated financial math); the
+    // SEV-029 → SEV-034 chain re-validated why it matters: when the
+    // derivation lives in two places, one can be wrong while tests on
+    // the other pass.
+    //
+    // Soundness note (encoded in `derive_total_released` docstring):
+    // the derivation is correct only for **non-defaulted members**.
+    // `settle_default` seizes from `escrow_balance` without bumping a
+    // "seized" counter, which would conflate seizures with releases.
+    // The `!member.defaulted` constraint above gates this path.
+    //
+    // Trace under the auditor's W4 scenario (stake=750, cycles=3):
+    //   start:                s_init=750 ted=0   esc=750  → derived paid=0
+    //   c0 contribute(+250):  s_init=750 ted=250 esc=1000 → paid=0
+    //   release(chk=1):       due=250  delta=250 (= 250-0) ✓
+    //                         post: esc=750
+    //   c1 contribute(+250):  ted=500 esc=1000   → paid=250
+    //   release(chk=2):       due=500  delta=250 (= 500-250) ✓
+    //                         post: esc=750
+    //   c2 contribute(+250):  ted=750 esc=1000   → paid=500
+    //   release(chk=3):       due=750  delta=250 (= 750-500) ✓
+    //                         post: esc=750  paid=750 = stake
+    //   total released = 750 = stake. No overpay.
+    let delta_target = compute_release_delta_target(
+        member.stake_deposited_initial,
+        member.total_escrow_deposited,
+        member.escrow_balance,
         args.checkpoint,
         pool_cycles,
     )?;
-    require!(delta > 0,                         RoundfiError::EscrowNothingToRelease);
-    require!(delta <= member.escrow_balance,    RoundfiError::EscrowNothingToRelease);
-    require!(delta <= vault_amount,             RoundfiError::EscrowNothingToRelease);
+    require!(delta_target > 0, RoundfiError::EscrowNothingToRelease);
+
+    // Defensive: vesting math cannot owe more than the remaining
+    // escrow balance. Holds by construction (the math splits the
+    // ever_deposited tally into "released so far" and "still in escrow";
+    // delta_target is bounded by `cumulative_vested(stake) <= stake <=
+    // escrow_balance + total_released`). Asserting it explicitly so a
+    // future refactor that changes how escrow_balance is mutated trips
+    // immediately rather than overpaying silently.
+    require!(
+        delta_target <= member.escrow_balance,
+        RoundfiError::EscrowNothingToRelease,
+    );
+
+    // Cap at vault availability — the SEV-016 partial-release path is
+    // preserved (callers don't get DoS'd by a transient vault shortfall
+    // after a settle_default seizure), but the cumulative-paid counter
+    // (now correctly derived) ensures the partial doesn't double-pay on
+    // the next call.
+    let delta = delta_target.min(vault_amount);
+    require!(delta > 0, RoundfiError::EscrowNothingToRelease);
+    if delta < delta_target {
+        msg!(
+            "roundfi-core: release_escrow partial pool={} member={} owed_now={} paid={} (vault shortfall)",
+            pool_key, member.wallet, delta_target, delta,
+        );
+    }
 
     // ─── Transfer from escrow → member (escrow PDA signs) ───────────────
     let signer_seeds: &[&[u8]] = &[
@@ -128,6 +191,13 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
         .escrow_balance
         .checked_sub(delta)
         .ok_or(error!(RoundfiError::MathOverflow))?;
+    // SEV-029/SEV-034: ALWAYS advance the checkpoint. The partial-pay
+    // path (SEV-016) is encoded in the cumulative-paid derivation
+    // above (`ever_deposited - escrow_balance`) — the next call
+    // computes owed_now from that counter, not from a non-advancing
+    // checkpoint. Leaving the checkpoint un-advanced was the original
+    // SEV-029 regression vector; the SEV-034 fix corrects the
+    // derivation but keeps the always-advance behavior.
     member.last_released_checkpoint = args.checkpoint;
     let member_escrow_left = member.escrow_balance;
 

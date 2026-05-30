@@ -63,7 +63,8 @@ pub struct InitializeProtocol<'info> {
 }
 
 pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -> Result<()> {
-    require!(args.fee_bps_yield    <= MAX_BPS, RoundfiError::InvalidBps);
+    // Adevar Labs SEV-024 fix: tightened from MAX_BPS to MAX_FEE_BPS_YIELD (30%).
+    require!(args.fee_bps_yield    <= MAX_FEE_BPS_YIELD, RoundfiError::InvalidBps);
     require!(args.fee_bps_cycle_l1 <= MAX_BPS, RoundfiError::InvalidBps);
     require!(args.fee_bps_cycle_l2 <= MAX_BPS, RoundfiError::InvalidBps);
     require!(args.fee_bps_cycle_l3 <= MAX_BPS, RoundfiError::InvalidBps);
@@ -133,6 +134,14 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     // mutable post-deploy via update_protocol_config as canary data
     // justifies.
     config.lp_share_bps = DEFAULT_LP_SHARE_BPS;
+
+    // Adevar Labs SEV-024 follow-up — fee_bps_yield timelock pilot.
+    // Starts empty (eta=0 is the "no pending change" sentinel).
+    // Authority uses propose/cancel/commit to change fee_bps_yield with
+    // a 1-day public window. Direct mutation via update_protocol_config
+    // is rejected with DirectFeeBpsYieldMutationDisabled.
+    config.pending_fee_bps_yield     = 0;
+    config.pending_fee_bps_yield_eta = 0;
 
     msg!("roundfi-core: protocol initialized");
     Ok(())

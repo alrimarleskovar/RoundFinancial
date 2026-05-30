@@ -19,7 +19,7 @@ export interface WalletView {
   publicKey: string | null;
   balance: number | null; // lamports
   balanceSol: number | null;
-  network: "devnet" | "localnet";
+  network: "devnet" | "localnet" | "mainnet-beta";
   lastError: string | null;
   lastTxSig: string | null;
   airdropping: boolean;
@@ -35,6 +35,10 @@ export interface WalletView {
   isUnknownWallet: boolean;
   connect: () => Promise<{ ok: boolean; reason?: string }>;
   disconnect: () => Promise<{ ok: boolean }>;
+  /** ed25519 message signer, when the connected wallet supports it
+   *  (MessageSignerWalletAdapter). null otherwise. Used by the admin
+   *  console's SIWS sign-in (ADR 0009). */
+  signMessage: ((message: Uint8Array) => Promise<Uint8Array>) | null;
   airdrop: (lamports?: number) => Promise<{ ok: boolean; signature?: string; reason?: string }>;
   refresh: () => Promise<void>;
   explorerTx: (sig: string) => string;
@@ -43,9 +47,14 @@ export interface WalletView {
 
 const AIRDROP_DEFAULT = LAMPORTS_PER_SOL; // 1 SOL
 
-function explorerCluster(id: "devnet" | "localnet"): string {
-  // Solana Explorer supports ?cluster=devnet / ?cluster=custom for local
-  return id === "localnet" ? "custom" : "devnet";
+function explorerCluster(id: "devnet" | "localnet" | "mainnet-beta"): string {
+  // Solana Explorer cluster query values:
+  //   ?cluster=mainnet-beta (default if omitted)
+  //   ?cluster=devnet
+  //   ?cluster=custom (for localnet — pairs with `customUrl=http://...`)
+  if (id === "localnet") return "custom";
+  if (id === "mainnet-beta") return "mainnet-beta";
+  return "devnet";
 }
 
 export function useWallet(): WalletView {
@@ -192,6 +201,15 @@ export function useWallet(): WalletView {
     [connection, refresh],
   );
 
+  // Message signer — present only when the selected wallet implements
+  // MessageSignerWalletAdapter (Phantom/Solflare/Backpack do). Wrapped so
+  // the view exposes a stable `null` when unsupported.
+  const adapterSignMessage = adapter.signMessage;
+  const signMessage = useMemo<((message: Uint8Array) => Promise<Uint8Array>) | null>(
+    () => (adapterSignMessage ? (message) => adapterSignMessage(message) : null),
+    [adapterSignMessage],
+  );
+
   const explorerTx = useCallback(
     (sig: string) => `https://explorer.solana.com/tx/${sig}?cluster=${explorerCluster(net.id)}`,
     [net.id],
@@ -225,6 +243,7 @@ export function useWallet(): WalletView {
       isUnknownWallet,
       connect,
       disconnect,
+      signMessage,
       airdrop,
       refresh,
       explorerTx,
@@ -244,6 +263,7 @@ export function useWallet(): WalletView {
       isUnknownWallet,
       connect,
       disconnect,
+      signMessage,
       airdrop,
       refresh,
       explorerTx,

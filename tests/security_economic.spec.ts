@@ -111,21 +111,23 @@ const E_MEMBERS_TARGET = 3;
 const E_CYCLES_TOTAL = 3;
 const E_INSTALLMENT_USDC = 1_250n;
 const E_CREDIT_USDC = 2_775n;
-const E_LEVEL: 1 | 2 | 3 = 2;
+const E_LEVEL: 1 | 2 | 3 = 1;
 
 const E_INSTALLMENT_BASE = usdc(E_INSTALLMENT_USDC);
 const E_CREDIT_BASE = usdc(E_CREDIT_USDC);
 
 const Y_MEMBERS_TARGET = 2;
 const Y_CYCLES_TOTAL = 2;
-const Y_INSTALLMENT_USDC = 1_000n;
+// SEV-031 viability: 2 × 1000 × 0.74 = 1480 < 1500 FAILS.
+// Bump installment to 1050: 2 × 1050 × 0.74 = 1554 >= 1500 ✓.
+const Y_INSTALLMENT_USDC = 1_050n;
 const Y_CREDIT_USDC = 1_500n;
-const Y_LEVEL: 1 | 2 | 3 = 2;
+const Y_LEVEL: 1 | 2 | 3 = 1;
 
 const Y_INSTALLMENT_BASE = usdc(Y_INSTALLMENT_USDC);
 const Y_CREDIT_BASE = usdc(Y_CREDIT_USDC);
 
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400;
 
 // u64::MAX — the upper bound BN can pass through Anchor's u64 layout.
 const U64_MAX = (1n << 64n) - 1n;

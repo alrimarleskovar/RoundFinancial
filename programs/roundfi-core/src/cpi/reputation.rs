@@ -35,6 +35,55 @@ fn attest_disc() -> [u8; 8] {
     out
 }
 
+// ─── Attest CPI account-list builder (SEV-041 class oracle) ──────────
+//
+// Pure-Pubkey inputs for the attest CPI's 8-account layout. Mirrors
+// `roundfi_reputation::Attest` struct field order verbatim — Anchor
+// serializes accounts positionally, so any drift between this and the
+// callee struct breaks the CPI at runtime (best case: account
+// validation rejects; worst case: silently feeds wrong data into the
+// wrong field if pubkey shape matches by accident).
+//
+// Extracted from the inline `let metas = vec![...]` block in
+// `invoke_attest` so the position mapping can be pinned by a unit
+// test (`attest_metas_match_canonical_layout`) without spinning up
+// the full CPI runtime. Same SEV-041 class lesson: the bankrun spike
+// catches it eventually; this test catches it on every PR.
+
+/// Pubkey inputs for `build_attest_metas`. Field names mirror
+/// `roundfi_reputation::Attest` field order in
+/// `programs/roundfi-reputation/src/instructions/attest.rs`.
+pub struct AttestMetaInputs {
+    pub issuer:         Pubkey,
+    pub subject:        Pubkey,
+    pub config:         Pubkey,
+    pub profile:        Pubkey,
+    /// When the callee's `identity: Option<Account<IdentityRecord>>`
+    /// is None, Anchor expects the program account itself in this slot
+    /// with the same flag shape. Callers pass the reputation program
+    /// pubkey in that case.
+    pub identity_or_program: Pubkey,
+    pub attestation:    Pubkey,
+    pub payer:          Pubkey,
+    pub system_program: Pubkey,
+}
+
+/// Canonical 8-account `AccountMeta` list for the reputation
+/// `attest` CPI. Order + flags pinned by
+/// `attest_metas_match_canonical_layout` test below.
+pub fn build_attest_metas(i: &AttestMetaInputs) -> Vec<AccountMeta> {
+    vec![
+        AccountMeta::new_readonly(i.issuer, true), //               1. issuer (Signer, ro)
+        AccountMeta::new_readonly(i.subject, false), //             2. subject (UncheckedAccount, ro)
+        AccountMeta::new_readonly(i.config, false), //              3. config (Account<ReputationConfig>, ro)
+        AccountMeta::new(i.profile, false), //                      4. profile (init_if_needed → mut)
+        AccountMeta::new_readonly(i.identity_or_program, false), // 5. identity Option (ro — program acct when None)
+        AccountMeta::new(i.attestation, false), //                  6. attestation (init → mut)
+        AccountMeta::new(i.payer, true), //                         7. payer (Signer, mut)
+        AccountMeta::new_readonly(i.system_program, false), //      8. system_program (Program<System>, ro)
+    ]
+}
+
 /// Accounts passed to the attest CPI. Layout MUST match the
 /// `#[derive(Accounts)] struct Attest` in `roundfi-reputation` —
 /// Anchor serializes accounts positionally.
@@ -107,16 +156,19 @@ pub fn invoke_attest<'info>(call: AttestCall<'_, 'info>) -> Result<()> {
         .as_ref()
         .unwrap_or(call.reputation_program);
 
-    let metas = vec![
-        AccountMeta::new_readonly(call.accounts.issuer.key(),  true),  // signer
-        AccountMeta::new_readonly(call.accounts.subject.key(), false),
-        AccountMeta::new_readonly(call.accounts.rep_config.key(), false),
-        AccountMeta::new(call.accounts.profile.key(),          false),
-        AccountMeta::new_readonly(identity_info.key(),         false),
-        AccountMeta::new(call.accounts.attestation.key(),      false),
-        AccountMeta::new(call.accounts.payer.key(),            true),  // signer
-        AccountMeta::new_readonly(call.accounts.system_program.key(), false),
-    ];
+    // Account list goes through the single-source-of-truth
+    // `build_attest_metas` builder. Order + flags pinned by
+    // `attest_metas_match_canonical_layout` unit test below.
+    let metas = build_attest_metas(&AttestMetaInputs {
+        issuer:              call.accounts.issuer.key(),
+        subject:             call.accounts.subject.key(),
+        config:              call.accounts.rep_config.key(),
+        profile:             call.accounts.profile.key(),
+        identity_or_program: identity_info.key(),
+        attestation:         call.accounts.attestation.key(),
+        payer:               call.accounts.payer.key(),
+        system_program:      call.accounts.system_program.key(),
+    });
 
     let infos = [
         call.accounts.issuer.clone(),
@@ -169,5 +221,76 @@ mod tests {
         let mut expected = [0u8; 8];
         expected.copy_from_slice(&h.to_bytes()[..8]);
         assert_eq!(attest_disc(), expected);
+    }
+
+    fn sentinel_pubkey(slot: u8) -> Pubkey {
+        let mut bytes = [0u8; 32];
+        bytes[0] = slot;
+        Pubkey::from(bytes)
+    }
+
+    /// SEV-041 class oracle for the `attest` CPI's 8-account layout.
+    /// Pins every (pubkey, is_signer, is_writable) tuple per position
+    /// so a future drift between `build_attest_metas` and
+    /// `roundfi_reputation::Attest` field order (or flag) fails
+    /// `cargo test` immediately instead of at the next CPI runtime.
+    #[test]
+    fn attest_metas_match_canonical_layout() {
+        let issuer = sentinel_pubkey(1);
+        let subject = sentinel_pubkey(2);
+        let config = sentinel_pubkey(3);
+        let profile = sentinel_pubkey(4);
+        let identity_or_program = sentinel_pubkey(5);
+        let attestation = sentinel_pubkey(6);
+        let payer = sentinel_pubkey(7);
+        let system_program = sentinel_pubkey(8);
+
+        let metas = build_attest_metas(&AttestMetaInputs {
+            issuer,
+            subject,
+            config,
+            profile,
+            identity_or_program,
+            attestation,
+            payer,
+            system_program,
+        });
+
+        // Oracle: positions per `Attest` accounts struct in
+        // programs/roundfi-reputation/src/instructions/attest.rs.
+        // Format: (expected pubkey, is_signer, is_writable)
+        let oracle: [(Pubkey, bool, bool); 8] = [
+            (issuer, true, false), //               1. issuer (Signer, ro)
+            (subject, false, false), //             2. subject (UncheckedAccount, ro)
+            (config, false, false), //              3. config (Account, ro w/ seeds constraint)
+            (profile, false, true), //              4. profile (init_if_needed → mut)
+            (identity_or_program, false, false), // 5. identity (Option<Account>, ro)
+            (attestation, false, true), //          6. attestation (init → mut)
+            (payer, true, true), //                 7. payer (Signer, mut)
+            (system_program, false, false), //      8. system_program (Program, ro)
+        ];
+
+        assert_eq!(
+            metas.len(),
+            oracle.len(),
+            "attest account count drifted — canonical is 8",
+        );
+        for (i, (meta, (expected_key, expected_signer, expected_writable))) in
+            metas.iter().zip(oracle.iter()).enumerate()
+        {
+            let pos = i + 1;
+            assert_eq!(
+                meta.pubkey, *expected_key,
+                "attest slot {pos} pubkey mismatch — order shuffled vs reputation::Attest canonical",
+            );
+            assert_eq!(
+                meta.is_signer, *expected_signer,
+                "attest slot {pos} is_signer mismatch",
+            );
+            assert_eq!(
+                meta.is_writable, *expected_writable,
+                "attest slot {pos} is_writable mismatch",
+            );
+        }
     }
 }

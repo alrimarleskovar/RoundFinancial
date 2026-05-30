@@ -1,0 +1,233 @@
+# Prometheus alert rules for RoundFi mainnet observability.
+#
+# Drop into prometheus.yml under `rule_files:` path. Alertmanager
+# should be configured to route severity=p1/p2 to PagerDuty, p3 to
+# Slack.
+#
+# Recording rules are pre-computed for the dashboards so panel queries
+# stay fast under load. Alert rules fire on the 8 conditions the team
+# flagged as mainnet-critical, plus 1 supporting alert (indexer lag).
+#
+# Metric names assume the indexer migrates `/metrics` from JSON to
+# Prometheus exposition format (see docs/observability/README.md).
+# Until then, the rules below are spec-only.
+
+groups:
+  # ─── Recording rules ──────────────────────────────────────────────
+  - name: roundfi_recording
+    interval: 30s
+    rules:
+      - record: roundfi:indexer_lag_slots
+        expr: solana_cluster_slot - roundfi_indexer_last_slot
+        labels:
+          source: indexer
+
+      - record: roundfi:reconciler_unresolved_total
+        expr: sum by (table) (roundfi_reconciler_unresolved_count)
+
+      - record: roundfi:cpi_failure_rate_5m
+        expr: rate(roundfi_program_cpi_failed_total[5m])
+
+      - record: roundfi:harvest_revert_rate_1h
+        expr: rate(roundfi_program_harvest_reverted_total[1h])
+
+  # ─── Alert rules ──────────────────────────────────────────────────
+  - name: roundfi_alerts
+    rules:
+      # ─── 1. Config change ──────────────────────────────────────────
+      # Fires when ProtocolConfig hash changes — any field mutation
+      # triggers PagerDuty so the team confirms it was intentional.
+      # `roundfi_protocol_config_hash` is emitted by a periodic checker
+      # job that reads the config PDA and hashes the bytes.
+      - alert: ProtocolConfigChanged
+        expr: changes(roundfi_protocol_config_hash[5m]) > 0
+        for: 0m # Fire immediately
+        labels:
+          severity: p1
+          team: protocol
+        annotations:
+          summary: "ProtocolConfig field mutated on-chain"
+          description: |
+            The ProtocolConfig PDA hash changed within the last 5 min. This
+            indicates a `propose_*` / `commit_*` / `update_protocol_config`
+            ix executed. Confirm:
+              1. Was this a scheduled governance action?
+              2. Which field changed? (run `pnpm test:mainnet-hardening` to diff)
+              3. Was the actor the Squads multisig PDA?
+            If NO to any → potential authority compromise.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#1-protocolconfigchanged"
+
+      # ─── 2. TVL cap reached ────────────────────────────────────────
+      # Fires when committed_protocol_tvl_usdc approaches max_protocol_tvl_usdc.
+      # At 90% utilization, the protocol is one new pool away from
+      # rejecting all `init_pool_vaults` calls.
+      - alert: TvlCapNearLimit
+        expr: roundfi_committed_protocol_tvl_usdc / roundfi_max_protocol_tvl_usdc > 0.9
+        for: 5m
+        labels:
+          severity: p2
+          team: protocol
+        annotations:
+          summary: "Protocol TVL cap utilization > 90%"
+          description: |
+            Committed TVL has reached {{ $value | humanizePercentage }} of the cap.
+            New pools will be rejected at 100%. Action options:
+              1. Raise the cap via `update_protocol_config` (requires governance approval per canary plan)
+              2. Wait for active pools to close (organic decrement)
+              3. Pause new pool creation while waiting (set max_pool_tvl_usdc = current value)
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#2-tvlcapnearlimit"
+
+      # ─── 3. Failed CPI (Kamino) ────────────────────────────────────
+      # Any failed CPI from roundfi-core into roundfi-yield-kamino, OR
+      # from roundfi-yield-kamino into Kamino itself, is a red flag.
+      # SEV-040 + SEV-041 would have manifested as repeated failures
+      # here at canary.
+      - alert: KaminoCpiFailureSpike
+        expr: roundfi:cpi_failure_rate_5m > 0.1 # > 0.1 failures/sec sustained 5min
+        for: 5m
+        labels:
+          severity: p1
+          team: protocol
+        annotations:
+          summary: "Kamino CPI failure rate spike ({{ $value | humanize }} failures/sec)"
+          description: |
+            CPI into Kamino is failing repeatedly. Possible causes:
+              - Kamino reserve drained (`InsufficientLiquidity`)
+              - Reserve stale + bankrun-clone-style oracle issue (`ReserveStale`)
+              - SEV-040/041-class regression (account list / program ID drift)
+              - Kamino upgrade broke our wrapper
+            Immediate: pause `deposit_idle_to_yield` + `harvest_yield` via core pause
+            mechanism. Then diagnose via failed-tx Solscan inspection.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#3-kaminocpifailurespike"
+
+      # ─── 4. Harvest revert ─────────────────────────────────────────
+      # Specific case of CPI failure: harvest_yield reverts. Could
+      # indicate the slippage guard (min_realized_usdc, PR #124) tripped
+      # or PrincipalLoss fired.
+      - alert: HarvestRevertSpike
+        expr: roundfi:harvest_revert_rate_1h > 5 # > 5 reverts/hr
+        for: 30m
+        labels:
+          severity: p2
+          team: protocol
+        annotations:
+          summary: "harvest_yield reverting > 5 times/hr"
+          description: |
+            Harvest is being rejected. Diagnostic:
+              1. Is min_realized_usdc set too high vs actual Kamino yield?
+              2. Is PrincipalLoss firing? (Kamino exchange rate moved against us)
+              3. Is the slippage guard catching a real attack?
+            Pause harvest while diagnosing — `update_protocol_config` flips
+            harvest-disable flag. Re-enable post-fix.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#4-harvestrevertspike"
+
+      # ─── 5. PrincipalLoss event ────────────────────────────────────
+      # Kamino's exchange rate moved against us — `total_redeemed <
+      # tracked_principal`. Our wrapper rejects with PrincipalLoss
+      # error rather than silently lose USDC. This SHOULD never fire
+      # on a healthy reserve.
+      - alert: PrincipalLossEvent
+        expr: increase(roundfi_principal_loss_total[1h]) > 0
+        for: 0m # Fire immediately on any occurrence
+        labels:
+          severity: p1
+          team: protocol
+        annotations:
+          summary: "PrincipalLoss error emitted by roundfi-yield-kamino"
+          description: |
+            The harvest CPI computed tracked_principal > total_redeemed and
+            the PrincipalLoss guard fired. Kamino's exchange rate has moved
+            against the protocol's deposit position.
+
+            This could indicate:
+              - Kamino reserve has internal accounting drift (file Kamino issue)
+              - Our `tracked_principal` accounting has a bug (audit our harvest math)
+              - Genuine economic loss event on the underlying reserve
+
+            IMMEDIATE: pause deposit_idle_to_yield + harvest_yield to prevent
+            further loss. Investigate before unpause.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#5-principalloss-event"
+
+      # ─── 6. Vault balance mismatch ─────────────────────────────────
+      # The pool's USDC vault balance has drifted from the protocol's
+      # internal accounting (sum of contributions − payouts − escrow
+      # locked). Indicates either a bug in our accounting or
+      # unauthorized transfers.
+      - alert: VaultBalanceMismatch
+        expr: abs(roundfi_pool_usdc_vault_balance - roundfi_pool_accounted_balance) > 1_000_000 # > 1 USDC delta
+        for: 5m
+        labels:
+          severity: p1
+          team: protocol
+        annotations:
+          summary: "Pool {{ $labels.pool_pubkey }} USDC vault drifted from accounted balance"
+          description: |
+            On-chain USDC balance: {{ $labels.vault_balance }}
+            Accounted balance:    {{ $labels.accounted_balance }}
+            Delta:                {{ $value }} base units
+
+            If delta is POSITIVE: someone deposited extra USDC (donation? bug?).
+            If delta is NEGATIVE: USDC drained without an accounted ix —
+            CRITICAL. Pause protocol + investigate immediately.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#6-vaultbalancemismatch"
+
+      # ─── 7. Protocol pause flipped ─────────────────────────────────
+      # The `config.paused` flag changed state. Either we paused (good
+      # if intentional, alarming otherwise) or unpaused (always confirm).
+      - alert: ProtocolPauseStateChanged
+        expr: changes(roundfi_protocol_paused[10m]) > 0
+        for: 0m
+        labels:
+          severity: p2
+          team: protocol
+        annotations:
+          summary: "config.paused flipped state (now: {{ $value }})"
+          description: |
+            Someone called pause/unpause on the protocol. Confirm:
+              1. Was the actor the Squads multisig PDA?
+              2. Was this aligned with an active incident? (check #incidents Slack)
+              3. If pausing: kick off incident response per emergency-response.md
+              4. If unpausing: confirm fix was deployed + verified before unpause
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#7-protocolpausestatechanged"
+
+      # ─── 8. Treasury balance change ────────────────────────────────
+      # Treasury USDC ATA balance changed. Inflows (protocol fees) are
+      # expected and normal — alert only on OUTFLOWS, which indicate
+      # withdrawals.
+      - alert: TreasuryOutflow
+        expr: |
+          increase(roundfi_treasury_outflow_usdc_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: p2
+          team: protocol
+        annotations:
+          summary: "Treasury USDC outflow detected ({{ $value | humanize }} USDC)"
+          description: |
+            The Squads-controlled treasury ATA had a USDC outflow in the
+            last 10 minutes. Confirm:
+              1. Was the tx signed by the Squads multisig (3-of-5 quorum)?
+              2. Was the destination an authorized recipient (vendor, bug bounty payout, etc)?
+              3. Did the outflow match a scheduled disbursement?
+            If NO to any → potential authority compromise.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/observability/pagerduty-runbook.md#8-treasuryoutflow"
+
+      # ─── 9. Supporting: Indexer lag ────────────────────────────────
+      # Not in the team's 8-alert list, but required for the other
+      # alerts to function — they all rely on the indexer being fresh.
+      - alert: IndexerLagHigh
+        expr: roundfi:indexer_lag_slots > 256
+        for: 10m
+        labels:
+          severity: p2
+          team: ops
+        annotations:
+          summary: "Indexer lag {{ $value }} slots behind cluster"
+          description: |
+            The indexer hasn't caught up within 256 slots (~100s). Other
+            alerts in this file may be operating on stale data. Triage:
+              1. Is the indexer process running? (kubectl get pods)
+              2. Is the Helius webhook hitting our endpoint?
+              3. Is the database reachable?
+            See indexer-reorg-recovery.md for full diagnostic.
+          runbook_url: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/operations/indexer-reorg-recovery.md"

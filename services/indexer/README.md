@@ -134,6 +134,57 @@ Required env vars:
 - `INDEXER_HOST` (default 0.0.0.0)
 - `LOG_LEVEL` (default info)
 
+## Canary `events` projection + smoke (ADR 0009)
+
+The admin console (`/admin/ops`) queries one canonical normalized table,
+`events`, plus the typed views `contribute_events_v` / `claim_events_v` /
+`default_events_v`. Per ADR 0009 (FALLBACK shape) the typed tables stay the
+ingestion + reconciliation surface and `events` is a **deterministic
+projection** of the resolved typed rows, built by `src/projector.ts`:
+
+```bash
+# Rebuild the entire events table from the resolved typed rows.
+# Idempotent + total — proves the table is rebuildable, never write-once.
+pnpm --filter @roundfi/indexer project-events
+```
+
+Behavioral fields (`dueTs` / `deltaSeconds` / `graceUsed`) are computed via
+`@roundfi/sdk` `behavioral.ts` — the same definitions the app renders,
+mirroring the on-chain program.
+
+### Exact-value smoke (do NOT accept "field populated")
+
+After ≥1 reconciled contribution on devnet, assert the computed `dueTs`
+equals the pool's on-chain `next_cycle_at` for that cycle, and that
+`deltaSeconds` / `graceUsed` follow from it. Pick a real contribution and
+check the value, not just non-null:
+
+```sql
+-- next_cycle_at for cycle c (0-indexed) is started_at + (c+1)*cycle_duration.
+SELECT
+  e."txSig",
+  e.cycle,
+  e."dueTs",
+  p."startedAt" + (e.cycle + 1) * p."cycleDurationSec"  AS expected_due_ts,
+  e."dueTs" = p."startedAt" + (e.cycle + 1) * p."cycleDurationSec" AS due_ts_ok,
+  e."deltaSeconds",
+  (e."onChainTs" - e."dueTs")::int                       AS expected_delta,
+  e."deltaSeconds" = (e."onChainTs" - e."dueTs")::int     AS delta_ok,
+  e."graceUsed",
+  (e."onChainTs" > e."dueTs"
+     AND e."onChainTs" < e."dueTs" + 604800)              AS expected_grace,
+  e."graceUsed" = (e."onChainTs" > e."dueTs"
+     AND e."onChainTs" < e."dueTs" + 604800)              AS grace_ok
+FROM events e
+JOIN pools p ON p.id = e."poolId"
+WHERE e."eventType" = 'Contribute' AND p."startedAt" IS NOT NULL;
+-- PASS: due_ts_ok, delta_ok, grace_ok all TRUE for every row.
+```
+
+The projector parity test (`test/projector.spec.ts`) asserts these same
+exact values against a local Postgres in CI; this SQL is the on-devnet
+counterpart the operator runs after the first real cycle.
+
 ## What's NOT here yet
 
 This scaffold is intentionally minimal — the goal is to prove the

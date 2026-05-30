@@ -3,7 +3,18 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { clusterApiUrl } from "@solana/web3.js";
 
-export type NetworkId = "localnet" | "devnet";
+// SEV-045: `NetworkId` lives in `./networkTypes` (pure .ts, no JSX)
+// so the workspace-root tsc + Mocha tests can import the type without
+// pulling in React. Re-export here for back-compat with all existing
+// call-sites that import from `@/lib/network`.
+//
+// The original (pre-SEV-045) union was `"localnet" | "devnet"`; the
+// downstream `walletAllowlist` and `rpcAllowlist` paths were
+// un-exercised for mainnet. Adding the `"mainnet-beta"` variant makes
+// those allowlists load-bearing instead of guard-railing-for-future,
+// and unblocks the ClusterBanner red-state on mainnet.
+export type { NetworkId } from "./networkTypes";
+import type { NetworkId } from "./networkTypes";
 
 export interface NetworkOption {
   id: NetworkId;
@@ -27,6 +38,14 @@ export const NETWORK_OPTIONS: Record<NetworkId, NetworkOption> = {
     endpoint: clusterApiUrl("devnet"),
     canAirdrop: true,
     notes: "Devnet airdrops are rate-limited; real mode here is best-effort.",
+  },
+  "mainnet-beta": {
+    id: "mainnet-beta",
+    label: "Mainnet",
+    endpoint: clusterApiUrl("mainnet-beta"),
+    canAirdrop: false,
+    notes:
+      "REAL FUNDS. Every signed transaction moves real USDC. Triple-check before confirming any action.",
   },
 };
 

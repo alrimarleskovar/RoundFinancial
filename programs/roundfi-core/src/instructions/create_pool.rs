@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::constants::*;
 use crate::error::RoundfiError;
+use crate::math::pool_is_viable;
 use crate::state::{Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -101,11 +102,70 @@ pub fn handler(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
     );
     require!(args.escrow_release_bps <= MAX_BPS, RoundfiError::InvalidBps);
 
-    // One payout per member per cycle → cycles_total must accommodate every slot.
+    // One payout per member per cycle.
+    //
+    // **Adevar Labs SEV-038 fix** — was `>=`, allowing `cycles_total >
+    // members_target`. With `>`, cycles past index `members_target - 1`
+    // have no slot owner (`claim_payout` requires `slot_index ==
+    // cycle`, so cycles in `members_target..cycles_total` cannot be
+    // claimed). The pool stays in Active status forever; close_pool
+    // requires Completed (and the SEV-005 fix tightened that to
+    // strictly Completed); members' contributions for those orphan
+    // cycles route into pool_usdc_vault with no path to claim. Funds
+    // trapped.
+    //
+    // Tightened to `==`. The slot rotation `slot_index = cycle` only
+    // closes the loop when there are exactly `members_target` cycles —
+    // every slot claims exactly once. Existing tests (edge_tiny_lifecycle
+    // 3×3, lifecycle 4×4, defaults 24×24) all use square pools, so the
+    // tightening doesn't break any tested shape.
     require!(
-        args.cycles_total as u16 >= args.members_target as u16,
+        args.cycles_total as u16 == args.members_target as u16,
         RoundfiError::InvalidPoolParams,
     );
+
+    // ─── Adevar Labs SEV-031 — pool viability runtime guard ───────────
+    //
+    // **SEV-025 (W2)** fixed the protocol *defaults* to be viable
+    // (`DEFAULT_INSTALLMENT_AMOUNT` 416 → 600 USDC) and added a test-
+    // suite invariant pinning the math. But a pool authority can still
+    // call `create_pool` with custom args that produce an inviable
+    // pool: `members × installment × (1 − solidarity − escrow) < credit`.
+    // Cycle 0 `claim_payout` then always fails the 91.6% Seed Draw
+    // retention guard (`WaterfallUnderflow`), trapping member
+    // contributions until the authority manually winds the pool down.
+    //
+    // **SEV-031 (W3)** asks for the same invariant the test pins to be
+    // enforced at runtime — refuse to allocate the Pool PDA at all if
+    // the math doesn't close. The check is identical in shape to the
+    // unit test in `constants.rs::pool_defaults_match_product_spec`:
+    //
+    //   pool_float = members × installment × (1 − sol_bps − escrow_bps)
+    //              / MAX_BPS
+    //   require pool_float >= credit
+    //
+    // We use u128 intermediate to avoid overflow on legitimate large
+    // pools (24 members × 1_000 USDC × 9_900 ≈ 2.4e11, well under
+    // u128::MAX).
+    //
+    // Solidarity is a global constant (`SOLIDARITY_BPS`); escrow is
+    // per-pool (`args.escrow_release_bps`). Both feed the same retention
+    // formula. The check fails closed: if any term would underflow
+    // (escrow + solidarity > MAX_BPS), the pool is trivially inviable
+    // and we reject.
+    // Delegates to `crates::math::pool_is_viable` so the invariant is
+    // exercised by the math crate's unit tests AND by the on-chain
+    // handler — same code path, no drift between the test fixture and
+    // production logic. (The auditor's W3 process note about avoiding
+    // duplicated financial math — SEV-026 — applies here too.)
+    let viable = pool_is_viable(
+        args.members_target,
+        args.installment_amount,
+        args.credit_amount,
+        SOLIDARITY_BPS,
+        args.escrow_release_bps,
+    )?;
+    require!(viable, RoundfiError::PoolNotViable);
 
     // ─── Yield-adapter allowlist (item 4.4 of MAINNET_READINESS) ─────
     //

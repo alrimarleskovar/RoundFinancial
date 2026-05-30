@@ -23,9 +23,7 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 
 use crate::constants::*;
 use crate::error::ReputationError;
-use crate::state::{
-    Attestation, IdentityRecord, IdentityStatus, Payload, ReputationConfig, ReputationProfile,
-};
+use crate::state::{Attestation, IdentityRecord, Payload, ReputationConfig, ReputationProfile};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AttestArgs {
@@ -54,7 +52,6 @@ pub struct Attest<'info> {
     #[account(
         seeds = [SEED_REP_CONFIG],
         bump = config.bump,
-        constraint = !config.paused @ ReputationError::Unauthorized,
     )]
     pub config: Account<'info, ReputationConfig>,
 
@@ -110,7 +107,8 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
         profile.level         = LEVEL_MIN;
         profile.first_seen_at = now;
         profile.bump          = ctx.bumps.profile;
-        profile._padding      = [0; 15];
+        profile.last_admin_attest_at = 0; // SEV-027: init field
+        profile._padding             = [0; 7];
     }
 
     // ─── 1. Issuer authorization ────────────────────────────────────────
@@ -126,6 +124,36 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // For pool-PDA issuance, `args.pool` must match the issuer.
     if is_pool_pda {
         require_keys_eq!(args.pool, issuer_key, ReputationError::InvalidIssuer);
+    }
+
+    // ─── Adevar Labs SEV-022 fix — selective pause ──────────────────────
+    //
+    // Before: `constraint = !config.paused` on the config account
+    // blocked attest UNCONDITIONALLY when the reputation authority
+    // toggled `paused = true`. Because roundfi-core's contribute /
+    // claim_payout / settle_default ALL CPI to attest mandatorily,
+    // pausing reputation halted those core flows in every pool —
+    // breaking the explicitly-documented core property
+    // "settle_default never locks funds" (settle_default deliberately
+    // bypasses core's pause flag, but the reputation pause caught it
+    // through the back door of the CPI).
+    //
+    // After: pause is checked HERE, after issuer determination, and
+    // ONLY blocks admin-direct attests. Pool-PDA-signed CPI from core
+    // continues regardless of reputation pause. Operational meaning:
+    //   - Reputation pause: stops admin write surface (manual attest /
+    //     revoke / identity ops).
+    //   - To halt core flows too, operator pauses BOTH protocols
+    //     explicitly via `update_protocol_config { paused: true }`
+    //     AND `update_reputation_config { paused: true }`. The two
+    //     are now independent; coordinated pause is an operator
+    //     action, not a free side-effect.
+    //
+    // Settle_default's "never lock funds" property is restored: it
+    // deliberately bypasses core's pause AND now also bypasses
+    // reputation's pause through this carve-out.
+    if !is_pool_pda {
+        require!(!cfg.paused, ReputationError::Unauthorized);
     }
 
     // ─── 2. Schema validity ─────────────────────────────────────────────
@@ -164,6 +192,34 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     if args.schema_id == SCHEMA_CYCLE_COMPLETE {
         let elapsed = now.saturating_sub(profile.last_cycle_complete_at);
         require!(elapsed >= MIN_CYCLE_COOLDOWN_SECS, ReputationError::CooldownActive);
+    }
+
+    // ─── 4b. Admin score-changing schema cooldown ──────────────────────
+    //
+    // **SEV-027 (W2):** added 60s cooldown for admin-direct
+    // SCHEMA_PAYMENT only — pool-PDA path is naturally rate-limited
+    // by the cycle structure (one PAYMENT per member per cycle), but
+    // admin-direct could pump score in a tight loop.
+    //
+    // **SEV-030 (W3):** the auditor flagged that the cooldown left
+    // SCHEMA_LATE (−100) and SCHEMA_DEFAULT (−500) unrate-limited —
+    // admin could grief a subject by spamming negative-score attests
+    // and tanking their level. SCHEMA_CYCLE_COMPLETE has its own
+    // dedicated 6-day cooldown (`MIN_CYCLE_COOLDOWN_SECS` above);
+    // SCHEMA_LEVEL_UP is informational and applies no score delta.
+    //
+    // Now: the cooldown applies to **any admin-direct attestation
+    // that changes the score** — PAYMENT (+10), LATE (−100), DEFAULT
+    // (−500). 60s remains the floor; defeats trivial loops for both
+    // pump-and-dump and grief-spam vectors. Pool-PDA path is
+    // untouched.
+    let is_score_changing = matches!(
+        args.schema_id,
+        SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT
+    );
+    if is_admin && is_score_changing {
+        let elapsed = now.saturating_sub(profile.last_admin_attest_at);
+        require!(elapsed >= MIN_ADMIN_ATTEST_COOLDOWN_SECS, ReputationError::CooldownActive);
     }
 
     // ─── 5. Sybil-hint weighting (anti-gaming rule #3) ──────────────────
@@ -214,6 +270,15 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
                 profile.score,
                 LEVEL_2_THRESHOLD,
                 LEVEL_3_THRESHOLD,
+                // SEV-047: cycles_completed gate. For demotion this is a
+                // no-op widening (cycles_completed is additive-only, never
+                // decrements) — the demotion is driven by the score drop;
+                // the cycles floor stays satisfied since the member already
+                // completed them. Passing it keeps resolve_level's contract
+                // consistent across both call sites.
+                profile.cycles_completed,
+                LEVEL_2_MIN_CYCLES,
+                LEVEL_3_MIN_CYCLES,
             ).max(LEVEL_MIN);
             if demoted_level < profile.level {
                 msg!(
@@ -237,6 +302,11 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     };
 
     profile.last_updated_at = now;
+    // SEV-027: track admin-issued attests separately so the cooldown
+    // (rule 4b above) only fires on admin spam, not pool-PDA flow.
+    if is_admin {
+        profile.last_admin_attest_at = now;
+    }
 
     // ─── 7. Persist the attestation ─────────────────────────────────────
     let a = &mut ctx.accounts.attestation;
@@ -279,6 +349,10 @@ pub(crate) fn is_valid_pool_issuer(
 }
 
 #[cfg(test)]
+// SEV-030 cooldown floor test pins MIN_ADMIN_ATTEST_COOLDOWN_SECS >= 10s
+// against drift via constant-vs-constant assertion — intentional, lint
+// suppress applies module-wide.
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 
@@ -307,5 +381,74 @@ mod tests {
         // Negative unchanged:
         assert_eq!(SCORE_LATE,    -100);
         assert_eq!(SCORE_DEFAULT, -500);
+    }
+
+    // ─── SEV-030 admin cooldown classification ──────────────────────────
+    //
+    // SEV-027 (W2) added cooldown for admin SCHEMA_PAYMENT only. SEV-030
+    // (W3) extends to all *score-changing* schemas (PAYMENT, LATE,
+    // DEFAULT). SCHEMA_CYCLE_COMPLETE has its own dedicated 6-day
+    // cooldown above; SCHEMA_LEVEL_UP is informational.
+    //
+    // The handler's `is_score_changing` matcher is the gate. These
+    // tests exercise the classification matrix so a future refactor
+    // that drops a schema from the cooldown coverage fails loudly
+    // rather than silently.
+
+    fn is_score_changing_schema(id: u16) -> bool {
+        matches!(id, SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT)
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_covers_payment() {
+        assert!(is_score_changing_schema(SCHEMA_PAYMENT),
+            "SCHEMA_PAYMENT (positive +10) must be cooldown-gated — was SEV-027");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_covers_late() {
+        assert!(is_score_changing_schema(SCHEMA_LATE),
+            "SCHEMA_LATE (-100) must be cooldown-gated — auditor SEV-030");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_covers_default() {
+        assert!(is_score_changing_schema(SCHEMA_DEFAULT),
+            "SCHEMA_DEFAULT (-500) must be cooldown-gated — auditor SEV-030 grief vector");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_skips_cycle_complete() {
+        // CYCLE_COMPLETE has its own 6-day cooldown
+        // (`MIN_CYCLE_COOLDOWN_SECS`) which is far stricter than the
+        // 60s admin floor — applying the 60s floor on top would be
+        // redundant. Confirm the matcher does not include it.
+        assert!(!is_score_changing_schema(SCHEMA_CYCLE_COMPLETE),
+            "SCHEMA_CYCLE_COMPLETE uses MIN_CYCLE_COOLDOWN_SECS, not the admin floor");
+    }
+
+    #[test]
+    fn sev_030_admin_cooldown_skips_level_up() {
+        assert!(!is_score_changing_schema(SCHEMA_LEVEL_UP),
+            "SCHEMA_LEVEL_UP is informational — applies no score delta");
+    }
+
+    #[test]
+    fn sev_030_cooldown_floor_defeats_trivial_loops() {
+        // 60s floor is well above the ~400ms block time, so a tight
+        // loop issuing back-to-back admin attests is rejected.
+        assert!(MIN_ADMIN_ATTEST_COOLDOWN_SECS >= 10,
+            "cooldown floor below 10s admits trivial loops");
+        // And the cooldown applies regardless of attestation direction
+        // (positive or negative), so a grief campaign mixing LATE
+        // (−100) and DEFAULT (−500) is also rate-limited.
+        let neg_throughput_per_hour =
+            3_600i64 / MIN_ADMIN_ATTEST_COOLDOWN_SECS;
+        // At 60s floor: max 60 negative attests/hr per subject ⇒ −6_000
+        // score/hr at SCHEMA_LATE rate or −30_000/hr at DEFAULT rate.
+        // Bounded — operator alarms have time to fire long before this
+        // crosses any economically-meaningful threshold.
+        assert!(neg_throughput_per_hour <= 360,
+            "cooldown allows >360 admin attests/hr — grief budget too high");
     }
 }

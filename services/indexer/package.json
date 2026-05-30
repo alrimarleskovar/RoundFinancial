@@ -5,27 +5,38 @@
   "description": "RoundFi indexer — Helius webhook subscriber + on-chain backfiller. Hydrates a Postgres event store from Pool / Member / Attestation accounts and contribute / claim_payout / settle_default txs. Phase 3 (B2B oracle) reads from this DB.",
   "license": "Apache-2.0",
   "main": "./src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./db": "./src/db.ts",
+    "./admin": "./src/adminQueries.ts",
+    "./insights": "./src/insights.ts"
+  },
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
     "backfill": "tsx src/backfill.ts",
+    "backfill:events": "tsx src/backfill-events.ts",
     "reconcile": "tsx src/reconciler.ts",
     "reconcile:once": "tsx src/reconciler.ts --once",
+    "project-events": "tsx src/projector.ts",
+    "seed:insights": "tsx src/seed-insights.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "@roundfi/sdk": "workspace:*",
     "@solana/web3.js": "^1.95.3",
-    "@prisma/client": "^5.22.0",
     "fastify": "^5.0.0",
+    "prom-client": "^15.1.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.2",
-    "@types/node": "^20.10.0"
+    "typescript": "^5.6.2"
   }
 }

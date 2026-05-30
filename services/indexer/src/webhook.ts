@@ -29,6 +29,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { parseLogMessages } from "./decoder.js";
+import { bumpCursor, upsertEventsFromLogs } from "./ingest.js";
 
 interface IncomingTx {
   signature: string;
@@ -70,94 +71,12 @@ export async function handleHeliusWebhook(
   const blockTime = BigInt(tx.timestamp ?? Math.floor(Date.now() / 1000));
   const slot = BigInt(tx.slot);
 
-  // The scaffold writes events with denormalized poolPda/memberWallet
-  // strings rather than FK relations. A reconciler joins those to
-  // canonical Pool/Member rows in a separate pass — keeps the webhook
-  // path fast (single insert per event) and decouples ingestion from
-  // the slower upsert path.
-  for (const evt of events) {
-    if (evt.kind === "contribute") {
-      await prisma.contributeEvent.upsert({
-        where: { txSignature: tx.signature },
-        create: {
-          txSignature: tx.signature,
-          // Placeholder relations — reconciler (issue #234) fills these
-          // by resolving the canonical Pool + Member from the tx's
-          // account list at finality time. The raw wallet from the log
-          // (`evt.member`) is persisted on `contributorWallet` so the
-          // reconciler doesn't need to re-fetch + re-parse the tx logs.
-          poolId: "_unresolved",
-          memberId: "_unresolved",
-          contributorWallet: evt.member,
-          cycle: evt.cycle,
-          schemaId: evt.onTime ? 1 : 2,
-          installment: evt.installment,
-          solidarityAmt: evt.solidarityAmt,
-          escrowAmt: evt.escrowAmt,
-          poolFloatAmt: evt.poolFloatAmt,
-          onTime: evt.onTime,
-          blockTime,
-          slot,
-        },
-        update: {},
-      });
-    } else if (evt.kind === "claim") {
-      await prisma.claimEvent.upsert({
-        where: { txSignature: tx.signature },
-        create: {
-          txSignature: tx.signature,
-          poolId: "_unresolved",
-          memberId: "_unresolved",
-          recipientWallet: evt.recipient,
-          cycle: evt.cycle,
-          slotIndex: evt.slotIndex,
-          amountPaid: evt.amount,
-          blockTime,
-          slot,
-        },
-        update: {},
-      });
-    } else {
-      await prisma.defaultEvent.upsert({
-        where: { txSignature: tx.signature },
-        create: {
-          txSignature: tx.signature,
-          poolId: "_unresolved",
-          defaultedWallet: evt.member,
-          cycle: evt.cycle,
-          // slotIndex resolution: log-line doesn't carry slot; resolved
-          // by the reconciler via member→slot lookup (issue #234).
-          // Placeholder 0 here is intentional and joined to canonical
-          // state post-confirmation, never read on the fund-movement path.
-          slotIndex: 0,
-          seizedSolidarity: evt.seizedSolidarity,
-          seizedEscrow: evt.seizedEscrow,
-          seizedStake: evt.seizedStake,
-          dInit: evt.dInit,
-          dRem: evt.dRem,
-          cInit: evt.cInit,
-          cAfter: evt.cAfter,
-          blockTime,
-          slot,
-        },
-        update: {},
-      });
-    }
-  }
-
-  // Bump cursor for the indexer's lag metric.
-  await prisma.indexerCursor.upsert({
-    where: { programId: process.env.ROUNDFI_CORE_PROGRAM_ID ?? "_default" },
-    create: {
-      programId: process.env.ROUNDFI_CORE_PROGRAM_ID ?? "_default",
-      lastSlot: slot,
-      lastSig: tx.signature,
-    },
-    update: {
-      lastSlot: slot,
-      lastSig: tx.signature,
-    },
-  });
+  // Shared ingestion pipeline (ADR 0009 #2) — identical to the
+  // signature-replay backfill so the two ingress paths can't drift. Writes
+  // append-only rows with `_unresolved` FK placeholders; the reconciler
+  // resolves them and the projector derives the normalized `events` rows.
+  await upsertEventsFromLogs(prisma, { txSignature: tx.signature, slot, blockTime }, events);
+  await bumpCursor(prisma, process.env.ROUNDFI_CORE_PROGRAM_ID ?? "_default", slot, tx.signature);
 
   return { processed: true, eventCount: events.length };
 }

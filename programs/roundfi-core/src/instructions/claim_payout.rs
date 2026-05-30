@@ -120,11 +120,22 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
     // ─── Ensure pool float can cover the payout ─────────────────────────
     // 4c: Guarantee Fund is earmarked inside pool_usdc_vault — it must
     // remain after a payout so the shock absorber is never drained.
+    //
+    // **SEV-048 fix** — the LP-distribution earmark (yield realized for
+    // LPs in harvest_yield, tracked on `pool.lp_distribution_balance`)
+    // must ALSO survive a payout. Before this fix only the GF balance was
+    // reserved, so LP-earmarked yield sitting in pool_usdc_vault was
+    // spendable by claim_payout — under-collateralizing the LP obligation
+    // once M3 LP-withdrawal ships. Same earmark-class as the GF; the LP
+    // leg was simply omitted. Reserve both.
+    let earmark = pool
+        .guarantee_fund_balance
+        .saturating_add(pool.lp_distribution_balance);
     let spendable = ctx
         .accounts
         .pool_usdc_vault
         .amount
-        .saturating_sub(pool.guarantee_fund_balance);
+        .saturating_sub(earmark);
     require!(
         spendable >= pool.credit_amount,
         RoundfiError::WaterfallUnderflow,

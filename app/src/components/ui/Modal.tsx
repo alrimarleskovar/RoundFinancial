@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Icons } from "@/components/brand/icons";
+import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
 // Generic modal: backdrop + centered dialog, Esc + click-outside
@@ -51,6 +52,7 @@ export function Modal({
   closeable?: boolean;
 }) {
   const { tokens, isDark } = useTheme();
+  const t = useT();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   // Element that had focus before the modal opened — restored on close.
@@ -223,7 +225,7 @@ export function Modal({
                 <button
                   type="button"
                   onClick={onClose}
-                  aria-label="Fechar"
+                  aria-label={t("modal.close")}
                   style={{
                     background: "transparent",
                     border: "none",

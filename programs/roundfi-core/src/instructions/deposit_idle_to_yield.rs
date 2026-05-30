@@ -16,7 +16,9 @@ use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::constants::*;
-use crate::cpi::yield_adapter::{invoke_and_measure, AdapterCpiArgs};
+use crate::cpi::yield_adapter::{
+    build_adapter_call_prelude, invoke_and_measure, AdapterCallPreludeInputs, AdapterCpiArgs,
+};
 use crate::error::RoundfiError;
 use crate::state::{Pool, PoolStatus, ProtocolConfig};
 
@@ -79,13 +81,23 @@ pub fn handler<'info>(
 ) -> Result<()> {
     require!(args.amount > 0, RoundfiError::InvalidAmount);
 
-    // ─── GF solvency guard ──────────────────────────────────────────────
+    // ─── GF + LP earmark solvency guard ─────────────────────────────────
     // Never pull an amount that would leave vault below the earmarked
     // guarantee-fund balance.
+    //
+    // **SEV-048 fix** — also reserve the LP-distribution earmark
+    // (`pool.lp_distribution_balance`). Depositing idle float into the
+    // yield adapter must not move LP-earmarked yield: that balance is an
+    // LP obligation realized in harvest_yield, not idle pool float. Before
+    // this fix only the GF balance was reserved, so LP yield could be
+    // swept into the adapter and double-counted. Same omission as the
+    // claim_payout leg (both fixed under SEV-048).
     let pool = &mut ctx.accounts.pool;
     let vault_before = ctx.accounts.pool_usdc_vault.amount;
-    let gf_earmark = pool.guarantee_fund_balance;
-    let spendable_idle = vault_before.saturating_sub(gf_earmark);
+    let earmark = pool
+        .guarantee_fund_balance
+        .saturating_add(pool.lp_distribution_balance);
+    let spendable_idle = vault_before.saturating_sub(earmark);
     require!(args.amount <= spendable_idle, RoundfiError::InsufficientStake);
 
     // Verify adapter program identity up front (redundant with CPI wrapper,
@@ -105,18 +117,18 @@ pub fn handler<'info>(
     let yield_vault_info = ctx.accounts.yield_vault.to_account_info();
     let token_program_info = ctx.accounts.token_program.to_account_info();
 
-    // Minimal account order expected by the adapter's `deposit`:
-    //   [source_token_account (writable), destination_token_account (writable),
-    //    authority (signer/readonly), token_program (readonly),
-    //    remaining_accounts...]
-    // Any additional adapter-specific accounts must be passed via
-    // `remaining_accounts` in the same order the adapter expects.
-    let mut metas = vec![
-        AccountMeta::new(pool_vault_info.key(), false),
-        AccountMeta::new(yield_vault_info.key(), false),
-        AccountMeta::new_readonly(pool_key, true),
-        AccountMeta::new_readonly(token_program_info.key(), false),
-    ];
+    // 4-account adapter-call prelude goes through the SEV-041 class
+    // oracle builder. Order + flags pinned by
+    // `adapter_prelude_matches_canonical_layout` test in
+    // cpi/yield_adapter.rs. Any additional adapter-specific accounts
+    // are forwarded via `remaining_accounts` in the same order the
+    // adapter expects.
+    let mut metas = build_adapter_call_prelude(&AdapterCallPreludeInputs {
+        source:        pool_vault_info.key(),
+        destination:   yield_vault_info.key(),
+        authority:     pool_key,
+        token_program: token_program_info.key(),
+    });
     let mut infos = vec![
         pool_vault_info.clone(),
         yield_vault_info.clone(),

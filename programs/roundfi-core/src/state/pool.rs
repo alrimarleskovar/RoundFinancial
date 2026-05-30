@@ -134,9 +134,10 @@ mod tests {
     use super::*;
 
     fn fresh_pool(target: u8) -> Pool {
-        let mut p = Pool::default();
-        p.members_target = target;
-        p
+        Pool {
+            members_target: target,
+            ..Pool::default()
+        }
     }
 
     // ─── Slot bitmap — basic operations ─────────────────────────────────

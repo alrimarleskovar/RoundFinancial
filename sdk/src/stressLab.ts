@@ -110,12 +110,42 @@ export interface FrameMetrics {
    */
   participantsDistribution: number;
   /**
-   * `poolBalance − outstandingEscrow − outstandingStakeRefund`.
-   * Net cash the protocol is sitting on after honoring every open
-   * obligation to ok members. The SOLVENT/INSOLVENT verdict
-   * derives from this — positive ≡ solvent.
+   * Net position at the END of the pool's life:
+   *   `poolBalance + solidarityVault + guaranteeFund
+   *      − outstandingEscrow − outstandingStakeRefund`
+   * i.e. all protocol-held buffers (main float + solidarity + GF) minus
+   * the obligations still owed to ok members.
+   *
+   * **ECO-001 / ECO-004 caveat (audit 2026-05-24):** this is an
+   * END-OF-LIFE / immediate-liquidation measure — it does NOT credit
+   * future installments still to be collected. For a ROSCA, that makes
+   * intermediate-frame `netSolvency` structurally negative (obligations
+   * exist before the installments that fund them arrive), and it lets a
+   * default "improve" the number on an intermediate frame (the defaulter's
+   * un-disbursed escrow stays in poolBalance while their outstanding
+   * obligation drops). **Only the FINAL frame is meaningful as a solvency
+   * read, and even then it is yield-dependent**: at 0% Kamino APY a healthy
+   * pool closes at exactly $0 (zero-sum ROSCA) and the triple-default
+   * stress closes NEGATIVE (~−$3.75k). The positive surplus seen with
+   * yield (healthy ≈ +$2.76k, triple-default ≈ +$28 @ 6.5% APY) comes from
+   * the yield buffer, NOT "by construction". Do NOT cite an intermediate
+   * frame, and do NOT claim 0%-yield solvency under stress. See
+   * `docs/security/internal-audit-findings.md` ECO-001..004.
    */
   netSolvency: number;
+  /**
+   * ECO-002 — cumulative over-collection vs the zero-sum baseline:
+   * `(actual installment − creditAmountUsdc / members) × installments paid
+   * so far`. Zero whenever the installment is the zero-sum default (so it
+   * is 0 across every preset that doesn't set `installmentUsdc`). Positive
+   * when the independent installment over-collects (members pay more over
+   * the pool than the credit they receive), negative when it under-collects.
+   * This is a DECOMPOSITION of `poolBalance`/`netSolvency` (the surplus
+   * already flows through the float), surfaced so the divergence from a
+   * pure ROSCA is explicit rather than hidden — the ECO-005 lesson. See
+   * docs/security/eco-l1-l2-reconciliation.md.
+   */
+  overCollection: number;
 }
 
 export interface StressLabFrame {
@@ -208,6 +238,36 @@ export interface StressLabConfig {
    * member, one contemplation per cycle).
    */
   creditAmountUsdc: number;
+  /**
+   * Optional INDEPENDENT monthly installment, in USDC (ECO-002). When
+   * omitted, the installment defaults to the zero-sum ROSCA value
+   * `creditAmountUsdc / members` (every existing preset relies on this —
+   * the default keeps their numbers byte-identical). When set, it decouples
+   * the installment from `credit / members` exactly like on-chain, where
+   * `installment_amount` and `credit_amount` are independent pool fields
+   * (SEV-025 set the demo pool to $600/cycle). Over- or under-collection
+   * relative to the zero-sum baseline is surfaced as `FrameMetrics.overCollection`
+   * and flows through the float (it is NOT refunded — matches on-chain, where
+   * the surplus sits in the vault and safety comes from the D/C invariant, not
+   * zero-sum). See docs/security/eco-l1-l2-reconciliation.md.
+   */
+  installmentUsdc?: number;
+  /**
+   * ECO-007 — when true, the LP slice of the yield waterfall
+   * (`lpDistribution`) is reserved INSIDE the float (`poolBalance`) as a
+   * non-spendable earmark, exactly like on-chain post-SEV-048
+   * (`claim_payout`/`deposit_idle_to_yield` keep `lp_distribution_balance`
+   * in the pool USDC vault until M3 LP-withdrawal ships). Default `false`
+   * keeps the legacy L1 simplification (LP treated as already paid out, not
+   * in the float), so every preset's displayed `poolBalance` is byte-identical.
+   * Set it true ONLY for L2 raw-vault-balance parity tests, where the
+   * on-chain vault physically carries the LP earmark and L1 must match.
+   * `netSolvency` is invariant under this flag (the reserved LP is added to
+   * the float then subtracted back out of the verdict — it never counts as
+   * funds available to cover obligations, in either mode). See
+   * docs/security/eco-l1-l2-reconciliation.md (ECO-007).
+   */
+  reserveLpInFloat?: boolean;
   kaminoApy: number; // % annual
   yieldFeePct: number; // % of yield kept by the protocol as admin fee
   memberNames?: string[];
@@ -348,8 +408,21 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   // derived: each of the N members contributes 1/N of the credit
   // per cycle, and there are exactly N cycles (one contemplation
   // per cycle per member).
+  //
+  // ECO-002 (see docs/security/eco-l1-l2-reconciliation.md): the installment
+  // defaults to the pure ZERO-SUM ROSCA value `credit / N` (e.g. $416.67 for
+  // $10k/24), but can be set INDEPENDENTLY via `config.installmentUsdc` — just
+  // like on-chain, where `installment_amount` and `credit_amount` are separate
+  // pool fields (SEV-025 set the demo pool to $600/cycle). When the independent
+  // installment over- or under-collects relative to `credit / N`, the
+  // difference flows through the float and is surfaced as `overCollection`
+  // (not refunded — matches on-chain, where the surplus sits in the vault and
+  // safety comes from the D/C invariant, not zero-sum). L1 still errs OPTIMISTIC
+  // on default-recovery vs the conservative on-chain `settle_default`, so it
+  // remains an upper-bound recovery model; L2 is the source of truth.
   const credit = config.creditAmountUsdc;
-  const inst = credit / N;
+  const referenceInst = credit / N; // zero-sum ROSCA baseline
+  const inst = config.installmentUsdc ?? referenceInst;
   const params = LEVEL_PARAMS[config.level];
   const stake = credit * (params.stakePct / 100);
   // Mature groups get the accelerated drip schedule (3/2/1 across
@@ -358,6 +431,8 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
     config.maturity === "mature" ? params.releaseMonthsMature : params.releaseMonths;
   const apy = config.kaminoApy;
   const adminFee = config.yieldFeePct;
+  // ECO-007: reserve the LP yield slice inside the float (raw-vault parity).
+  const reserveLpInFloat = config.reserveLpInFloat ?? false;
 
   // Pad with generic names if N exceeds the curated list — keeps the
   // simulator flexible for stress runs at Community Pool scale (issue
@@ -390,7 +465,16 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   //     150% of credit. Segregated.
   //   - lpDistribution: residual yield after the GF cap is hit.
   // Solvency adds the three protocol-controlled buckets together;
-  // lpDistribution is already paid out and doesn't count.
+  // lpDistribution is treated here as already paid out and doesn't count.
+  // ECO-007 DECISION (reconcile-by-doc — intentional L1 simplification, see
+  // docs/security/eco-l1-l2-reconciliation.md): on-chain post-SEV-048,
+  // `claim_payout`/`deposit_idle_to_yield` reserve lp_distribution_balance as a
+  // non-spendable earmark in the vault. This is economically EQUIVALENT for the
+  // solvency verdict — both models exclude LP from funds available to cover
+  // obligations — so excluding it here is sound. ⚠️ NOT sound for a raw-vault-
+  // balance L2 parity assertion (on-chain vault carries the earmark, L1 does
+  // not): before un-skipping the L2 parity blocks or shipping M3 LP-withdrawal,
+  // make L1 reserve lpDistribution in the float the same way on-chain does.
   const SOLIDARITY_FEE_PCT = 0.01;
   const GUARANTEE_FUND_CAP = 1.5 * credit;
   // Yield-waterfall residual split: 65% LPs / 35% participants.
@@ -407,6 +491,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
   let totalNetYield = 0;
   let totalProtocolFeeRevenue = 0;
   let totalInstallments = 0;
+  let totalInstallmentCount = 0; // ECO-002: # of installments paid (for overCollection)
   let totalPaidOut = 0;
   let totalRetained = 0;
   let totalLoss = 0;
@@ -440,6 +525,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
       if (action === "P" || action === "C") {
         cycleInstallments += inst;
         ledger[m]!.installmentsPaid += inst;
+        totalInstallmentCount += 1;
       }
 
       if (
@@ -608,13 +694,23 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
     // Net solvency now sums *all* protocol-controlled assets
     // (float + solidarity + guarantee fund) and subtracts the
     // outstanding obligations to ok members. lpDistribution is
-    // already paid out and doesn't count.
+    // excluded — see the ECO-007 decision note at the capital-structure
+    // block above (intentional L1 simplification, sound for the verdict).
+    // ECO-007: the spendable float (used for the solvency verdict) never
+    // includes the LP earmark — netSolvency is computed on `totalPoolBalance`
+    // and is therefore invariant under `reserveLpInFloat`. Only the REPORTED
+    // poolBalance below carries the earmark (raw-vault parity).
     const netSolvency =
       totalPoolBalance +
       solidarityVault +
       guaranteeFund -
       outstandingEscrow -
       outstandingStakeRefund;
+    const reportedPoolBalance = totalPoolBalance + (reserveLpInFloat ? lpDistribution : 0);
+
+    // ECO-002: cumulative excess collected vs the zero-sum baseline. 0 when
+    // `inst === referenceInst` (every preset that doesn't set installmentUsdc).
+    const overCollection = totalInstallmentCount * (inst - referenceInst);
 
     frames.push({
       cycle: c,
@@ -622,7 +718,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
         collectedInstallments: totalInstallments,
         kaminoNetYield: totalNetYield,
         protocolFeeRevenue: totalProtocolFeeRevenue,
-        poolBalance: totalPoolBalance,
+        poolBalance: reportedPoolBalance,
         paidOut: totalPaidOut,
         totalStake: stake * N,
         totalRetained,
@@ -635,6 +731,7 @@ export function runSimulation(config: StressLabConfig, matrix: MatrixCell[][]): 
         lpDistribution,
         participantsDistribution,
         netSolvency,
+        overCollection,
       },
       // Deep clone so future cycles can't retroactively mutate snapshots.
       ledgerSnapshot: ledger.map((l) => ({ ...l })),
@@ -664,6 +761,7 @@ export function emptyFrame(): StressLabFrame {
       lpDistribution: 0,
       participantsDistribution: 0,
       netSolvency: 0,
+      overCollection: 0,
     },
     ledgerSnapshot: [],
   };
@@ -757,15 +855,20 @@ export const PRESETS: Record<PresetId, ScenarioPreset> = {
   },
   // Canonical whitepaper stress test: 24-member Veteran pool, $10k carta,
   // three contemplated members (cycles 2/3/4) default *after* receiving
-  // their upfront. This is the scenario the pitch deck quotes:
-  //   passivo bruto = 3 × $10,000 = -$30,000
-  //   ↓ recovery via:
-  //     escrow retained (65% × 3 × credit) = +$19,500
-  //     stake slashed   (3 × 10% × credit) =  +$3,000
-  //     cycle-1 cushion (Sorteio Semente)  =  +$9,152
-  //     solidarity vault + yield           =  +$2,500
-  //     net = +$4,152 (solvent by construction)
-  // Used to verify the L1 simulator produces the canonical outcome.
+  // their upfront. ECO-005 (audit 2026-05-24) corrected the old decomposition:
+  // the components below are RETAINED CAPITAL that bounds per-tx loss, NOT net
+  // surplus — adding them as "net recovery" double-counts capital that is later
+  // redistributed. The protocol is LOSS-BOUNDED by construction (D/C + Seed-Draw
+  // invariants cap loss to the defaulter's collateral); SURPLUS is yield-backed,
+  // not "by construction". Verified by execution: healthy 0% yield = $0 (zero-sum),
+  // healthy 6.5% APY = +$2,756, triple-default 6.5% ≈ +$28. Do NOT cite a
+  // "+$4,152 solvent at 0% yield" figure — it is refutable in the public Stress Lab.
+  //   gross liability         = 3 × $10,000              = -$30,000
+  //   loss-bounding buffers (retained capital, redistributed — not net):
+  //     escrow retained (65% × 3 × credit) = $19,500
+  //     stake slashed   (3 × 10% × credit) =  $3,000
+  //     cycle-1 cushion (Seed Draw)        =  $9,152
+  // Used to verify the L1 simulator produces the canonical (loss-bounded) outcome.
   tripleVeteranDefault: {
     id: "tripleVeteranDefault",
     config: {

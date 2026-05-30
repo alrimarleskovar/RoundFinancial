@@ -19,8 +19,8 @@
  */
 
 import { expect } from "chai";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 // Direct sub-path imports (not the barrel) so legacy ts-node 7's
 // CommonJS resolver doesn't try to load the `.js`-suffixed re-exports
@@ -32,10 +32,30 @@ import {
   STAKE_BPS_BY_LEVEL,
   POOL_DEFAULTS,
   ATTESTATION_SCHEMA,
+  POOL_STATUS,
+  ESCAPE_VALVE_STATUS,
+  IDENTITY_PROVIDER,
+  IDENTITY_STATUS,
 } from "@roundfi/sdk/constants";
 
 const CORE_CONSTANTS = resolve(process.cwd(), "programs/roundfi-core/src/constants.rs");
 const REP_CONSTANTS = resolve(process.cwd(), "programs/roundfi-reputation/src/constants.rs");
+// Adevar Labs SEV-035 — enum drift between Rust state and SDK is a
+// new parity surface. Enums live in `state/*.rs` not `constants.rs`;
+// add the paths here so the enum extractor can read them. W5 follow-up
+// extends from PoolStatus alone to also cover EscapeValveStatus +
+// IdentityProvider + IdentityStatus (every wire-stable enum the SDK
+// interprets).
+const POOL_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/pool.rs");
+const LISTING_STATE = resolve(process.cwd(), "programs/roundfi-core/src/state/listing.rs");
+const IDENTITY_STATE = resolve(process.cwd(), "programs/roundfi-reputation/src/state/identity.rs");
+// SEV-043 — `SEED_STATE = b"yield-state"` is defined twice (yield-mock,
+// yield-kamino) and mirrored as `SEED.yieldState` in the SDK, but no
+// parity test pinned the three together. Both adapter programs must
+// agree byte-for-byte with the SDK helper — otherwise a future rename
+// in one program silently breaks the TS helper for the other.
+const YIELD_MOCK_LIB = resolve(process.cwd(), "programs/roundfi-yield-mock/src/lib.rs");
+const YIELD_KAMINO_LIB = resolve(process.cwd(), "programs/roundfi-yield-kamino/src/lib.rs");
 
 function readRustConstants(path: string): string {
   return readFileSync(path, "utf-8");
@@ -66,6 +86,36 @@ function extractInt(src: string): Map<string, bigint> {
   return out;
 }
 
+/**
+ * Extract `Variant = N` pairs from a `pub enum X { ... }` block.
+ *
+ * **Adevar Labs SEV-035** — `PoolStatus::Closed = 4` was added on-chain
+ * by the SEV-005 fix but not propagated to the SDK `POOL_STATUS` map.
+ * The auditor's W5 strategic recommendation: extend the parity test to
+ * cover enum variants, not just seeds and numeric constants. This
+ * helper closes that drift surface.
+ *
+ * Robust to standard formatting (allows trailing commas, doc-comments
+ * between variants, whitespace). Rejects variants without an explicit
+ * discriminant (`= N`) — the protocol's policy is "every wire-stable
+ * enum value is pinned" so any drift to implicit discriminants is also
+ * a finding worth catching.
+ */
+function extractEnumVariants(src: string, enumName: string): Map<string, number> {
+  const enumRe = new RegExp(`pub\\s+enum\\s+${enumName}\\s*\\{([\\s\\S]*?)\\}`);
+  const enumMatch = src.match(enumRe);
+  if (!enumMatch) {
+    throw new Error(`enum ${enumName} not found in source`);
+  }
+  const body = enumMatch[1]!;
+  const variantRe = /([A-Za-z][A-Za-z0-9_]*)\s*=\s*(-?[0-9_]+)\s*[,}]/g;
+  const out = new Map<string, number>();
+  for (const m of body.matchAll(variantRe)) {
+    out.set(m[1]!, Number(m[2]!.replaceAll("_", "")));
+  }
+  return out;
+}
+
 describe("Rust ↔ TS constants parity", () => {
   let coreSrc: string;
   let repSrc: string;
@@ -77,8 +127,11 @@ describe("Rust ↔ TS constants parity", () => {
 
   describe("PDA seeds — roundfi-core", () => {
     // Map: Rust SEED_X constant → TS SDK key. `undefined` means the
-    // Rust seed isn't mirrored in TS yet (e.g. listing — Step 4c,
-    // SDK parity pending).
+    // Rust seed isn't mirrored in the SDK helper map (no TS consumer).
+    // SEV-043 — `SEED_LISTING` was flipped from `undefined` to "listing"
+    // after Pass-9 audit found `SEED.listing` defined in the SDK (used
+    // by `listingPda()`) but uncovered by parity; a rename of
+    // `b"listing"` in Rust would have passed this test.
     const mapping: Record<string, string | undefined> = {
       SEED_CONFIG: "config",
       SEED_POOL: "pool",
@@ -87,7 +140,7 @@ describe("Rust ↔ TS constants parity", () => {
       SEED_SOLIDARITY: "solidarity",
       SEED_YIELD: "yield",
       SEED_POSITION: "position",
-      SEED_LISTING: undefined,
+      SEED_LISTING: "listing",
     };
 
     it("extracts every seed from Rust source", () => {
@@ -110,6 +163,36 @@ describe("Rust ↔ TS constants parity", () => {
           `seed mismatch ${rustName}: Rust="${rustBytes}" TS="${tsBytes!.toString()}"`,
         ).to.equal(true);
       }
+    });
+  });
+
+  // SEV-043 — `SEED_STATE = b"yield-state"` is defined twice (once per
+  // adapter program) and mirrored as `SEED.yieldState` in the SDK.
+  // Five inline call-sites (4 scripts + 1 test) hard-code
+  // `Buffer.from("yield-state")` rather than importing the SDK helper,
+  // so a rename in either Rust program would silently break the
+  // ecosystem until a real CPI hits `seeds constraint violated`. This
+  // tri-way pin makes the rename a `pnpm test:parity` failure instead.
+  describe("PDA seeds — yield adapters", () => {
+    it("SEED_STATE matches between yield-mock, yield-kamino, and SDK", () => {
+      const mockSrc = readRustConstants(YIELD_MOCK_LIB);
+      const kaminoSrc = readRustConstants(YIELD_KAMINO_LIB);
+      const mockSeeds = extractSeeds(mockSrc);
+      const kaminoSeeds = extractSeeds(kaminoSrc);
+
+      const mockBytes = mockSeeds.get("SEED_STATE");
+      const kaminoBytes = kaminoSeeds.get("SEED_STATE");
+      const sdkBytes = (SEED as Record<string, Buffer>).yieldState;
+
+      expect(mockBytes, "yield-mock SEED_STATE not found").to.not.equal(undefined);
+      expect(kaminoBytes, "yield-kamino SEED_STATE not found").to.not.equal(undefined);
+      expect(sdkBytes, "SDK SEED.yieldState not found").to.not.equal(undefined);
+
+      expect(mockBytes).to.equal(kaminoBytes, "SEED_STATE drift between mock and kamino");
+      expect(
+        Buffer.from(mockBytes!).equals(sdkBytes!),
+        `SEED_STATE/yieldState drift: Rust="${mockBytes}" TS="${sdkBytes!.toString()}"`,
+      ).to.equal(true);
     });
   });
 
@@ -184,5 +267,121 @@ describe("Rust ↔ TS constants parity", () => {
       expect(Number(rust.get("SCHEMA_CYCLE_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.CycleComplete);
       expect(Number(rust.get("SCHEMA_LEVEL_UP"))).to.equal(ATTESTATION_SCHEMA.LevelUp);
     });
+  });
+
+  // Adevar Labs SEV-035 — enum drift coverage. The original drift was
+  // PoolStatus::Closed=4 (added on-chain, missing from SDK) shipping
+  // for an entire audit cycle without the parity test catching it.
+  // Now: extract every enum variant from the on-chain Rust and assert
+  // it has a matching SDK entry with the same discriminant. W5
+  // follow-up extends this from PoolStatus alone to every wire-stable
+  // enum the SDK / indexer interprets.
+  describe("Enum variants", () => {
+    /**
+     * Bidirectional name + discriminant assertion. Catches:
+     *   - Rust variant added without SDK sync (the SEV-035 shape)
+     *   - SDK variant retained after on-chain removal
+     *   - Discriminant drift in either direction
+     */
+    function assertEnumParity(
+      enumLabel: string,
+      rustVariants: Map<string, number>,
+      sdkConst: Record<string, number>,
+    ): void {
+      for (const [name, value] of rustVariants) {
+        const sdkValue = (sdkConst as Record<string, number | undefined>)[name];
+        expect(sdkValue, `SDK ${enumLabel} missing variant: ${name}`).to.not.equal(undefined);
+        expect(sdkValue, `discriminant mismatch for ${enumLabel}::${name}`).to.equal(value);
+      }
+      for (const [name] of Object.entries(sdkConst)) {
+        expect(
+          rustVariants.has(name),
+          `Rust enum ${enumLabel} missing variant present in SDK: ${name}`,
+        ).to.equal(true);
+      }
+    }
+
+    it("PoolStatus (roundfi-core::state::pool)", () => {
+      const src = readRustConstants(POOL_STATE);
+      assertEnumParity(
+        "PoolStatus",
+        extractEnumVariants(src, "PoolStatus"),
+        POOL_STATUS as unknown as Record<string, number>,
+      );
+    });
+
+    it("EscapeValveStatus (roundfi-core::state::listing)", () => {
+      const src = readRustConstants(LISTING_STATE);
+      assertEnumParity(
+        "EscapeValveStatus",
+        extractEnumVariants(src, "EscapeValveStatus"),
+        ESCAPE_VALVE_STATUS as unknown as Record<string, number>,
+      );
+    });
+
+    it("IdentityProvider (roundfi-reputation::state::identity)", () => {
+      const src = readRustConstants(IDENTITY_STATE);
+      assertEnumParity(
+        "IdentityProvider",
+        extractEnumVariants(src, "IdentityProvider"),
+        IDENTITY_PROVIDER as unknown as Record<string, number>,
+      );
+    });
+
+    it("IdentityStatus (roundfi-reputation::state::identity)", () => {
+      const src = readRustConstants(IDENTITY_STATE);
+      assertEnumParity(
+        "IdentityStatus",
+        extractEnumVariants(src, "IdentityStatus"),
+        IDENTITY_STATUS as unknown as Record<string, number>,
+      );
+    });
+  });
+});
+
+// ─── ECO-001 reachability guard (cryptoeconomic audit 2026-05-24) ─────────
+// ECO-001 (netSolvency mis-measures cycle solvency — it credits no future
+// installments, only the immediate-liquidation frame) was downgraded
+// Critical → Medium on a REACHABILITY argument: `netSolvency` has ZERO
+// call-sites in `programs/`. It is a display/analysis metric in the TS
+// Stress Lab only — it gates NO on-chain instruction, transfer, seizure, or
+// guard, so the mis-definition can never move funds. This test pins that
+// argument so a future change can't silently wire the broken metric into
+// on-chain logic and quietly invalidate the downgrade.
+describe("ECO-001 reachability — netSolvency must not leak into programs/", () => {
+  const PROGRAMS_DIR = resolve(process.cwd(), "programs");
+  const NET_SOLVENCY_RE = /net[_]?[Ss]olvency/;
+
+  function rustFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Skip build artifacts and fuzz corpora — only first-party src.
+        if (entry.name === "target" || entry.name === "fuzz") continue;
+        out.push(...rustFiles(full));
+      } else if (entry.name.endsWith(".rs")) {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  it("no on-chain Rust source references netSolvency / net_solvency", () => {
+    const offenders: string[] = [];
+    for (const file of rustFiles(PROGRAMS_DIR)) {
+      readFileSync(file, "utf-8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (NET_SOLVENCY_RE.test(line)) {
+            offenders.push(`${file}:${i + 1}: ${line.trim()}`);
+          }
+        });
+    }
+    expect(
+      offenders,
+      `netSolvency is a display-only L1 metric (ECO-001 reachability argument). ` +
+        `Any on-chain reference breaks the Critical→Medium downgrade rationale.\n${offenders.join("\n")}`,
+    ).to.deep.equal([]);
   });
 });

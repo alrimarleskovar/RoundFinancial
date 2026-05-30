@@ -55,8 +55,46 @@ pub mod roundfi_reputation {
         instructions::update_reputation_config::handler(ctx, args)
     }
 
+    /// Reputation-authority rotation step 1/3 (Adevar SEV-021).
+    /// Stages a new authority behind a 7-day timelock. Mirror of
+    /// roundfi-core's `propose_new_authority` (PR #323). Reverts
+    /// if another proposal is already pending.
+    pub fn propose_new_reputation_authority(
+        ctx: Context<ProposeNewReputationAuthority>,
+        args: ProposeNewReputationAuthorityArgs,
+    ) -> Result<()> {
+        instructions::propose_new_reputation_authority::handler(ctx, args)
+    }
+
+    /// Reputation-authority rotation step 2/3 (Adevar SEV-021) —
+    /// abort a pending proposal before its eta. Authority-only.
+    pub fn cancel_new_reputation_authority(
+        ctx: Context<CancelNewReputationAuthority>,
+    ) -> Result<()> {
+        instructions::cancel_new_reputation_authority::handler(ctx)
+    }
+
+    /// Reputation-authority rotation step 3/3 (Adevar SEV-021) —
+    /// commit a pending proposal once the 7-day eta has passed.
+    /// Permissionless crank.
+    pub fn commit_new_reputation_authority(
+        ctx: Context<CommitNewReputationAuthority>,
+    ) -> Result<()> {
+        instructions::commit_new_reputation_authority::handler(ctx)
+    }
+
     pub fn init_profile(ctx: Context<InitProfile>, wallet: Pubkey) -> Result<()> {
         instructions::init_profile::handler(ctx, wallet)
+    }
+
+    /// Authority-gated in-place migration of the `ReputationConfig`
+    /// singleton to the current struct layout. Reallocs the account up to
+    /// the current `LEN` (zero-initializing the grown region) so a config
+    /// PDA created by an older program build — which would otherwise fail
+    /// to deserialize after the struct grew (e.g. the SEV-021 authority
+    /// rotation fields) — becomes loadable again. Idempotent.
+    pub fn migrate_reputation_config(ctx: Context<MigrateReputationConfig>) -> Result<()> {
+        instructions::migrate_reputation_config::handler(ctx)
     }
 
     pub fn attest(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
@@ -69,6 +107,15 @@ pub mod roundfi_reputation {
 
     pub fn promote_level(ctx: Context<PromoteLevel>) -> Result<()> {
         instructions::promote_level::handler(ctx)
+    }
+
+    /// SEV-047 defense-in-depth — authority sets the identity-gate floor
+    /// (`required_min_level`: 0 = off/default, 2 or 3 = require verified
+    /// identity at that tier+). Creates the `IdentityGateConfig` PDA on first
+    /// call (init_if_needed). Enforced in `promote_level` (caps unverified
+    /// subjects below the floor).
+    pub fn set_identity_gate(ctx: Context<SetIdentityGate>, required_min_level: u8) -> Result<()> {
+        instructions::set_identity_gate::handler(ctx, required_min_level)
     }
 
     pub fn link_passport_identity(ctx: Context<LinkPassportIdentity>) -> Result<()> {

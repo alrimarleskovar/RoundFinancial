@@ -56,6 +56,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { Connection, PublicKey, type Commitment } from "@solana/web3.js";
 
+import { createLogger, type Logger } from "./log.js";
+
 // ─── Configuration ──────────────────────────────────────────────────────
 
 /** Minimum slot age before we consider an event eligible for finality check. */
@@ -109,7 +111,7 @@ export interface ReconcilerResult {
 async function checkFinalizedQuorum(
   connections: Connection[],
   signature: string,
-  logger?: { warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<"finalized" | "not_finalized" | "missing" | null> {
   const results = await Promise.allSettled(
     connections.map(async (conn) => {
@@ -139,7 +141,10 @@ async function checkFinalizedQuorum(
   if (missing >= threshold) return "missing";
 
   // Mixed results — defer + log so ops sees the divergence.
-  logger?.warn({ signature, results: settled }, "RPC quorum divergence — deferring reconciliation");
+  logger?.warn(
+    { event_type: "rpc_quorum_divergence", signature, results: settled },
+    "RPC quorum divergence — deferring reconciliation",
+  );
   return null;
 }
 
@@ -173,6 +178,7 @@ async function resolveCanonicalIds(
   connection: Connection,
   txSignature: string,
   walletBase58: string | null,
+  slotIndex: number | null = null,
 ): Promise<{ poolId: string; memberId: string | null } | null> {
   const tx = await connection.getTransaction(txSignature, {
     maxSupportedTransactionVersion: 0,
@@ -192,29 +198,44 @@ async function resolveCanonicalIds(
   );
   const allKeys = [...staticKeys, ...loadedWritable, ...loadedReadonly];
 
-  // Intersect with canonical Pool PDAs in the DB. A single tx should
-  // touch at most one Pool PDA — but if it touches multiple (rare,
-  // e.g. cross-pool admin ix), `findFirst` returns one canonically and
-  // the event's poolId binding is the right one for *that* event row
-  // because the webhook splits per-event from logMessages.
+  // Intersect with canonical Pool PDAs in the DB.
   const pool = await prisma.pool.findFirst({
     where: { pda: { in: allKeys } },
   });
   if (!pool) return null;
 
-  // Default events carry no Member FK in the schema (see
-  // DefaultEvent.defaultedWallet rationale on the model). Caller
-  // passes null for those, and we short-circuit the member lookup.
-  if (walletBase58 === null) {
-    return { poolId: pool.id, memberId: null };
+  // Member resolution — Adevar SEV-014 fix added the slotIndex fallback.
+  //
+  // Preferred path: slotIndex (the program emits this in every
+  // contribute/payout log, and Member has @@unique([poolId, slotIndex])).
+  // This is the only path that works for events written by the
+  // SEV-014-aligned webhook (contributorWallet/recipientWallet are
+  // null for new rows).
+  //
+  // Legacy path: walletBase58 (pre-SEV-014 rows + DefaultEvent rows
+  // where the cranker's tx signer != the defaulted member, so the
+  // defaultedWallet column carries the member).
+  //
+  // Default events with no wallet AND no slot resolve to memberId:null
+  // — DefaultEvent has no Member FK in the schema anyway.
+  if (slotIndex !== null) {
+    const member = await prisma.member.findFirst({
+      where: { poolId: pool.id, slotIndex },
+    });
+    if (member) return { poolId: pool.id, memberId: member.id };
   }
-
-  const member = await prisma.member.findFirst({
-    where: { poolId: pool.id, wallet: walletBase58 },
-  });
-  if (!member) return null;
-
-  return { poolId: pool.id, memberId: member.id };
+  if (walletBase58 !== null) {
+    const member = await prisma.member.findFirst({
+      where: { poolId: pool.id, wallet: walletBase58 },
+    });
+    if (member) return { poolId: pool.id, memberId: member.id };
+  }
+  // No identifier yielded a Member — short-circuit. For DefaultEvent
+  // (no memberId in schema) callers accept memberId:null and proceed;
+  // for ContributeEvent / ClaimEvent the caller leaves the row
+  // unresolved + retries next pass when canonical Pool/Member rows
+  // are present.
+  return { poolId: pool.id, memberId: null };
 }
 
 // ─── Reconciler loop ────────────────────────────────────────────────────
@@ -235,7 +256,7 @@ async function resolveCanonicalIds(
 export async function reconcileOnce(
   prisma: PrismaClient,
   config: ReconcilerConfig,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<ReconcilerResult> {
   const finalityGate = config.finalityGateSlots ?? FINALITY_GATE_SLOTS;
   const orphanGrace = config.orphanGraceSlots ?? ORPHAN_GRACE_SLOTS;
@@ -296,10 +317,10 @@ async function reconcileContributeEvents(
   finalityGate: number,
   orphanGrace: number,
   counters: Counters,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.contributeEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -318,11 +339,15 @@ async function reconcileContributeEvents(
     }
 
     if (status === "finalized") {
+      // Adevar SEV-014: pass slotIndex as the primary identifier (the
+      // program emits it on every contribute log). contributorWallet is
+      // null for new rows + carried for pre-fix rows.
       const canonical = await resolveCanonicalIds(
         prisma,
         connections[0]!,
         evt.txSignature,
         evt.contributorWallet,
+        evt.slotIndex,
       );
       if (canonical === null || canonical.memberId === null) {
         // Canonical Pool/Member row not in DB yet — backfill is
@@ -346,7 +371,12 @@ async function reconcileContributeEvents(
       });
       counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "contribute_events" },
+        {
+          event_type: "orphan",
+          signature: evt.txSignature,
+          ageSlots: ageSlots.toString(),
+          table: "contribute_events",
+        },
         "event tx never finalized — marked orphaned",
       );
     } else {
@@ -362,10 +392,10 @@ async function reconcileClaimEvents(
   finalityGate: number,
   orphanGrace: number,
   counters: Counters,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.claimEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -384,11 +414,14 @@ async function reconcileClaimEvents(
     }
 
     if (status === "finalized") {
+      // SEV-014: same fallback as contribute — slotIndex is the
+      // primary identifier (the program emits it on every payout log).
       const canonical = await resolveCanonicalIds(
         prisma,
         connections[0]!,
         evt.txSignature,
         evt.recipientWallet,
+        evt.slotIndex,
       );
       if (canonical === null || canonical.memberId === null) {
         counters.pending += 1;
@@ -410,7 +443,12 @@ async function reconcileClaimEvents(
       });
       counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "claim_events" },
+        {
+          event_type: "orphan",
+          signature: evt.txSignature,
+          ageSlots: ageSlots.toString(),
+          table: "claim_events",
+        },
         "event tx never finalized — marked orphaned",
       );
     } else {
@@ -426,10 +464,10 @@ async function reconcileDefaultEvents(
   finalityGate: number,
   orphanGrace: number,
   counters: Counters,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.defaultEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -482,7 +520,12 @@ async function reconcileDefaultEvents(
       });
       counters.orphaned += 1;
       logger?.warn(
-        { txSignature: evt.txSignature, ageSlots: ageSlots.toString(), table: "default_events" },
+        {
+          event_type: "orphan",
+          signature: evt.txSignature,
+          ageSlots: ageSlots.toString(),
+          table: "default_events",
+        },
         "event tx never finalized — marked orphaned",
       );
     } else {
@@ -501,7 +544,7 @@ async function reconcileDefaultEvents(
 export async function crossValidateOnce(
   prisma: PrismaClient,
   config: ReconcilerConfig,
-  logger?: { info: (obj: unknown, msg: string) => void; warn: (obj: unknown, msg: string) => void },
+  logger?: Logger,
 ): Promise<{ scanned: number; gaps: number }> {
   const connection = new Connection(config.primaryRpcUrl, "finalized" as Commitment);
   const programPk = new PublicKey(config.programId);
@@ -520,7 +563,7 @@ export async function crossValidateOnce(
     if (!contribute && !claim && !def) {
       gaps += 1;
       logger?.warn(
-        { txSignature: s.signature, slot: s.slot },
+        { event_type: "cross_validation_gap", signature: s.signature, slot: s.slot },
         "cross-validation gap — signature on chain but no event row",
       );
       // TODO: enqueue a re-fetch via the webhook handler. Implementation
@@ -528,7 +571,10 @@ export async function crossValidateOnce(
     }
   }
 
-  logger?.info({ scanned: sigs.length, gaps }, "cross-validation sweep complete");
+  logger?.info(
+    { event_type: "cross_validation", scanned: sigs.length, gaps },
+    "cross-validation sweep complete",
+  );
   return { scanned: sigs.length, gaps };
 }
 
@@ -542,11 +588,7 @@ export interface ReconcilerDaemon {
 export function createReconcilerDaemon(
   prisma: PrismaClient,
   config: ReconcilerConfig,
-  logger: {
-    info: (obj: unknown, msg: string) => void;
-    warn: (obj: unknown, msg: string) => void;
-    error: (obj: unknown, msg: string) => void;
-  },
+  logger: Logger,
 ): ReconcilerDaemon {
   let reconcileTimer: NodeJS.Timeout | null = null;
   let crossValidationTimer: NodeJS.Timeout | null = null;
@@ -556,9 +598,9 @@ export function createReconcilerDaemon(
     if (stopping) return;
     try {
       const result = await reconcileOnce(prisma, config, logger);
-      logger.info(result, "reconciler tick complete");
+      logger.info({ event_type: "reconciler_tick", ...result }, "reconciler tick complete");
     } catch (err) {
-      logger.error({ err }, "reconciler tick failed");
+      logger.error({ event_type: "reconciler_tick", error: err }, "reconciler tick failed");
     }
   };
 
@@ -567,16 +609,22 @@ export function createReconcilerDaemon(
     try {
       const result = await crossValidateOnce(prisma, config, logger);
       if (result.gaps > 0) {
-        logger.warn(result, "cross-validation found gaps — on-call should investigate");
+        logger.warn(
+          { event_type: "cross_validation", ...result },
+          "cross-validation found gaps — on-call should investigate",
+        );
       }
     } catch (err) {
-      logger.error({ err }, "cross-validation failed");
+      logger.error({ event_type: "cross_validation", error: err }, "cross-validation failed");
     }
   };
 
   return {
     start: () => {
-      logger.info({ programId: config.programId }, "reconciler daemon starting");
+      logger.info(
+        { event_type: "daemon_start", programId: config.programId },
+        "reconciler daemon starting",
+      );
       // Fire-and-forget initial passes, then schedule.
       void runReconcile();
       void runCrossValidation();
@@ -587,7 +635,7 @@ export function createReconcilerDaemon(
       stopping = true;
       if (reconcileTimer) clearInterval(reconcileTimer);
       if (crossValidationTimer) clearInterval(crossValidationTimer);
-      logger.info({}, "reconciler daemon stopped");
+      logger.info({ event_type: "daemon_stop" }, "reconciler daemon stopped");
     },
   };
 }
@@ -605,17 +653,12 @@ async function main(): Promise<void> {
     programId: process.env.ROUNDFI_CORE_PROGRAM_ID ?? "",
   };
 
+  const logger = createLogger({ service: "reconciler" });
+
   if (!config.programId) {
-    console.error("ROUNDFI_CORE_PROGRAM_ID env var is required");
+    logger.error({ event_type: "startup" }, "ROUNDFI_CORE_PROGRAM_ID env var is required");
     process.exit(1);
   }
-
-  // Minimal console logger; in production we wire pino + structured logs.
-  const logger = {
-    info: (obj: unknown, msg: string) => console.log("[reconciler]", msg, obj),
-    warn: (obj: unknown, msg: string) => console.warn("[reconciler]", msg, obj),
-    error: (obj: unknown, msg: string) => console.error("[reconciler]", msg, obj),
-  };
 
   // Run once + exit if invoked with --once, otherwise daemonize.
   if (process.argv.includes("--once")) {

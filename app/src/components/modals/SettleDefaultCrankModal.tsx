@@ -313,7 +313,7 @@ export function SettleDefaultCrankModal({
                     background: selectedPool === key ? `${tokens.green}1A` : "transparent",
                   }}
                 >
-                  {DEVNET_POOLS[key].label.split("·")[0].trim()}
+                  {t(`home.devnet.${key}.label`).split("·")[0].trim()}
                 </button>
               ))}
             </div>
@@ -325,7 +325,7 @@ export function SettleDefaultCrankModal({
                 fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
-              {DEVNET_POOLS[selectedPool].headline}
+              {t(`home.devnet.${selectedPool}.headline`)}
             </div>
           </div>
 

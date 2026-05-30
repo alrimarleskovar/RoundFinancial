@@ -45,7 +45,8 @@ pub fn handler(ctx: Context<InitProfile>, wallet: Pubkey) -> Result<()> {
     profile.first_seen_at          = now;
     profile.last_updated_at        = now;
     profile.bump                   = ctx.bumps.profile;
-    profile._padding               = [0; 15];
+    profile.last_admin_attest_at   = 0; // SEV-027: init field
+    profile._padding               = [0; 7];
 
     msg!("roundfi-reputation: profile initialized wallet={}", wallet);
     Ok(())

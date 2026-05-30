@@ -30,7 +30,7 @@ use roundfi_reputation::constants::SCHEMA_DEFAULT;
 use crate::constants::*;
 use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
 use crate::error::RoundfiError;
-use crate::math::{dc_invariant_holds, max_seizure_respecting_dc};
+use crate::math::{dc_invariant_holds, seize_for_default, CascadeInputs};
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -181,10 +181,43 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
     // paid but didn't. Cap at D_remaining so we never over-seize.
     let missed = pool_installment.min(d_remaining);
 
-    // ─── Seizure in strict order ────────────────────────────────────────
+    // ─── Seizure cascade (delegated to math crate) ──────────────────────
+    //
+    // **SEV-026 fix (W3 audit):** previously the cascade math
+    // (solidarity → escrow → stake, each capped by the D/C invariant)
+    // was duplicated inline here AND lived as
+    // `roundfi_math::seize_for_default` in the math crate. Two copies
+    // of financial logic drifting over time was the auditor's exact
+    // concern — "tests pass partially, protocol behavior diverges from
+    // model."
+    //
+    // Now: this handler builds `CascadeInputs` from the snapshotted
+    // pool/member state, delegates to `seize_for_default`, then uses
+    // the `CascadeOutcome` to gate the 3 token::transfer calls + state
+    // updates. The math is exercised by the math crate's existing
+    // 8-test suite (including `exhaustive_post_seizure_invariant_always_holds`
+    // which sweeps 5×5×3×5×3×4×3 = ~13_500 input combinations and
+    // asserts the D/C invariant holds post-seizure). The on-chain
+    // handler now has a single source of truth.
+    let escrow_cap = member.escrow_balance.min(escrow_vault_amount);
+    let stake_cap = member
+        .stake_deposited
+        .min(escrow_vault_amount.saturating_sub(escrow_cap));
+    let outcome = seize_for_default(CascadeInputs {
+        d_init: d_initial,
+        d_rem: d_remaining,
+        c_init: c_initial,
+        c_before,
+        missed,
+        solidarity_available,
+        escrow_cap,
+        stake_cap,
+    })?;
+    let from_solidarity = outcome.from_solidarity;
+    let from_escrow = outcome.from_escrow;
+    let from_stake = outcome.from_stake;
 
-    // (a) Solidarity vault
-    let from_solidarity = missed.min(solidarity_available);
+    // ─── Execute the seizure transfers per the cascade outcome ──────────
     if from_solidarity > 0 {
         let signer_seeds_solidarity: &[&[u8]] = &[
             SEED_SOLIDARITY,
@@ -204,20 +237,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
             from_solidarity,
         )?;
     }
-    let mut shortfall = missed.saturating_sub(from_solidarity);
-
-    // (b) Member escrow balance
-    let from_escrow = {
-        // Don't seize more than is actually in the vault OR the member's
-        // bookkeeping balance — whichever is smaller.
-        let cap = member.escrow_balance.min(escrow_vault_amount);
-        let proposed = shortfall.min(cap);
-        // Check D/C invariant: after seizure, c_remaining = c_before - proposed.
-        // Require D_remaining * C_initial <= (C_before - proposed) * D_initial
-        // => proposed <= C_before - D_remaining * C_initial / D_initial
-        // We solve with cross-multiplication to avoid division.
-        max_seizure_respecting_dc(d_initial, d_remaining, c_initial, c_before, proposed)?
-    };
     if from_escrow > 0 {
         let signer_seeds_escrow: &[&[u8]] = &[
             SEED_ESCROW,
@@ -238,19 +257,9 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         )?;
         member.escrow_balance = member.escrow_balance.saturating_sub(from_escrow);
     }
-    shortfall = shortfall.saturating_sub(from_escrow);
-
-    // (c) Member stake (reminder: stake is held inside the escrow vault
-    //     at Step 4a — seizing it is another escrow transfer of the
-    //     same underlying tokens). Track as a separate bookkeeping
-    //     amount since stake_deposited is the invariant's "C" source.
-    let c_after_escrow = c_before.saturating_sub(from_escrow);
-    let from_stake = {
-        let cap = member.stake_deposited.min(escrow_vault_amount.saturating_sub(from_escrow));
-        let proposed = shortfall.min(cap);
-        max_seizure_respecting_dc(d_initial, d_remaining, c_initial, c_after_escrow, proposed)?
-    };
     if from_stake > 0 {
+        // Stake is held in the SAME escrow vault as the deposited
+        // escrow balance (Step 4a) — same authority, same signer seeds.
         let signer_seeds_escrow: &[&[u8]] = &[
             SEED_ESCROW,
             pool_key.as_ref(),
@@ -271,10 +280,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         member.stake_deposited = member.stake_deposited.saturating_sub(from_stake);
     }
 
-    let seized_total = from_solidarity
-        .checked_add(from_escrow)
-        .and_then(|v| v.checked_add(from_stake))
-        .ok_or(error!(RoundfiError::MathOverflow))?;
+    let seized_total = outcome.total();
 
     // ─── Final D/C invariant check (must still hold post-seizure) ───────
     let c_after = member.collateral_remaining();

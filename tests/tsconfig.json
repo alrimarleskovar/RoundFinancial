@@ -2,8 +2,11 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "..",
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    // Bankrun specs import from "./_harness/index.js". Resolving those .js
+    // specifiers back to .ts sources requires a NodeNext-class resolver —
+    // matches tsconfig.base.json and what `tsx` does at runtime.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "types": ["node", "mocha", "chai"],
     "allowJs": true,
     "esModuleInterop": true,

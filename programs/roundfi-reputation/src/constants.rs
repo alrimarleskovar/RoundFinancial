@@ -5,6 +5,7 @@ pub const SEED_REP_CONFIG: &[u8] = b"rep-config";
 pub const SEED_PROFILE:    &[u8] = b"reputation";
 pub const SEED_ATTESTATION: &[u8] = b"attestation";
 pub const SEED_IDENTITY:   &[u8] = b"identity";
+pub const SEED_IDENTITY_GATE: &[u8] = b"identity-gate"; // SEV-047 identity-gate config (singleton)
 pub const SEED_POOL:       &[u8] = b"pool"; // mirrored from roundfi-core for issuer-PDA derivation
 
 /// Attestation schemas — stable integer IDs.
@@ -18,11 +19,35 @@ pub const SCHEMA_LEVEL_UP:       u16 = 5;
 pub const ATTESTATION_PAYLOAD_LEN: usize = 96;
 
 /// Anti-gaming cooldown — minimum real-time seconds between two
-/// `CycleComplete` attestations for the same subject. Defaults to
-/// 60% of a 10-day cycle = 518_400 seconds. Prevents a sybil farm
-/// from rapidly completing 10 fake pools in a single slot and
-/// ladder-jumping to level 3.
+/// `CycleComplete` attestations for the same subject.
+///
+/// **Absolute anti-sybil floor** (518_400s = 6 days), deliberately
+/// decoupled from `Pool.cycle_duration`. Prevents a sybil farm from
+/// rapidly completing 10 fake pools in a single slot and ladder-
+/// jumping to level 3, regardless of how short any individual pool's
+/// configured cycle is. With the default 30-day cycle this is ~20%
+/// of cycle duration; with a 10-day canary cycle it would be 60%.
+/// The security property (rate-limit on CycleComplete per subject)
+/// holds in both cases.
+///
+/// Comment surfaced as comment-vs-default drift in the 2026-05
+/// constants audit (`docs/security/constants-audit-2026-05.md` §2)
+/// — docstring previously said "60% of a 10-day cycle", but the
+/// protocol default cycle is 30 days. Reframed as an absolute
+/// rate-limit floor; value unchanged.
 pub const MIN_CYCLE_COOLDOWN_SECS: i64 = 518_400;
+
+/// **Adevar Labs SEV-027 fix** — anti-spam cooldown for admin-issued
+/// SCHEMA_PAYMENT attestations. Pool-PDA-issued attests are naturally
+/// rate-limited by the cycle structure (one PAYMENT per member per
+/// cycle), but admin-direct attests had no cooldown — admin could
+/// pump score arbitrarily by issuing PAYMENT in a tight loop.
+///
+/// 60s minimum between admin-issued PAYMENT attestations for the
+/// same subject. Tracked via `ReputationProfile.last_admin_attest_at`.
+/// Conservative floor; not strict enough to block legitimate manual
+/// corrections but enough to defeat trivial-loop score-pumping.
+pub const MIN_ADMIN_ATTEST_COOLDOWN_SECS: i64 = 60;
 
 /// Score deltas (v1 schedule — see architecture.md §4.2).
 pub const SCORE_PAYMENT:        i64 =  10;
@@ -35,9 +60,29 @@ pub const SCORE_DEFAULT:        i64 = -500;
 pub const LEVEL_2_THRESHOLD: u64 = 500;
 pub const LEVEL_3_THRESHOLD: u64 = 2_000;
 
+/// **SEV-047 fix** — minimum `cycles_completed` per level, gating promotion
+/// alongside the score threshold. `cycles_completed` only rises on
+/// `SCHEMA_CYCLE_COMPLETE` (6-day per-subject cooldown via
+/// `MIN_CYCLE_COOLDOWN_SECS`), so these floors impose a wall-clock minimum
+/// no amount of parallel pool-farming can shortcut:
+///   - L2 requires >= 1 completed cycle (proves one full ROSCA round).
+///   - L3 requires >= 3 completed cycles (>= ~18 days at the 6-day cooldown
+///     — kills the farm-200-pools-in-hours attack economics).
+/// Legitimate members hit these naturally; only sybil-farmers are blocked.
+pub const LEVEL_2_MIN_CYCLES: u32 = 1;
+pub const LEVEL_3_MIN_CYCLES: u32 = 3;
+
 /// Maximum levels supported. Level 0 is reserved for "never initialized".
 pub const LEVEL_MIN: u8 = 1;
 pub const LEVEL_MAX: u8 = 3;
+
+/// Authority rotation timelock for the reputation program (Adevar Labs
+/// SEV-021 fix). Same 7-day window used by roundfi-core's
+/// TREASURY_TIMELOCK_SECS. Was previously zero (direct rotation via
+/// `update_reputation_config`), asymmetric with core's protection;
+/// auditor flagged a compromised key + 1 tx = irreversible attack.
+/// 604_800 = 7 * 24 * 60 * 60 seconds.
+pub const REPUTATION_AUTHORITY_TIMELOCK_SECS: i64 = 604_800;
 
 /// Passport attestation account size — 83 bytes.
 ///
@@ -49,3 +94,75 @@ pub const LEVEL_MAX: u8 = 3;
 /// pubkey. See `identity/passport.rs` for the validator + bridge
 /// architecture rationale.
 pub const PASSPORT_ATTESTATION_LEN: usize = 83;
+
+// ─── Mainnet floor guard (constants-audit follow-up) ────────────────────
+//
+// Mirrors the floor guard pattern documented in
+// `docs/security/constants-audit-2026-05.md` and applied to
+// `programs/roundfi-core/src/constants.rs`. Pinning tests would catch
+// a regression that flipped the constant to its prior value; floor
+// guards catch a *new* devnet-shortcut value the same family of bug
+// might invent (e.g. a future engineer trying "60s for testing").
+//
+// Two layers:
+//   - Pinning (loud, deliberate change): forces explicit edits.
+//   - Floor (silent until breach): catches regressions independent
+//     of what the pinned value happens to be.
+#[cfg(test)]
+// `assert!(CONST >= FLOOR_CONST)` shape is what clippy::assertions_on_constants
+// flags, but the value of the test is EXACTLY to catch accidental
+// drift below the floor. Lint-suppress for this guard module.
+#[allow(clippy::assertions_on_constants)]
+mod floor_guards {
+    use super::*;
+
+    /// CycleComplete attestation cooldown — anti-sybil floor. 6 days
+    /// is the canonical value; floor anything below 1 day (would
+    /// permit rapid ladder-jumping via fake-pool farms).
+    #[test]
+    fn min_cycle_cooldown_above_mainnet_floor() {
+        const FLOOR_SECS: i64 = 86_400; // 1 day
+        assert!(
+            MIN_CYCLE_COOLDOWN_SECS >= FLOOR_SECS,
+            "MIN_CYCLE_COOLDOWN_SECS = {} below mainnet floor {}",
+            MIN_CYCLE_COOLDOWN_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Admin-direct PAYMENT attestation cooldown — anti-spam floor.
+    /// 60s is the canonical floor; assert it cannot drop below 10s
+    /// (anything below 10s is well within trivial-loop range).
+    #[test]
+    fn min_admin_attest_cooldown_above_floor() {
+        const FLOOR_SECS: i64 = 10;
+        assert!(
+            MIN_ADMIN_ATTEST_COOLDOWN_SECS >= FLOOR_SECS,
+            "MIN_ADMIN_ATTEST_COOLDOWN_SECS = {} below floor {}",
+            MIN_ADMIN_ATTEST_COOLDOWN_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Reputation authority rotation timelock — must give the user
+    /// community at least 1 day to detect a malicious key handover
+    /// and migrate. 7 days is canonical; floor 1 day.
+    #[test]
+    fn reputation_authority_timelock_above_floor() {
+        const FLOOR_SECS: i64 = 86_400;
+        assert!(
+            REPUTATION_AUTHORITY_TIMELOCK_SECS >= FLOOR_SECS,
+            "REPUTATION_AUTHORITY_TIMELOCK_SECS = {} below mainnet floor {}",
+            REPUTATION_AUTHORITY_TIMELOCK_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Level thresholds — guard the score ladder ordering. L3 must
+    /// require strictly more score than L2.
+    #[test]
+    fn level_thresholds_strictly_increasing() {
+        assert!(
+            LEVEL_3_THRESHOLD > LEVEL_2_THRESHOLD,
+            "level thresholds must be strictly increasing: L3={} L2={}",
+            LEVEL_3_THRESHOLD, LEVEL_2_THRESHOLD,
+        );
+    }
+}

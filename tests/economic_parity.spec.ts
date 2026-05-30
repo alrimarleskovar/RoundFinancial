@@ -65,7 +65,9 @@ import {
   runSimulation,
   toggleCell,
   type FrameMetrics,
+  type MatrixCell,
   type PresetId,
+  type StressLabConfig,
   type StressLabFrame,
 } from "@roundfi/sdk/stressLab";
 
@@ -180,14 +182,17 @@ describe("L1 stress-lab sanity (runs without Solana)", () => {
     const preDefaults = final.ledgerSnapshot.filter((l) => l.status === "calote_pre");
     expect(preDefaults.length, "zero calote_pre members").to.equal(0);
 
-    // (d) Pool solvent by construction — the whitepaper headline claim.
-    // `poolBalance` is the running cash balance after every cycle.
-    // After three sequential post-contemplation calotes the cascade of
-    // recoveries (escrow retained + stake slashed + cycle-1 cushion +
-    // solidarity vault + yield) must still leave the pool > 0.
+    // (d) Loss bounded by construction (NOT "solvent by construction at 0%
+    // yield" — ECO-005: that overclaim is refutable; the ROSCA is zero-sum
+    // without yield). `poolBalance` is the running cash balance after every
+    // cycle. The retained capital (escrow retained + stake slashed + cycle-1
+    // cushion + solidarity vault) is physically held in the pool, so cash on
+    // hand stays > 0 after three post-contemplation calotes — i.e. loss is
+    // bounded, no transaction drives the pool underwater. Surplus (if any) is
+    // yield-backed and asserted separately.
     expect(
       finalMetrics.poolBalance,
-      "pool ends solvent (cash balance > 0 after 3 calotes)",
+      "pool cash balance > 0 after 3 calotes (loss-bounded)",
     ).to.be.greaterThan(0);
 
     // (e) Recovery ≥ losses — protocol absorbed the calotes without
@@ -535,6 +540,206 @@ describe("runSimulation — stake cashback phase", () => {
 
     const last = frames[frames.length - 1]!.ledgerSnapshot[N - 1]!;
     expect(last.stakeRefunded, "no refund for last contemplation").to.equal(0);
+  });
+});
+
+// ─── ECO-002 — independent installment ───────────────────────────────
+// L1 historically forced `installment = credit / members` (zero-sum
+// ROSCA). On-chain, `installment_amount` and `credit_amount` are
+// independent pool fields (SEV-025 set the demo to $600/cycle). The
+// optional `config.installmentUsdc` decouples them; over/under-collection
+// vs the zero-sum baseline flows through the float and is surfaced as
+// `FrameMetrics.overCollection`. The default (omitted) MUST stay byte-
+// identical to the old behaviour — guarded here.
+describe("runSimulation — independent installment (ECO-002)", () => {
+  it("omitting installmentUsdc keeps overCollection at 0 on every frame", () => {
+    for (const id of PRESET_ORDER) {
+      const preset = PRESETS[id];
+      const frames = runSimulation(preset.config, preset.matrix);
+      for (const f of frames) {
+        expect(f.metrics.overCollection, `${id} cycle ${f.cycle} overCollection`).to.equal(0);
+      }
+    }
+  });
+
+  it("explicit installmentUsdc === credit/members is identical to omitting it", () => {
+    const N = 8;
+    const credit = N * 1000; // referenceInst = 1000
+    const m = defaultMatrix(N);
+    const base = {
+      level: "Comprovado" as const,
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    const omitted = runSimulation(base, m);
+    const explicit = runSimulation({ ...base, installmentUsdc: credit / N }, m);
+    expect(JSON.stringify(explicit), "frames identical when installment === credit/N").to.equal(
+      JSON.stringify(omitted),
+    );
+  });
+
+  it("over-collecting installment surfaces positive overCollection that flows through the float", () => {
+    const N = 8;
+    const credit = N * 1000; // referenceInst = 1000
+    const indep = 1200; // $200 over the zero-sum baseline per installment
+    const m = defaultMatrix(N); // healthy: every member pays every cycle
+    const base = {
+      level: "Comprovado" as const,
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 0,
+      yieldFeePct: 0,
+    };
+    const baseline = runSimulation(base, m);
+    const over = runSimulation({ ...base, installmentUsdc: indep }, m);
+
+    const lastBase = baseline[baseline.length - 1]!.metrics;
+    const lastOver = over[over.length - 1]!.metrics;
+
+    // Healthy, no defaults → N×N installments paid.
+    const expected = N * N * (indep - credit / N);
+    expect(lastOver.overCollection, "overCollection = installments × (inst − credit/N)").to.equal(
+      expected,
+    );
+    // The surplus is NOT refunded — it stays in the float, so net solvency
+    // rises by exactly the over-collection vs the zero-sum baseline.
+    expect(
+      lastOver.netSolvency - lastBase.netSolvency,
+      "surplus flows through the float (residual, not refunded)",
+    ).to.be.closeTo(expected, 1e-6);
+  });
+
+  it("under-collecting installment surfaces negative overCollection", () => {
+    const N = 8;
+    const credit = N * 1000;
+    const indep = 800; // $200 under the baseline
+    const m = defaultMatrix(N);
+    const base = {
+      level: "Comprovado" as const,
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 0,
+      yieldFeePct: 0,
+    };
+    const baseline = runSimulation(base, m);
+    const under = runSimulation({ ...base, installmentUsdc: indep }, m);
+
+    const expected = N * N * (indep - credit / N); // negative
+    expect(under[under.length - 1]!.metrics.overCollection).to.equal(expected);
+    expect(
+      under[under.length - 1]!.metrics.netSolvency -
+        baseline[baseline.length - 1]!.metrics.netSolvency,
+    ).to.be.closeTo(expected, 1e-6);
+  });
+});
+
+// ─── ECO-003 — breakpoint re-derivation ──────────────────────────────
+// The audit claimed a "non-monotonic thin solvency margin, breakpoint
+// ~16.7%". This pins the re-derivation (docs/security/eco-l1-l2-reconciliation.md):
+//   1. Under the RETRACTED premises (zero-sum $416.67 installment +
+//      end-of-life netSolvency, 6.5% APY), the claim REPRODUCES exactly:
+//      final-frame netSolvency dips below 0 at k=4 defaults (4/24 = 16.7%)
+//      and RECOVERS at k=5 — the non-monotonic U-shape is the ECO-001
+//      end-of-life artifact (the defaulter's un-disbursed escrow lingers in
+//      poolBalance while their obligation drops).
+//   2. Under the on-chain INDEPENDENT $600 installment (ECO-002), the
+//      breakpoint DOES NOT reproduce: final-frame netSolvency stays positive
+//      and monotonically decreasing through k=8 (33%). The large buffer is
+//      over-collection (surfaced as overCollection), so the figures are
+//      PROVISIONAL pending lab-UI validation — see the doc.
+describe("runSimulation — ECO-003 breakpoint re-derivation", () => {
+  const N = 24;
+  const credit = 10_000;
+  const matrixK = (k: number): MatrixCell[][] => {
+    const m = defaultMatrix(N);
+    for (let row = 1; row <= k; row++) for (let j = row + 1; j < N; j++) m[row]![j] = "X";
+    return m;
+  };
+  const finalNet = (cfg: StressLabConfig, k: number): number => {
+    const f = runSimulation(cfg, matrixK(k));
+    return f[f.length - 1]!.metrics.netSolvency;
+  };
+
+  it("RETRACTED premises ($416.67 zero-sum + 6.5% APY) reproduce the 16.7% non-monotonic dip", () => {
+    const cfg: StressLabConfig = {
+      level: "Veterano",
+      members: N,
+      creditAmountUsdc: credit,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    // Breakpoint at k=4 = 16.7%, and the margin RECOVERS at k=5 (non-monotonic).
+    expect(finalNet(cfg, 3), "k=3 still solvent").to.be.greaterThan(0);
+    expect(finalNet(cfg, 4), "k=4 (16.7%) dips below 0").to.be.lessThan(0);
+    expect(finalNet(cfg, 5), "k=5 recovers — non-monotonic").to.be.greaterThan(0);
+  });
+
+  it("on-chain independent $600 installment removes the breakpoint (monotonic, stays solvent)", () => {
+    const cfg: StressLabConfig = {
+      level: "Veterano",
+      members: N,
+      creditAmountUsdc: credit,
+      installmentUsdc: 600,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    };
+    let prev = Infinity;
+    for (let k = 0; k <= 8; k++) {
+      const ns = finalNet(cfg, k);
+      expect(ns, `k=${k} stays solvent under $600`).to.be.greaterThan(0);
+      expect(ns, `k=${k} monotonically decreasing (no dip/recovery)`).to.be.lessThan(prev);
+      prev = ns;
+    }
+  });
+});
+
+// ─── ECO-007 — reserve LP in float (raw-vault parity) ────────────────
+// On-chain (post-SEV-048) the LP yield slice sits in the pool USDC vault
+// as a non-spendable earmark; L1 historically treated it as already paid
+// out. The opt-in `reserveLpInFloat` keeps lpDistribution inside the float
+// so L1 matches the on-chain RAW vault balance (needed before un-skipping
+// the L2 raw-balance parity blocks), while leaving the solvency verdict
+// (and every preset's default display) unchanged. See
+// docs/security/eco-l1-l2-reconciliation.md (ECO-007).
+describe("runSimulation — reserve LP in float (ECO-007)", () => {
+  it("omitting the flag is identical to reserveLpInFloat:false (presets unchanged)", () => {
+    const preset = PRESETS.highYieldTripleDefault;
+    const omitted = runSimulation(preset.config, preset.matrix);
+    const explicitFalse = runSimulation(
+      { ...preset.config, reserveLpInFloat: false },
+      preset.matrix,
+    );
+    expect(JSON.stringify(explicitFalse)).to.equal(JSON.stringify(omitted));
+  });
+
+  it("reserving LP adds it to poolBalance but leaves netSolvency unchanged", () => {
+    // High APY so the Guarantee Fund fills and the LP slice is non-zero.
+    const cfg: StressLabConfig = {
+      level: "Comprovado",
+      members: 12,
+      creditAmountUsdc: 12_000,
+      kaminoApy: 500,
+      yieldFeePct: 20,
+    };
+    const m = defaultMatrix(12);
+    const base = runSimulation(cfg, m)[11]!.metrics;
+    const reserved = runSimulation({ ...cfg, reserveLpInFloat: true }, m)[11]!.metrics;
+
+    expect(base.lpDistribution, "LP slice is non-zero (GF filled)").to.be.greaterThan(0);
+    // lpDistribution accumulator itself is unchanged by the flag.
+    expect(reserved.lpDistribution).to.be.closeTo(base.lpDistribution, 1e-6);
+    // poolBalance rises by exactly the reserved LP earmark.
+    expect(
+      reserved.poolBalance - base.poolBalance,
+      "poolBalance carries the LP earmark when reserved",
+    ).to.be.closeTo(base.lpDistribution, 1e-6);
+    // The solvency verdict is invariant — LP is never spendable for obligations.
+    expect(reserved.netSolvency, "netSolvency invariant under the flag").to.be.closeTo(
+      base.netSolvency,
+      1e-6,
+    );
   });
 });
 
@@ -1158,46 +1363,18 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
   });
 });
 
-describe.skip("L1 ↔ L2 parity — Pre-default preset", () => {
-  it("defaulter's stake + installments retained on-chain ≡ L1 retained", async () => {
-    // Drive the scenario, then settle_default on the defaulter at the
-    // configured cycle. After settle_default + close_pool:
-    //   solidarity_vault.amount + escrow_vault.amount  (the protocol
-    //   retention) − initial_protocol_balance ≡ ledger.retained for
-    //   that defaulter (within 1 USDC unit).
-  });
-});
-
-describe.skip("L1 ↔ L2 parity — Post-default preset", () => {
-  it("loss-caused on-chain (via solidarity vault drain) ≡ L1 lossCaused", async () => {
-    // Drive the scenario. The contemplated-then-defaulted member
-    // received their upfront from the pool. settle_default reclaims
-    // what's left in their NFT position; the gap == lossCaused. The
-    // gap manifests on-chain as the solidarity vault's drain to
-    // cover it.
-  });
-});
-
-describe.skip("L1 ↔ L2 parity — Cascade preset", () => {
-  it("cumulative retention + losses match across multiple defaulters", async () => {
-    // Per-preset assertion: applying preDefault + postDefault claims
-    // additively across the 3 cascade defaulters. Tightest check —
-    // surfaces interaction bugs that single-default scenarios miss.
-  });
-});
+// ─── L1 ↔ L2 default-scenario parity — IMPLEMENTED in tests/litesvm_parity.spec.ts ──
+// The Pre-default / Post-default / Cascade default scenarios need the mpl_core
+// path (join_pool / settle_default NFT burn) + the 7-day grace clock-warp,
+// which the localnet `setupEnv()` path above can't drive in CI. They are now
+// implemented for real on the litesvm Env in `tests/litesvm_parity.spec.ts`
+// (parameterized over the three presets; runs in the `litesvm · mpl-core path`
+// CI lane), reconciling each member's on-chain net to L1 net + tracked
+// obligations. That work also surfaced + fixed SEV-049 + SEV-050 (two liveness
+// locks). The stubs that used to live here are superseded by that file.
 
 // ─── Layer 3 — orthogonal conservation invariant ─────────────────────
-
-describe.skip("Conservation invariant — every cent accounted for", () => {
-  it("sum(member_net_positions) + protocol_retention + remaining_vaults ≡ harvested_yield", async () => {
-    // For each preset:
-    //   For L1: sum of every ledger entry's signed net position
-    //           (received - stakePaid - installmentsPaid) +
-    //           totalRetained - totalLoss
-    //           must equal totalNetYield (kaminoNetYield).
-    //   For L2: the same quantity, computed from on-chain balances
-    //           after close_pool.
-    //   Both must be within a 1-USDC-unit epsilon — anything bigger
-    //   is a parity bug.
-  });
-});
+// Also IMPLEMENTED in tests/litesvm_parity.spec.ts: each default scenario
+// asserts `Σ(member on-chain deltas) + Σ(pool vault balances) == 0` (no yield
+// CPI runs, so no USDC is created → every minted dollar is in a member wallet
+// or a pool vault). The stub that used to live here is superseded by that file.

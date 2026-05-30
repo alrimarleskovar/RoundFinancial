@@ -89,6 +89,17 @@ pub mod roundfi_core {
         instructions::settle_default::handler(ctx, args)
     }
 
+    /// Permissionless cycle advance for a slot whose contemplated member
+    /// defaulted pre-contemplation (otherwise the pool locks — claim_payout
+    /// requires `!defaulted` but only it advances the cycle). No payout; the
+    /// forfeited pot stays in the float. See `instructions::skip_defaulted_payout`.
+    pub fn skip_defaulted_payout(
+        ctx: Context<SkipDefaultedPayout>,
+        args: SkipDefaultedPayoutArgs,
+    ) -> Result<()> {
+        instructions::skip_defaulted_payout::handler(ctx, args)
+    }
+
     pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
         instructions::escape_valve_list::handler(ctx, args)
     }
@@ -118,8 +129,34 @@ pub mod roundfi_core {
         instructions::escape_valve_buy::handler(ctx, args)
     }
 
+    /// Seller-only abort of a `Pending` escape-valve listing.
+    /// Closes the listing PDA, refunds rent to seller, frees the
+    /// slot for a fresh commit. Adevar Labs SEV-015 fix — without
+    /// this ix, a seller who commits but never reveals locks the
+    /// slot indefinitely (PDA seeds tie the slot to the listing).
+    pub fn cancel_pending_listing(ctx: Context<CancelPendingListing>) -> Result<()> {
+        instructions::cancel_pending_listing::handler(ctx)
+    }
+
     pub fn close_pool(ctx: Context<ClosePool>) -> Result<()> {
         instructions::close_pool::handler(ctx)
+    }
+
+    /// SEV-039: reclaim a finalized pool's per-member rent by closing one
+    /// Member PDA after the pool is Closed (decrements the live-member count
+    /// so `close_pool_vaults` knows when it's safe to close the Pool PDA).
+    /// See `instructions::close_member`.
+    pub fn close_member(ctx: Context<CloseMember>) -> Result<()> {
+        instructions::close_member::handler(ctx)
+    }
+
+    /// SEV-039 (final step): drain the four vaults' residual USDC to the
+    /// protocol treasury, close the four vault ATAs, and close the Pool PDA —
+    /// reclaiming all of that rent. Requires every Member PDA closed first
+    /// (`pool.members_joined == 0`). Ceremony: `close_pool` → `close_member`
+    /// × N → `close_pool_vaults`. See `instructions::close_pool_vaults`.
+    pub fn close_pool_vaults(ctx: Context<ClosePoolVaults>) -> Result<()> {
+        instructions::close_pool_vaults::handler(ctx)
     }
 
     pub fn update_protocol_config(
@@ -182,6 +219,31 @@ pub mod roundfi_core {
     /// authority-gated ix.
     pub fn commit_new_authority(ctx: Context<CommitNewAuthority>) -> Result<()> {
         instructions::commit_new_authority::handler(ctx)
+    }
+
+    /// Fee timelock step 1/3 — propose a new `fee_bps_yield` value.
+    /// Stages on `pending_fee_bps_yield` behind a 1-day public window
+    /// (`FEE_BPS_YIELD_TIMELOCK_SECS`). Adevar Labs SEV-024 follow-up:
+    /// SEV-024 capped fee_bps_yield at 30%, this PR adds the timelock
+    /// gate so users can detect a fee change and opt out via the
+    /// escape valve before it takes effect. Authority-only.
+    pub fn propose_new_fee_bps_yield(
+        ctx: Context<ProposeNewFeeBpsYield>,
+        args: ProposeNewFeeBpsYieldArgs,
+    ) -> Result<()> {
+        instructions::propose_new_fee_bps_yield::handler(ctx, args)
+    }
+
+    /// Fee timelock step 2/3 (optional) — abort a pending fee_bps_yield
+    /// proposal before its eta. Authority-only.
+    pub fn cancel_new_fee_bps_yield(ctx: Context<CancelNewFeeBpsYield>) -> Result<()> {
+        instructions::cancel_new_fee_bps_yield::handler(ctx)
+    }
+
+    /// Fee timelock step 3/3 — commit a pending fee_bps_yield proposal
+    /// once its eta has passed. Anyone can crank (timelock is the gate).
+    pub fn commit_new_fee_bps_yield(ctx: Context<CommitNewFeeBpsYield>) -> Result<()> {
+        instructions::commit_new_fee_bps_yield::handler(ctx)
     }
 
     /// One-way kill switch — once called, `approved_yield_adapter`

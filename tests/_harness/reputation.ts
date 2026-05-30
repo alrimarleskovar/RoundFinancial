@@ -19,7 +19,12 @@ import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 
 import type { Env } from "./env.js";
-import { attestationFor, reputationConfigFor, reputationProfileFor } from "./pda.js";
+import {
+  attestationFor,
+  identityGateFor,
+  reputationConfigFor,
+  reputationProfileFor,
+} from "./pda.js";
 
 /** Matches `roundfi_reputation::constants::SCHEMA_*`. */
 export const SCHEMA = {
@@ -124,7 +129,7 @@ export async function seedReputation(
   return { handle, profiles };
 }
 
-/** Loosely-typed profile fetcher. */
+/** Loosely-typed profile fetcher. Throws if the PDA isn't initialized. */
 export async function fetchProfile(env: Env, wallet: PublicKey): Promise<Record<string, unknown>> {
   const pda = reputationProfileFor(env, wallet);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,6 +137,28 @@ export async function fetchProfile(env: Env, wallet: PublicKey): Promise<Record<
     string,
     unknown
   >;
+}
+
+/**
+ * Soft variant: returns `null` when the ReputationProfile PDA doesn't
+ * exist yet — the on-chain canonical "fresh wallet = level 1"
+ * semantic. Security specs use this in `snapshotMember`-style helpers
+ * to tolerate test wallets that were never `init_profile`'d, instead
+ * of cascading-failing on every fetch.
+ */
+export async function tryFetchProfile(
+  env: Env,
+  wallet: PublicKey,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await fetchProfile(env, wallet);
+  } catch (err) {
+    const msg = String((err as Error)?.message ?? err);
+    if (msg.includes("Account does not exist") || msg.includes("has no data")) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 // ─── Admin-path attest ───────────────────────────────────────────────
@@ -261,6 +288,13 @@ export interface PromoteLevelOpts {
   subject: PublicKey;
   /** Anyone can crank. Defaults to env.payer. */
   caller?: Keypair;
+  /**
+   * Identity sentinel (SEV-047 gate). Defaults to `env.ids.reputation` —
+   * Anchor resolves the `Option<Account<IdentityRecord>>` to `None` (the
+   * program ID is the documented optional-account sentinel), i.e. Unverified.
+   * Pass a real `IdentityRecord` PDA to exercise the verified path.
+   */
+  identity?: PublicKey;
 }
 
 export async function promoteLevel(env: Env, opts: PromoteLevelOpts): Promise<string> {
@@ -271,9 +305,40 @@ export async function promoteLevel(env: Env, opts: PromoteLevelOpts): Promise<st
     .accounts({
       subject: opts.subject,
       profile,
+      // SEV-047: required gate config (singleton). Must be created via
+      // `setIdentityGate` before promote_level works on a deployment.
+      identityGate: identityGateFor(env),
+      identity: opts.identity ?? env.ids.reputation,
       caller: caller.publicKey,
     })
     .signers(caller.publicKey.equals(env.payer.publicKey) ? [env.payer] : [env.payer, caller])
+    .rpc();
+}
+
+export interface SetIdentityGateOpts {
+  /** 0 = gate OFF (default). 2 or 3 = require verified identity at that tier+. */
+  requiredMinLevel: number;
+  /** Reputation config authority. Defaults to env.payer (the test authority). */
+  authority?: Keypair;
+}
+
+/**
+ * SEV-047 — set (and lazily create) the `IdentityGateConfig` singleton.
+ * `init_if_needed`, so the FIRST call creates the PDA. Call once with
+ * `requiredMinLevel: 0` in setup so `promote_level` (which REQUIRES the gate
+ * account) can run; raise to 2/3 to exercise enforcement.
+ */
+export async function setIdentityGate(env: Env, opts: SetIdentityGateOpts): Promise<string> {
+  const authority = opts.authority ?? env.payer;
+  return (env.programs.reputation.methods as any)
+    .setIdentityGate(opts.requiredMinLevel)
+    .accounts({
+      authority: authority.publicKey,
+      config: reputationConfigFor(env),
+      identityGate: identityGateFor(env),
+      systemProgram: SystemProgram.programId,
+    })
+    .signers(authority.publicKey.equals(env.payer.publicKey) ? [env.payer] : [authority])
     .rpc();
 }
 
