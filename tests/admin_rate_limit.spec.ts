@@ -19,7 +19,12 @@
 
 import { expect } from "chai";
 
-import { slidingWindowDecision, clientKeyFromRequest } from "../app/src/lib/admin/rateLimit.js";
+import {
+  slidingWindowDecision,
+  clientKeyFromRequest,
+  observeClientKey,
+  __resetClientKeyHealthForTest,
+} from "../app/src/lib/admin/rateLimit.js";
 import { __resetInMemoryStoresForTest } from "../app/src/lib/admin/sharedStore.js";
 
 describe("rate limit — sliding-window decision (pure fn)", () => {
@@ -118,6 +123,90 @@ describe("clientKeyFromRequest", () => {
       headers: { "x-forwarded-for": "   9.9.9.9   , 10.0.0.1" },
     });
     expect(clientKeyFromRequest(req)).to.equal("9.9.9.9");
+  });
+});
+
+describe("observeClientKey — unknown-bucket-collapse warning (INFO-1)", () => {
+  // Capture what observeClientKey would log without touching console.
+  let warns: Array<{ msg: string; ctx: Record<string, unknown> }>;
+  const capture = (msg: string, ctx: Record<string, unknown>): void => {
+    warns.push({ msg, ctx });
+  };
+
+  beforeEach(() => {
+    __resetClientKeyHealthForTest();
+    warns = [];
+  });
+
+  it("does NOT warn outside production-like env (local dev legitimately has no XFF)", () => {
+    // 100 unknown samples but env is development — should be silent.
+    for (let i = 0; i < 100; i++) {
+      observeClientKey("unknown", { env: "development", now: 1_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(0);
+  });
+
+  it("does NOT warn before the sample floor, even at 100% unknown", () => {
+    // Below MIN_SAMPLES_BEFORE_WARN (50) — premature; signal not meaningful yet.
+    for (let i = 0; i < 49; i++) {
+      observeClientKey("unknown", { env: "production", now: 1_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(0);
+  });
+
+  it("does NOT warn when the unknown ratio is below the threshold", () => {
+    // 50 samples, 24 unknown (48%) — below the 50% threshold.
+    for (let i = 0; i < 26; i++) {
+      observeClientKey("1.2.3.4", { env: "production", now: 1_000 + i, logger: capture });
+    }
+    for (let i = 0; i < 24; i++) {
+      observeClientKey("unknown", { env: "production", now: 2_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(0);
+  });
+
+  it("warns ONCE when prod-like + >= 50 samples + >= 50% unknown", () => {
+    // 25 keyed + 25 unknown = 50% on the 50th sample — meets the floor + threshold.
+    for (let i = 0; i < 25; i++) {
+      observeClientKey("1.2.3.4", { env: "production", now: 1_000 + i, logger: capture });
+    }
+    for (let i = 0; i < 25; i++) {
+      observeClientKey("unknown", { env: "production", now: 2_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(1);
+    expect(warns[0]!.msg).to.match(/bucket collapsed to 'unknown'/);
+    expect(warns[0]!.ctx.totalSamples).to.equal(50);
+    expect(warns[0]!.ctx.unknownSamples).to.equal(25);
+    expect(warns[0]!.ctx.ratio).to.equal(0.5);
+  });
+
+  it("respects the cooldown (does not re-warn within 5 minutes)", () => {
+    // First warn at t=2024.
+    for (let i = 0; i < 25; i++) {
+      observeClientKey("1.2.3.4", { env: "production", now: 1_000 + i, logger: capture });
+    }
+    for (let i = 0; i < 25; i++) {
+      observeClientKey("unknown", { env: "production", now: 2_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(1);
+    // 100 more unknowns within the cooldown window — must NOT re-warn.
+    for (let i = 0; i < 100; i++) {
+      observeClientKey("unknown", { env: "production", now: 3_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(1);
+  });
+
+  it("re-warns after the cooldown expires", () => {
+    for (let i = 0; i < 25; i++) {
+      observeClientKey("1.2.3.4", { env: "production", now: 1_000 + i, logger: capture });
+    }
+    for (let i = 0; i < 25; i++) {
+      observeClientKey("unknown", { env: "production", now: 2_000 + i, logger: capture });
+    }
+    expect(warns).to.have.length(1);
+    const afterCooldown = 2_024 + 5 * 60_000 + 1;
+    observeClientKey("unknown", { env: "production", now: afterCooldown, logger: capture });
+    expect(warns).to.have.length(2);
   });
 });
 

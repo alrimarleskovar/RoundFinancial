@@ -120,13 +120,15 @@ jobs:
         # becomes unauthenticated again (the SEV-009 shape). Sub-second.
         run: pnpm test:indexer-webhook-auth
 
-      - name: Admin auth rate-limit gate (15 tests)
+      - name: Admin auth rate-limit gate (21 tests)
         # Pins the sliding-window rate limiter on /api/admin/auth/nonce
         # (default 10/min/IP) and /verify (default 5/min/IP), plus the
-        # X-Forwarded-For first-hop extraction (RoundFi internal audit
-        # follow-up — the canary previously exposed unlimited nonce
-        # issuance and signature-verify attempts). Drift = the canary
-        # silently becomes brute-forceable again. Sub-second.
+        # X-Forwarded-For first-hop extraction AND the Onda 6
+        # `observeClientKey` collapse-detector (warns loud in prod-like
+        # env when >= 50% of recent admin requests fall into the
+        # "unknown" bucket — proxy misconfig). RoundFi internal audit
+        # follow-up. Drift = the canary silently becomes brute-forceable
+        # again OR the proxy misconfig signal stays invisible. Sub-second.
         run: pnpm test:admin-rate-limit
 
       - name: Admin on-chain authority cache (11 tests)

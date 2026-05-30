@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import { getAdminDomain, getSessionSecret, resolveAllowlist } from "@/lib/admin/auth";
 import { isAllowed } from "@/lib/admin/allowlist";
 import { CHALLENGE_TTL_MS, verifyChallengeShape } from "@/lib/admin/challenge";
-import { clientKeyFromRequest } from "@/lib/admin/rateLimit";
+import { clientKeyFromRequest, observeClientKey } from "@/lib/admin/rateLimit";
 import { getChallengeStore, getRateLimitStore } from "@/lib/admin/sharedStore";
 import {
   ADMIN_SESSION_COOKIE,
@@ -38,8 +38,10 @@ interface VerifyBody {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  const clientKey = clientKeyFromRequest(req);
+  observeClientKey(clientKey);
   const rl = await getRateLimitStore().check({
-    key: `admin-auth-verify:${clientKeyFromRequest(req)}`,
+    key: `admin-auth-verify:${clientKey}`,
     windowMs: VERIFY_RL_WINDOW_MS,
     max: VERIFY_RL_MAX,
   });

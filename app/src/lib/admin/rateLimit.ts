@@ -90,3 +90,114 @@ export function clientKeyFromRequest(req: Request): string {
   }
   return "unknown";
 }
+
+// ─── Unknown-bucket-collapse observer (INFO-1 — Onda 6) ──────────────────
+//
+// `clientKeyFromRequest` falls back to "unknown" when neither
+// X-Forwarded-For nor X-Real-IP is set. That is fail-CLOSED for a SHARED
+// rate-limit bucket — but if a production deploy misses the proxy
+// configuration (Vercel sets XFF natively, but self-hosted behind a
+// misconfigured nginx / K8s ingress / Docker without a forward-proxy
+// will not), EVERY caller collapses into "unknown" and they DoS each
+// other on the auth endpoints. The 5/min on /verify becomes 5/min for
+// the entire fleet of legitimate admins combined.
+//
+// This is hard to notice from outside (the limiter still "works"). The
+// fix is operational visibility: count the share of "unknown" requests,
+// and when it crosses a sane threshold in a production-like env, emit a
+// loud structured warn that names the misconfiguration so the operator
+// sees it in the log stream and fixes the proxy.
+//
+// The sampling guards keep the warn from spamming: a minimum sample
+// floor before the ratio is meaningful, plus a cooldown so we warn at
+// most every 5 minutes per process.
+
+interface UnknownBucketHealth {
+  totalSamples: number;
+  unknownSamples: number;
+  lastWarnAtMs: number;
+}
+
+const health: UnknownBucketHealth = {
+  totalSamples: 0,
+  unknownSamples: 0,
+  lastWarnAtMs: 0,
+};
+
+const MIN_SAMPLES_BEFORE_WARN = 50;
+const UNKNOWN_BUCKET_WARN_THRESHOLD = 0.5; // 50%
+const WARN_COOLDOWN_MS = 5 * 60_000; // 5 minutes
+
+export interface ObserveClientKeyOptions {
+  /** Override Date.now() for deterministic tests. */
+  now?: number;
+  /**
+   * Override env detection. Defaults to NODE_ENV. The observer only
+   * warns when this looks production-like — local dev legitimately
+   * has no XFF and shouldn't pollute logs.
+   */
+  env?: string;
+  /** Override the logger; defaults to console.warn. */
+  logger?: (msg: string, ctx: Record<string, unknown>) => void;
+}
+
+function isProductionLikeNodeEnv(env: string | undefined): boolean {
+  return env === "production";
+}
+
+/**
+ * Observe a client key after `clientKeyFromRequest`, count "unknown"
+ * vs total, and emit a one-shot warn (rate-limited to once per
+ * `WARN_COOLDOWN_MS`) when the share of "unknown" requests crosses
+ * `UNKNOWN_BUCKET_WARN_THRESHOLD` in a production-like environment.
+ *
+ * Cheap: O(1), bounded state (just two counters + a timestamp). Safe
+ * to call on every admin request. The logger is injectable so tests
+ * can assert what we'd emit without spying on console.
+ */
+export function observeClientKey(key: string, options?: ObserveClientKeyOptions): void {
+  health.totalSamples += 1;
+  if (key === "unknown") health.unknownSamples += 1;
+
+  const env = options?.env ?? process.env.NODE_ENV;
+  if (!isProductionLikeNodeEnv(env)) return;
+  if (health.totalSamples < MIN_SAMPLES_BEFORE_WARN) return;
+
+  const now = options?.now ?? Date.now();
+  // Cooldown applies only AFTER the first warn fires. Using `> 0` as the
+  // "have we warned at least once" sentinel keeps the first warn from
+  // being suppressed by an early `now` (e.g. in deterministic tests
+  // where `now` starts at 1_000).
+  if (health.lastWarnAtMs > 0 && now - health.lastWarnAtMs < WARN_COOLDOWN_MS) return;
+
+  const ratio = health.unknownSamples / health.totalSamples;
+  if (ratio < UNKNOWN_BUCKET_WARN_THRESHOLD) return;
+
+  health.lastWarnAtMs = now;
+  const log =
+    options?.logger ??
+    ((msg: string, ctx: Record<string, unknown>) => {
+      // eslint-disable-next-line no-console
+      console.warn(msg, ctx);
+    });
+  log(
+    "[admin/rate-limit] Rate-limit bucket collapsed to 'unknown' — your " +
+      "reverse proxy is NOT forwarding X-Forwarded-For / X-Real-IP. " +
+      "All un-keyed admin requests now share ONE rate-limit bucket, so " +
+      "legitimate admins can DoS each other on /api/admin/auth/*.",
+    {
+      totalSamples: health.totalSamples,
+      unknownSamples: health.unknownSamples,
+      ratio: Number(ratio.toFixed(3)),
+      threshold: UNKNOWN_BUCKET_WARN_THRESHOLD,
+      cooldownMs: WARN_COOLDOWN_MS,
+    },
+  );
+}
+
+/** Test seam — zero the counters between cases. */
+export function __resetClientKeyHealthForTest(): void {
+  health.totalSamples = 0;
+  health.unknownSamples = 0;
+  health.lastWarnAtMs = 0;
+}
