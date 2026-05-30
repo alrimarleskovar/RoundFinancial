@@ -18,6 +18,12 @@ no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build", "roundfi-reputation/idl-build"]
+# Devnet-only override of GRACE_PERIOD_SECS for the Pre-Ceremony Beta
+# Genesis Canary phase (cycle = 48h, grace = 24h). Floor SEV-002 (86_400)
+# is preserved — anything below would re-introduce the SEV-002 footgun.
+# See docs/pt/pre-ceremony-beta-proposta.md §6.3 (Opção B) and §9 of the
+# foundational document. MUST NOT be enabled in mainnet builds.
+devnet-canary = []
 
 [dependencies]
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
