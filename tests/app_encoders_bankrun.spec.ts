@@ -514,11 +514,13 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         threw = true;
         const err = e as { logs?: string[]; message?: string };
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
-        // Anchor surfaces errors as a code OR a name in the log. The
-        // `WrongCycle` name appears in the program log line. Match
-        // either form so this test stays stable across anchor versions.
+        // Anchor surfaces errors as a code OR a name in the log. Anchor
+        // 0.30 logged the error name (`WrongCycle`); Anchor 1.0's bankrun
+        // error object only carries `custom program error: 0x<code>`. Match
+        // both forms so this test stays stable across anchor versions.
+        // 0x1773 = 6003 = PoolNotActive, 0x1777 = 6007 = WrongCycle.
         expect(haystack).to.match(
-          /WrongCycle|PoolStatus|PoolNotActive|AlreadyContributed|Pool is in Completed/i,
+          /WrongCycle|PoolStatus|PoolNotActive|AlreadyContributed|Pool is in Completed|0x1773|0x1777/i,
           `expected pool/cycle-related reject; got:\n${haystack}`,
         );
       }
@@ -553,9 +555,11 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
         // Either AlreadyPaidOut (the explicit guard) or
         // PoolStatusNotActive / PoolStatus::Completed (pool transitioned)
-        // — both are valid rejections of a double-claim attempt.
+        // — both are valid rejections of a double-claim attempt. Anchor 1.0
+        // only logs the hex code in bankrun: 0x1773 = 6003 = PoolNotActive,
+        // 0x1777 = 6007 = WrongCycle.
         expect(haystack).to.match(
-          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle/i,
+          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle|0x1773|0x1777/i,
           `expected paid-out / pool-status reject; got:\n${haystack}`,
         );
       }
@@ -588,8 +592,10 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         threw = true;
         const err = e as { logs?: string[]; message?: string };
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+        // Anchor 1.0 bankrun only logs the hex code:
+        // 0x177c = 6012 = EscrowNothingToRelease.
         expect(haystack).to.match(
-          /EscrowNothingToRelease|EscrowLocked|already.*released/i,
+          /EscrowNothingToRelease|EscrowLocked|already.*released|0x177c/i,
           `expected monotonic-checkpoint reject; got:\n${haystack}`,
         );
       }
