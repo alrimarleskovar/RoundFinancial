@@ -22,3 +22,8 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { version = "1.0", features = ["init-if-needed"] }
 anchor-spl  = { version = "1.0" }
+# Anchor 1.0 stopped re-exporting `hash` and `sysvar::instructions` from its
+# `solana_program` shim. Depend on solana-program directly (3.x — same major
+# already in the graph via mpl-core 0.12) for sha256 discriminators + the
+# instructions-sysvar id. SBF-only surface; no host-target impact.
+solana-program = "3.0"

@@ -151,7 +151,10 @@ pub fn handler(ctx: Context<GetProfile>) -> Result<()> {
     // (1) On-chain composability — set return data so a partner
     //     program can read the snapshot via `get_return_data` after
     //     a CPI into this instruction.
-    let bytes = snapshot.try_to_vec()?;
+    // borsh 1.x (via Anchor 1.0) removed the `try_to_vec()` inherent method;
+    // serialize through the AnchorSerialize trait into an owned buffer.
+    let mut bytes = Vec::new();
+    anchor_lang::AnchorSerialize::serialize(&snapshot, &mut bytes)?;
     anchor_lang::solana_program::program::set_return_data(&bytes);
 
     // (2) Off-chain consumers — emit the anchor event so indexers

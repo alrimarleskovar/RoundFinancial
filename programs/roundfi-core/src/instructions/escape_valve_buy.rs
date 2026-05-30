@@ -200,7 +200,7 @@ pub fn handler(ctx: Context<EscapeValveBuy>, args: EscapeValveBuyArgs) -> Result
     // Straight SPL transfer buyer → seller; buyer signs for their own ATA.
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.buyer_usdc.to_account_info(),
                 to:        ctx.accounts.seller_usdc.to_account_info(),

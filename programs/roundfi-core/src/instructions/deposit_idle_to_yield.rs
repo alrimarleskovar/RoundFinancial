@@ -76,7 +76,7 @@ pub struct DepositIdleToYield<'info> {
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, '_, 'info, DepositIdleToYield<'info>>,
+    ctx: Context<'info, DepositIdleToYield<'info>>,
     args: DepositIdleToYieldArgs,
 ) -> Result<()> {
     require!(args.amount > 0, RoundfiError::InvalidAmount);

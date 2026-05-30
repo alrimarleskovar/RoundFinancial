@@ -202,7 +202,7 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     // ─── Lock stake in escrow ───────────────────────────────────────────
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.member_usdc.to_account_info(),
                 to:        ctx.accounts.escrow_vault.to_account_info(),

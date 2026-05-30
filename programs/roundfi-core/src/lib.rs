@@ -72,14 +72,14 @@ pub mod roundfi_core {
     }
 
     pub fn deposit_idle_to_yield<'info>(
-        ctx: Context<'_, '_, '_, 'info, DepositIdleToYield<'info>>,
+        ctx: Context<'info, DepositIdleToYield<'info>>,
         args: DepositIdleToYieldArgs,
     ) -> Result<()> {
         instructions::deposit_idle_to_yield::handler(ctx, args)
     }
 
     pub fn harvest_yield<'info>(
-        ctx: Context<'_, '_, '_, 'info, HarvestYield<'info>>,
+        ctx: Context<'info, HarvestYield<'info>>,
         args: HarvestYieldArgs,
     ) -> Result<()> {
         instructions::harvest_yield::handler(ctx, args)
