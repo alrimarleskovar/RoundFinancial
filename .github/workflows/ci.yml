@@ -386,7 +386,14 @@ jobs:
         # Cargo.lock now pins solana-program 3.x + mpl-core 0.12 (no-anchor
         # feature + borsh-v1); the SBF compile is reproducible against the
         # Agave 3.0.0 platform-tools.
-        run: anchor build
+        #
+        # `--ignore-keys` skips Anchor 1.0's new pre-build check that
+        # compares `declare_id!` against target/deploy/*-keypair.json.
+        # On a fresh CI runner those keypair files don't exist, so Anchor
+        # generates random ones and the check fails. Our declare_id!s are
+        # the authoritative source — the keypairs are operator-side
+        # deploy artifacts (gitignored) and have no role in CI compile.
+        run: anchor build --ignore-keys
 
       # NOTE: `pnpm test:bankrun` is intentionally not in this lane.
       # The bankrun harness loads `target/idl/*.json`, which `--no-idl`
@@ -503,7 +510,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::anchor build"
-          anchor build
+          anchor build --ignore-keys
           echo "::endgroup::"
 
       - name: Diagnostic — upload full build log on failure
@@ -625,7 +632,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::anchor build"
-          anchor build
+          anchor build --ignore-keys
           echo "::endgroup::"
 
       - name: Diagnostic — upload full build log on failure
