@@ -42,6 +42,7 @@ import {
   contribute,
   claimPayout,
   settleDefault,
+  skipDefaultedPayout,
   escapeValveList,
   escapeValveBuy,
 } from "./actions.js";
@@ -67,6 +68,18 @@ export interface DriveOpts {
    *  pool.creditAmount — irrelevant for Healthy (no E cells) but plumbed
    *  for the post-default suites. */
   escapeValvePriceUsdc?: bigint;
+  /** Optional hook run immediately BEFORE each `settle_default` (Phase 1),
+   *  with the (0-indexed) cycle + defaulter slot. Used by the litesvm
+   *  parity scenarios to warp the clock past the 7-day grace window
+   *  (`settle_default` requires `clock >= next_cycle_at + GRACE_PERIOD_SECS`).
+   *  Default: no-op (bankrun/localnet healthy path unaffected). */
+  beforeSettle?: (cycle: number, slot: number) => Promise<void>;
+  /** Optional hook run immediately AFTER each `settle_default`. The litesvm
+   *  scenarios use it to RESTORE the clock that `beforeSettle` warped past
+   *  the grace window — otherwise every later `contribute` is on-chain LATE
+   *  (clock > next_cycle_at), which makes the program write a SCHEMA_LATE
+   *  attestation whose PDA the on-time-PAYMENT harness path doesn't match. */
+  afterSettle?: (cycle: number, slot: number) => Promise<void>;
 }
 
 /**
@@ -107,15 +120,22 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       recipient: null,
     };
 
-    // ─── Phase 1: settle_default for newly-X members ────────────────
+    // ─── Phase 1: settle_default for members now BEHIND ─────────────
+    // On-chain `settle_default` requires `member.contributions_paid <
+    // pool.current_cycle` (MemberNotBehind) AND `args.cycle ==
+    // current_cycle`. A member who skips cycle j (cell X) is NOT yet
+    // behind during cycle j — they only become behind once the cycle-j
+    // claim advances current_cycle to j+1. So we settle on the cycle
+    // AFTER the first skipped cycle, with args.cycle == this loop cycle
+    // (== on-chain current_cycle). Verified shape: edge_grace_default
+    // settles with contributions_paid=1, current_cycle=2, args.cycle=2.
     for (let m = 0; m < N; m++) {
       if (defaulted.has(m) || exited.has(m)) continue;
-      if (matrix[m]![cycle] !== "X") continue;
-      await settleDefault(env, {
-        pool,
-        defaulter: members[m]!,
-        cycle,
-      });
+      if (cycle === 0) continue; // nobody is behind before a cycle advances
+      if (matrix[m]![cycle - 1] !== "X") continue; // didn't skip the prior cycle
+      if (opts.beforeSettle) await opts.beforeSettle(cycle, m);
+      await settleDefault(env, { pool, defaulter: members[m]!, cycle });
+      if (opts.afterSettle) await opts.afterSettle(cycle, m);
       defaulted.add(m);
       summary.defaultedNewly.push(m);
     }
@@ -158,30 +178,32 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       if (defaulted.has(m) || exited.has(m)) continue;
       const cell = matrix[m]![cycle];
       if (cell !== "P" && cell !== "C") continue;
-      await contribute(env, {
-        pool,
-        member: members[m]!,
-        cycle,
-      });
+      await contribute(env, { pool, member: members[m]!, cycle });
       summary.contributed.push(m);
     }
 
-    // ─── Phase 4: claim_payout for the C-cell row in this column ────
-    let recipientRow: number | null = null;
-    for (let m = 0; m < N; m++) {
-      if (matrix[m]![cycle] === "C") {
-        if (defaulted.has(m) || exited.has(m)) continue;
-        recipientRow = m;
-        break;
+    // ─── Phase 4: advance the cycle ─────────────────────────────────
+    // The contemplated slot for cycle `cycle` is slot `cycle` (claim_payout
+    // enforces slot_index == cycle). If that member defaulted PRE-
+    // contemplation, claim_payout is blocked (it requires !defaulted) and the
+    // pool would lock — advance permissionlessly via skip_defaulted_payout
+    // (no payout; forfeited pot stays in the float). Otherwise the C-cell
+    // member claims normally.
+    if (defaulted.has(cycle)) {
+      await skipDefaultedPayout(env, { pool, defaulter: members[cycle]!, cycle });
+    } else {
+      let recipientRow: number | null = null;
+      for (let m = 0; m < N; m++) {
+        if (matrix[m]![cycle] === "C") {
+          if (defaulted.has(m) || exited.has(m)) continue;
+          recipientRow = m;
+          break;
+        }
       }
-    }
-    if (recipientRow !== null) {
-      await claimPayout(env, {
-        pool,
-        member: members[recipientRow]!,
-        cycle,
-      });
-      summary.recipient = recipientRow;
+      if (recipientRow !== null) {
+        await claimPayout(env, { pool, member: members[recipientRow]!, cycle });
+        summary.recipient = recipientRow;
+      }
     }
 
     summaries.push(summary);

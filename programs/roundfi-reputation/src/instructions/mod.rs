@@ -5,10 +5,12 @@ pub mod get_profile;
 pub mod init_profile;
 pub mod initialize_reputation;
 pub mod link_passport_identity;
+pub mod migrate_reputation_config;
 pub mod promote_level;
 pub mod propose_new_reputation_authority;
 pub mod refresh_identity;
 pub mod revoke;
+pub mod set_identity_gate;
 pub mod unlink_identity;
 pub mod update_reputation_config;
 
@@ -27,10 +29,12 @@ mod reexports {
     pub use super::init_profile::*;
     pub use super::initialize_reputation::*;
     pub use super::link_passport_identity::*;
+    pub use super::migrate_reputation_config::*;
     pub use super::promote_level::*;
     pub use super::propose_new_reputation_authority::*;
     pub use super::refresh_identity::*;
     pub use super::revoke::*;
+    pub use super::set_identity_gate::*;
     pub use super::unlink_identity::*;
     pub use super::update_reputation_config::*;
 }

@@ -26,14 +26,16 @@
  * Level boundaries in play:
  *     LEVEL_2_THRESHOLD = 500
  *     LEVEL_3_THRESHOLD = 2000
- * Unverified Payment delta = 5. So reaching Level 2 takes exactly
- * 100 admin Payment attestations. We DO drive 100 serial attests
- * (localnet tx ≈ 50–100ms each → ~10s of test time) so the
- * threshold itself is exercised end-to-end. We do NOT drive the
- * Level-3 boundary (400 more attests) — `resolve_level` is
- * exhaustively unit-tested in the Rust module, and the on-chain
- * path for "level 2 → level 3" is mechanically identical to
- * "level 1 → level 2".
+ *     LEVEL_2_MIN_CYCLES = 1   (SEV-047 gate)
+ * Unverified Payment delta = 5, CycleComplete delta = 25. SEV-047
+ * made Level 2 require BOTH score >= 500 AND cycles_completed >= 1
+ * (score-only promotion was the reputation-farming vector). So we
+ * drive 1 CycleComplete + 94 Payments (the prior test already left 1
+ * Payment) to land EXACTLY on score 500 with cycles_completed = 1 —
+ * exercising the threshold AND the cycle gate end-to-end. We do NOT
+ * drive the Level-3 boundary — `resolve_level` is exhaustively
+ * unit-tested in the Rust module (including the cycles gate), and the
+ * on-chain path for "level 2 → level 3" is mechanically identical.
  *
  * Determinism:
  *   Seeded per-test wallets, fixed admin nonces, no sleeps, no
@@ -56,6 +58,7 @@ import {
   promoteLevel,
   reputationProfileFor,
   revokeAttestation,
+  setIdentityGate,
   setupEnv,
   type Env,
 } from "./_harness/index.js";
@@ -132,6 +135,10 @@ describe("reputation — revoke + promote_level", function () {
     // the reputation program directly (admin-path attest + revoke +
     // promote_level) without routing through core.
     await initializeReputation(env, { coreProgram: env.ids.core });
+    // SEV-047: promote_level REQUIRES the IdentityGateConfig PDA. Create it
+    // with the gate OFF (required_min_level=0) so the promote tests below run
+    // unchanged; the dedicated gate test toggles it on/off itself.
+    await setIdentityGate(env, { requiredMinLevel: 0 });
   });
 
   // ═══════════════════════════════════════════════════════════════════
@@ -365,12 +372,27 @@ describe("reputation — revoke + promote_level", function () {
       expect(info).to.not.be.null;
     });
 
-    it("accumulate score to threshold 500 and promote → level 2", async function () {
-      // We already have 1 Payment from the previous test (score=5).
-      // Need 99 more Payments to hit 100 × 5 = 500.
-      const ADDITIONAL = 99;
+    it("accumulate score to threshold 500 (+1 cycle) and promote → level 2", async function () {
+      // We already have 1 Payment from the previous test (score=5,
+      // cycles_completed=0).
+      //
+      // SEV-047: Level 2 now requires BOTH score >= LEVEL_2_THRESHOLD AND
+      // cycles_completed >= LEVEL_2_MIN_CYCLES (=1). Score alone no longer
+      // promotes. So we drive ONE CycleComplete (the subject's first, so the
+      // 6-day cooldown is trivially satisfied: last_cycle_complete_at = 0)
+      // plus enough Payments to land EXACTLY on 500:
+      //   prior 1 Payment (5) + CycleComplete (25) + N Payments (5·N) = 500
+      //   ⇒ N = 94.
+      const PAYMENTS = 94;
 
-      for (let i = 0; i < ADDITIONAL; i++) {
+      await adminAttest(env, {
+        subject: subjectPubkey,
+        schemaId: SCHEMA.CycleComplete,
+        // Distinct from the 0x0200_0000 (prior test) and 0x0200_0100+ below.
+        nonce: 0x0200_00ffn,
+      });
+
+      for (let i = 0; i < PAYMENTS; i++) {
         await adminAttest(env, {
           subject: subjectPubkey,
           schemaId: SCHEMA.Payment,
@@ -381,7 +403,9 @@ describe("reputation — revoke + promote_level", function () {
 
       const beforePromote = await snapshotProfile(env, subjectPubkey);
       expect(beforePromote.score).to.equal(LEVEL_2_THRESHOLD);
-      expect(beforePromote.onTimePayments).to.equal(ADDITIONAL + 1);
+      expect(beforePromote.onTimePayments).to.equal(PAYMENTS + 1);
+      // SEV-047: the cycle gate must be satisfied for promotion to succeed.
+      expect(beforePromote.cyclesCompleted).to.be.at.least(1);
       expect(beforePromote.level).to.equal(LEVEL_MIN);
 
       await promoteLevel(env, { subject: subjectPubkey });
@@ -436,6 +460,45 @@ describe("reputation — revoke + promote_level", function () {
 
       // Sanity check SCORE_DEFAULT_ABS matches what we deducted.
       expect(SCORE_DEFAULT_ABS).to.equal(500n);
+    });
+
+    it("SEV-047 identity gate: floor=2 caps an unverified L2-qualifier at L1", async function () {
+      // Fresh subject, independent of the shared-state tests above.
+      const gated = keypairFromSeed("replife/gate/sev047");
+      await initProfile(env, gated.publicKey);
+
+      // Drive to an L2-qualifying state WITHOUT identity:
+      //   1 CycleComplete (+25) + 95 Payments (+475) = score 500, cycles 1.
+      await adminAttest(env, {
+        subject: gated.publicKey,
+        schemaId: SCHEMA.CycleComplete,
+        nonce: 0x0470_0000n,
+      });
+      for (let i = 0; i < 95; i++) {
+        await adminAttest(env, {
+          subject: gated.publicKey,
+          schemaId: SCHEMA.Payment,
+          nonce: BigInt(0x0470_0100 + i),
+        });
+      }
+      const pre = await snapshotProfile(env, gated.publicKey);
+      expect(pre.score).to.equal(LEVEL_2_THRESHOLD);
+      expect(pre.cyclesCompleted).to.be.at.least(1);
+      expect(pre.level).to.equal(LEVEL_MIN);
+
+      // Enable the gate: L2+ now requires a verified identity.
+      await setIdentityGate(env, { requiredMinLevel: 2 });
+
+      // Promote WITHOUT an identity record → resolved=2 but capped to L1.
+      await promoteLevel(env, { subject: gated.publicKey });
+      const gatedSnap = await snapshotProfile(env, gated.publicKey);
+      expect(gatedSnap.level, "unverified subject must stay L1 under the gate").to.equal(LEVEL_MIN);
+
+      // Positive control: disable the gate → the same subject promotes to L2.
+      await setIdentityGate(env, { requiredMinLevel: 0 });
+      await promoteLevel(env, { subject: gated.publicKey });
+      const ungated = await snapshotProfile(env, gated.publicKey);
+      expect(ungated.level, "with gate off, L2 score+cycles promotes").to.equal(LEVEL_2);
     });
   });
 });

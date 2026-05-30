@@ -17,6 +17,8 @@ import {
   SEED,
   attestationPda,
   escrowVaultAuthorityPda,
+  identityGatePda,
+  identityPda,
   memberPda,
   poolPda,
   positionAuthorityPda,
@@ -34,6 +36,8 @@ export {
   SEED,
   attestationPda,
   escrowVaultAuthorityPda,
+  identityGatePda,
+  identityPda,
   memberPda,
   poolPda,
   positionAuthorityPda,
@@ -59,6 +63,14 @@ export function reputationConfigFor(env: Env): PublicKey {
 
 export function reputationProfileFor(env: Env, wallet: PublicKey): PublicKey {
   return reputationProfilePda(env.ids.reputation, wallet)[0];
+}
+
+export function identityFor(env: Env, wallet: PublicKey): PublicKey {
+  return identityPda(env.ids.reputation, wallet)[0];
+}
+
+export function identityGateFor(env: Env): PublicKey {
+  return identityGatePda(env.ids.reputation)[0];
 }
 
 export function poolFor(env: Env, authority: PublicKey, seedId: bigint | number): PublicKey {

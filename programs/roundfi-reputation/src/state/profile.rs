@@ -75,18 +75,61 @@ impl ReputationProfile {
     }
 
     /// Resolve the canonical level for the current score.
+    ///
+    /// **SEV-047 fix** — promotion now requires BOTH a score threshold AND a
+    /// minimum `cycles_completed` count. The score alone was farmable:
+    /// `SCORE_PAYMENT` (+10) has no global per-subject rate-limit, so an
+    /// attacker could spin up N independent 1-member pools, contribute once
+    /// in each (+10 apiece in parallel), and reach `LEVEL_3_THRESHOLD` (2000
+    /// = 200 payments) within hours — then exploit the L3 stake discount
+    /// (10% vs 50%) via early-payout-then-default.
+    ///
+    /// `cycles_completed` only increments on `SCHEMA_CYCLE_COMPLETE`, which
+    /// carries a 6-day per-subject cooldown (`MIN_CYCLE_COOLDOWN_SECS` in
+    /// attest.rs). Gating promotion on it means L3 needs >= L3_MIN_CYCLES
+    /// real completed cycles spaced >= 6 days apart — minimum ~18 days of
+    /// farming for L3, which destroys the attack economics. Legitimate
+    /// members are unaffected: `cycles_completed` rises naturally with use.
     pub fn resolve_level(
         score: u64,
         l2_threshold: u64,
         l3_threshold: u64,
+        cycles_completed: u32,
+        l2_min_cycles: u32,
+        l3_min_cycles: u32,
     ) -> u8 {
-        if score >= l3_threshold {
+        if score >= l3_threshold && cycles_completed >= l3_min_cycles {
             3
-        } else if score >= l2_threshold {
+        } else if score >= l2_threshold && cycles_completed >= l2_min_cycles {
             2
         } else {
             1
         }
+    }
+
+    /// SEV-047 defense-in-depth (identity gate). Caps the score/cycles-resolved
+    /// level when the subject lacks a verified identity AND the protocol has
+    /// enabled an identity floor via `IdentityGateConfig`.
+    ///
+    /// `required_min_level`:
+    ///   - `0` → gate disabled; returns `resolved_level` unchanged (default —
+    ///     devnet / Canary behaviour, no identity needed).
+    ///   - `N` (2..=LEVEL_MAX) → reaching level >= N requires `identity_verified`;
+    ///     an unverified subject is capped at `N - 1`.
+    ///
+    /// Pure + monotonic-safe: only ever caps DOWN, never raises a level.
+    /// Layered on top of the cycles gate (`resolve_level`) — the cycles gate is
+    /// the unbypassable primary anti-farming defense; this adds an identity
+    /// floor for the highest tiers when enabled for mainnet.
+    pub fn cap_level_for_identity(
+        resolved_level: u8,
+        identity_verified: bool,
+        required_min_level: u8,
+    ) -> u8 {
+        if required_min_level == 0 || identity_verified {
+            return resolved_level;
+        }
+        resolved_level.min(required_min_level.saturating_sub(1))
     }
 }
 
@@ -140,10 +183,59 @@ mod tests {
 
     #[test]
     fn resolve_level_thresholds() {
-        assert_eq!(ReputationProfile::resolve_level(0,    500, 2_000), 1);
-        assert_eq!(ReputationProfile::resolve_level(499,  500, 2_000), 1);
-        assert_eq!(ReputationProfile::resolve_level(500,  500, 2_000), 2);
-        assert_eq!(ReputationProfile::resolve_level(1999, 500, 2_000), 2);
-        assert_eq!(ReputationProfile::resolve_level(2000, 500, 2_000), 3);
+        // Baseline: score thresholds with cycles_completed satisfied
+        // (10 cycles >> any floor) — pure score-ladder behavior preserved.
+        let big = 10u32;
+        assert_eq!(ReputationProfile::resolve_level(0,    500, 2_000, big, 1, 3), 1);
+        assert_eq!(ReputationProfile::resolve_level(499,  500, 2_000, big, 1, 3), 1);
+        assert_eq!(ReputationProfile::resolve_level(500,  500, 2_000, big, 1, 3), 2);
+        assert_eq!(ReputationProfile::resolve_level(1999, 500, 2_000, big, 1, 3), 2);
+        assert_eq!(ReputationProfile::resolve_level(2000, 500, 2_000, big, 1, 3), 3);
+    }
+
+    #[test]
+    fn resolve_level_cycles_gate_sev047() {
+        // SEV-047: score alone is no longer sufficient. The cycles_completed
+        // floor gates promotion regardless of how high the (farmable) score is.
+
+        // L2 score met (500) but 0 cycles → stays L1 (the farming defense).
+        assert_eq!(ReputationProfile::resolve_level(500, 500, 2_000, 0, 1, 3), 1);
+        // L2 score + exactly 1 cycle → L2 unlocks.
+        assert_eq!(ReputationProfile::resolve_level(500, 500, 2_000, 1, 1, 3), 2);
+
+        // L3 score met (2000) but only 2 cycles → capped at L2.
+        assert_eq!(ReputationProfile::resolve_level(2_000, 500, 2_000, 2, 1, 3), 2);
+        // L3 score + exactly 3 cycles → L3 unlocks.
+        assert_eq!(ReputationProfile::resolve_level(2_000, 500, 2_000, 3, 1, 3), 3);
+
+        // Farmed score (way past L3) but 0 cycles → still L1. This is the
+        // exact attack vector closed: 200 parallel 1-member pools give score
+        // 2000+ in hours, but cycles_completed stays 0 (no CYCLE_COMPLETE).
+        assert_eq!(ReputationProfile::resolve_level(50_000, 500, 2_000, 0, 1, 3), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_disabled_is_noop_sev047() {
+        // required_min_level = 0 → gate OFF (default). No cap, regardless of
+        // identity. This is the devnet / Canary path — testers promote freely.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 0), 3);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 0), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 0), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_gates_unverified_sev047() {
+        // floor = 2 (L2+ needs identity): unverified caps at L1; verified passes.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 2), 3);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, true, 2), 2);
+
+        // floor = 3 (only L3 needs identity): unverified caps at L2.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 3), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 3), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 3), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 3), 3);
     }
 }
