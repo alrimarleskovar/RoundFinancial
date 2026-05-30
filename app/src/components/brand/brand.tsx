@@ -186,10 +186,14 @@ export function RFICard({ accent, children, style, ...rest }: RFICardProps) {
 }
 
 // ── Mono label ──────────────────────────────────────────────
+// Default size bumped from 10 → 11 (QA: 10px uppercase mono with
+// 0.16em letter-spacing was at the threshold of unreadable across
+// /home, /grupos and the admin tables). Callers that need the older,
+// tighter look can still pass size={9} or size={10} explicitly.
 export function MonoLabel({
   children,
   color,
-  size = 10,
+  size = 11,
   style,
 }: {
   children: ReactNode;

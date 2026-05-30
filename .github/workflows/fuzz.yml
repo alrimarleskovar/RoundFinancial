@@ -61,7 +61,7 @@ jobs:
         target: [cascade, waterfall, dc_invariant, escrow_vesting, bps, seed_draw]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly

@@ -17,8 +17,10 @@
  *
  * Deployment: container behind a reverse proxy (Traefik / nginx).
  * Helius webhook URL is configured per-environment via the Helius
- * dashboard; we don't sign or verify the body in v0 since the URL is
- * a per-environment secret.
+ * dashboard. The webhook handler authenticates incoming POSTs against
+ * HELIUS_WEBHOOK_SECRET via a constant-time Bearer compare — see
+ * `checkWebhookAuth` for the threat model (SEV-009 / SEV-033 / RoundFi
+ * internal audit follow-up).
  *
  * Fastify is chosen over Express for two reasons:
  *   - first-class async/await + zod-driven schema validation,
@@ -32,6 +34,8 @@
  * #230 — Anza Agave 2.x migration unblocks the IDL generation that
  * the bankrun harness loads at startup).
  */
+
+import { timingSafeEqual } from "node:crypto";
 
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -82,6 +86,70 @@ const heliusBodySchema = z
   )
   .min(1);
 
+/**
+ * Outcome of the webhook Authorization gate. `reason` is logged but never
+ * returned to the caller — a 401 body just says "unauthorized" so we don't
+ * leak which check failed.
+ */
+type WebhookAuthResult =
+  | { ok: true; reason: "ok" | "no_secret_unauth_allowed" }
+  | { ok: false; reason: "no_secret_denied" | "bad_token" };
+
+/**
+ * Webhook auth gate (Adevar Labs SEV-009 / SEV-033 — RoundFi internal
+ * audit follow-up).
+ *
+ * Trust model
+ * -----------
+ * Helius natively only supports a configurable per-webhook `authHeader`
+ * (shared secret echoed back as the `Authorization` header). Helius does
+ * NOT sign the request body, so true HMAC-of-body verification would
+ * require a signing proxy in front of Helius — out of scope here. We
+ * harden the shared-secret model instead:
+ *
+ *   1. **Constant-time compare** via `timingSafeEqual` removes the timing
+ *      leak the prior string `!==` exposed (V8 short-circuits character
+ *      comparison; an attacker measuring response time could in principle
+ *      recover the secret byte-by-byte). The length-leak from the
+ *      length-mismatch early-out is not exploitable: the secret length is
+ *      operator-fixed and not attacker-controlled.
+ *
+ *   2. **Default-DENY when secret unset.** SEV-033 closed the
+ *      production-like-env fail-open at startup, but the request handler
+ *      itself still treated `unset secret == allow request`. That meant a
+ *      preview/staging/CI deployment that escaped the production-like
+ *      allowlist (e.g. NODE_ENV unset, INDEXER_ENV unset) silently became
+ *      an unauthenticated webhook surface — the original SEV-009 shape.
+ *      The new default is fail-CLOSED at request time. The ONLY way to
+ *      accept unauthenticated POSTs is an explicit
+ *      `INDEXER_ALLOW_UNAUTH_WEBHOOK=true` opt-in for local dev; the
+ *      startup gate refuses that opt-in in production-like environments
+ *      as defense-in-depth.
+ */
+export function checkWebhookAuth(authHeader: string | string[] | undefined): WebhookAuthResult {
+  const secret = process.env.HELIUS_WEBHOOK_SECRET;
+  if (!secret) {
+    if (process.env.INDEXER_ALLOW_UNAUTH_WEBHOOK === "true") {
+      return { ok: true, reason: "no_secret_unauth_allowed" };
+    }
+    return { ok: false, reason: "no_secret_denied" };
+  }
+  if (typeof authHeader !== "string") {
+    return { ok: false, reason: "bad_token" };
+  }
+  const expected = Buffer.from(`Bearer ${secret}`, "utf8");
+  const actual = Buffer.from(authHeader, "utf8");
+  // Length-mismatch shortcut: timingSafeEqual REQUIRES equal-length
+  // buffers and throws otherwise. We reject before the call.
+  if (expected.length !== actual.length) {
+    return { ok: false, reason: "bad_token" };
+  }
+  if (!timingSafeEqual(expected, actual)) {
+    return { ok: false, reason: "bad_token" };
+  }
+  return { ok: true, reason: "ok" };
+}
+
 export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -106,30 +174,16 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
   });
 
   app.post("/webhook/helius", async (req, reply) => {
-    // Adevar Labs SEV-009 fix — shared-secret auth on the webhook.
-    //
-    // Before: any POST with a well-formed payload was accepted. The
-    // only "auth" was URL obscurity, which leaks via Helius dashboard
-    // config, CI logs, proxy tooling. An attacker who learned the URL
-    // could inject phantom contributes/claims/defaults into the
-    // indexer's Postgres — eventually corrupting the B2B Phase 3
-    // oracle's score reads.
-    //
-    // After: bearer-token check against HELIUS_WEBHOOK_SECRET env.
-    // Helius dashboard config supports a custom Authorization header.
-    // If the env var is unset (devnet / local), the check is bypassed
-    // so the local-development loop stays frictionless — but a startup
-    // warning fires so the gap is visible in logs.
-    const expected = process.env.HELIUS_WEBHOOK_SECRET;
-    if (expected) {
-      const auth = req.headers["authorization"];
-      if (auth !== `Bearer ${expected}`) {
-        app.log.warn(
-          { ip: req.ip, hasHeader: typeof auth === "string" },
-          "rejected webhook POST — missing or invalid Authorization header",
-        );
-        return reply.code(401).send({ error: "unauthorized" });
-      }
+    const gate = checkWebhookAuth(req.headers["authorization"]);
+    if (!gate.ok) {
+      app.log.warn({ ip: req.ip, reason: gate.reason }, "rejected webhook POST");
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    if (gate.reason === "no_secret_unauth_allowed") {
+      app.log.warn(
+        { ip: req.ip },
+        "accepted webhook POST without auth (INDEXER_ALLOW_UNAUTH_WEBHOOK=true)",
+      );
     }
 
     const parse = heliusBodySchema.safeParse(req.body);
@@ -182,25 +236,21 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient();
   const app = await buildServer(prisma);
 
-  // Adevar Labs SEV-009 (W2) — startup gap warning when
-  // HELIUS_WEBHOOK_SECRET is unset. The webhook handler skips auth in
-  // that case (frictionless local-dev loop), with a visible warning at
-  // startup so the gap is auditable in logs.
-  //
-  // Adevar Labs SEV-033 (W3) — fail-OPEN is not safe in production.
-  // The W3 re-audit flagged that an operator could deploy the indexer
-  // to staging/mainnet, forget to set the env var, and end up with an
-  // unauthenticated webhook surface in production — exactly the SEV-009
-  // shape that SEV-009 was supposed to close. Auditor recommended
-  // fail-CLOSED on production deploys: refuse to start if the env var
-  // is unset AND the process is running in a production-like
-  // environment (NODE_ENV=production or INDEXER_ENV in {mainnet,
-  // production, staging}).
-  //
-  // Local dev (NODE_ENV unset / development / test) still gets the
-  // frictionless path with a warning — the dev loop is preserved.
-  if (!process.env.HELIUS_WEBHOOK_SECRET) {
-    if (isProductionLikeEnv()) {
+  // Startup webhook-auth gate. Layered defense-in-depth over the
+  // request-time gate in `checkWebhookAuth`. Production-like envs
+  // (NODE_ENV=production or INDEXER_ENV in {mainnet, production,
+  // staging}) refuse to start when:
+  //   (a) HELIUS_WEBHOOK_SECRET is unset (SEV-009 / SEV-033 — would
+  //       leave the webhook surface unauthenticated), OR
+  //   (b) INDEXER_ALLOW_UNAUTH_WEBHOOK=true (the local-dev opt-in
+  //       escaped into prod via env-var inheritance — RoundFi internal
+  //       audit follow-up to SEV-033).
+  // Local dev: warn loudly when neither knob is set, so the operator
+  // knows the webhook will 401 every request (rather than silently
+  // accepting unauthenticated traffic, which was the SEV-009 bug).
+  const allowUnauth = process.env.INDEXER_ALLOW_UNAUTH_WEBHOOK === "true";
+  if (isProductionLikeEnv()) {
+    if (!process.env.HELIUS_WEBHOOK_SECRET) {
       app.log.error(
         {
           NODE_ENV: process.env.NODE_ENV,
@@ -213,9 +263,26 @@ async function main(): Promise<void> {
       await prisma.$disconnect();
       process.exit(1);
     }
+    if (allowUnauth) {
+      app.log.error(
+        {
+          NODE_ENV: process.env.NODE_ENV,
+          INDEXER_ENV: process.env.INDEXER_ENV,
+        },
+        "INDEXER_ALLOW_UNAUTH_WEBHOOK=true in production-like environment — " +
+          "refusing to start. This flag is for local dev only. " +
+          "(RoundFi internal audit follow-up to SEV-033)",
+      );
+      await prisma.$disconnect();
+      process.exit(1);
+    }
+  } else if (!process.env.HELIUS_WEBHOOK_SECRET && !allowUnauth) {
     app.log.warn(
-      "HELIUS_WEBHOOK_SECRET is unset — webhook auth disabled. " +
-        "Required for any non-local deploy (SEV-009 / SEV-033 / Adevar audit).",
+      "HELIUS_WEBHOOK_SECRET is unset and INDEXER_ALLOW_UNAUTH_WEBHOOK is not " +
+        "set — every webhook POST will be rejected with 401. Set " +
+        "HELIUS_WEBHOOK_SECRET for any non-local deploy, or " +
+        "INDEXER_ALLOW_UNAUTH_WEBHOOK=true to accept unauthenticated POSTs " +
+        "in local dev.",
     );
   }
 

@@ -70,6 +70,32 @@ const ORPHAN_GRACE_SLOTS = 256;
 /** Reconciler tick cadence — every 30s when running as a daemon. */
 const RECONCILER_INTERVAL_MS = 30_000;
 
+/**
+ * Lease TTL in seconds (Wave 9.2). After this many seconds without a
+ * renewal, any replica may take over. Must comfortably exceed the
+ * longest expected `reconcileOnce` runtime so a slow tick isn't
+ * pre-empted, but short enough that a crashed leader frees up the
+ * next tick.
+ *
+ * 60s = 2× the 30s tick cadence. If a tick takes longer than that, the
+ * deployment has bigger problems than concurrency.
+ */
+const RECONCILER_LEASE_TTL_SECS = 60;
+
+/** Singleton row key for the reconciler lease — see schema.prisma. */
+const RECONCILER_LEASE_ID = "main";
+
+/**
+ * Best-effort holder identifier baked into the lease row. Doesn't
+ * affect correctness — just helps an operator see WHICH instance is
+ * holding the lease in the log stream when ticks are skipped.
+ */
+function leaseHolderId(): string {
+  // hostname + pid is enough for K8s pod identity in logs.
+  const host = process.env.HOSTNAME ?? "unknown-host";
+  return `${host}:${process.pid}`;
+}
+
 /** Cross-validation sweep cadence — every 5min. Walks getSignaturesForAddress
  *  on the program and diffs against the events table. */
 const CROSS_VALIDATION_INTERVAL_MS = 300_000;
@@ -320,7 +346,7 @@ async function reconcileContributeEvents(
   logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.contributeEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -395,7 +421,7 @@ async function reconcileClaimEvents(
   logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.claimEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -467,7 +493,7 @@ async function reconcileDefaultEvents(
   logger?: Logger,
 ): Promise<void> {
   const rows = await prisma.defaultEvent.findMany({
-    where: { poolId: "_unresolved", orphaned: false },
+    where: { poolId: null, orphaned: false },
     take: 100,
   });
 
@@ -585,6 +611,50 @@ export interface ReconcilerDaemon {
   stop: () => void;
 }
 
+/**
+ * Atomically attempt to acquire the reconciler-tick lease (Wave 9.2 —
+ * closes the multi-instance race the audit flagged in `reconciler.ts:631`).
+ *
+ * Race-safe because Postgres serializes `UPDATE ... WHERE ... RETURNING`
+ * on the same row: only one concurrent caller's WHERE clause sees the
+ * pre-update `acquiredAt`. The loser sees the updated value, fails the
+ * `WHERE acquired_at < ttlCutoff` predicate, and gets 0 rows back.
+ *
+ * Returns `true` if this instance won the lease for the next tick.
+ * Falls back to `false` on any DB error so a transient Postgres blip
+ * skips the tick rather than running unsafely — same fail-closed
+ * posture as the rest of the indexer.
+ *
+ * Exported so the spec can exercise the lease semantics directly.
+ */
+export async function tryAcquireReconcilerLease(
+  prisma: PrismaClient,
+  options: {
+    ttlSecs?: number;
+    holder?: string;
+    now?: Date;
+    logger?: Logger;
+  } = {},
+): Promise<boolean> {
+  const ttlSecs = options.ttlSecs ?? RECONCILER_LEASE_TTL_SECS;
+  const holder = options.holder ?? leaseHolderId();
+  const now = options.now ?? new Date();
+  const cutoff = new Date(now.getTime() - ttlSecs * 1000);
+  try {
+    const updated = await prisma.reconcilerLease.updateMany({
+      where: { id: RECONCILER_LEASE_ID, acquiredAt: { lt: cutoff } },
+      data: { acquiredAt: now, holder },
+    });
+    return updated.count > 0;
+  } catch (err) {
+    options.logger?.warn(
+      { event_type: "reconciler_lease", error: err },
+      "reconciler lease acquisition failed — skipping tick",
+    );
+    return false;
+  }
+}
+
 export function createReconcilerDaemon(
   prisma: PrismaClient,
   config: ReconcilerConfig,
@@ -596,6 +666,18 @@ export function createReconcilerDaemon(
 
   const runReconcile = async (): Promise<void> => {
     if (stopping) return;
+    // Wave 9.2 — leader election across replicas. The old setInterval
+    // fired on EVERY replica simultaneously, racing on the same UPDATEs
+    // against contribute_events / claim_events / default_events. If we
+    // can't grab the lease, another replica is mid-tick — skip cleanly.
+    const acquired = await tryAcquireReconcilerLease(prisma, { logger });
+    if (!acquired) {
+      logger.info(
+        { event_type: "reconciler_tick", skipped: "lease_held_by_peer" },
+        "reconciler tick skipped — lease held by another instance",
+      );
+      return;
+    }
     try {
       const result = await reconcileOnce(prisma, config, logger);
       logger.info({ event_type: "reconciler_tick", ...result }, "reconciler tick complete");
@@ -606,6 +688,17 @@ export function createReconcilerDaemon(
 
   const runCrossValidation = async (): Promise<void> => {
     if (stopping) return;
+    // Cross-validation reads from RPC + writes nothing critical, but
+    // running it on N replicas wastes RPC budget. Same lease gate so
+    // only the active leader spends the calls.
+    const acquired = await tryAcquireReconcilerLease(prisma, { logger });
+    if (!acquired) {
+      logger.info(
+        { event_type: "cross_validation", skipped: "lease_held_by_peer" },
+        "cross-validation skipped — lease held by another instance",
+      );
+      return;
+    }
     try {
       const result = await crossValidateOnce(prisma, config, logger);
       if (result.gaps > 0) {

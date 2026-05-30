@@ -189,4 +189,31 @@ export const Icons: Record<string, IconFn> = {
       <rect x="8.5" y="13" width="7" height="7" rx="1" />
     </Icon>
   ),
+  // ── /admin/ops nav tabs ──────────────────────────────────────
+  pulse: (p = {}) => (
+    <Icon {...p}>
+      <path d="M3 12h4l2-5 4 10 2-5h6" />
+    </Icon>
+  ),
+  layers: (p = {}) => (
+    <Icon {...p}>
+      <path d="M12 3l9 5-9 5-9-5 9-5z" />
+      <path d="M3 13l9 5 9-5" />
+      <path d="M3 18l9 5 9-5" />
+    </Icon>
+  ),
+  people: (p = {}) => (
+    <Icon {...p}>
+      <circle cx="9" cy="9" r="3" />
+      <circle cx="17" cy="9" r="2.2" />
+      <path d="M2 19c0-3 3-5 7-5s7 2 7 5" />
+      <path d="M22 19c0-2-1.6-3.5-3.5-3.5" />
+    </Icon>
+  ),
+  listBell: (p = {}) => (
+    <Icon {...p}>
+      <path d="M3 6h11M3 12h11M3 18h8" />
+      <path d="M18 4a3 3 0 0 1 6 0v3l1 2h-8l1-2z" />
+    </Icon>
+  ),
 };

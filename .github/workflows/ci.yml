@@ -17,6 +17,14 @@ env:
   CARGO_INCREMENTAL: 0 # CI cache hits matter more than incremental
   RUST_BACKTRACE: 1
 
+# Default GITHUB_TOKEN on this org is restricted to `contents: read` +
+# `metadata: read`. The bankrun + litesvm diagnostic post-steps POST a
+# comment with the failing build log tail; that needs `pull-requests: write`.
+# Granted at the workflow level so every job inherits it.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
   # Seven checks:
@@ -47,9 +55,9 @@ jobs:
     name: js · lint + typecheck + parity + L1
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
 
@@ -102,6 +110,81 @@ jobs:
         # event_type?, slot?, signature?, error? } — drift breaks alert
         # grouping + Loki/Datadog log queries silently. Sub-second.
         run: pnpm test:indexer-log
+
+      - name: Indexer webhook auth gate (11 tests)
+        # Pins the three hardening properties of the Helius webhook
+        # auth gate (SEV-009 / SEV-033 + RoundFi internal audit
+        # follow-up): constant-time Bearer compare, default-DENY when
+        # HELIUS_WEBHOOK_SECRET unset, length-mismatch shortcut so
+        # timingSafeEqual never throws. Drift = the webhook silently
+        # becomes unauthenticated again (the SEV-009 shape). Sub-second.
+        run: pnpm test:indexer-webhook-auth
+
+      - name: Indexer RPC quorum (12 tests)
+        # Wave 9.1 — pins decideTxQuorum + parseRpcUrls, the pure
+        # consensus layer for the `backfill-events` ingest path. With
+        # SOLANA_RPC_URLS=<csv> set, each getTransaction is fanned out
+        # across N providers and only ingests on ≥ ceil(N/2) agreement
+        # on (slot, blockTime, logsHash). Same threshold convention as
+        # reconciler::checkFinalizedQuorum. Drift = single-RPC trust
+        # silently slips back in. Sub-second.
+        run: pnpm test:rpc-quorum
+
+      - name: Admin auth rate-limit gate (21 tests)
+        # Pins the sliding-window rate limiter on /api/admin/auth/nonce
+        # (default 10/min/IP) and /verify (default 5/min/IP), plus the
+        # X-Forwarded-For first-hop extraction AND the Onda 6
+        # `observeClientKey` collapse-detector (warns loud in prod-like
+        # env when >= 50% of recent admin requests fall into the
+        # "unknown" bucket — proxy misconfig). RoundFi internal audit
+        # follow-up. Drift = the canary silently becomes brute-forceable
+        # again OR the proxy misconfig signal stays invisible. Sub-second.
+        run: pnpm test:admin-rate-limit
+
+      - name: Admin on-chain authority cache (11 tests)
+        # Pins the fail-closed contract on `fetchProtocolAuthority`
+        # (RoundFi internal audit follow-up): null on any RPC failure,
+        # split-TTL cache (5min hit / 30s miss) so a transient blip
+        # doesn't drop the on-chain authority for the full hit-TTL,
+        # explicit logs on RPC-unset / fetch failure / empty effective
+        # allowlist. Drift = silent fail-open or a flaky-RPC lockout.
+        # Sub-second.
+        run: pnpm test:admin-authority-cache
+
+      - name: Admin SIWS auth core (14 tests)
+        # Pins the pure-crypto SIWS path (ADR 0009 §1): ed25519 verify,
+        # session HMAC, stateless challenge SHAPE (HMAC + TTL), allowlist
+        # set algebra. Previously ran nowhere in CI — wired in alongside
+        # the Wave 2 shared-store split. Sub-second.
+        run: pnpm test:admin-auth
+
+      - name: Admin shared store — in-memory backend (9 tests)
+        # Pins the Wave 2 pluggable store: env selector (memory default /
+        # postgres opt-in), in-memory consume-once challenge guard, and
+        # the rate-limit sliding window through the async interface. The
+        # Postgres backend's SQL behavior is operator-run (DB-backed,
+        # services/indexer/test/admin_shared_store_pg.spec.ts — no DB in
+        # this lane). Sub-second.
+        run: pnpm test:admin-shared-store
+
+      - name: Harvest slippage floor (7 tests)
+        # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
+        # computes a LIVE min_realized_usdc floor from the expected surplus
+        # by default (was 0 = guard inert), keeping the on-chain
+        # `realized >= min_realized_usdc` slippage guard live. Opt-out is
+        # explicit. Sub-second.
+        run: pnpm test:yield-harvest-floor
+
+      - name: Kamino program-id pin drift gate (7 tests)
+        # Audit Wave 7 (INFO/operator follow-up). The roundfi-yield-kamino
+        # adapter hardcodes KAMINO_LEND_PROGRAM_ID — drift to a wrong
+        # address routes every yield CPI to a different program. This spec
+        # extracts the on-disk const and compares it against the canonical
+        # value in scripts/mainnet/kamino-pin.ts. Drift in EITHER side fails
+        # the lane. Liveness (`getAccountInfo` on mainnet) belongs to the
+        # operator pre-deploy script `pnpm verify:kamino-pin --verify-rpc`.
+        # Sub-second.
+        run: pnpm test:kamino-pin
 
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
@@ -156,7 +239,7 @@ jobs:
     name: audit · cargo-audit (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -224,7 +307,7 @@ jobs:
     name: deny · supply-chain (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -265,13 +348,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Install Solana Agave 3.0.0 (pinned)
         # Stable channel had platform-tools download issues mid-2026
@@ -363,14 +446,14 @@ jobs:
     timeout-minutes: 20
     needs: anchor # piggyback on the SBF artifact path semantics
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
@@ -405,8 +488,41 @@ jobs:
         # via `loadIdl()` for all 4 programs (core, reputation,
         # yield_mock, yield_kamino).
         run: |
+          set -x
+          set -o pipefail
+          # Tee everything into /tmp/build.log so the failure post-step
+          # can mirror the tail into $GITHUB_STEP_SUMMARY (visible in the
+          # workflow run page without auth) and upload the full thing as
+          # an artifact.
+          exec > >(tee -a /tmp/build.log) 2>&1
+
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version || true
+          cargo --version
+          rustc --version
+          solana --version
+          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
+          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
+          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
+          echo "::endgroup::"
+
+          echo "::group::anchor build (--no-idl)"
           anchor build --no-idl
+          echo "::endgroup::"
+
+          echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
+          echo "::endgroup::"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache klend.so (Kamino Lend mainnet binary)
         # ~600KB binary, hashed against the Kamino program ID. Cached
@@ -467,7 +583,7 @@ jobs:
     timeout-minutes: 30
     needs: anchor
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
@@ -480,7 +596,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
@@ -505,8 +621,37 @@ jobs:
 
       - name: anchor build (--no-idl) + IDL regen (#319 workaround)
         run: |
+          set -x
+          set -o pipefail
+          exec > >(tee -a /tmp/build.log) 2>&1
+
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version || true
+          cargo --version
+          rustc --version
+          solana --version
+          ls -la ~/.cargo/registry/src/ 2>/dev/null || echo "no registry/src"
+          ls -la ~/.cargo/registry/cache/ 2>/dev/null || echo "no registry/cache"
+          find ~/.cargo/registry/src -maxdepth 2 -name "anchor-syn-0.30.1" -type d 2>/dev/null || echo "no anchor-syn dir"
+          echo "::endgroup::"
+
+          echo "::group::anchor build (--no-idl)"
           anchor build --no-idl
+          echo "::endgroup::"
+
+          echo "::group::IDL regen"
           bash scripts/dev/rebuild-idls.sh
+          echo "::endgroup::"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache mpl_core.so (Metaplex Core mainnet binary)
         # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the

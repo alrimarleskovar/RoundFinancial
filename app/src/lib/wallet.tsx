@@ -35,6 +35,10 @@ export interface WalletView {
   isUnknownWallet: boolean;
   connect: () => Promise<{ ok: boolean; reason?: string }>;
   disconnect: () => Promise<{ ok: boolean }>;
+  /** ed25519 message signer, when the connected wallet supports it
+   *  (MessageSignerWalletAdapter). null otherwise. Used by the admin
+   *  console's SIWS sign-in (ADR 0009). */
+  signMessage: ((message: Uint8Array) => Promise<Uint8Array>) | null;
   airdrop: (lamports?: number) => Promise<{ ok: boolean; signature?: string; reason?: string }>;
   refresh: () => Promise<void>;
   explorerTx: (sig: string) => string;
@@ -197,6 +201,15 @@ export function useWallet(): WalletView {
     [connection, refresh],
   );
 
+  // Message signer — present only when the selected wallet implements
+  // MessageSignerWalletAdapter (Phantom/Solflare/Backpack do). Wrapped so
+  // the view exposes a stable `null` when unsupported.
+  const adapterSignMessage = adapter.signMessage;
+  const signMessage = useMemo<((message: Uint8Array) => Promise<Uint8Array>) | null>(
+    () => (adapterSignMessage ? (message) => adapterSignMessage(message) : null),
+    [adapterSignMessage],
+  );
+
   const explorerTx = useCallback(
     (sig: string) => `https://explorer.solana.com/tx/${sig}?cluster=${explorerCluster(net.id)}`,
     [net.id],
@@ -230,6 +243,7 @@ export function useWallet(): WalletView {
       isUnknownWallet,
       connect,
       disconnect,
+      signMessage,
       airdrop,
       refresh,
       explorerTx,
@@ -249,6 +263,7 @@ export function useWallet(): WalletView {
       isUnknownWallet,
       connect,
       disconnect,
+      signMessage,
       airdrop,
       refresh,
       explorerTx,
