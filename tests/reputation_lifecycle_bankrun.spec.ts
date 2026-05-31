@@ -200,7 +200,7 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     expect(after.onTimePayments).to.equal(before.onTimePayments);
   });
 
-  it("score drops below tier: promote_level reverts, never demotes", async function () {
+  it("default zeroes score and demotes level (SEV-007); promote_level then reverts", async function () {
     // One Default zeros the score (500 - 500 = 0). Negative deltas are
     // NOT halved (only positive increments are dampened for unverified).
     await tick(env);
@@ -213,13 +213,20 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     const afterDefault = await snapshotProfile(env, subjectPubkey);
     expect(afterDefault.score).to.equal(0n);
     expect(afterDefault.defaults).to.equal(1);
-    expect(afterDefault.level).to.equal(LEVEL_2);
+    // SEV-007: a Default attestation now re-derives the level from the
+    // post-delta score and demotes immediately (clamped at LEVEL_MIN).
+    // Before SEV-007 the level stuck at L2 until a later promote_level
+    // call — which let a defaulter re-enter the next pool with the
+    // cheaper L2/L3 stake_bps. With score back to 0, resolve_level → L1.
+    expect(afterDefault.level).to.equal(LEVEL_MIN);
 
+    // promote_level can't re-promote: score 0 < LEVEL_2_THRESHOLD, so it
+    // reverts. Level stays demoted (never silently re-promotes).
     const msg = await expectRejected(() => promoteLevel(env, { subject: subjectPubkey }));
     expect(msg, `message: ${msg}`).to.match(/LevelThresholdNotMet|threshold/i);
 
     const afterPromote = await snapshotProfile(env, subjectPubkey);
-    expect(afterPromote.level).to.equal(LEVEL_2);
+    expect(afterPromote.level).to.equal(LEVEL_MIN);
     expect(afterPromote.score).to.equal(0n);
 
     expect(SCORE_DEFAULT_ABS).to.equal(500n);
