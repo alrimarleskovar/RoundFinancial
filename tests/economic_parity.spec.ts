@@ -1262,9 +1262,10 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const authority = harness.keypairFromSeed("healthy-parity-authority");
     await ensureFunded(env, [authority], 5);
 
-    // Cycle duration generous enough that all txs in a cycle (12
-    // contributes + 1 claim + bankrun overhead) land before the deadline
-    // even on slow CI.
+    // MIN_CYCLE_DURATION is 86_400 (1 day, SEV-023). The test never waits
+    // between cycles — every contribute/claim lands immediately within the
+    // (now day-long) on-time window — so a long duration is a no-op for the
+    // flow but required for create_pool to accept the pool.
     pool = await createPool(env, {
       authority,
       usdcMint,
@@ -1272,7 +1273,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
       installmentAmount: installmentUsdc,
       creditAmount: creditAmountUsdc,
       cyclesTotal: N,
-      cycleDurationSec: 3_600,
+      cycleDurationSec: 86_400,
     });
 
     // Pre-fund each wallet with the full economic position:
