@@ -30,6 +30,7 @@ import { createLogger } from "./log.js";
 import {
   decideTxQuorum,
   parseRpcUrls,
+  quorumThreshold,
   type ProviderResult,
   type TxFingerprint,
 } from "./rpcQuorum.js";
@@ -210,7 +211,7 @@ async function main(): Promise<void> {
       {
         event_type: "backfill_events_start",
         rpcs: RPC_URLS,
-        quorumThreshold: Math.ceil(RPC_URLS.length / 2),
+        quorumThreshold: quorumThreshold(RPC_URLS.length),
         programId: CORE_PROGRAM,
       },
       "start",
