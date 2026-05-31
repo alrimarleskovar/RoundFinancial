@@ -5,28 +5,45 @@ React 19. Lives inside the pnpm monorepo and consumes `@roundfi/sdk`
 through a workspace dependency, so a single `pnpm install` at the repo
 root wires everything up.
 
-## What's here (Fase 0)
+## What's here (Fase 0 + Fase 1)
 
-A single screen that derives the canonical `ProtocolConfig` PDA on
-devnet via `@roundfi/sdk` and renders the base58 — enough to prove
-that:
+**Fase 0** (`d6c6151`) — base scaffold + 1 screen deriving the canonical
+`ProtocolConfig` PDA via `@roundfi/sdk` and rendering its base58. Proves:
 
-1. The workspace dep + Metro `watchFolders` glue resolves correctly.
-2. The Solana polyfills loaded in `index.ts` are in place before
-   `@solana/web3.js` runs (no `Buffer is undefined` / no missing
-   `crypto.getRandomValues`).
-3. The web app's `theme` tokens land on RN unchanged — the palette
-   toggle proves the `ThemeProvider` Context wiring.
+1. Workspace dep + Metro `watchFolders` glue resolves.
+2. Solana polyfills in `index.ts` land before `@solana/web3.js` runs.
+3. Web `theme` tokens (`PALETTES`) land on RN unchanged via the
+   `ThemeProvider` Context.
+
+**Fase 1** — bottom-tabs navigation with 4 screens, palette-aware nav
+chrome (React Navigation v7 + `react-native-safe-area-context`):
+
+| Tab     | Source                          | Content                                                  |
+| ------- | ------------------------------- | -------------------------------------------------------- |
+| Home    | `src/screens/HomeScreen.tsx`    | PDA derivation (Fase 0 screen, now scoped to a tab)      |
+| Pools   | `src/screens/PoolsScreen.tsx`   | placeholder — Fase 2 wires indexer reads                 |
+| Wallet  | `src/screens/WalletScreen.tsx`  | placeholder — Fase 2 (Phantom) / pre-Canary (Seed Vault) |
+| Profile | `src/screens/ProfileScreen.tsx` | placeholder — Fase 2 reads roundfi-reputation            |
+
+The 3 placeholders use a shared `PlaceholderScreen` so each tab file
+stays trivial (one component, one title, one blurb) — the visual
+target is the navigation + theme wiring, not content.
+
+`App.tsx` orchestrates: `ThemeProvider → SafeAreaProvider → RootNavigator`.
+The status bar color follows the palette via `ThemedStatusBar`.
 
 ## What's NOT here (deferred)
 
 - **Phantom mobile / Seed Vault Wallet** → Fase 2.
-- **EAS Build / native builds** → Fase 3 (once an MWA wallet adapter
-  test passes against emulator).
-- **`glassSurfaceStyle` blur** → Fase 1, when the first card surface
-  is built. The web helper uses `backdropFilter` (CSS-only); the RN
-  equivalent is `expo-blur`'s `<BlurView>`.
-- **Theme persistence** → Fase 1, candidate is `expo-secure-store`.
+- **EAS Build / native builds** → Fase 3.
+- **`glassSurfaceStyle` blur** → Fase 1.5/2 (needs `expo-blur`'s
+  `<BlurView>` since web's `backdropFilter` is CSS-only).
+- **Theme persistence** → Fase 1.5 (candidate: `expo-secure-store`).
+- **jest-expo + tests** → Fase 1.5 (deferred because the Expo 56 +
+  RN 0.85 + jest-expo version matrix is fluid; risk a CI break for
+  no real signal until a component layer worth testing exists).
+- **Stack-inside-tab** (Pool detail / Member detail) → Fase 2 when
+  detail screens land.
 
 ## Run it locally
 
