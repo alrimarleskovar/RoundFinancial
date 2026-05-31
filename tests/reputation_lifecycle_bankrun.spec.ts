@@ -91,15 +91,6 @@ async function snapshotProfile(env: BankrunEnvCompat, wallet: PublicKey): Promis
   };
 }
 
-async function expectRejected(thunk: () => Promise<unknown>): Promise<string> {
-  try {
-    await thunk();
-  } catch (err) {
-    return String((err as Error)?.message ?? err);
-  }
-  throw new Error("expected the call to reject, but it resolved");
-}
-
 // ─── The spec ────────────────────────────────────────────────────────
 
 describe("reputation — promote_level (bankrun, clock-warp)", function () {
@@ -220,10 +211,14 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     // cheaper L2/L3 stake_bps. With score back to 0, resolve_level → L1.
     expect(afterDefault.level).to.equal(LEVEL_MIN);
 
-    // promote_level can't re-promote: score 0 < LEVEL_2_THRESHOLD, so it
-    // reverts. Level stays demoted (never silently re-promotes).
-    const msg = await expectRejected(() => promoteLevel(env, { subject: subjectPubkey }));
-    expect(msg, `message: ${msg}`).to.match(/LevelThresholdNotMet|threshold/i);
+    // promote_level is now a no-op idempotent confirm: the Default
+    // already demoted to L1, score 0 resolves to L1, and the handler's
+    // guard is `new_level >= profile.level` (1 >= 1 ✓) → it returns Ok
+    // without changing anything (promote_level.rs:87-90). It does NOT
+    // revert — the revert (LevelThresholdNotMet) only fired pre-SEV-007
+    // when the level was still stuck at L2 with score 0 (1 < 2). The
+    // never-re-promote invariant is what matters: level stays at L1.
+    await promoteLevel(env, { subject: subjectPubkey });
 
     const afterPromote = await snapshotProfile(env, subjectPubkey);
     expect(afterPromote.level).to.equal(LEVEL_MIN);
