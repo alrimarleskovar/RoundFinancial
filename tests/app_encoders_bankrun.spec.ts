@@ -82,7 +82,12 @@ const INSTALLMENT = 5_000_000n; // $5 USDC
 const CREDIT = 5_000_000n; // $5 — solo pool, credit == installment
 const STAKE_INITIAL = 2_500_000n; // 50% of credit (Lv1)
 const SOLIDARITY_PRESEED = 0n;
-const ESCROW_PRESEED = 0n;
+// SEV-034: the stake is deposited into the escrow vault at join, so the
+// escrow vault (and member/pool escrow_balance) start holding it. The
+// release-delta derivation (stake_init + total_escrow_deposited −
+// escrow_balance) treats escrow_balance==0 as "everything already
+// released", which makes release_escrow revert EscrowNothingToRelease.
+const ESCROW_PRESEED = STAKE_INITIAL;
 const POOL_VAULT_PRESEED = 0n;
 const MEMBER_USDC_BAL = 10_000_000n; // $10 — plenty for one $5 contribution
 
@@ -201,7 +206,8 @@ async function seedFixture(
     totalContributed: new BN(0),
     totalPaidOut: new BN(0),
     solidarityBalance: new BN(0),
-    escrowBalance: new BN(0),
+    // SEV-034: stake lives in the escrow vault from join (see ESCROW_PRESEED).
+    escrowBalance: new BN(STAKE_INITIAL.toString()),
     yieldAccrued: new BN(0),
     guaranteeFundBalance: new BN(0),
     totalProtocolFeeAccrued: new BN(0),
@@ -227,7 +233,8 @@ async function seedFixture(
     contributionsPaid: 0,
     totalContributed: new BN(0),
     totalReceived: new BN(0),
-    escrowBalance: new BN(0),
+    // SEV-034: the join-time stake sits in escrow_balance from the start.
+    escrowBalance: new BN(STAKE_INITIAL.toString()),
     onTimeCount: 0,
     lateCount: 0,
     defaulted: false,
@@ -966,7 +973,10 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
       caller: cranker.publicKey,
       defaultedMemberWallet: defaulter.publicKey,
       slotIndex: 1,
-      cycle: 1, // pool.current_cycle - 1
+      // settle_default requires args.cycle == pool.current_cycle (the
+      // member is settled as of the cycle they're now behind on, not the
+      // earlier cycle they first missed). current_cycle == 2 here.
+      cycle: 2,
       programIds: { core: env.ids.core, reputation: env.ids.reputation },
       usdcMint,
     });
