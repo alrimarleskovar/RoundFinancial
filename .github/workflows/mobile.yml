@@ -3,11 +3,13 @@ name: mobile
 # Standalone lane — typecheck + lint, advisory while the scaffold
 # stabilizes. No EAS Build, no emulator, no native compile.
 #
-# IMPORTANT: mobile/ is NOT a pnpm workspace member (React Native needs
-# a flat node_modules; see mobile/.npmrc + ../pnpm-workspace.yaml). So
-# this lane installs inside mobile/ with its own flat node_modules and
-# does NOT touch the main workspace install. Path-filtered to mobile/ +
-# sdk/ (mobile consumes @roundfi/sdk via file:../sdk).
+# IMPORTANT: mobile/ is NOT a pnpm workspace member and uses **npm**, not
+# pnpm. React Native / Metro require a truly flat node_modules; pnpm —
+# even with node-linker=hoisted — keeps its .pnpm/ store + partial
+# symlinks, so a package's sibling deps (e.g. react-native-get-random-
+# values → fast-base64-decode) go unresolved. npm produces real flat
+# resolution. So this lane runs `npm ci` inside mobile/ and never touches
+# the main pnpm workspace. mobile consumes @roundfi/sdk via file:../sdk.
 
 on:
   pull_request:
@@ -38,18 +40,16 @@ jobs:
         with:
           node-version: "22"
 
-      # Standalone install — mobile/ has node-linker=hoisted in its own
-      # .npmrc, so this produces the flat node_modules RN/Metro expect.
-      # Not --frozen-lockfile: mobile has no committed lockfile yet
-      # (first green run will add mobile/pnpm-lock.yaml or package-lock).
-      - name: Install (standalone)
-        run: pnpm install
+      # Standalone npm install (committed package-lock.json) — produces
+      # the flat node_modules RN/Metro require. NOT pnpm (see header).
+      - name: Install (npm, standalone)
+        run: npm ci
 
       - name: Typecheck
-        run: pnpm run typecheck
+        run: npm run typecheck
 
       - name: Lint
-        run: pnpm run lint
+        run: npm run lint
 
       - name: Test
-        run: pnpm run test
+        run: npm run test

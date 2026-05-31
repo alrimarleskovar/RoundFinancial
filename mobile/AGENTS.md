@@ -9,9 +9,15 @@ The `create-expo-app` default gave us SDK 56, which the public Expo Go
 We downgraded to 54 so the app runs on a stock Expo Go install — no
 TestFlight, no `eas go`, no Apple Developer Program needed.
 
+This project uses **npm**, not pnpm — RN/Metro need a truly flat
+node_modules and pnpm (even hoisted) keeps a .pnpm store with partial
+symlinks that breaks sibling-dep resolution at bundle time. Install with
+`npm install` from inside `mobile/`. The main monorepo stays on pnpm;
+mobile is decoupled (not a workspace member; SDK via `file:../sdk`).
+
 Before adding any Expo / React Native package, pin it to the SDK 54
-version: run `npx expo install <pkg>` (NOT `pnpm add`) so Expo resolves
-the SDK-54-correct version. Read the versioned docs at
+version: run `npx expo install <pkg>` (which calls npm under the hood)
+so Expo resolves the SDK-54-correct version. Read the versioned docs at
 https://docs.expo.dev/versions/v54.0.0/ when in doubt.
 
 If you ever bump the SDK, re-check what the public Expo Go supports

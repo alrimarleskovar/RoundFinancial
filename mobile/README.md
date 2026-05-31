@@ -47,21 +47,21 @@ The status bar color follows the palette via `ThemedStatusBar`.
 
 ## Run it locally
 
-> **mobile/ is a standalone project, NOT a pnpm workspace member.**
-> React Native needs a flat `node_modules`, which clashes with this
-> monorepo's isolated pnpm linker. Rather than flip the whole workspace
-> to `node-linker=hoisted` (which would re-layout app/services/sdk and
-> risk the main protocol), mobile/ installs on its own with a local
-> `node-linker=hoisted` (`mobile/.npmrc`) and consumes the SDK via
-> `@roundfi/sdk: file:../sdk`. So: **install from inside `mobile/`, not
-> the repo root.**
+> **mobile/ is a standalone project — uses `npm`, NOT pnpm, and is NOT a
+> workspace member.** React Native / Metro require a truly flat
+> `node_modules`. pnpm — even with `node-linker=hoisted` — keeps its
+> `.pnpm/` store + partial symlinks, so a package's sibling deps (e.g.
+> `react-native-get-random-values` → `fast-base64-decode`) go
+> unresolved at bundle time. `npm` produces real flat resolution.
+> mobile consumes the SDK via `@roundfi/sdk: file:../sdk`. The main
+> monorepo stays on pnpm and is untouched.
 
 ```bash
 cd mobile
-pnpm install            # flat node_modules (local .npmrc); or `npm install`
+npm install             # flat node_modules — do NOT use pnpm here
 
 # Expo Go: scan the QR (phone on same Wi-Fi). On WSL, use --tunnel:
-pnpm start --tunnel
+npx expo start --tunnel
 #   then 'a' (Android emulator) / 'i' (iOS sim) / scan QR in Expo Go
 ```
 
