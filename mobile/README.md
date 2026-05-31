@@ -47,22 +47,33 @@ The status bar color follows the palette via `ThemedStatusBar`.
 
 ## Run it locally
 
+> **mobile/ is a standalone project, NOT a pnpm workspace member.**
+> React Native needs a flat `node_modules`, which clashes with this
+> monorepo's isolated pnpm linker. Rather than flip the whole workspace
+> to `node-linker=hoisted` (which would re-layout app/services/sdk and
+> risk the main protocol), mobile/ installs on its own with a local
+> `node-linker=hoisted` (`mobile/.npmrc`) and consumes the SDK via
+> `@roundfi/sdk: file:../sdk`. So: **install from inside `mobile/`, not
+> the repo root.**
+
 ```bash
-# From the repo root (only once after pull):
-pnpm install
+cd mobile
+pnpm install            # flat node_modules (local .npmrc); or `npm install`
 
-# Start Metro + open in Expo Go on a phone or simulator:
-pnpm --filter @roundfi/mobile start
-
-# Or directly to a target:
-pnpm --filter @roundfi/mobile android   # needs Android Studio emulator
-pnpm --filter @roundfi/mobile ios       # needs Xcode (macOS only)
-pnpm --filter @roundfi/mobile web       # browser preview (no native APIs)
+# Expo Go: scan the QR (phone on same Wi-Fi). On WSL, use --tunnel:
+pnpm start --tunnel
+#   then 'a' (Android emulator) / 'i' (iOS sim) / scan QR in Expo Go
 ```
 
-Expected first render: a centered card with the base58 of
-`8LV…QQjw`-derived ProtocolConfig PDA + bump, on the cream `soft`
-palette. Tap "palette: soft" to flip to `neon`.
+Targets **Expo SDK 54** — the version the public App Store / Play Store
+Expo Go supports (May 2026). Do NOT bump to 55/56: stock Expo Go
+refuses them ("project is incompatible with this version of Expo Go").
+See `AGENTS.md`.
+
+Expected first render: bottom-tab bar (Home / Pools / Wallet / Profile),
+Home showing the base58 of the `8LV…QQjw`-derived ProtocolConfig PDA +
+bump on the cream `soft` palette. Tap "palette: soft" → flips to neon
+(tab bar + header included).
 
 ## Versions pinned by the template
 

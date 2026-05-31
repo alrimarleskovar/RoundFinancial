@@ -1,19 +1,19 @@
 name: mobile
 
-# Fase 0 lane — typecheck + lint only, advisory while the scaffold
-# stabilizes. No EAS Build, no emulator, no native compile. Once the
-# screen surface grows (Fase 1) we add jest-expo + component snapshots.
+# Standalone lane — typecheck + lint, advisory while the scaffold
+# stabilizes. No EAS Build, no emulator, no native compile.
 #
-# Runs only when files inside `mobile/` (or shared inputs it depends on)
-# change, so unrelated PRs don't trigger an install.
+# IMPORTANT: mobile/ is NOT a pnpm workspace member (React Native needs
+# a flat node_modules; see mobile/.npmrc + ../pnpm-workspace.yaml). So
+# this lane installs inside mobile/ with its own flat node_modules and
+# does NOT touch the main workspace install. Path-filtered to mobile/ +
+# sdk/ (mobile consumes @roundfi/sdk via file:../sdk).
 
 on:
   pull_request:
     paths:
       - "mobile/**"
       - "sdk/**"
-      - "pnpm-workspace.yaml"
-      - "pnpm-lock.yaml"
       - ".github/workflows/mobile.yml"
   push:
     branches: [main]
@@ -25,30 +25,31 @@ jobs:
   mobile-checks:
     name: mobile · typecheck + lint (advisory)
     runs-on: ubuntu-latest
-    # Advisory: the job's outcome doesn't block merges yet. Flip to a
-    # required check once the Fase 1 component layer lands and the
-    # CI lane has caught a real regression.
+    # Advisory: doesn't block merges yet. Flip to required once a
+    # component/test layer lands that catches real regressions.
     continue-on-error: true
+    defaults:
+      run:
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "pnpm"
 
-      - name: Install (workspace)
-        run: pnpm install --frozen-lockfile
+      # Standalone install — mobile/ has node-linker=hoisted in its own
+      # .npmrc, so this produces the flat node_modules RN/Metro expect.
+      # Not --frozen-lockfile: mobile has no committed lockfile yet
+      # (first green run will add mobile/pnpm-lock.yaml or package-lock).
+      - name: Install (standalone)
+        run: pnpm install
 
       - name: Typecheck
-        run: pnpm --filter @roundfi/mobile typecheck
+        run: pnpm run typecheck
 
       - name: Lint
-        run: pnpm --filter @roundfi/mobile lint
+        run: pnpm run lint
 
       - name: Test
-        run: pnpm --filter @roundfi/mobile test
+        run: pnpm run test

@@ -2,4 +2,10 @@ packages:
   - "sdk"
   - "services/*"
   - "app"
-  - "mobile"
+  # NOTE: `mobile/` is intentionally NOT a workspace member. React Native
+  # requires a flat (hoisted) node_modules, which conflicts with this
+  # monorepo's isolated pnpm linker. Rather than flip node-linker=hoisted
+  # globally (which would re-layout app/services/sdk and risk the main
+  # protocol), mobile/ is a standalone project with its own flat
+  # node_modules (npm / npx expo install) and consumes @roundfi/sdk via
+  # `file:../sdk`. See mobile/README.md.
