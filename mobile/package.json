@@ -18,13 +18,13 @@
     "@roundfi/sdk": "workspace:*",
     "@solana/web3.js": "^1.95.3",
     "buffer": "^6.0.3",
-    "expo": "~54.0.0",
-    "expo-status-bar": "~54.0.0",
+    "expo": "54.0.35",
+    "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
-    "react-native": "0.81.0",
+    "react-native": "0.81.5",
     "react-native-get-random-values": "~1.11.0",
     "react-native-safe-area-context": "~5.6.0",
-    "react-native-screens": "~4.15.0"
+    "react-native-screens": "~4.16.0"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
