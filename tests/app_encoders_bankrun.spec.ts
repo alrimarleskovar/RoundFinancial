@@ -1201,6 +1201,12 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
     expect(poolBefore.yieldPrincipalDeposited.toString()).to.equal("0");
 
     // ─── Build via the APP ENCODER + send ────────────────────────
+    // The mock adapter's `Deposit` accounts struct requires its
+    // YieldVaultState PDA, which the core handler forwards verbatim via
+    // remaining_accounts. The encoder exposes that through its
+    // `remainingAccounts` parameter — pass the mock's state PDA so a
+    // single call builds the complete instruction (without it the
+    // mock-side CPI fails with AccountNotInitialized, 0xbbd / 3005).
     const ix = buildDepositIdleToYieldIx({
       pool: poolPk,
       caller: cranker.publicKey,
@@ -1209,18 +1215,8 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
       yieldAdapterProgram: env.ids.yieldMock,
       programIds: { core: env.ids.core },
       usdcMint,
+      remainingAccounts: [{ pubkey: yieldStatePk, isSigner: false, isWritable: true }],
     });
-
-    // The mock adapter's `Deposit` accounts struct requires a 5th account
-    // (`state: Account<YieldVaultState>`, after token_program), forwarded
-    // by core via `remaining_accounts`. The buildDepositIdleToYieldIx
-    // encoder currently sends no remaining accounts (its comment says
-    // "empty for mock adapter"), which is stale — without state, the
-    // mock-side CPI fails with AccountNotInitialized (0xbbd / 3005).
-    // Append it here so the test reflects what a working caller needs;
-    // the encoder itself should grow a `remainingAccounts` parameter
-    // (sendDepositIdleToYieldArgs already has it; build's API doesn't).
-    ix.keys.push({ pubkey: yieldStatePk, isSigner: false, isWritable: true });
 
     const tx = new Transaction().add(ix);
     tx.feePayer = cranker.publicKey;
