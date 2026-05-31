@@ -1200,6 +1200,12 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
   let members: any[];
   let l1NetByMember: bigint[];
   let onChainDeltasByMember: bigint[];
+  // #435: with installmentUsdc > credit/N, the per-member overcollection
+  // drains to the protocol treasury at close_pool. Capture treasury before
+  // setup and after close so the conservation identity stays closed.
+  let treasuryUsdc: PublicKey;
+  let treasuryUsdcBefore: bigint;
+  let treasuryUsdcAfter: bigint;
 
   before(async function () {
     // ─── (1) IDL-missing skip ────────────────────────────────────────
@@ -1222,32 +1228,53 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const {
       createUsdcMint,
       initializeProtocol,
+      initializeReputation,
       createPool,
       joinMembers,
       memberKeypairs,
       ensureFunded,
     } = harness;
 
-    // ─── (2) Build the env to match PRESETS.healthy.config ───────────
-    // healthy: { level: "Comprovado" (Lv2 / 30% stake), members: 12,
-    //           creditAmountUsdc: 12_000, kaminoApy: 6.5,
-    //           yieldFeePct: 20 }
-    // installment = 12_000 / 12 = 1_000 USDC.
+    // ─── (2) Build the env to match PRESETS.healthyOnChain.config ────
+    // healthyOnChain (#435): variant of `healthy` parameterized for on-chain
+    // viability under the SEV-031 seed-draw guard. The canonical `healthy`
+    // has installment = credit/N = 1_000 → pool_float = credit, which is
+    // unsatisfiable for `pool_float × 0.74 ≥ credit` (create_pool reverts
+    // PoolNotViable). The on-chain variant uses an independent installment:
+    //   { level: "Iniciante" (Lv1 / 50% stake — Step-4d compatible,
+    //              fresh wallets resolve to LEVEL_MIN=1 on-chain),
+    //     members: 12, creditAmountUsdc: 12_000, installmentUsdc: 1_352,
+    //     kaminoApy: 6.5, yieldFeePct: 20 }
+    // Viability check: 12 × 1_352 × 0.74 = 12_005.76 ≥ 12_000 ✓.
+    // Per-member net on both sides: C − N·I = 12_000 − 12·1_352 = −4_224.
+    // The 4_224 excess is `overCollection` on L1 and drains to the
+    // protocol treasury at close_pool on-chain (same dollars, two views).
     const N = 12;
-    const installmentUsdc = 1_000n * 1_000_000n; // 1000 USDC base units
+    const installmentUsdc = 1_352n * 1_000_000n; // 1352 USDC base units (SEV-031 viable)
     const creditAmountUsdc = 12_000n * 1_000_000n; // 12_000 USDC
 
     const usdcMint = await createUsdcMint(env);
     // Protocol authority defaults to env.payer in the harness; we only
     // need a separate Keypair as the pool authority so multiple pools
     // can coexist within the same protocol config.
-    await initializeProtocol(env, { usdcMint });
+    const proto = await initializeProtocol(env, { usdcMint });
+    treasuryUsdc = proto.treasury;
+    treasuryUsdcBefore = await harness.balanceOf(env, treasuryUsdc);
+
+    // contribute / claim_payout CPI into roundfi-reputation to write
+    // attestations — that path needs the ReputationConfig singleton
+    // initialized (else config = AccountNotInitialized, 3012). The
+    // canary previously reverted at create_pool (PoolNotViable) before
+    // reaching contribute, so this was latent until the healthyOnChain
+    // preset made the pool viable.
+    await initializeReputation(env, { coreProgram: env.ids.core });
     const authority = harness.keypairFromSeed("healthy-parity-authority");
     await ensureFunded(env, [authority], 5);
 
-    // Cycle duration generous enough that all txs in a cycle (12
-    // contributes + 1 claim + bankrun overhead) land before the deadline
-    // even on slow CI.
+    // MIN_CYCLE_DURATION is 86_400 (1 day, SEV-023). The test never waits
+    // between cycles — every contribute/claim lands immediately within the
+    // (now day-long) on-time window — so a long duration is a no-op for the
+    // flow but required for create_pool to accept the pool.
     pool = await createPool(env, {
       authority,
       usdcMint,
@@ -1255,7 +1282,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
       installmentAmount: installmentUsdc,
       creditAmount: creditAmountUsdc,
       cyclesTotal: N,
-      cycleDurationSec: 3_600,
+      cycleDurationSec: 86_400,
     });
 
     // Pre-fund each wallet with the full economic position:
@@ -1264,8 +1291,8 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     // comparison: starting balance includes the stake, so the final
     // delta represents `(received - stakePaid - installmentsPaid)`,
     // which is exactly what L1 reports.
-    const stakeAmountLv2 = (creditAmountUsdc * 3_000n) / 10_000n; // Lv2 = 30%
-    const totalUsdcPerMember = BigInt(N) * installmentUsdc + stakeAmountLv2;
+    const stakeAmountLv1 = (creditAmountUsdc * 5_000n) / 10_000n; // Lv1 = 50%
+    const totalUsdcPerMember = BigInt(N) * installmentUsdc + stakeAmountLv1;
 
     const wallets = memberKeypairs(N, "healthy-parity");
     const memberAtas: PublicKey[] = [];
@@ -1282,7 +1309,12 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     members = await joinMembers(
       env,
       pool,
-      wallets.map((w) => ({ member: w, reputationLevel: 2 as const })),
+      // Step-4d: fresh wallets resolve to LEVEL_MIN=1 on the trusted-level
+      // derivation. Promoting to L2 would require ~95 admin attests with
+      // a 60s cooldown per subject (covered by the bankrun lane). The
+      // healthyOnChain preset uses Iniciante (Lv1, 50% stake) so the join
+      // path is naturally compatible without a separate promote setup.
+      wallets.map((w) => ({ member: w, reputationLevel: 1 as const })),
     );
 
     const { driveMatrix } = harness;
@@ -1290,7 +1322,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
       env,
       pool,
       members,
-      matrix: PRESETS.healthy.matrix,
+      matrix: PRESETS.healthyOnChain.matrix,
     });
 
     // After all cycles, every non-defaulted member can release escrow.
@@ -1310,14 +1342,41 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
 
     onChainDeltasByMember = memberUsdcBefore.map((before, i) => memberUsdcAfter[i]! - before);
 
+    // #435: capture treasury after close_pool drained the 3 pool vaults.
+    // The overcollection sits here now: N·(I − C/N) per member.
+    treasuryUsdcAfter = await harness.balanceOf(env, treasuryUsdc);
+
     // ─── (4) Run L1 simulator on the same preset ─────────────────────
     const { runSimulation } = await import("@roundfi/sdk/stressLab");
-    const frames = runSimulation(PRESETS.healthy.config, PRESETS.healthy.matrix);
+    const frames = runSimulation(PRESETS.healthyOnChain.config, PRESETS.healthyOnChain.matrix);
     const finalFrame = frames[frames.length - 1]!;
-    // L1 ledger uses USDC units (whole USDC). Convert to base units
-    // (×1e6) for direct comparison with on-chain deltas.
+
+    // Reconciliation (#435): the L1 simulator pays the credit out in
+    // monthly escrow DRIPS and the stake back in a post-drip REFUND
+    // window. For slots contemplated late in the pool those schedules
+    // run past cycle N and L1 leaves the remainder in `outstandingEscrow`
+    // / `outstandingStakeRefund` (modeled as protocol liabilities that a
+    // real pool settles at wind-down). On-chain, `claim_payout` transfers
+    // the FULL credit at contemplation and `release_escrow(checkpoint=N)`
+    // drains the FULL stake at close (SEV-034) — so every ok member's
+    // final wallet reflects the fully-settled position, not the truncated
+    // mid-process ledger.
+    //
+    // So compare against L1's settled state. For an ok (non-defaulting)
+    // member the lifetime credit received equals `credit` (escrow drips
+    // sum to credit − upfront; upfront + escrow = credit) and the stake
+    // is fully refunded, giving:
+    //   net = credit + stake − stakePaid − installmentsPaid
+    //       = credit − installmentsPaid           (stakePaid == stake)
+    // Healthy has no defaults, so this holds for all 12 slots and equals
+    // C − N·I = -4_224 USDC each.
+    const creditL1 = PRESETS.healthyOnChain.config.creditAmountUsdc;
+    const stakeL1 = (creditL1 * 5_000) / 10_000; // Iniciante = 50%
     l1NetByMember = finalFrame.ledgerSnapshot.map((row) => {
-      const net = row.received - row.stakePaid - row.installmentsPaid;
+      // Settled received: full credit + full stake refund for ok members;
+      // defaulters (none in Healthy) keep the L1 mid-process `received`.
+      const settledReceived = row.status === "ok" ? creditL1 + stakeL1 : row.received;
+      const net = settledReceived - row.stakePaid - row.installmentsPaid;
       return BigInt(Math.round(net * 1_000_000));
     });
   });
@@ -1344,22 +1403,44 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const escrowFinal = await harness.balanceOf(env, pool.escrowVault);
     const solidarityFinal = await harness.balanceOf(env, pool.solidarityVault);
     const poolVaultFinal = await harness.balanceOf(env, pool.poolUsdcVault);
+    const treasuryDelta = treasuryUsdcAfter - treasuryUsdcBefore;
 
-    // Healthy has no yield harvest in this canary, no defaults, and
-    // close_pool drains residuals to the closing authority. The
-    // identity we assert is the weaker direction: every member's
-    // signed USDC delta plus the residual vault balances should equal
-    // zero ± ε relative to a pristine accounting (members started
-    // with stake amounts pre-funded; ended with refund + payouts).
-    const totalAccounted = sumMemberWalletDeltas + escrowFinal + solidarityFinal + poolVaultFinal;
-    // L1 conservation total: same shape but computed off `frames`. We
-    // don't recompute it here — the per-member assertion above already
-    // implies pool-level conservation up to rounding. This test exists
-    // to fail loud if any vault is unexpectedly drained.
-    expect(escrowFinal >= 0n).to.equal(true);
-    expect(solidarityFinal >= 0n).to.equal(true);
-    expect(poolVaultFinal >= 0n).to.equal(true);
-    expect(totalAccounted >= 0n).to.equal(true);
+    // No yield, no defaults. close_pool drains pool/escrow/solidarity
+    // residuals to config.treasury, so the conservation identity is:
+    //
+    //   Σ member wallet deltas (negative — they overpaid)
+    //   + escrowFinal + solidarityFinal + poolVaultFinal (zero post-drain)
+    //   + treasury delta (positive — captured the overcollection)
+    //   = 0
+    //
+    // With healthyOnChain (#435) the canary is non-zero-sum by design
+    // (installmentUsdc=1352 > credit/N=1000), so members each net
+    // -overCollectionPerMember = -(N·(I − C/N)) = -(12·352) = -4224 USDC,
+    // and the protocol treasury captures N × that = -Σ member deltas.
+    const totalAccounted =
+      sumMemberWalletDeltas + escrowFinal + solidarityFinal + poolVaultFinal + treasuryDelta;
+    expect(totalAccounted, "USDC conservation (members + vaults + treasury) must close").to.equal(
+      0n,
+    );
+
+    // Independent check: the overCollection ends up in protocol-controlled
+    // sinks (vault residuals + treasury), independent of whether the
+    // optional close_pool_vaults ceremony has drained them yet. The
+    // canary calls only close_pool here (transitions status to Closed); the
+    // separate close_pool_vaults ix drains pool_vault/escrow/solidarity to
+    // config.treasury and closes the ATAs — exercised by the litesvm
+    // parity lane. Either way, the SUM of those four sinks captures the
+    // L1 overCollection exactly.
+    //   L1 overCollection (#435) = N · N · (I − C/N)
+    const N_l = 12n;
+    const Cper = 12_000n * 1_000_000n;
+    const I = 1_352n * 1_000_000n;
+    const expectedOverCollection = N_l * N_l * (I - Cper / N_l);
+    const protocolSinks = escrowFinal + solidarityFinal + poolVaultFinal + treasuryDelta;
+    expect(
+      protocolSinks,
+      "protocol-controlled sinks (vaults + treasury) capture the L1 overCollection exactly",
+    ).to.equal(expectedOverCollection);
   });
 });
 

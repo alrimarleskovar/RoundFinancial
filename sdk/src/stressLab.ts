@@ -793,7 +793,9 @@ export type PresetId =
   | "terminalDefault"
   // ── Yield-extreme variations ──
   | "zeroYieldTripleDefault"
-  | "highYieldTripleDefault";
+  | "highYieldTripleDefault"
+  // ── L2 canary parity variant (#435) ──
+  | "healthyOnChain";
 
 export interface ScenarioPreset {
   id: PresetId;
@@ -1027,6 +1029,42 @@ export const PRESETS: Record<PresetId, ScenarioPreset> = {
       { row: 3, cycle: 5 },
     ]),
   },
+
+  // ── L2 canary parity variant (#435) ──────────────────────────────
+  //
+  // Variant of `healthy` parameterized for on-chain viability under
+  // the SEV-031 seed-draw guard (`pool_float × 0.74 ≥ credit_amount`).
+  // The zero-sum `healthy` preset has `installment = credit/N`, so
+  // `pool_float = credit` and the guard `0.74·credit ≥ credit` is
+  // unsatisfiable — `create_pool` reverts `PoolNotViable` (canonical
+  // ROSCA shape, used in L1-only sweeps).
+  //
+  // This variant uses the ECO-002 independent-installment field with
+  // `installmentUsdc = 1352` (smallest integer that clears the guard
+  // for N=12, credit=12000: `12 × 1352 × 0.74 = 12005.76 ≥ 12000`),
+  // making every member net-negative by exactly `N·(I − C/N) = 4224`
+  // USDC. That overflow is the `overCollection` metric on L1 and is
+  // drained to the protocol treasury at `close_pool` on-chain — they
+  // are the same dollars from two viewpoints. Per-member net is
+  // identical (= C − N·I = -4224) on both sides, ε=0 parity.
+  //
+  // Iniciante (50% stake) is used instead of Comprovado so the join
+  // path is Step-4d-compatible without a separate profile-promotion
+  // setup (fresh wallets resolve to LEVEL_MIN=1 on-chain). Same
+  // members/credit/yield as the canonical `healthy` so the L1 ledger
+  // shape stays comparable for sanity diffs.
+  healthyOnChain: {
+    id: "healthyOnChain",
+    config: {
+      level: "Iniciante",
+      members: 12,
+      creditAmountUsdc: 12000,
+      installmentUsdc: 1352, // SEV-031 viable: 12·1352·0.74 = 12005.76 ≥ 12000
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
+    matrix: defaultMatrix(12),
+  },
 };
 
 export const PRESET_ORDER: PresetId[] = [
@@ -1046,4 +1084,10 @@ export const PRESET_ORDER: PresetId[] = [
   "terminalDefault",
   "zeroYieldTripleDefault",
   "highYieldTripleDefault",
+  // NOTE: `healthyOnChain` is intentionally NOT included here. It uses
+  // an independent `installmentUsdc` (overCollection > 0), so it would
+  // break the L1-only iterators in `tests/economic_parity.spec.ts` that
+  // assert zero-sum properties across PRESET_ORDER (e.g. ECO-002:
+  // `overCollection == 0 on every frame`). It is reachable directly via
+  // `PRESETS.healthyOnChain` from the L2 canary parity test only.
 ];
