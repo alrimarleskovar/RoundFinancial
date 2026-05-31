@@ -1,7 +1,13 @@
 /**
- * Reputation — revoke + promote_level boundaries (Step 5d / 3).
+ * Reputation — revoke boundaries (Step 5d / 3, localnet half).
  *
- * Covers two lifecycle-adjacent surfaces on the reputation program:
+ * The `promote_level` half moved to
+ * `tests/reputation_lifecycle_bankrun.spec.ts` (drives ~100 admin
+ * attests rate-limited by MIN_ADMIN_ATTEST_COOLDOWN_SECS=60 →
+ * structurally unrunnable on plain localnet without ~100min of sleeps;
+ * bankrun's clock-warp resolves it deterministically).
+ *
+ * What remains here (cooldown-free, localnet-friendly):
  *
  *   revoke:
  *     • Score delta is reversed SYMMETRICALLY (exact restore).
@@ -12,30 +18,6 @@
  *     • Only the original issuer may revoke — random signer =
  *       InvalidIssuer, attestation unchanged.
  *     • Double-revoke = AttestationRevoked.
- *
- *   promote_level:
- *     • No-op at low score (stays at current level, returns Ok).
- *     • Monotonic up: accumulating enough score advances the level
- *       exactly to the qualifying tier — never to a higher tier you
- *       haven't earned.
- *     • Idempotent at the current level (poll-friendly).
- *     • Never demotes: if score drops below the current tier (e.g.
- *       after a Default), promote_level reverts with
- *       LevelThresholdNotMet. The profile.level stays where it was.
- *
- * Level boundaries in play:
- *     LEVEL_2_THRESHOLD = 500
- *     LEVEL_3_THRESHOLD = 2000
- *     LEVEL_2_MIN_CYCLES = 1   (SEV-047 gate)
- * Unverified Payment delta = 5, CycleComplete delta = 25. SEV-047
- * made Level 2 require BOTH score >= 500 AND cycles_completed >= 1
- * (score-only promotion was the reputation-farming vector). So we
- * drive 1 CycleComplete + 94 Payments (the prior test already left 1
- * Payment) to land EXACTLY on score 500 with cycles_completed = 1 —
- * exercising the threshold AND the cycle gate end-to-end. We do NOT
- * drive the Level-3 boundary — `resolve_level` is exhaustively
- * unit-tested in the Rust module (including the cycles gate), and the
- * on-chain path for "level 2 → level 3" is mechanically identical.
  *
  * Determinism:
  *   Seeded per-test wallets, fixed admin nonces, no sleeps, no
@@ -124,8 +106,8 @@ const LEVEL_2 = 2;
 
 // ─── Tests ────────────────────────────────────────────────────────────
 
-describe("reputation — revoke + promote_level", function () {
-  this.timeout(600_000); // 10min — the promote_level block does 100 serial attests
+describe("reputation — revoke", function () {
+  this.timeout(120_000);
 
   let env: Env;
 
@@ -332,173 +314,12 @@ describe("reputation — revoke + promote_level", function () {
   // ═══════════════════════════════════════════════════════════════════
   //                           PROMOTE_LEVEL
   // ═══════════════════════════════════════════════════════════════════
-
-  describe("promote_level", function () {
-    // All tests in this block share one profile that we shepherd
-    // across the level-2 boundary.
-    const subject = keypairFromSeed("replife/promote/shared");
-    let subjectPubkey: PublicKey;
-    let profilePda: PublicKey;
-
-    before(async function () {
-      subjectPubkey = subject.publicKey;
-      profilePda = reputationProfileFor(env, subjectPubkey);
-      await initProfile(env, subjectPubkey);
-    });
-
-    it("low score: promote_level is a no-op (stays at level 1)", async function () {
-      // Seed a single Payment so last_updated_at is set, but score
-      // stays well below LEVEL_2_THRESHOLD.
-      await adminAttest(env, {
-        subject: subjectPubkey,
-        schemaId: SCHEMA.Payment,
-        nonce: 0x0200_0000n,
-      });
-
-      const before = await snapshotProfile(env, subjectPubkey);
-      expect(before.score).to.equal(DELTA_PAYMENT_UNVERIFIED);
-      expect(before.level).to.equal(LEVEL_MIN);
-
-      await promoteLevel(env, { subject: subjectPubkey });
-
-      const after = await snapshotProfile(env, subjectPubkey);
-      expect(after.level).to.equal(LEVEL_MIN);
-      expect(after.score).to.equal(before.score);
-      // No-op path in the handler returns Ok without stamping last_updated_at
-      // (see promote_level.rs). So last-touched stays from the attest above.
-
-      // Sanity: profile PDA bytes exist (we've read it), so nothing exotic.
-      const info = await env.connection.getAccountInfo(profilePda, "confirmed");
-      expect(info).to.not.be.null;
-    });
-
-    it("accumulate score to threshold 500 (+1 cycle) and promote → level 2", async function () {
-      // We already have 1 Payment from the previous test (score=5,
-      // cycles_completed=0).
-      //
-      // SEV-047: Level 2 now requires BOTH score >= LEVEL_2_THRESHOLD AND
-      // cycles_completed >= LEVEL_2_MIN_CYCLES (=1). Score alone no longer
-      // promotes. So we drive ONE CycleComplete (the subject's first, so the
-      // 6-day cooldown is trivially satisfied: last_cycle_complete_at = 0)
-      // plus enough Payments to land EXACTLY on 500:
-      //   prior 1 Payment (5) + CycleComplete (25) + N Payments (5·N) = 500
-      //   ⇒ N = 94.
-      const PAYMENTS = 94;
-
-      await adminAttest(env, {
-        subject: subjectPubkey,
-        schemaId: SCHEMA.CycleComplete,
-        // Distinct from the 0x0200_0000 (prior test) and 0x0200_0100+ below.
-        nonce: 0x0200_00ffn,
-      });
-
-      for (let i = 0; i < PAYMENTS; i++) {
-        await adminAttest(env, {
-          subject: subjectPubkey,
-          schemaId: SCHEMA.Payment,
-          // Nonces must not collide with the 0x0200_0000 we used above.
-          nonce: BigInt(0x0200_0100 + i),
-        });
-      }
-
-      const beforePromote = await snapshotProfile(env, subjectPubkey);
-      expect(beforePromote.score).to.equal(LEVEL_2_THRESHOLD);
-      expect(beforePromote.onTimePayments).to.equal(PAYMENTS + 1);
-      // SEV-047: the cycle gate must be satisfied for promotion to succeed.
-      expect(beforePromote.cyclesCompleted).to.be.at.least(1);
-      expect(beforePromote.level).to.equal(LEVEL_MIN);
-
-      await promoteLevel(env, { subject: subjectPubkey });
-
-      const afterPromote = await snapshotProfile(env, subjectPubkey);
-      expect(afterPromote.level).to.equal(LEVEL_2);
-      // Score is unchanged by promotion (level is a derived field).
-      expect(afterPromote.score).to.equal(beforePromote.score);
-
-      // Critical: promotion stopped exactly at level 2, did NOT skip
-      // to level 3 even though the resolve_level formula would return
-      // the right answer (which is 2 at score=500 < 2000).
-      expect(afterPromote.level).to.equal(LEVEL_2);
-    });
-
-    it("re-promote at level 2 with same score is a no-op", async function () {
-      const before = await snapshotProfile(env, subjectPubkey);
-      expect(before.level).to.equal(LEVEL_2);
-
-      await promoteLevel(env, { subject: subjectPubkey });
-
-      const after = await snapshotProfile(env, subjectPubkey);
-      expect(after.level).to.equal(LEVEL_2);
-      expect(after.score).to.equal(before.score);
-      expect(after.onTimePayments).to.equal(before.onTimePayments);
-    });
-
-    it("score drops below tier: promote_level reverts, never demotes", async function () {
-      // One Default attestation zeros the score (500 - 500 = 0).
-      // SCHEMA_DEFAULT delta is NOT halved for unverified (only positive
-      // deltas are halved), so the full -500 lands.
-      await adminAttest(env, {
-        subject: subjectPubkey,
-        schemaId: SCHEMA.Default,
-        nonce: 0x0300_0000n,
-      });
-
-      const afterDefault = await snapshotProfile(env, subjectPubkey);
-      // Score reduced by the full 500 (negative deltas NOT halved).
-      expect(afterDefault.score).to.equal(0n);
-      expect(afterDefault.defaults).to.equal(1);
-      // Level stays where it was — default doesn't touch level.
-      expect(afterDefault.level).to.equal(LEVEL_2);
-
-      const msg = await expectRejected(() => promoteLevel(env, { subject: subjectPubkey }));
-      expect(msg, `message: ${msg}`).to.match(/LevelThresholdNotMet|threshold/i);
-
-      // Level is untouched by the failed promotion attempt.
-      const afterPromote = await snapshotProfile(env, subjectPubkey);
-      expect(afterPromote.level).to.equal(LEVEL_2);
-      expect(afterPromote.score).to.equal(0n);
-
-      // Sanity check SCORE_DEFAULT_ABS matches what we deducted.
-      expect(SCORE_DEFAULT_ABS).to.equal(500n);
-    });
-
-    it("SEV-047 identity gate: floor=2 caps an unverified L2-qualifier at L1", async function () {
-      // Fresh subject, independent of the shared-state tests above.
-      const gated = keypairFromSeed("replife/gate/sev047");
-      await initProfile(env, gated.publicKey);
-
-      // Drive to an L2-qualifying state WITHOUT identity:
-      //   1 CycleComplete (+25) + 95 Payments (+475) = score 500, cycles 1.
-      await adminAttest(env, {
-        subject: gated.publicKey,
-        schemaId: SCHEMA.CycleComplete,
-        nonce: 0x0470_0000n,
-      });
-      for (let i = 0; i < 95; i++) {
-        await adminAttest(env, {
-          subject: gated.publicKey,
-          schemaId: SCHEMA.Payment,
-          nonce: BigInt(0x0470_0100 + i),
-        });
-      }
-      const pre = await snapshotProfile(env, gated.publicKey);
-      expect(pre.score).to.equal(LEVEL_2_THRESHOLD);
-      expect(pre.cyclesCompleted).to.be.at.least(1);
-      expect(pre.level).to.equal(LEVEL_MIN);
-
-      // Enable the gate: L2+ now requires a verified identity.
-      await setIdentityGate(env, { requiredMinLevel: 2 });
-
-      // Promote WITHOUT an identity record → resolved=2 but capped to L1.
-      await promoteLevel(env, { subject: gated.publicKey });
-      const gatedSnap = await snapshotProfile(env, gated.publicKey);
-      expect(gatedSnap.level, "unverified subject must stay L1 under the gate").to.equal(LEVEL_MIN);
-
-      // Positive control: disable the gate → the same subject promotes to L2.
-      await setIdentityGate(env, { requiredMinLevel: 0 });
-      await promoteLevel(env, { subject: gated.publicKey });
-      const ungated = await snapshotProfile(env, gated.publicKey);
-      expect(ungated.level, "with gate off, L2 score+cycles promotes").to.equal(LEVEL_2);
-    });
-  });
+  //
+  // The promote_level block was moved to
+  // `tests/reputation_lifecycle_bankrun.spec.ts` because it drives ~100
+  // admin attests against the same subject, each rate-limited by
+  // MIN_ADMIN_ATTEST_COOLDOWN_SECS = 60 (SEV-027/SEV-030). Localnet has
+  // no way to satisfy that without wall-clock sleeps of ~100 minutes per
+  // test; bankrun's clock-warp resolves it deterministically in
+  // milliseconds. Same pattern as `reputation_gate_bankrun.spec.ts`.
 });
