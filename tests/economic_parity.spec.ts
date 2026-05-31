@@ -1228,6 +1228,7 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const {
       createUsdcMint,
       initializeProtocol,
+      initializeReputation,
       createPool,
       joinMembers,
       memberKeypairs,
@@ -1259,6 +1260,14 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const proto = await initializeProtocol(env, { usdcMint });
     treasuryUsdc = proto.treasury;
     treasuryUsdcBefore = await harness.balanceOf(env, treasuryUsdc);
+
+    // contribute / claim_payout CPI into roundfi-reputation to write
+    // attestations — that path needs the ReputationConfig singleton
+    // initialized (else config = AccountNotInitialized, 3012). The
+    // canary previously reverted at create_pool (PoolNotViable) before
+    // reaching contribute, so this was latent until the healthyOnChain
+    // preset made the pool viable.
+    await initializeReputation(env, { coreProgram: env.ids.core });
     const authority = harness.keypairFromSeed("healthy-parity-authority");
     await ensureFunded(env, [authority], 5);
 
