@@ -21,17 +21,17 @@
  * config change). For each tx signature, fetch from ALL M providers in
  * parallel and ask:
  *
- *   - did ≥ ceil(M/2) providers return a non-null tx whose
+ *   - did ≥ `quorumThreshold(M)` providers return a non-null tx whose
  *     (slot, blockTime, logsHash) tuple matches? → consensus tx, ingest.
- *   - did ≥ ceil(M/2) providers return null (tx not yet on-chain)?
- *     → consensus "not landed yet", skip until next run.
+ *   - did ≥ `quorumThreshold(M)` providers return null (tx not yet on-
+ *     chain)? → consensus "not landed yet", skip until next run.
  *   - anything else? → divergence: log + skip without ingesting. The
  *     next backfill run re-tries with a fresh fetch.
  *
  * Backward compat: with M=1 (the default if only `SOLANA_RPC_URL` is
- * set) the threshold is 1, so a single-RPC deployment behaves exactly
- * as before — same fetch path, same retry, same ingest. The quorum
- * activates only when the operator opts in by providing ≥ 2 URLs.
+ * set) `quorumThreshold(1) = 1`, so a single-RPC deployment behaves
+ * exactly as before — same fetch path, same retry, same ingest. The
+ * quorum activates only when the operator opts in by providing ≥ 2 URLs.
  *
  * This module is PURE about the *decision* layer (`decideTxQuorum`)
  * so the `js` CI lane can unit-test it without a Solana RPC. The
@@ -73,12 +73,44 @@ export type QuorumVerdict =
   | { kind: "divergence"; reason: string };
 
 /**
+ * Strict-majority quorum threshold: ⌊N/2⌋ + 1.
+ *
+ * Single source of truth for every site that decides on a quorum of
+ * RPC responses (decideTxQuorum here, checkFinalizedQuorum in
+ * reconciler.ts, and the start-up telemetry in backfill-events.ts).
+ *
+ * Why strict majority instead of ⌈N/2⌉
+ * ------------------------------------
+ * `ceil(N/2)` equals 1 for N=2 — the most common cheap multi-RPC
+ * setup. With threshold=1 a single lying / divergent / null-returning
+ * provider single-handedly fixes the verdict:
+ *   - `[tx-A, tx-B]` (fingerprints diverge) → both buckets have
+ *     count=1 ≥ 1, `best` wins by Map insertion order. One divergent
+ *     RPC INJECTS its fingerprint without any real agreement.
+ *   - `[tx, null]` → `nulls (1) >= threshold (1)` fires first
+ *     (decideTxQuorum) or `missing (1) >= threshold (1)` fires
+ *     (reconciler), CENSORING a real tx (or, in the reconciler,
+ *     deleting a real event from the canonical table).
+ *
+ * `floor(N/2)+1` gives strict majority for any N, so 1 dishonest
+ * provider out of 2 (or 2 out of 4) cannot single-handedly decide a
+ * verdict. For odd N it is identical to `ceil(N/2)` (no change). For
+ * N=1 it is 1 (back-compat preserved). Edge case N=0 returns 0; the
+ * callers all early-return on empty input.
+ */
+export function quorumThreshold(n: number): number {
+  if (n <= 0) return 0;
+  return Math.floor(n / 2) + 1;
+}
+
+/**
  * Decide whether a set of per-provider results reaches consensus.
  *
- * Threshold = `ceil(N / 2)` where N is `results.length`. Matches the
- * convention used by `reconciler.ts::checkFinalizedQuorum`. With N=1
- * the threshold is 1, so a single provider's outcome IS the verdict —
- * the back-compat path.
+ * Threshold is `quorumThreshold(results.length)` — strict majority.
+ * Matches the convention used by `reconciler.ts::checkFinalizedQuorum`
+ * and the telemetry in `backfill-events.ts`. With N=1 the threshold is
+ * 1, so a single provider's outcome IS the verdict — the back-compat
+ * path.
  *
  * Errors do NOT count toward any consensus (they are "no signal", not
  * "vote for null"). A run where every provider errors returns
@@ -89,7 +121,7 @@ export function decideTxQuorum(results: readonly ProviderResult[]): QuorumVerdic
   if (results.length === 0) {
     return { kind: "divergence", reason: "no_providers" };
   }
-  const threshold = Math.ceil(results.length / 2);
+  const threshold = quorumThreshold(results.length);
   const errors = results.filter((r) => r.kind === "error").length;
   if (errors === results.length) {
     return { kind: "divergence", reason: "all_errors" };

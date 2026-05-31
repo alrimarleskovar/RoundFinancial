@@ -57,6 +57,7 @@ import type { PrismaClient } from "@prisma/client";
 import { Connection, PublicKey, type Commitment } from "@solana/web3.js";
 
 import { createLogger, type Logger } from "./log.js";
+import { quorumThreshold } from "./rpcQuorum.js";
 
 // ─── Configuration ──────────────────────────────────────────────────────
 
@@ -159,8 +160,12 @@ async function checkFinalizedQuorum(
   const confirmed = settled.filter((s) => s === "confirmed").length;
   const missing = settled.filter((s) => s === "error" || s === "missing").length;
 
-  // Quorum logic: ≥ ceil(N/2) finalized → trust as finalized.
-  const threshold = Math.ceil(connections.length / 2);
+  // Quorum logic: strict majority (⌊N/2⌋ + 1) — single source of truth in
+  // rpcQuorum.ts. Especially important here: the `missing` branch triggers
+  // DELETE of the event from the canonical table, so a `ceil` threshold
+  // would let 1 lying RPC out of 2 censor real events. See quorumThreshold
+  // docstring for the attack-vector derivation.
+  const threshold = quorumThreshold(connections.length);
 
   if (finalized >= threshold) return "finalized";
   if (confirmed >= threshold) return "not_finalized";
