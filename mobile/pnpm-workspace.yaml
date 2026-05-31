@@ -1,0 +1,15 @@
+# Empty workspace marker — makes pnpm treat mobile/ as its OWN workspace
+# root instead of inheriting the monorepo root's pnpm-workspace.yaml.
+#
+# Without this, `pnpm install` run from inside mobile/ walks up the
+# directory tree, finds ../pnpm-workspace.yaml, and installs into the
+# root's isolated virtual store (../node_modules/.pnpm/) — ignoring this
+# project's `node-linker=hoisted` (.npmrc) and giving RN a symlinked
+# node_modules that Metro can't resolve (fast-base64-decode, @babel/
+# runtime go missing).
+#
+# With this file present, mobile/ is self-contained: install produces a
+# flat mobile/node_modules (per .npmrc) and never touches the main
+# workspace. `packages:` is intentionally empty — mobile has no
+# sub-packages of its own.
+packages: []
