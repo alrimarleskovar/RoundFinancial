@@ -1351,21 +1351,32 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const frames = runSimulation(PRESETS.healthyOnChain.config, PRESETS.healthyOnChain.matrix);
     const finalFrame = frames[frames.length - 1]!;
 
-    // Reconciliation note (#435): the L1 simulator only credits stake refund
-    // when there are cycles AFTER the escrow drips end (refundMonths =
-    // N − monthContemplated − releaseMonths). For slots contemplated late
-    // in the pool, refundMonths ≤ 0 and L1 leaves the stake in
-    // `outstandingStakeRefund` (a protocol liability). On-chain
-    // `release_escrow(checkpoint=N)` drains the full stake at the close
-    // regardless of schedule (SEV-034), so the member's wallet balance
-    // reflects a stake-completed final state. To reconcile L1's mid-process
-    // ledger with the on-chain final state, add each member's outstanding
-    // refund (= stake − stakeRefunded) back into `received`. After this
-    // adjustment, per-member L1 net == on-chain delta exactly.
-    const stakeL1 = (PRESETS.healthyOnChain.config.creditAmountUsdc * 5_000) / 10_000;
+    // Reconciliation (#435): the L1 simulator pays the credit out in
+    // monthly escrow DRIPS and the stake back in a post-drip REFUND
+    // window. For slots contemplated late in the pool those schedules
+    // run past cycle N and L1 leaves the remainder in `outstandingEscrow`
+    // / `outstandingStakeRefund` (modeled as protocol liabilities that a
+    // real pool settles at wind-down). On-chain, `claim_payout` transfers
+    // the FULL credit at contemplation and `release_escrow(checkpoint=N)`
+    // drains the FULL stake at close (SEV-034) — so every ok member's
+    // final wallet reflects the fully-settled position, not the truncated
+    // mid-process ledger.
+    //
+    // So compare against L1's settled state. For an ok (non-defaulting)
+    // member the lifetime credit received equals `credit` (escrow drips
+    // sum to credit − upfront; upfront + escrow = credit) and the stake
+    // is fully refunded, giving:
+    //   net = credit + stake − stakePaid − installmentsPaid
+    //       = credit − installmentsPaid           (stakePaid == stake)
+    // Healthy has no defaults, so this holds for all 12 slots and equals
+    // C − N·I = -4_224 USDC each.
+    const creditL1 = PRESETS.healthyOnChain.config.creditAmountUsdc;
+    const stakeL1 = (creditL1 * 5_000) / 10_000; // Iniciante = 50%
     l1NetByMember = finalFrame.ledgerSnapshot.map((row) => {
-      const outstandingRefund = row.status === "ok" ? stakeL1 - row.stakeRefunded : 0;
-      const net = row.received + outstandingRefund - row.stakePaid - row.installmentsPaid;
+      // Settled received: full credit + full stake refund for ok members;
+      // defaulters (none in Healthy) keep the L1 mid-process `received`.
+      const settledReceived = row.status === "ok" ? creditL1 + stakeL1 : row.received;
+      const net = settledReceived - row.stakePaid - row.installmentsPaid;
       return BigInt(Math.round(net * 1_000_000));
     });
   });
