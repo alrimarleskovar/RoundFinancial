@@ -166,6 +166,9 @@ importers:
       expo:
         specifier: ~56.0.8
         version: 56.0.8(@babel/core@7.29.0)(@expo/dom-webview@56.0.5)(bufferutil@4.1.0)(react-dom@19.2.6(react@19.2.3))(react-native@0.85.3(@babel/core@7.29.0)(@types/react@19.2.15)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)(typescript@6.0.3)(utf-8-validate@6.0.6)
+      expo-modules-core:
+        specifier: ~56.0.14
+        version: 56.0.14(react-native@0.85.3(@babel/core@7.29.0)(@types/react@19.2.15)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)
       expo-status-bar:
         specifier: ~56.0.4
         version: 56.0.4(expo@56.0.8)(react-native@0.85.3(@babel/core@7.29.0)(@types/react@19.2.15)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)
@@ -182,7 +185,7 @@ importers:
         specifier: ~5.7.0
         version: 5.7.0(react-native@0.85.3(@babel/core@7.29.0)(@types/react@19.2.15)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)
       react-native-screens:
-        specifier: '*'
+        specifier: ~4.25.2
         version: 4.25.2(react-native@0.85.3(@babel/core@7.29.0)(@types/react@19.2.15)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)
     devDependencies:
       '@types/node':
