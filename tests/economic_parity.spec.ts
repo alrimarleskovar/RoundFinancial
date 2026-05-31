@@ -1423,16 +1423,24 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
       0n,
     );
 
-    // Independent check: treasury delta equals the L1 overCollection.
-    // L1 overCollection (#435) = totalInstallments · (installment − credit/N)
-    //   = N·N·(I − C/N) USDC → ×1e6 base units.
+    // Independent check: the overCollection ends up in protocol-controlled
+    // sinks (vault residuals + treasury), independent of whether the
+    // optional close_pool_vaults ceremony has drained them yet. The
+    // canary calls only close_pool here (transitions status to Closed); the
+    // separate close_pool_vaults ix drains pool_vault/escrow/solidarity to
+    // config.treasury and closes the ATAs — exercised by the litesvm
+    // parity lane. Either way, the SUM of those four sinks captures the
+    // L1 overCollection exactly.
+    //   L1 overCollection (#435) = N · N · (I − C/N)
     const N_l = 12n;
     const Cper = 12_000n * 1_000_000n;
     const I = 1_352n * 1_000_000n;
     const expectedOverCollection = N_l * N_l * (I - Cper / N_l);
-    expect(treasuryDelta, "treasury captured exactly the L1 overCollection").to.equal(
-      expectedOverCollection,
-    );
+    const protocolSinks = escrowFinal + solidarityFinal + poolVaultFinal + treasuryDelta;
+    expect(
+      protocolSinks,
+      "protocol-controlled sinks (vaults + treasury) capture the L1 overCollection exactly",
+    ).to.equal(expectedOverCollection);
   });
 });
 
