@@ -1350,10 +1350,22 @@ describe("L1 ↔ L2 parity — Healthy preset (canary)", function () {
     const { runSimulation } = await import("@roundfi/sdk/stressLab");
     const frames = runSimulation(PRESETS.healthyOnChain.config, PRESETS.healthyOnChain.matrix);
     const finalFrame = frames[frames.length - 1]!;
-    // L1 ledger uses USDC units (whole USDC). Convert to base units
-    // (×1e6) for direct comparison with on-chain deltas.
+
+    // Reconciliation note (#435): the L1 simulator only credits stake refund
+    // when there are cycles AFTER the escrow drips end (refundMonths =
+    // N − monthContemplated − releaseMonths). For slots contemplated late
+    // in the pool, refundMonths ≤ 0 and L1 leaves the stake in
+    // `outstandingStakeRefund` (a protocol liability). On-chain
+    // `release_escrow(checkpoint=N)` drains the full stake at the close
+    // regardless of schedule (SEV-034), so the member's wallet balance
+    // reflects a stake-completed final state. To reconcile L1's mid-process
+    // ledger with the on-chain final state, add each member's outstanding
+    // refund (= stake − stakeRefunded) back into `received`. After this
+    // adjustment, per-member L1 net == on-chain delta exactly.
+    const stakeL1 = (PRESETS.healthyOnChain.config.creditAmountUsdc * 5_000) / 10_000;
     l1NetByMember = finalFrame.ledgerSnapshot.map((row) => {
-      const net = row.received - row.stakePaid - row.installmentsPaid;
+      const outstandingRefund = row.status === "ok" ? stakeL1 - row.stakeRefunded : 0;
+      const net = row.received + outstandingRefund - row.stakePaid - row.installmentsPaid;
       return BigInt(Math.round(net * 1_000_000));
     });
   });
