@@ -5,7 +5,7 @@
  *
  *   initializeProtocol
  *     → createPool (4 members, 4 cycles, 60s duration)
- *     → joinPool × 4 (Level-2 members, 30% stake)
+ *     → joinPool × 4 (Level-1 members, 50% stake — see LEVEL note below)
  *         pool auto-activates when the 4th member joins
  *     → For each cycle c ∈ [0, 3]:
  *         contribute × 4
@@ -38,10 +38,10 @@
  *
  * Uses deterministic keypairs from `memberKeypairs()` so addresses are
  * stable across runs — makes debugging failed assertions much easier.
- * `cycle_duration = 60` is the MIN_CYCLE_DURATION; the test never
- * waits between cycles because contribute/claim both succeed
- * immediately within the grace window and claim_payout is what
- * advances `pool.current_cycle`.
+ * `cycle_duration = 86_400` is the MIN_CYCLE_DURATION (1 day, SEV-023);
+ * the test never waits between cycles because contribute/claim both
+ * succeed immediately within the (now day-long) on-time window and
+ * claim_payout is what advances `pool.current_cycle`.
  */
 
 import { expect } from "chai";
@@ -85,16 +85,25 @@ import {
 
 const MEMBERS_TARGET = 4;
 const CYCLES_TOTAL = 4;
-const CYCLE_DURATION_SEC = 60; // MIN_CYCLE_DURATION
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (1 day, SEV-023)
 const INSTALLMENT_USDC = 1_250n; // whole USDC
 const CREDIT_USDC = 3_500n;
 
-const LEVEL: 1 | 2 | 3 = 2; // 30% stake → 1_050 USDC per member
-const LEVEL_STAKE_BPS = 3_000;
+// join_pool now asserts args.reputation_level against the on-chain
+// ReputationProfile PDA (Step 4d hardening). Promoting a fresh wallet
+// to Level 2 requires score >= 500 + cycles_completed >= 1, with a
+// per-subject admin-attest cooldown — not feasible in a localnet run.
+// The L2-specific path (promote_level) is exercised by
+// reputation_lifecycle.spec.ts; this happy-path now joins at Level 1
+// (50% stake) so it runs end-to-end on plain localnet. All downstream
+// balance assertions derive from STAKE_BASE, so they re-scale
+// automatically.
+const LEVEL: 1 | 2 | 3 = 1; // 50% stake → 1_750 USDC per member
+const LEVEL_STAKE_BPS = 5_000;
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC); // 1_250_000_000
 const CREDIT_BASE = usdc(CREDIT_USDC); // 3_500_000_000
-const STAKE_BASE = (CREDIT_BASE * BigInt(LEVEL_STAKE_BPS)) / 10_000n; // 1_050_000_000
+const STAKE_BASE = (CREDIT_BASE * BigInt(LEVEL_STAKE_BPS)) / 10_000n; // 1_750_000_000
 
 // Installment split with solidarity_bps=100, escrow_release_bps=2500:
 const SOLIDARITY_PER_INST = (INSTALLMENT_BASE * 100n) / 10_000n; //    12_500_000
@@ -446,7 +455,11 @@ describe("lifecycle — full happy path", function () {
   it("closes the pool", async function () {
     await closePool(env, { pool });
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(2); // Completed (terminal)
+    // SEV-005 fix: close_pool flips the pool to a distinct terminal
+    // `Closed = 4` variant (not back to Completed = 2) so the entry
+    // constraint (status == Completed) bars any replay that would
+    // deflate `committed_protocol_tvl_usdc`.
+    expect(p.status).to.equal(4); // Closed (terminal)
   });
 
   it("global conservation: every USDC base unit is accounted for", async function () {
