@@ -13,18 +13,18 @@
     "test": "echo 'TODO: jest-expo wiring for Expo 56 + RN 0.85 (see AGENTS.md)' && exit 0"
   },
   "dependencies": {
-    "@craftzdog/react-native-buffer": "^6.0.5",
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@react-navigation/native": "^7.0.0",
     "@react-navigation/native-stack": "^7.0.0",
     "@roundfi/sdk": "workspace:*",
     "@solana/web3.js": "^1.95.3",
+    "buffer": "^6.0.3",
     "expo": "~56.0.8",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-get-random-values": "~1.11.0",
-    "react-native-safe-area-context": "*",
+    "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "*"
   },
   "devDependencies": {
