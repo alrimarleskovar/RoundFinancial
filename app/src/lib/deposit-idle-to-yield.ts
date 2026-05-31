@@ -48,6 +48,17 @@ export interface BuildDepositIdleToYieldIxArgs {
   programIds?: { core: PublicKey };
   /** Optional USDC mint override — pairs with `programIds` for tests. */
   usdcMint?: PublicKey;
+  /** Adapter-specific accounts forwarded to the adapter's deposit CPI via
+   *  the instruction's `remaining_accounts`, appended after the 8 explicit
+   *  accounts. The roundfi core handler passes everything past the 8th
+   *  account straight through to the adapter in order, so this list must
+   *  match what the adapter's `Deposit` accounts struct expects:
+   *    - mock adapter (`roundfi-yield-mock`): `[state]` (the
+   *      YieldVaultState PDA, seeds=[b"state", pool]).
+   *    - Kamino adapter: the full reserve / obligation / liquidity-mint
+   *      list its deposit CPI consumes.
+   *  Defaults to empty — callers targeting a real adapter MUST supply it. */
+  remainingAccounts?: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[];
 }
 
 /**
@@ -57,12 +68,15 @@ export interface BuildDepositIdleToYieldIxArgs {
  * `programs/roundfi-core/src/instructions/deposit_idle_to_yield.rs`
  * (7 explicit accounts + remaining_accounts the adapter consumes).
  *
- * **Note on remaining_accounts:** Kamino-side deposit CPI consumes a
- * variable list of reserve / obligation / liquidity-mint accounts that
- * the adapter program forwards via `remaining_accounts`. This encoder
- * exposes only the 7 explicit accounts; the modal layer must extend
- * `keys[]` with adapter-specific accounts before signing. For the mock
- * adapter (`roundfi-yield-mock`), remaining_accounts is empty.
+ * **Note on remaining_accounts:** the adapter's deposit CPI consumes a
+ * variable list of accounts that the core handler forwards verbatim via
+ * `remaining_accounts` (everything past the 8 explicit accounts). The
+ * mock adapter needs exactly one — its `YieldVaultState` PDA; Kamino
+ * needs the full reserve / obligation / liquidity-mint list. Pass them
+ * via `args.remainingAccounts` (preferred) so a single call site builds
+ * a complete instruction. They are appended after the 8 explicit
+ * accounts; omitting them yields the bare 8-account form (only valid for
+ * an adapter whose Deposit struct has no extra accounts).
  */
 export function buildDepositIdleToYieldIx(
   args: BuildDepositIdleToYieldIxArgs,
@@ -79,36 +93,37 @@ export function buildDepositIdleToYieldIx(
   amountBuf.writeBigUInt64LE(amountBig, 0);
   const data = Buffer.concat([DEPOSIT_IDLE_DISCRIMINATOR, amountBuf]);
 
-  return new TransactionInstruction({
-    programId: core,
-    data,
-    keys: [
-      { pubkey: args.caller, isSigner: true, isWritable: false },
-      { pubkey: config, isSigner: false, isWritable: false },
-      { pubkey: args.pool, isSigner: false, isWritable: true },
-      { pubkey: usdcMint, isSigner: false, isWritable: false },
-      { pubkey: poolUsdcVault, isSigner: false, isWritable: true },
-      { pubkey: args.yieldVault, isSigner: false, isWritable: true },
-      { pubkey: args.yieldAdapterProgram, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    ],
-  });
+  const keys = [
+    { pubkey: args.caller, isSigner: true, isWritable: false },
+    { pubkey: config, isSigner: false, isWritable: false },
+    { pubkey: args.pool, isSigner: false, isWritable: true },
+    { pubkey: usdcMint, isSigner: false, isWritable: false },
+    { pubkey: poolUsdcVault, isSigner: false, isWritable: true },
+    { pubkey: args.yieldVault, isSigner: false, isWritable: true },
+    { pubkey: args.yieldAdapterProgram, isSigner: false, isWritable: false },
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+  ];
+
+  // Adapter-specific accounts the core handler forwards to the adapter's
+  // deposit CPI via remaining_accounts (e.g. the mock's YieldVaultState
+  // PDA, or Kamino's reserve/obligation set). Appended after the 8
+  // explicit accounts; empty by default.
+  if (args.remainingAccounts && args.remainingAccounts.length > 0) {
+    keys.push(...args.remainingAccounts);
+  }
+
+  return new TransactionInstruction({ programId: core, data, keys });
 }
 
 export interface SendDepositIdleToYieldArgs extends BuildDepositIdleToYieldIxArgs {
   connection: Connection;
   sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>;
-  /** Adapter-specific remaining_accounts (empty for mock adapter, full
-   *  reserve/obligation list for real Kamino). Appended to keys[] after
-   *  the 8 explicit accounts. */
-  remainingAccounts?: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[];
 }
 
 export async function sendDepositIdleToYield(args: SendDepositIdleToYieldArgs): Promise<string> {
+  // `buildDepositIdleToYieldIx` already appends `args.remainingAccounts`
+  // (the field is inherited from BuildDepositIdleToYieldIxArgs).
   const ix = buildDepositIdleToYieldIx(args);
-  if (args.remainingAccounts && args.remainingAccounts.length > 0) {
-    ix.keys.push(...args.remainingAccounts);
-  }
   const tx = new Transaction().add(ix);
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
