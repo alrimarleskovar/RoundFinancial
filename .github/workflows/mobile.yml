@@ -1,0 +1,54 @@
+name: mobile
+
+# Fase 0 lane — typecheck + lint only, advisory while the scaffold
+# stabilizes. No EAS Build, no emulator, no native compile. Once the
+# screen surface grows (Fase 1) we add jest-expo + component snapshots.
+#
+# Runs only when files inside `mobile/` (or shared inputs it depends on)
+# change, so unrelated PRs don't trigger an install.
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "sdk/**"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/mobile.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - "sdk/**"
+
+jobs:
+  mobile-checks:
+    name: mobile · typecheck + lint (advisory)
+    runs-on: ubuntu-latest
+    # Advisory: the job's outcome doesn't block merges yet. Flip to a
+    # required check once the Fase 1 component layer lands and the
+    # CI lane has caught a real regression.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install (workspace)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @roundfi/mobile typecheck
+
+      - name: Lint
+        run: pnpm --filter @roundfi/mobile lint
+
+      - name: Test
+        run: pnpm --filter @roundfi/mobile test
