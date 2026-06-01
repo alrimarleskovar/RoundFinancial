@@ -13,7 +13,13 @@
 
 import { Connection, PublicKey } from "@solana/web3.js";
 
-import { decodePoolRaw, type RawPoolView } from "@roundfi/sdk/onchain-raw";
+import {
+  decodePoolRaw,
+  fetchPoolMembers as sdkFetchPoolMembers,
+  fetchPoolRaw,
+  type RawMemberView,
+  type RawPoolView,
+} from "@roundfi/sdk/onchain-raw";
 
 // Canonical devnet RoundFi core program id (mirrors HomeScreen +
 // app/src/lib/devnet.ts:14). Hard-coded so mobile never imports from
@@ -64,6 +70,26 @@ export async function listPools(): Promise<RawPoolView[]> {
   });
 }
 
+/**
+ * Fetch a single Pool by its address. Returns null when the account
+ * doesn't exist (deep-link to a closed/wrong address renders an empty
+ * state instead of throwing).
+ */
+export async function fetchPool(address: PublicKey | string): Promise<RawPoolView | null> {
+  const pk = typeof address === "string" ? new PublicKey(address) : address;
+  return fetchPoolRaw(getConnection(), pk);
+}
+
+/**
+ * Fetch every Member account belonging to `poolAddress`, sorted by
+ * slot index (deterministic roster order). Read-only — same
+ * getProgramAccounts path the web roster card uses.
+ */
+export async function fetchMembers(poolAddress: PublicKey | string): Promise<RawMemberView[]> {
+  const pk = typeof poolAddress === "string" ? new PublicKey(poolAddress) : poolAddress;
+  return sdkFetchPoolMembers(getConnection(), DEVNET_CORE_PROGRAM_ID, pk);
+}
+
 // ─── Formatting helpers ──────────────────────────────────────────────
 
 const USDC_DECIMALS = 6n;
@@ -79,4 +105,36 @@ export function formatUsdc(baseUnits: bigint): string {
 /** Title-case the raw status enum for display. */
 export function statusLabel(status: RawPoolView["status"]): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+/** bps → percent string. 500 → "5%", 1250 → "12.5%". */
+export function formatBps(bps: number): string {
+  const pct = bps / 100;
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(2)}%`;
+}
+
+/** seconds (bigint) → compact "2d" / "48h" / "30m" / "90s". */
+export function formatDuration(secs: bigint): string {
+  const s = Number(secs);
+  if (s === 0) return "—";
+  if (s % 86400 === 0) return `${s / 86400}d`;
+  if (s % 3600 === 0) return `${s / 3600}h`;
+  if (s % 60 === 0) return `${s / 60}m`;
+  return `${s}s`;
+}
+
+/**
+ * epoch seconds (bigint) → "2026-05-30 14:22 UTC", or "—" when unset.
+ * UTC (not device TZ) so a protocol-state view reads the same on any
+ * phone — the chain timestamps are UTC.
+ */
+export function formatTimestamp(epochSecs: bigint): string {
+  if (epochSecs === 0n) return "—";
+  const iso = new Date(Number(epochSecs) * 1000).toISOString();
+  return `${iso.slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/** reputation level → "L1".."L3" (or "L?(n)" for an unexpected value). */
+export function reputationLabel(level: number): string {
+  return level >= 1 && level <= 3 ? `L${level}` : `L?(${level})`;
 }

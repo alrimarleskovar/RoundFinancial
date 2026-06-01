@@ -6,6 +6,8 @@
 // (RPC → Buffer polyfill → raw decoder → palette-aware list) works
 // on-device, building on Home's PDA-derivation proof.
 
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,9 +21,12 @@ import {
 
 import type { RawPoolView } from "@roundfi/sdk/onchain-raw";
 
+import type { PoolsStackParamList } from "../navigation/PoolsStack";
 import { formatUsdc, listPools, statusLabel } from "../lib/chain";
 import { useTheme } from "../theme/ThemeProvider";
 import type { ThemeTokens } from "../theme/tokens";
+
+type PoolsNav = NativeStackNavigationProp<PoolsStackParamList, "PoolsList">;
 
 type LoadState =
   | { phase: "loading" }
@@ -47,6 +52,7 @@ function statusColor(tokens: ThemeTokens, status: RawPoolView["status"]): string
 
 export function PoolsScreen() {
   const { tokens } = useTheme();
+  const navigation = useNavigation<PoolsNav>();
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -128,18 +134,42 @@ export function PoolsScreen() {
               </Text>
             </View>
           }
-          renderItem={({ item }) => <PoolRow pool={item} tokens={tokens} />}
+          renderItem={({ item }) => (
+            <PoolRow
+              pool={item}
+              tokens={tokens}
+              onPress={() =>
+                navigation.navigate("PoolDetail", { address: item.address.toBase58() })
+              }
+            />
+          )}
         />
       )}
     </View>
   );
 }
 
-function PoolRow({ pool, tokens }: { pool: RawPoolView; tokens: ThemeTokens }) {
+function PoolRow({
+  pool,
+  tokens,
+  onPress,
+}: {
+  pool: RawPoolView;
+  tokens: ThemeTokens;
+  onPress: () => void;
+}) {
   const addr = pool.address.toBase58();
   const short = `${addr.slice(0, 4)}…${addr.slice(-4)}`;
   return (
-    <View style={[styles.row, { backgroundColor: tokens.surface1, borderColor: tokens.border }]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        { backgroundColor: tokens.surface1, borderColor: tokens.border },
+        pressed && { borderColor: tokens.borderStr, opacity: 0.85 },
+      ]}
+    >
       <View style={styles.rowHead}>
         <Text style={[styles.mono, { color: tokens.text }]}>{short}</Text>
         <View style={styles.statusWrap}>
@@ -154,7 +184,7 @@ function PoolRow({ pool, tokens }: { pool: RawPoolView; tokens: ThemeTokens }) {
         <Metric tokens={tokens} k="Members" v={`${pool.membersJoined}/${pool.membersTarget}`} />
         <Metric tokens={tokens} k="Cycle" v={`${pool.currentCycle}/${pool.cyclesTotal}`} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 

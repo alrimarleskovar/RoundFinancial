@@ -1,7 +1,7 @@
-// Bottom-tabs navigator — Fase 1 surface. Four tabs (Home, Pools,
-// Wallet, Profile) using React Navigation v7. No native-stack inside
-// any tab yet; that comes in Fase 2 when Pool detail / Member detail
-// screens land.
+// Bottom-tabs navigator — Fase 1 surface, extended in Fase 2. Four tabs
+// (Home, Pools, Wallet, Profile) using React Navigation v7. The Pools
+// tab now hosts a native-stack (list → detail), so its tab-level header
+// is hidden and the stack renders its own headers.
 //
 // Tab bar colors are driven from the active palette so the toggle on
 // Home flips the whole UI (including the tab bar) in one tick.
@@ -10,7 +10,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/
 
 import { useTheme } from "../theme/ThemeProvider";
 import { HomeScreen } from "../screens/HomeScreen";
-import { PoolsScreen } from "../screens/PoolsScreen";
+import { PoolsStack } from "./PoolsStack";
 import { WalletScreen } from "../screens/WalletScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 
@@ -52,7 +52,7 @@ export function RootNavigator() {
         }}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Pools" component={PoolsScreen} />
+        <Tab.Screen name="Pools" component={PoolsStack} options={{ headerShown: false }} />
         <Tab.Screen name="Wallet" component={WalletScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
