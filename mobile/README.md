@@ -1,9 +1,19 @@
 # @roundfi/mobile
 
-Fase 0 scaffold of the RoundFi mobile app — Expo SDK 56 + React Native 0.85 +
-React 19. Lives inside the pnpm monorepo and consumes `@roundfi/sdk`
-through a workspace dependency, so a single `pnpm install` at the repo
-root wires everything up.
+RoundFi mobile app — **Expo SDK 54** + React Native 0.81 + React 19.1.
+Standalone npm project (NOT a pnpm workspace member — see "Run it
+locally"), consuming `@roundfi/sdk` via `file:../sdk`.
+
+**Status: Fase 1 — validated on a physical iPhone via Expo Go.** The
+Home screen derives the on-chain `ProtocolConfig` PDA through
+`@roundfi/sdk` (proving the Buffer polyfill + web3.js work on-device),
+the 4-tab bottom navigation renders, and the palette toggle flips the
+whole UI.
+
+> SDK 54 is deliberate: the public App Store / Play Store build of Expo
+> Go is pinned to SDK 54 (May 2026). SDK 55/56 are TestFlight-only and
+> stock Expo Go refuses them. Do not bump without re-checking — see
+> `AGENTS.md`.
 
 ## What's here (Fase 0 + Fase 1)
 
