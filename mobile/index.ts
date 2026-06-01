@@ -1,16 +1,24 @@
-// Polyfills MUST be the very first import — it installs Buffer +
-// crypto.getRandomValues on the global before any module that imports
-// @solana/web3.js / @roundfi/sdk is evaluated. Keeping it in its own
-// module (rather than inline here) is what guarantees the ordering:
-// ES import hoisting would otherwise run App's import chain before an
-// inline `global.Buffer = …` statement. See src/polyfills.ts.
-import "./src/polyfills";
+// ─── RN entry point — ALL CommonJS require(), NO ES imports ────────────
+// Every `import` in a module is hoisted above all top-level statements,
+// so we cannot mix `import App` with a runtime Buffer assignment and
+// expect the assignment to run first. Using require() throughout keeps
+// strict source order: the Buffer + crypto polyfills are installed on
+// globalThis BEFORE App's import chain (→ @roundfi/sdk → @solana/web3.js)
+// is evaluated. web3.js reads globalThis.Buffer at module-eval time, so
+// this ordering is what prevents "Property 'Buffer' doesn't exist".
+//
+// (This file is the one place in the app where we deliberately avoid ES
+// imports — everything else uses normal `import`.)
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+require("react-native-get-random-values");
+const { Buffer } = require("buffer");
+if (typeof (globalThis as any).Buffer === "undefined") {
+  (globalThis as any).Buffer = Buffer;
+}
 
-import { registerRootComponent } from "expo";
+const { registerRootComponent } = require("expo");
+const App = require("./App").default;
+/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
 
-import App from "./App";
-
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately.
+// registerRootComponent calls AppRegistry.registerComponent('main', () => App).
 registerRootComponent(App);
