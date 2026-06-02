@@ -17,14 +17,31 @@ import {
   decodePoolRaw,
   fetchPoolMembers as sdkFetchPoolMembers,
   fetchPoolRaw,
+  fetchReputationProfileRaw,
   type RawMemberView,
   type RawPoolView,
+  type RawReputationProfile,
 } from "@roundfi/sdk/onchain-raw";
 
 // Canonical devnet RoundFi core program id (mirrors HomeScreen +
 // app/src/lib/devnet.ts:14). Hard-coded so mobile never imports from
 // app/ — the two apps stay decoupled.
 export const DEVNET_CORE_PROGRAM_ID = new PublicKey("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
+
+/** Reputation program (devnet) — mirrors app/src/lib/devnet.ts:15. */
+export const DEVNET_REPUTATION_PROGRAM_ID = new PublicKey(
+  "Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2",
+);
+
+/** Devnet USDC mint used by the RoundFi devnet deployment — mirrors
+ *  app/src/lib/devnet.ts:22. Not real circle-USDC; a 6-decimal test mint. */
+export const DEVNET_USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+
+/** SPL Token program (token v1). Same constant the SDK + app use. */
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+/** Associated Token Account program. */
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 
 // Public devnet RPC. Fine for low-frequency read-only mobile use; a
 // real deployment would point at a paid endpoint via app config.
@@ -90,6 +107,72 @@ export async function fetchMembers(poolAddress: PublicKey | string): Promise<Raw
   return sdkFetchPoolMembers(getConnection(), DEVNET_CORE_PROGRAM_ID, pk);
 }
 
+/**
+ * Parse a base58 string into a PublicKey, returning null on any
+ * malformed input. UI screens use this to validate user-pasted
+ * wallet addresses without throwing.
+ */
+export function parseAddress(input: string): PublicKey | null {
+  try {
+    return new PublicKey(input.trim());
+  } catch {
+    return null;
+  }
+}
+
+/** SOL balance in **lamports** (1 SOL = 1e9 lamports). */
+export async function fetchSolBalance(wallet: PublicKey | string): Promise<bigint> {
+  const pk = typeof wallet === "string" ? new PublicKey(wallet) : wallet;
+  const lamports = await getConnection().getBalance(pk, "confirmed");
+  return BigInt(lamports);
+}
+
+/**
+ * USDC balance on the wallet's Associated Token Account (devnet mint).
+ * Returns 0n when the ATA doesn't exist yet (treated as zero balance,
+ * not an error — matches the web app's behavior).
+ */
+export async function fetchUsdcBalance(wallet: PublicKey | string): Promise<bigint> {
+  const pk = typeof wallet === "string" ? new PublicKey(wallet) : wallet;
+  const ata = deriveAta(pk, DEVNET_USDC_MINT);
+  try {
+    const info = await getConnection().getTokenAccountBalance(ata, "confirmed");
+    return BigInt(info.value.amount);
+  } catch {
+    // ATA doesn't exist — Solana RPC throws on getTokenAccountBalance
+    // for a missing account. Treat as zero (the canonical web-app
+    // semantics for "wallet hasn't been funded yet").
+    return 0n;
+  }
+}
+
+/**
+ * Fetch a wallet's on-chain reputation profile. Returns null when the
+ * profile account hasn't been initialized yet — callers should render
+ * a "fresh wallet" default (level 1, score 0), not an error.
+ */
+export async function fetchReputation(
+  wallet: PublicKey | string,
+): Promise<RawReputationProfile | null> {
+  const pk = typeof wallet === "string" ? new PublicKey(wallet) : wallet;
+  return fetchReputationProfileRaw(getConnection(), DEVNET_REPUTATION_PROGRAM_ID, pk);
+}
+
+/**
+ * Derive the Associated Token Account for (owner, mint). Inlined here
+ * so mobile doesn't need to pull in `@solana/spl-token` (which carries
+ * a sizable RN-incompatible transitive surface). The seed shape is the
+ * canonical ATA derivation: [owner, tokenProgram, mint] PDA'd against
+ * the ATA program. Matches `getAssociatedTokenAddressSync(mint, owner)`.
+ */
+function deriveAta(owner: PublicKey, mint: PublicKey): PublicKey {
+  const [ata] = PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  );
+  return ata;
+}
+
 // ─── Formatting helpers ──────────────────────────────────────────────
 
 const USDC_DECIMALS = 6n;
@@ -100,6 +183,16 @@ export function formatUsdc(baseUnits: bigint): string {
   const whole = baseUnits / USDC_UNIT;
   const cents = ((baseUnits % USDC_UNIT) * 100n) / USDC_UNIT;
   return `${whole}.${cents.toString().padStart(2, "0")}`;
+}
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+
+/** lamports → "1.2345" (4 decimal places). Wallets typically see SOL
+ *  amounts < 10 — 4 places balances readability with usefulness. */
+export function formatSol(lamports: bigint): string {
+  const whole = lamports / LAMPORTS_PER_SOL;
+  const frac = ((lamports % LAMPORTS_PER_SOL) * 10_000n) / LAMPORTS_PER_SOL;
+  return `${whole}.${frac.toString().padStart(4, "0")}`;
 }
 
 /** Title-case the raw status enum for display. */
