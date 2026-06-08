@@ -5,16 +5,35 @@
 //
 // Tab bar colors are driven from the active palette so the toggle on
 // Home flips the whole UI (including the tab bar) in one tick.
+//
+// Icons via @expo/vector-icons (Ionicons set). The previous version
+// rendered the React Navigation v7 default-icon glyph (a small
+// downward triangle ▼) because no tabBarIcon was supplied. Outline
+// for inactive, filled for active — matches the platform convention.
+import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 
-import { useTheme } from "../theme/ThemeProvider";
 import { HomeScreen } from "../screens/HomeScreen";
-import { PoolsStack } from "./PoolsStack";
-import { WalletScreen } from "../screens/WalletScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
+import { WalletScreen } from "../screens/WalletScreen";
+import { useTheme } from "../theme/ThemeProvider";
+
+import { PoolsStack } from "./PoolsStack";
 
 const Tab = createBottomTabNavigator();
+
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+// Per-tab icon pair: [outline, filled]. Outline for inactive, filled
+// for the focused tab. Names are validated by the Ionicons type so a
+// typo blows up at typecheck rather than at runtime as a "?" glyph.
+const TAB_ICONS: Record<string, [IoniconName, IoniconName]> = {
+  Home: ["home-outline", "home"],
+  Pools: ["layers-outline", "layers"],
+  Wallet: ["wallet-outline", "wallet"],
+  Profile: ["person-outline", "person"],
+};
 
 export function RootNavigator() {
   const { tokens, isDark } = useTheme();
@@ -39,7 +58,7 @@ export function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Tab.Navigator
-        screenOptions={{
+        screenOptions={({ route }) => ({
           tabBarActiveTintColor: tokens.green,
           tabBarInactiveTintColor: tokens.muted,
           tabBarStyle: {
@@ -49,7 +68,14 @@ export function RootNavigator() {
           headerStyle: { backgroundColor: tokens.surface1 },
           headerTitleStyle: { color: tokens.text },
           headerTintColor: tokens.text,
-        }}
+          tabBarIcon: ({ focused, color, size }) => {
+            const pair = TAB_ICONS[route.name];
+            // Fallback to a generic dot for any tab we forgot to map —
+            // visually obvious if a new route is added without an icon.
+            const name: IoniconName = pair ? (focused ? pair[1] : pair[0]) : "ellipse-outline";
+            return <Ionicons name={name} size={size} color={color} />;
+          },
+        })}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="Pools" component={PoolsStack} options={{ headerShown: false }} />
