@@ -26,7 +26,7 @@ import type { RawReputationProfile } from "@roundfi/sdk/onchain-raw";
 import { fetchReputation, formatTimestamp, parseAddress, reputationLabel } from "../lib/chain";
 import { useWallet } from "../state/WalletContext";
 import { useTheme } from "../theme/ThemeProvider";
-import type { ThemeTokens } from "../theme/tokens";
+import { FONT, type ThemeTokens } from "../theme/tokens";
 
 type LoadState =
   | { phase: "idle" }
@@ -246,10 +246,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 24,
+    fontFamily: FONT.displayHeavy,
+    letterSpacing: -0.5,
   },
   card: {
     padding: 16,
@@ -261,6 +263,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   body: {
     fontSize: 14,
@@ -271,7 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: "Menlo",
+    fontFamily: FONT.mono,
     fontSize: 13,
   },
   actions: {
@@ -287,7 +290,7 @@ const styles = StyleSheet.create({
   },
   primaryLabel: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: FONT.displayHeavy,
   },
   ghost: {
     alignItems: "center",
@@ -298,7 +301,7 @@ const styles = StyleSheet.create({
   },
   ghostLabel: {
     fontSize: 14,
-    fontWeight: "500",
+    fontFamily: FONT.mono,
   },
   center: {
     alignItems: "center",
@@ -308,6 +311,7 @@ const styles = StyleSheet.create({
   },
   dim: {
     fontSize: 13,
+    fontFamily: FONT.mono,
   },
   stack: {
     gap: 16,
@@ -324,21 +328,22 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   bigAmount: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.5,
+    fontSize: 40,
+    fontFamily: FONT.display,
+    letterSpacing: -1,
   },
   score: {
     fontSize: 14,
+    fontFamily: FONT.mono,
   },
   mono: {
-    fontFamily: "Menlo",
+    fontFamily: FONT.monoBold,
     fontSize: 13,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.4,
+    fontSize: 14,
+    fontFamily: FONT.displayHeavy,
+    letterSpacing: -0.2,
     marginBottom: 8,
   },
   kvGrid: {
@@ -354,9 +359,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.8,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   kvVal: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: FONT.displayHeavy,
   },
 });

@@ -13,6 +13,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { PoolDetailScreen } from "../screens/PoolDetailScreen";
 import { PoolsScreen } from "../screens/PoolsScreen";
 import { useTheme } from "../theme/ThemeProvider";
+import { FONT } from "../theme/tokens";
 
 export type PoolsStackParamList = {
   PoolsList: undefined;
@@ -27,7 +28,11 @@ export function PoolsStack() {
     <Stack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: tokens.surface1 },
-        headerTitleStyle: { color: tokens.text },
+        headerTitleStyle: {
+          color: tokens.text,
+          fontFamily: FONT.displayHeavy,
+          fontSize: 18,
+        },
         headerTintColor: tokens.text,
         contentStyle: { backgroundColor: tokens.bg },
       }}

@@ -19,6 +19,17 @@
 
 export type Palette = "neon" | "soft";
 
+// Typography tokens — bundled Syne + JetBrains Mono via
+// @expo-google-fonts. Loaded in App.tsx before <RootNavigator />
+// renders; until the hook resolves, names won't match and RN falls
+// back to system font (briefly, behind expo-splash-screen).
+export const FONT = {
+  display: "Syne_800ExtraBold", // big headlines (hero numbers, KPI values)
+  displayHeavy: "Syne_700Bold", // titles, screen names
+  mono: "JetBrainsMono_500Medium", // mono labels, addresses
+  monoBold: "JetBrainsMono_700Bold", // emphasized mono
+} as const;
+
 export interface ThemeTokens {
   // surfaces
   bg: string;

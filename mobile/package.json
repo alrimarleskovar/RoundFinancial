@@ -20,6 +20,8 @@
     "@roundfi/sdk": "file:../sdk",
     "@solana/web3.js": "^1.95.3",
     "@expo/vector-icons": "^15.0.3",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.0",
+    "@expo-google-fonts/syne": "^0.4.0",
     "buffer": "^6.0.3",
     "expo": "54.0.35",
     "expo-asset": "~12.0.13",

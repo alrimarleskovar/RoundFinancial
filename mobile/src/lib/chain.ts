@@ -98,6 +98,67 @@ export async function fetchPool(address: PublicKey | string): Promise<RawPoolVie
 }
 
 /**
+ * Protocol-wide aggregate computed client-side from `listPools()`.
+ * Devnet has <20 pools so a sum-loop is cheap; switch to a server
+ * aggregate if/when the count climbs into the hundreds.
+ */
+export interface ProtocolSnapshot {
+  pools: RawPoolView[];
+  totalPools: number;
+  /** Count by lifecycle status. */
+  forming: number;
+  active: number;
+  completed: number;
+  liquidated: number;
+  closed: number;
+  /** Sum of `membersJoined` across all pools (NOT unique wallets). */
+  totalMembers: number;
+  /** Sum of `defaultedMembers` across all pools. */
+  totalDefaults: number;
+  /** `defaultedMembers / membersJoined` — null when no members yet. */
+  defaultRate: number | null;
+  totalContributed: bigint;
+  totalPaidOut: bigint;
+  totalYield: bigint;
+  totalSolidarity: bigint;
+  totalEscrow: bigint;
+}
+
+export function aggregateProtocol(pools: RawPoolView[]): ProtocolSnapshot {
+  const counts = { forming: 0, active: 0, completed: 0, liquidated: 0, closed: 0 };
+  let totalMembers = 0;
+  let totalDefaults = 0;
+  let totalContributed = 0n;
+  let totalPaidOut = 0n;
+  let totalYield = 0n;
+  let totalSolidarity = 0n;
+  let totalEscrow = 0n;
+  for (const p of pools) {
+    counts[p.status] = (counts[p.status] ?? 0) + 1;
+    totalMembers += p.membersJoined;
+    totalDefaults += p.defaultedMembers;
+    totalContributed += p.totalContributed;
+    totalPaidOut += p.totalPaidOut;
+    totalYield += p.yieldAccrued;
+    totalSolidarity += p.solidarityBalance;
+    totalEscrow += p.escrowBalance;
+  }
+  return {
+    pools,
+    totalPools: pools.length,
+    ...counts,
+    totalMembers,
+    totalDefaults,
+    defaultRate: totalMembers === 0 ? null : totalDefaults / totalMembers,
+    totalContributed,
+    totalPaidOut,
+    totalYield,
+    totalSolidarity,
+    totalEscrow,
+  };
+}
+
+/**
  * Fetch every Member account belonging to `poolAddress`, sorted by
  * slot index (deterministic roster order). Read-only — same
  * getProgramAccounts path the web roster card uses.
@@ -183,6 +244,17 @@ export function formatUsdc(baseUnits: bigint): string {
   const whole = baseUnits / USDC_UNIT;
   const cents = ((baseUnits % USDC_UNIT) * 100n) / USDC_UNIT;
   return `${whole}.${cents.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Compact USDC for KPI cards. "1.5K" / "4.2M" — no suffix for < 1K.
+ * Mirrors the desktop CountUp's compact mode (used in DeskKpi).
+ */
+export function formatUsdcCompact(baseUnits: bigint): string {
+  const whole = Number(baseUnits / USDC_UNIT);
+  if (whole >= 1_000_000) return `${(whole / 1_000_000).toFixed(1)}M`;
+  if (whole >= 1_000) return `${(whole / 1_000).toFixed(1)}K`;
+  return `${whole}`;
 }
 
 const LAMPORTS_PER_SOL = 1_000_000_000n;

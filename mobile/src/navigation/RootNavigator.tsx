@@ -18,6 +18,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { WalletScreen } from "../screens/WalletScreen";
 import { useTheme } from "../theme/ThemeProvider";
+import { FONT } from "../theme/tokens";
 
 import { PoolsStack } from "./PoolsStack";
 
@@ -66,8 +67,19 @@ export function RootNavigator() {
             borderTopColor: tokens.border,
           },
           headerStyle: { backgroundColor: tokens.surface1 },
-          headerTitleStyle: { color: tokens.text },
+          headerTitleStyle: {
+            color: tokens.text,
+            fontFamily: FONT.displayHeavy,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          },
           headerTintColor: tokens.text,
+          tabBarLabelStyle: {
+            fontFamily: FONT.mono,
+            fontSize: 10,
+            letterSpacing: 0.6,
+            textTransform: "uppercase",
+          },
           tabBarIcon: ({ focused, color, size }) => {
             const pair = TAB_ICONS[route.name];
             // Fallback to a generic dot for any tab we forgot to map —

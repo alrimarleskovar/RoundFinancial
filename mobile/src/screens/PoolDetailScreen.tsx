@@ -32,7 +32,7 @@ import {
   statusLabel,
 } from "../lib/chain";
 import { useTheme } from "../theme/ThemeProvider";
-import type { ThemeTokens } from "../theme/tokens";
+import { FONT, type ThemeTokens } from "../theme/tokens";
 
 type Props = NativeStackScreenProps<PoolsStackParamList, "PoolDetail">;
 
@@ -334,6 +334,7 @@ const styles = StyleSheet.create({
   },
   dim: {
     fontSize: 13,
+    fontFamily: FONT.mono,
   },
   scroll: {
     padding: 20,
@@ -350,6 +351,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   body: {
     fontSize: 14,
@@ -365,7 +367,7 @@ const styles = StyleSheet.create({
   },
   retryLabel: {
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: FONT.mono,
   },
   headRow: {
     flexDirection: "row",
@@ -373,7 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   mono: {
-    fontFamily: "Menlo",
+    fontFamily: FONT.monoBold,
     fontSize: 14,
   },
   statusWrap: {
@@ -387,7 +389,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   status: {
-    fontSize: 12,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   actionsRow: {
     flexDirection: "row",
@@ -402,12 +407,12 @@ const styles = StyleSheet.create({
   },
   pillLabel: {
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: FONT.mono,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.4,
+    fontSize: 14,
+    fontFamily: FONT.displayHeavy,
+    letterSpacing: -0.2,
     marginBottom: 8,
   },
   kvGrid: {
@@ -423,10 +428,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.8,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   kvVal: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: FONT.displayHeavy,
   },
   memberRow: {
     padding: 16,

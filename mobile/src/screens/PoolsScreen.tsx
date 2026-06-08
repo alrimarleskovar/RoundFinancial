@@ -25,7 +25,7 @@ import type { RawPoolView } from "@roundfi/sdk/onchain-raw";
 import type { PoolsStackParamList } from "../navigation/PoolsStack";
 import { formatUsdc, listPools, statusLabel } from "../lib/chain";
 import { useTheme } from "../theme/ThemeProvider";
-import type { ThemeTokens } from "../theme/tokens";
+import { FONT, type ThemeTokens } from "../theme/tokens";
 
 type PoolsNav = NativeStackNavigationProp<PoolsStackParamList, "PoolsList">;
 
@@ -256,10 +256,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 24,
+    fontFamily: FONT.displayHeavy,
+    letterSpacing: -0.5,
   },
   center: {
     flex: 1,
@@ -281,11 +283,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontFamily: "Menlo",
+    fontFamily: FONT.mono,
     fontSize: 13,
   },
   count: {
     fontSize: 12,
+    fontFamily: FONT.mono,
     fontVariant: ["tabular-nums"],
     minWidth: 36,
     textAlign: "right",
@@ -304,6 +307,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   body: {
     fontSize: 14,
@@ -333,7 +337,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   mono: {
-    fontFamily: "Menlo",
+    fontFamily: FONT.monoBold,
     fontSize: 14,
   },
   statusWrap: {
@@ -345,9 +349,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  status: {
-    fontSize: 12,
   },
   metrics: {
     flexDirection: "row",
@@ -362,9 +363,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.8,
     textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
   metricVal: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: FONT.displayHeavy,
+  },
+  status: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    fontFamily: FONT.mono,
   },
 });
