@@ -3,12 +3,15 @@
 // on its devnet-USDC ATA via getTokenAccountBalance. No signing, no
 // wallet-connect — that belongs to Fase 3.
 //
-// We deliberately keep the input free-form (no clipboard auto-paste,
-// no wallet picker yet) so the surface stays trivial: the user is in
-// control of what address gets looked up. A missing ATA returns 0n —
-// that's the canonical "wallet hasn't been funded yet" semantics from
-// the web app, not an error.
-import { useCallback, useState } from "react";
+// Shared wallet (Fase 2 polish): a successful lookup also writes the
+// address to WalletContext so Profile inherits it cross-tab and
+// AsyncStorage persists it across cold-opens. On mount we auto-fetch
+// when the context already carries an address — saves the user from
+// re-pasting their wallet each time they re-enter the app or the tab.
+//
+// A missing ATA returns 0n — the canonical "wallet hasn't been funded
+// yet" semantics from the web app, not an error.
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -27,6 +30,7 @@ import {
   formatUsdc,
   parseAddress,
 } from "../lib/chain";
+import { useWallet } from "../state/WalletContext";
 import { useTheme } from "../theme/ThemeProvider";
 import type { ThemeTokens } from "../theme/tokens";
 
@@ -38,8 +42,34 @@ type LoadState =
 
 export function WalletScreen() {
   const { tokens } = useTheme();
+  const { currentAddress, hydrated, setCurrentAddress, clear: clearWallet } = useWallet();
   const [input, setInput] = useState("");
   const [state, setState] = useState<LoadState>({ phase: "idle" });
+
+  // Internal lookup that doesn't depend on the `input` state (so the
+  // hydration effect can run before the user has typed anything).
+  const lookupAddress = useCallback(async (address: string) => {
+    setState({ phase: "loading", address });
+    try {
+      const [sol, usdc] = await Promise.all([fetchSolBalance(address), fetchUsdcBalance(address)]);
+      setState({ phase: "ready", address, sol, usdc });
+    } catch (err) {
+      setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+    }
+  }, []);
+
+  // Hydrate from shared wallet context: when the persisted/sibling-set
+  // address differs from what we're showing, prefill the input and
+  // auto-fetch. Guards against re-running for an address we're already
+  // displaying — switching tabs back and forth shouldn't trigger
+  // duplicate RPC calls.
+  useEffect(() => {
+    if (!hydrated || !currentAddress) return;
+    if (state.phase === "ready" && state.address === currentAddress) return;
+    if (state.phase === "loading" && state.address === currentAddress) return;
+    setInput(currentAddress);
+    void lookupAddress(currentAddress);
+  }, [hydrated, currentAddress, state, lookupAddress]);
 
   const onLookup = useCallback(async () => {
     const pk = parseAddress(input);
@@ -48,14 +78,12 @@ export function WalletScreen() {
       return;
     }
     const address = pk.toBase58();
-    setState({ phase: "loading", address });
-    try {
-      const [sol, usdc] = await Promise.all([fetchSolBalance(pk), fetchUsdcBalance(pk)]);
-      setState({ phase: "ready", address, sol, usdc });
-    } catch (err) {
-      setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
-    }
-  }, [input]);
+    await lookupAddress(address);
+    // Promote to shared state on a successful resolve. We do this even
+    // on RPC failure (state.phase === "error" happens above) because
+    // the address itself is valid — Profile may still want to read it.
+    setCurrentAddress(address);
+  }, [input, lookupAddress, setCurrentAddress]);
 
   return (
     <ScrollView
@@ -103,6 +131,10 @@ export function WalletScreen() {
               onPress={() => {
                 setInput("");
                 setState({ phase: "idle" });
+                // Also drop the shared/persisted wallet — Clear should
+                // mean "stop following this address everywhere", not
+                // just "blank this textbox".
+                clearWallet();
               }}
               style={[
                 styles.ghost,

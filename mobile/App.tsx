@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { WalletProvider } from "./src/state/WalletContext";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeProvider";
 
 function ThemedStatusBar() {
@@ -18,10 +19,12 @@ function ThemedStatusBar() {
 export default function App() {
   return (
     <ThemeProvider initial="soft">
-      <SafeAreaProvider>
-        <ThemedStatusBar />
-        <RootNavigator />
-      </SafeAreaProvider>
+      <WalletProvider>
+        <SafeAreaProvider>
+          <ThemedStatusBar />
+          <RootNavigator />
+        </SafeAreaProvider>
+      </WalletProvider>
     </ThemeProvider>
   );
 }

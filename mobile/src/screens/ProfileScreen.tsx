@@ -5,7 +5,12 @@
 // render that default so the user sees the same number the on-chain
 // path would resolve. No signing, no attestations posted from here —
 // that's admin-only and out of mobile's scope entirely.
-import { useCallback, useState } from "react";
+//
+// Shared wallet (Fase 2 polish): mirrors WalletScreen — the same
+// address typed/looked-up here is promoted to WalletContext (persisted
+// + cross-tab), and on mount we auto-fetch when the context already
+// carries an address.
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +24,7 @@ import {
 import type { RawReputationProfile } from "@roundfi/sdk/onchain-raw";
 
 import { fetchReputation, formatTimestamp, parseAddress, reputationLabel } from "../lib/chain";
+import { useWallet } from "../state/WalletContext";
 import { useTheme } from "../theme/ThemeProvider";
 import type { ThemeTokens } from "../theme/tokens";
 
@@ -30,8 +36,29 @@ type LoadState =
 
 export function ProfileScreen() {
   const { tokens } = useTheme();
+  const { currentAddress, hydrated, setCurrentAddress, clear: clearWallet } = useWallet();
   const [input, setInput] = useState("");
   const [state, setState] = useState<LoadState>({ phase: "idle" });
+
+  const lookupAddress = useCallback(async (wallet: string) => {
+    setState({ phase: "loading", wallet });
+    try {
+      const profile = await fetchReputation(wallet);
+      setState({ phase: "ready", wallet, profile });
+    } catch (err) {
+      setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+    }
+  }, []);
+
+  // Hydrate from shared wallet context — see WalletScreen for the
+  // same pattern + rationale.
+  useEffect(() => {
+    if (!hydrated || !currentAddress) return;
+    if (state.phase === "ready" && state.wallet === currentAddress) return;
+    if (state.phase === "loading" && state.wallet === currentAddress) return;
+    setInput(currentAddress);
+    void lookupAddress(currentAddress);
+  }, [hydrated, currentAddress, state, lookupAddress]);
 
   const onLookup = useCallback(async () => {
     const pk = parseAddress(input);
@@ -40,14 +67,9 @@ export function ProfileScreen() {
       return;
     }
     const wallet = pk.toBase58();
-    setState({ phase: "loading", wallet });
-    try {
-      const profile = await fetchReputation(pk);
-      setState({ phase: "ready", wallet, profile });
-    } catch (err) {
-      setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
-    }
-  }, [input]);
+    await lookupAddress(wallet);
+    setCurrentAddress(wallet);
+  }, [input, lookupAddress, setCurrentAddress]);
 
   return (
     <ScrollView
@@ -95,6 +117,7 @@ export function ProfileScreen() {
               onPress={() => {
                 setInput("");
                 setState({ phase: "idle" });
+                clearWallet();
               }}
               style={[
                 styles.ghost,
