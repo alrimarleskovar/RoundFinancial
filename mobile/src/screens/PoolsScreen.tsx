@@ -8,7 +8,7 @@
 
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,6 +16,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -55,6 +56,23 @@ export function PoolsScreen() {
   const navigation = useNavigation<PoolsNav>();
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState("");
+
+  // Client-side filter — match by base58 substring (case-insensitive
+  // since base58 is mixed-case but human searches usually aren't) OR
+  // by exact seedId string. Devnet has <20 pools today, so filtering
+  // in-memory beats refetching with server-side memcmp.
+  const filtered = useMemo(() => {
+    if (state.phase !== "ready") return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return state.pools;
+    return state.pools.filter((p) => {
+      const addr = p.address.toBase58().toLowerCase();
+      if (addr.includes(q)) return true;
+      if (p.seedId.toString() === q) return true;
+      return false;
+    });
+  }, [state, query]);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (!isRefresh) setState({ phase: "loading" });
@@ -110,40 +128,70 @@ export function PoolsScreen() {
       )}
 
       {state.phase === "ready" && (
-        <FlatList
-          data={state.pools}
-          keyExtractor={(p) => p.address.toBase58()}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={tokens.green}
-            />
-          }
-          ListEmptyComponent={
-            <View
+        <>
+          <View style={styles.searchRow}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Filter by address or seedId…"
+              placeholderTextColor={tokens.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
               style={[
-                styles.card,
-                { backgroundColor: tokens.surface1, borderColor: tokens.border },
+                styles.search,
+                {
+                  color: tokens.text,
+                  borderColor: tokens.borderStr,
+                  backgroundColor: tokens.surface1,
+                },
               ]}
-            >
-              <Text style={[styles.cardLabel, { color: tokens.muted }]}>empty</Text>
-              <Text style={[styles.body, { color: tokens.text2 }]}>
-                No pools on devnet yet. Pull to refresh.
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <PoolRow
-              pool={item}
-              tokens={tokens}
-              onPress={() =>
-                navigation.navigate("PoolDetail", { address: item.address.toBase58() })
-              }
             />
-          )}
-        />
+            <Text style={[styles.count, { color: tokens.text2 }]}>
+              {query.trim() ? `${filtered.length}/${state.pools.length}` : `${state.pools.length}`}
+            </Text>
+          </View>
+
+          <FlatList
+            data={filtered}
+            keyExtractor={(p) => p.address.toBase58()}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={tokens.green}
+              />
+            }
+            ListEmptyComponent={
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: tokens.surface1, borderColor: tokens.border },
+                ]}
+              >
+                <Text style={[styles.cardLabel, { color: tokens.muted }]}>
+                  {query.trim() ? "no match" : "empty"}
+                </Text>
+                <Text style={[styles.body, { color: tokens.text2 }]}>
+                  {query.trim()
+                    ? "No pools match this filter. Clear the search to see all."
+                    : "No pools on devnet yet. Pull to refresh."}
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <PoolRow
+                pool={item}
+                tokens={tokens}
+                onPress={() =>
+                  navigation.navigate("PoolDetail", { address: item.address.toBase58() })
+                }
+              />
+            )}
+          />
+        </>
       )}
     </View>
   );
@@ -221,6 +269,26 @@ const styles = StyleSheet.create({
   },
   dim: {
     fontSize: 13,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  search: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: "Menlo",
+    fontSize: 13,
+  },
+  count: {
+    fontSize: 12,
+    fontVariant: ["tabular-nums"],
+    minWidth: 36,
+    textAlign: "right",
   },
   listContent: {
     gap: 12,

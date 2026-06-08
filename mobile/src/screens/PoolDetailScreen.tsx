@@ -5,12 +5,14 @@
 // navigation. No wallet, no signing — same IDL-free RPC path as the
 // list.
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import * as Clipboard from "expo-clipboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -157,6 +159,7 @@ export function PoolDetailScreen({ route }: Props) {
         <Text style={[styles.mono, { color: tokens.green }]} selectable>
           {pool.address.toBase58()}
         </Text>
+        <IdentityActions tokens={tokens} address={pool.address.toBase58()} />
       </View>
 
       <Section title="Terms" tokens={tokens}>
@@ -200,6 +203,64 @@ export function PoolDetailScreen({ route }: Props) {
         members.map((m) => <MemberRow key={m.address.toBase58()} member={m} tokens={tokens} />)
       )}
     </ScrollView>
+  );
+}
+
+function IdentityActions({ tokens, address }: { tokens: ThemeTokens; address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // expo-clipboard's setStringAsync rarely throws on iOS/Android,
+      // but a silent failure is fine here — the address is selectable
+      // above as a fallback.
+    }
+  }, [address]);
+
+  const onShare = useCallback(async () => {
+    try {
+      // React Native's built-in Share opens the native action sheet on
+      // iOS (and the system share intent on Android). No extra dep.
+      await Share.share({
+        message: `RoundFi devnet pool\n\n${address}\n\nView on Solana Explorer:\nhttps://explorer.solana.com/address/${address}?cluster=devnet`,
+      });
+    } catch {
+      // User-cancelled or transport error — both no-ops; not worth a
+      // toast.
+    }
+  }, [address]);
+
+  return (
+    <View style={styles.actionsRow}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onCopy}
+        style={({ pressed }) => [
+          styles.pill,
+          { backgroundColor: tokens.surface2, borderColor: tokens.borderStr },
+          pressed && { opacity: 0.85 },
+        ]}
+      >
+        <Text style={[styles.pillLabel, { color: tokens.text }]}>
+          {copied ? "Copied ✓" : "Copy address"}
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onShare}
+        style={({ pressed }) => [
+          styles.pill,
+          { backgroundColor: tokens.surface2, borderColor: tokens.borderStr },
+          pressed && { opacity: 0.85 },
+        ]}
+      >
+        <Text style={[styles.pillLabel, { color: tokens.text }]}>Share</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -327,6 +388,21 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 12,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  pill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  pillLabel: {
+    fontSize: 13,
+    fontWeight: "500",
   },
   sectionTitle: {
     fontSize: 13,
