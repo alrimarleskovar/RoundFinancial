@@ -29,4 +29,27 @@ config.resolver.nodeModulesPaths = [
 //    bundler from accidentally walking past `workspaceRoot`.
 config.resolver.disableHierarchicalLookup = true;
 
+// 4. NodeNext-style `.js` imports → TypeScript sources. The SDK is
+//    written with `import "./pda.js"` even though the file is
+//    `./pda.ts` (TypeScript ESM convention: emit-target extension in
+//    source so the compiled .js Just Works). Web bundlers and tsc
+//    both resolve this. Metro doesn't, by default — it takes the
+//    literal `.js` and fails. We intercept those requests and retry
+//    against the .ts/.tsx counterpart before falling back.
+const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName.endsWith(".js") && (moduleName.startsWith(".") || moduleName.startsWith("/"))) {
+    const stripped = moduleName.slice(0, -3);
+    try {
+      return context.resolveRequest(context, stripped, platform);
+    } catch {
+      // Fall through to the original behavior; some `.js` imports are
+      // genuine .js files (e.g. polyfills).
+    }
+  }
+  return defaultResolveRequest
+    ? defaultResolveRequest(context, moduleName, platform)
+    : context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;
