@@ -1,0 +1,313 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .root { padding: 1rem 0; font-size: 13px; color: var(--color-text-primary); }
+  .section-label { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-tertiary); margin: 1.5rem 0 .6rem; }
+  .delta-row { display: grid; grid-template-columns: 180px 1fr 1fr; gap: 0; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; margin-bottom: .75rem; }
+  .delta-row:hover { border-color: var(--color-border-secondary); }
+  .delta-label { padding: 12px 14px; background: var(--color-background-secondary); border-right: 0.5px solid var(--color-border-tertiary); display: flex; flex-direction: column; justify-content: center; }
+  .delta-label .name { font-weight: 500; font-size: 13px; color: var(--color-text-primary); line-height: 1.3; }
+  .delta-label .file { font-family: var(--font-mono); font-size: 10px; color: var(--color-text-tertiary); margin-top: 3px; }
+  .delta-now { padding: 12px 14px; border-right: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); }
+  .delta-v52 { padding: 12px 14px; background: var(--color-background-primary); }
+  .col-head { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 20px; margin-bottom: 5px; }
+  .tag-red { background: var(--color-background-danger); color: var(--color-text-danger); }
+  .tag-green { background: var(--color-background-success); color: var(--color-text-success); }
+  .tag-warn { background: var(--color-background-warning); color: var(--color-text-warning); }
+  .tag-info { background: var(--color-background-info); color: var(--color-text-info); }
+  .tag-muted { background: var(--color-background-secondary); color: var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+  .val { font-size: 12px; color: var(--color-text-secondary); line-height: 1.55; }
+  .why-row { display: grid; grid-template-columns: 180px 1fr; gap: 0; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; margin-bottom: .75rem; }
+  .why-label { padding: 12px 14px; background: var(--color-background-secondary); border-right: 0.5px solid var(--color-border-tertiary); display: flex; flex-direction: column; justify-content: center; }
+  .why-body { padding: 12px 14px; }
+  .impact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .75rem; }
+  .impact-card { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px 12px; background: var(--color-background-primary); }
+  .impact-title { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .impact-val { font-size: 13px; color: var(--color-text-primary); line-height: 1.45; }
+  .arrow-mid { display: flex; align-items: center; justify-content: center; padding: 4px 0; color: var(--color-text-tertiary); font-size: 16px; }
+  .nav { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .nav-btn { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-secondary); cursor: pointer; transition: all .15s; }
+  .nav-btn.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  code { font-family: var(--font-mono); font-size: 11px; background: var(--color-background-secondary); padding: 1px 4px; border-radius: 3px; }
+</style>
+
+<div class="root">
+<h2 class="sr-only">Comparativo interativo entre o estado atual do RoundFi e as mudanças propostas na v5.2</h2>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="show('tecnico')">Mudanças técnicas</button>
+  <button class="nav-btn" onclick="show('produto')">Impacto no produto</button>
+  <button class="nav-btn" onclick="show('risco')">Riscos que elimina</button>
+  <button class="nav-btn" onclick="show('nao-muda')">O que não muda</button>
+</div>
+
+<div id="panel-tecnico" class="panel active">
+
+  <div class="section-label">Camada de eventos — como defaults e atrasos são registrados</div>
+
+  <div class="delta-row">
+    <div class="delta-label">
+      <div class="name">Classificação de eventos</div>
+      <div class="file">roundfi-reputation / settle_default</div>
+    </div>
+    <div class="delta-now">
+      <div class="col-head">Hoje</div>
+      <span class="tag tag-warn">3 valores</span>
+      <div class="val"><code>PAYMENT_MISSED</code> · <code>INFRA_FAILURE</code> · <code>VOLUNTARY_EXIT</code><br>Tudo que não é saída voluntária ou falha de infra vira PAYMENT_MISSED — sem gradação de gravidade. Um atraso de 2h e um abandono definitivo recebem o mesmo rótulo.</div>
+    </div>
+    <div class="delta-v52">
+      <div class="col-head">Com v5.2</div>
+      <span class="tag tag-green">11 variantes</span>
+      <div class="val"><code>PaymentOnTime</code> · <code>PaymentEarly</code> · <code>FrictionOperational</code> · <code>FrictionTemporal</code> · <code>LateBehavioral</code> · <code>TemporaryIncapacity</code> · <code>Default</code> · <code>BadFaith</code> · <code>CycleComplete</code> · <code>PoolComplete</code> · <code>Recovery</code><br>Cada evento carrega sua natureza. Score reflete comportamento real, não categorias brutas.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label">
+      <div class="name">Cálculo do score</div>
+      <div class="file">roundfi-reputation / src/math/</div>
+    </div>
+    <div class="delta-now">
+      <div class="col-head">Hoje</div>
+      <span class="tag tag-warn">Contadores simples</span>
+      <div class="val"><code>on_time_count</code> · <code>late_count</code> · <code>defaults</code> como campos do <code>ReputationProfile</code>. Não há fórmula pública documentada. Score é derivado implicitamente dessas métricas sem lógica auditável externamente.</div>
+    </div>
+    <div class="delta-v52">
+      <div class="col-head">Com v5.2</div>
+      <span class="tag tag-green">4 funções puras</span>
+      <div class="val"><code>reliability()</code> · <code>punctuality()</code> · <code>commitment()</code> · <code>recovery()</code> — funções determinísticas com pesos publicados em <code>constants.rs</code>. Qualquer terceiro roda localmente e chega no mesmo número.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label">
+      <div class="name">Prova de fricção operacional</div>
+      <div class="file">roundfi-reputation / friction_proof</div>
+    </div>
+    <div class="delta-now">
+      <div class="col-head">Hoje</div>
+      <span class="tag tag-red">Não existe</span>
+      <div class="val">Outage de RPC, congestão de rede ou bug de wallet resultam em <code>INFRA_FAILURE</code> sem verificação. Depende de atestação manual sem rastreabilidade on-chain.</div>
+    </div>
+    <div class="delta-v52">
+      <div class="col-head">Com v5.2</div>
+      <span class="tag tag-green">FrictionProof on-chain</span>
+      <div class="val">4 variantes verificáveis: <code>OnChainOracle</code> · <code>FailedTransaction</code> · <code>ValidatorOutageWindow</code> · <code>GovernanceAttested</code>. Cada prova é verificável por qualquer nó. Janela de 7 dias para submissão.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label">
+      <div class="name">Escada de níveis</div>
+      <div class="file">constants.rs / resolve_tier</div>
+    </div>
+    <div class="delta-now">
+      <div class="col-head">Hoje</div>
+      <span class="tag tag-warn">3 níveis (50/30/10%)</span>
+      <div class="val">L1 Iniciante · L2 Comprovado · L3 Veterano. Documentado em todos os materiais institucionais. Critérios de promoção implementados mas sem fórmula determinística pública.</div>
+    </div>
+    <div class="delta-v52">
+      <div class="col-head">Com v5.2</div>
+      <span class="tag tag-info">4 níveis (50/25/10/3%)</span>
+      <div class="val">Adiciona L4 Elite (≥8 pools, wallet≥2a, PoP ativo, 0 BadFaith). L2 muda de 30% para 25%. Função <code>resolve_tier()</code> determinística — promoção e rebaixamento automáticos.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label">
+      <div class="name">Storage do histórico</div>
+      <div class="file">programs/roundfi-reputation / state</div>
+    </div>
+    <div class="delta-now">
+      <div class="col-head">Hoje</div>
+      <span class="tag tag-warn">Contadores agregados</span>
+      <div class="val"><code>ReputationProfile</code> armazena totais: <code>completed_cycles</code> · <code>on_time_payments</code> · <code>late_payments</code> · <code>defaults</code>. Eventos individuais via <code>Attestation</code> mas sem classificação granular.</div>
+    </div>
+    <div class="delta-v52">
+      <div class="col-head">Com v5.2</div>
+      <span class="tag tag-green">Evento por evento, append-only</span>
+      <div class="val"><code>BehavioralEvent</code> por ciclo com <code>delta_seconds</code> · <code>classification</code> · <code>friction_proof</code> · <code>classification_sealed_at</code>. C2 imutável após 7 dias. Permite recomputar qualquer ponto histórico.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label">
+      <div class="name">Consumo externo do score</div>
+      <div class="file">programs/roundfi-reputation / query</div>
+    </div>
+    <div class="delta-now">
+      <div class="col-head">Hoje</div>
+      <span class="tag tag-red">Não existe como CPI</span>
+      <div class="val">Score existe na tela de reputação do front-end e como dado do indexer. Não há instrução on-chain que outros programas Solana possam chamar via CPI para verificar o tier de uma wallet em runtime.</div>
+    </div>
+    <div class="delta-v52">
+      <div class="col-head">Com v5.2</div>
+      <span class="tag tag-green">Score Reader Program</span>
+      <div class="val">Instrução <code>query_score()</code> read-only, permissionless. Retorna <code>ScoreSummary { tier, reliability, punctuality, is_stale }</code>. Qualquer protocolo Solana pode verificar tier de uma wallet antes de admiti-la.</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="panel-produto" class="panel">
+
+  <div class="section-label">O que muda na experiência do usuário e parceiros</div>
+
+  <div class="impact-grid">
+    <div class="impact-card">
+      <div class="impact-title">Usuário que pagou com 2h de atraso por congestão de RPC</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-danger);margin-bottom:4px">Hoje: PAYMENT_MISSED — penalidade</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-success)">v5.2: FrictionOperational — zero impacto no score</div>
+    </div>
+    <div class="impact-card">
+      <div class="impact-title">Usuário que pagou 1 dia atrasado por esquecimento</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-danger);margin-bottom:4px">Hoje: mesmo rótulo que inadimplência</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-success)">v5.2: FrictionTemporal — queda de 0.05 pt em janela de 50</div>
+    </div>
+    <div class="impact-card">
+      <div class="impact-title">Parceiro B2B que quer integrar o score</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-danger);margin-bottom:4px">Hoje: precisa confiar no operador, sem verificação independente</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-success)">v5.2: recomputa score localmente com código aberto, via CPI</div>
+    </div>
+    <div class="impact-card">
+      <div class="impact-title">Usuário avançado querendo atingir L4 Elite</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-warning);margin-bottom:4px">Hoje: L3 Veterano é o teto (10% stake)</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-success)">v5.2: L4 Elite com 3% stake para histórico longo e limpo</div>
+    </div>
+    <div class="impact-card">
+      <div class="impact-title">Protocolo externo filtrando membros antes de admitir em pool</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-danger);margin-bottom:4px">Hoje: impossível via CPI — depende de API off-chain</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-success)">v5.2: <code>query_score(wallet)</code> retorna tier em runtime on-chain</div>
+    </div>
+    <div class="impact-card">
+      <div class="impact-title">Usuário que quer contestar penalidade por falha de infra</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-danger);margin-bottom:4px">Hoje: não há mecanismo formal de contestação</div>
+      <div class="arrow-mid" style="justify-content:flex-start;font-size:12px;color:var(--color-text-success)">v5.2: 7 dias para submeter FrictionProof — reclassificação automática</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="panel-risco" class="panel">
+
+  <div class="section-label">Riscos que a v5.2 elimina ou reduz</div>
+
+  <div class="why-row">
+    <div class="why-label">
+      <div class="name" style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Score não verificável por parceiro</div>
+      <span class="tag tag-red" style="margin-top:4px">ALTO</span>
+    </div>
+    <div class="why-body">
+      <div class="val">Hoje, um parceiro (CREDO, Huma Finance) que consome o score precisa confiar que o RoundFi calculou corretamente — black box. Isso é barreira de adoção para crédito real. Com v5.2, o parceiro baixa o código, roda as funções puras com o estado on-chain da wallet, e chega no mesmo número. Score vira dado verificável, não declaração de confiança.</div>
+    </div>
+  </div>
+
+  <div class="why-row">
+    <div class="why-label">
+      <div class="name" style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Penalidade injusta por falha de infraestrutura</div>
+      <span class="tag tag-red" style="margin-top:4px">ALTO</span>
+    </div>
+    <div class="why-body">
+      <div class="val">Hoje, um outage de RPC ou congestão de Solana que impede o usuário de pagar resulta em <code>PAYMENT_MISSED</code> — mesmo rótulo de inadimplência. Com FrictionProof on-chain, o usuário apresenta o tx-hash da transação que falhou ou o registro do oráculo de congestão, e o evento é reclassificado automaticamente como <code>FrictionOperational</code> sem impacto no score.</div>
+    </div>
+  </div>
+
+  <div class="why-row">
+    <div class="why-label">
+      <div class="name" style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Score inconsistente após mudança de constante</div>
+      <span class="tag tag-warn" style="margin-top:4px">MÉDIO</span>
+    </div>
+    <div class="why-body">
+      <div class="val">Hoje não há mecanismo de versioning de constantes. Se o time ajustar pesos do score, <code>TierAssignment</code>s antigos ficam desatualizados silenciosamente. Com <code>constants_version: u8</code> no <code>TierAssignment</code>, qualquer consumer sabe se o tier está stale e precisa ser recalculado antes de ser usado.</div>
+    </div>
+  </div>
+
+  <div class="why-row">
+    <div class="why-label">
+      <div class="name" style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Dados de devnet incompatíveis com nova arquitetura</div>
+      <span class="tag tag-warn" style="margin-top:4px">MÉDIO</span>
+    </div>
+    <div class="why-body">
+      <div class="val">Os ciclos já rodados em devnet geraram dados com o schema de 3 valores. Sem a migration Prisma mapeando <code>PAYMENT_MISSED → LateBehavioral</code> etc., qualquer demo ou análise que use dados históricos fica inconsistente com o novo schema. A migration precisa acontecer antes de novos ciclos gerarem dados com o formato errado.</div>
+    </div>
+  </div>
+
+  <div class="why-row">
+    <div class="why-label">
+      <div class="name" style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Crank silencia falhas de score</div>
+      <span class="tag tag-warn" style="margin-top:4px">MÉDIO</span>
+    </div>
+    <div class="why-body">
+      <div class="val">O orchestrator atual nunca chama <code>settle_default</code>. Se o crank de produção chamar <code>settle_default</code> mas não chamar <code>record_event</code> imediatamente depois, o score da wallet fica desatualizado sem que ninguém perceba — o pool sabe do default, a reputação não. A sequência atômica settle→record no crank elimina esse gap.</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="panel-nao-muda" class="panel">
+
+  <div class="section-label">O que a v5.2 preserva integralmente do estado atual</div>
+
+  <div class="delta-row">
+    <div class="delta-label"><div class="name">roundfi-core</div><div class="file">pool lifecycle completo</div></div>
+    <div class="delta-now" style="grid-column: span 2;">
+      <span class="tag tag-green">Sem mudança</span>
+      <div class="val">Pool creation · contribute · claim_payout · default settlement · Escape Valve · yield waterfall — intactos. A v5.2 adiciona uma CPI de <code>roundfi-core</code> para <code>roundfi-reputation</code> após <code>settle_default</code>, mas não altera nenhuma lógica do core.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label"><div class="name">Triple Shield</div><div class="file">Seed Draw · Escrow · Solidarity Vault</div></div>
+    <div class="delta-now" style="grid-column: span 2;">
+      <span class="tag tag-green">Sem mudança</span>
+      <div class="val">Toda a lógica econômica de proteção é preservada. A v5.2 não toca em stake amounts, waterfall ordering, ou Solidarity Vault logic.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label"><div class="name">Stress Lab</div><div class="file">sdk/stressLab.ts</div></div>
+    <div class="delta-now" style="grid-column: span 2;">
+      <span class="tag tag-green">Sem mudança</span>
+      <div class="val">Simulações econômicas independentes da lógica de score. O Stress Lab modela solvência do pool, não comportamento de reputação.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label"><div class="name">Escape Valve (NFT)</div><div class="file">Metaplex Core position</div></div>
+    <div class="delta-now" style="grid-column: span 2;">
+      <span class="tag tag-green">Sem mudança</span>
+      <div class="val">O mecanismo de venda de posição continua idêntico. Na v5.2, <code>VOLUNTARY_EXIT</code> continua não penalizando score — mapeado para sem evento negativo como já é hoje.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label"><div class="name">Yield adapters</div><div class="file">yield-mock · yield-kamino</div></div>
+    <div class="delta-now" style="grid-column: span 2;">
+      <span class="tag tag-green">Sem mudança</span>
+      <div class="val">Kamino CPI e mock adapter intactos. O score de reputação não interfere com yield routing.</div>
+    </div>
+  </div>
+
+  <div class="delta-row">
+    <div class="delta-label"><div class="name">Program IDs</div><div class="file">devnet deployado</div></div>
+    <div class="delta-now" style="grid-column: span 2;">
+      <span class="tag tag-info">Depende da abordagem</span>
+      <div class="val">Se a v5.2 for implementada como upgrade do programa existente (<code>Hpo174...e9R2</code>), os Program IDs são preservados. Se for um redeploy com nova lógica de account, novos IDs. A decisão de upgrade vs redeploy precisa ser tomada pela equipe antes de qualquer implementação.</div>
+    </div>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>

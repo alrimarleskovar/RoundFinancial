@@ -90,14 +90,85 @@ Pulled from the desktop `/home` dashboard inventory (commit history):
 - **`PassportMini` radial score** — the circular score chart on the right of the desktop bento. Needs `react-native-svg` for the radial.
 - **Glass surfaces** — desktop uses `backdropFilter` (CSS only). Mobile equivalent is `expo-blur`'s `<BlurView>`. Adds bundle size; only worth it if we go all-in on the look.
 
-## Pending refactor — reputation levels
+## Pending refactor — reputation v5.2
 
-**Status:** awaiting input from the user.
-**Context (user's message, 2026-06-09):** _"teremos uma mudança nos levels de como esta implementado hoje para um melhor e mais auditavel"_ — they're bringing documents to specify the new model.
+**Status:** spec received 2026-06-09. **Not authorized for implementation.** See
+`mobile/docs/reputation-v2/` for the 5-doc package and read in the order the
+README there recommends.
 
-The current mobile surface assumes the legacy L1/L2/L3 shape exposed
-by `@roundfi/sdk/onchain-raw`'s `RawReputationProfile.level: number`.
-When the new spec lands, the following call sites need attention.
+### The change is much larger than "rename levels"
+
+The spec is a full reputation-system rewrite. Mobile is the **last** layer to
+move; we can't start until upstream (programs + SDK + Prisma migration) is in.
+
+| Layer                | Today                                                                                  | v5.2                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Levels               | 3 (L1/L2/L3, stakes 50/30/10%)                                                         | 4 (L1/L2/L3/L4 — Iniciante/Comprovado/Veterano/Elite, stakes 50/25/10/3%)                                                                                                                                               |
+| Event categories     | 3 (`PAYMENT_MISSED` / `INFRA_FAILURE` / `VOLUNTARY_EXIT`)                              | 6 deterministic + 5 lifecycle (`PaymentOnTime`, `PaymentEarly`, `FrictionOperational`, `FrictionTemporal`, `LateBehavioral`, `TemporaryIncapacity`, `Default`, `BadFaith`, `CycleComplete`, `PoolComplete`, `Recovery`) |
+| Score storage        | Aggregated counters on `ReputationProfile` (`on_time_count`, `late_count`, `defaults`) | Append-only `BehavioralEvent` per cycle (delta_seconds, classification, FrictionProof, sealed_at)                                                                                                                       |
+| Score metrics        | Implicit / non-auditable                                                               | 4 pure functions: `reliability()`, `punctuality()`, `commitment()`, `recovery()` with weights in `constants.rs`                                                                                                         |
+| FrictionProof        | Doesn't exist                                                                          | 4 on-chain variants (oracle / failed-tx / outage window / governance-attested) with 7d submission window                                                                                                                |
+| External consumption | Doesn't exist as CPI                                                                   | `query_score()` permissionless read returning `ScoreSummary { tier, reliability, punctuality, is_stale }`                                                                                                               |
+
+### Mobile touchpoints when v5.2 lands
+
+| File                                                   | Today                                                       | After v5.2                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/chain.ts` → `reputationLabel(level)`          | Returns `"L1"`/`"L2"`/`"L3"`                                | Returns `"L1 Iniciante"` … `"L4 Elite"`; level range `1..4`                                                                                                                                                                                                         |
+| `src/lib/chain.ts` → `fetchReputation()`               | Decodes `RawReputationProfile` (counter-based)              | Decode the new shape: `BehavioralEvent[]` per wallet + `ReputationMetrics { reliability, punctuality, commitment, recovery }` + `TierAssignment { tier, constants_version, is_stale }`. Probably one fetch returns aggregated view, separate one for event history. |
+| `src/screens/ProfileScreen.tsx` → big number           | Single "L1 / score 0" display                               | 4-metric breakdown (reliability % / punctuality % / commitment % / recovery %), tier badge with name, "missing for next tier" line, FrictionProof submission CTA per pending event                                                                                  |
+| `src/screens/ProfileScreen.tsx` → fresh wallet default | `level=1, score=0n`                                         | Likely still L1, but the metrics shape is different (all 0s? null? "no data yet"?) — needs decision                                                                                                                                                                 |
+| `src/screens/PoolDetailScreen.tsx` → MemberRow         | Shows L1/L2/L3 chip                                         | Show L1..L4 with the right color/name. Maybe also surface reliability % per member.                                                                                                                                                                                 |
+| **External**: `sdk/src/onchain-raw.ts`                 | `RawReputationProfile` 113-byte account, level u8, counters | Full schema replacement: `BehavioralEvent`, `ReputationMetrics`, `TierAssignment` PDAs; legacy `RawReputationProfile` deprecated.                                                                                                                                   |
+
+### New surfaces v5.2 enables (mobile-relevant)
+
+- **Behavioral log screen** — visually show the user the append-only stream of events that compose their score. Each row: cycle, classification, delta_seconds, FrictionProof status. **High value for trust** — "you can see exactly what's in your record."
+- **FrictionProof submission flow** — if an event was classified `LateBehavioral` because of a network outage, surface a CTA to attach proof (`FailedTransaction` tx hash, oracle slot, etc.) within the 7-day window. **Requires Phase 3b (signing) to actually submit.**
+- **"Next tier" coach** — given the resolve_tier function is pure, mobile can render exactly which thresholds are missing (e.g. "need 2 more completed pools + reliability ≥85 for Veterano").
+- **`query_score` consumer preview** — show the user what a B2B partner would see when calling `query_score(wallet)`. Makes the "verifiable history" pitch tangible.
+
+### Pre-emptive checklist (before any mobile work starts)
+
+Upstream — out of mobile's hands:
+
+- [ ] Team has resolved the 5 decisions in `docs/reputation-v2/05-decisoes-pendentes.md`
+- [ ] Spec's 3 blocking bugs fixed (reliability arithmetic, punctuality compile, ORACLE_WHITELIST defined)
+- [ ] Risk Review's regulatory pieces have a path (BCB / LGPD / ROSCA classification)
+- [ ] `architecture.md` PR landed with the chosen decisions
+- [ ] `programs/roundfi-reputation` upgraded or redeployed
+- [ ] `sdk/src/onchain-raw.ts` updated to decode the new accounts
+- [ ] Prisma migration `MissReason → EventClassification` applied
+- [ ] `services/orchestrator` (crank) sequences `settle_default → record_event` atomically
+
+Mobile-side (when authorized):
+
+- [ ] `chain.ts` updated to fetch the new shape (probably new functions, keep old ones during transition)
+- [ ] `tokens.ts` gets per-tier colors / labels (L1..L4)
+- [ ] `ProfileScreen.tsx` rebuilt around 4-metric breakdown + missing requirements
+- [ ] `PoolDetailScreen.tsx` MemberRow updated for 4-tier display
+- [ ] (Optional) Behavioral log screen scaffolded
+- [ ] (Optional) FrictionProof submission flow — depends on Phase 3b
+- [ ] (Optional) `query_score` preview surface
+- [ ] Migration UX: existing devnet wallets with old `RawReputationProfile` need a fallback render until they're migrated
+
+### Risk-review summary (read before deciding scope)
+
+The Risk Review (`04-revisao-de-risco.md`) is direct: **implementing v5.2
+without real users is "optimizing the second problem before the first is
+solved."** The Decisões Pendentes doc proposes a docs-only first PR amending
+`architecture.md` before any Rust. Both align — the mobile layer should
+follow that order, not get ahead of it.
+
+What this means for the mobile branch (`claude/friendly-carson-50EIx`):
+
+- **No code changes here on v5.2 grounds until upstream is decided.** The
+  current mobile shape (`L1/L2/L3`, counter-based) keeps working against
+  the current `roundfi-reputation` program.
+- **The doc package is the contribution for now.** When the team picks a
+  decision path, the touchpoint inventory above tells us exactly where mobile
+  diverges, and we can stage a `claude/mobile-reputation-v52` branch from
+  this one without losing the existing surface.
 
 ### Touchpoints
 
