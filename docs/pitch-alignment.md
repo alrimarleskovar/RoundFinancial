@@ -24,6 +24,8 @@ This thesis is directly backed by the `stake_bps_for_level()` function in [const
 | 2     | Comprovado (Proven)    | 30% of `credit_amount` | **3.3×** (100/30)   |
 | 3     | **Veterano (Veteran)** | 10% of `credit_amount` | **10×** (100/10)    |
 
+> **v5.2 direction (approved 2026-06-09, pre-implementation).** The ladder is approved to extend to **4 tiers** — L2 drops to 25% and a new **L4 Elite at 3%** lands above Veterano (implying ~33× over stake, a pitch decision the whitepaper owners must take deliberately — see [architecture.md §4.7.5](architecture.md)). Everything on this page, including the `constants.rs` references, describes the **deployed 3-tier program** and remains accurate until the Hybrid implementation lands.
+
 **Canonical leverage framing (v1.1 — PDF-aligned).** The whitepaper math is direct:
 
 > "Veteran deposits 10% of the credit and accesses 100% of it — **10× leverage over the stake**."

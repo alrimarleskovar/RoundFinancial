@@ -186,6 +186,8 @@ pub struct Member {
 }
 ```
 
+> **v5.2 direction (approved 2026-06-09, pre-implementation).** The reputation ladder is approved to extend to **4 tiers** — stakes `5000 | 2500 | 1000 | 300` bps (L2 changes 30% → 25%, new L4 Elite at 3%). The deployed program still enforces `1..=3` / `5000|3000|1000`; the struct above describes on-chain truth until the Hybrid implementation lands. See §4.7.
+
 ### 3.4 `ReputationProfile` (program: `roundfi-reputation`)
 
 Seeds: `[b"reputation", wallet]`
@@ -208,6 +210,8 @@ pub struct ReputationProfile {
 ```
 
 Step 4d extends this struct with `total_participated` and `last_cycle_complete_at`. Absence of a profile is treated as score=0, level=1 (default unverified).
+
+> **v5.2 direction.** Under the approved Hybrid path (§4.7) this struct is **preserved as-is** — `level` extends to `1..=4` only when the implementation lands, and the rich per-event history arrives as an **additive** `BehavioralEvent` account type (separate PDA), not as a layout change here. No migration of existing profiles is required.
 
 ### 3.5 `Attestation` (program: `roundfi-reputation`)
 
@@ -297,6 +301,8 @@ pub struct YieldVaultState {
 - Saturating, no underflow below 0.
 - Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`. Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score.
 
+> **v5.2 direction.** Under the approved Hybrid path (§4.7), the user-facing score migrates to an **off-chain computation in the indexer** with provisional v1-style weights, calibrated against real cycle data before any weight set is published as canonical. The on-chain score + thresholds above remain authoritative for the deployed program (stake-bps snapshot at `join_pool`) until that implementation lands.
+
 ### 4.3 `yield-adapter` interface (shared by mock + kamino)
 
 | Instruction         | Caller                         | Effect                                                       |
@@ -377,6 +383,8 @@ The product narrative refers to a "Triple Shield" security architecture. The can
 | **Shield 1** | **Sorteio Semente** _(Seed Draw / Bootstrap Mês 1)_ | First cycle of every pool                            | Asymmetric upfront cap (cycle 1 contemplated member receives only `2 × installment`; ~91.6% of cycle-1 capital stays in the vault)                                  | Cycle = 1 special case in `claim_payout.rs`                                       |
 | **Shield 2** | **Escrow Adaptativo + Stake**                       | Activates at every contemplation from cycle 2 onward | Reputation-tier-driven payout/escrow split + stake floor (Lv1 50/50/50/5m, Lv2 30/45/55/4m, Lv3 10/35/65/3m for stake/payout/escrow/release)                        | `LEVEL_PARAMS` in stress-lab + `member.escrow_balance` / `member.stake_deposited` |
 | **Shield 3** | **Cofre Solidário + Cascata de Yield**              | Accrues continuously across the pool's life          | 1% of every paid installment → segregated **Solidarity Vault** + Kamino yield waterfall (admin fee → Guarantee Fund cap 150% × credit → 65% LPs → 35% participants) | `solidarity_vault` PDA + `harvest_yield.rs` waterfall                             |
+
+> **v5.2 direction.** Shield 2's tier table extends to **4 levels** under the approved Hybrid path (Lv2 stake 30% → 25%; new Lv4 Elite at 3%). The Lv4 escrow/payout/release parameters are **not yet specified** — they get designed alongside the implementation. Deployed `LEVEL_PARAMS` remains 3-tier until then. See §4.7.
 
 **On-chain seizure order — implementation note.** When a default occurs, `settle_default.rs` draws capital in a _different_ order than the Shield build sequence above: solidarity vault first → escrow second → stake third, capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`). This recovery sequence is orthogonal to the structural narrative; pitch / public-facing copy should always use the Shield 1 → 2 → 3 build order from the table above. The seizure order matters only for technical / due-diligence audiences.
 
@@ -556,6 +564,56 @@ The reputation program:
 #### 4.6.4 Non-breaking guarantee
 
 Step 4d does NOT alter any instruction in `roundfi-core`'s storage layout. The existing `join_pool` still reads `ReputationProfile` for the stake-bps snapshot; the new identity record is an **optional** side-car that `join_pool` continues to ignore. If the reputation program is not yet deployed, `join_pool` treats `level = 1` (the same behavior it has today).
+
+### 4.7 Reputation v5.2 — Hybrid path (approved direction, 2026-06-09)
+
+> **Status: approved by team, NOT implemented.** Everything in §3.3, §3.4, §4.2 and §4.5.0 above describes the **deployed** program (3 tiers, on-chain score arithmetic). This section records the approved forward direction so the SSOT and the implementation never diverge silently. Source documents + full decision log: `mobile/docs/reputation-v2/` (proposal, spec, risk review, pending decisions, team decisions).
+
+#### 4.7.1 The decision — Hybrid, not v1-forever and not full v5.2
+
+The v5.2 proposal separates two questions that the original plan conflated:
+
+1. **"What data schema should we store on-chain?"** — answerable today with certainty.
+2. **"What weights should the score use?"** — only answerable with real cycle data.
+
+The Hybrid path answers them independently:
+
+- **On-chain (decided):** a new **`BehavioralEvent`** account type records every contribution / claim / default with `delta_seconds`, deterministic classification and group context — the inputs the full v5.2 metrics (`reliability`, `punctuality`, `commitment`, `recovery`) will eventually consume. It is **additive**: a new PDA per event (batched — see sizing note below), zero changes to `ReputationProfile` or any `roundfi-core` account layout.
+- **Score (provisional, off-chain):** the user-facing score is computed by the **indexer** with simple v1-style weights and served over HTTP, explicitly versioned (`formula_versao: "v1-provisional"`). Weights get calibrated against real cycle data before any weight set is published as canonical — publishing v5.2's weights today would punish the first users with arbitrary numbers (and the proposal's `reliability()` / `punctuality()` reference implementations carry known bugs that must be fixed before those functions ever run).
+- **Ladder (decided): 4 tiers.** L1 Iniciante 50% · L2 Comprovado 25% · L3 Veterano 10% · L4 Elite 3% stake. L2 changes from the deployed 30%.
+
+#### 4.7.2 What ships in the canary vs what does NOT
+
+| In canary scope                                                              | Explicitly NOT in canary                                    |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `BehavioralEvent` account type (additive)                                    | `query_score` CPI / Score Reader Program                    |
+| Indexer derives `EventClassification` deterministically from `delta_seconds` | `FrictionProof` on-chain verification                       |
+| Off-chain score endpoint (indexer HTTP, v1-provisional weights)              | `ORACLE_WHITELIST` / Switchboard feeds / governance program |
+| 4-tier surface in app + mobile (UI labels/colors)                            | `BadFaith` category in scoring                              |
+| Institutional docs updated for 50/25/10/3                                    | v5.2 weight publication (`reliability` et al. as canonical) |
+
+**B2B consequence, stated honestly:** without `query_score` CPI, the "any third party recomputes the score on-chain" property of full v5.2 is **not** a canary deliverable. Partners consume an HTTP endpoint with explicit provisional-formula versioning. The CPI oracle is the post-calibration milestone.
+
+#### 4.7.3 Open decisions (deferred, with rationale)
+
+- **Decisão 3 — Switchboard oracle (`ORACLE_WHITELIST`):** deferred. Nothing in the Hybrid canary consumes it (FrictionProof is out of scope). Required before any upgrade past v1-provisional weights.
+- **Decisão 4 — BadFaith attester:** deferred. v1-provisional weights have no BadFaith bucket; governance design is post-canary.
+- **Decisão 5 — upgrade vs redeploy of `roundfi-reputation`:** implementer's call. Because `BehavioralEvent` is additive and `ReputationProfile` is unchanged, an in-place **upgrade** is technically viable (existing account layouts survive, Solscan evidence stays linked). Bundle a redeploy only if other refactors justify it.
+
+#### 4.7.4 Implementation sequencing (each step gates the next)
+
+1. ~~Amend this document~~ ← this section.
+2. `BehavioralEvent` account design in `roundfi-reputation` — **must use the batched account-list pattern** (PDA per batch of N events, `[b"event_batch", wallet, batch_index]`), never an unbounded `Vec` (Solana accounts are fixed-size at allocation).
+3. Emit-on-action: `record_event` instruction + CPI (or log-based ingest) from the lifecycle paths. The production crank must sequence `settle_default → record_event` atomically — a settle without its event silently de-syncs the score.
+4. Indexer: ingest `BehavioralEvent`, derive `EventClassification`, expose the score endpoint.
+5. SDK: decoders for the new account type.
+6. App + mobile: 4-tier surface (gated behind upstream completion — see `mobile/docs/reputation-v2/06-team-decisions.md`, "Caminho 2").
+
+#### 4.7.5 Communication impact (for the institutional-doc owners)
+
+- The **"10× leverage"** headline (`MAX_BPS / STAKE_BPS_LEVEL_3 = 10`) survives — L3 stays at 10%. But L4 Elite at 3% implies **~33×**; whether that becomes a new headline or stays understated is a whitepaper/pitch decision, not an engineering one. Flagging so it's chosen deliberately.
+- Four documents pin the 50-30-10 ladder and must be updated by their owners before the 4-tier ladder is public-facing: technical whitepaper, behavioral-reputation-score doc, user guide (all PDFs under `docs/en/`), plus any marketing copy. `README.md` and `docs/pitch-alignment.md` carry forward-pointer notes as of this amendment.
+- Related issues: [#450](https://github.com/alrimarleskovar/roundfinancial/issues/450) (VOLUNTARY_EXIT ≠ DEFAULT satisfied by construction — canary sign-off), [#451](https://github.com/alrimarleskovar/roundfinancial/issues/451) (dead `EscapeValveLeavingDefault` enum cleanup).
 
 ---
 
