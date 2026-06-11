@@ -92,10 +92,11 @@ Pulled from the desktop `/home` dashboard inventory (commit history):
 
 ## Pending refactor — reputation (Hybrid + 4 levels)
 
-**Status:** spec received 2026-06-09. Team chose **Hybrid path + 4 levels** on
-the same day. Decisions 3-5 still open. **Mobile implementation not yet
-authorized** — see `mobile/docs/reputation-v2/06-team-decisions.md` for the
-full decision log.
+**Status:** spec received 2026-06-09. Team chose **Hybrid path + 4 levels** the
+same day, and chose **Caminho 2 (wait for upstream)** for the mobile — no mobile
+reputation code until the on-chain `BehavioralEvent` + indexer work ships. See
+`mobile/docs/reputation-v2/06-team-decisions.md` for the full decision log and
+the explicit unblock trigger.
 
 **TL;DR of what changed vs the original v5.2 evaluation:**
 

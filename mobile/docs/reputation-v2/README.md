@@ -54,7 +54,7 @@ mobile touchpoint inventory. **Short version:**
 - [ ] `ORACLE_WHITELIST` design exists — deferred under Hybrid
 - [ ] Risk Review has been discussed (regulatory + cold-start) — still owed
 - [ ] Legal opinion on Brazilian ROSCA classification obtained — still owed
-- [ ] Mobile work authorized — **decision pending** (see `06-team-decisions.md` last section)
+- [ ] Mobile work authorized — **decided: WAIT for upstream (Caminho 2, 2026-06-09)**. No mobile reputation code until the unblock trigger in `06-team-decisions.md` is met.
 
 ## Open issues
 

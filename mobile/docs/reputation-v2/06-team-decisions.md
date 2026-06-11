@@ -89,22 +89,36 @@ reputation program want to bundle into the same redeploy.
 
 ### What this means for the mobile branch
 
-`claude/friendly-carson-50EIx` (current mobile branch) has 2 paths forward:
+`claude/friendly-carson-50EIx` (current mobile branch) had 2 paths forward:
 
-1. **Add 4-tier labels + colors now.** Cheap (~30 min). The current
-   `RawReputationProfile.level: u8` already accepts `1..N`; we'd just
-   extend the label map. Lets the mobile preview the L4 visual once a
-   wallet reaches it, without breaking L1..L3 display today.
-2. **Wait for upstream.** Let the on-chain `BehavioralEvent` + indexer
-   work ship first, then touch the mobile in a fresh branch with the
-   bigger refactor.
+1. ~~**Add 4-tier labels + colors now.**~~ Cheap (~30 min). Preview L4 ahead
+   of upstream.
+2. **Wait for upstream.** ← **CHOSEN (2026-06-09).** Let the on-chain
+   `BehavioralEvent` + indexer work ship first, then touch the mobile in a
+   fresh branch with the bigger refactor.
 
-The minor risk of (1) is that we render `L4 Elite` with current colors
-and the design system picks different colors later — trivial revert.
-The minor risk of (2) is that mobile stays on `L1..L3` labels for the
-~weeks/months upstream takes.
+**Decision: Caminho 2 — wait for upstream.** Rationale (user): não empilhar
+UI especulativa sobre um shape que ainda vai mudar; fazer o necessário mesmo
+que demore mais. The mobile stays on the current `L1..L3` labels until the
+upstream sequence below lands. No mobile reputation code is written until then.
 
-**No mobile work authorized yet** — decide explicitly before moving.
+### Mobile unblock trigger (what must ship upstream first)
+
+Mobile reputation work starts **only after** all of these are true. Until then,
+the mobile branch does not touch `reputationLabel` / `ProfileScreen` /
+`PoolDetailScreen` for reputation.
+
+1. `architecture.md` amended with the Hybrid + 4-level decisions (docs PR)
+2. `BehavioralEvent` account type added to `roundfi-reputation` (on-chain)
+3. Indexer projector derives `EventClassification` + exposes the off-chain
+   score endpoint (4-tier resolution)
+4. `sdk/src/onchain-raw.ts` exposes whatever the mobile will read (either the
+   new score endpoint shape or an updated profile decoder)
+
+When (1)-(4) are done, fork `claude/mobile-reputation-v52` from the then-current
+mobile branch and use the touchpoint inventory in `../ROADMAP.md` as the work
+plan. The 4-tier label/color extension that Caminho 1 would have done early
+gets folded into that branch instead.
 
 ## Pending follow-ups (issues opened or to open)
 
