@@ -1,8 +1,8 @@
 # Feature Freeze — From `v0.4-canary` to Mainnet GA
 
-> **Status:** ACTIVE as of `v0.4-canary` (2026-05-17).
+> **Status:** 🟢 **LIFTED on 2026-06-11** (see [Lift signature block](#lift-signature-block)). The freeze ran from `v0.4-canary` (2026-05-17) to 2026-06-11.
 >
-> **Lifts on:** mainnet GA (Q4 2026 target) OR explicit `<unfreeze>` declaration in this file with reviewer sign-off.
+> **Why it lifted:** the freeze's external exit criteria (a formal third-party audit engagement; mainnet GA) sit on a longer horizon than the team's near-term development needs. Rather than gate active work on an external milestone whose timing the team does not control, founder and tech lead jointly exercised the self-directed exit criterion. The freeze achieved its purpose — the internal red-team converged (16/16 Critical/High closed, 0 open) — and development resumes under a raised internal-rigor bar (see "Post-lift discipline"), with a formal external audit retained as a hard gate before mainnet GA and real funds.
 
 ## What this means
 
@@ -36,11 +36,11 @@ The session that produced `v0.4-canary` ran 252 commits in 22 days — well abov
 
 The freeze lifts when **any one** of the following is true:
 
-| Condition                                                                                        | Status                                            |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Mainnet GA achieved + first cycle complete                                                       | 🔴 Pending (Q4 2026 target)                       |
-| Formal external auditor report received (Adevar / Halborn / OtterSec / Sec3 — selection pending) | 🔴 Pending (engagement in scoping)                |
-| Founder + tech lead joint unfreeze in this file                                                  | 🔴 Pending (intentional friction — requires both) |
+| Condition                                                                                        | Status                                                                    |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Mainnet GA achieved + first cycle complete                                                       | 🔴 Not yet (Q4 2026 target)                                               |
+| Formal external auditor report received (Adevar / Halborn / OtterSec / Sec3 — selection pending) | 🔵 Retained as a pre-mainnet gate (longer horizon than this lift)         |
+| Founder + tech lead joint unfreeze in this file                                                  | 🟢 **MET 2026-06-11** — see [Lift signature block](#lift-signature-block) |
 
 ## Reviewer requirement during freeze
 
@@ -83,17 +83,54 @@ This is friction by design. The friction is the feature.
 
 ## Lift signature block
 
-When the freeze lifts, replace this section with:
-
 ```
-FREEZE LIFTED on YYYY-MM-DD by:
-  - Founder:        <signature>
-  - Tech lead:      <signature>
-  - Reason for lift: <one line>
-  - Active SEVs at lift time: <list>
+FREEZE LIFTED on 2026-06-11 by:
+  - Founder:            Yvina
+  - Tech lead:          Alrimar S.
+  - CPO:                Caio
+  - Security engineer:  Gabriel
+  - Reason for lift:    Deliberate timing decision. The freeze achieved its
+                        purpose — the internal red-team converged (16/16
+                        Critical/High closed, 0 open). The external-audit and
+                        mainnet-GA exit criteria sit on a longer horizon than
+                        the team's near-term roadmap, so founder and tech lead
+                        exercised the self-directed exit criterion to resume
+                        active development now, under a raised internal-rigor
+                        bar. A formal external audit is retained as a hard
+                        gate before mainnet and real funds. Reputation v5.2
+                        (Hybrid) is the first post-lift workstream.
+  - Active SEVs at lift time: 0 open. 51 catalogued, 49 closed in code,
+                        2 design-intentional (SEV-018 won't-fix, SEV-032
+                        acknowledged). Critical/High 16 of 16 closed
+                        (6 Critical + 10 High). Source of truth:
+                        docs/security/internal-audit-findings.md.
 ```
 
-Until then, the freeze stands.
+## Post-lift discipline (replaces the freeze gate)
+
+The freeze is gone, but the lessons that motivated it are not. The
+empirical trigger was SEV-040/041 (Critical, Kamino) found by validation —
+"velocity > validation creates bug surface." With **no external-audit net
+on the current timeline**, internal rigor is raised to compensate:
+
+1. **Integration tests are mandatory for any new on-chain instruction or
+   behavior change** — bankrun or litesvm, not just host-side unit tests.
+   A pure-function unit test is necessary but not sufficient for a
+   lifecycle-boundary change.
+2. **Negative regression test before merge** for any Critical/High fix
+   (the rule that came out of SEV-029) stays in force.
+3. **Small, reviewable PRs** — one concern per PR. The freeze enforced this
+   indirectly via friction; now it's a norm, not a gate.
+4. **`docs/architecture.md` stays the source of truth** — amend it in the
+   same PR (or a preceding one) as any protocol/account change. The
+   reputation v5.2 work follows this (§4.7).
+5. **External audit remains the bar for mainnet GA + real funds.** Lifting
+   the freeze unblocks devnet/canary development; it does NOT change the
+   pre-mainnet requirement for a formal audit (see `MAINNET_READINESS.md`).
+
+The `.github/workflows/freeze-enforcement.yml` gate is flipped to a no-op
+(early-return success) rather than deleted, preserving the audit trail of
+how the freeze was enforced while it was active.
 
 ## See also
 
