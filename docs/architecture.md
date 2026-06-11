@@ -578,7 +578,7 @@ The v5.2 proposal separates two questions that the original plan conflated:
 
 The Hybrid path answers them independently:
 
-- **On-chain (decided):** a new **`BehavioralEvent`** account type records every contribution / claim / default with `delta_seconds`, deterministic classification and group context — the inputs the full v5.2 metrics (`reliability`, `punctuality`, `commitment`, `recovery`) will eventually consume. It is **additive**: a new PDA per event (batched — see sizing note below), zero changes to `ReputationProfile` or any `roundfi-core` account layout.
+- **On-chain (decided):** record the rich per-event data — `delta_seconds`, deterministic classification, group context — that the full v5.2 metrics (`reliability`, `punctuality`, `commitment`, `recovery`) will eventually consume. **Implementation correction (2026-06-11):** the proposal assumed a greenfield `BehavioralEvent` account with batched PDAs. A code review found this is unnecessary — the deployed program **already** stores one immutable, idempotent `Attestation` PDA per scoring event (`[b"attestation", issuer, subject, schema_id, nonce]`, `nonce = (cycle << 32) | slot_index`), and that account already carries a **96-byte `payload` field that `roundfi-core` currently writes as all zeros**. So the rich data lands by populating that reserved payload, not by adding an account. This is strictly smaller and lower-risk: no new account type, no batched-`Vec` sizing problem (one PDA per event already exists), no migration (legacy attestations keep their zero payload, which decodes to "no rich data"), and zero change to `ReputationProfile` or any `roundfi-core` account layout. The canonical 96-byte codec lives in `roundfi-reputation::state::behavioral_payload` (versioned, byte 0); `roundfi-core` imports it to write at each emit site; the indexer decodes it.
 - **Score (provisional, off-chain):** the user-facing score is computed by the **indexer** with simple v1-style weights and served over HTTP, explicitly versioned (`formula_versao: "v1-provisional"`). Weights get calibrated against real cycle data before any weight set is published as canonical — publishing v5.2's weights today would punish the first users with arbitrary numbers (and the proposal's `reliability()` / `punctuality()` reference implementations carry known bugs that must be fixed before those functions ever run).
 - **Ladder (decided): 4 tiers.** L1 Iniciante 50% · L2 Comprovado 25% · L3 Veterano 10% · L4 Elite 3% stake. L2 changes from the deployed 30%.
 
@@ -586,7 +586,7 @@ The Hybrid path answers them independently:
 
 | In canary scope                                                              | Explicitly NOT in canary                                    |
 | ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `BehavioralEvent` account type (additive)                                    | `query_score` CPI / Score Reader Program                    |
+| Rich `Attestation.payload` (96-byte codec — reuses existing PDA)             | `query_score` CPI / Score Reader Program                    |
 | Indexer derives `EventClassification` deterministically from `delta_seconds` | `FrictionProof` on-chain verification                       |
 | Off-chain score endpoint (indexer HTTP, v1-provisional weights)              | `ORACLE_WHITELIST` / Switchboard feeds / governance program |
 | 4-tier surface in app + mobile (UI labels/colors)                            | `BadFaith` category in scoring                              |
@@ -598,15 +598,18 @@ The Hybrid path answers them independently:
 
 - **Decisão 3 — Switchboard oracle (`ORACLE_WHITELIST`):** deferred. Nothing in the Hybrid canary consumes it (FrictionProof is out of scope). Required before any upgrade past v1-provisional weights.
 - **Decisão 4 — BadFaith attester:** deferred. v1-provisional weights have no BadFaith bucket; governance design is post-canary.
-- **Decisão 5 — upgrade vs redeploy of `roundfi-reputation`:** implementer's call. Because `BehavioralEvent` is additive and `ReputationProfile` is unchanged, an in-place **upgrade** is technically viable (existing account layouts survive, Solscan evidence stays linked). Bundle a redeploy only if other refactors justify it.
+- **Decisão 5 — upgrade vs redeploy of `roundfi-reputation`:** implementer's call, and now **clearly an upgrade** — the payload-reuse approach changes no account layout at all (the 96-byte `payload` already exists on `Attestation`; we only change the bytes core writes into it). Existing account layouts survive, Solscan evidence stays linked. Bundle a redeploy only if other refactors justify it.
 
 #### 4.7.4 Implementation sequencing (each step gates the next)
 
+Revised 2026-06-11 after the "reuse the existing payload" correction above
+(no greenfield account, no batched PDAs).
+
 1. ~~Amend this document~~ ← this section.
-2. `BehavioralEvent` account design in `roundfi-reputation` — **must use the batched account-list pattern** (PDA per batch of N events, `[b"event_batch", wallet, batch_index]`), never an unbounded `Vec` (Solana accounts are fixed-size at allocation).
-3. Emit-on-action: `record_event` instruction + CPI (or log-based ingest) from the lifecycle paths. The production crank must sequence `settle_default → record_event` atomically — a settle without its event silently de-syncs the score.
-4. Indexer: ingest `BehavioralEvent`, derive `EventClassification`, expose the score endpoint.
-5. SDK: decoders for the new account type.
+2. ~~**Phase A — payload codec.** Canonical 96-byte `BehavioralPayload` in `roundfi-reputation::state::behavioral_payload` — versioned (byte 0), `encode`/`decode`, classification hints, `delta_seconds` derived in one place. Pure, exhaustively unit-tested, **zero on-chain behavior change** (core still writes zeros until Phase B). Decode of a legacy zero payload returns `None`.~~ **done.**
+3. **Phase B — core writes it.** Replace `EMPTY_PAYLOAD` at the three emit sites (`contribute`, `settle_default`, `claim_payout` cycle-complete) with `BehavioralPayload::new(...).encode()`, computing `due_ts` / `paid_ts` / `delta` / `amount` / `group_size` from data already in scope. Integration-tested (bankrun/litesvm) since this is a behavior change at the lifecycle boundary. The production crank already sequences settle→attest in one tx (the attest CPI is inside `settle_default`), so the "atomic settle→record" requirement is met by construction — the payload rides the same CPI.
+4. Indexer: decode `Attestation.payload`, derive `EventClassification`, expose the score endpoint.
+5. SDK: TS decoder mirroring `BehavioralPayload` (version dispatch lives here).
 6. App + mobile: 4-tier surface (gated behind upstream completion — see `mobile/docs/reputation-v2/06-team-decisions.md`, "Caminho 2").
 
 #### 4.7.5 Communication impact (for the institutional-doc owners)
