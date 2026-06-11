@@ -107,7 +107,7 @@ RoundFi is a **behavioral-credit primitive disguised as a savings protocol**. Th
 ## Core Mechanics
 
 - **Pool shape:** 24 members · $600/mo installment · ~$10K credit per cycle (internal pre-audit [SEV-025](docs/security/internal-audit-findings.md): defaults bumped from $416 to make the pool viable out of the box — pool float `24×600×0.74 = 10_656 USDC ≥ 10_000` credit clears the cycle-0 Seed Draw guard)
-- **Reputation ladder (50-30-10 Rule):** stake drops 50% → 30% → 10% as members graduate Level 1 → 2 → 3 (Veteran). Veterans unlock 10× leverage.
+- **Reputation ladder (50-30-10 Rule):** stake drops 50% → 30% → 10% as members graduate Level 1 → 2 → 3 (Veteran). Veterans unlock 10× leverage. _Approved direction (2026-06-09, pre-implementation): the ladder extends to 4 tiers — 50/25/10/3% with a new L4 Elite — under the reputation v5.2 Hybrid path; deployed devnet programs still enforce 50/30/10. See [architecture.md §4.7](docs/architecture.md)._
 - **Triple Shield:**
   1. **Seed Draw** — Month-1 retention of 91.6% of capital.
   2. **Adaptive Escrow** — locks reward portions so debt decreases faster than collateral returns.
