@@ -90,11 +90,24 @@ Pulled from the desktop `/home` dashboard inventory (commit history):
 - **`PassportMini` radial score** — the circular score chart on the right of the desktop bento. Needs `react-native-svg` for the radial.
 - **Glass surfaces** — desktop uses `backdropFilter` (CSS only). Mobile equivalent is `expo-blur`'s `<BlurView>`. Adds bundle size; only worth it if we go all-in on the look.
 
-## Pending refactor — reputation v5.2
+## Pending refactor — reputation (Hybrid + 4 levels)
 
-**Status:** spec received 2026-06-09. **Not authorized for implementation.** See
-`mobile/docs/reputation-v2/` for the 5-doc package and read in the order the
-README there recommends.
+**Status:** spec received 2026-06-09. Team chose **Hybrid path + 4 levels** on
+the same day. Decisions 3-5 still open. **Mobile implementation not yet
+authorized** — see `mobile/docs/reputation-v2/06-team-decisions.md` for the
+full decision log.
+
+**TL;DR of what changed vs the original v5.2 evaluation:**
+
+- `RawReputationProfile.level: u8` shape stays — mobile does not break.
+- `BehavioralEvent` is additive (new account type), no breaking decoder change.
+- Score is computed off-chain in the indexer (v1-style weights, provisional).
+- L4 Elite is added to the ladder (stakes 50/25/10/3%) — L2 changes from 30 → 25%.
+- No `query_score` CPI / FrictionProof / Score Reader Program in the canary.
+
+The full v5.2 "mobile touchpoints" inventory below is **still relevant for the
+post-canary refactor**, but the canary-scope mobile delta is much smaller:
+just the 4-tier label/color extension.
 
 ### The change is much larger than "rename levels"
 

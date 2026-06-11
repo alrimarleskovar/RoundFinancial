@@ -45,11 +45,18 @@ mobile touchpoint inventory. **Short version:**
 
 ## Authorization status
 
-- [ ] Team has approved v5.2 over score v1
-- [ ] Team has chosen 3 vs 4 levels
-- [ ] Team has resolved Decisão 3-5
-- [ ] Bugs in `reliability()` and `punctuality()` have a fix PR
-- [ ] `ORACLE_WHITELIST` design exists
-- [ ] Risk Review has been discussed (regulatory + cold-start)
-- [ ] Legal opinion on Brazilian ROSCA classification obtained
-- [ ] Mobile work authorized (downstream — likely months from now)
+- [x] Team has resolved Decisão 1 (score architecture) — **chose Hybrid** (2026-06-09; see `06-team-decisions.md`)
+- [x] Team has resolved Decisão 2 (level ladder) — **chose 4 levels** with stakes 50/25/10/3% (2026-06-09)
+- [ ] Team has resolved Decisão 3 (Switchboard oracle / `ORACLE_WHITELIST`)
+- [ ] Team has resolved Decisão 4 (BadFaith attester)
+- [ ] Team has resolved Decisão 5 (upgrade vs redeploy of `roundfi-reputation`)
+- [x] Bugs in `reliability()` and `punctuality()` have a fix PR — **deferred under Hybrid** (those functions never run until v5.2 weights are calibrated)
+- [ ] `ORACLE_WHITELIST` design exists — deferred under Hybrid
+- [ ] Risk Review has been discussed (regulatory + cold-start) — still owed
+- [ ] Legal opinion on Brazilian ROSCA classification obtained — still owed
+- [ ] Mobile work authorized — **decision pending** (see `06-team-decisions.md` last section)
+
+## Open issues
+
+- [#450](https://github.com/alrimarleskovar/roundfinancial/issues/450) — VOLUNTARY_EXIT satisfied by construction (ready to close)
+- [#451](https://github.com/alrimarleskovar/roundfinancial/issues/451) — cleanup of dead `EscapeValveLeavingDefault` enum value
