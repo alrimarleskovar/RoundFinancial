@@ -1,11 +1,15 @@
 // HomeScreen — Fase 2 overview. Bento-style dashboard mirroring the
 // desktop /home shape (but compact for mobile):
 //
-//   Hero (RoundFi · devnet + palette toggle)
+//   Hero (RoundFi · devnet)
 //   ─────────────────────────────────────────
 //   4 KPI cards (2x2): Pools · Members · Contributed · Default rate
 //   ─────────────────────────────────────────
 //   "On-chain · devnet" pool rail (horizontal scroll)
+//
+// The palette toggle moved to the navigation header (PaletteToggle in
+// RootNavigator's headerRight) so it's reachable from every tab — the
+// Hero no longer carries its own pill.
 //
 // Reads `listPools()` once on mount + aggregates client-side via
 // aggregateProtocol(). Pull-to-refresh re-fetches. Loading and error
@@ -13,7 +17,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -40,7 +43,7 @@ type LoadState =
   | { phase: "ready"; snap: ProtocolSnapshot };
 
 export function HomeScreen() {
-  const { tokens, palette, togglePalette } = useTheme();
+  const { tokens } = useTheme();
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -73,7 +76,7 @@ export function HomeScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.green} />
       }
     >
-      <Hero tokens={tokens} palette={palette} togglePalette={togglePalette} />
+      <Hero tokens={tokens} />
 
       {state.phase === "loading" && (
         <View style={[styles.center, { paddingVertical: 60 }]}>
@@ -105,15 +108,7 @@ export function HomeScreen() {
 
 // ── Hero ───────────────────────────────────────────────────────────
 
-function Hero({
-  tokens,
-  palette,
-  togglePalette,
-}: {
-  tokens: ThemeTokens;
-  palette: "neon" | "soft";
-  togglePalette: () => void;
-}) {
+function Hero({ tokens }: { tokens: ThemeTokens }) {
   return (
     <View style={styles.hero}>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -123,19 +118,6 @@ function Hero({
           Live on-chain state · pull to refresh
         </Text>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={togglePalette}
-        style={({ pressed }) => [
-          styles.paletteToggle,
-          { backgroundColor: tokens.surface1, borderColor: tokens.borderStr },
-          pressed && { opacity: 0.85 },
-        ]}
-      >
-        <Text style={[styles.paletteLabel, { color: tokens.text }]}>
-          {palette === "neon" ? "🌙" : "☀️"}
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -347,17 +329,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: FONT.mono,
     marginTop: 4,
-  },
-  paletteToggle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  paletteLabel: {
-    fontSize: 18,
   },
 
   // KPI grid

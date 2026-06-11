@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 
+import { PaletteToggle } from "../components/PaletteToggle";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { WalletScreen } from "../screens/WalletScreen";
@@ -74,6 +75,10 @@ export function RootNavigator() {
             letterSpacing: -0.3,
           },
           headerTintColor: tokens.text,
+          // Global palette toggle — present on every tab header (the
+          // Pools tab hides this header; its native-stack renders the
+          // same toggle, see PoolsStack).
+          headerRight: () => <PaletteToggle />,
           tabBarLabelStyle: {
             fontFamily: FONT.mono,
             fontSize: 10,

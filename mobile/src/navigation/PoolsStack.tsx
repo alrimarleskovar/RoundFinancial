@@ -10,6 +10,7 @@
 // address, which also makes pull-to-refresh + deep-link trivial).
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import { PaletteToggle } from "../components/PaletteToggle";
 import { PoolDetailScreen } from "../screens/PoolDetailScreen";
 import { PoolsScreen } from "../screens/PoolsScreen";
 import { useTheme } from "../theme/ThemeProvider";
@@ -34,6 +35,9 @@ export function PoolsStack() {
           fontSize: 18,
         },
         headerTintColor: tokens.text,
+        // Same global toggle the tab headers carry (RootNavigator) —
+        // the Pools tab hides its tab header, so the stack supplies it.
+        headerRight: () => <PaletteToggle />,
         contentStyle: { backgroundColor: tokens.bg },
       }}
     >
