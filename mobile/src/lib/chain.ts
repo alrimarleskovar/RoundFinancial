@@ -66,16 +66,53 @@ export function getConnection(): Connection {
 }
 
 /**
+ * Bounded RPC wrapper. The public devnet RPC (`api.devnet.solana.com`)
+ * is rate-limited and sometimes returns a request that just hangs (the
+ * underlying jayson client has no per-request deadline). Without a
+ * timeout the spinner spins forever — that's the "Reading on-chain…"
+ * eternal loading state we hit. 15s is enough for a healthy devnet
+ * `getProgramAccounts` and short enough for a retry to feel responsive.
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new Error(`${label}: timeout after ${ms}ms (devnet RPC hung)`)),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
+const RPC_TIMEOUT_MS = 15_000;
+
+/**
  * Enumerate every Pool account owned by the core program, decoded into
  * the shared `RawPoolView` shape. Sorted newest-first (highest
  * startedAt), mirroring the web app's `listAllPools`.
  */
 export async function listPools(): Promise<RawPoolView[]> {
   const conn = getConnection();
-  const accounts = await conn.getProgramAccounts(DEVNET_CORE_PROGRAM_ID, {
-    commitment: "confirmed",
-    filters: [{ memcmp: { offset: 0, bytes: POOL_DISCRIMINATOR_B58 } }],
-  });
+  // eslint-disable-next-line no-console
+  console.log("[chain] listPools: fetching getProgramAccounts…");
+  const accounts = await withTimeout(
+    conn.getProgramAccounts(DEVNET_CORE_PROGRAM_ID, {
+      commitment: "confirmed",
+      filters: [{ memcmp: { offset: 0, bytes: POOL_DISCRIMINATOR_B58 } }],
+    }),
+    RPC_TIMEOUT_MS,
+    "listPools",
+  );
+  // eslint-disable-next-line no-console
+  console.log("[chain] listPools: got", accounts.length, "accounts");
 
   const pools = accounts.map(({ pubkey, account }) =>
     decodePoolRaw(pubkey, account.data as Buffer),

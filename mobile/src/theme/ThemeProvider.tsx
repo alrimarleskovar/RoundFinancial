@@ -47,43 +47,55 @@ export function ThemeProvider({
   children: ReactNode;
 }) {
   const [palette, setPaletteState] = useState<Palette>(initial);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Cold-open: restore the persisted palette once. The brief window
-  // where the initial palette renders before the read resolves is
-  // acceptable (~ms on a warm cache, and both palettes are legible).
+  // Cold-open: restore the persisted palette once. We track `hydrated`
+  // so the subsequent persistence effect doesn't write back the
+  // pre-read value over what was on disk.
   useEffect(() => {
     let active = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
-        if (active && isPalette(stored)) setPaletteState(stored);
+        if (!active) return;
+        if (isPalette(stored)) {
+          // eslint-disable-next-line no-console
+          console.log("[theme] hydrated from storage:", stored);
+          setPaletteState(stored);
+        } else {
+          // eslint-disable-next-line no-console
+          console.log("[theme] no stored palette, using initial:", initial);
+        }
+        setHydrated(true);
       })
-      .catch(() => {
-        // first launch / corrupted storage → keep `initial`
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.log("[theme] hydrate failed:", err?.message ?? err);
+        if (active) setHydrated(true);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [initial]);
 
-  const persist = useCallback((p: Palette) => {
-    AsyncStorage.setItem(STORAGE_KEY, p).catch(() => {});
-  }, []);
-
-  const setPalette = useCallback(
-    (p: Palette) => {
-      setPaletteState(p);
-      persist(p);
-    },
-    [persist],
-  );
-
-  const togglePalette = useCallback(() => {
-    setPaletteState((p) => {
-      const next: Palette = p === "neon" ? "soft" : "neon";
-      persist(next);
-      return next;
+  // Persistence: write whenever palette changes, but only AFTER the
+  // initial hydrate read has resolved. Without the gate, the initial
+  // render would write the default-value "soft" over a stored "neon"
+  // before the read returns. This is the bug that made "matei o app e
+  // não voltou na paleta" — the setState-callback persist could race
+  // the hydrate read on cold-open.
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(STORAGE_KEY, palette).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.log("[theme] persist failed:", err?.message ?? err);
     });
-  }, [persist]);
+  }, [hydrated, palette]);
+
+  const setPalette = useCallback((p: Palette) => setPaletteState(p), []);
+  const togglePalette = useCallback(
+    () => setPaletteState((p) => (p === "neon" ? "soft" : "neon")),
+    [],
+  );
 
   const value = useMemo<ThemeContextValue>(
     () => ({
