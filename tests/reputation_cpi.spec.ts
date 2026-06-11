@@ -156,6 +156,56 @@ describe("reputation CPI — happy path + score progression", function () {
     expect(info, `attestation missing: ${label}`).to.not.be.null;
   }
 
+  // ─── v5.2 Hybrid (Phase B) — BehavioralPayload decode ────────────────
+  // The 96-byte `payload` field lives inside the Attestation account at a
+  // fixed offset: discriminator(8) + issuer(32) + subject(32) +
+  // schema_id u16(2) + nonce u64(8) = 82. Mirrors the Rust layout in
+  // programs/roundfi-reputation/src/state/behavioral_payload.rs (v1).
+  const PAYLOAD_OFFSET = 82;
+  const CLASS = {
+    UNSPECIFIED: 0,
+    ON_TIME: 1,
+    EARLY: 2,
+    LATE: 3,
+    DEFAULT: 4,
+    CYCLE_COMPLETE: 5,
+  } as const;
+  const NO_TIMESTAMP = -9223372036854775808n; // i64::MIN
+
+  interface DecodedPayload {
+    version: number;
+    classification: number;
+    groupSize: number;
+    parcelsPaid: number;
+    dueTs: bigint;
+    paidTs: bigint;
+    deltaSeconds: bigint;
+    amount: bigint;
+  }
+
+  async function fetchPayload(
+    issuer: PublicKey,
+    subject: PublicKey,
+    schemaId: number,
+    nonce: bigint,
+  ): Promise<DecodedPayload> {
+    const pda = attestationFor(env, issuer, subject, schemaId, nonce);
+    const info = await env.connection.getAccountInfo(pda, "confirmed");
+    expect(info, "attestation account missing for payload decode").to.not.be.null;
+    const buf = Buffer.from(info!.data);
+    const p = buf.subarray(PAYLOAD_OFFSET, PAYLOAD_OFFSET + 96);
+    return {
+      version: p.readUInt8(0),
+      classification: p.readUInt8(1),
+      groupSize: p.readUInt8(2),
+      parcelsPaid: p.readUInt8(3),
+      dueTs: p.readBigInt64LE(8),
+      paidTs: p.readBigInt64LE(16),
+      deltaSeconds: p.readBigInt64LE(24),
+      amount: p.readBigUInt64LE(32),
+    };
+  }
+
   before(async function () {
     env = await setupEnv();
     usdcMint = await createUsdcMint(env);
@@ -238,6 +288,27 @@ describe("reputation CPI — happy path + score progression", function () {
           `Payment cycle=${cycle} slot=${h.slotIndex}`,
         );
 
+        // 1b. v5.2 Hybrid payload — Phase B wrote real timing into the
+        //     96-byte field (was all zeros pre-v5.2). Happy path is on
+        //     time, so classification is ON_TIME or EARLY; a real
+        //     payment moved the installment, so amount > 0 and a paid
+        //     timestamp is present.
+        const payPayload = await fetchPayload(
+          pool.pool,
+          h.wallet.publicKey,
+          ATTESTATION_SCHEMA.Payment,
+          nonce,
+        );
+        expect(payPayload.version, "payload version").to.equal(1);
+        expect([CLASS.ON_TIME, CLASS.EARLY]).to.include(payPayload.classification);
+        expect(payPayload.groupSize, "group_size = members_target").to.equal(handles.length);
+        expect(payPayload.parcelsPaid, "one installment per contribute").to.equal(1);
+        expect(payPayload.paidTs > 0n, "paid_ts present").to.be.true;
+        expect(payPayload.dueTs > 0n, "due_ts present").to.be.true;
+        expect(payPayload.amount > 0n, "amount = installment").to.be.true;
+        // delta_seconds is consistent with paid - due (single derivation).
+        expect(payPayload.deltaSeconds).to.equal(payPayload.paidTs - payPayload.dueTs);
+
         // 2. Profile delta: +5 (unverified) score, +1 on_time_payments.
         const profileAfter = asView(await fetchProfile(env, h.wallet.publicKey));
         expect(bn(profileAfter.score) - scoreBefore).to.equal(DELTA_PAYMENT_UNVERIFIED);
@@ -278,6 +349,25 @@ describe("reputation CPI — happy path + score progression", function () {
         nonce,
         `CycleComplete cycle=${cycle} slot=${recipient.slotIndex}`,
       );
+
+      // 1b. v5.2 Hybrid payload — CycleComplete is a payout claim, not a
+      //     payment, so timing-vs-deadline is not meaningful: due_ts = 0,
+      //     paid_ts = NO_TIMESTAMP, parcels = 0, amount = 0. The scoring
+      //     signal is the completion + group size.
+      const ccPayload = await fetchPayload(
+        pool.pool,
+        recipient.wallet.publicKey,
+        ATTESTATION_SCHEMA.CycleComplete,
+        nonce,
+      );
+      expect(ccPayload.version, "payload version").to.equal(1);
+      expect(ccPayload.classification, "CYCLE_COMPLETE hint").to.equal(CLASS.CYCLE_COMPLETE);
+      expect(ccPayload.groupSize, "group_size = members_target").to.equal(handles.length);
+      expect(ccPayload.parcelsPaid, "no installment on a payout claim").to.equal(0);
+      expect(ccPayload.dueTs, "no deadline for cycle-complete").to.equal(0n);
+      expect(ccPayload.paidTs, "no payment timestamp").to.equal(NO_TIMESTAMP);
+      expect(ccPayload.deltaSeconds, "delta zero when no payment").to.equal(0n);
+      expect(ccPayload.amount, "amount not captured on-chain for cycle-complete").to.equal(0n);
 
       // 2. Profile delta: +25 (unverified) score, +1 cycles_completed,
       //    +1 total_participated.

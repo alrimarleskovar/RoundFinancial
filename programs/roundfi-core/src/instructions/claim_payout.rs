@@ -2,9 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use roundfi_reputation::constants::SCHEMA_CYCLE_COMPLETE;
+use roundfi_reputation::state::{BehavioralPayload, CLASS_CYCLE_COMPLETE, NO_TIMESTAMP};
 
 use crate::constants::*;
-use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall};
 use crate::error::RoundfiError;
 use crate::math::retained_meets_seed_draw;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -200,6 +201,22 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
         let nonce = ((args.cycle as u64) << 32) | (member.slot_index as u64);
         let pool_key = pool.key();
 
+        // v5.2 Hybrid (Phase B): payload for the CYCLE_COMPLETE event.
+        // This is a payout claim, not a payment, so timing-vs-deadline is
+        // not meaningful (due_ts = 0, paid_ts = NO_TIMESTAMP, parcels = 0).
+        // The scoring signal here is the completion itself + group size
+        // (commitment metric). amount = 0; the indexer joins the Pool for
+        // the credit figure if it needs it.
+        let payload = BehavioralPayload::new(
+            CLASS_CYCLE_COMPLETE,
+            pool.members_target,
+            0,
+            0,
+            NO_TIMESTAMP,
+            0,
+        )
+        .encode();
+
         let signer_seeds_inner: &[&[u8]] = &[
             SEED_POOL,
             authority_key.as_ref(),
@@ -232,7 +249,7 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
             signer_seeds: signer_seeds_arr,
             schema_id:    SCHEMA_CYCLE_COMPLETE,
             nonce,
-            payload:      EMPTY_PAYLOAD,
+            payload,
             pool:         pool_key,
             pool_authority: authority_key,
             pool_seed_id:   pool.seed_id,
