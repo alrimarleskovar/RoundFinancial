@@ -39,7 +39,17 @@
 use crate::constants::ATTESTATION_PAYLOAD_LEN;
 
 /// Current payload layout version. Bump on any field-layout change.
-pub const BEHAVIORAL_PAYLOAD_VERSION: u8 = 1;
+/// Bumped from 1 to 2 by Pass-3 (Caio HIGH, 2026-06-12). The byte
+/// layout did not change, so v2 payloads decode under the same
+/// `BehavioralPayload` shape, but the classification taxonomy changed:
+/// `CLASS_CYCLE_COMPLETE` was renamed-and-resemanticised to
+/// `CLASS_POOL_COMPLETE`, and a new `CLASS_PAYOUT_CLAIMED` was added.
+/// The indexer uses the version byte to disambiguate legacy v1
+/// payloads (`classification = 5` meant "received payout, score +50")
+/// from v2 payloads (`classification = 5` means "completed the pool
+/// end-to-end" and `classification = 6` means "received payout, score
+/// neutral"). See `services/indexer/src/behavioralClassification.ts`.
+pub const BEHAVIORAL_PAYLOAD_VERSION: u8 = 2;
 
 // ── Coarse on-chain classification hints ─────────────────────────────
 // The indexer is authoritative; these are cheap breadcrumbs so a raw
@@ -49,7 +59,21 @@ pub const CLASS_PAYMENT_ON_TIME: u8 = 1;
 pub const CLASS_PAYMENT_EARLY: u8 = 2;
 pub const CLASS_LATE: u8 = 3;
 pub const CLASS_DEFAULT: u8 = 4;
-pub const CLASS_CYCLE_COMPLETE: u8 = 5;
+/// Renamed by Pass-3 from `CLASS_CYCLE_COMPLETE`. Same byte value (5),
+/// different meaning: under payload v2 this is emitted by `contribute`
+/// at the member's final installment. Under v1 (legacy attestations)
+/// this byte means "received payout" — the indexer disambiguates by the
+/// version byte.
+pub const CLASS_POOL_COMPLETE: u8 = 5;
+/// NEW (Pass-3, v2 only). Emitted by `claim_payout` to record the audit
+/// trail of a member receiving their carta this cycle. Score-neutral.
+pub const CLASS_PAYOUT_CLAIMED: u8 = 6;
+
+/// Pre-Pass-3 alias — kept so external decoders that read the constant
+/// directly don't error. New code MUST use `CLASS_POOL_COMPLETE` and be
+/// version-aware. Removed in a follow-up wave.
+#[deprecated(since = "0.5.0", note = "use CLASS_POOL_COMPLETE (Pass-3 rename)")]
+pub const CLASS_CYCLE_COMPLETE: u8 = CLASS_POOL_COMPLETE;
 
 /// Sentinel for "no payment timestamp" (e.g. a DEFAULT event — the
 /// member never paid). `delta_seconds` is forced to 0 in that case and
@@ -225,7 +249,7 @@ mod tests {
 
     #[test]
     fn encode_is_exactly_96_bytes_with_zero_reserved() {
-        let p = BehavioralPayload::new(CLASS_CYCLE_COMPLETE, 24, 1, 1, 2, 3);
+        let p = BehavioralPayload::new(CLASS_POOL_COMPLETE, 24, 1, 1, 2, 3);
         let bytes = p.encode();
         assert_eq!(bytes.len(), ATTESTATION_PAYLOAD_LEN);
         // alignment pad (4..8) and reserved tail (40..96) must be zero.

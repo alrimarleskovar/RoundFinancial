@@ -7,8 +7,10 @@
 //!   2. The `ReputationConfig.authority` — manual corrections only.
 //!
 //! Anti-gaming (§4.2 rules, architecture.md):
-//!   - Cycle-complete cooldown: reject `SCHEMA_CYCLE_COMPLETE` if
-//!     `now - profile.last_cycle_complete_at < MIN_CYCLE_COOLDOWN_SECS`.
+//!   - Pool-complete cooldown: reject `SCHEMA_POOL_COMPLETE` if
+//!     `now - profile.last_cycle_complete_at < MIN_POOL_COMPLETE_COOLDOWN_SECS`.
+//!     (Pre-Pass-3: was `SCHEMA_CYCLE_COMPLETE` / `MIN_CYCLE_COOLDOWN_SECS`;
+//!     same field on disk, renamed semantic.)
 //!   - Sybil hint: if IdentityRecord absent / unverified, halve
 //!     the on-time weight.
 //!   - Default stickiness: once a `SCHEMA_DEFAULT` attestation exists
@@ -157,9 +159,18 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     }
 
     // ─── 2. Schema validity ─────────────────────────────────────────────
+    // Pass-3 (Caio HIGH): added SCHEMA_PAYOUT_CLAIMED (score-neutral audit
+    // trail); SCHEMA_POOL_COMPLETE is the renamed-and-resemanticised
+    // id=4 (now emitted by `contribute` at the last installment, not by
+    // `claim_payout`).
     let schema_ok = matches!(
         args.schema_id,
-        SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT | SCHEMA_CYCLE_COMPLETE | SCHEMA_LEVEL_UP
+        SCHEMA_PAYMENT
+            | SCHEMA_LATE
+            | SCHEMA_DEFAULT
+            | SCHEMA_POOL_COMPLETE
+            | SCHEMA_LEVEL_UP
+            | SCHEMA_PAYOUT_CLAIMED
     );
     require!(schema_ok, ReputationError::InvalidSchema);
 
@@ -188,10 +199,21 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // by PDA uniqueness. The same-pool re-entry block is the caller's
     // responsibility (core enforces it in `settle_default`).
 
-    // ─── 4. Cycle-complete cooldown (anti-gaming rule #1) ───────────────
-    if args.schema_id == SCHEMA_CYCLE_COMPLETE {
+    // ─── 4. Pool-complete cooldown (anti-gaming rule #1) ────────────────
+    // Pass-3: was gated on SCHEMA_CYCLE_COMPLETE under the payout
+    // semantics; now gates POOL_COMPLETE under the obligations-complete
+    // semantics. Floor raised to 30 days because legitimate pool
+    // completions cadence at ≥6 months (see MIN_POOL_COMPLETE_COOLDOWN_SECS).
+    if args.schema_id == SCHEMA_POOL_COMPLETE {
+        // `last_cycle_complete_at` retains its name on the account for
+        // Borsh-layout compatibility with deployed profiles, but its
+        // semantics are now "last time the subject completed a pool
+        // end-to-end" — not "last payout."
         let elapsed = now.saturating_sub(profile.last_cycle_complete_at);
-        require!(elapsed >= MIN_CYCLE_COOLDOWN_SECS, ReputationError::CooldownActive);
+        require!(
+            elapsed >= MIN_POOL_COMPLETE_COOLDOWN_SECS,
+            ReputationError::CooldownActive,
+        );
     }
 
     // ─── 4b. Admin score-changing schema cooldown ──────────────────────
@@ -204,9 +226,9 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // **SEV-030 (W3):** the auditor flagged that the cooldown left
     // SCHEMA_LATE (−100) and SCHEMA_DEFAULT (−500) unrate-limited —
     // admin could grief a subject by spamming negative-score attests
-    // and tanking their level. SCHEMA_CYCLE_COMPLETE has its own
-    // dedicated 6-day cooldown (`MIN_CYCLE_COOLDOWN_SECS` above);
-    // SCHEMA_LEVEL_UP is informational and applies no score delta.
+    // and tanking their level. SCHEMA_POOL_COMPLETE has its own
+    // dedicated 30-day cooldown (`MIN_POOL_COMPLETE_COOLDOWN_SECS` above);
+    // SCHEMA_LEVEL_UP + SCHEMA_PAYOUT_CLAIMED are score-neutral.
     //
     // Now: the cooldown applies to **any admin-direct attestation
     // that changes the score** — PAYMENT (+10), LATE (−100), DEFAULT
@@ -290,12 +312,26 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
                 profile.level = demoted_level;
             }
         }
-        SCHEMA_CYCLE_COMPLETE => {
-            let delta = SCORE_CYCLE_COMPLETE * weight_num / weight_den;
+        SCHEMA_POOL_COMPLETE => {
+            // Pass-3: now fires when a member finishes paying every
+            // installment of a pool (last `contribute` call) — not when
+            // they receive their payout. This is the moment the
+            // "pay-after-receiving" thesis is actually demonstrated, so
+            // it's the right place to apply the +50 reward + bump
+            // `cycles_completed` (the count of POOLS COMPLETED END-TO-END).
+            let delta = SCORE_POOL_COMPLETE * weight_num / weight_den;
             profile.apply_score_delta(delta);
             profile.cycles_completed = profile.cycles_completed.saturating_add(1);
             profile.total_participated = profile.total_participated.saturating_add(1);
             profile.last_cycle_complete_at = now;
+        }
+        SCHEMA_PAYOUT_CLAIMED => {
+            // Pass-3 (NEW). Pure audit trail — the member was drawn this
+            // cycle. No score delta, no `cycles_completed` bump. The
+            // mortgage on future obligations is what counts; this
+            // attestation is here so the indexer can show "drawn" status
+            // and the on-chain history is complete.
+            profile.total_participated = profile.total_participated.saturating_add(1);
         }
         SCHEMA_LEVEL_UP => {
             // Informational only; actual level is mutated by promote_level.
@@ -389,8 +425,9 @@ mod tests {
     //
     // SEV-027 (W2) added cooldown for admin SCHEMA_PAYMENT only. SEV-030
     // (W3) extends to all *score-changing* schemas (PAYMENT, LATE,
-    // DEFAULT). SCHEMA_CYCLE_COMPLETE has its own dedicated 6-day
-    // cooldown above; SCHEMA_LEVEL_UP is informational.
+    // DEFAULT). SCHEMA_POOL_COMPLETE has its own dedicated 30-day
+    // cooldown above; SCHEMA_LEVEL_UP + SCHEMA_PAYOUT_CLAIMED are
+    // score-neutral.
     //
     // The handler's `is_score_changing` matcher is the gate. These
     // tests exercise the classification matrix so a future refactor
@@ -420,13 +457,22 @@ mod tests {
     }
 
     #[test]
-    fn sev_030_admin_cooldown_skips_cycle_complete() {
-        // CYCLE_COMPLETE has its own 6-day cooldown
-        // (`MIN_CYCLE_COOLDOWN_SECS`) which is far stricter than the
-        // 60s admin floor — applying the 60s floor on top would be
+    fn sev_030_admin_cooldown_skips_pool_complete() {
+        // POOL_COMPLETE has its own 30-day cooldown
+        // (`MIN_POOL_COMPLETE_COOLDOWN_SECS`) which is far stricter than
+        // the 60s admin floor — applying the 60s floor on top would be
         // redundant. Confirm the matcher does not include it.
-        assert!(!is_score_changing_schema(SCHEMA_CYCLE_COMPLETE),
-            "SCHEMA_CYCLE_COMPLETE uses MIN_CYCLE_COOLDOWN_SECS, not the admin floor");
+        // (Pass-3 rename — was SCHEMA_CYCLE_COMPLETE.)
+        assert!(!is_score_changing_schema(SCHEMA_POOL_COMPLETE),
+            "SCHEMA_POOL_COMPLETE uses MIN_POOL_COMPLETE_COOLDOWN_SECS, not the admin floor");
+    }
+
+    #[test]
+    fn pass3_admin_cooldown_skips_payout_claimed() {
+        // PAYOUT_CLAIMED is score-neutral (informational audit trail);
+        // no cooldown applies. The admin-floor matcher must not include it.
+        assert!(!is_score_changing_schema(SCHEMA_PAYOUT_CLAIMED),
+            "SCHEMA_PAYOUT_CLAIMED is score-neutral; admin cooldown does not apply");
     }
 
     #[test]

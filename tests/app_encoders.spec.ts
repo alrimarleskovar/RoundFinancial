@@ -211,13 +211,16 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
       expect(key(ix, 0).isSigner).to.equal(true);
     });
 
-    it("uses SCHEMA_CYCLE_COMPLETE for the attestation PDA", () => {
+    it("uses SCHEMA_PAYOUT_CLAIMED for the attestation PDA (Pass-3 rename of CYCLE_COMPLETE)", () => {
+      // Pre-Pass-3 this was CycleComplete (schema=4); claim_payout now
+      // emits PayoutClaimed (schema=6, score-neutral). The PDA must be
+      // derived under the new schema id or the on-chain CPI will reject.
       const nonce = attestationNonce(2, 2);
       const [attestation] = attestationPda(
         REPUTATION,
         POOL,
         MEMBER,
-        ATTESTATION_SCHEMA.CycleComplete,
+        ATTESTATION_SCHEMA.PayoutClaimed,
         nonce,
       );
       expect(key(ix, 12).pubkey.toBase58()).to.equal(attestation.toBase58());

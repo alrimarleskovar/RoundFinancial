@@ -18,7 +18,7 @@ import { PublicKey } from "@solana/web3.js";
 
 import {
   ATTESTATION_LEN,
-  CLASS_CYCLE_COMPLETE,
+  CLASS_POOL_COMPLETE,
   CLASS_DEFAULT,
   CLASS_LATE,
   CLASS_PAYMENT_EARLY,
@@ -81,7 +81,7 @@ describe("attestationToRowFields — decoded bytes → DB columns", () => {
     expect(row.nonce).to.equal((3n << 32n) | 7n);
     expect(row.cycle).to.equal(3);
     expect(row.slotIndex).to.equal(7);
-    expect(row.payloadVersion).to.equal(1);
+    expect(row.payloadVersion).to.equal(2); // Pass-3 bump (1 → 2)
     expect(row.classification).to.equal("payment_early");
     expect(row.groupSize).to.equal(24);
     expect(row.parcelsPaid).to.equal(1);
@@ -135,7 +135,7 @@ describe("attestationToRowFields — decoded bytes → DB columns", () => {
   it("maps a CYCLE_COMPLETE event", () => {
     const payload = encodeBehavioralPayload(
       makeBehavioralPayload({
-        classification: CLASS_CYCLE_COMPLETE,
+        classification: CLASS_POOL_COMPLETE,
         groupSize: 24,
         parcelsPaid: 0,
         dueTs: 0n,
@@ -146,7 +146,7 @@ describe("attestationToRowFields — decoded bytes → DB columns", () => {
     const row = attestationToRowFields(
       build({ schemaId: 4, cycle: 23, slotIndex: 23, payload, issuedAt: 1n }),
     );
-    expect(row.classification).to.equal("cycle_complete");
+    expect(row.classification).to.equal("pool_complete");
     expect(row.cycle).to.equal(23);
   });
 

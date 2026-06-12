@@ -49,13 +49,25 @@ export const POOL_DEFAULTS = {
   cycleDurationSec: 2_592_000,
 } as const;
 
-/** Attestation schema IDs — mirrors roundfi-reputation::SchemaId. */
+/** Attestation schema IDs — mirrors roundfi-reputation::SchemaId.
+ *
+ *  Pass-3 (Caio HIGH, 2026-06-12): id 4 was renamed from `CycleComplete`
+ *  (claim_payout-emitted, score +50) to `PoolComplete` (contribute-
+ *  emitted at the last installment, score +50 — measures the
+ *  "pay-after-receiving" thesis). id 6 was added as `PayoutClaimed`
+ *  (claim_payout-emitted, score-neutral audit trail). The
+ *  `CycleComplete` alias is kept so external tooling reading the
+ *  constant directly doesn't error during the cutover. */
 export const ATTESTATION_SCHEMA = {
   Payment: 1,
   Late: 2,
   Default: 3,
-  CycleComplete: 4,
+  PoolComplete: 4,
   LevelUp: 5,
+  PayoutClaimed: 6,
+  /** @deprecated Pass-3 rename — use `PoolComplete` (same id 4, new
+   *  semantics) or `PayoutClaimed` (id 6) depending on the call site. */
+  CycleComplete: 4,
 } as const;
 
 /** PoolStatus enum values — mirrors roundfi-core::PoolStatus. */

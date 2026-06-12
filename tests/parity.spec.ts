@@ -265,7 +265,15 @@ describe("Rust ↔ TS constants parity", () => {
       expect(Number(rust.get("SCHEMA_PAYMENT"))).to.equal(ATTESTATION_SCHEMA.Payment);
       expect(Number(rust.get("SCHEMA_LATE"))).to.equal(ATTESTATION_SCHEMA.Late);
       expect(Number(rust.get("SCHEMA_DEFAULT"))).to.equal(ATTESTATION_SCHEMA.Default);
-      expect(Number(rust.get("SCHEMA_CYCLE_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.CycleComplete);
+      // Pass-3 rename. id=4 unchanged on disk. SDK exposes both
+      // PoolComplete (canonical) and CycleComplete (alias); Rust source
+      // exposes SCHEMA_POOL_COMPLETE as the literal. The legacy alias on
+      // the Rust side is `pub const SCHEMA_CYCLE_COMPLETE = SCHEMA_POOL_COMPLETE`
+      // (not a numeric literal), so `extractInt` doesn't see it — the
+      // alias parity is asserted via the SDK-level equality below.
+      expect(Number(rust.get("SCHEMA_POOL_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.PoolComplete);
+      expect(ATTESTATION_SCHEMA.CycleComplete).to.equal(ATTESTATION_SCHEMA.PoolComplete);
+      expect(Number(rust.get("SCHEMA_PAYOUT_CLAIMED"))).to.equal(ATTESTATION_SCHEMA.PayoutClaimed);
       expect(Number(rust.get("SCHEMA_LEVEL_UP"))).to.equal(ATTESTATION_SCHEMA.LevelUp);
     });
   });

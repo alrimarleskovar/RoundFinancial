@@ -168,7 +168,10 @@ describe("reputation CPI — happy path + score progression", function () {
     EARLY: 2,
     LATE: 3,
     DEFAULT: 4,
-    CYCLE_COMPLETE: 5,
+    // Pass-3: byte 5 is now POOL_COMPLETE (was CYCLE_COMPLETE under v1);
+    // claim_payout emits byte 6 (PAYOUT_CLAIMED) instead.
+    POOL_COMPLETE: 5,
+    PAYOUT_CLAIMED: 6,
   } as const;
   const NO_TIMESTAMP = -9223372036854775808n; // i64::MIN
 
@@ -340,44 +343,47 @@ describe("reputation CPI — happy path + score progression", function () {
       await claimPayout(env, { pool, member: recipient, cycle });
       totalCycleCompleteAtts += 1;
 
-      // 1. Exact-address attestation PDA check (CycleComplete / schema=4).
+      // 1. Pass-3: claim_payout now emits PayoutClaimed (schema=6), not
+      //    CycleComplete. The +50/cycles_completed signal moved to the
+      //    member's last contribute() call.
       const nonce = attestationNonce(cycle, recipient.slotIndex);
       await expectAttestationExists(
         pool.pool,
         recipient.wallet.publicKey,
-        ATTESTATION_SCHEMA.CycleComplete,
+        ATTESTATION_SCHEMA.PayoutClaimed,
         nonce,
-        `CycleComplete cycle=${cycle} slot=${recipient.slotIndex}`,
+        `PayoutClaimed cycle=${cycle} slot=${recipient.slotIndex}`,
       );
 
-      // 1b. v5.2 Hybrid payload — CycleComplete is a payout claim, not a
-      //     payment, so timing-vs-deadline is not meaningful: due_ts = 0,
-      //     paid_ts = NO_TIMESTAMP, parcels = 0, amount = 0. The scoring
-      //     signal is the completion + group size.
+      // 1b. v5.2 Pass-3 payload — PayoutClaimed is the audit trail of a
+      //     member receiving their carta. No payment timing semantics:
+      //     due_ts = 0, paid_ts = NO_TIMESTAMP, parcels = 0, amount = 0.
+      //     Score-neutral.
       const ccPayload = await fetchPayload(
         pool.pool,
         recipient.wallet.publicKey,
-        ATTESTATION_SCHEMA.CycleComplete,
+        ATTESTATION_SCHEMA.PayoutClaimed,
         nonce,
       );
-      expect(ccPayload.version, "payload version").to.equal(1);
-      expect(ccPayload.classification, "CYCLE_COMPLETE hint").to.equal(CLASS.CYCLE_COMPLETE);
+      expect(ccPayload.version, "Pass-3 payload version").to.equal(2);
+      expect(ccPayload.classification, "PAYOUT_CLAIMED hint").to.equal(CLASS.PAYOUT_CLAIMED);
       expect(ccPayload.groupSize, "group_size = members_target").to.equal(handles.length);
       expect(ccPayload.parcelsPaid, "no installment on a payout claim").to.equal(0);
-      expect(ccPayload.dueTs, "no deadline for cycle-complete").to.equal(0n);
+      expect(ccPayload.dueTs, "no deadline for payout-claimed").to.equal(0n);
       expect(ccPayload.paidTs, "no payment timestamp").to.equal(NO_TIMESTAMP);
       expect(ccPayload.deltaSeconds, "delta zero when no payment").to.equal(0n);
-      expect(ccPayload.amount, "amount not captured on-chain for cycle-complete").to.equal(0n);
+      expect(ccPayload.amount, "amount not captured on-chain for payout-claimed").to.equal(0n);
 
-      // 2. Profile delta: +25 (unverified) score, +1 cycles_completed,
-      //    +1 total_participated.
+      // 2. Pass-3 profile delta: PAYOUT_CLAIMED is score-neutral. Only
+      //    total_participated bumps; score and cycles_completed stay put.
       const profileAfter = asView(await fetchProfile(env, recipient.wallet.publicKey));
-      expect(bn(profileAfter.score) - scoreBefore).to.equal(DELTA_CYCLE_COMPLETE_UNVERIFIED);
-      expect(profileAfter.cyclesCompleted - cyclesBefore).to.equal(1);
+      expect(bn(profileAfter.score) - scoreBefore).to.equal(0n);
+      expect(profileAfter.cyclesCompleted - cyclesBefore).to.equal(0);
       expect(profileAfter.totalParticipated - totalPartBefore).to.equal(1);
 
-      // last_cycle_complete_at advanced (cooldown marker).
-      expect(bn(profileAfter.lastCycleCompleteAt) > 0n).to.equal(true);
+      // last_cycle_complete_at NOT advanced (Pass-3: now tied to
+      // POOL_COMPLETE, not PAYOUT_CLAIMED).
+      expect(bn(profileAfter.lastCycleCompleteAt)).to.equal(bn(profileBefore.lastCycleCompleteAt));
 
       // Other members' profiles are untouched by this claim.
       for (const h of handles) {

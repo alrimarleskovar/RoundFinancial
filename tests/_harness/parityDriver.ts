@@ -110,6 +110,13 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
   // ownership and closes the seller's record).
   const defaulted = new Set<number>();
   const exited = new Set<number>();
+  // Pass-3 (Caio HIGH, 2026-06-12): tracks each row's contribution
+  // count so we can flag the LAST contribution (the one that triggers
+  // POOL_COMPLETE on-chain) — the helper needs `isFinalInstallment` so
+  // the attestation PDA derives with `SCHEMA_POOL_COMPLETE` instead of
+  // `SCHEMA_PAYMENT`. Otherwise Anchor rejects with ConstraintSeeds.
+  const contributionsPaid = new Array<number>(N).fill(0);
+  const cyclesTotal = N;
 
   for (let cycle = 0; cycle < N; cycle++) {
     const summary: CycleSummary = {
@@ -178,7 +185,14 @@ export async function driveMatrix(opts: DriveOpts): Promise<CycleSummary[]> {
       if (defaulted.has(m) || exited.has(m)) continue;
       const cell = matrix[m]![cycle];
       if (cell !== "P" && cell !== "C") continue;
-      await contribute(env, { pool, member: members[m]!, cycle });
+      const isFinalInstallment = contributionsPaid[m]! + 1 === cyclesTotal;
+      await contribute(env, {
+        pool,
+        member: members[m]!,
+        cycle,
+        isFinalInstallment,
+      });
+      contributionsPaid[m]! += 1;
       summary.contributed.push(m);
     }
 

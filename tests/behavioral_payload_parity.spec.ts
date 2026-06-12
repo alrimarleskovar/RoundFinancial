@@ -27,6 +27,8 @@ import {
   CLASS_LATE,
   CLASS_PAYMENT_EARLY,
   CLASS_PAYMENT_ON_TIME,
+  CLASS_PAYOUT_CLAIMED,
+  CLASS_POOL_COMPLETE,
   CLASS_UNSPECIFIED,
   NO_TIMESTAMP,
   classificationLabel,
@@ -101,8 +103,9 @@ describe("BehavioralPayload — TS ↔ Rust codec parity", () => {
 
   it("encode is exactly 96 bytes with zero reserved regions", () => {
     // Mirrors the Rust `encode_is_exactly_96_bytes_with_zero_reserved` test.
+    // Updated for Pass-3 — was CLASS_CYCLE_COMPLETE under v1 semantics.
     const p = makeBehavioralPayload({
-      classification: CLASS_CYCLE_COMPLETE,
+      classification: CLASS_POOL_COMPLETE,
       groupSize: 24,
       parcelsPaid: 1,
       dueTs: 1n,
@@ -180,14 +183,25 @@ describe("BehavioralPayload — TS ↔ Rust codec parity", () => {
     expect(decodeBehavioralPayload(u8)).to.deep.equal(p);
   });
 
-  it("classificationLabel covers every v1 class plus unknown", () => {
+  it("classificationLabel — v2 (current) labels every class plus unknown", () => {
     expect(classificationLabel(CLASS_UNSPECIFIED)).to.equal("unspecified");
     expect(classificationLabel(CLASS_PAYMENT_ON_TIME)).to.equal("payment_on_time");
     expect(classificationLabel(CLASS_PAYMENT_EARLY)).to.equal("payment_early");
     expect(classificationLabel(CLASS_LATE)).to.equal("payment_late");
     expect(classificationLabel(CLASS_DEFAULT)).to.equal("default");
-    expect(classificationLabel(CLASS_CYCLE_COMPLETE)).to.equal("cycle_complete");
+    expect(classificationLabel(CLASS_POOL_COMPLETE)).to.equal("pool_complete");
+    expect(classificationLabel(CLASS_PAYOUT_CLAIMED)).to.equal("payout_claimed");
+    // Legacy alias byte resolves to the new label under v2.
+    expect(classificationLabel(CLASS_CYCLE_COMPLETE)).to.equal("pool_complete");
     expect(classificationLabel(99)).to.equal("unknown_99");
+  });
+
+  it("classificationLabel — v1 (legacy) preserves the old semantics on byte 5", () => {
+    // Pass-3 made the label version-aware so a UI rendering a legacy
+    // attestation surfaces the version distinction. Byte 5 under v1 was
+    // "received payout"; under v2 it's "completed the pool."
+    expect(classificationLabel(CLASS_POOL_COMPLETE, 1)).to.equal("payout_claimed_legacy");
+    expect(classificationLabel(CLASS_DEFAULT, 1)).to.equal("default"); // unchanged
   });
 
   it("on-disk layout: i64 block aligns at offset 8 (parity with Rust)", () => {

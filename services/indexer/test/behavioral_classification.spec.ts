@@ -10,7 +10,8 @@
 import { expect } from "chai";
 
 import {
-  CLASS_CYCLE_COMPLETE,
+  CLASS_PAYOUT_CLAIMED,
+  CLASS_POOL_COMPLETE,
   CLASS_DEFAULT,
   CLASS_LATE,
   CLASS_PAYMENT_EARLY,
@@ -69,16 +70,46 @@ describe("deriveEventClassification — kind dispatch", () => {
     expect(deriveEventClassification(p)).to.equal("default");
   });
 
-  it("CYCLE_COMPLETE byte → cycle_complete", () => {
+  it("POOL_COMPLETE byte (v2) → pool_complete", () => {
     const p = makeBehavioralPayload({
-      classification: CLASS_CYCLE_COMPLETE,
+      classification: CLASS_POOL_COMPLETE,
       groupSize: 24,
       parcelsPaid: 0,
       dueTs: 0n,
       paidTs: NO_TIMESTAMP,
       amount: 0n,
     });
-    expect(deriveEventClassification(p)).to.equal("cycle_complete");
+    expect(deriveEventClassification(p)).to.equal("pool_complete");
+  });
+
+  it("Pass-3: byte 5 under legacy v1 payload → payout_claimed (not pool_complete)", () => {
+    // The on-chain byte 5 used to mean "received payout" (with the buggy
+    // +50/cycles_completed semantics). After Pass-3, indexer dispatches
+    // version-aware: v1 byte 5 → payout_claimed; v2 byte 5 → pool_complete.
+    // Build a v1 payload by hand (the encoder always emits v2).
+    const v2 = makeBehavioralPayload({
+      classification: CLASS_POOL_COMPLETE,
+      groupSize: 24,
+      parcelsPaid: 0,
+      dueTs: 0n,
+      paidTs: NO_TIMESTAMP,
+      amount: 0n,
+    });
+    const v1: typeof v2 = { ...v2, version: 1 };
+    expect(deriveEventClassification(v1)).to.equal("payout_claimed");
+    expect(deriveEventClassification(v2)).to.equal("pool_complete");
+  });
+
+  it("Pass-3: byte 6 → payout_claimed (v2 only)", () => {
+    const p = makeBehavioralPayload({
+      classification: CLASS_PAYOUT_CLAIMED,
+      groupSize: 24,
+      parcelsPaid: 0,
+      dueTs: 0n,
+      paidTs: NO_TIMESTAMP,
+      amount: 0n,
+    });
+    expect(deriveEventClassification(p)).to.equal("payout_claimed");
   });
 
   it("CLASS_UNSPECIFIED / unknown byte → unspecified", () => {
@@ -157,7 +188,8 @@ describe("weightOf — published reliability weights", () => {
   });
 
   it("returns null for non-reliability classes", () => {
-    expect(weightOf("cycle_complete")).to.equal(null);
+    expect(weightOf("pool_complete")).to.equal(null);
+    expect(weightOf("payout_claimed")).to.equal(null);
     expect(weightOf("unspecified")).to.equal(null);
   });
 });
@@ -174,7 +206,8 @@ describe("isPaymentClass", () => {
       expect(isPaymentClass(c)).to.equal(true);
     }
     expect(isPaymentClass("default")).to.equal(false);
-    expect(isPaymentClass("cycle_complete")).to.equal(false);
+    expect(isPaymentClass("pool_complete")).to.equal(false);
+    expect(isPaymentClass("payout_claimed")).to.equal(false);
     expect(isPaymentClass("unspecified")).to.equal(false);
   });
 });
@@ -183,7 +216,8 @@ describe("classificationPolarity", () => {
   it("maps each classification to a polarity", () => {
     expect(classificationPolarity("payment_early")).to.equal("positive");
     expect(classificationPolarity("payment_on_time")).to.equal("positive");
-    expect(classificationPolarity("cycle_complete")).to.equal("positive");
+    expect(classificationPolarity("pool_complete")).to.equal("positive");
+    expect(classificationPolarity("payout_claimed")).to.equal("neutral");
     expect(classificationPolarity("friction_temporal")).to.equal("neutral");
     expect(classificationPolarity("unspecified")).to.equal("neutral");
     expect(classificationPolarity("late_behavioral")).to.equal("negative");

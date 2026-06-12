@@ -34,7 +34,8 @@ const KNOWN_CLASSES: ReadonlySet<EventClassification> = new Set<EventClassificat
   "late_behavioral",
   "temporary_incapacity",
   "default",
-  "cycle_complete",
+  "pool_complete",
+  "payout_claimed",
   "unspecified",
 ]);
 

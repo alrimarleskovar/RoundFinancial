@@ -54,22 +54,24 @@ describe("scoreFromSignals", () => {
       ...evts("payment_on_time", 5),
       ...evts("late_behavioral", 2),
       ...evts("default", 1),
-      ...evts("cycle_complete", 3),
+      ...evts("pool_complete", 3),
+      ...evts("payout_claimed", 2), // Pass-3: score-neutral, audit only
       ...evts("unspecified", 1),
     ];
     const s = scoreFromSignals("W", history);
-    expect(s.event_count).to.equal(12);
+    expect(s.event_count).to.equal(14);
     expect(s.classification_counts).to.deep.equal({
       payment_on_time: 5,
       late_behavioral: 2,
       default: 1,
-      cycle_complete: 3,
+      pool_complete: 3,
+      payout_claimed: 2,
       unspecified: 1,
     });
-    // positive: 5 on_time + 3 cycle_complete = 8
-    // neutral: 1 unspecified
+    // positive: 5 on_time + 3 pool_complete = 8
+    // neutral: 1 unspecified + 2 payout_claimed = 3
     // negative: 2 late_behavioral + 1 default = 3
-    expect(s.polarity_counts).to.deep.equal({ positive: 8, neutral: 1, negative: 3 });
+    expect(s.polarity_counts).to.deep.equal({ positive: 8, neutral: 3, negative: 3 });
   });
 
   it("reflects lateness in punctuality", () => {

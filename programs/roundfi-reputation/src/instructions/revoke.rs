@@ -84,14 +84,18 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
             profile.apply_score_delta(-SCORE_DEFAULT);
             profile.defaults = profile.defaults.saturating_sub(1);
         }
-        SCHEMA_CYCLE_COMPLETE => {
-            let delta = SCORE_CYCLE_COMPLETE * weight_num / weight_den;
+        SCHEMA_POOL_COMPLETE => {
+            // Pass-3: same arithmetic as apply, inverted. last_cycle_complete_at
+            // intentionally NOT reset — the cooldown is a per-subject
+            // anti-gaming lockout that survives revocation by design.
+            let delta = SCORE_POOL_COMPLETE * weight_num / weight_den;
             profile.apply_score_delta(-delta);
             profile.cycles_completed = profile.cycles_completed.saturating_sub(1);
             profile.total_participated = profile.total_participated.saturating_sub(1);
-            // Do NOT reset last_cycle_complete_at — that's an anti-gaming
-            // lockout, not a score component. Resetting it would let a
-            // malicious issuer circumvent the cooldown.
+        }
+        SCHEMA_PAYOUT_CLAIMED => {
+            // Pass-3: pure audit trail; only total_participated was bumped.
+            profile.total_participated = profile.total_participated.saturating_sub(1);
         }
         SCHEMA_LEVEL_UP => {}
         _ => return Err(error!(ReputationError::InvalidSchema)),

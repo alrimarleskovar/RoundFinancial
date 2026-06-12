@@ -27,9 +27,26 @@
  *  `roundfi_reputation::constants::ATTESTATION_PAYLOAD_LEN`. */
 export const ATTESTATION_PAYLOAD_LEN = 96;
 
-/** Current payload layout version. Bumps on any field-layout change.
- *  Mirrors `BEHAVIORAL_PAYLOAD_VERSION` in the Rust source. */
-export const BEHAVIORAL_PAYLOAD_VERSION = 1;
+/** Current payload layout version. Bumps on any field-layout OR
+ *  classification-taxonomy change.
+ *
+ *  Pass-3 (Caio HIGH, 2026-06-12) bumped this from 1 to 2. The byte
+ *  layout did NOT change — v2 payloads decode under the same field
+ *  shape — but the taxonomy did: byte 5 was renamed-and-resemanticised
+ *  from `CLASS_CYCLE_COMPLETE` (claim_payout-emitted, score +50) to
+ *  `CLASS_POOL_COMPLETE` (contribute-emitted at the last installment,
+ *  score +50), and byte 6 was added as `CLASS_PAYOUT_CLAIMED`
+ *  (claim_payout-emitted, score 0).
+ *
+ *  Legacy v1 payloads keep their old meaning forever: a v1 byte-5
+ *  payload signals "received payout" under the old semantics, NOT
+ *  "completed the pool." See `decodeBehavioralPayload` and the indexer's
+ *  `deriveEventClassification` for the version-aware mapping. */
+export const BEHAVIORAL_PAYLOAD_VERSION = 2;
+/** Pre-Pass-3 version. The decoder accepts v1 buffers for legacy
+ *  attestations on devnet; the indexer maps a v1 byte-5 to the legacy
+ *  "received payout" semantics, not the new "pool complete" one. */
+export const BEHAVIORAL_PAYLOAD_VERSION_LEGACY = 1;
 
 // ── Coarse on-chain classification hints ─────────────────────────────
 // The indexer is authoritative; these are cheap breadcrumbs so a raw
@@ -39,7 +56,19 @@ export const CLASS_PAYMENT_ON_TIME = 1;
 export const CLASS_PAYMENT_EARLY = 2;
 export const CLASS_LATE = 3;
 export const CLASS_DEFAULT = 4;
-export const CLASS_CYCLE_COMPLETE = 5;
+/** Pass-3 rename. Byte value 5 — same as legacy `CLASS_CYCLE_COMPLETE`.
+ *  In v2 payloads this means "member finished paying every installment
+ *  of this pool" (emitted by `contribute`). In legacy v1 payloads, byte
+ *  5 means "received payout" (emitted by `claim_payout`). The version
+ *  byte is what distinguishes them — clients MUST be version-aware. */
+export const CLASS_POOL_COMPLETE = 5;
+/** Pass-3 (NEW, v2 only). "Member received their carta this cycle." */
+export const CLASS_PAYOUT_CLAIMED = 6;
+
+/** Pre-Pass-3 alias — kept so callers that read the constant directly
+ *  don't error. New code SHOULD use `CLASS_POOL_COMPLETE` and dispatch
+ *  on payload version. */
+export const CLASS_CYCLE_COMPLETE = CLASS_POOL_COMPLETE;
 
 /** Set of every known v1 classification byte — anything outside this
  *  set is unknown and the decoder maps it through as-is (callers can
@@ -50,7 +79,8 @@ export const KNOWN_CLASSES: ReadonlySet<number> = new Set([
   CLASS_PAYMENT_EARLY,
   CLASS_LATE,
   CLASS_DEFAULT,
-  CLASS_CYCLE_COMPLETE,
+  CLASS_POOL_COMPLETE, // byte 5 — alias of legacy CLASS_CYCLE_COMPLETE
+  CLASS_PAYOUT_CLAIMED, // Pass-3 (v2 only)
 ]);
 
 /**
@@ -185,7 +215,14 @@ export function decodeBehavioralPayload(bytes: Buffer | Uint8Array): BehavioralP
   }
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   const version = buf.readUInt8(OFF_VERSION);
-  if (version !== BEHAVIORAL_PAYLOAD_VERSION) {
+  // Pass-3 cutover: decode both v1 (legacy) and v2 (current). The byte
+  // layout is identical between the two — only the meaning of
+  // classification byte 5 changed (CYCLE_COMPLETE → POOL_COMPLETE) and
+  // byte 6 was added. Version-aware callers (indexer
+  // `deriveEventClassification`) interpret byte 5 differently per
+  // version; older callers that consumed legacy v1 attestations under
+  // the old name continue to work.
+  if (version !== BEHAVIORAL_PAYLOAD_VERSION && version !== BEHAVIORAL_PAYLOAD_VERSION_LEGACY) {
     // v0 (legacy zero) and any unknown future version → caller treats
     // as "no structured data" — parity with the Rust decoder.
     return null;
@@ -204,8 +241,17 @@ export function decodeBehavioralPayload(bytes: Buffer | Uint8Array): BehavioralP
 
 /** Human label for a classification byte. Used by admin/mobile UI;
  *  the indexer derives its own `EventClassification` and should not
- *  rely on this label for scoring. */
-export function classificationLabel(byte: number): string {
+ *  rely on this label for scoring.
+ *
+ *  Pass-3 made this version-aware. Under v2 (current), byte 5 is
+ *  `pool_complete` and byte 6 is `payout_claimed`. Under v1 (legacy),
+ *  byte 5 was `payout_claimed` (with the +50 score the new semantics
+ *  reject) — labelled `payout_claimed_legacy` so a UI listing a legacy
+ *  attestation makes the version distinction visible. */
+export function classificationLabel(
+  byte: number,
+  version: number = BEHAVIORAL_PAYLOAD_VERSION,
+): string {
   switch (byte) {
     case CLASS_UNSPECIFIED:
       return "unspecified";
@@ -217,8 +263,12 @@ export function classificationLabel(byte: number): string {
       return "payment_late";
     case CLASS_DEFAULT:
       return "default";
-    case CLASS_CYCLE_COMPLETE:
-      return "cycle_complete";
+    case CLASS_POOL_COMPLETE: // byte 5
+      return version === BEHAVIORAL_PAYLOAD_VERSION_LEGACY
+        ? "payout_claimed_legacy"
+        : "pool_complete";
+    case CLASS_PAYOUT_CLAIMED: // byte 6 (v2 only)
+      return "payout_claimed";
     default:
       return `unknown_${byte}`;
   }

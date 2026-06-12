@@ -54,9 +54,9 @@ export interface BehavioralSignal {
  * `RELIABILITY_WINDOW` reliability-eligible events, in 0..100.
  *
  * Reliability-eligible = events with a published weight (payments +
- * default). `cycle_complete` (a Commitment signal) and `unspecified`
- * carry no weight and are excluded — so a window of 50 on-time payments
- * scores exactly 100.
+ * default). `pool_complete` (a Commitment signal), `payout_claimed`
+ * (audit trail), and `unspecified` carry no weight and are excluded —
+ * so a window of 50 on-time payments scores exactly 100.
  *
  * Faithful formula (proposal §6, fixed): for the window's weight sum `S`
  * and count `N`,
@@ -83,8 +83,9 @@ export function reliability(history: readonly BehavioralSignal[]): number {
  * average," in 0..100, over the last `PUNCTUALITY_WINDOW` payment events.
  *
  * Averages `delta_seconds` (payments only — `default` has no payment
- * time, `cycle_complete` no timing), flooring a sub-1h-late delta to 0
- * (the friction grace), then applies the proposal's published piecewise-
+ * time, `pool_complete` / `payout_claimed` carry no payment timing),
+ * flooring a sub-1h-late delta to 0 (the friction grace), then applies
+ * the proposal's published piecewise-
  * linear map:
  *   delta <= -3d        → 100
  *   -3d <  delta <= 0   → 80..100   (earlier = higher)

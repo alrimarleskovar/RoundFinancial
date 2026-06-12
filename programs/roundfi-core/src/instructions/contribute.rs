@@ -1,9 +1,14 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-use roundfi_reputation::constants::{SCHEMA_LATE, SCHEMA_PAYMENT};
+// Pass-3 (Caio HIGH, 2026-06-12): when this is the member's LAST
+// installment of the pool, we emit `SCHEMA_POOL_COMPLETE` instead of
+// `SCHEMA_PAYMENT` — that's the moment the "pay-after-receiving" thesis
+// is demonstrated end-to-end, and the +50 / cycles_completed bump
+// belongs here, not at claim_payout.
+use roundfi_reputation::constants::{SCHEMA_LATE, SCHEMA_PAYMENT, SCHEMA_POOL_COMPLETE};
 use roundfi_reputation::state::{
-    BehavioralPayload, CLASS_LATE, CLASS_PAYMENT_EARLY, CLASS_PAYMENT_ON_TIME,
+    BehavioralPayload, CLASS_LATE, CLASS_PAYMENT_EARLY, CLASS_PAYMENT_ON_TIME, CLASS_POOL_COMPLETE,
 };
 
 use crate::constants::*;
@@ -232,17 +237,44 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     );
 
     // ─── Step 4e: reputation attestation (one CPI per event) ────────────
+    //
+    // Pass-3 (Caio HIGH, 2026-06-12): when this contribution is the
+    // member's LAST installment of the pool (`contributions_paid` was
+    // just incremented to `cycles_total`), the schema escalates from
+    // PAYMENT/LATE to POOL_COMPLETE. That's the moment the member has
+    // demonstrably kept every obligation in the pool — including any
+    // post-payout installments if they were drawn early — so it's the
+    // correct site for the +50 score reward and the `cycles_completed`
+    // bump that the anti-farming gate consumes.
+    //
+    // Late-on-the-final-payment edge case: we still escalate to
+    // POOL_COMPLETE. The intent is to record the obligation as kept; the
+    // tardiness was already counted via the on_time_count / late_count
+    // member fields (and `LATE` payloads were minted for any earlier
+    // cycle the member was late on). Counting a late final payment as a
+    // POOL_COMPLETE matches the proposal taxonomy: completion is binary,
+    // punctuality is a separate metric.
     let config = &ctx.accounts.config;
     if config.reputation_program != Pubkey::default() {
-        let schema_id = if on_time { SCHEMA_PAYMENT } else { SCHEMA_LATE };
+        let is_final_installment = member.contributions_paid == pool.cycles_total;
+        let schema_id = if is_final_installment {
+            SCHEMA_POOL_COMPLETE
+        } else if on_time {
+            SCHEMA_PAYMENT
+        } else {
+            SCHEMA_LATE
+        };
         let nonce = ((args.cycle as u64) << 32) | (member.slot_index as u64);
 
-        // v5.2 Hybrid (Phase B): populate the 96-byte attestation payload
-        // with the per-event timing the indexer scores off-chain. The
-        // classification byte is a coarse hint (indexer is authoritative);
-        // delta_seconds carries the precise timing. `parcels_paid = 1`
-        // (one installment per contribute). `amount` is the installment.
-        let classification = if !on_time {
+        // v5.2 Hybrid (Phase B + Pass-3): populate the 96-byte attestation
+        // payload with the per-event timing the indexer scores off-chain.
+        // The classification byte is a coarse hint (indexer is
+        // authoritative); delta_seconds carries the precise timing.
+        // `parcels_paid = 1` (one installment per contribute). `amount`
+        // is the installment.
+        let classification = if is_final_installment {
+            CLASS_POOL_COMPLETE
+        } else if !on_time {
             CLASS_LATE
         } else if clock.unix_timestamp < pool.next_cycle_at {
             CLASS_PAYMENT_EARLY
