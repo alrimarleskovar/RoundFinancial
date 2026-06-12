@@ -65,6 +65,8 @@
     "test:app-encoders": "pnpm exec mocha -t 60000 'tests/app_encoders.spec.ts'",
     "test:events": "pnpm exec mocha -t 60000 'tests/events.spec.ts'",
     "test:behavioral-payload": "pnpm exec mocha -t 60000 'tests/behavioral_payload_parity.spec.ts'",
+    "test:attestation-decode": "pnpm exec mocha -t 60000 'tests/onchain_raw_attestation.spec.ts'",
+    "test:behavioral-classification": "pnpm exec mocha -t 60000 'services/indexer/test/behavioral_classification.spec.ts'",
     "test:economic-parity-l1": "pnpm exec mocha -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",
     "test:economic-parity": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts'",
     "test:bankrun": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts' 'tests/app_encoders_bankrun.spec.ts' 'tests/security_kamino_cpi.spec.ts'",
