@@ -67,7 +67,7 @@ export function BehavioralScoreCard({ wallet }: Props) {
       {loading ? (
         <div style={{ color: tokens.muted, padding: 4 }}>Loading…</div>
       ) : error || !data ? (
-        <div style={{ color: tokens.danger, padding: 4 }}>
+        <div style={{ color: tokens.red, padding: 4 }}>
           {status === 503
             ? "Indexer unavailable — score will appear once the service is reachable."
             : `Score unavailable (${error ?? "unknown"})`}
