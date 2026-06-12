@@ -82,9 +82,17 @@ export function ClaimPayoutModal({
   // (the credit is anticipated; remaining installments are paid post-claim,
   // gated by the Triple Shield against default).
 
-  // Stake bps by reputation level — mirrors `state/member.rs` defaults
-  // and the L1 simulator's stake ladder (50% / 30% / 10%).
-  const STAKE_BPS_BY_LEVEL: Record<1 | 2 | 3, number> = { 1: 5000, 2: 3000, 3: 1000 };
+  // Stake bps by reputation level — the v5.2 ladder (50/25/10/3%).
+  // ⚠️ PRE-REDEPLOY: only feeds the mock/demo collateral display below
+  // (the chainMode branch reads member.stake_deposited_initial from the
+  // program, which still snapshots the deployed 50/30/10 ladder). See
+  // the LEVEL_TABLE note in lib/session.tsx.
+  const STAKE_BPS_BY_LEVEL: Record<1 | 2 | 3 | 4, number> = {
+    1: 5000,
+    2: 2500,
+    3: 1000,
+    4: 300,
+  };
   // Escrow split per installment — `pool.escrow_release_bps` default
   // (25% in basis points). Real chain reads this from pool, mock uses
   // the canonical default.
@@ -111,7 +119,7 @@ export function ClaimPayoutModal({
   // — the D/C invariant references them). Mock derives from
   // (prize × stakeBps[level]) for stake and (paidSoFar × escrow_bps)
   // for cumulative escrow.
-  const userLevel = (group.level ?? 2) as 1 | 2 | 3;
+  const userLevel = (group.level ?? 2) as 1 | 2 | 3 | 4;
   const stakeInitialBrl = chainMode
     ? (Number(memberRecord!.stakeDepositedInitial) / 1e6) * USDC_RATE
     : (group.prize * STAKE_BPS_BY_LEVEL[userLevel]) / 10_000;
