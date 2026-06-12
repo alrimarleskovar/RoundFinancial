@@ -8,7 +8,7 @@ export interface User {
   name: string;
   handle: string;
   avatar: string; // initials
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   levelLabel: string;
   score: number;
   scoreDelta: number;
@@ -30,8 +30,10 @@ export const USER: User = {
   scoreDelta: +18,
   nextLevel: 750,
   walletShort: "7xG3…k9Fn",
-  colateralPct: 30,
-  leverageX: 3.3,
+  // v5.2 ladder: L2 "Comprovado" = 25% collateral, 4× leverage.
+  // (Pre-redeploy — see LEVEL_TABLE note in lib/session.tsx.)
+  colateralPct: 25,
+  leverageX: 4,
   balance: 8420.55,
   yield: 312.08,
 };

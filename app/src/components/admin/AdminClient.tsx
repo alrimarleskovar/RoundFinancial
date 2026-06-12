@@ -51,12 +51,14 @@ export function AdminClient() {
           return "Comprovado";
         case 3:
           return "Veterano";
+        case 4:
+          return "Elite";
       }
     })();
     const firstName = ctrl.state.user.name.split(" ")[0] ?? "Demo";
     const groupName = `Cenário ${firstName}`;
-    const tone = ctrl.state.user.level === 3 ? "p" : ctrl.state.user.level === 2 ? "g" : "a";
-    const emoji = ctrl.state.user.level === 3 ? "✦" : ctrl.state.contemplated ? "🏆" : "▶";
+    const tone = ctrl.state.user.level >= 3 ? "p" : ctrl.state.user.level === 2 ? "g" : "a";
+    const emoji = ctrl.state.user.level >= 3 ? "✦" : ctrl.state.contemplated ? "🏆" : "▶";
     const remainingMonths = Math.max(0, ctrl.state.group.months - ctrl.state.currentMonth);
     const demoGroup: ActiveGroup = {
       id: "demo-active",

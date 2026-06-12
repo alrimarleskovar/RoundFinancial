@@ -11,7 +11,7 @@ import { useReducer, useCallback, type Dispatch } from "react";
 export interface DemoUser {
   name: string;
   avatar: string; // initials (auto-derived if blank)
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   score: number;
   balance: number; // BRL
   yield: number; // BRL

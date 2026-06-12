@@ -5,7 +5,7 @@ import type { Tone } from "@/data/carteira";
 import type { DevnetPoolKey } from "@/lib/devnet";
 
 export type GroupStatus = "paying" | "drawn";
-export type GroupLevel = 1 | 2 | 3;
+export type GroupLevel = 1 | 2 | 3 | 4;
 
 export interface ActiveGroup {
   id: string;
