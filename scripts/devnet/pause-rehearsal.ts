@@ -59,10 +59,14 @@ const RPC_URL = process.env.ANCHOR_PROVIDER_URL ?? "https://api.devnet.solana.co
 // flow points at the deployer keypair), else the solana CLI default.
 // Without the ANCHOR_WALLET fallback this loaded ~/.config/solana/id.json
 // — a different key — and every pause reverted with Unauthorized (6023).
-const WALLET_PATH =
-  process.env.SOLANA_WALLET ??
-  process.env.ANCHOR_WALLET ??
-  resolve(homedir(), ".config/solana/id.json");
+function resolveWalletPath(): string {
+  if (process.env.SOLANA_WALLET) return process.env.SOLANA_WALLET;
+  if (process.env.ANCHOR_WALLET) return process.env.ANCHOR_WALLET;
+  const repoDeployer = resolve(process.cwd(), "keypairs/deployer.json");
+  if (existsSync(repoDeployer)) return repoDeployer;
+  return resolve(homedir(), ".config/solana/id.json");
+}
+const WALLET_PATH = resolveWalletPath();
 
 const ROUNDFI_CORE_PROGRAM_ID = new PublicKey("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
 
