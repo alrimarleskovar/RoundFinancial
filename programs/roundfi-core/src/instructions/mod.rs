@@ -21,6 +21,7 @@ pub mod init_pool_vaults;
 pub mod initialize_protocol;
 pub mod join_pool;
 pub mod lock_approved_yield_adapter;
+pub mod lock_reputation_program;
 pub mod lock_treasury;
 pub mod migrate_protocol_config;
 pub mod pause;
@@ -63,6 +64,7 @@ mod reexports {
     pub use super::initialize_protocol::*;
     pub use super::join_pool::*;
     pub use super::lock_approved_yield_adapter::*;
+    pub use super::lock_reputation_program::*;
     pub use super::lock_treasury::*;
     pub use super::migrate_protocol_config::*;
     pub use super::pause::*;
