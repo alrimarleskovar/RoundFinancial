@@ -305,7 +305,21 @@ The protocol-level TVL cap (MAINNET_READINESS.md §4.3) enforces this on-chain. 
 - [`docs/security/bug-bounty.md`](../security/bug-bounty.md) — bug bounty severity scale for any canary-window finding
 - [`scripts/mainnet/canary-flow.ts`](../../scripts/mainnet/canary-flow.ts) — companion script
 - [`docs/operations/mainnet-canary-report-template.md`](./mainnet-canary-report-template.md) — post-run report template
+- [`docs/audit-responses/2026-06-12-partner-review.md`](../audit-responses/2026-06-12-partner-review.md) — partner review surfacing the four mainnet-checklist items below
 - Issue [#292](https://github.com/alrimarleskovar/RoundFinancial/issues/292) — this plan
+
+---
+
+## 11. Deploy-time invariants (added 2026-06-12 from partner review)
+
+Hard gates an operator must verify before opening retail pools — none are handler-logic changes, they are configuration + one initialisation guard. Sourced from `docs/audit-responses/2026-06-12-partner-review.md`.
+
+- [ ] **Identity gate enforced for L3+.** `IdentityGateConfig.required_min_level = 3` set via `set_identity_gate(3)` after `initialize_protocol` (closes MEDIUM #1). Devnet keeps the `0` default. Without this, L4 promotion accepts unverified wallets.
+- [ ] **`reputation_program` cannot be `Pubkey::default()`.** Add `require!(args.reputation_program != Pubkey::default(), RoundfiError::ReputationProgramMissing)` to `initialize_protocol` for the mainnet build (one-line change), OR enforce as canary pre-flight assertion in `scripts/mainnet/canary-flow.ts`. Without this, the protocol can silently boot in "no-reputation" mode while marketing claims reputation. (closes MEDIUM #2)
+- [ ] **Canary pre-flight: `config.reputation_program == <pinned mainnet id>`.** Defense-in-depth on top of the previous item. Add to `canary-flow.ts` Step 0 (alongside the existing TVL-cap and treasury assertions). (closes MEDIUM #2 layer 2)
+- [ ] **Master Spec § 4 — Escape Valve position-state vs wallet-reputation.** Document the split with a worked example (buyer X, high score, buying a slot from seller Y, low score — the **slot's** pending obligations transfer, the **wallet's** portable score does not). Not a code change. (closes MEDIUM #3 doc gap)
+
+HIGH #2 from that review is **not** in this list — it was resolved as Pass-3 in Jun 2026 (PR #470). See the audit-response document for the verification trail.
 
 ---
 
