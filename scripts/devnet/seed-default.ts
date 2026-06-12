@@ -221,9 +221,19 @@ async function main() {
   if (blockTime == null) {
     throw new Error("Could not read block time from cluster.");
   }
-  const graceDeadline = poolView.nextCycleAt + 60n; // GRACE_PERIOD_SECS = 60 (devnet patch)
+  // GRACE_PERIOD_SECS is cfg-gated in the program (constants.rs): the
+  // `devnet-canary` build uses 86_400 (1 day), the default/mainnet build
+  // uses 604_800 (7 days). The old `60` here was the SEV-002 leaked patch
+  // (removed). Default to the conservative 7-day value so the client
+  // check never sends a doomed tx; override GRACE_PERIOD_SECS=86400 if the
+  // deployed binary is the canary build. The on-chain guard is the final
+  // arbiter — if this passes but the tx reverts, the binary uses 604_800.
+  const GRACE_PERIOD_SECS = process.env.GRACE_PERIOD_SECS
+    ? BigInt(process.env.GRACE_PERIOD_SECS)
+    : 604_800n;
+  const graceDeadline = poolView.nextCycleAt + GRACE_PERIOD_SECS;
   console.log(
-    `→ Now (chain)  : ${blockTime}  ·  grace_deadline = next_cycle_at + 60 = ${graceDeadline}`,
+    `→ Now (chain)  : ${blockTime}  ·  grace_deadline = next_cycle_at + ${GRACE_PERIOD_SECS} = ${graceDeadline}`,
   );
   if (BigInt(blockTime) < graceDeadline) {
     const wait = Number(graceDeadline - BigInt(blockTime));

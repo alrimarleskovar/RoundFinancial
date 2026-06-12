@@ -415,12 +415,42 @@ Validated run: member 0 (`7RvpGyDP…`) had `on_time_count = 1`,
 `escrow_balance 2.75 → 1.75`, `last_released_checkpoint 0 → 1`.
 Checkpoint 2 needs `current_cycle` to advance (a claim) first.
 
-## What's deferred
+## Default settlement — pool 45 ARMED 2026-06-12 (replay after grace)
 
-- Same-pool default → `seed-default` exercise. Needs an Active pool
-  with a member who misses the grace window — `settle_default` requires
-  `now ≥ pool.next_cycle_at + GRACE_PERIOD_SECS` (GRACE is 1 day on the
-  devnet build, 7 days on mainnet) AND `current_cycle` to have advanced
-  past the defaulter (a claim must land first). A real multi-day wait on
-  devnet — no clock warp. The only remaining capability not runnable in
-  a single sitting.
+The setup is done; only the multi-day grace wait remains. Pool 45
+(`Hg9AkTCgNRNbVZqtZrHZpQbCuFeJnxDxhrJjUcW5TjZ9`) is a 3-member / 3-cycle
+pool (credit 4, install 3) on fresh wallets `member-20/21/22`
+(`MEMBER_INDEX_OFFSET=20`, no reputation carryover):
+
+- slots 0+1 (`member-20/21`) contributed cycle 0; slot 0 claimed →
+  `current_cycle = 1`. Float was `2 × 3 × 0.74 = 4.44 ≥ 4`, so the claim
+  needed no top-up.
+- **slot 2 (`member-22`, `6Ttytsby…`) never contributed** →
+  `contributions_paid = 0 < current_cycle = 1` → behind, the defaulter.
+
+`settle_default` needs `now ≥ next_cycle_at + GRACE_PERIOD_SECS`. After
+the cycle-0 claim `next_cycle_at = 1781476051` (2026-06-14 22:27 UTC).
+GRACE is cfg-gated (`constants.rs`), so the valid-from time is:
+
+| Build             |         GRACE | settle_default valid from       |
+| ----------------- | ------------: | ------------------------------- |
+| `devnet-canary`   |  86 400 (1 d) | **2026-06-15 22:27 UTC** (~3 d) |
+| default / mainnet | 604 800 (7 d) | **2026-06-21 22:27 UTC** (~9 d) |
+
+We don't know which the deployed binary is — try the canary timing
+first; if the on-chain reverts on grace, it's the 7-day build.
+
+**Replay (after the grace window):**
+
+```bash
+git checkout claude/devnet-seed-default-grace-fix   # or main, once merged
+export POOL_SEED_ID=45
+export MEMBER_INDEX_OFFSET=20
+GRACE_PERIOD_SECS=86400 DEFAULT_SLOT_INDEX=2 pnpm devnet:seed-default
+```
+
+`seed-default` seizes (Triple Shield order) solidarity vault → member 22's
+escrow → stake to cover the missed installment, flips
+`member.defaulted = true`, and fires a `SCHEMA_DEFAULT` (id 3)
+reputation attestation. The 18-account ix was verified aligned; the only
+client fix this needed was the stale 60s grace constant (this branch).
