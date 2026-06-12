@@ -94,21 +94,21 @@ describe("attestationToRowFields — decoded bytes → DB columns", () => {
     expect(row.payload).to.equal(payload.toString("hex"));
   });
 
-  it("maps a late-past-grace payment (classification re-derived from delta)", () => {
+  it("maps a temporary-incapacity payment (classification re-derived from delta)", () => {
     const payload = encodeBehavioralPayload(
       makeBehavioralPayload({
         classification: CLASS_LATE,
         groupSize: 12,
         parcelsPaid: 1,
         dueTs: 0n,
-        paidTs: 700_000n, // > 604_800 grace
+        paidTs: 700_000n, // ~8.1 days late → > 7d LATE_BEHAVIORAL_MAX
         amount: 10_000_000n,
       }),
     );
     const row = attestationToRowFields(
       build({ schemaId: 2, cycle: 0, slotIndex: 0, payload, issuedAt: 700_000n }),
     );
-    expect(row.classification).to.equal("payment_late_past_grace");
+    expect(row.classification).to.equal("temporary_incapacity");
     expect(row.deltaSeconds).to.equal(700_000n);
   });
 
