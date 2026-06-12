@@ -213,6 +213,13 @@ jobs:
         # hint byte. Pure, sub-second.
         run: pnpm test:behavioral-classification
 
+      - name: Attestation row mapping (6 tests)
+        # Reputation v5.2 Hybrid (Phase C.2b). Pins attestationToRowFields
+        # (decoded bytes → DB columns) — the deterministic, DB-free half
+        # of the attestation backfill. The DB round-trip itself is
+        # operator-run (needs Postgres; not in this lane). Pure, sub-second.
+        run: pnpm test:attestation-row
+
       - name: Stress Lab L1 economic-parity (34 tests)
         run: pnpm test:economic-parity-l1
 

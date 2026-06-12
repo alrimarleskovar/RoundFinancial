@@ -137,12 +137,47 @@ model Attestation {
   /// subject is a member of that pool). NULL for orphan attestations.
   member      Member?  @relation(fields: [memberId], references: [id])
   memberId    String?
+  /// Raw 96-byte payload as a lowercase hex string (192 chars). Kept for
+  /// the audit trail / byte-level diffing; structured fields below are
+  /// the decoded view. NULL only for rows ingested before v5.2 wrote it.
   payload     String?
+
+  // ─── v5.2 Hybrid BehavioralPayload (Phase C.2b) ────────────────────
+  // Decoded off-chain via @roundfi/sdk decodeAttestationRaw +
+  // deriveEventClassification. `payloadVersion` NULL = legacy zero
+  // payload (pre-v5.2) — all structured fields below are then NULL and
+  // `classification` is "unspecified".
+  /// BehavioralPayload version (1 for v5.2); NULL = legacy zero payload.
+  payloadVersion Int?
+  /// Authoritative EventClassification derived from delta_seconds.
+  classification String?
+  /// cycle = nonce >> 32 (denormalized for range queries / joins).
+  cycle          Int?
+  /// slotIndex = nonce & 0xffffffff (denormalized).
+  slotIndex      Int?
+  /// pool.members_target at emit time (commitment context).
+  groupSize      Int?
+  /// installments paid in this event (1 for a contribution, 0 otherwise).
+  parcelsPaid    Int?
+  /// paid_ts - due_ts (seconds, i64). Negative = early, positive = late.
+  deltaSeconds   BigInt?
+  /// USDC base units moved by the event (0 for default / cycle-complete).
+  amount         BigInt?
+  /// On-chain `issued_at` (unix seconds).
+  issuedAt       BigInt?
+  /// On-chain `revoked` flag — revoked attestations are excluded from
+  /// the off-chain score (C.3).
+  revoked        Boolean  @default(false)
+
   /// Audit trail
   mintedAt    DateTime @default(now())
-  txSignature String
+  /// Originating tx signature. NULLABLE since Phase C.2b — the
+  /// account-scan backfill (getProgramAccounts) does not know which tx
+  /// created the PDA; the webhook ingest path sets it when present.
+  txSignature String?
 
   @@index([subject, schemaId])
+  @@index([subject, classification])
   @@map("attestations")
 }
 
@@ -298,9 +333,10 @@ model BackfillRun {
   startedAt      DateTime  @default(now())
   finishedAt     DateTime?
   durationMs     Int?
-  poolsTouched   Int       @default(0)
-  membersTouched Int       @default(0)
-  errorMessage   String?
+  poolsTouched        Int       @default(0)
+  membersTouched      Int       @default(0)
+  attestationsTouched Int       @default(0)
+  errorMessage        String?
 
   @@index([startedAt])
   @@index([programId, startedAt])
