@@ -175,7 +175,7 @@ jobs:
           cat config/program-ids.devnet.json
           echo "::endgroup::"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: program-ids-devnet-${{ github.run_id }}
           path: config/program-ids.devnet.json

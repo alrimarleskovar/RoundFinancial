@@ -573,7 +573,7 @@ jobs:
 
       - name: Diagnostic — upload full build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log-${{ github.job }}
           path: /tmp/build.log
@@ -702,7 +702,7 @@ jobs:
 
       - name: Diagnostic — upload full build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log-${{ github.job }}
           path: /tmp/build.log
