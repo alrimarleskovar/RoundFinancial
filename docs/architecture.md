@@ -607,10 +607,12 @@ Revised 2026-06-11 after the "reuse the existing payload" correction above
 
 1. ~~Amend this document~~ ← this section.
 2. ~~**Phase A — payload codec.** Canonical 96-byte `BehavioralPayload` in `roundfi-reputation::state::behavioral_payload` — versioned (byte 0), `encode`/`decode`, classification hints, `delta_seconds` derived in one place. Pure, exhaustively unit-tested, **zero on-chain behavior change** (core still writes zeros until Phase B). Decode of a legacy zero payload returns `None`.~~ **done.**
-3. **Phase B — core writes it.** Replace `EMPTY_PAYLOAD` at the three emit sites (`contribute`, `settle_default`, `claim_payout` cycle-complete) with `BehavioralPayload::new(...).encode()`, computing `due_ts` / `paid_ts` / `delta` / `amount` / `group_size` from data already in scope. Integration-tested (bankrun/litesvm) since this is a behavior change at the lifecycle boundary. The production crank already sequences settle→attest in one tx (the attest CPI is inside `settle_default`), so the "atomic settle→record" requirement is met by construction — the payload rides the same CPI.
-4. Indexer: decode `Attestation.payload`, derive `EventClassification`, expose the score endpoint.
-5. SDK: TS decoder mirroring `BehavioralPayload` (version dispatch lives here).
-6. App + mobile: 4-tier surface (gated behind upstream completion — see `mobile/docs/reputation-v2/06-team-decisions.md`, "Caminho 2").
+3. ~~**Phase B — core writes it.** Replace `EMPTY_PAYLOAD` at the three emit sites (`contribute`, `settle_default`, `claim_payout` cycle-complete) with `BehavioralPayload::new(...).encode()`, computing `due_ts` / `paid_ts` / `delta` / `amount` / `group_size` from data already in scope. Integration-tested (`reputation_cpi.spec.ts`, localnet — the CI bankrun lane is SEV-012-blocked; assertion via `anchor test`). The production crank already sequences settle→attest in one tx (the attest CPI is inside `settle_default`), so the "atomic settle→record" requirement is met by construction — the payload rides the same CPI.~~ **done (PR #455).**
+4. **Phase C — codec on the read side.** Three sub-steps, ordered so each is independently shippable:
+   - **C.1** SDK TS decoder mirroring `BehavioralPayload` — version dispatch lives here. Parity-tested byte-for-byte against the Rust source of truth (`tests/behavioral_payload_parity.spec.ts`). No indexer / server change in this step; it just makes the bytes interpretable from TS for every downstream (indexer, server, mobile, admin).
+   - **C.2** Indexer: decode `Attestation.payload` at ingest, persist the structured fields next to the existing `events` rows, derive the v5.2 `EventClassification` (the indexer is authoritative — the on-chain `classification` byte is a hint).
+   - **C.3** Off-chain score endpoint with the provisional v1 weights (calibrated post-canary).
+5. App + mobile: 4-tier surface (gated behind upstream completion — see `mobile/docs/reputation-v2/06-team-decisions.md`, "Caminho 2").
 
 #### 4.7.5 Communication impact (for the institutional-doc owners)
 
