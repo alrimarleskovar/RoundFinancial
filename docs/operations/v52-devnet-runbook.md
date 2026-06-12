@@ -129,17 +129,18 @@ schema_id=6 (PAYOUT_CLAIMED). Old behavior would have been schema_id=4
 with +50 score. The reputation profile of slot 0 should show
 **unchanged score** post-claim.
 
-## Step 4 — Wait the cycle (or warp)
+## Step 4 — No wait needed (the claim advances the cycle)
 
-Devnet has no clock-warp ix; you literally wait `CYCLE_DURATION_SEC`
-(24h) before the next contribute is considered on-time. For demo
-purposes, **late** is also fine — `SCHEMA_LATE` still proves the
-attestation pipeline. The Pass-3 escalation to `POOL_COMPLETE` runs
-regardless of on-time/late.
+**Cycle advancement is claim-driven, not time-driven.** `claim_payout`
+of cycle N sets `pool.current_cycle = N+1` and bumps `next_cycle_at +=
+cycle_duration` (`claim_payout.rs:186-196`). So Step 3's `seed-claim`
+already moved the pool into cycle 1 — you do NOT wait `CYCLE_DURATION`.
 
-If you don't want to wait 24h, run Step 5 immediately — the contribute
-will be classified `LATE` (the schema escalates to `POOL_COMPLETE` for
-the final installment anyway, so the Pass-3 proof still works).
+`on_time` is `now <= pool.next_cycle_at` (`contribute.rs:189`), and
+`next_cycle_at` was seeded at join to `join_time + cycle_duration` then
+extended by the cycle-0 claim to `join_time + 2 × cycle_duration`. So a
+cycle-1 contribute run immediately after the claim is still **on-time**
+(you're well inside the 48h window). Run Step 5 right away.
 
 ## Step 5 — Cycle 1 (final — proves POOL_COMPLETE schema)
 
