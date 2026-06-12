@@ -59,6 +59,12 @@ pub const SCORE_DEFAULT:        i64 = -500;
 /// whose threshold ≤ current score.
 pub const LEVEL_2_THRESHOLD: u64 = 500;
 pub const LEVEL_3_THRESHOLD: u64 = 2_000;
+/// L4 "Elite" (v5.2 four-tier ladder). **v1-provisional gate:** on-chain
+/// L4 is a score + cycles threshold like L2/L3. The proposal's
+/// metric-based Elite criteria (Reliability≥94, Punctuality≥88,
+/// Commitment≥90, 0 BadFaith) live off-chain in the indexer and will
+/// harden this gate in a future upgrade once the weights are calibrated.
+pub const LEVEL_4_THRESHOLD: u64 = 5_000;
 
 /// **SEV-047 fix** — minimum `cycles_completed` per level, gating promotion
 /// alongside the score threshold. `cycles_completed` only rises on
@@ -68,13 +74,16 @@ pub const LEVEL_3_THRESHOLD: u64 = 2_000;
 ///   - L2 requires >= 1 completed cycle (proves one full ROSCA round).
 ///   - L3 requires >= 3 completed cycles (>= ~18 days at the 6-day cooldown
 ///     — kills the farm-200-pools-in-hours attack economics).
+///   - L4 requires >= 8 completed cycles (Elite — the strongest wall-clock
+///     floor; ~48 days minimum at the 6-day cooldown).
 /// Legitimate members hit these naturally; only sybil-farmers are blocked.
 pub const LEVEL_2_MIN_CYCLES: u32 = 1;
 pub const LEVEL_3_MIN_CYCLES: u32 = 3;
+pub const LEVEL_4_MIN_CYCLES: u32 = 8;
 
 /// Maximum levels supported. Level 0 is reserved for "never initialized".
 pub const LEVEL_MIN: u8 = 1;
-pub const LEVEL_MAX: u8 = 3;
+pub const LEVEL_MAX: u8 = 4;
 
 /// Authority rotation timelock for the reputation program (Adevar Labs
 /// SEV-021 fix). Same 7-day window used by roundfi-core's
@@ -176,8 +185,9 @@ mod floor_guards {
         );
     }
 
-    /// Level thresholds — guard the score ladder ordering. L3 must
-    /// require strictly more score than L2.
+    /// Level thresholds — guard the score ladder ordering. Each tier
+    /// must require strictly more score than the one below it
+    /// (v5.2 four-tier: L2 < L3 < L4).
     #[test]
     fn level_thresholds_strictly_increasing() {
         assert!(
@@ -185,6 +195,18 @@ mod floor_guards {
             "level thresholds must be strictly increasing: L3={} L2={}",
             LEVEL_3_THRESHOLD, LEVEL_2_THRESHOLD,
         );
+        assert!(
+            LEVEL_4_THRESHOLD > LEVEL_3_THRESHOLD,
+            "level thresholds must be strictly increasing: L4={} L3={}",
+            LEVEL_4_THRESHOLD, LEVEL_3_THRESHOLD,
+        );
+    }
+
+    /// Cycles floors mirror the score ladder ordering (L2 < L3 < L4).
+    #[test]
+    fn level_min_cycles_strictly_increasing() {
+        assert!(LEVEL_3_MIN_CYCLES > LEVEL_2_MIN_CYCLES);
+        assert!(LEVEL_4_MIN_CYCLES > LEVEL_3_MIN_CYCLES);
     }
 
     /// Max attestation horizon (Wave 9). Must be at least 2× the

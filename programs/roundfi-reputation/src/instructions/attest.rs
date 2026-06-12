@@ -270,6 +270,7 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
                 profile.score,
                 LEVEL_2_THRESHOLD,
                 LEVEL_3_THRESHOLD,
+                LEVEL_4_THRESHOLD,
                 // SEV-047: cycles_completed gate. For demotion this is a
                 // no-op widening (cycles_completed is additive-only, never
                 // decrements) — the demotion is driven by the score drop;
@@ -279,6 +280,7 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
                 profile.cycles_completed,
                 LEVEL_2_MIN_CYCLES,
                 LEVEL_3_MIN_CYCLES,
+                LEVEL_4_MIN_CYCLES,
             ).max(LEVEL_MIN);
             if demoted_level < profile.level {
                 msg!(

@@ -735,7 +735,7 @@ export async function recordExportAudit(
 
 export interface EconomyFilter {
   status?: "Forming" | "Active" | "Completed" | "Liquidated" | "Closed";
-  level?: 1 | 2 | 3;
+  level?: 1 | 2 | 3 | 4;
   fromUnix?: number;
   toUnix?: number;
 }
@@ -769,7 +769,7 @@ export interface Economy {
   };
   moat: {
     /** Distinct-wallet count by on-chain level snapshot (via backfill). */
-    levelDistribution: { l1: number; l2: number; l3: number };
+    levelDistribution: { l1: number; l2: number; l3: number; l4: number };
     distinctWallets: number;
     onTime: number;
     timedContributions: number;
@@ -867,9 +867,12 @@ export async function getEconomy(
     set.add(m.poolId);
     walletPools.set(m.wallet, set);
   }
-  const dist = { l1: 0, l2: 0, l3: 0 };
+  // v5.2 four-tier ladder. `lv >= 4` buckets Elite; everything above the
+  // band (defensive) folds into the highest tier.
+  const dist = { l1: 0, l2: 0, l3: 0, l4: 0 };
   for (const lv of walletMaxLevel.values()) {
-    if (lv >= 3) dist.l3 += 1;
+    if (lv >= 4) dist.l4 += 1;
+    else if (lv === 3) dist.l3 += 1;
     else if (lv === 2) dist.l2 += 1;
     else dist.l1 += 1;
   }

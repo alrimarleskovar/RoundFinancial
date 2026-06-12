@@ -21,7 +21,7 @@ import type { PrismaClient } from "@prisma/client";
  *  amendment, not a feature flag. Lowering them requires explicit
  *  justification (defense against p-hacking). */
 export const INSIGHTS_THRESHOLDS = {
-  /** Retention by level: N ≥ 30 distinct members PER cohort (L1, L2, L3). */
+  /** Retention by level: N ≥ 30 distinct members PER cohort (L1..L4). */
   retentionPerCohort: 30,
   /** Default predictor: N ≥ 100 distinct wallets total. */
   predictorTotalWallets: 100,
@@ -67,7 +67,7 @@ function rateBps(num: number, denom: number): number | null {
 // ── 1. Retention by level ──────────────────────────────────────────────
 
 export interface RetentionCohort {
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   n: number;
   status: SampleStatus;
   /** Null when status === "insufficient". */
@@ -87,10 +87,11 @@ export async function retentionByLevel(prisma: PrismaClient): Promise<RetentionV
   const members = await prisma.member.findMany({
     select: { reputationLevel: true, paidOut: true, defaulted: true },
   });
-  const tally: Record<1 | 2 | 3, { n: number; completed: number; defaulted: number }> = {
+  const tally: Record<1 | 2 | 3 | 4, { n: number; completed: number; defaulted: number }> = {
     1: { n: 0, completed: 0, defaulted: 0 },
     2: { n: 0, completed: 0, defaulted: 0 },
     3: { n: 0, completed: 0, defaulted: 0 },
+    4: { n: 0, completed: 0, defaulted: 0 },
   };
   for (const m of members) {
     // Member.reputationLevel is the on-chain snapshot the program wrote at
@@ -99,16 +100,19 @@ export async function retentionByLevel(prisma: PrismaClient): Promise<RetentionV
     // ReputationProfile PDA yet, the program defaults to L1 — so an
     // unhydrated reputation surface still surfaces every member as L1 here
     // (consistent with the IDL-free reader). 0 is mapped to L1 too as
-    // belt-and-suspenders against any future "level unset" sentinel; >3 to
-    // L3. Indexer never reads ReputationProfile directly; the L1 default
-    // is documented in ADR 0010 §4 as a follow-up to hydrate that PDA.
-    const lv = (m.reputationLevel <= 1 ? 1 : m.reputationLevel >= 3 ? 3 : 2) as 1 | 2 | 3;
+    // belt-and-suspenders against any future "level unset" sentinel; >4 to
+    // L4 (Elite, the v5.2 top tier). Indexer never reads ReputationProfile
+    // directly; the L1 default is documented in ADR 0010 §4 as a follow-up
+    // to hydrate that PDA.
+    const lv = (
+      m.reputationLevel <= 1 ? 1 : m.reputationLevel >= 4 ? 4 : m.reputationLevel === 3 ? 3 : 2
+    ) as 1 | 2 | 3 | 4;
     tally[lv].n += 1;
     if (m.paidOut) tally[lv].completed += 1;
     if (m.defaulted) tally[lv].defaulted += 1;
   }
   const threshold = INSIGHTS_THRESHOLDS.retentionPerCohort;
-  const cohorts: RetentionCohort[] = ([1, 2, 3] as const).map((lv) => {
+  const cohorts: RetentionCohort[] = ([1, 2, 3, 4] as const).map((lv) => {
     const t = tally[lv];
     const status = classifySample(t.n, threshold);
     const cleared = status !== "insufficient";
@@ -231,9 +235,13 @@ export interface ProgressionView {
   reachedL2Ci95Bps: [number, number] | null;
   reachedL3ShareBps: number | null;
   reachedL3Ci95Bps: [number, number] | null;
-  /** Mean memberships before the first L2 (or L3) snapshot, 1 decimal. */
+  /** Share that ever reached `Member.reputationLevel ≥ 4` (Elite, bps). */
+  reachedL4ShareBps: number | null;
+  reachedL4Ci95Bps: [number, number] | null;
+  /** Mean memberships before the first L2 / L3 / L4 snapshot, 1 decimal. */
   avgPoolsToL2: number | null;
   avgPoolsToL3: number | null;
+  avgPoolsToL4: number | null;
 }
 
 export async function progression(prisma: PrismaClient): Promise<ProgressionView> {
@@ -265,12 +273,16 @@ export async function progression(prisma: PrismaClient): Promise<ProgressionView
       reachedL2Ci95Bps: null,
       reachedL3ShareBps: null,
       reachedL3Ci95Bps: null,
+      reachedL4ShareBps: null,
+      reachedL4Ci95Bps: null,
       avgPoolsToL2: null,
       avgPoolsToL3: null,
+      avgPoolsToL4: null,
     };
   }
   const reachedL2 = eligible.filter((w) => w.levels.some((lv) => lv >= 2));
   const reachedL3 = eligible.filter((w) => w.levels.some((lv) => lv >= 3));
+  const reachedL4 = eligible.filter((w) => w.levels.some((lv) => lv >= 4));
   const meanPoolsToReach = (level: number): number | null => {
     const reached = eligible.filter((w) => w.levels.some((lv) => lv >= level));
     if (reached.length === 0) return null;
@@ -289,8 +301,11 @@ export async function progression(prisma: PrismaClient): Promise<ProgressionView
     reachedL2Ci95Bps: wilson95Bps(reachedL2.length, eligibleWallets),
     reachedL3ShareBps: rateBps(reachedL3.length, eligibleWallets),
     reachedL3Ci95Bps: wilson95Bps(reachedL3.length, eligibleWallets),
+    reachedL4ShareBps: rateBps(reachedL4.length, eligibleWallets),
+    reachedL4Ci95Bps: wilson95Bps(reachedL4.length, eligibleWallets),
     avgPoolsToL2: meanPoolsToReach(2),
     avgPoolsToL3: meanPoolsToReach(3),
+    avgPoolsToL4: meanPoolsToReach(4),
   };
 }
 

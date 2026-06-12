@@ -40,7 +40,7 @@ interface Economy {
     defaultEvents: number;
   };
   moat: {
-    levelDistribution: { l1: number; l2: number; l3: number };
+    levelDistribution: { l1: number; l2: number; l3: number; l4: number };
     distinctWallets: number;
     onTime: number;
     timedContributions: number;
@@ -305,9 +305,9 @@ export default function EconomyPage() {
                     value={
                       e.moat.distinctWallets === 0
                         ? "—"
-                        : `L1 ${lvPct(e.moat.levelDistribution.l1, e.moat.distinctWallets)} · L2 ${lvPct(e.moat.levelDistribution.l2, e.moat.distinctWallets)} · L3 ${lvPct(e.moat.levelDistribution.l3, e.moat.distinctWallets)}`
+                        : `L1 ${lvPct(e.moat.levelDistribution.l1, e.moat.distinctWallets)} · L2 ${lvPct(e.moat.levelDistribution.l2, e.moat.distinctWallets)} · L3 ${lvPct(e.moat.levelDistribution.l3, e.moat.distinctWallets)} · L4 ${lvPct(e.moat.levelDistribution.l4, e.moat.distinctWallets)}`
                     }
-                    sub={`${formatInt(e.moat.levelDistribution.l1)} / ${formatInt(e.moat.levelDistribution.l2)} / ${formatInt(e.moat.levelDistribution.l3)} · ${t("adminops.economy.levelDistSub")}`}
+                    sub={`${formatInt(e.moat.levelDistribution.l1)} / ${formatInt(e.moat.levelDistribution.l2)} / ${formatInt(e.moat.levelDistribution.l3)} / ${formatInt(e.moat.levelDistribution.l4)} · ${t("adminops.economy.levelDistSub")}`}
                     tooltip={t("adminops.tip.eco.levelDist")}
                   />
                   <StatCard

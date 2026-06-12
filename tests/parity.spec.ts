@@ -245,6 +245,7 @@ describe("Rust ↔ TS constants parity", () => {
       expect(Number(rust.get("STAKE_BPS_LEVEL_1"))).to.equal(STAKE_BPS_BY_LEVEL[1]);
       expect(Number(rust.get("STAKE_BPS_LEVEL_2"))).to.equal(STAKE_BPS_BY_LEVEL[2]);
       expect(Number(rust.get("STAKE_BPS_LEVEL_3"))).to.equal(STAKE_BPS_BY_LEVEL[3]);
+      expect(Number(rust.get("STAKE_BPS_LEVEL_4"))).to.equal(STAKE_BPS_BY_LEVEL[4]);
     });
 
     it("pool defaults match", () => {
