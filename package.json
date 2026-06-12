@@ -39,6 +39,7 @@
     "devnet:seed-yield-deposit": "tsx scripts/devnet/seed-yield-deposit.ts",
     "devnet:seed-yield-harvest": "tsx scripts/devnet/seed-yield-harvest.ts",
     "devnet:seed-evlist": "tsx scripts/devnet/seed-evlist.ts",
+    "devnet:seed-evlist-commit": "tsx scripts/devnet/seed-evlist-commit.ts",
     "devnet:seed-evbuy": "tsx scripts/devnet/seed-evbuy.ts",
     "devnet:seed-close": "tsx scripts/devnet/seed-close.ts",
     "devnet:seed-default": "tsx scripts/devnet/seed-default.ts",
