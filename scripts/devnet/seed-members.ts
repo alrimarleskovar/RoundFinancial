@@ -72,8 +72,8 @@ const MEMBER_COUNT = 3;
 // member-0/1/2 (canonical pool 1+2 members). Set MEMBER_INDEX_OFFSET=3 to
 // load member-3/4/5 — useful when seeding a fresh pool whose members must
 // not carry over reputation attestations from prior pools (e.g., pool 3
-// for settle_default exercise — reuse would hit SCHEMA_CYCLE_COMPLETE
-// cooldown). The on-chain `slot_index` arg stays 0..MEMBER_COUNT-1; only
+// for settle_default exercise — reuse would hit the SCHEMA_POOL_COMPLETE
+// cooldown, Pass-3 rename). The on-chain `slot_index` arg stays 0..MEMBER_COUNT-1; only
 // the wallet identity changes.
 const MEMBER_INDEX_OFFSET = process.env.MEMBER_INDEX_OFFSET
   ? Number(process.env.MEMBER_INDEX_OFFSET)

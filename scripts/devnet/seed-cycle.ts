@@ -54,6 +54,12 @@ const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
 // Reputation schema ids (mirror programs/roundfi-reputation/src/constants.rs).
 const SCHEMA_PAYMENT: number = 1;
 const SCHEMA_LATE: number = 2;
+// Pass-3 (Caio HIGH, 2026-06-12): the member's FINAL installment of the
+// pool escalates the schema from PAYMENT/LATE to POOL_COMPLETE — the
+// on-chain contribute handler emits POOL_COMPLETE when
+// `contributions_paid + 1 == cycles_total`. The attestation PDA must be
+// derived with the matching schema or Anchor rejects with ConstraintSeeds.
+const SCHEMA_POOL_COMPLETE: number = 4;
 
 function loadKeypair(path: string): Keypair {
   const secret = Uint8Array.from(JSON.parse(readFileSync(path, "utf-8")));
@@ -338,10 +344,11 @@ async function main() {
     throw new Error("Could not read block time from cluster — try again.");
   }
   const onTime = BigInt(blockTime) <= poolView.nextCycleAt;
-  const schemaId = onTime ? SCHEMA_PAYMENT : SCHEMA_LATE;
+  const baseSchema = onTime ? SCHEMA_PAYMENT : SCHEMA_LATE;
   console.log(
     `→ Now (chain)  : ${blockTime}  ⇒  ${onTime ? "ON-TIME" : "LATE"} ` +
-      `(schema=${schemaId === SCHEMA_PAYMENT ? "PAYMENT" : "LATE"})\n`,
+      `(base schema=${baseSchema === SCHEMA_PAYMENT ? "PAYMENT" : "LATE"}; ` +
+      `final installment escalates to POOL_COMPLETE)\n`,
   );
 
   const targetCycle = poolView.currentCycle;
@@ -382,6 +389,16 @@ async function main() {
       console.log(`    fund via https://faucet.circle.com (use ${member.publicKey.toBase58()})`);
       results.push({ slot: i, sig: null, reason: "insufficient-usdc" });
       continue;
+    }
+
+    // Pass-3: if THIS contribution is the member's last installment of
+    // the pool, the on-chain handler emits POOL_COMPLETE — derive the
+    // PDA with the matching schema. `contribsPaid` is this member's count
+    // BEFORE this contribute; +1 == cyclesTotal means it's the final one.
+    const isFinalInstallment = contribsPaid + 1 === poolView.cyclesTotal;
+    const schemaId = isFinalInstallment ? SCHEMA_POOL_COMPLETE : baseSchema;
+    if (isFinalInstallment) {
+      console.log(`  ⓘ final installment → POOL_COMPLETE (schema=4)`);
     }
 
     try {

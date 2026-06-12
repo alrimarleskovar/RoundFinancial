@@ -61,9 +61,18 @@ payload populated (Phase B, PR #455). Cycle through the pool fast:
 pnpm devnet:seed-pool       # create a 3-member, 3-cycle pool
 pnpm devnet:seed-members    # register + join 3 keypairs (also funds USDC)
 pnpm devnet:seed-cycle      # cycle 0 — 3 contributes → 3 SCHEMA_PAYMENT attestations
-pnpm devnet:seed-claim      # cycle 0 payout claim → 1 SCHEMA_CYCLE_COMPLETE attestation
+pnpm devnet:seed-claim      # cycle 0 payout claim → 1 SCHEMA_PAYOUT_CLAIMED attestation
 # Repeat seed-cycle + seed-claim for cycles 1, 2 to fill the pool.
 ```
+
+> **Pass-3 (2026-06-12):** on each member's FINAL `contribute` (cycle 2 of
+> a 3-cycle pool) the script escalates the schema to `SCHEMA_POOL_COMPLETE`
+> (id 4) — that's the moment the member kept every obligation, and it
+> carries the `+50` / `cycles_completed` signal. `claim_payout` emits the
+> score-neutral `SCHEMA_PAYOUT_CLAIMED` (id 6) instead of the old
+> `CYCLE_COMPLETE`. The scripts derive the attestation PDA with the
+> matching schema automatically; if you see `ConstraintSeeds` (2006), the
+> on-chain program is older than the script (re-deploy core+reputation).
 
 To demo a `default` classification too, pause one member's contribute
 and let the 7-day grace elapse (or use `setBankrunUnixTs` — localnet
@@ -126,14 +135,22 @@ Expected shape (Phase C.3.3, PR #461):
   "commitment": null,
   "recovery": null,
   "pending": ["commitment", "recovery"],
-  "event_count": 4,
+  "event_count": 5,
   "classification_counts": {
-    "payment_on_time": 3,
-    "cycle_complete": 1
+    "payment_on_time": 2,
+    "pool_complete": 1,
+    "payout_claimed": 2
   },
-  "polarity_counts": { "positive": 4, "neutral": 0, "negative": 0 }
+  "polarity_counts": { "positive": 3, "neutral": 2, "negative": 0 }
 }
 ```
+
+> **Pass-3 taxonomy:** `pool_complete` (the final installment, +50) and
+> `payout_claimed` (score-neutral audit trail) replace the old
+> `cycle_complete`. `payout_claimed` is `neutral` polarity — being drawn
+> is not merit; completing the pool is. `reliability` counts only
+> payment-class events (payments + `pool_complete`); `payout_claimed`
+> carries no weight, so it never inflates the score.
 
 A wallet with **no attestations** returns the honest fresh default —
 `reliability 0`, `punctuality 80`, `event_count 0` — not a 404. "No
