@@ -121,24 +121,44 @@ impl ReputationProfile {
     /// enabled an identity floor via `IdentityGateConfig`.
     ///
     /// `required_min_level`:
-    ///   - `0` → gate disabled; returns `resolved_level` unchanged (default —
-    ///     devnet / Canary behaviour, no identity needed).
+    ///   - `0` → configurable gate disabled (devnet / Canary default). L2/L3 are
+    ///     reachable without identity; L4 still requires it (elite hard floor).
     ///   - `N` (2..=LEVEL_MAX) → reaching level >= N requires `identity_verified`;
-    ///     an unverified subject is capped at `N - 1`.
+    ///     an unverified subject is capped at `N - 1` (and never above L3).
     ///
     /// Pure + monotonic-safe: only ever caps DOWN, never raises a level.
     /// Layered on top of the cycles gate (`resolve_level`) — the cycles gate is
     /// the unbypassable primary anti-farming defense; this adds an identity
-    /// floor for the highest tiers when enabled for mainnet.
+    /// floor for the highest tiers.
+    ///
+    /// Two independent caps apply to an **unverified** subject; the tighter wins:
+    ///
+    ///   1. **Elite hard floor (partner review MEDIUM #1, 2026-06-12).** Levels
+    ///      at/above `IDENTITY_HARD_FLOOR_LEVEL` (L4 Elite) are NEVER granted
+    ///      without identity — even when the configurable gate is off
+    ///      (`required_min_level == 0`, the devnet default). The top tier carries
+    ///      the largest stake discount + strongest credit signal, so it's the
+    ///      most worth gaming; no config value can disable its PoP requirement.
+    ///   2. **Configurable gate (SEV-047).** When `required_min_level > 0`,
+    ///      unverified subjects cap at `required_min_level - 1`.
+    ///
+    /// A `identity_verified` subject bypasses both and keeps `resolved_level`.
     pub fn cap_level_for_identity(
         resolved_level: u8,
         identity_verified: bool,
         required_min_level: u8,
     ) -> u8 {
-        if required_min_level == 0 || identity_verified {
+        if identity_verified {
             return resolved_level;
         }
-        resolved_level.min(required_min_level.saturating_sub(1))
+        // Unverified: take the tighter of the elite hard floor and the gate.
+        let elite_cap = crate::constants::IDENTITY_HARD_FLOOR_LEVEL.saturating_sub(1);
+        let gate_cap = if required_min_level == 0 {
+            u8::MAX // gate disabled — no additional cap beyond the elite floor
+        } else {
+            required_min_level.saturating_sub(1)
+        };
+        resolved_level.min(elite_cap).min(gate_cap)
     }
 }
 
@@ -238,11 +258,27 @@ mod tests {
 
     #[test]
     fn cap_level_for_identity_disabled_is_noop_sev047() {
-        // required_min_level = 0 → gate OFF (default). No cap, regardless of
-        // identity. This is the devnet / Canary path — testers promote freely.
+        // required_min_level = 0 → configurable gate OFF (default). L1-L3 are
+        // uncapped regardless of identity — the devnet / Canary path where
+        // testers promote freely up to L3. (L4 is the exception — see
+        // cap_level_for_identity_elite_hard_floor.)
         assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 0), 3);
         assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 0), 2);
         assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 0), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_elite_hard_floor() {
+        // Partner review MEDIUM #1: L4 (Elite) is NEVER granted to an
+        // unverified wallet, even with the configurable gate off.
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, false, 0), 3); // gate off → still capped at L3
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, false, 3), 2); // gate L3 → tighter cap wins (L2)
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, false, 2), 1); // gate L2 → caps at L1
+        // Verified wallets bypass the floor and reach L4.
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, true, 0), 4);
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, true, 3), 4);
+        // The floor only bites at L4 — L3 stays reachable unverified when gate off.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 0), 3);
     }
 
     #[test]
