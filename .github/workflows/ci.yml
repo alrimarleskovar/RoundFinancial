@@ -503,7 +503,7 @@ jobs:
     needs: anchor # piggyback on the SBF artifact path semantics
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
@@ -640,7 +640,7 @@ jobs:
     needs: anchor
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
           # pretenuring-feedback hashtable rehash (Heap::PerformGarbageCollection
