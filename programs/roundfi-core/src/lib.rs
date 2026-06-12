@@ -166,6 +166,20 @@ pub mod roundfi_core {
         instructions::update_protocol_config::handler(ctx, args)
     }
 
+    /// One-shot rescue ix for `ProtocolConfig` accounts created under an
+    /// earlier (smaller) struct layout. Reallocates to the current
+    /// `ProtocolConfig::SIZE` with zero-init tail bytes + pays the rent
+    /// delta + writes `DEFAULT_LP_SHARE_BPS` (the only field where zero
+    /// would be the wrong default). Idempotent: a no-op if the account
+    /// is already at the target size. Authority is the on-chain
+    /// authority slot (validated via raw bytes — the struct doesn't
+    /// deserialize yet). Devnet-rescue scope; removed in a follow-up
+    /// wave once devnet is on the current layout. See the module
+    /// docstring for the field-by-field justification.
+    pub fn migrate_protocol_config(ctx: Context<MigrateProtocolConfig>) -> Result<()> {
+        instructions::migrate_protocol_config::handler(ctx)
+    }
+
     /// Treasury rotation step 1/3 — stage a new treasury behind a
     /// `TREASURY_TIMELOCK_SECS` (7d) window. Reverts if locked or
     /// another proposal is already pending. Authority-only.

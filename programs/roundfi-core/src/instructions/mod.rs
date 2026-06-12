@@ -22,6 +22,7 @@ pub mod initialize_protocol;
 pub mod join_pool;
 pub mod lock_approved_yield_adapter;
 pub mod lock_treasury;
+pub mod migrate_protocol_config;
 pub mod pause;
 pub mod propose_new_authority;
 pub mod propose_new_fee_bps_yield;
@@ -63,6 +64,7 @@ mod reexports {
     pub use super::join_pool::*;
     pub use super::lock_approved_yield_adapter::*;
     pub use super::lock_treasury::*;
+    pub use super::migrate_protocol_config::*;
     pub use super::pause::*;
     pub use super::propose_new_authority::*;
     pub use super::propose_new_fee_bps_yield::*;
