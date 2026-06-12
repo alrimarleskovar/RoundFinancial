@@ -47,15 +47,25 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 // Demo pool sizing — see file header for rationale.
-// Override via env: POOL_SEED_ID, CYCLE_DURATION_SEC.
+// Override via env: POOL_SEED_ID, CYCLE_DURATION_SEC, MEMBERS_TARGET,
+// CREDIT_AMOUNT_USDC, INSTALLMENT_AMOUNT_USDC, CYCLES_TOTAL.
+//
+// Viability (on-chain PoolNotViable guard, create_pool.rs):
+//   members × installment × (1 − solidarity_bps − escrow_bps) ≥ credit
+// With solidarity 1% + escrow 25% that's `members × installment × 0.74 ≥ credit`.
+// Defaults below satisfy it: 3 × 15 × 0.74 = 33.3 ≥ 30.
 const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
-const MEMBERS_TARGET = 3;
-const CREDIT_AMOUNT = 30_000_000n; // 30 USDC (×1e6 base units)
-const INSTALLMENT_AMOUNT = 10_000_000n; // 10 USDC = credit / cycles
-const CYCLES_TOTAL = 3;
+const MEMBERS_TARGET = process.env.MEMBERS_TARGET ? Number(process.env.MEMBERS_TARGET) : 3;
+const CREDIT_AMOUNT = process.env.CREDIT_AMOUNT_USDC
+  ? BigInt(Math.round(Number(process.env.CREDIT_AMOUNT_USDC) * 1e6))
+  : 30_000_000n; // 30 USDC (×1e6 base units)
+const INSTALLMENT_AMOUNT = process.env.INSTALLMENT_AMOUNT_USDC
+  ? BigInt(Math.round(Number(process.env.INSTALLMENT_AMOUNT_USDC) * 1e6))
+  : 15_000_000n; // 15 USDC — viability: 3 × 15 × 0.74 = 33.3 ≥ 30 credit
+const CYCLES_TOTAL = process.env.CYCLES_TOTAL ? Number(process.env.CYCLES_TOTAL) : 3;
 const CYCLE_DURATION = process.env.CYCLE_DURATION_SEC
   ? BigInt(process.env.CYCLE_DURATION_SEC)
-  : 60n; // default 60s — MIN_CYCLE_DURATION on chain
+  : 86_400n; // default 1 day — MIN_CYCLE_DURATION on chain (SEV-023)
 const ESCROW_RELEASE_BPS = 2_500; // 25% per checkpoint (default)
 
 function loadKeypair(path: string): Keypair {
