@@ -15,7 +15,7 @@
 | Finding                                               | Severity | Status                                                                                                                                                                                                                                                                                                                        |
 | ----------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HIGH #2 — `claim_payout` counts as `CycleComplete`    | High     | ✅ **Resolved Jun 2026 (Pass-3)** — `claim_payout` now emits `PAYOUT_CLAIMED` (schema 6), score-neutral. Promotion credit moved to `POOL_COMPLETE` (schema 4) on the **final installment**.                                                                                                                                   |
-| MEDIUM #1 — identity gate off by default              | Medium   | ✅ **Accepted as mainnet invariant** — devnet default stays `required_min_level = 0`; mainnet deploy will set `≥ 3` (gate L4 promotions on verified identity). Added to mainnet-canary-plan TODO.                                                                                                                             |
+| MEDIUM #1 — identity gate off by default              | Medium   | ✅ **Resolved in code (PR #478)** — L4 Elite now requires identity **always**, via the `IDENTITY_HARD_FLOOR_LEVEL` hard floor, independent of the configurable gate. L2/L3 stay governed by `required_min_level` (devnet 0, mainnet 3 — still a checklist item). Stronger than the originally-planned config-only approach.   |
 | MEDIUM #2 — `reputation_program == default` skip path | Medium   | ✅ **Accepted as mainnet invariant** — current devnet has it set (`Hpo174C…`), but no on-chain guard. Add `require!(config.reputation_program != Pubkey::default())` to `initialize_protocol` in the mainnet build (or as a deploy-time post-flight).                                                                         |
 | MEDIUM #3 — escape_valve transfers operational state  | Medium   | ✅ **Acknowledged as intentional design** — position-state is on the slot, wallet-reputation is on the wallet. Buyer inherits obligations (`contributions_paid`, on/late counts) so they can't ditch the pool; the reputation profile (the **portable** score) stays with the seller's wallet. Documented in Master Spec § 4. |
 
@@ -76,13 +76,16 @@ The indexer's `behavioralClassification.ts` puts `payout_claimed` in `polarity_c
 
 The `0` default is **correct for devnet** (we don't have a KYC partner in the loop yet — gating would brick our own canary). For mainnet it's a deploy-time decision.
 
-**Accepted action (mainnet checklist).** Set `required_min_level = 3` before opening retail pools on mainnet:
+**Resolved in code — PR #478 (stronger than the original config-only plan).** Rather than leaving L4 protection entirely to a deploy-time config value (which a careless mainnet deploy could ship as `0`), we added a **hard floor**: `IDENTITY_HARD_FLOOR_LEVEL` (= L4). `cap_level_for_identity` now caps an unverified subject at L3 **regardless of `required_min_level`** — the Elite tier can never be reached without Proof-of-Personhood, even with the gate off. Verified wallets bypass the floor and reach L4 normally; the existing L1-L3 cap tests are unchanged, and a new `cap_level_for_identity_elite_hard_floor` test pins the L4 behavior (3/3 pass).
 
-- L3 promotion will require `identity_verified` (Proof-of-Personhood via the configured provider).
-- L4 implicitly requires L3, so it inherits the floor.
-- L2 stays gate-free — the entry path for fresh wallets.
+The configurable gate still matters for **L2/L3** (where we deliberately keep flexibility — devnet `0` lets our own canary promote, mainnet `3` gates them on identity). That stays a mainnet checklist item:
 
-Tracking note added to `docs/operations/mainnet-canary-plan.md` (new TODO under § 3 mainnet hardening).
+- Set `required_min_level = 3` before retail pools open → L2/L3 require `identity_verified`.
+- L4 is now code-enforced regardless, so it inherits an unconditional floor.
+
+> **Deploy note.** The hard floor is source-only until the reputation program is redeployed; the live devnet binary keeps the old behavior until the next deploy.
+
+Tracking note in `docs/operations/mainnet-canary-plan.md § 11` (the `required_min_level = 3` config item; the L4 floor itself needs no config).
 
 ### MEDIUM #2 — `reputation_program == default` creates "no reputation" mode
 
