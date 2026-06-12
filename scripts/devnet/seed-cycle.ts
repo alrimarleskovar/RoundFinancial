@@ -45,10 +45,12 @@ import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 // Pool params must match what `seed-pool.ts` created.
 const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
-const INSTALLMENT_AMOUNT_BASE = 10_000_000n; // 10 USDC ×1e6
+const INSTALLMENT_AMOUNT_BASE = process.env.INSTALLMENT_AMOUNT_USDC
+  ? BigInt(Math.round(Number(process.env.INSTALLMENT_AMOUNT_USDC) * 1e6))
+  : 15_000_000n; // 15 USDC — matches seed-pool default
 const DEPLOYMENT_CONFIG_PATH = resolve(process.cwd(), "config/program-ids.devnet.json");
 
-const MEMBER_COUNT = 3;
+const MEMBER_COUNT = process.env.MEMBERS_TARGET ? Number(process.env.MEMBERS_TARGET) : 3;
 const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
 
 // Reputation schema ids (mirror programs/roundfi-reputation/src/constants.rs).
