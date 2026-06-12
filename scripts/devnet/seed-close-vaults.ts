@@ -125,8 +125,9 @@ async function main() {
     throw new Error(`Pool not found at ${pool.toBase58()}. Wrong POOL_SEED_ID?`);
   }
   const status = decodePoolStatus(poolInfo.data);
-  console.log(`→ Pool status : ${status} (need 3 = Closed)`);
-  if (status !== 3) {
+  // PoolStatus enum: Forming=0, Active=1, Completed=2, Liquidated=3, Closed=4.
+  console.log(`→ Pool status : ${status} (need 4 = Closed)`);
+  if (status !== 4) {
     throw new Error(`Pool is not Closed (status=${status}). Run 'pnpm devnet:seed-close' first.`);
   }
 
