@@ -242,6 +242,12 @@ jobs:
         # operator-run.
         run: pnpm test:score-route
 
+      - name: inferDefaultReason decision tree (security review Caio HIGH #2/#3)
+        # Pure decision tree (no DB) that classifies a Default by its
+        # Triple-Shield cascade fields. Replaces a previous stub that
+        # always returned "MissedDeadline". Pure, sub-second.
+        run: pnpm test:infer-default-reason
+
       - name: Stress Lab L1 economic-parity (34 tests)
         run: pnpm test:economic-parity-l1
 

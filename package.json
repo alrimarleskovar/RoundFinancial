@@ -71,6 +71,7 @@
     "test:reputation-metrics": "pnpm exec mocha -t 60000 'services/indexer/test/reputation_metrics.spec.ts'",
     "test:reputation-score": "pnpm exec mocha -t 60000 'services/indexer/test/reputation_score.spec.ts'",
     "test:score-route": "pnpm exec mocha -t 60000 'services/indexer/test/score_route.spec.ts'",
+    "test:infer-default-reason": "pnpm exec mocha -t 60000 'services/indexer/test/infer_default_reason.spec.ts'",
     "test:economic-parity-l1": "pnpm exec mocha -t 60000 -g 'L1 stress-lab sanity|toggleCell|runSimulation' 'tests/economic_parity.spec.ts'",
     "test:economic-parity": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts'",
     "test:bankrun": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts' 'tests/app_encoders_bankrun.spec.ts' 'tests/security_kamino_cpi.spec.ts'",

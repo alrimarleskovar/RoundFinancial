@@ -19,6 +19,8 @@
  *   - Protocol paused unexpectedly
  *   - Authority not on Squads multisig (#266)
  *   - Treasury not on Squads multisig (#266)
+ *   - reputation_program left at Pubkey::default — silently disables
+ *     the v5.2 attest pipeline (security review Caio MEDIUM #1, 2026-06-12)
  *
  * **What this does NOT catch:**
  *   - Bug in the wrapper's CPI mechanics (use the Kamino bankrun spike)
@@ -39,6 +41,8 @@
  *   EXPECTED_MAX_POOL_TVL_USDC      (default 5_000000 = $5 base units for first canary wave)
  *   EXPECTED_MAX_PROTOCOL_TVL_USDC  (default 50_000000 = $50 base units for first canary wave)
  *   EXPECTED_COMMIT_REVEAL_REQUIRED (default "true" — #232 MEV mitigation gate on mainnet)
+ *   EXPECTED_REPUTATION_PROGRAM     (optional — pin to canonical reputation program id;
+ *                                    when unset, only enforces "not default")
  *
  * Run with `--devnet` to use devnet defaults and SKIP the
  * REQUIRED-on-mainnet env vars (useful for rehearsal).
@@ -105,6 +109,11 @@ const OFFSETS_POST_DISC = {
   approvedYieldAdapter: 269,
   approvedYieldAdapterLocked: 301,
   commitRevealRequired: 302,
+  /// reputation_program PDA pin (security review Caio MEDIUM-1, 2026-06-12).
+  /// At Pubkey::default() ("11111…111"), every core ix skips the attest
+  /// CPI — the on-chain reputation surface is silently disabled. Legacy
+  /// devnet bootstrap only; mainnet must always pin it.
+  reputationProgram: 160,
 } as const;
 
 const ANCHOR_DISC_SIZE = 8;
@@ -382,6 +391,41 @@ async function main() {
       ? "true (#232 MEV mitigation on mainnet)"
       : "false (devnet demo)",
     actual: commitRevealRequired ? "true" : "false",
+    severity: isDevnet ? "WARNING" : "BLOCKER",
+  });
+
+  // ─── BLOCKER 12: reputation_program must be set (security review 2026-06-12) ──
+  // Every core ix (contribute / settle_default / claim_payout) gates the
+  // attest CPI on `if config.reputation_program != Pubkey::default()`.
+  // At default, the reputation pipeline is SILENTLY DISABLED — no
+  // attestation PDAs, no payloads for the indexer to score, no `/score`
+  // signal. Acceptable for legacy devnet bootstrap, NEVER for canary or
+  // mainnet. Caio MEDIUM #1, pre-deploy gate.
+  const reputationProgramBytes = data.subarray(
+    OFFSETS_POST_DISC.reputationProgram,
+    OFFSETS_POST_DISC.reputationProgram + 32,
+  );
+  const reputationProgram = new PublicKey(reputationProgramBytes);
+  const isReputationDefault = reputationProgram.equals(PublicKey.default);
+  // EXPECTED_REPUTATION_PROGRAM is optional — if set, we enforce equality
+  // against the canonical pin; if unset, we only enforce "not default".
+  const expectedRepProgram = process.env.EXPECTED_REPUTATION_PROGRAM
+    ? new PublicKey(process.env.EXPECTED_REPUTATION_PROGRAM)
+    : null;
+  const reputationProgramOk = expectedRepProgram
+    ? reputationProgram.equals(expectedRepProgram)
+    : !isReputationDefault;
+  checks.push({
+    name: "reputation_program",
+    ok: reputationProgramOk,
+    expected: expectedRepProgram
+      ? `${expectedRepProgram.toBase58()} (pinned)`
+      : "≠ Pubkey::default (reputation pipeline active)",
+    actual: isReputationDefault
+      ? `${reputationProgram.toBase58()} (default — reputation pipeline DISABLED)`
+      : reputationProgram.toBase58(),
+    // Devnet bootstrap may legitimately leave this default before
+    // running migrate-reputation-config; downgrade to WARNING there.
     severity: isDevnet ? "WARNING" : "BLOCKER",
   });
 

@@ -431,10 +431,23 @@ enum EventType {
 
 /// Inferred default cause (ADR 0009 amendment 3b). The contract emits no
 /// reason — these are derived by the indexer and ALWAYS provenance-tagged.
+///
+/// Security review 2026-06-12 (Caio HIGH #1): `EscapeValveLeavingDefault`
+/// is **dead code on the production path**. The escape-valve path never
+/// reaches `settle_default` (`escape_valve_buy.rs:113` rejects defaulted
+/// members; the voluntary-exit handler never mints a DefaultEvent), so
+/// `inferDefaultReason` never returns this variant. It is retained as a
+/// nullable enum member for now to avoid a destructive PostgreSQL enum
+/// migration mid-canary — actual removal is tracked as issue #451 (run
+/// `ALTER TYPE "DefaultReason" RENAME VALUE` + dropping the value) and
+/// will land in the post-canary refactor wave once a maintenance window
+/// is scheduled. Until then: assume zero rows carry this value, treat
+/// it as undefined behaviour if it appears.
 enum DefaultReason {
   SolvencyGuardTriggered
   MissedDeadline
   InsufficientStake
+  /// @deprecated dead code — see comment above + issue #451.
   EscapeValveLeavingDefault
   Other
 }

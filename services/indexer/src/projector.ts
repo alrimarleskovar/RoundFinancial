@@ -73,10 +73,50 @@ function deriveSchedule(
  * the escape-valve path are documented in ADR 0009 and tracked as future
  * refinements; we emit the conservative, correct base case here.
  */
-function inferDefaultReason(): {
-  defaultReason: "MissedDeadline";
+/**
+ * Inferred default cause (ADR 0009 amendment 3b + security review 2026-06-12).
+ *
+ * The contract emits no `reason` field on `settle_default` — we derive it
+ * from the seized-cascade fields already on the log line:
+ *   - `d_rem`       remaining debt at seizure
+ *   - `c_init`      collateral at start of cascade (solidarity + escrow + stake)
+ *   - `c_after`     collateral remaining after the cascade
+ *   - `seizedStake` how much of the member's stake was seized
+ *
+ * Decision tree mirrors `settle_default.rs`:
+ *   1. `c_init < d_rem`                                          → **InsufficientStake**
+ *      (Triple Shield cascade had less than the debt to start with —
+ *      structurally undercollateralised.)
+ *   2. `seizedStake > 0` AND `c_after < d_rem`                   → **SolvencyGuardTriggered**
+ *      (solidarity + escrow couldn't cover; cascade dipped into the
+ *      member's own stake — the solvency guard activated.)
+ *   3. otherwise                                                 → **MissedDeadline**
+ *      (deadline elapsed past grace; solidarity alone covered it —
+ *      base case, no structural problem.)
+ *
+ * `EscapeValveLeavingDefault` is intentionally NOT inferred — the
+ * escape-valve path exits voluntarily before defaulting, never reaches
+ * `settle_default`. It exists in the schema as a placeholder; issue
+ * #451 tracks its eventual removal.
+ *
+ * Provenance is ALWAYS `Inferred` so the admin never presents this as
+ * on-chain fact.
+ */
+export function inferDefaultReason(seized: {
+  dRem: bigint;
+  cInit: bigint;
+  cAfter: bigint;
+  seizedStake: bigint;
+}): {
+  defaultReason: "MissedDeadline" | "InsufficientStake" | "SolvencyGuardTriggered";
   defaultReasonProvenance: "Inferred";
 } {
+  if (seized.cInit < seized.dRem) {
+    return { defaultReason: "InsufficientStake", defaultReasonProvenance: "Inferred" };
+  }
+  if (seized.seizedStake > 0n && seized.cAfter < seized.dRem) {
+    return { defaultReason: "SolvencyGuardTriggered", defaultReasonProvenance: "Inferred" };
+  }
   return { defaultReason: "MissedDeadline", defaultReasonProvenance: "Inferred" };
 }
 
@@ -220,7 +260,12 @@ async function projectDefault(
   pool: { id: string; pda: string; startedAt: bigint | null; cycleDurationSec: bigint },
 ): Promise<void> {
   const due = deriveSchedule(pool, row.cycle);
-  const reason = inferDefaultReason();
+  const reason = inferDefaultReason({
+    dRem: row.dRem,
+    cInit: row.cInit,
+    cAfter: row.cAfter,
+    seizedStake: row.seizedStake,
+  });
   const data = {
     subjectWallet: row.defaultedWallet,
     poolId: pool.id,
