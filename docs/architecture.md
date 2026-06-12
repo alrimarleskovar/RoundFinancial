@@ -171,8 +171,8 @@ pub struct Member {
     pub wallet:              Pubkey,
     pub nft_asset:           Pubkey,   // Metaplex Core asset
     pub slot_index:          u8,       // 0..members_target-1 → determines payout cycle
-    pub reputation_level:    u8,       // 1 | 2 | 3 (snapshot at join)
-    pub stake_bps:           u16,      // 5000 | 3000 | 1000
+    pub reputation_level:    u8,       // 1 | 2 | 3 | 4 (snapshot at join)
+    pub stake_bps:           u16,      // 5000 | 2500 | 1000 | 300
     pub stake_deposited:     u64,
     pub contributions_paid:  u8,
     pub total_contributed:   u64,
@@ -186,7 +186,7 @@ pub struct Member {
 }
 ```
 
-> **v5.2 direction (approved 2026-06-09, pre-implementation).** The reputation ladder is approved to extend to **4 tiers** — stakes `5000 | 2500 | 1000 | 300` bps (L2 changes 30% → 25%, new L4 Elite at 3%). The deployed program still enforces `1..=3` / `5000|3000|1000`; the struct above describes on-chain truth until the Hybrid implementation lands. See §4.7.
+> **v5.2 four-tier ladder (implemented).** The reputation ladder is now **4 tiers** — stakes `5000 | 2500 | 1000 | 300` bps (L2 dropped 30% → 25%, new L4 Elite at 3%). `roundfi-core` enforces `1..=4` / `stake_bps_for_level`, and `roundfi-reputation` resolves L4 via `LEVEL_4_THRESHOLD = 5000` + `LEVEL_4_MIN_CYCLES = 8`. **The on-chain L4 gate is score+cycles (v1-provisional)** — the proposal's metric-based Elite criteria (Reliability≥94 / Punctuality≥88 / Commitment≥90 / 0 BadFaith) live off-chain in the indexer and will harden this gate in a future upgrade once the weights calibrate. **Requires a program redeploy** to take effect on devnet/mainnet; existing members keep their join-time stake snapshot. See §4.7.
 
 ### 3.4 `ReputationProfile` (program: `roundfi-reputation`)
 
@@ -299,7 +299,7 @@ pub struct YieldVaultState {
 - `-100` per `Late`
 - `-500` per `Default`
 - Saturating, no underflow below 0.
-- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`. Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score.
+- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`, `L4 = 5_000` (v5.2 Elite). Cycles floors: L2≥1, L3≥3, L4≥8 completed cycles (SEV-047 anti-farming). Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score AND whose cycles floor is met.
 
 > **v5.2 direction.** Under the approved Hybrid path (§4.7), the user-facing score migrates to an **off-chain computation in the indexer** with provisional v1-style weights, calibrated against real cycle data before any weight set is published as canonical. The on-chain score + thresholds above remain authoritative for the deployed program (stake-bps snapshot at `join_pool`) until that implementation lands.
 

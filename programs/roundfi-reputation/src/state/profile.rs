@@ -94,11 +94,20 @@ impl ReputationProfile {
         score: u64,
         l2_threshold: u64,
         l3_threshold: u64,
+        l4_threshold: u64,
         cycles_completed: u32,
         l2_min_cycles: u32,
         l3_min_cycles: u32,
+        l4_min_cycles: u32,
     ) -> u8 {
-        if score >= l3_threshold && cycles_completed >= l3_min_cycles {
+        // v5.2 four-tier ladder. L4 (Elite) is gated on a score threshold
+        // + cycles like L2/L3 — the v1-provisional on-chain path. The
+        // proposal's metric-based Elite criteria are off-chain (indexer)
+        // and will harden this in a future upgrade. The cycles floor is
+        // the unbypassable wall-clock anti-farming defense at every tier.
+        if score >= l4_threshold && cycles_completed >= l4_min_cycles {
+            4
+        } else if score >= l3_threshold && cycles_completed >= l3_min_cycles {
             3
         } else if score >= l2_threshold && cycles_completed >= l2_min_cycles {
             2
@@ -184,34 +193,47 @@ mod tests {
     #[test]
     fn resolve_level_thresholds() {
         // Baseline: score thresholds with cycles_completed satisfied
-        // (10 cycles >> any floor) — pure score-ladder behavior preserved.
-        let big = 10u32;
-        assert_eq!(ReputationProfile::resolve_level(0,    500, 2_000, big, 1, 3), 1);
-        assert_eq!(ReputationProfile::resolve_level(499,  500, 2_000, big, 1, 3), 1);
-        assert_eq!(ReputationProfile::resolve_level(500,  500, 2_000, big, 1, 3), 2);
-        assert_eq!(ReputationProfile::resolve_level(1999, 500, 2_000, big, 1, 3), 2);
-        assert_eq!(ReputationProfile::resolve_level(2000, 500, 2_000, big, 1, 3), 3);
+        // (20 cycles >> any floor) — pure score-ladder behavior preserved.
+        // Signature (v5.2): (score, l2_t, l3_t, l4_t, cycles, l2_c, l3_c, l4_c).
+        let big = 20u32;
+        let r = |score: u64| ReputationProfile::resolve_level(score, 500, 2_000, 5_000, big, 1, 3, 8);
+        assert_eq!(r(0), 1);
+        assert_eq!(r(499), 1);
+        assert_eq!(r(500), 2);
+        assert_eq!(r(1_999), 2);
+        assert_eq!(r(2_000), 3);
+        assert_eq!(r(4_999), 3);
+        assert_eq!(r(5_000), 4); // L4 Elite threshold
+        assert_eq!(r(u64::MAX), 4);
     }
 
     #[test]
     fn resolve_level_cycles_gate_sev047() {
         // SEV-047: score alone is no longer sufficient. The cycles_completed
         // floor gates promotion regardless of how high the (farmable) score is.
+        let r = |score: u64, cycles: u32| {
+            ReputationProfile::resolve_level(score, 500, 2_000, 5_000, cycles, 1, 3, 8)
+        };
 
         // L2 score met (500) but 0 cycles → stays L1 (the farming defense).
-        assert_eq!(ReputationProfile::resolve_level(500, 500, 2_000, 0, 1, 3), 1);
+        assert_eq!(r(500, 0), 1);
         // L2 score + exactly 1 cycle → L2 unlocks.
-        assert_eq!(ReputationProfile::resolve_level(500, 500, 2_000, 1, 1, 3), 2);
+        assert_eq!(r(500, 1), 2);
 
         // L3 score met (2000) but only 2 cycles → capped at L2.
-        assert_eq!(ReputationProfile::resolve_level(2_000, 500, 2_000, 2, 1, 3), 2);
+        assert_eq!(r(2_000, 2), 2);
         // L3 score + exactly 3 cycles → L3 unlocks.
-        assert_eq!(ReputationProfile::resolve_level(2_000, 500, 2_000, 3, 1, 3), 3);
+        assert_eq!(r(2_000, 3), 3);
 
-        // Farmed score (way past L3) but 0 cycles → still L1. This is the
-        // exact attack vector closed: 200 parallel 1-member pools give score
-        // 2000+ in hours, but cycles_completed stays 0 (no CYCLE_COMPLETE).
-        assert_eq!(ReputationProfile::resolve_level(50_000, 500, 2_000, 0, 1, 3), 1);
+        // L4 score met (5000) but only 7 cycles → capped at L3.
+        assert_eq!(r(5_000, 7), 3);
+        // L4 score + exactly 8 cycles → L4 Elite unlocks.
+        assert_eq!(r(5_000, 8), 4);
+
+        // Farmed score (way past L4) but 0 cycles → still L1. This is the
+        // exact attack vector closed: parallel 1-member pools give a huge
+        // score in hours, but cycles_completed stays 0 (no CYCLE_COMPLETE).
+        assert_eq!(r(50_000, 0), 1);
     }
 
     #[test]

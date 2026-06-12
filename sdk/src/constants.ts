@@ -24,11 +24,14 @@ export const FEES = {
   escrowReleaseBps: 2_500, // 25%
 } as const;
 
-/** Stake requirement (as bps of credit amount) by reputation level. Snapshotted at join. */
+/** Stake requirement (as bps of credit amount) by reputation level. Snapshotted at join.
+ *  v5.2 four-tier ladder (50/25/10/3). Mirrors STAKE_BPS_LEVEL_* in
+ *  programs/roundfi-core/src/constants.rs (parity-tested in tests/parity.spec.ts). */
 export const STAKE_BPS_BY_LEVEL = {
   1: 5_000, // 50%
-  2: 3_000, // 30%
+  2: 2_500, // 25%
   3: 1_000, // 10%
+  4: 300, // 3% (Elite)
 } as const;
 
 /** Default ROSCA pool parameters. */

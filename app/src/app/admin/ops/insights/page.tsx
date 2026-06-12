@@ -1,7 +1,7 @@
 "use client";
 
 // /admin/ops/insights — analytics v0 (ADR 0010). Four pre-defined views:
-// retention by level, default predictor, L1→L2→L3 progression, behavioral
+// retention by level, default predictor, L1→L4 progression, behavioral
 // improvement. Every metric is gated behind a documented sample-size
 // threshold — below it the chart still renders its axes/scaffold under a
 // semi-transparent veil ("insufficient · n / threshold"), but NEVER a
@@ -25,7 +25,7 @@ import {
 type SampleStatus = "insufficient" | "preliminary" | "significant";
 
 interface RetentionCohort {
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   n: number;
   status: SampleStatus;
   completedShareBps: number | null;
@@ -60,8 +60,11 @@ interface InsightsResponse {
       reachedL2Ci95Bps: [number, number] | null;
       reachedL3ShareBps: number | null;
       reachedL3Ci95Bps: [number, number] | null;
+      reachedL4ShareBps: number | null;
+      reachedL4Ci95Bps: [number, number] | null;
       avgPoolsToL2: number | null;
       avgPoolsToL3: number | null;
+      avgPoolsToL4: number | null;
     };
     improvement: {
       threshold: number;
@@ -221,11 +224,13 @@ export default function InsightsPage() {
           { label: "L1", valueBps: 10_000, color: tokens.muted },
           { label: "L2", valueBps: 10_000, color: tokens.teal },
           { label: "L3", valueBps: 10_000, color: tokens.green },
+          { label: "L4", valueBps: 10_000, color: tokens.purple },
         ]
       : [
           { label: "L1", valueBps: 10_000, color: tokens.muted },
           { label: "L2", valueBps: i.progression.reachedL2ShareBps ?? 0, color: tokens.teal },
           { label: "L3", valueBps: i.progression.reachedL3ShareBps ?? 0, color: tokens.green },
+          { label: "L4", valueBps: i.progression.reachedL4ShareBps ?? 0, color: tokens.purple },
         ];
 
   // ── IMPROVEMENT ─────────────────────────────────────────────────
