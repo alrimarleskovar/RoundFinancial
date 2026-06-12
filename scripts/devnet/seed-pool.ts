@@ -7,9 +7,9 @@
  *
  *   1. create_pool has no SPL token movement requirement → idempotent
  *      and cheap to run (~0.04 SOL for the four ATA inits).
- *   2. join_pool requires per-member USDC stake (Lv2 = 30% of credit),
- *      which means Circle's devnet USDC faucet hits + SPL transfers.
- *      Cleaner as a separate `seed-members.ts` script.
+ *   2. join_pool requires per-member USDC stake (Lv1 = 50% of credit
+ *      for fresh wallets), which means Circle's devnet USDC faucet
+ *      hits + SPL transfers. Cleaner as a separate `seed-members.ts`.
  *   3. With just create_pool, Solscan already shows the Pool PDA + the
  *      three vault ATAs — strong evidence the protocol can mutate
  *      state, not just init singletons.
@@ -17,15 +17,19 @@
  * Manual instruction encoding (no Anchor SDK runtime — IDL gen is
  * blocked on the toolchain bump documented in `init-protocol.ts`).
  *
- * Pool params are sized for an end-to-end demo:
- *   - 3 members target (smallest viable)
- *   - $30 credit / 3 cycles → $10 installment
- *   - 60s cycle duration (MIN_CYCLE_DURATION on the chain side)
- *   - Lv2 stake @ 30% = $9 per member → fits in one Circle faucet hit
+ * Pool params are env-configurable (see the const block below); the
+ * defaults are sized for an end-to-end demo:
+ *   - MEMBERS_TARGET members (must equal CYCLES_TOTAL on-chain)
+ *   - CREDIT_AMOUNT_USDC credit / CYCLES_TOTAL cycles → installment
+ *   - CYCLE_DURATION_SEC ≥ 86400 (MIN_CYCLE_DURATION on the chain side)
+ *   - Lv1 stake @ 50% of credit per member (fresh wallets default Lv1)
+ *   - must satisfy the Seed Draw guard:
+ *       members × installment × (1 − solidarity_bps − escrow_bps) ≥ credit
  *
- * Idempotent: derives the Pool PDA with `seed_id = 1` against the
- * deployer authority. Re-running prints "skipping" if the PDA already
- * exists. Bump `POOL_SEED_ID` to create additional pools.
+ * Idempotent: derives the Pool PDA with `seed_id = POOL_SEED_ID`
+ * (default 1) against the deployer authority. Re-running prints
+ * "skipping" if the PDA already exists, then proceeds to
+ * init_pool_vaults. Bump `POOL_SEED_ID` to create additional pools.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -370,10 +374,16 @@ async function main() {
   if (!("skipped" in vaultsResult)) {
     console.log(`  https://solscan.io/tx/${vaultsResult.signature}?cluster=devnet`);
   }
-  console.log(`\nNext step: join the pool via the (TBD) seed-members.ts script —`);
-  console.log(`           creates ${MEMBERS_TARGET} member wallets, faucets USDC, and runs`);
-  console.log(`           init_profile + join_pool for each. Each member needs`);
-  console.log(`           ${(Number(CREDIT_AMOUNT) / 1e6) * 0.3} USDC at Lv2 (30% stake).\n`);
+  // Fresh wallets resolve to reputation Lv1 on-chain (no profile yet),
+  // and stake_bps_for_level(1) = 50% (constants.rs::STAKE_BPS_LEVEL_1).
+  const stakePerMember = (Number(CREDIT_AMOUNT) / 1e6) * 0.5;
+  console.log(`\nNext step: run 'pnpm devnet:seed-members' —`);
+  console.log(`           creates ${MEMBERS_TARGET} member wallets, then join_pool for each`);
+  console.log(`           (init_profile is implicit: fresh wallets default to Lv1).`);
+  console.log(`           Each member needs ${stakePerMember} USDC stake at Lv1 (50% of credit),`);
+  console.log(
+    `           plus ${CYCLES_TOTAL} × ${Number(INSTALLMENT_AMOUNT) / 1e6} USDC installments for the cycles.\n`,
+  );
 }
 
 main().catch((e) => {
