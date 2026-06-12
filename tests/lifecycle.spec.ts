@@ -261,11 +261,17 @@ describe("lifecycle — full happy path", function () {
       const escBefore = await balanceOf(env, pool.escrowVault);
 
       for (const h of handles) {
+        // Pass-3 (Caio HIGH): on the final cycle this contribution IS
+        // the member's last installment — escalate the schema so the
+        // attestation PDA derives with POOL_COMPLETE (id=4 / new
+        // semantics) instead of PAYMENT (id=1). Otherwise Anchor
+        // rejects with ConstraintSeeds (2006).
+        const isFinal = cycle === CYCLES_TOTAL - 1;
         const sig = await contribute(env, {
           pool,
           member: h,
           cycle,
-          schemaId: SCHEMA.Payment,
+          schemaId: isFinal ? SCHEMA.PoolComplete : SCHEMA.Payment,
         });
         expect(sig).to.be.a("string");
 
