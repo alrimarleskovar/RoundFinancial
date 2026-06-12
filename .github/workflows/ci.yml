@@ -220,6 +220,13 @@ jobs:
         # operator-run (needs Postgres; not in this lane). Pure, sub-second.
         run: pnpm test:attestation-row
 
+      - name: Reputation metrics — Reliability + Punctuality (proposal vectors)
+        # Reputation v5.2 Hybrid (Phase C.3). Pins the proposal's published
+        # test vectors for reliability() / punctuality() incl. the two
+        # mandatory bug-fixes (div-by-zero guard + clamp; fold-preserved
+        # count). v1-provisional weights — drift fails CI. Pure, sub-second.
+        run: pnpm test:reputation-metrics
+
       - name: Stress Lab L1 economic-parity (34 tests)
         run: pnpm test:economic-parity-l1
 
