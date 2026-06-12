@@ -19,25 +19,44 @@ This runbook uses params that satisfy all three.
 
 The smallest pool that proves **all three Pass-3 schemas** (`PAYMENT`
 mid-pool, `POOL_COMPLETE` final-installment, `PAYOUT_CLAIMED` at claim)
-without burning unnecessary devnet USDC:
+without burning unnecessary devnet USDC.
+
+**Low-budget geometry (faucet-blocked — RECOMMENDED).** The Circle
+faucet (`faucet.circle.com`) fires a bot-detection challenge under
+repeated hits, and the deployer often carries only a few USDC. This
+geometry runs the entire demo on ~24 USDC of pre-existing balances —
+**zero faucet hits** — and was the one validated end-to-end on
+2026-06-12 (pool `Ga2RwgSk…`):
 
 | Param                     | Value | Why                                                                    |
 | ------------------------- | ----: | ---------------------------------------------------------------------- |
 | `MEMBERS_TARGET`          |     2 | Smallest that satisfies `cycles_total == members_target` AND Seed Draw |
 | `CYCLES_TOTAL`            |     2 | Forced equal to `MEMBERS_TARGET`                                       |
-| `INSTALLMENT_AMOUNT_USDC` |    21 | `2 × 21 × 0.74 = 31.08 ≥ 30 credit` ✓                                  |
-| `CREDIT_AMOUNT_USDC`      |    30 | Default; the carta size                                                |
+| `CREDIT_AMOUNT_USDC`      |     4 | Carta size — kept tiny so members fund from existing balances          |
+| `INSTALLMENT_AMOUNT_USDC` |     3 | viability: `floor(2 × 3 × 0.74) = 4 ≥ 4 credit` ✓                      |
 | `CYCLE_DURATION_SEC`      | 86400 | On-chain MIN                                                           |
-| `POOL_SEED_ID`            |    42 | Any value ≠ existing pools (1, 2, 3 are May fixtures)                  |
+| `POOL_SEED_ID`            |    43 | Any value ≠ existing pools (1, 2, 3 May; 42 was a credit=30 attempt)   |
 
-**Total USDC required:** 2 members × (1 stake 15 + 2 installments 21) =
-`2 × 57 = 114 USDC` net of carry-over from claims. Realistically each
-member needs ~57 USDC funded once; the claim returns the credit (30) to
-the winner. **You'll need ~12 hits on `faucet.circle.com`** (10 USDC per
-hit per address) — 6 hits per member.
+Per member = `2 stake + 2 × 3 installments = 8 USDC`; two members = 16
+USDC. The `fund-members` script (Step 2.5) tops members up from the
+deployer — no faucet. Viability factor is `(MAX_BPS − SOLIDARITY_BPS −
+escrow_release_bps)/MAX_BPS = (10000 − 100 − 2500)/10000 = 0.74`
+(`crates/math/src/seed_draw.rs`). There is **no on-chain minimum** on
+`credit_amount` / `installment_amount` beyond `> 0`, so you can shrink
+the pool as far as the math closes.
 
-> Want fewer USDC hits? Bump `MEMBERS_TARGET=3 INSTALLMENT_AMOUNT_USDC=15`
-> (180 USDC total). The faucet rate-limit decides which is faster.
+**Original geometry (when the faucet works).** credit=30, install=21
+→ 57 USDC/member, ~12 faucet hits. Heavier but a more "realistic"
+carta size. Keep `cycles_total == members_target` and satisfy the
+0.74 viability factor for any custom sizing.
+
+> ⚠️ **Reused wallets carry history.** `keypairs/member-*.json` persist
+> across runs; if a wallet was a subject in an earlier pool its old
+> attestations show up in `/score` as `unspecified` (legacy payload
+> format, neutral polarity — they don't corrupt the Pass-3 proof but
+> they inflate `event_count`). For a pristine profile, point at unused
+> wallets with `MEMBER_INDEX_OFFSET=N` (loads `member-N`, `member-N+1`,
+> …) — but those need funding too.
 
 ## Pre-flight (once)
 
@@ -85,25 +104,48 @@ Expected last lines:
 > ProtocolConfig, run `pnpm devnet:migrate-config` once and retry. The
 > deployer key (`keypairs/deployer.json` = `64XM177…`) must exist.
 
-## Step 2 — Members + USDC funding
+## Step 2 — Member keypairs (prints pubkeys, exits if USDC short)
 
 ```bash
 pnpm devnet:seed-members
 ```
 
-The script prints the 2 member wallets and exits if USDC is short:
+First run generates `keypairs/member-{0,1}.json`, prints the wallets,
+and exits because they have no USDC yet:
 
 ```
-member 0 USDC: 0.00 (need 15.00) ⚠ insufficient — fund via https://faucet.circle.com
-member 1 USDC: 0.00 (need 15.00) ⚠ insufficient — fund via https://faucet.circle.com
+member 0 USDC: 0.00 (need 2.00) ⚠ insufficient — fund via https://faucet.circle.com
+member 1 USDC: 0.00 (need 2.00) ⚠ insufficient — fund via https://faucet.circle.com
 ```
 
-**Open https://faucet.circle.com in a browser**, paste each member
-pubkey, and request 10 USDC per hit. With `INSTALLMENT=21`, each member
-needs **57 USDC** = 6 hits (rate-limited; spread across faucet sessions
-if needed).
+Note the script's faucet hint is the on-chain stake only; the full
+per-member target (stake + all installments) is what `fund-members`
+sizes. Don't faucet manually unless `fund-members` tells you the
+deployer is short.
 
-When all members have `≥ 57 USDC`, re-run:
+## Step 2.5 — Fund members from the deployer (no faucet)
+
+```bash
+pnpm devnet:fund-members
+```
+
+Transfers SOL + USDC deployer → members for the full demo target
+(`stake + cycles × installment` = 8 USDC each in the low-budget
+geometry). Idempotent; skips members already at target. If it reports
+the **deployer** is short, that's the only address you faucet —
+`faucet.circle.com` is less likely to bot-block a single wallet, and
+the deployer usually has carry-over USDC from earlier seeds.
+
+Expected:
+
+```
+→ Per-member target: 8.00 USDC
+  ✓ member 0 funded (+0.0000 SOL, +3.00 USDC)
+  ✓ member 1 already at target — skip
+✓ Funding complete.
+```
+
+Then join the pool:
 
 ```bash
 pnpm devnet:seed-members
@@ -167,14 +209,17 @@ ROUNDFI_REPUTATION_PROGRAM_ID=$ROUNDFI_REPUTATION_PROGRAM_ID \
   pnpm --filter @roundfi/indexer backfill
 ```
 
-Expected log:
+`backfill` reads pools + members FIRST, then attestations (the member
+FK resolves cleanly without a separate `ingest` step). Expected log:
 
 ```
+{"event_type":"backfill_attestations_fetched","count":N}
 {"event_type":"backfill_attestations_complete","attestationsTouched":N}
 ```
 
-`N` should be ≥ 6 (2 PAYMENTs cycle 0 + 2 POOL_COMPLETEs cycle 1 + 2
-PAYOUT_CLAIMEDs).
+`N` is the cluster-wide attestation count (≥ 6 from this demo: 2
+PAYMENTs cycle 0 + 2 POOL_COMPLETEs cycle 1 + 2 PAYOUT_CLAIMEDs, plus
+any from prior pools).
 
 ```bash
 pnpm --filter @roundfi/indexer dev    # terminal 1 — :8787
@@ -182,11 +227,26 @@ pnpm --filter @roundfi/indexer dev    # terminal 1 — :8787
 curl -s http://localhost:8787/score/<member0> | jq
 ```
 
-⭐⭐⭐ **The final Pass-3 proof:** the JSON should contain
-`classification_counts` with `pool_complete` and `payout_claimed` —
-the new Pass-3 taxonomy. Reliability should reflect 1 PAYMENT (+10) +
-1 POOL_COMPLETE (+50, in the reputation arithmetic) for the
-on-time-then-final-payment member.
+⭐⭐⭐ **The final Pass-3 proof.** A fresh wallet's `classification_counts`
+is exactly:
+
+```json
+{ "payment_early": 1, "pool_complete": 1, "payout_claimed": 1 }
+```
+
+with `polarity_counts` putting **`payout_claimed` in the `neutral`
+bucket** — that's the whole point of Pass-3: the claim no longer scores
+`+50`; the completion credit moved to `pool_complete` on the final
+installment. Under the old taxonomy the claim was `CYCLE_COMPLETE`
+(positive, `+50`).
+
+> A **reused** wallet (see the geometry caveat) also shows
+> `unspecified: K` from prior-pool attestations in legacy payload
+> format — neutral polarity, so the proof still holds, but `event_count`
+> is `3 + K`. The 2026-06-12 validation run on reused wallets returned
+> `payment_early:1, pool_complete:1, payout_claimed:1, unspecified:5`
+> with `polarity_counts {positive:2, neutral:6, negative:0}` — the three
+> Pass-3 classes all correctly bucketed.
 
 If the seed-cycle ran LATE on cycle 0 (you skipped the 24h wait), the
 member's first event is `LATE` (-100) and only the POOL_COMPLETE (+50)
