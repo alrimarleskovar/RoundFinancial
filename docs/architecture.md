@@ -676,6 +676,24 @@ Pass-3 splits the two signals:
 - Four documents pin the 50-30-10 ladder and must be updated by their owners before the 4-tier ladder is public-facing: technical whitepaper, behavioral-reputation-score doc, user guide (all PDFs under `docs/en/`), plus any marketing copy. `README.md` and `docs/pitch-alignment.md` carry forward-pointer notes as of this amendment.
 - Related issues: [#450](https://github.com/alrimarleskovar/roundfinancial/issues/450) (VOLUNTARY_EXIT ≠ DEFAULT satisfied by construction — canary sign-off), [#451](https://github.com/alrimarleskovar/roundfinancial/issues/451) (dead `EscapeValveLeavingDefault` enum cleanup).
 
+#### 4.7.8 Identity gate on the top tiers (security review Caio MEDIUM #1)
+
+`IdentityGateConfig` (SEV-047) + `cap_level_for_identity` can require a verified `IdentityRecord` to reach level ≥ N. The on-chain **default is `required_min_level = 0` (gate OFF)** — deliberate for devnet/canary, where testers promote without KYC.
+
+**Mainnet policy:** L4 Elite (3% stake, ~33× leverage) is the thinnest collateral in the protocol and must NOT be reachable on a purely score-based gate. Before the mainnet canary, the operator runs `set_identity_gate(required_min_level)` with a value in `2..=4` (recommend **4** — "only L4 needs identity", the least restrictive that satisfies the review). This is now a **deploy-time invariant**, enforced by `mainnet-hardening-check.ts` BLOCKER 13: on mainnet the check reads the `["identity-gate"]` PDA on the reputation program and fails the pre-flight if `required_min_level == 0`. Devnet downgrades it to a WARNING. Hardening the on-chain _default_ (rather than the deploy gate) is deferred — it would break the permissionless devnet promotion flow the canary relies on.
+
+#### 4.7.9 Wallet reputation vs position state (security review Caio MEDIUM #3)
+
+`escape_valve_buy` transfers a `Member` PDA to a new wallet with the seller's snapshotted state (`reputation_level`, `stake_bps`, `contributions_paid`, `on_time_count`, `late_count`, `paid_out`, `escrow_balance`). This raises a fair question: "is reputation the wallet's or the position's?" The answer is **both, split cleanly by account:**
+
+| Carried by the POSITION (`Member` PDA, pool-scoped)               | Stays with the WALLET (`ReputationProfile` PDA, global) |
+| ----------------------------------------------------------------- | ------------------------------------------------------- |
+| `reputation_level` / `stake_bps` **as snapshotted for this pool** | `score`                                                 |
+| `contributions_paid`, `escrow_balance` (the debt + collateral)    | `cycles_completed` (the promotion gate)                 |
+| `on_time_count`, `late_count`, `paid_out` (this pool's history)   | `level` resolved from the global score                  |
+
+The buyer **assumes the position's obligations** — including the already-deposited stake and the debt/escrow — so the position-scoped state must carry over (the stake is real money already locked; the debt is real). But the buyer does **not** inherit the seller's global `ReputationProfile`: their own wallet-level `score` / `cycles_completed` / `level` are untouched by the purchase, so the escape valve can't be used to "buy" a high global reputation. A buyer at wallet-level L1 who purchases an L3 position operates that position at its snapshotted L3 stake terms (they paid for it), but their own profile stays L1 and gates their _next_ `join_pool` at L1 stake. **Product copy must make this distinction explicit** so a partner reading "reputation transfers on escape valve" understands it's position-operational state, not portable wallet trust.
+
 ---
 
 ## 5. Critical On-chain Invariants
