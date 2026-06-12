@@ -313,13 +313,50 @@ is computed from the live on-chain surplus
 `realized ≥ floor` holds for the mock (which returns the full surplus).
 The three yield scripts carried **no May→Jun drift** — they ran as-is.
 
+## Escape Valve demo (validated 2026-06-12, pool `4SZCKeQL…`)
+
+Secondary market for ROSCA positions. Runs on any **Active pool with
+positions** — reuse the Yield Cascade pool (still Active, both members
+hold their slot NFTs). The direct `escape_valve_list` path is still
+wired in `lib.rs` (the newer `escape_valve_list_commit` + `_reveal`
+anti-MEV flow is an _alternative_, not a replacement), so the May seed
+scripts run as-is — **no drift**.
+
+```bash
+export EVLIST_SLOT_INDEX=1      # seller = slot 1 = member-1.json
+export EVLIST_PRICE_USDC=2      # small for a credit=4 pool (default 14 is for credit=30)
+export EVBUY_SLOT_INDEX=1       # must match the listing slot
+
+pnpm devnet:seed-evlist         # member 1 lists slot 1 (creates EscapeValveListing PDA)
+pnpm devnet:seed-evbuy          # fresh buyer (deployer-funded) buys
+```
+
+Eligibility (on `escape_valve_list`): pool Active, member not defaulted,
+not behind (`contributions_paid ≥ pool.current_cycle`), no existing
+active listing for the slot.
+
+`seed-evbuy` is **self-funding** — it generates a fresh buyer wallet
+(`keypairs/evbuy-pool{N}-slot{S}.json`), tops up its SOL + the price in
+USDC from the deployer (only falls back to the faucet if the _deployer_
+is short), then `escape_valve_buy` does it all in one tx:
+
+1. Transfers `price_usdc` buyer → seller.
+2. Closes the seller's Member PDA, creates the buyer's with the seller's
+   snapshot carried over verbatim (`contributions_paid`,
+   `escrow_balance`, `slot_index`).
+3. Thaws → transfers → re-freezes the position NFT (3 mpl-core CPIs
+   signed by the slot's `position_authority` PDA).
+4. Closes the listing.
+
+Validated run: member 1 (`Bb3EXaq9…`) listed slot 1 at 2 USDC; fresh
+buyer `J1fJVSF7…` paid 2 USDC (seller 5 → 7), inherited Member PDA
+`DQacU3Pm…` + NFT `EY5WLu5n…`. The 15-account `escape_valve_buy` ix was
+already aligned with the Jun program — no client changes.
+
 ## What's deferred
 
 - Same-pool default → `seed-default` exercise. Needs an Active pool
   with a member who misses the grace window — `settle_default` requires
   `now ≥ pool.next_cycle_at + GRACE_PERIOD_SECS`, i.e. a real ~24h+ wait
-  on devnet (no clock warp). Not runnable in a single sitting.
-- Escape Valve demo (`seed-evlist*` + `seed-evbuy`). Independent of
-  Pass-3; the seller path now uses a commit-reveal flow
-  (`escape_valve_list_commit` + `_reveal`) — the May `seed-evlist.ts`
-  predates it and likely needs realignment before a run.
+  on devnet (no clock warp). The only remaining feature not runnable in
+  a single sitting.
