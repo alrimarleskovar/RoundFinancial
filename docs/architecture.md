@@ -618,7 +618,26 @@ Revised 2026-06-11 after the "reuse the existing payload" correction above
      - ~~**C.3.3** HTTP endpoint on the indexer: load a subject's attestations, compute `reliability` + `punctuality`, return JSON tagged `formula_versao: "v1-provisional"`.~~ **done (← this PR).** `GET /score/:subject` (base58-validated) returns `{ reliability, punctuality, commitment: null, recovery: null, pending: [...], event_count, classification_counts, polarity_counts }`. A wallet with no attestations returns the honest fresh default (reliability 0, punctuality 80) — "no history" is a queryable state, not a 404. **Weights are NOT published as canonical** — calibrated against a real dataset before any set is canonical (`06-team-decisions.md`, decisão 1). The Fastify handler is CI-gated end-to-end via `app.inject` + a stub Prisma (`test:score-route`, `test:reputation-score`); only the real Postgres `findMany` is operator-run.
 5. App + mobile: 4-tier surface (gated behind upstream completion — see `mobile/docs/reputation-v2/06-team-decisions.md`, "Caminho 2").
 
-#### 4.7.5 Communication impact (for the institutional-doc owners)
+#### 4.7.5 Two reputations — operational vs analytical (read THIS before talking to partners)
+
+Security review (Caio MEDIUM #2, 2026-06-12): a partner reading the code without context can reasonably ask "which is _the_ score?" There are two surfaces and they are NOT the same thing.
+
+| Surface                  | What it is                                                                                                          | Where it lives                                 | Authoritative for                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **On-chain reputation**  | `score` (u64, integer SCORE_PAYMENT/LATE/DEFAULT/CYCLE_COMPLETE deltas) + `level` (1..=4) + `cycles_completed`      | `ReputationProfile` PDA (`roundfi-reputation`) | **Operational gates.** `join_pool` snapshots `stake_bps` against this level; promotions, identity caps, anti-farming cooldowns all read this. Determines whether a member can join an L2/L3/L4 pool.                           |
+| **Off-chain reputation** | `reliability` + `punctuality` (0..100 each, proposal v5.2 formulas with v1-provisional weights) + per-class tallies | `GET /score/:subject` (indexer HTTP)           | **Analytical / explainability.** Public score endpoint for partners + admin UI. Tagged `formula_versao: "v1-provisional"` — weights are NOT canonical; calibrated against real cycle data before any set is published as such. |
+
+**Rules of thumb:**
+
+- On-chain says "can this wallet act?" Off-chain says "should this wallet be trusted?"
+- A partner asking "what tier does this member get?" → on-chain answer.
+- A partner asking "how reliable is this member historically?" → off-chain answer.
+- The two never disagree by construction (off-chain is computed from attestations the on-chain program mints), but they answer different questions.
+- `commitment` + `recovery` are **off-chain only** and currently return `null` + a `pending` list. They are not stubs returning zero; they are explicitly "not computed yet."
+
+This split is by design (`mobile/docs/reputation-v2/06-team-decisions.md` decisão 1, the Hybrid path). It will be reconciled if/when the `query_score` CPI ships post-canary — see §4.7.3.
+
+#### 4.7.6 Communication impact (for the institutional-doc owners)
 
 - The **"10× leverage"** headline (`MAX_BPS / STAKE_BPS_LEVEL_3 = 10`) survives — L3 stays at 10%. But L4 Elite at 3% implies **~33×**; whether that becomes a new headline or stays understated is a whitepaper/pitch decision, not an engineering one. Flagging so it's chosen deliberately.
 - Four documents pin the 50-30-10 ladder and must be updated by their owners before the 4-tier ladder is public-facing: technical whitepaper, behavioral-reputation-score doc, user guide (all PDFs under `docs/en/`), plus any marketing copy. `README.md` and `docs/pitch-alignment.md` carry forward-pointer notes as of this amendment.
