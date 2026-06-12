@@ -43,9 +43,14 @@ import { PrismaClient } from "@prisma/client";
 
 import { handleHeliusWebhook } from "./webhook.js";
 import { collectIndexerMetrics, PROMETHEUS_CONTENT_TYPE } from "./metrics.js";
+import { loadSubjectScore } from "./reputationScore.js";
 
 const PORT = Number(process.env.INDEXER_PORT ?? 8787);
 const HOST = process.env.INDEXER_HOST ?? "0.0.0.0";
+
+// A base58 Solana pubkey is 32 bytes → 43–44 base58 chars. Validate the
+// `:subject` path param so a malformed id 400s instead of hitting the DB.
+const SUBJECT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 // Helius pushes an array of "enhanced transactions". The envelope is
 // long; we only depend on a few fields for routing. Full schema:
@@ -171,6 +176,28 @@ export async function buildServer(prisma: PrismaClient): Promise<FastifyInstance
     const body = await collectIndexerMetrics(prisma);
     reply.header("Content-Type", PROMETHEUS_CONTENT_TYPE);
     return reply.send(body);
+  });
+
+  // ─── Reputation score (v5.2 Hybrid, Phase C.3.3) ──────────────────
+  // Read-only off-chain score for a subject wallet. Computes the
+  // proposal's Reliability + Punctuality over the subject's persisted
+  // attestations (C.2b). `formula_versao: "v1-provisional"` — the
+  // weights are NOT canonical (see reputationScore.ts / team decisão 1).
+  // A wallet with no attestations returns the honest fresh default
+  // (reliability 0, punctuality 80) rather than 404 — "no history" is a
+  // valid, queryable state, not an error.
+  app.get<{ Params: { subject: string } }>("/score/:subject", async (req, reply) => {
+    const { subject } = req.params;
+    if (!SUBJECT_RE.test(subject)) {
+      return reply.code(400).send({ error: "invalid_subject" });
+    }
+    try {
+      const summary = await loadSubjectScore(prisma, subject);
+      return reply.code(200).send(summary);
+    } catch (err) {
+      app.log.error({ err, subject }, "score lookup failed");
+      return reply.code(500).send({ error: "score_lookup_failed" });
+    }
   });
 
   app.post("/webhook/helius", async (req, reply) => {
