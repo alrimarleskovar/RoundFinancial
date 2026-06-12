@@ -11,6 +11,7 @@ import { useParams } from "next/navigation";
 import { useApi } from "@/lib/admin/useApi";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import { BehavioralScoreCard } from "@/components/adminops/BehavioralScoreCard";
 import {
   agoLabel,
   Empty,
@@ -141,6 +142,8 @@ export default function UserProfilePage() {
           </div>
         )}
       </Section>
+
+      <BehavioralScoreCard wallet={wallet} />
 
       <Section title={t("adminops.user.basic")}>
         <div style={grid}>

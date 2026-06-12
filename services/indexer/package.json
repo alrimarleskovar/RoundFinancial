@@ -9,7 +9,8 @@
     ".": "./src/server.ts",
     "./db": "./src/db.ts",
     "./admin": "./src/adminQueries.ts",
-    "./insights": "./src/insights.ts"
+    "./insights": "./src/insights.ts",
+    "./reputation-score": "./src/reputationScore.ts"
   },
   "scripts": {
     "postinstall": "prisma generate",
