@@ -62,9 +62,7 @@ export interface ContributeOpts {
 export async function contribute(env: Env, opts: ContributeOpts): Promise<string> {
   const schemaId =
     opts.schemaId ??
-    (opts.isFinalInstallment
-      ? ATTESTATION_SCHEMA.PoolComplete
-      : ATTESTATION_SCHEMA.Payment);
+    (opts.isFinalInstallment ? ATTESTATION_SCHEMA.PoolComplete : ATTESTATION_SCHEMA.Payment);
   const nonce = attestationNonce(opts.cycle, opts.member.slotIndex);
   const attestation = attestationFor(
     env,
