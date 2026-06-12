@@ -24,11 +24,13 @@
 
 import {
   type BehavioralPayload,
-  CLASS_CYCLE_COMPLETE,
+  BEHAVIORAL_PAYLOAD_VERSION_LEGACY,
   CLASS_DEFAULT,
   CLASS_LATE,
   CLASS_PAYMENT_EARLY,
   CLASS_PAYMENT_ON_TIME,
+  CLASS_PAYOUT_CLAIMED,
+  CLASS_POOL_COMPLETE,
 } from "@roundfi/sdk";
 
 // ─── Classification boundaries (proposal §8, published constants) ─────
@@ -49,8 +51,16 @@ export const LATE_BEHAVIORAL_MAX_SECS = 604_800; // 7d
  *   - `late_behavioral`       2d < delta <= 7d   (behavioral lateness)
  *   - `temporary_incapacity`  delta > 7d, but paid
  *   - `default`               did not pay
- *   - `cycle_complete`        payout claimed (commitment signal)
+ *   - `pool_complete`         finished paying every installment in the
+ *                             pool (Pass-3 rename of `cycle_complete`)
+ *   - `payout_claimed`        received their carta — Pass-3, score-neutral
+ *                             audit trail, NOT a commitment signal
  *   - `unspecified`           legacy zero payload / unknown version
+ *
+ * Pass-3 (Caio HIGH, 2026-06-12) split the conflated `cycle_complete`
+ * into two distinct events. Legacy v1 payloads carrying byte 5 (the old
+ * `CLASS_CYCLE_COMPLETE`) are mapped to `payout_claimed` — that's what
+ * the byte ACTUALLY MEANT under the old semantics ("received payout").
  *
  * Deferred (NOT produced here): `friction_operational` (needs an
  * on-chain FrictionProof), `bad_faith` (needs governance), `recovery`
@@ -63,7 +73,8 @@ export type EventClassification =
   | "late_behavioral"
   | "temporary_incapacity"
   | "default"
-  | "cycle_complete"
+  | "pool_complete"
+  | "payout_claimed"
   | "unspecified";
 
 // ─── Reliability weights (proposal §6, basis points, 100 = +1.00) ─────
@@ -82,9 +93,10 @@ export const MAX_WEIGHT = W_PAYMENT_ON_TIME; // 100
 
 /**
  * Reliability weight of a classification, or `null` for classifications
- * that are NOT reliability inputs (`cycle_complete` feeds Commitment;
- * `unspecified` carries no signal). `reliability()` filters the nulls so
- * only weighted events contribute to the average.
+ * that are NOT reliability inputs (`pool_complete` feeds Commitment;
+ * `payout_claimed` is pure audit trail; `unspecified` carries no
+ * signal). `reliability()` filters the nulls so only weighted events
+ * contribute to the average.
  */
 export function weightOf(c: EventClassification): number | null {
   switch (c) {
@@ -100,7 +112,8 @@ export function weightOf(c: EventClassification): number | null {
       return W_TEMPORARY_INCAPACITY;
     case "default":
       return W_DEFAULT;
-    case "cycle_complete":
+    case "pool_complete":
+    case "payout_claimed":
     case "unspecified":
       return null;
   }
@@ -108,7 +121,8 @@ export function weightOf(c: EventClassification): number | null {
 
 /** Whether a classification is a "payment" event — the set Punctuality
  *  averages over (it carries a meaningful `delta_seconds`). Excludes
- *  `default` (never paid) and `cycle_complete` (no timing). */
+ *  `default` (never paid), `pool_complete` + `payout_claimed` (no
+ *  payment-timing semantics on either). */
 export function isPaymentClass(c: EventClassification): boolean {
   return (
     c === "payment_early" ||
@@ -122,6 +136,14 @@ export function isPaymentClass(c: EventClassification): boolean {
 /**
  * Derive the authoritative `EventClassification` from a decoded payload.
  * `null` payload (legacy zero / unknown version) → `"unspecified"`.
+ *
+ * **Pass-3 version dispatch.** The classification byte 5 has different
+ * meaning across payload versions:
+ *   - v2 byte 5 → `pool_complete` (Pass-3, contribute-emitted)
+ *   - v1 byte 5 → `payout_claimed` (legacy, claim_payout-emitted — was
+ *     `CLASS_CYCLE_COMPLETE` under the old +50/cycles_completed
+ *     semantics that Pass-3 corrects)
+ * v2 also adds byte 6 = `payout_claimed`.
  */
 export function deriveEventClassification(payload: BehavioralPayload | null): EventClassification {
   if (payload === null) return "unspecified";
@@ -129,8 +151,12 @@ export function deriveEventClassification(payload: BehavioralPayload | null): Ev
   switch (payload.classification) {
     case CLASS_DEFAULT:
       return "default";
-    case CLASS_CYCLE_COMPLETE:
-      return "cycle_complete";
+    case CLASS_POOL_COMPLETE: // byte 5 — version-aware
+      return payload.version === BEHAVIORAL_PAYLOAD_VERSION_LEGACY
+        ? "payout_claimed"
+        : "pool_complete";
+    case CLASS_PAYOUT_CLAIMED: // byte 6 — v2 only
+      return "payout_claimed";
     case CLASS_PAYMENT_ON_TIME:
     case CLASS_PAYMENT_EARLY:
     case CLASS_LATE:
@@ -168,9 +194,10 @@ export function classificationPolarity(c: EventClassification): EventPolarity {
   switch (c) {
     case "payment_early":
     case "payment_on_time":
-    case "cycle_complete":
+    case "pool_complete":
       return "positive";
     case "friction_temporal":
+    case "payout_claimed": // Pass-3: pure audit, not a polarity signal
     case "unspecified":
       return "neutral";
     case "late_behavioral":

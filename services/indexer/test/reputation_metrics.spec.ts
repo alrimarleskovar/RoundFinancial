@@ -51,16 +51,16 @@ describe("reliability — proposal §6 published vectors", () => {
     expect(reliability([])).to.equal(0);
   });
 
-  it("window of only non-reliability events (cycle_complete) → 0", () => {
-    expect(reliability(evts("cycle_complete", 10))).to.equal(0);
+  it("window of only non-reliability events (pool_complete) → 0", () => {
+    expect(reliability(evts("pool_complete", 10))).to.equal(0);
   });
 
-  it("cycle_complete events are excluded; only payments count", () => {
-    // 50 on-time interleaved with cycle_complete → still 100.
+  it("pool_complete events are excluded; only payments count", () => {
+    // 50 on-time interleaved with pool_complete → still 100.
     const mixed: BehavioralSignal[] = [];
     for (let i = 0; i < 50; i++) {
       mixed.push({ classification: "payment_on_time", deltaSeconds: 0n });
-      mixed.push({ classification: "cycle_complete", deltaSeconds: null });
+      mixed.push({ classification: "pool_complete", deltaSeconds: null });
     }
     expect(reliability(mixed)).to.equal(100);
   });
@@ -111,11 +111,11 @@ describe("punctuality — proposal §6 piecewise-linear map", () => {
     expect(punctuality([{ classification: "payment_on_time", deltaSeconds: 1_800n }])).to.equal(80);
   });
 
-  it("excludes default / cycle_complete from the average", () => {
+  it("excludes default / pool_complete from the average", () => {
     // one on-time payment (delta 0) + noise → 80.
     const h: BehavioralSignal[] = [
       { classification: "default", deltaSeconds: null },
-      { classification: "cycle_complete", deltaSeconds: null },
+      { classification: "pool_complete", deltaSeconds: null },
       { classification: "payment_on_time", deltaSeconds: 0n },
     ];
     expect(punctuality(h)).to.equal(80);

@@ -637,7 +637,40 @@ Security review (Caio MEDIUM #2, 2026-06-12): a partner reading the code without
 
 This split is by design (`mobile/docs/reputation-v2/06-team-decisions.md` decisão 1, the Hybrid path). It will be reconciled if/when the `query_score` CPI ships post-canary — see §4.7.3.
 
-#### 4.7.6 Communication impact (for the institutional-doc owners)
+#### 4.7.6 Pass-3 corrective rename — `claim_payout` ≠ `cycle_complete`
+
+Security review 2026-06-12 (Caio HIGH). The pre-Pass-3 schema conflated two distinct events:
+
+| Pre-Pass-3 (broken)     | Emit site      | Score Δ | `cycles_completed`++ |
+| ----------------------- | -------------- | ------: | -------------------- |
+| `SCHEMA_CYCLE_COMPLETE` | `claim_payout` |     +50 | yes                  |
+
+Reading the name, a partner expected "completed a cycle of obligations." The on-chain reality was "received the carta" — slot-0 members got the +50 reward and the gate-relevant `cycles_completed` bump the moment they received funds, before any post-payout installment was kept. The protocol's central thesis ("pay AFTER receiving") was effectively unmeasured by the on-chain reputation surface.
+
+Pass-3 splits the two signals:
+
+| Pass-3 (corrected)                     | Emit site                                                  | Score Δ | `cycles_completed`++ |
+| -------------------------------------- | ---------------------------------------------------------- | ------: | -------------------- |
+| `SCHEMA_PAYOUT_CLAIMED` (id 6, NEW)    | `claim_payout`                                             |   **0** | **no**               |
+| `SCHEMA_POOL_COMPLETE` (id 4, RENAMED) | `contribute` when `contributions_paid + 1 == cycles_total` |     +50 | yes                  |
+
+**Implications:**
+
+- `cycles_completed` now counts **pools the subject finished paying through end-to-end**, not payouts received. The SEV-047 anti-farming gate (`LEVEL_N_MIN_CYCLES`) becomes substantially stronger: each unit is now a ~6-month commitment (24 cycles × ≥7-day `MIN_CYCLE_DURATION`).
+- `MIN_CYCLE_COOLDOWN_SECS` renamed to `MIN_POOL_COMPLETE_COOLDOWN_SECS` and raised from 6 days to **30 days**. Honest pools complete at ≥6-month cadence, so the floor catches sybils without rejecting any legitimate event.
+- The `Attestation` PDA at `(issuer, subject, schema_id=4, nonce)` still derives the same address. The semantic of byte 5 in the payload was bumped in version (v1 → v2). Legacy v1 attestations on devnet keep their old meaning forever — `BehavioralPayload.version` is the version-dispatch key in `decodeBehavioralPayload` + the indexer's `deriveEventClassification`.
+- The deployed `ReputationProfile.last_cycle_complete_at` field retains its name on disk for Borsh-layout compatibility; its semantic is now "last time the subject completed a pool" (the cooldown anchor).
+- `PAYOUT_CLAIMED` lands on `total_participated` only; it's a pure audit-trail signal so the indexer can show "drawn this cycle" without polluting the commitment metric.
+
+**Out of scope (deliberate):** retroactive correction of `cycles_completed` on existing devnet profiles. Counters under the old semantics stay inflated; the new emit sites take over for events ingested after the redeploy. No migration ix.
+
+**Cutover sequence:**
+
+1. `anchor build` + `anchor deploy` updates the program binaries.
+2. The SDK (`@roundfi/sdk`) ships `ATTESTATION_SCHEMA.PoolComplete` (id 4) and `ATTESTATION_SCHEMA.PayoutClaimed` (id 6); the `CycleComplete` alias is kept for one deprecation cycle.
+3. The indexer's `deriveEventClassification` dispatches on `BehavioralPayload.version` — old v1 attestations still classify as `payout_claimed` (the old +50/cycles_completed signal is discarded by the new score arithmetic; this preserves the audit trail without rewarding past payouts).
+
+#### 4.7.7 Communication impact (for the institutional-doc owners)
 
 - The **"10× leverage"** headline (`MAX_BPS / STAKE_BPS_LEVEL_3 = 10`) survives — L3 stays at 10%. But L4 Elite at 3% implies **~33×**; whether that becomes a new headline or stays understated is a whitepaper/pitch decision, not an engineering one. Flagging so it's chosen deliberately.
 - Four documents pin the 50-30-10 ladder and must be updated by their owners before the 4-tier ladder is public-facing: technical whitepaper, behavioral-reputation-score doc, user guide (all PDFs under `docs/en/`), plus any marketing copy. `README.md` and `docs/pitch-alignment.md` carry forward-pointer notes as of this amendment.

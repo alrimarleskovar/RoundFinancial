@@ -444,6 +444,15 @@ export async function contribute(
   await requireAccountPresent(client, args.pool, "Pool");
   await requireAccountPresent(client, member, "Member");
 
+  // Pass-3: when the caller knows this is the member's LAST installment
+  // of the pool (`member.contributions_paid + 1 === pool.cycles_total`),
+  // pass `schemaId: ATTESTATION_SCHEMA.PoolComplete` so the attestation
+  // PDA derivation matches the program's emit decision. Otherwise the
+  // default is `Payment` (the program will downgrade to `Late` on-chain
+  // when the clock has passed `next_cycle_at`; both flow through the
+  // same attestation PDA because the program emits one schema per
+  // contribute call). For a contribution that's NOT the final
+  // installment, the caller does not need to set `schemaId`.
   const schemaId = args.schemaId ?? ATTESTATION_SCHEMA.Payment;
   const nonce = attestationNonce(args.cycle, args.slotIndex);
   const [attestation] = attestationPda(
@@ -535,12 +544,15 @@ export async function claimPayout(
   await requireAccountPresent(client, args.pool, "Pool");
   await requireAccountPresent(client, member, "Member");
 
+  // Pass-3 (Caio HIGH, 2026-06-12): claim_payout now emits PayoutClaimed
+  // (schema=6, score-neutral) instead of CycleComplete. The +50 /
+  // cycles_completed signal moved to the member's last contribute() call.
   const nonce = attestationNonce(args.cycle, args.slotIndex);
   const [attestation] = attestationPda(
     client.ids.reputation,
     args.pool,
     args.memberWallet.publicKey,
-    ATTESTATION_SCHEMA.CycleComplete,
+    ATTESTATION_SCHEMA.PayoutClaimed,
     nonce,
   );
 

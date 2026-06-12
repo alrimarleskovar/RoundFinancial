@@ -87,9 +87,12 @@ export function buildClaimPayoutIx(args: BuildClaimPayoutIxArgs): TransactionIns
   const [repProfile] = reputationProfilePda(reputation, args.memberWallet);
 
   // claim_payout always uses SCHEMA_CYCLE_COMPLETE (id=4) — there's no
-  // on-time/late branch like contribute has. The 6-day per-subject
-  // cooldown is enforced in the reputation program, not here.
-  const schemaId = ATTESTATION_SCHEMA.CycleComplete;
+  // Pass-3 (Caio HIGH, 2026-06-12): claim_payout emits PayoutClaimed
+  // (schema=6, score-neutral) — the +50/cycles_completed signal moved
+  // to the member's last contribute() call (POOL_COMPLETE). The 30-day
+  // per-subject POOL_COMPLETE cooldown is enforced in the reputation
+  // program, not here; PayoutClaimed itself carries no cooldown.
+  const schemaId = ATTESTATION_SCHEMA.PayoutClaimed;
   const nonce = attestationNonce(args.cycle, args.slotIndex);
   const identityRecord = reputation; // sentinel for "no identity linked"
   const [attestation] = attestationPda(reputation, args.pool, args.memberWallet, schemaId, nonce);
