@@ -140,6 +140,18 @@ pub const LEVEL_4_MIN_CYCLES: u32 = 8;
 pub const LEVEL_MIN: u8 = 1;
 pub const LEVEL_MAX: u8 = 4;
 
+/// Level at/above which identity verification is **always** required,
+/// independent of `IdentityGateConfig.required_min_level`. The Elite tier
+/// (L4) is never granted to an unverified wallet — even when the
+/// configurable gate is off (the devnet default `required_min_level = 0`).
+///
+/// Partner review MEDIUM #1 (2026-06-12): the highest tier is the one most
+/// worth gaming (largest stake discount, strongest credit signal), so it
+/// gets a hard Proof-of-Personhood floor that no config value can disable.
+/// L2/L3 stay governed by the configurable gate (devnet 0 = open, mainnet
+/// 3 = verified-only). Verified wallets bypass this floor and can reach L4.
+pub const IDENTITY_HARD_FLOOR_LEVEL: u8 = LEVEL_MAX;
+
 /// Authority rotation timelock for the reputation program (Adevar Labs
 /// SEV-021 fix). Same 7-day window used by roundfi-core's
 /// TREASURY_TIMELOCK_SECS. Was previously zero (direct rotation via
