@@ -171,6 +171,31 @@ pub struct ProtocolConfig {
     /// Earliest unix-ts at which `commit_new_fee_bps_yield` may execute.
     /// `0` when no fee change is pending.
     pub pending_fee_bps_yield_eta: i64,
+
+    /// One-way confirmation that the `reputation_program` slot was
+    /// initialised to a real program (i.e. not `Pubkey::default()`).
+    /// Mirrors `treasury_locked` / `approved_yield_adapter_locked`,
+    /// but with a critical extra invariant: `lock_reputation_program`
+    /// **refuses to lock** when `reputation_program == Pubkey::default()`.
+    /// Once `true`, the protocol has proven on-chain that it shipped
+    /// with reputation wired up — i.e. the "no-reputation" skip paths
+    /// in `contribute` / `claim_payout` (which fire when
+    /// `reputation_program == default`) can never be reached on this
+    /// deployment again, because the field is immutable post-init
+    /// (`update_protocol_config.rs` lists it as frozen).
+    ///
+    /// Partner review MEDIUM #2 (2026-06-12). Devnet/test harnesses keep
+    /// the `false` default and continue to exercise the skip path (the
+    /// bankrun fixtures rely on `reputation_program = default`); mainnet
+    /// operators call `lock_reputation_program` immediately after
+    /// `initialize_protocol` to guarantee the live deployment can't
+    /// silently boot in no-reputation mode.
+    ///
+    /// **Layout note.** Placed at the end of the struct so existing
+    /// on-chain ProtocolConfig accounts (devnet, post-`migrate_protocol_config`)
+    /// read this field from a zero byte of the forward-compat pad — no
+    /// migration needed, no shift of any pre-existing offset.
+    pub reputation_program_locked: bool,
 }
 
 impl ProtocolConfig {
@@ -184,12 +209,18 @@ impl ProtocolConfig {
     //  + 2 bytes for lp_share_bps (Adevar Labs SEV-003 fix)
     //  + 2 bytes for pending_fee_bps_yield (SEV-024 follow-up timelock)
     //  + 8 bytes for pending_fee_bps_yield_eta
-    //  + 18 byte tail-padding.
+    //  + 1 byte for reputation_program_locked (partner review MEDIUM #2,
+    //    carved from the forward-compat pad — no SIZE change, no realloc)
+    //  + 17 byte tail-padding.
     //
     // Note: SEV-003 consumed 2 of the original 30 forward-compat pad
     // bytes (lp_share_bps as u16). SEV-024 follow-up consumed 10 more
-    // bytes for the pending_fee_bps_yield timelock pair. 18 bytes
-    // remain for future additions.
+    // bytes for the pending_fee_bps_yield timelock pair. Partner review
+    // MEDIUM #2 carved 1 byte from the pad for reputation_program_locked
+    // (positioned at the same offset zero-init reads as `false`, so
+    // existing devnet ProtocolConfig accounts read the new field as
+    // `false` without a migration — devnet keeps the skip-path open, as
+    // intended). 17 bytes remain for future additions.
     pub const SIZE: usize =
         8                        // anchor disc
         + (32 * 6)               // 6 base Pubkeys
@@ -210,7 +241,8 @@ impl ProtocolConfig {
         + 2                      // lp_share_bps (Adevar SEV-003)
         + 2                      // pending_fee_bps_yield (SEV-024 follow-up)
         + 8                      // pending_fee_bps_yield_eta
-        + 18;                    // forward-compat padding (was 28 pre-SEV-024 follow-up)
+        + 1                      // reputation_program_locked (partner review MEDIUM #2, end-of-struct)
+        + 17;                    // forward-compat padding (was 18 pre-MEDIUM #2)
 }
 
 #[cfg(test)]

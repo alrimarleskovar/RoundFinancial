@@ -270,6 +270,18 @@ pub mod roundfi_core {
         instructions::lock_approved_yield_adapter::handler(ctx)
     }
 
+    /// Confirm on-chain that `reputation_program` was initialised to
+    /// a real program (refuses to lock when it equals `Pubkey::default()`).
+    /// Authority-only, idempotent, one-way. Mainnet operators call this
+    /// immediately after `initialize_protocol` so the live deployment
+    /// can't silently run in the no-reputation skip-path mode.
+    /// Partner review MEDIUM #2 (2026-06-12).
+    pub fn lock_reputation_program(
+        ctx: Context<LockReputationProgram>,
+    ) -> Result<()> {
+        instructions::lock_reputation_program::handler(ctx)
+    }
+
     pub fn pause(ctx: Context<Pause>, args: PauseArgs) -> Result<()> {
         instructions::pause::handler(ctx, args)
     }
