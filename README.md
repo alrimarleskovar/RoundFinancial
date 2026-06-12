@@ -16,6 +16,7 @@
   <a href="https://roundfinancial.vercel.app">🚀 Live demo</a> ·
   <a href="https://www.youtube.com/watch?v=mQMoh7BMf8E">🎬 Demo (video)</a> ·
   <a href="https://youtu.be/aWh-0FOuN4o">🎙️ Pitch (video)</a> ·
+  <a href="docs/spec/MASTER-SPEC.md">📖 <b>Master Spec</b> (source of truth)</a> ·
   <a href="docs/status.md">📋 Status (shipped vs roadmap)</a> ·
   <a href="docs/pitch/pitch-3min-en.html">📊 3-min Pitch (EN)</a> ·
   <a href="docs/pitch/pitch-3min.html">📊 3-min Pitch (PT)</a> ·
