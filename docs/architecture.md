@@ -1,9 +1,11 @@
 # RoundFi — Architecture Specification
 
+> ⚠️ **Superseded as the canonical reference (2026-06-12).** The single source of truth is now **[`docs/spec/MASTER-SPEC.md`](spec/MASTER-SPEC.md)**, reflecting the post-v5.2 / four-tier / Pass-3 protocol validated end-to-end on devnet. This document (last substantively revised 2026-04-22) is retained as a **deeper-dive companion** on specific subsystems; where it disagrees with the Master Spec, the Master Spec wins. The version/status line below is historical.
+
 **Version:** 0.5 (2026-04-22 — Step 4f: narrative alignment + `get_profile` read path + stress-test script)
 **Status:** Implementation in progress — Step 4f (pre-Step-5)
 
-This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
+This document is a detailed architecture companion to the [Master Spec](spec/MASTER-SPEC.md). It predates the v5.2 reputation rework (four-tier ladder, Pass-3 attestation taxonomy, identity hard floor) — consult the Master Spec for those.
 
 > **Pitch alignment.** For the authoritative mapping between product-narrative claims and on-chain behavior (shield names, solvency framing, the "up to 10× capital advancement" wording, roadmap vs. shipped product), see [pitch-alignment.md](./pitch-alignment.md). For the yield waterfall + Guarantee Fund deep-dive, see [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md).
 >
