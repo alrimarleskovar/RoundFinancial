@@ -2,9 +2,12 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use roundfi_reputation::constants::{SCHEMA_LATE, SCHEMA_PAYMENT};
+use roundfi_reputation::state::{
+    BehavioralPayload, CLASS_LATE, CLASS_PAYMENT_EARLY, CLASS_PAYMENT_ON_TIME,
+};
 
 use crate::constants::*;
-use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall};
 use crate::error::RoundfiError;
 use crate::math::split_installment;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -234,6 +237,28 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
         let schema_id = if on_time { SCHEMA_PAYMENT } else { SCHEMA_LATE };
         let nonce = ((args.cycle as u64) << 32) | (member.slot_index as u64);
 
+        // v5.2 Hybrid (Phase B): populate the 96-byte attestation payload
+        // with the per-event timing the indexer scores off-chain. The
+        // classification byte is a coarse hint (indexer is authoritative);
+        // delta_seconds carries the precise timing. `parcels_paid = 1`
+        // (one installment per contribute). `amount` is the installment.
+        let classification = if !on_time {
+            CLASS_LATE
+        } else if clock.unix_timestamp < pool.next_cycle_at {
+            CLASS_PAYMENT_EARLY
+        } else {
+            CLASS_PAYMENT_ON_TIME
+        };
+        let payload = BehavioralPayload::new(
+            classification,
+            pool.members_target,
+            1,
+            pool.next_cycle_at,
+            clock.unix_timestamp,
+            pool.installment_amount,
+        )
+        .encode();
+
         // Freeze pool signer-seed components before mutable borrows drop.
         let pool_authority = pool.authority;
         let pool_seed_id   = pool.seed_id;
@@ -275,7 +300,7 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
             signer_seeds: signer_seeds_arr,
             schema_id,
             nonce,
-            payload: EMPTY_PAYLOAD,
+            payload,
             pool: pool_key,
             pool_authority,
             pool_seed_id,
