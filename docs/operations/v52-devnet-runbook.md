@@ -353,10 +353,39 @@ buyer `J1fJVSF7…` paid 2 USDC (seller 5 → 7), inherited Member PDA
 `DQacU3Pm…` + NFT `EY5WLu5n…`. The 15-account `escape_valve_buy` ix was
 already aligned with the Jun program — no client changes.
 
+## Escrow vesting demo (validated 2026-06-12, pool `4SZCKeQL…`)
+
+`release_escrow` lets an **on-time** member progressively vest their
+stake back out of the escrow vault — the positive arm of the "Triple
+Shield". `seed-release` is dual-path: it reads the member's
+`on_time_count` and runs the positive path (release succeeds) when
+`on_time_count ≥ checkpoint`, or the negative path (lands a reverted
+`EscrowLocked` tx as durable evidence) when the member paid late.
+
+```bash
+export POOL_SEED_ID=44          # an Active pool whose member 0 paid on-time
+unset MEMBER_INDEX_OFFSET       # target member-0.json (TARGET_SLOT_INDEX=0)
+pnpm devnet:seed-release        # checkpoint 1
+```
+
+On-chain guard (`release_escrow.rs`): `member.on_time_count ≥
+args.checkpoint`, `checkpoint ≤ pool.current_cycle + 1`, `checkpoint >
+last_released_checkpoint`, member not defaulted, protocol not paused.
+No status gate — works on any Active pool. The 9-account ix was already
+aligned with the Jun program — no client changes.
+
+Validated run: member 0 (`7RvpGyDP…`) had `on_time_count = 1`,
+`escrow_balance = 2.75`; `release_escrow(1)` vested **1.00 USDC**
+(half the 2.00 stake — 1 of 2 checkpoints) back to its ATA,
+`escrow_balance 2.75 → 1.75`, `last_released_checkpoint 0 → 1`.
+Checkpoint 2 needs `current_cycle` to advance (a claim) first.
+
 ## What's deferred
 
 - Same-pool default → `seed-default` exercise. Needs an Active pool
   with a member who misses the grace window — `settle_default` requires
-  `now ≥ pool.next_cycle_at + GRACE_PERIOD_SECS`, i.e. a real ~24h+ wait
-  on devnet (no clock warp). The only remaining feature not runnable in
+  `now ≥ pool.next_cycle_at + GRACE_PERIOD_SECS` (GRACE is 1 day on the
+  devnet build, 7 days on mainnet) AND `current_cycle` to have advanced
+  past the defaulter (a claim must land first). A real multi-day wait on
+  devnet — no clock warp. The only remaining capability not runnable in
   a single sitting.
