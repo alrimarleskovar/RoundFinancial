@@ -43,6 +43,7 @@
     "devnet:seed-close": "tsx scripts/devnet/seed-close.ts",
     "devnet:seed-default": "tsx scripts/devnet/seed-default.ts",
     "devnet:pause-rehearsal": "tsx scripts/devnet/pause-rehearsal.ts",
+    "devnet:unpause": "tsx scripts/devnet/unpause.ts",
     "devnet:squads-derive-pda": "tsx scripts/devnet/squads-derive-pda.ts",
     "devnet:squads-rehearsal-verify": "tsx scripts/devnet/squads-rehearsal-verify.ts",
     "devnet:squads-rehearsal-propose": "tsx scripts/devnet/squads-rehearsal-propose-authority.ts",
