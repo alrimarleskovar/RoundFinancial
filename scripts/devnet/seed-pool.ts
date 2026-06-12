@@ -232,7 +232,7 @@ async function callInitPoolVaults(
   // programs/roundfi-core/src/instructions/init_pool_vaults.rs:
   //   1. authority                  (signer, mut)
   //   2. config                     (PDA, mut — TVL caps committed total)
-  //   3. pool                       (PDA, read)
+  //   3. pool                       (PDA, mut — handler commits TVL / marks vaults ready)
   //   4. usdc_mint                  (read)
   //   5. escrow_vault_authority     (PDA, read)
   //   6. solidarity_vault_authority (PDA, read)
@@ -250,7 +250,7 @@ async function callInitPoolVaults(
     keys: [
       { pubkey: authority.publicKey, isSigner: true, isWritable: true },
       { pubkey: protocolConfig, isSigner: false, isWritable: true },
-      { pubkey: poolPda, isSigner: false, isWritable: false },
+      { pubkey: poolPda, isSigner: false, isWritable: true },
       { pubkey: usdcMint, isSigner: false, isWritable: false },
       { pubkey: escrowAuthority, isSigner: false, isWritable: false },
       { pubkey: solidarityAuthority, isSigner: false, isWritable: false },
