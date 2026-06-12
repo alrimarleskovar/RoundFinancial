@@ -265,10 +265,98 @@ still lands**.
 | `cycles_total != members_target` revert            | Mismatched env                                       | Set both equal: `MEMBERS_TARGET=2 CYCLES_TOTAL=2`                                               |
 | `ConstraintSeeds (2006)` on contribute final cycle | Schema mismatch (seed-cycle didn't escalate)         | Pull latest `seed-cycle.ts` — the env-configurable version auto-escalates the final installment |
 | `ConstraintSeeds (2006)` on claim                  | Schema mismatch (seed-claim used old CYCLE_COMPLETE) | Pull latest `seed-claim.ts` — uses PAYOUT_CLAIMED                                               |
+| `ConstraintMut (2000)` on `config` in close_pool   | `seed-close` passed config read-only                 | Fixed in #471 — config is `mut` (handler decrements committed TVL)                              |
+
+## Close the pool (terminal state)
+
+After the final claim flips the pool to `Completed`, close it:
+
+```bash
+pnpm devnet:seed-close      # Completed → Closed (POOL_SEED_ID must match)
+```
+
+Moves no funds — pure terminal transition that decrements
+`committed_protocol_tvl_usdc` (symmetric with init_pool_vaults) and sets
+`status = Closed`. Single-shot: a second call reverts (PoolNotCompleted).
+Validated 2026-06-12 on pool `Ga2RwgSk…` — the full lifecycle is then
+Forming → Active → Completed → Closed.
+
+## Yield Cascade demo (validated 2026-06-12, pool `4SZCKeQL…`)
+
+Independent of Pass-3. Needs a **separate Active pool with float** (a
+Closed pool can't deposit — `deposit_idle_to_yield` requires
+`status == Active`). Build a fresh pool through Step 3's `seed-cycle`
+(no claim — claiming would advance/complete the pool), then:
+
+```bash
+export YIELD_DEPOSIT_USDC=4     # must be ≤ pool_usdc_vault float
+                                # (1 cycle of 2× installment-3 = 4.44 float)
+pnpm devnet:seed-yield-init     # YieldVaultState PDA + vault ATA (roundfi-yield-mock)
+pnpm devnet:seed-yield-deposit  # float → yield vault + YIELD_PREFUND_USDC (0.5) simulated yield
+pnpm devnet:seed-yield-harvest  # realize surplus through the waterfall
+```
+
+The harvest waterfall on the realized surplus (e.g. 0.5 USDC):
+
+- **Protocol fee** `DEFAULT_FEE_BPS_YIELD` = 20% → `treasury_usdc`
+  (the only physical outflow; `treasury_usdc.key()` must equal
+  `config.treasury`, which the script reads from
+  `program-ids.devnet.json::initialized.treasuryAta`).
+- **Guarantee Fund** + **LP slice** (`config.lp_share_bps`, 65%) →
+  logical earmarks on `pool.guarantee_fund_balance` /
+  `pool.lp_distribution_balance` (no physical transfer).
+- **Residual** ("prêmio de paciência") stays in `pool_usdc_vault`.
+
+So `pool_usdc_vault` nets `+realized − protocol_fee`. The slippage floor
+is computed from the live on-chain surplus
+(`yield_vault.amount − tracked_principal`) × `(1 − tolerance_bps)`, so
+`realized ≥ floor` holds for the mock (which returns the full surplus).
+The three yield scripts carried **no May→Jun drift** — they ran as-is.
+
+## Escape Valve demo (validated 2026-06-12, pool `4SZCKeQL…`)
+
+Secondary market for ROSCA positions. Runs on any **Active pool with
+positions** — reuse the Yield Cascade pool (still Active, both members
+hold their slot NFTs). The direct `escape_valve_list` path is still
+wired in `lib.rs` (the newer `escape_valve_list_commit` + `_reveal`
+anti-MEV flow is an _alternative_, not a replacement), so the May seed
+scripts run as-is — **no drift**.
+
+```bash
+export EVLIST_SLOT_INDEX=1      # seller = slot 1 = member-1.json
+export EVLIST_PRICE_USDC=2      # small for a credit=4 pool (default 14 is for credit=30)
+export EVBUY_SLOT_INDEX=1       # must match the listing slot
+
+pnpm devnet:seed-evlist         # member 1 lists slot 1 (creates EscapeValveListing PDA)
+pnpm devnet:seed-evbuy          # fresh buyer (deployer-funded) buys
+```
+
+Eligibility (on `escape_valve_list`): pool Active, member not defaulted,
+not behind (`contributions_paid ≥ pool.current_cycle`), no existing
+active listing for the slot.
+
+`seed-evbuy` is **self-funding** — it generates a fresh buyer wallet
+(`keypairs/evbuy-pool{N}-slot{S}.json`), tops up its SOL + the price in
+USDC from the deployer (only falls back to the faucet if the _deployer_
+is short), then `escape_valve_buy` does it all in one tx:
+
+1. Transfers `price_usdc` buyer → seller.
+2. Closes the seller's Member PDA, creates the buyer's with the seller's
+   snapshot carried over verbatim (`contributions_paid`,
+   `escrow_balance`, `slot_index`).
+3. Thaws → transfers → re-freezes the position NFT (3 mpl-core CPIs
+   signed by the slot's `position_authority` PDA).
+4. Closes the listing.
+
+Validated run: member 1 (`Bb3EXaq9…`) listed slot 1 at 2 USDC; fresh
+buyer `J1fJVSF7…` paid 2 USDC (seller 5 → 7), inherited Member PDA
+`DQacU3Pm…` + NFT `EY5WLu5n…`. The 15-account `escape_valve_buy` ix was
+already aligned with the Jun program — no client changes.
 
 ## What's deferred
 
-- Same-pool default → `seed-default` exercise. The Pass-3 changes
-  didn't touch the DEFAULT schema; the May script works.
-- Yield Cascade demo (`seed-yield-*`). Independent of Pass-3.
-- Escape Valve demo (`seed-evlist` + `seed-evbuy`). Independent of Pass-3.
+- Same-pool default → `seed-default` exercise. Needs an Active pool
+  with a member who misses the grace window — `settle_default` requires
+  `now ≥ pool.next_cycle_at + GRACE_PERIOD_SECS`, i.e. a real ~24h+ wait
+  on devnet (no clock warp). The only remaining feature not runnable in
+  a single sitting.
