@@ -585,7 +585,7 @@ jobs:
         # weekly via the key date suffix; if Kamino redeploys their
         # program (rare), bump the cache key.
         id: klend-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target/deploy/klend.so
           key: klend-so-2026-W20
@@ -713,7 +713,7 @@ jobs:
         # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
         # W22 cache held a truncated dump that made litesvm abort (SEV-012).
         id: mplcore-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target/deploy/mpl_core.so
           key: mpl-core-so-2026-W22c
