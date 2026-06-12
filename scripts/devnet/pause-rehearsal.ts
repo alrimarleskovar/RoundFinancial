@@ -53,7 +53,16 @@ import {
 } from "@solana/web3.js";
 
 const RPC_URL = process.env.ANCHOR_PROVIDER_URL ?? "https://api.devnet.solana.com";
-const WALLET_PATH = process.env.SOLANA_WALLET ?? resolve(homedir(), ".config/solana/id.json");
+// Pause is gated on `authority.key() == config.authority` (the deployer
+// on devnet). Resolve the wallet the same way the seed scripts do —
+// SOLANA_WALLET explicit override, else ANCHOR_WALLET (which the seed
+// flow points at the deployer keypair), else the solana CLI default.
+// Without the ANCHOR_WALLET fallback this loaded ~/.config/solana/id.json
+// — a different key — and every pause reverted with Unauthorized (6023).
+const WALLET_PATH =
+  process.env.SOLANA_WALLET ??
+  process.env.ANCHOR_WALLET ??
+  resolve(homedir(), ".config/solana/id.json");
 
 const ROUNDFI_CORE_PROGRAM_ID = new PublicKey("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
 
