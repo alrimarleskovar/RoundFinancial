@@ -353,6 +353,41 @@ buyer `J1fJVSF7…` paid 2 USDC (seller 5 → 7), inherited Member PDA
 `DQacU3Pm…` + NFT `EY5WLu5n…`. The 15-account `escape_valve_buy` ix was
 already aligned with the Jun program — no client changes.
 
+### Commit-reveal variant (anti-MEV, #232)
+
+The seller can hide the price until a reveal step that arms a 30s
+anti-snipe cooldown — `seed-evlist-commit` (written this session; the
+direct path had a script, this one didn't) runs both halves:
+
+```bash
+export POOL_SEED_ID=44
+export EVLIST_SLOT_INDEX=0      # seller = slot 0 = member-0.json
+export EVLIST_PRICE_USDC=2
+pnpm devnet:seed-evlist-commit  # commit (Pending, price hidden) + reveal (Active, +30s cooldown)
+# wait ~30s
+EVBUY_SLOT_INDEX=0 POOL_SEED_ID=44 pnpm devnet:seed-evbuy
+```
+
+- **commit:** `escape_valve_list_commit(commit_hash)` stores only
+  `SHA-256(price.to_le_bytes() ‖ salt.to_le_bytes())` (salt is a
+  crypto-random non-zero u64 — `salt = 0` is rejected on reveal,
+  SEV-013). Listing is `Pending`, `price_usdc = 0` on-chain.
+- **reveal:** `escape_valve_list_reveal(price, salt)` recomputes the
+  hash, asserts it matches (any price change → `InvalidCommitHash`),
+  publishes the price, flips to `Active`, sets
+  `buyable_after = now + REVEAL_COOLDOWN_SECS` (30s).
+- **buy:** `escape_valve_buy` enforces `now ≥ buyable_after` —
+  reverts `ListingNotBuyableYet` inside the window. The legitimate
+  buyer, already holding (price, salt) off-chain, lands at the boundary
+  ahead of any searcher reacting to the just-public price.
+
+Validated run: member 0 (`7RvpGyDP…`) committed
+`d806aa15…` then revealed price 2 / salt `1553749233912736511`; after the
+cooldown a fresh buyer (`7BUQ8nX2…`) bought slot 0 (seller 4 → 6),
+inheriting Member PDA `7ku1hKcb…` + NFT `HgCqnixu…`. The client-side
+hash matched the on-chain recomputation byte-for-byte (the reveal would
+revert `InvalidCommitHash` otherwise).
+
 ## Escrow vesting demo (validated 2026-06-12, pool `4SZCKeQL…`)
 
 `release_escrow` lets an **on-time** member progressively vest their
