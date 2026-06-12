@@ -71,11 +71,13 @@ git pull --ff-only
 export ROUNDFI_CORE_PROGRAM_ID=8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw
 export ROUNDFI_REPUTATION_PROGRAM_ID=Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2
 
-# Geometry — set once, every seed-* respects these.
-export POOL_SEED_ID=42
+# Geometry — set once, every seed-* respects these. Low-budget /
+# faucet-blocked values (see "Demo geometry"); zero faucet hits.
+export POOL_SEED_ID=43
 export MEMBERS_TARGET=2
 export CYCLES_TOTAL=2
-export INSTALLMENT_AMOUNT_USDC=21
+export CREDIT_AMOUNT_USDC=4
+export INSTALLMENT_AMOUNT_USDC=3
 export CYCLE_DURATION_SEC=86400
 
 # Postgres (for the off-chain demo)
