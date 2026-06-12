@@ -227,6 +227,21 @@ jobs:
         # count). v1-provisional weights — drift fails CI. Pure, sub-second.
         run: pnpm test:reputation-metrics
 
+      - name: Reputation score assembly (endpoint shape)
+        # Reputation v5.2 Hybrid (Phase C.3.3). Pins scoreFromSignals — the
+        # public /score/:subject response shape: v1-provisional tag, deferred
+        # commitment/recovery as null + pending list (never 0), classification
+        # + polarity tallies. DB-backed loadSubjectScore is operator-run.
+        run: pnpm test:reputation-score
+
+      - name: Score route handler (GET /score/:subject, stub DB)
+        # Reputation v5.2 Hybrid (Phase C.3.3). Drives the Fastify handler
+        # end-to-end via app.inject + a stub PrismaClient: subject 400
+        # validation (no DB hit), fresh-wallet default, score from injected
+        # rows, unknown-class → unspecified. Only the real Postgres query is
+        # operator-run.
+        run: pnpm test:score-route
+
       - name: Stress Lab L1 economic-parity (34 tests)
         run: pnpm test:economic-parity-l1
 
