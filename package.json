@@ -42,6 +42,7 @@
     "devnet:seed-evlist-commit": "tsx scripts/devnet/seed-evlist-commit.ts",
     "devnet:seed-evbuy": "tsx scripts/devnet/seed-evbuy.ts",
     "devnet:seed-close": "tsx scripts/devnet/seed-close.ts",
+    "devnet:seed-close-vaults": "tsx scripts/devnet/seed-close-vaults.ts",
     "devnet:seed-default": "tsx scripts/devnet/seed-default.ts",
     "devnet:pause-rehearsal": "tsx scripts/devnet/pause-rehearsal.ts",
     "devnet:unpause": "tsx scripts/devnet/unpause.ts",
