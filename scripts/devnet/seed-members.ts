@@ -53,9 +53,13 @@ import {
 
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
-// Pool params must match what `seed-pool.ts` created.
+// Pool params must match what `seed-pool.ts` created. The defaults are
+// the same as seed-pool's defaults; override via env to match a custom
+// pool (members, credit, etc.).
 const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
-const CREDIT_AMOUNT_BASE = 30_000_000n; // 30 USDC ×1e6
+const CREDIT_AMOUNT_BASE = process.env.CREDIT_AMOUNT_USDC
+  ? BigInt(Math.round(Number(process.env.CREDIT_AMOUNT_USDC) * 1e6))
+  : 30_000_000n; // 30 USDC ×1e6
 const REPUTATION_LEVEL = 1; // Lv1 — fresh wallets default to this
 const STAKE_BPS_LV1 = 5_000n; // 50% of credit
 const STAKE_AMOUNT_BASE = (CREDIT_AMOUNT_BASE * STAKE_BPS_LV1) / 10_000n; // 15 USDC = 15_000_000
@@ -67,7 +71,7 @@ const MEMBER_SOL_BUDGET_LAMPORTS = 100_000_000n; // 0.1 SOL
 // Metaplex Core on devnet (same address everywhere; pinned by ProtocolConfig).
 const METAPLEX_CORE_ID = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
-const MEMBER_COUNT = 3;
+const MEMBER_COUNT = process.env.MEMBERS_TARGET ? Number(process.env.MEMBERS_TARGET) : 3;
 // Offset into the keypairs/member-{N}.json filename. Default 0 → loads
 // member-0/1/2 (canonical pool 1+2 members). Set MEMBER_INDEX_OFFSET=3 to
 // load member-3/4/5 — useful when seeding a fresh pool whose members must
