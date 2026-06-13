@@ -277,9 +277,33 @@ pnpm devnet:seed-close      # Completed → Closed (POOL_SEED_ID must match)
 
 Moves no funds — pure terminal transition that decrements
 `committed_protocol_tvl_usdc` (symmetric with init_pool_vaults) and sets
-`status = Closed`. Single-shot: a second call reverts (PoolNotCompleted).
-Validated 2026-06-12 on pool `Ga2RwgSk…` — the full lifecycle is then
-Forming → Active → Completed → Closed.
+`status = Closed` (PoolStatus **4**; Liquidated is 3). Single-shot: a
+second call reverts (PoolNotCompleted). Validated 2026-06-12 on pool
+`Ga2RwgSk…`.
+
+## Rent-reclaim ceremony (SEV-039 — the true lifecycle end)
+
+`close_pool` only flips the status; the rent locked in the Member PDAs,
+the four vault ATAs, and the Pool PDA itself is reclaimed by:
+
+```bash
+export POOL_SEED_ID=43 MEMBERS_TARGET=2 MEMBER_INDEX_OFFSET=0
+pnpm devnet:seed-close-vaults   # close_member × N → close_pool_vaults
+```
+
+Stage 1 (`close_member` × N) closes each open Member PDA, returning its
+rent to the member wallet and decrementing the repurposed
+`members_joined` live-PDA counter. Stage 2 (`close_pool_vaults`, gated on
+`members_joined == 0`) drains residual USDC from the four vaults to
+`config.treasury`, closes the four vault ATAs, and closes the Pool PDA —
+returning that rent to the authority. **Net SOL flows back to the
+operator** (validated on pool 43: `18.1603 → 18.1711`, +0.0108 after
+fees). Any unreleased stake/escrow is swept to the treasury — members
+who want their stake back must `release_escrow` _before_ the pool is
+closed.
+
+Full lifecycle, end to end: Forming → Active → Completed → Closed →
+**reclaimed** (no PDA, no vaults, rent recovered).
 
 ## Yield Cascade demo (validated 2026-06-12, pool `4SZCKeQL…`)
 

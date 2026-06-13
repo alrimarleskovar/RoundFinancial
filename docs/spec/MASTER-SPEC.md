@@ -253,16 +253,19 @@ The protocol has been through multiple internal + external audit cycles (Adevar 
 
 Seven of the eight protocol capability areas were exercised **end-to-end on devnet** on 2026-06-12 with real USDC; the eighth (default settlement) is armed and time-gated.
 
-|   # | Capability                                     | Pool             | Status                |
-| --: | ---------------------------------------------- | ---------------- | --------------------- |
-|   1 | Full lifecycle + Pass-3 reputation scoring     | `Ga2RwgSk…` (43) | ✅                    |
-|   2 | `close_pool` (terminal Closed)                 | 43               | ✅                    |
-|   3 | Yield Cascade (init → deposit → harvest)       | `4SZCKeQL…` (44) | ✅                    |
-|   4 | Escape Valve — direct (list → buy)             | 44               | ✅                    |
-|   5 | Pause circuit-breaker (pause → gate → unpause) | —                | ✅                    |
-|   6 | Escrow vesting (`release_escrow`, on-time)     | 44               | ✅                    |
-|   7 | Escape Valve — commit-reveal (anti-MEV)        | 44               | ✅                    |
-|   8 | Default settlement (`settle_default`)          | `Hg9AkTCg…` (45) | 🔫 armed; grace-gated |
+|   # | Capability                                                            | Pool             | Status                |
+| --: | --------------------------------------------------------------------- | ---------------- | --------------------- |
+|   1 | Full lifecycle + Pass-3 reputation scoring                            | `Ga2RwgSk…` (43) | ✅                    |
+|   2 | `close_pool` (terminal Closed)                                        | 43               | ✅                    |
+|   3 | Yield Cascade (init → deposit → harvest)                              | `4SZCKeQL…` (44) | ✅                    |
+|   4 | Escape Valve — direct (list → buy)                                    | 44               | ✅                    |
+|   5 | Pause circuit-breaker (pause → gate → unpause)                        | —                | ✅                    |
+|   6 | Escrow vesting (`release_escrow`, on-time)                            | 44               | ✅                    |
+|   7 | Escape Valve — commit-reveal (anti-MEV)                               | 44               | ✅                    |
+|   8 | Rent-reclaim ceremony (`close_member` → `close_pool_vaults`, SEV-039) | 43               | ✅                    |
+|   9 | Default settlement (`settle_default`)                                 | `Hg9AkTCg…` (45) | 🔫 armed; grace-gated |
+
+The rent-reclaim ceremony (#8) is the **true** end of a pool's lifecycle: `close_pool` only flips status to `Closed`, but `close_member` × N (rent → members) then `close_pool_vaults` (residual USDC → treasury, vault ATAs + Pool PDA closed, rent → authority) reclaim everything. Validated on pool `Ga2RwgSk…` — the authority's SOL went **up** (+0.0108 net of fees).
 
 Transaction signatures and the reproducible runbook: `docs/operations/v52-devnet-runbook.md`.
 
