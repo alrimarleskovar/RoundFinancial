@@ -48,6 +48,47 @@
 
 ---
 
+## 1.1 · Reputation v5.2 redeploy — Pass-3 + four-tier ladder (2026-06-12)
+
+In-place **upgrade** of `roundfi_core` + `roundfi_reputation` (the only two
+programs that changed for v5.2; the yield adapters were untouched, so they
+were intentionally NOT re-uploaded). Program IDs unchanged — this is a
+bytecode upgrade on the existing accounts, not a fresh deploy.
+
+| Field                    | Value                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Date** (UTC)           | 2026-06-12                                                                                                  |
+| **Build commit**         | `d31d81b` (main — #467, full v5.2 surface)                                                                  |
+| **Deployer / authority** | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm`                                                              |
+| **Method**               | `solana program deploy <so> --program-id <pubkey> --upgrade-authority keypairs/deployer.json` (per-program) |
+
+**What changed on-chain (v5.2):**
+
+- **Pass-3 corrective rename** (Caio HIGH) — `claim_payout` now emits the
+  score-neutral `SCHEMA_PAYOUT_CLAIMED` (id 6); the `+50` / `cycles_completed`
+  signal moved to `SCHEMA_POOL_COMPLETE` (id 4, was `CYCLE_COMPLETE`) emitted
+  by `contribute` on the member's final installment. `cycles_completed` now
+  counts pools completed end-to-end, not payouts received.
+- **Four-tier stake ladder** — L2 stake 30% → 25%, new L4 "Elite" at 3%
+  (`LEVEL_4_THRESHOLD = 5000`, `LEVEL_4_MIN_CYCLES = 8`). `BehavioralPayload`
+  bumped v1 → v2; the decoder is version-aware (legacy v1 byte 5 →
+  `payout_claimed`).
+
+| Step                         | Tx Signature                                                                               | Slot        | Solscan                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Upgrade `roundfi_reputation` | `Z7WxHbuYJNWs6AKwTRBagv965wMcPFMaYumejUSVvy8WJuhoFRZAqMseAJsRKsuRffzwGYde7JK5GTZKcWJKncD`  | `468932252` | [view](https://solscan.io/tx/Z7WxHbuYJNWs6AKwTRBagv965wMcPFMaYumejUSVvy8WJuhoFRZAqMseAJsRKsuRffzwGYde7JK5GTZKcWJKncD?cluster=devnet)  |
+| Upgrade `roundfi_core`       | `3BaSZBqQGfFDHWLhfhr6aBgsxGgzhCfay7dMuuFuUenWZ24sHWwP1bUhM1JG9pL1onoekqiATiVcfKoMiKLyLZYq` | `468932434` | [view](https://solscan.io/tx/3BaSZBqQGfFDHWLhfhr6aBgsxGgzhCfay7dMuuFuUenWZ24sHWwP1bUhM1JG9pL1onoekqiATiVcfKoMiKLyLZYq?cluster=devnet) |
+
+> **Post-upgrade caveat:** program upgrades do NOT reinitialize accounts.
+> Pools / `ReputationProfile`s created before this upgrade keep their v1
+> semantics (old `cycles_completed` inflation, old stake snapshots). For a
+> clean v5.2 demo, create a NEW pool — see
+> [`docs/operations/reputation-canary-demo.md`](./operations/reputation-canary-demo.md).
+> The yield adapters (`roundfi_yield_mock` / `roundfi_yield_kamino`) were
+> unchanged and remain at their 2026-05-07 bytecode.
+
+---
+
 ## 2 · Program IDs
 
 After `pnpm run devnet:deploy` writes `config/program-ids.devnet.json`,
