@@ -108,7 +108,7 @@ pub fn handler(ctx: Context<MigrateProtocolConfig>) -> Result<()> {
         // against the caller passing an unrelated account that happens to
         // sit at the same PDA seeds.
         require!(
-            data[0..8] == ProtocolConfig::DISCRIMINATOR,
+            data[0..8] == *ProtocolConfig::DISCRIMINATOR,
             RoundfiError::InvalidBps,
         );
 
