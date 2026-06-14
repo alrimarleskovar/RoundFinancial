@@ -1,5 +1,7 @@
 # Spike #319 — Agave 2.x migration: dependency map + effort estimate
 
+> **⚠️ SUPERSEDED (2026-06-14):** this spike's "don't do now / piecemeal-impossible" conclusion was **overturned by [#487](https://github.com/alrimarleskovar/RoundFinancial/pull/487)**, which completed the full migration (Agave 3.x / anchor 1.0 / mpl-core 0.12) and is CI-green. The `zeroize` / `curve25519-dalek` deadlock captured in §3 is real for a _piecemeal_ bump, but the _atomic_ bump — with mpl-core on `default-features = false` + `borsh-v1` (dropping the `anchor` feature that caused the borsh `maybestd` conflict) — resolves cleanly. The analysis below is kept for historical context. Pending devnet redeploy + OtterSec + merge.
+
 > **What this is:** a planning spike — empirical investigation of what it takes
 > to unblock the `anchor build` IDL path (currently worked around via
 > [`scripts/dev/patch-anchor-syn-319.sh`](../scripts/dev/patch-anchor-syn-319.sh))
