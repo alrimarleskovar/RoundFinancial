@@ -25,7 +25,7 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/web3.js": "^1.95.3",
     "framer-motion": "^12",
-    "next": "^15.5.18",
+    "next": "^16.2.9",
     "qrcode.react": "4.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
