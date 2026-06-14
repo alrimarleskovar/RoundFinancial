@@ -2,9 +2,8 @@
  * IDL-free encoder + sender for the `roundfi-core::contribute`
  * instruction, callable from the browser via the wallet adapter.
  *
- * Why hand-rolled? The Anchor 0.30.1 IDL build is broken on Rust 1.95 +
- * proc-macro2 1.0.106 (see scripts/devnet/init-protocol.ts), so
- * app/public/idls/* is empty. We can't construct an Anchor `Program`
+ * Why hand-rolled? This app is IDL-free by design (ADR 0002 / 0006) —
+ * `app/public/idls/*` ships empty, so we can't construct an Anchor `Program`
  * client-side without the IDL — but we already encode reads via
  * `sdk/src/onchain-raw.ts`, so this file does the symmetric job for the
  * one write path the demo wires (paying an installment).

@@ -25,7 +25,7 @@
  *   MEMBERS_TARGET       (default 3 — how many member-{N} slots to close)
  *   MEMBER_INDEX_OFFSET  (default 0 — member-{slot+offset}.json filename)
  *
- * Manual ix encoding (Anchor IDL gen still blocked).
+ * Manual ix encoding (IDL-free by design — ADR 0002; hand-rolled, not blocked).
  */
 
 import { existsSync, readFileSync } from "node:fs";
