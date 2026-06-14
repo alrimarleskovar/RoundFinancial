@@ -428,12 +428,17 @@ jobs:
 
       - name: Install Anchor 1.0.2
         # #319: migrated to anchor-lang 1.0 + mpl-core 0.12. The CLI must
-        # match the lang crate to parse the 1.0 macros / IDL. `--locked`
-        # still fails on the pinned `time` crate, so omit it and let cargo
-        # resolve a compatible newer `time`.
+        # match the lang crate to parse the 1.0 macros / IDL. Build from a
+        # shallow clone so we keep anchor's own consistent transitive pins via
+        # `--locked` — a bare unlocked `cargo install` drifts into a
+        # brotli/alloc-no-stdlib version skew (E0277 StandardAlloc) — while
+        # bumping `time` first so the pinned lockfile still compiles on rustc.
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v1.0.2 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
       - name: anchor build
         # #319: Anchor 1.0 fixed the anchor-syn `Span::source_file()`
@@ -538,9 +543,14 @@ jobs:
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
       - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # See the anchor · build lane: clone + bump time + locked install to
+        # dodge the brotli/alloc-no-stdlib drift in a bare `cargo install`.
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v1.0.2 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
       - name: anchor build (#319 — native IDL under Anchor 1.0)
         # #319: Anchor 1.0 builds IDLs natively (the anchor-syn 0.30.1
@@ -669,9 +679,14 @@ jobs:
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
       - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # See the anchor · build lane: clone + bump time + locked install to
+        # dodge the brotli/alloc-no-stdlib drift in a bare `cargo install`.
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v1.0.2 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
       - name: anchor build (#319 — native IDL under Anchor 1.0)
         run: |
