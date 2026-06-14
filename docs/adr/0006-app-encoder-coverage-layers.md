@@ -13,7 +13,7 @@ The front-end ships **7 hand-rolled IDL-free instruction encoders** under `app/s
 
 These are structurally duplicated from `sdk/src/actions.ts`'s SDK-side encoders (precomputed Anchor discriminator + manual account list mirroring the program's `<Accounts>` struct). They exist because:
 
-- Anchor 0.30.1 IDL gen is broken on Rust 1.95 + proc-macro2 1.0.106 (`Span::source_file()` removed) — the browser can't load `app/public/idls/*` because they don't generate
+- Anchor 0.30.1 IDL gen was broken on Rust 1.95 + proc-macro2 1.0.106 (`Span::source_file()` removed) when this ADR was written — `app/public/idls/*` shipped empty as a result. (Since resolved by the anchor-1.0 migration #487, which emits IDLs natively; the IDL-free commitment below stands on its own merits regardless.)
 - The SDK helpers import Anchor's `Program` client, which is React-unfriendly + heavy
 - Per [ADR 0002](./0002-idl-free-sdk-encoders.md), the protocol commits to IDL-free encoders as the canonical browser-signing path
 

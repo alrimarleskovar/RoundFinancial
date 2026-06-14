@@ -14,8 +14,8 @@
  *      three vault ATAs — strong evidence the protocol can mutate
  *      state, not just init singletons.
  *
- * Manual instruction encoding (no Anchor SDK runtime — IDL gen is
- * blocked on the toolchain bump documented in `init-protocol.ts`).
+ * Manual instruction encoding (no Anchor TS client — IDL-free by
+ * design, ADR 0002; see `init-protocol.ts` header).
  *
  * Pool params are env-configurable (see the const block below); the
  * defaults are sized for an end-to-end demo:

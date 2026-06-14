@@ -75,7 +75,7 @@ const heliusBodySchema = z
         .partial()
         .optional(),
       // Anchor-flavored ix list — Helius pre-decodes when an IDL is
-      // uploaded, but our IDL gen is broken on Rust 1.95 (see
+      // uploaded, but we run IDL-free by design (ADR 0002; see
       // sdk/src/onchain-raw.ts). We re-decode from `meta.logMessages`
       // in `decoder.ts`, so this field is best-effort.
       instructions: z

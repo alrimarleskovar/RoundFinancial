@@ -10,8 +10,8 @@
  * is `SCHEMA_PAYMENT` if the contribution lands BEFORE pool.next_cycle_at,
  * `SCHEMA_LATE` otherwise. We derive the attestation PDA accordingly.
  *
- * Manual instruction encoding (no Anchor SDK runtime — IDL gen still
- * blocked on the toolchain bump documented in `init-protocol.ts`).
+ * Manual instruction encoding (no Anchor TS client — IDL-free by
+ * design, ADR 0002; see `init-protocol.ts` header).
  *
  * Pre-flight requirements:
  *   1. Pool exists and is Active (3 members joined). Validates by reading
