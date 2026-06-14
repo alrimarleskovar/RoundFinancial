@@ -503,7 +503,7 @@ jobs:
     needs: anchor # piggyback on the SBF artifact path semantics
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
@@ -573,7 +573,7 @@ jobs:
 
       - name: Diagnostic — upload full build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log-${{ github.job }}
           path: /tmp/build.log
@@ -585,7 +585,7 @@ jobs:
         # weekly via the key date suffix; if Kamino redeploys their
         # program (rare), bump the cache key.
         id: klend-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target/deploy/klend.so
           key: klend-so-2026-W20
@@ -640,7 +640,7 @@ jobs:
     needs: anchor
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
           # pretenuring-feedback hashtable rehash (Heap::PerformGarbageCollection
@@ -702,7 +702,7 @@ jobs:
 
       - name: Diagnostic — upload full build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log-${{ github.job }}
           path: /tmp/build.log
@@ -713,7 +713,7 @@ jobs:
         # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
         # W22 cache held a truncated dump that made litesvm abort (SEV-012).
         id: mplcore-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target/deploy/mpl_core.so
           key: mpl-core-so-2026-W22c
