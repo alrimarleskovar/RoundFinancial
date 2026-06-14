@@ -120,6 +120,8 @@ When verify ran post-init (BEFORE the offset fix), the misread offset 311 return
 
 Recommended follow-up: a future rehearsal should capture the post-init state with corrected offsets BEFORE any propose, to confirm initialize_protocol correctly sets pending_authority = Pubkey::default(). If not, this is a SEV-040 candidate (zombie state, similar to SEV-036).
 
+**RESOLVED (2026-06-14) — by code inspection, no rehearsal needed.** `initialize_protocol`'s handler explicitly sets `config.pending_authority = Pubkey::default()` + `config.pending_authority_eta = 0` (`programs/roundfi-core/src/instructions/initialize_protocol.rs:138-139`), so post-init `pending_authority` is the default sentinel by construction. The 2026-05-16 non-default reading was purely the §8.1 offset bug (since fixed). **No zombie state; not a SEV-040.** Re-confirmed against the anchor-1.0 / mpl-core-0.12 migrated bytecode (#487) — the rotation ix logic is unchanged by the toolchain bump and is covered by the litesvm/bankrun CI lanes.
+
 ## 9. Pre-mainnet checklist confirmed by this rehearsal
 
 - [x] propose_new_authority ix exists, callable by current authority, atomically sets pending_authority + pending_authority_eta
