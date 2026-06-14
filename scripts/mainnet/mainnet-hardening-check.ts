@@ -19,6 +19,11 @@
  *   - Protocol paused unexpectedly
  *   - Authority not on Squads multisig (#266)
  *   - Treasury not on Squads multisig (#266)
+ *   - reputation_program left at Pubkey::default — silently disables
+ *     the v5.2 attest pipeline (security review Caio MEDIUM #1, 2026-06-12)
+ *   - identity gate left disabled (required_min_level == 0) so L4 Elite
+ *     could be reached without a verified identity (Caio MEDIUM #1
+ *     continuation, 2026-06-12)
  *
  * **What this does NOT catch:**
  *   - Bug in the wrapper's CPI mechanics (use the Kamino bankrun spike)
@@ -39,6 +44,10 @@
  *   EXPECTED_MAX_POOL_TVL_USDC      (default 5_000000 = $5 base units for first canary wave)
  *   EXPECTED_MAX_PROTOCOL_TVL_USDC  (default 50_000000 = $50 base units for first canary wave)
  *   EXPECTED_COMMIT_REVEAL_REQUIRED (default "true" — #232 MEV mitigation gate on mainnet)
+ *   EXPECTED_REPUTATION_PROGRAM     (optional — pin to canonical reputation program id;
+ *                                    when unset, only enforces "not default")
+ *   EXPECTED_IDENTITY_MIN_LEVEL     (optional — pin the identity-gate required_min_level
+ *                                    exactly, e.g. 4; when unset, mainnet only enforces != 0)
  *
  * Run with `--devnet` to use devnet defaults and SKIP the
  * REQUIRED-on-mainnet env vars (useful for rehearsal).
@@ -105,6 +114,11 @@ const OFFSETS_POST_DISC = {
   approvedYieldAdapter: 269,
   approvedYieldAdapterLocked: 301,
   commitRevealRequired: 302,
+  /// reputation_program PDA pin (security review Caio MEDIUM-1, 2026-06-12).
+  /// At Pubkey::default() ("11111…111"), every core ix skips the attest
+  /// CPI — the on-chain reputation surface is silently disabled. Legacy
+  /// devnet bootstrap only; mainnet must always pin it.
+  reputationProgram: 160,
 } as const;
 
 const ANCHOR_DISC_SIZE = 8;
@@ -384,6 +398,86 @@ async function main() {
     actual: commitRevealRequired ? "true" : "false",
     severity: isDevnet ? "WARNING" : "BLOCKER",
   });
+
+  // ─── BLOCKER 12: reputation_program must be set (security review 2026-06-12) ──
+  // Every core ix (contribute / settle_default / claim_payout) gates the
+  // attest CPI on `if config.reputation_program != Pubkey::default()`.
+  // At default, the reputation pipeline is SILENTLY DISABLED — no
+  // attestation PDAs, no payloads for the indexer to score, no `/score`
+  // signal. Acceptable for legacy devnet bootstrap, NEVER for canary or
+  // mainnet. Caio MEDIUM #1, pre-deploy gate.
+  const reputationProgramBytes = data.subarray(
+    OFFSETS_POST_DISC.reputationProgram,
+    OFFSETS_POST_DISC.reputationProgram + 32,
+  );
+  const reputationProgram = new PublicKey(reputationProgramBytes);
+  const isReputationDefault = reputationProgram.equals(PublicKey.default);
+  // EXPECTED_REPUTATION_PROGRAM is optional — if set, we enforce equality
+  // against the canonical pin; if unset, we only enforce "not default".
+  const expectedRepProgram = process.env.EXPECTED_REPUTATION_PROGRAM
+    ? new PublicKey(process.env.EXPECTED_REPUTATION_PROGRAM)
+    : null;
+  const reputationProgramOk = expectedRepProgram
+    ? reputationProgram.equals(expectedRepProgram)
+    : !isReputationDefault;
+  checks.push({
+    name: "reputation_program",
+    ok: reputationProgramOk,
+    expected: expectedRepProgram
+      ? `${expectedRepProgram.toBase58()} (pinned)`
+      : "≠ Pubkey::default (reputation pipeline active)",
+    actual: isReputationDefault
+      ? `${reputationProgram.toBase58()} (default — reputation pipeline DISABLED)`
+      : reputationProgram.toBase58(),
+    // Devnet bootstrap may legitimately leave this default before
+    // running migrate-reputation-config; downgrade to WARNING there.
+    severity: isDevnet ? "WARNING" : "BLOCKER",
+  });
+
+  // ─── BLOCKER 13: identity gate must gate L4 on mainnet (Caio MEDIUM #1) ──
+  // SEV-047 added `IdentityGateConfig` + `cap_level_for_identity`, but the
+  // default is `required_min_level = 0` (gate OFF) — correct for
+  // devnet/canary where testers have no on-chain identity. For mainnet,
+  // the security review (Caio MEDIUM #1, 2026-06-12) requires that
+  // reaching the highest tiers needs a verified identity: L4 Elite (3%
+  // stake, ~33x leverage) without an identity floor is the thinnest
+  // collateral in the protocol granted on a purely score-based gate.
+  //
+  // `required_min_level` semantic: N means "reaching level >= N requires
+  // identity_verified." So any value in 2..=4 gates L4; 0 = disabled.
+  // We require != 0 on mainnet; EXPECTED_IDENTITY_MIN_LEVEL pins an exact
+  // value (recommend 4 = "only L4 needs identity", the least restrictive
+  // that still satisfies the review). The gate config lives on the
+  // reputation program, not core, so we derive + read a second account.
+  if (!isReputationDefault) {
+    const [identityGatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("identity-gate")],
+      reputationProgram,
+    );
+    const gateInfo = await connection.getAccountInfo(identityGatePda, "confirmed");
+    // Layout: disc(8) + authority(32) + required_min_level u8 @ 40 + bump.
+    const requiredMinLevel =
+      gateInfo && gateInfo.data.length >= 41 ? gateInfo.data.readUInt8(40) : 0;
+    const expectedMin = process.env.EXPECTED_IDENTITY_MIN_LEVEL
+      ? Number(process.env.EXPECTED_IDENTITY_MIN_LEVEL)
+      : null;
+    const gateOk = expectedMin !== null ? requiredMinLevel === expectedMin : requiredMinLevel !== 0;
+    checks.push({
+      name: "identity_gate (L4 requires verified identity)",
+      ok: gateOk,
+      expected:
+        expectedMin !== null
+          ? `required_min_level == ${expectedMin}`
+          : "required_min_level != 0 (recommend 4)",
+      actual:
+        gateInfo === null
+          ? "IdentityGateConfig account not found (gate never initialized)"
+          : `required_min_level = ${requiredMinLevel}${requiredMinLevel === 0 ? " (gate DISABLED)" : ""}`,
+      // Devnet/canary intentionally run with the gate off so testers can
+      // promote without KYC; only mainnet blocks.
+      severity: isDevnet ? "WARNING" : "BLOCKER",
+    });
+  }
 
   // ─── Report ───────────────────────────────────────────────────────
   console.log("");

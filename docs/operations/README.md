@@ -2,12 +2,14 @@
 
 > **Status: pre-mainnet drafts.** These runbooks document the operational procedures RoundFi uses (devnet) and will use (mainnet). They are versioned now so the team isn't writing them under incident pressure later. External auditors and partners can read them to understand operational maturity without asking.
 
-| Runbook                                            | When to use                                                   | Who runs it                               |
-| -------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------- |
-| [`deploy-runbook.md`](./deploy-runbook.md)         | Every devnet redeploy + the eventual mainnet GA               | Anyone with deployer keypair access       |
-| [`key-rotation.md`](./key-rotation.md)             | Rotating the protocol authority / treasury / deployer keys    | Authority holder (typically the deployer) |
-| [`emergency-response.md`](./emergency-response.md) | Incident — exploit suspected, suspicious tx, RPC degradation  | First responder + comms lead              |
-| [`incident-template.md`](./incident-template.md)   | Post-incident — write the postmortem within 72h of resolution | Incident commander                        |
+| Runbook                                                          | When to use                                                                          | Who runs it                               |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- |
+| [`deploy-runbook.md`](./deploy-runbook.md)                       | Every devnet redeploy + the eventual mainnet GA                                      | Anyone with deployer keypair access       |
+| [`key-rotation.md`](./key-rotation.md)                           | Rotating the protocol authority / treasury / deployer keys                           | Authority holder (typically the deployer) |
+| [`squads-multisig-procedure.md`](./squads-multisig-procedure.md) | One-time mainnet ceremony — rotate authority into a Squads multisig                  | Deployer + multisig signers               |
+| [`multisig-recovery.md`](./multisig-recovery.md)                 | After the multisig owns the protocol — signer key loss/rotation + pause-via-multisig | Remaining multisig signers                |
+| [`emergency-response.md`](./emergency-response.md)               | Incident — exploit suspected, suspicious tx, RPC degradation                         | First responder + comms lead              |
+| [`incident-template.md`](./incident-template.md)                 | Post-incident — write the postmortem within 72h of resolution                        | Incident commander                        |
 
 ## Conventions across all runbooks
 
@@ -18,9 +20,10 @@
 
 ## What's NOT here (yet)
 
-- Multisig (Squads) procedures — mainnet only; will be added before mainnet smoke
-- HSM key custody for the deployer keypair — same
+- HSM key custody for the deployer keypair — mainnet only; lands at the Squads ceremony
 - On-call rotation schedule + comms templates — team-size-dependent; lands when the team is larger than 4
+
+> Multisig (Squads) procedures **are** now documented: [`squads-multisig-procedure.md`](./squads-multisig-procedure.md) (one-time authority-rotation ceremony, with [`squads-mainnet-ceremony-checklist.md`](./squads-mainnet-ceremony-checklist.md) as the day-of artifact) and [`multisig-recovery.md`](./multisig-recovery.md) (signer key loss/rotation + pause-via-multisig). Execution of the ceremony itself is still mainnet-day work.
 
 ## Cross-links
 

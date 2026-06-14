@@ -58,7 +58,9 @@ export function JoinGroupModal({
     }, 1200);
   };
 
-  const collateralPct = group?.level === 1 ? 50 : group?.level === 2 ? 30 : 10;
+  // v5.2 ladder 50/25/10/3 (pre-redeploy — see lib/session.tsx note).
+  const collateralPct =
+    group?.level === 1 ? 50 : group?.level === 2 ? 25 : group?.level === 4 ? 3 : 10;
   const locked = group ? group.level > user.level && !group.joined : false;
   const pointsNeeded = group && locked ? Math.max(0, user.nextLevel - user.score) : 0;
 

@@ -43,6 +43,7 @@ import { loadCluster, requireProgram } from "../../config/clusters.js";
 //     + 1 (bump) + 1 (treasury_locked) + 32 (pending_treasury)
 //     + 8 (pending_treasury_eta) + 8 (max_pool_tvl_usdc) + ...
 const OFFSET_AUTHORITY = 8;
+const OFFSET_REPUTATION_PROGRAM = 168; // 8 + 32*5 (authority/treasury/usdc_mint/metaplex_core/default_yield_adapter)
 const OFFSET_PAUSED = 210;
 const OFFSET_TREASURY_LOCKED = 212;
 const OFFSET_MAX_POOL_TVL_USDC = 253;
@@ -50,6 +51,11 @@ const OFFSET_MAX_PROTOCOL_TVL_USDC = 261;
 const OFFSET_APPROVED_YIELD_ADAPTER = 277;
 const OFFSET_APPROVED_YIELD_ADAPTER_LOCKED = 309;
 const OFFSET_COMMIT_REVEAL_REQUIRED = 310;
+// `reputation_program_locked` is the LAST struct field before the
+// 17-byte forward-compat padding (partner review MEDIUM #2, end-of-
+// struct placement so existing on-chain accounts read it as `false`
+// without a migration). Offset 363 = SIZE (381) − 17 (pad) − 1 (this bool).
+const OFFSET_REPUTATION_PROGRAM_LOCKED = 363;
 
 /**
  * Decode the fields of `ProtocolConfig` the canary pre-flight cares
@@ -65,6 +71,8 @@ function readProtocolConfig(data: Buffer): {
   authority: PublicKey;
   paused: boolean;
   treasury_locked: boolean;
+  reputation_program: PublicKey;
+  reputation_program_locked: boolean;
   max_pool_tvl_usdc: bigint;
   max_protocol_tvl_usdc: bigint;
   approved_yield_adapter: PublicKey;
@@ -75,6 +83,13 @@ function readProtocolConfig(data: Buffer): {
     authority: new PublicKey(data.subarray(OFFSET_AUTHORITY, OFFSET_AUTHORITY + 32)),
     paused: data[OFFSET_PAUSED] === 1,
     treasury_locked: data[OFFSET_TREASURY_LOCKED] === 1,
+    reputation_program: new PublicKey(
+      data.subarray(OFFSET_REPUTATION_PROGRAM, OFFSET_REPUTATION_PROGRAM + 32),
+    ),
+    // Devnet ProtocolConfig accounts created before MEDIUM #2 read this
+    // byte from the forward-compat pad → naturally `false`. Mainnet
+    // operators flip it via `lock_reputation_program` after init.
+    reputation_program_locked: data[OFFSET_REPUTATION_PROGRAM_LOCKED] === 1,
     max_pool_tvl_usdc: data.readBigUInt64LE(OFFSET_MAX_POOL_TVL_USDC),
     max_protocol_tvl_usdc: data.readBigUInt64LE(OFFSET_MAX_PROTOCOL_TVL_USDC),
     approved_yield_adapter: new PublicKey(
@@ -165,10 +180,12 @@ const PREFLIGHT_CHECKS: PreflightCheck[] = [
     //   - max_pool_tvl_usdc > 0              (per-pool TVL cap active)
     //   - max_protocol_tvl_usdc > 0          (protocol-wide cap active)
     //   - approved_yield_adapter != default  (allowlist set)
+    //   - reputation_program != default      (partner review MEDIUM #2 layer 2)
     //
     // Soft checks (warn-only — these are post-canary lock-downs):
     //   - approved_yield_adapter_locked == true
     //   - treasury_locked == true
+    //   - reputation_program_locked == true  (partner review MEDIUM #2 layer 3)
     //
     // Locks are intentionally soft: during the canary itself, the
     // operator may still be rotating; the locks come at the end of
@@ -201,6 +218,12 @@ const PREFLIGHT_CHECKS: PreflightCheck[] = [
           "approved_yield_adapter == Pubkey::default() — yield-adapter allowlist disabled",
         );
       }
+      if (cfg.reputation_program.equals(PublicKey.default)) {
+        hardFailures.push(
+          "reputation_program == Pubkey::default() — protocol would run in NO-REPUTATION mode " +
+            "(partner review MEDIUM #2). Re-init or migrate before canary.",
+        );
+      }
 
       if (hardFailures.length > 0) {
         throw new Error(
@@ -220,6 +243,12 @@ const PREFLIGHT_CHECKS: PreflightCheck[] = [
       }
       if (!cfg.treasury_locked) {
         softWarnings.push("treasury_locked == false — call lock_treasury() post-canary");
+      }
+      if (!cfg.reputation_program_locked) {
+        softWarnings.push(
+          "reputation_program_locked == false — call lock_reputation_program() post-canary " +
+            "(partner review MEDIUM #2 layer 3)",
+        );
       }
       if (softWarnings.length > 0) {
         console.log("  ⚠️  soft warnings (post-canary action items):");

@@ -58,6 +58,7 @@ import {
   createUsdcMint,
   fetchProfile,
   fundUsdc,
+  initProfile,
   initializeProtocol,
   initializeReputation,
   joinMembers,
@@ -73,13 +74,13 @@ import {
 
 const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
-const CYCLE_DURATION_SEC = 60;
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (1 day, SEV-023)
 const INSTALLMENT_USDC = 1_250n;
 // pool_float_per_inst with solidarity_bps=100 + escrow_bps=2500 ≈ 925 per
 // installment; 3 × 925 = 2_775. Credit must fit that float.
 const CREDIT_USDC = 2_775n;
 
-const LEVEL: 1 | 2 | 3 = 2;
+const LEVEL: 1 | 2 | 3 = 1; // join_pool now asserts level vs ReputationProfile (baseline is level 1)
 
 const INSTALLMENT_BASE = usdc(INSTALLMENT_USDC);
 const CREDIT_BASE = usdc(CREDIT_USDC);
@@ -155,6 +156,59 @@ describe("reputation CPI — happy path + score progression", function () {
     expect(info, `attestation missing: ${label}`).to.not.be.null;
   }
 
+  // ─── v5.2 Hybrid (Phase B) — BehavioralPayload decode ────────────────
+  // The 96-byte `payload` field lives inside the Attestation account at a
+  // fixed offset: discriminator(8) + issuer(32) + subject(32) +
+  // schema_id u16(2) + nonce u64(8) = 82. Mirrors the Rust layout in
+  // programs/roundfi-reputation/src/state/behavioral_payload.rs (v1).
+  const PAYLOAD_OFFSET = 82;
+  const CLASS = {
+    UNSPECIFIED: 0,
+    ON_TIME: 1,
+    EARLY: 2,
+    LATE: 3,
+    DEFAULT: 4,
+    // Pass-3: byte 5 is now POOL_COMPLETE (was CYCLE_COMPLETE under v1);
+    // claim_payout emits byte 6 (PAYOUT_CLAIMED) instead.
+    POOL_COMPLETE: 5,
+    PAYOUT_CLAIMED: 6,
+  } as const;
+  const NO_TIMESTAMP = -9223372036854775808n; // i64::MIN
+
+  interface DecodedPayload {
+    version: number;
+    classification: number;
+    groupSize: number;
+    parcelsPaid: number;
+    dueTs: bigint;
+    paidTs: bigint;
+    deltaSeconds: bigint;
+    amount: bigint;
+  }
+
+  async function fetchPayload(
+    issuer: PublicKey,
+    subject: PublicKey,
+    schemaId: number,
+    nonce: bigint,
+  ): Promise<DecodedPayload> {
+    const pda = attestationFor(env, issuer, subject, schemaId, nonce);
+    const info = await env.connection.getAccountInfo(pda, "confirmed");
+    expect(info, "attestation account missing for payload decode").to.not.be.null;
+    const buf = Buffer.from(info!.data);
+    const p = buf.subarray(PAYLOAD_OFFSET, PAYLOAD_OFFSET + 96);
+    return {
+      version: p.readUInt8(0),
+      classification: p.readUInt8(1),
+      groupSize: p.readUInt8(2),
+      parcelsPaid: p.readUInt8(3),
+      dueTs: p.readBigInt64LE(8),
+      paidTs: p.readBigInt64LE(16),
+      deltaSeconds: p.readBigInt64LE(24),
+      amount: p.readBigUInt64LE(32),
+    };
+  }
+
   before(async function () {
     env = await setupEnv();
     usdcMint = await createUsdcMint(env);
@@ -185,7 +239,19 @@ describe("reputation CPI — happy path + score progression", function () {
       await fundUsdc(env, usdcMint, m.publicKey, BigInt(CYCLES_TOTAL) * INSTALLMENT_BASE);
     }
 
-    // Baseline: every profile was init'd by join_pool, so scores start at 0.
+    // Initialize each member's ReputationProfile. join_pool no longer
+    // creates it (Step-4d: derive_trusted_reputation_level only *reads*
+    // the PDA, treating an empty one as level 1); the profile is
+    // otherwise lazily created by the first attest CPI (init_if_needed).
+    // We init explicitly so the baseline below can read a level-1,
+    // all-zero profile — init_profile produces exactly that state, and
+    // the first Payment attest then takes the "already exists" path with
+    // identical score deltas.
+    for (const m of members) {
+      await initProfile(env, m.publicKey);
+    }
+
+    // Baseline: freshly init'd profiles start at score 0.
     const scores = await captureScores();
     for (const s of scores) expect(s).to.equal(0n);
 
@@ -225,6 +291,27 @@ describe("reputation CPI — happy path + score progression", function () {
           `Payment cycle=${cycle} slot=${h.slotIndex}`,
         );
 
+        // 1b. v5.2 Hybrid payload — Phase B wrote real timing into the
+        //     96-byte field (was all zeros pre-v5.2). Happy path is on
+        //     time, so classification is ON_TIME or EARLY; a real
+        //     payment moved the installment, so amount > 0 and a paid
+        //     timestamp is present.
+        const payPayload = await fetchPayload(
+          pool.pool,
+          h.wallet.publicKey,
+          ATTESTATION_SCHEMA.Payment,
+          nonce,
+        );
+        expect(payPayload.version, "payload version").to.equal(1);
+        expect([CLASS.ON_TIME, CLASS.EARLY]).to.include(payPayload.classification);
+        expect(payPayload.groupSize, "group_size = members_target").to.equal(handles.length);
+        expect(payPayload.parcelsPaid, "one installment per contribute").to.equal(1);
+        expect(payPayload.paidTs > 0n, "paid_ts present").to.be.true;
+        expect(payPayload.dueTs > 0n, "due_ts present").to.be.true;
+        expect(payPayload.amount > 0n, "amount = installment").to.be.true;
+        // delta_seconds is consistent with paid - due (single derivation).
+        expect(payPayload.deltaSeconds).to.equal(payPayload.paidTs - payPayload.dueTs);
+
         // 2. Profile delta: +5 (unverified) score, +1 on_time_payments.
         const profileAfter = asView(await fetchProfile(env, h.wallet.publicKey));
         expect(bn(profileAfter.score) - scoreBefore).to.equal(DELTA_PAYMENT_UNVERIFIED);
@@ -256,25 +343,47 @@ describe("reputation CPI — happy path + score progression", function () {
       await claimPayout(env, { pool, member: recipient, cycle });
       totalCycleCompleteAtts += 1;
 
-      // 1. Exact-address attestation PDA check (CycleComplete / schema=4).
+      // 1. Pass-3: claim_payout now emits PayoutClaimed (schema=6), not
+      //    CycleComplete. The +50/cycles_completed signal moved to the
+      //    member's last contribute() call.
       const nonce = attestationNonce(cycle, recipient.slotIndex);
       await expectAttestationExists(
         pool.pool,
         recipient.wallet.publicKey,
-        ATTESTATION_SCHEMA.CycleComplete,
+        ATTESTATION_SCHEMA.PayoutClaimed,
         nonce,
-        `CycleComplete cycle=${cycle} slot=${recipient.slotIndex}`,
+        `PayoutClaimed cycle=${cycle} slot=${recipient.slotIndex}`,
       );
 
-      // 2. Profile delta: +25 (unverified) score, +1 cycles_completed,
-      //    +1 total_participated.
+      // 1b. v5.2 Pass-3 payload — PayoutClaimed is the audit trail of a
+      //     member receiving their carta. No payment timing semantics:
+      //     due_ts = 0, paid_ts = NO_TIMESTAMP, parcels = 0, amount = 0.
+      //     Score-neutral.
+      const ccPayload = await fetchPayload(
+        pool.pool,
+        recipient.wallet.publicKey,
+        ATTESTATION_SCHEMA.PayoutClaimed,
+        nonce,
+      );
+      expect(ccPayload.version, "Pass-3 payload version").to.equal(2);
+      expect(ccPayload.classification, "PAYOUT_CLAIMED hint").to.equal(CLASS.PAYOUT_CLAIMED);
+      expect(ccPayload.groupSize, "group_size = members_target").to.equal(handles.length);
+      expect(ccPayload.parcelsPaid, "no installment on a payout claim").to.equal(0);
+      expect(ccPayload.dueTs, "no deadline for payout-claimed").to.equal(0n);
+      expect(ccPayload.paidTs, "no payment timestamp").to.equal(NO_TIMESTAMP);
+      expect(ccPayload.deltaSeconds, "delta zero when no payment").to.equal(0n);
+      expect(ccPayload.amount, "amount not captured on-chain for payout-claimed").to.equal(0n);
+
+      // 2. Pass-3 profile delta: PAYOUT_CLAIMED is score-neutral. Only
+      //    total_participated bumps; score and cycles_completed stay put.
       const profileAfter = asView(await fetchProfile(env, recipient.wallet.publicKey));
-      expect(bn(profileAfter.score) - scoreBefore).to.equal(DELTA_CYCLE_COMPLETE_UNVERIFIED);
-      expect(profileAfter.cyclesCompleted - cyclesBefore).to.equal(1);
+      expect(bn(profileAfter.score) - scoreBefore).to.equal(0n);
+      expect(profileAfter.cyclesCompleted - cyclesBefore).to.equal(0);
       expect(profileAfter.totalParticipated - totalPartBefore).to.equal(1);
 
-      // last_cycle_complete_at advanced (cooldown marker).
-      expect(bn(profileAfter.lastCycleCompleteAt) > 0n).to.equal(true);
+      // last_cycle_complete_at NOT advanced (Pass-3: now tied to
+      // POOL_COMPLETE, not PAYOUT_CLAIMED).
+      expect(bn(profileAfter.lastCycleCompleteAt)).to.equal(bn(profileBefore.lastCycleCompleteAt));
 
       // Other members' profiles are untouched by this claim.
       for (const h of handles) {

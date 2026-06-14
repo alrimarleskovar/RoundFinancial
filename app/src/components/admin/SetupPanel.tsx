@@ -100,12 +100,13 @@ export function SetupPanel({
 
       <Field label={t("admin.setup.level")}>
         <div style={{ display: "flex", gap: 6 }}>
-          {([1, 2, 3] as const).map((lv) => {
+          {([1, 2, 3, 4] as const).map((lv) => {
             const active = user.level === lv;
-            const labels: Record<1 | 2 | 3, string> = {
+            const labels: Record<1 | 2 | 3 | 4, string> = {
               1: t("admin.setup.lvl.iniciante"),
               2: t("admin.setup.lvl.comprovado"),
               3: t("admin.setup.lvl.veterano"),
+              4: t("admin.setup.lvl.elite"),
             };
             // The session reducer derives level from score
             // (LEVEL_TABLE in session.tsx — score is source of
@@ -113,10 +114,12 @@ export function SetupPanel({
             // applyToSession, snap the score into the matching tier
             // when level is changed. Mid-tier scores chosen so a
             // subsequent score edit still leaves room above/below.
-            const snapScore: Record<1 | 2 | 3, number> = {
+            // L4 snaps above the 950 Elite threshold.
+            const snapScore: Record<1 | 2 | 3 | 4, number> = {
               1: 350,
               2: 625,
               3: 850,
+              4: 975,
             };
             return (
               <button

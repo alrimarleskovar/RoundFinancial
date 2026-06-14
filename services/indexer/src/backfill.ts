@@ -40,6 +40,7 @@ import { decodePoolRaw, decodeMemberRaw } from "@roundfi/sdk";
 
 import { createLogger } from "./log.js";
 import { accountDiscriminatorBase58 } from "./discriminator.js";
+import { backfillAttestations } from "./attestationBackfill.js";
 
 // getProgramAccounts filters by the 8-byte Anchor account DISCRIMINATOR
 // (memcmp at offset 0), NOT by dataSize. A dataSize filter is brittle: when
@@ -53,6 +54,10 @@ const MEMBER_DISCRIMINATOR = accountDiscriminatorBase58("Member");
 
 const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
+// Optional: when set, the backfill also scans + decodes Attestation
+// accounts (reputation v5.2 Hybrid, Phase C.2b). Left unset, the
+// attestation pass is skipped — the pool/member backfill is unchanged.
+const REPUTATION_PROGRAM = process.env.ROUNDFI_REPUTATION_PROGRAM_ID;
 
 const logger = createLogger({ service: "backfill" });
 
@@ -79,6 +84,7 @@ async function main(): Promise<void> {
 
   let poolsTouched = 0;
   let membersTouched = 0;
+  let attestationsTouched = 0;
   let finalStatus: "ok" | "error" = "ok";
   let errorMessage: string | null = null;
 
@@ -220,11 +226,30 @@ async function main(): Promise<void> {
       membersTouched += 1;
     }
 
+    // ─── Attestations (reputation v5.2 Hybrid, Phase C.2b) ──────────
+    // Pools + members must be in the DB first (above) so the optional
+    // Member FK resolves. Skipped entirely when the reputation program
+    // id is unset.
+    if (REPUTATION_PROGRAM) {
+      attestationsTouched = await backfillAttestations(
+        prisma,
+        connection,
+        new PublicKey(REPUTATION_PROGRAM),
+        logger,
+      );
+    } else {
+      logger.info(
+        { event_type: "backfill_attestations_skipped" },
+        "ROUNDFI_REPUTATION_PROGRAM_ID unset — skipping attestation backfill",
+      );
+    }
+
     logger.info(
       {
         event_type: "backfill_complete",
         poolsTouched,
         membersTouched,
+        attestationsTouched,
         durationMs: Date.now() - startedAt,
       },
       "backfill done",
@@ -246,6 +271,7 @@ async function main(): Promise<void> {
         durationMs: Date.now() - startedAt,
         poolsTouched,
         membersTouched,
+        attestationsTouched,
         errorMessage,
       },
     });

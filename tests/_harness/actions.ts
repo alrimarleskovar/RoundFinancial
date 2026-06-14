@@ -39,15 +39,30 @@ export interface ContributeOpts {
   member: MemberHandle;
   cycle: number;
   /**
-   * Schema routed to reputation::attest. Happy-path specs pass
-   * Payment=1; late specs pass Late=2. The PDA derivation must
+   * Schema routed to reputation::attest. The PDA derivation must
    * match on-chain (schema_id is part of the attestation seeds).
+   *
+   *  - Default `Payment` (id=1) — on-time non-final installments.
+   *  - `Late` (id=2) — late non-final installments.
+   *  - **Pass-3 (Caio HIGH, 2026-06-12):** when this is the member's
+   *    LAST contribution of the pool (`member.contributions_paid + 1 ==
+   *    pool.cycles_total`), pass `PoolComplete` (id=4). On-chain the
+   *    contribute handler escalates the schema in that case and the PDA
+   *    must agree or Anchor rejects with ConstraintSeeds (2006).
+   *    Callers that know the pool's `cyclesTotal` can pass
+   *    `isFinalInstallment: true` instead — the helper picks
+   *    `PoolComplete` automatically.
    */
   schemaId?: number;
+  /** Convenience: when true, overrides `schemaId` to `PoolComplete`.
+   *  Use this in driver loops that walk a pool to its final cycle. */
+  isFinalInstallment?: boolean;
 }
 
 export async function contribute(env: Env, opts: ContributeOpts): Promise<string> {
-  const schemaId = opts.schemaId ?? ATTESTATION_SCHEMA.Payment;
+  const schemaId =
+    opts.schemaId ??
+    (opts.isFinalInstallment ? ATTESTATION_SCHEMA.PoolComplete : ATTESTATION_SCHEMA.Payment);
   const nonce = attestationNonce(opts.cycle, opts.member.slotIndex);
   const attestation = attestationFor(
     env,
@@ -94,11 +109,15 @@ export interface ClaimPayoutOpts {
 
 export async function claimPayout(env: Env, opts: ClaimPayoutOpts): Promise<string> {
   const nonce = attestationNonce(opts.cycle, opts.member.slotIndex);
+  // Pass-3 (Caio HIGH, 2026-06-12): claim_payout now emits the
+  // score-neutral PayoutClaimed schema (id=6) instead of CycleComplete
+  // (id=4 under the old semantics). The PDA derivation MUST match the
+  // on-chain emit or Anchor rejects with ConstraintSeeds (2006).
   const attestation = attestationFor(
     env,
     opts.pool.pool,
     opts.member.wallet.publicKey,
-    ATTESTATION_SCHEMA.CycleComplete,
+    ATTESTATION_SCHEMA.PayoutClaimed,
     nonce,
   );
 

@@ -1,5 +1,18 @@
 # RoundFi — Devnet Deployment Record
 
+> **Jun 2026 — v5.2 / four-tier / Pass-3 re-validation (current).** The binaries below were redeployed at the v5.2 layout and re-exercised end-to-end on **fresh pools** on 2026-06-12, superseding the May pools 1/2/3 narrative (kept as historical record). Programs (devnet, shared across clusters): core `8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw` · reputation `Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2` · yield-mock `GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ` · yield-kamino `74izMa4WzLuHvtzDLdNzcyygKe5fYwtD95EiWMuzhFdb`.
+>
+> **9 capability areas proven on-chain with real USDC:**
+>
+> - **Pool 43** (`Ga2RwgSkisvCEoq6m97s77KN46yHFRTk4tK4Py5H83LQ`) — full Pass-3 lifecycle (create→join→contribute→claim→close) with distinct `PAYMENT`(1) / `POOL_COMPLETE`(4) / `PAYOUT_CLAIMED`(6) attestations (claim now score-**neutral**), off-chain scoring confirmed, then the **SEV-039 rent-reclaim ceremony** (`close_member`×2 → `close_pool_vaults`, authority SOL recovered +0.0108 net of fees — the true lifecycle end).
+> - **Pool 44** (`4SZCKeQLB1ZHCM11gcCUZ86QNAsnJHLmR6bNLTHsuEUn`) — Yield Cascade (`deposit_idle_to_yield` + `harvest_yield`, 20% fee → treasury, GF/65%-LP earmarks, residual to participants); Escape Valve **direct** (slot 1 sold for 2 USDC) and **commit-reveal anti-MEV** (#232: commit hidden price → reveal arms 30s cooldown → buy after window); positive-path **`release_escrow`** (member 0 vested 1.00 USDC).
+> - **Pool 45** (`Hg9AkTCgNRNbVZqtZrHZpQbCuFeJnxDxhrJjUcW5TjZ9`) — `settle_default` **armed** (slot 2 behind; grace-gated, runs after the GRACE window).
+> - **Pause circuit-breaker** drill (pause → `create_pool` reverts `ProtocolPaused` → unpause), logged at `docs/operations/rehearsal-logs/2026-06-12-pause-rehearsal.md`.
+>
+> Reproducible playbook + tx signatures: [`docs/operations/v52-devnet-runbook.md`](operations/v52-devnet-runbook.md). Source of truth: [`docs/spec/MASTER-SPEC.md`](spec/MASTER-SPEC.md). The May record below is retained for history.
+
+---
+
 **Cluster:** Solana **Devnet** · **Status:** ✅ Full M3 protocol surface exercised on-chain (2026-05-07) **including the Escape Valve secondary market, `settle_default` with a Triple Shield seizure on real funds, AND TWO browser-signed write txs (`contribute()` + `claim_payout()`) closing the M3 wiring loop end-to-end**. **Pool 1** (`5APoECXz…c8ooa`) ran the full 3-cycle ROSCA end-to-end (9 contribs LATE → 3 claim_payouts → `Pool.status = Completed` → `release_escrow` reverts with `EscrowLocked` durable failed-tx evidence). **Pool 2** (`8XZxRSqU…twbujm`, cycle_duration=3600s) added: ON-TIME contribs, **`deposit_idle_to_yield` + `harvest_yield` driving the full PDF-canonical waterfall** (realized 0.5 USDC, fee 0.10 → treasury, GF/LP/participants earmarks), **positive-path `release_escrow`** (member 0 received 5 USDC of vested stake), and **`escape_valve_list` + `escape_valve_buy`** — member 1 listed their position for $14, a fresh buyer wallet picked it up, atomic re-anchor closed the old Member PDA and minted a new one at the buyer's key with all bookkeeping carried over. **Pool 3** (`D9PS7Q…pDE5`, cycle_duration=60s) closed the protocol surface with **`settle_default`**: a fresh wallet set joined, slots 0+1 paid cycle 0 LATE while slot 2 fell behind ($5 USDC < $10 installment), `claim_payout(0)` advanced the cycle, and `settle_default(1)` fired the **Triple Shield waterfall** — drained $0.20 from the solidarity vault (the full balance contributed by the two paying members), left escrow + stake intact thanks to the D/C invariant, set `member.defaulted=true`, and wrote a `SCHEMA_DEFAULT` (id=3) attestation. **mpl-core owner-managed plugin bug discovered and fixed in flight**: `TransferV1` resets `FreezeDelegate` and `TransferDelegate` authorities to the new owner; the immediate re-freeze reverted with `0x1a`. Fix shipped (#176): re-approve both plugins back to `position_authority` post-transfer. Combined evidence: 4 programs deployed, 3 ROSCA pools driven across 18 distinct ix paths (including `close_pool` finalizing Pool 1 with a balanced summary log: total_contributed=$90, total_paid_out=$90, AND `settle_default` enforcing the Triple Shield), 14 reputation attestations on-chain (13 + the new SCHEMA_DEFAULT), **3 Triple Shield guards captured firing on real funds** (`WaterfallUnderflow`, `EscrowLocked`, **shield-1-only seizure**), **10 Solana 3.x Box<> workarounds applied** (now including SettleDefault), 1 protocol bug surfaced + fixed end-to-end.
 
 > This file is the **post-deploy register**: program IDs, transaction
@@ -32,6 +45,47 @@
 | **Deployer pubkey**            | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm` |
 | **Deployer SOL balance after** | `0.53341092` SOL (faucet exhausted; see §7)    |
 | **Build commit**               | `d57bb43` (main @ time of deploy)              |
+
+---
+
+## 1.1 · Reputation v5.2 redeploy — Pass-3 + four-tier ladder (2026-06-12)
+
+In-place **upgrade** of `roundfi_core` + `roundfi_reputation` (the only two
+programs that changed for v5.2; the yield adapters were untouched, so they
+were intentionally NOT re-uploaded). Program IDs unchanged — this is a
+bytecode upgrade on the existing accounts, not a fresh deploy.
+
+| Field                    | Value                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Date** (UTC)           | 2026-06-12                                                                                                  |
+| **Build commit**         | `d31d81b` (main — #467, full v5.2 surface)                                                                  |
+| **Deployer / authority** | `64XM177Vm6zirzQnjU1juQ9TLqDsZVsCcZzfgEgVCffm`                                                              |
+| **Method**               | `solana program deploy <so> --program-id <pubkey> --upgrade-authority keypairs/deployer.json` (per-program) |
+
+**What changed on-chain (v5.2):**
+
+- **Pass-3 corrective rename** (Caio HIGH) — `claim_payout` now emits the
+  score-neutral `SCHEMA_PAYOUT_CLAIMED` (id 6); the `+50` / `cycles_completed`
+  signal moved to `SCHEMA_POOL_COMPLETE` (id 4, was `CYCLE_COMPLETE`) emitted
+  by `contribute` on the member's final installment. `cycles_completed` now
+  counts pools completed end-to-end, not payouts received.
+- **Four-tier stake ladder** — L2 stake 30% → 25%, new L4 "Elite" at 3%
+  (`LEVEL_4_THRESHOLD = 5000`, `LEVEL_4_MIN_CYCLES = 8`). `BehavioralPayload`
+  bumped v1 → v2; the decoder is version-aware (legacy v1 byte 5 →
+  `payout_claimed`).
+
+| Step                         | Tx Signature                                                                               | Slot        | Solscan                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Upgrade `roundfi_reputation` | `Z7WxHbuYJNWs6AKwTRBagv965wMcPFMaYumejUSVvy8WJuhoFRZAqMseAJsRKsuRffzwGYde7JK5GTZKcWJKncD`  | `468932252` | [view](https://solscan.io/tx/Z7WxHbuYJNWs6AKwTRBagv965wMcPFMaYumejUSVvy8WJuhoFRZAqMseAJsRKsuRffzwGYde7JK5GTZKcWJKncD?cluster=devnet)  |
+| Upgrade `roundfi_core`       | `3BaSZBqQGfFDHWLhfhr6aBgsxGgzhCfay7dMuuFuUenWZ24sHWwP1bUhM1JG9pL1onoekqiATiVcfKoMiKLyLZYq` | `468932434` | [view](https://solscan.io/tx/3BaSZBqQGfFDHWLhfhr6aBgsxGgzhCfay7dMuuFuUenWZ24sHWwP1bUhM1JG9pL1onoekqiATiVcfKoMiKLyLZYq?cluster=devnet) |
+
+> **Post-upgrade caveat:** program upgrades do NOT reinitialize accounts.
+> Pools / `ReputationProfile`s created before this upgrade keep their v1
+> semantics (old `cycles_completed` inflation, old stake snapshots). For a
+> clean v5.2 demo, create a NEW pool — see
+> [`docs/operations/reputation-canary-demo.md`](./operations/reputation-canary-demo.md).
+> The yield adapters (`roundfi_yield_mock` / `roundfi_yield_kamino`) were
+> unchanged and remain at their 2026-05-07 bytecode.
 
 ---
 

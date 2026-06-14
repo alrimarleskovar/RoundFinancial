@@ -7,9 +7,13 @@
  * `ProviderResult` synthetic values and returns the verdict. That's
  * what makes this safe to run in the `js` CI lane.
  *
- * The threshold is `ceil(N / 2)` — same convention as
- * `reconciler.ts::checkFinalizedQuorum`. With N=1 the threshold is 1,
- * so a single-provider deployment behaves exactly as before.
+ * The threshold is `quorumThreshold(N) = ⌊N/2⌋ + 1` (strict majority)
+ * — same convention as `reconciler.ts::checkFinalizedQuorum` and the
+ * telemetry in `backfill-events.ts`. With N=1 the threshold is 1, so a
+ * single-provider deployment behaves exactly as before. With N=2 the
+ * threshold is 2 — 1 lying / divergent / null-returning provider
+ * cannot single-handedly fix the verdict (see the docstring on
+ * `quorumThreshold` for the attack-vector derivation).
  */
 
 import { expect } from "chai";
@@ -17,6 +21,7 @@ import { expect } from "chai";
 import {
   decideTxQuorum,
   parseRpcUrls,
+  quorumThreshold,
   type ProviderResult,
   type TxFingerprint,
 } from "../services/indexer/src/rpcQuorum.js";
@@ -104,13 +109,56 @@ describe("decideTxQuorum", () => {
     if (v.kind === "divergence") expect(v.reason).to.equal("all_errors");
   });
 
-  it("2 providers, 1 tx + 1 error → consensus_tx (threshold=1 met among non-errors)", () => {
-    // ceil(2/2) = 1. The single tx vote clears threshold; the error
-    // doesn't count for or against. This is intentional: errors are
-    // "no signal", and we'd rather ingest on a thin majority than
-    // skip when the only divergence is a flaky provider.
+  it("2 providers, 1 tx + 1 error → divergence (no_quorum, threshold=2)", () => {
+    // quorumThreshold(2) = 2 (strict majority). A single tx vote does
+    // NOT clear the threshold; the error contributes nothing. Trade-off:
+    // a flaky provider causes the caller to defer + retry on the next
+    // run instead of ingesting on a single vote. Worth it — under the
+    // old `ceil` rule, a malicious provider returning "error" would let
+    // any single (possibly lying) survivor decide the verdict alone.
     const v = decideTxQuorum([{ kind: "tx", fingerprint: FP_A }, { kind: "error" }]);
-    expect(v.kind).to.equal("consensus_tx");
+    expect(v.kind).to.equal("divergence");
+    if (v.kind === "divergence") expect(v.reason).to.match(/no_quorum/);
+  });
+
+  // ─── Regression: strict-majority attack vectors (#OBS-NOVA-1) ───────
+  // Both of these returned consensus under the old `ceil(N/2)` threshold,
+  // letting 1 lying provider out of 2 fix the verdict. Lock them down so
+  // a future regression to `ceil` trips here loudly.
+
+  it("2 providers, fingerprints diverge → divergence (no tie-break injection)", () => {
+    // Old behavior: buckets {A: 1, B: 1}, both ≥ 1, `best` decided by
+    // Map insertion order → the first-inserted fingerprint silently won.
+    // New behavior: neither bucket reaches threshold 2, no consensus.
+    const v = decideTxQuorum([
+      { kind: "tx", fingerprint: FP_A },
+      { kind: "tx", fingerprint: FP_B },
+    ]);
+    expect(v.kind).to.equal("divergence");
+    if (v.kind === "divergence") expect(v.reason).to.match(/no_quorum/);
+  });
+
+  it("2 providers, 1 tx + 1 null → divergence (no null-censorship)", () => {
+    // Old behavior: the `nulls ≥ threshold` check fired first with
+    // nulls=1 ≥ threshold=1, returning consensus_null and silently
+    // dropping a real tx. New behavior: nulls=1 < threshold=2, falls
+    // through to the tx bucket which also fails 1 < 2 → no_quorum.
+    const v = decideTxQuorum([{ kind: "tx", fingerprint: FP_A }, { kind: "null" }]);
+    expect(v.kind).to.equal("divergence");
+    if (v.kind === "divergence") expect(v.reason).to.match(/no_quorum/);
+  });
+});
+
+describe("quorumThreshold", () => {
+  it("strict majority for every N (⌊N/2⌋ + 1)", () => {
+    expect(quorumThreshold(0)).to.equal(0); // edge case — callers early-return on empty
+    expect(quorumThreshold(1)).to.equal(1); // back-compat: single-RPC unchanged
+    expect(quorumThreshold(2)).to.equal(2); // strict majority for N=2 — both must agree
+    expect(quorumThreshold(3)).to.equal(2); // same as ceil for odd N
+    expect(quorumThreshold(4)).to.equal(3); // 3/4 — 1 dishonest provider can't win
+    expect(quorumThreshold(5)).to.equal(3);
+    expect(quorumThreshold(6)).to.equal(4);
+    expect(quorumThreshold(7)).to.equal(4);
   });
 });
 

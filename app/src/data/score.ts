@@ -4,7 +4,7 @@
 import type { Tone } from "@/data/carteira";
 
 export interface ReputationLevel {
-  lv: 1 | 2 | 3;
+  lv: 1 | 2 | 3 | 4;
   name: string;
   colat: number; // % stake required
   lev: number; // leverage multiplier
@@ -13,10 +13,15 @@ export interface ReputationLevel {
   vip?: boolean;
 }
 
+// v5.2 four-level ladder — 50 / 25 / 10 / 3 % collateral.
+// ⚠️ PRE-REDEPLOY: the deployed protocol is still 3-level 50/30/10
+// (see the LEVEL_TABLE note in lib/session.tsx). These fixtures
+// anticipate the v5.2 ladder; reconcile when the on-chain redeploy lands.
 export const LEVELS: ReputationLevel[] = [
   { lv: 1, name: "Iniciante", colat: 50, lev: 2, unlocked: true },
-  { lv: 2, name: "Comprovado", colat: 30, lev: 3.3, unlocked: true, current: true },
-  { lv: 3, name: "Veterano", colat: 10, lev: 10, unlocked: false, vip: true },
+  { lv: 2, name: "Comprovado", colat: 25, lev: 4, unlocked: true, current: true },
+  { lv: 3, name: "Veterano", colat: 10, lev: 10, unlocked: false },
+  { lv: 4, name: "Elite", colat: 3, lev: 33, unlocked: false, vip: true },
 ];
 
 export type BondStatus = "active" | "completed";

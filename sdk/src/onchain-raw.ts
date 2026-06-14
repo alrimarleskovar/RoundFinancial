@@ -19,6 +19,11 @@
 
 import { Connection, PublicKey } from "@solana/web3.js";
 
+import {
+  ATTESTATION_PAYLOAD_LEN,
+  type BehavioralPayload,
+  decodeBehavioralPayload,
+} from "./behavioralPayload.js";
 import { poolPda as derivePoolPda, reputationProfilePda } from "./pda.js";
 
 // ─── Pool offsets (declaration-order Borsh, no padding) ────────────────
@@ -435,4 +440,74 @@ export async function fetchReputationProfileRaw(
   const info = await connection.getAccountInfo(address, "confirmed");
   if (!info) return null;
   return decodeReputationProfileRaw(address, info.data as Buffer);
+}
+
+// ─── Attestation offsets (declaration-order Borsh, no padding) ─────────
+//
+// Source of truth: programs/roundfi-reputation/src/state/attestation.rs.
+// LEN = 8 (disc) + 32 + 32 + 2 + 8 + 96 + 8 + 1 + 1 + 1 + 13 = 202.
+//
+//   off   8: issuer             Pubkey   (32)  pool PDA or authority
+//   off  40: subject            Pubkey   (32)  wallet described
+//   off  72: schema_id          u16      ( 2)
+//   off  74: nonce              u64      ( 8)  (cycle << 32) | slot_index
+//   off  82: payload            [u8; 96] (96)  BehavioralPayload (v5.2)
+//   off 178: issued_at          i64      ( 8)
+//   off 186: revoked            bool     ( 1)
+//   off 187: bump               u8       ( 1)
+//   off 188: verified_at_attest bool     ( 1)
+//   off 189: _padding           [u8; 13] (13)
+const ATTESTATION_PAYLOAD_OFFSET = 82;
+export const ATTESTATION_LEN = 202;
+
+export interface RawAttestation {
+  address: PublicKey;
+  issuer: PublicKey;
+  subject: PublicKey;
+  schemaId: number;
+  nonce: bigint;
+  /** cycle = nonce >> 32 (the high 32 bits). */
+  cycle: number;
+  /** slotIndex = nonce & 0xffffffff (the low 32 bits). */
+  slotIndex: number;
+  issuedAt: bigint;
+  revoked: boolean;
+  verifiedAtAttest: boolean;
+  /** Raw 96-byte payload, exactly as stored on-chain. */
+  payloadRaw: Buffer;
+  /**
+   * Structured v5.2 BehavioralPayload, or `null` for a legacy zero
+   * payload (pre-v5.2 attestation) / an unknown future version. Decoded
+   * via the canonical {@link decodeBehavioralPayload} so it can never
+   * disagree with the on-chain Rust codec.
+   */
+  payload: BehavioralPayload | null;
+}
+
+/**
+ * IDL-free decoder for an Attestation account. The 96-byte payload is
+ * surfaced both raw (`payloadRaw`, for audit-trail byte diffing) and
+ * decoded (`payload`, the structured v5.2 view). `nonce` is split into
+ * its `(cycle, slotIndex)` components — the same packing core uses at
+ * the emit sites (`nonce = (cycle << 32) | slot_index`).
+ */
+export function decodeAttestationRaw(address: PublicKey, data: Buffer): RawAttestation {
+  const nonce = data.readBigUInt64LE(74);
+  const payloadRaw = Buffer.from(
+    data.subarray(ATTESTATION_PAYLOAD_OFFSET, ATTESTATION_PAYLOAD_OFFSET + ATTESTATION_PAYLOAD_LEN),
+  );
+  return {
+    address,
+    issuer: new PublicKey(data.subarray(8, 40)),
+    subject: new PublicKey(data.subarray(40, 72)),
+    schemaId: data.readUInt16LE(72),
+    nonce,
+    cycle: Number(nonce >> 32n),
+    slotIndex: Number(nonce & 0xffffffffn),
+    issuedAt: data.readBigInt64LE(178),
+    revoked: data.readUInt8(186) === 1,
+    verifiedAtAttest: data.readUInt8(188) === 1,
+    payloadRaw,
+    payload: decodeBehavioralPayload(payloadRaw),
+  };
 }

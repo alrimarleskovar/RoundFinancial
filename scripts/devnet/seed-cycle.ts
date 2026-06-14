@@ -45,15 +45,25 @@ import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 // Pool params must match what `seed-pool.ts` created.
 const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
-const INSTALLMENT_AMOUNT_BASE = 10_000_000n; // 10 USDC ×1e6
+const INSTALLMENT_AMOUNT_BASE = process.env.INSTALLMENT_AMOUNT_USDC
+  ? BigInt(Math.round(Number(process.env.INSTALLMENT_AMOUNT_USDC) * 1e6))
+  : 15_000_000n; // 15 USDC — matches seed-pool default
 const DEPLOYMENT_CONFIG_PATH = resolve(process.cwd(), "config/program-ids.devnet.json");
 
-const MEMBER_COUNT = 3;
+const MEMBER_COUNT = process.env.MEMBERS_TARGET ? Number(process.env.MEMBERS_TARGET) : 3;
 const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
 
 // Reputation schema ids (mirror programs/roundfi-reputation/src/constants.rs).
 const SCHEMA_PAYMENT: number = 1;
 const SCHEMA_LATE: number = 2;
+// Pass-3 (Jun 2026): the FINAL installment escalates to POOL_COMPLETE
+// regardless of on-time/late — `contribute.rs` switches schemas when
+// `member.contributions_paid == pool.cycles_total` after the bookkeeping
+// bump. Mirroring that here is mandatory: the on-chain Attest PDA seeds
+// include schema_id, so a stale PAYMENT/LATE derivation reverts with
+// ConstraintSeeds (2006). See `seed-claim.ts` for the matching switch
+// from CYCLE_COMPLETE → PAYOUT_CLAIMED.
+const SCHEMA_POOL_COMPLETE: number = 4;
 
 function loadKeypair(path: string): Keypair {
   const secret = Uint8Array.from(JSON.parse(readFileSync(path, "utf-8")));
@@ -338,10 +348,11 @@ async function main() {
     throw new Error("Could not read block time from cluster — try again.");
   }
   const onTime = BigInt(blockTime) <= poolView.nextCycleAt;
-  const schemaId = onTime ? SCHEMA_PAYMENT : SCHEMA_LATE;
+  const baseSchemaId = onTime ? SCHEMA_PAYMENT : SCHEMA_LATE;
   console.log(
     `→ Now (chain)  : ${blockTime}  ⇒  ${onTime ? "ON-TIME" : "LATE"} ` +
-      `(schema=${schemaId === SCHEMA_PAYMENT ? "PAYMENT" : "LATE"})\n`,
+      `(base schema=${baseSchemaId === SCHEMA_PAYMENT ? "PAYMENT" : "LATE"}; ` +
+      `final installment per member escalates to POOL_COMPLETE)\n`,
   );
 
   const targetCycle = poolView.currentCycle;
@@ -384,13 +395,24 @@ async function main() {
       continue;
     }
 
+    // Pass-3 escalation: if THIS contribute bumps the member to
+    // contributions_paid == cycles_total, on-chain `contribute.rs`
+    // switches to SCHEMA_POOL_COMPLETE. The attestation PDA seeds
+    // contain schema_id, so the client must mirror the switch or the
+    // tx reverts with ConstraintSeeds (2006).
+    const isFinalInstallment = contribsPaid + 1 === poolView.cyclesTotal;
+    const memberSchemaId = isFinalInstallment ? SCHEMA_POOL_COMPLETE : baseSchemaId;
+    if (isFinalInstallment) {
+      console.log(`  ⓘ final installment → POOL_COMPLETE (schema=${SCHEMA_POOL_COMPLETE})`);
+    }
+
     try {
       const sig = await callContribute(
         connection,
         member,
         i,
         targetCycle,
-        schemaId,
+        memberSchemaId,
         coreProgram,
         reputationProgram,
         pool,

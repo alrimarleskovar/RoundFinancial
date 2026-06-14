@@ -115,6 +115,16 @@ pub fn handler(ctx: Context<InitializeProtocol>, args: InitializeProtocolArgs) -
     // adapter is final. Mirrors `treasury_locked` (#122).
     config.approved_yield_adapter_locked = false;
 
+    // `reputation_program_locked` (partner review MEDIUM #2) starts
+    // `false` so devnet / bankrun init paths that pass
+    // `reputation_program = Pubkey::default()` (the "no-reputation"
+    // skip-path) keep working. Mainnet operators call
+    // `lock_reputation_program` immediately after init to flip this
+    // to `true` and prove the live deployment shipped with reputation
+    // wired up (the lock ix refuses to fire while
+    // `reputation_program == default()`).
+    config.reputation_program_locked = false;
+
     // Commit-reveal flag (#232): starts permissive so devnet single-
     // step `escape_valve_list` keeps working. Mainnet flips to `true`
     // via `update_protocol_config` after the canary validates the

@@ -147,8 +147,11 @@ describe("edge — degenerate pool shapes", function () {
     });
 
     it("both members contribute at the single cycle 0", async function () {
-      await contribute(env, { pool, member: mh0, cycle: 0 });
-      await contribute(env, { pool, member: mh1, cycle: 0 });
+      // Pass-3 (Caio HIGH): single-cycle pool — cycle 0 is the final
+      // installment for every member; harness must flag it so the
+      // attestation PDA derives with SCHEMA_POOL_COMPLETE.
+      await contribute(env, { pool, member: mh0, cycle: 0, isFinalInstallment: true });
+      await contribute(env, { pool, member: mh1, cycle: 0, isFinalInstallment: true });
 
       const poolFloat = await balanceOf(env, pool.poolUsdcVault);
       const escrow = await balanceOf(env, pool.escrowVault);
@@ -235,8 +238,10 @@ describe("edge — degenerate pool shapes", function () {
     });
 
     it("cycle 1: slot 1 contributes + claims, pool completes", async function () {
-      await contribute(env, { pool, member: mh0, cycle: 1 });
-      await contribute(env, { pool, member: mh1, cycle: 1 });
+      // Pass-3 (Caio HIGH): cyclesTotal=2 → cycle 1 is the final
+      // installment for both members. PDA must derive with POOL_COMPLETE.
+      await contribute(env, { pool, member: mh0, cycle: 1, isFinalInstallment: true });
+      await contribute(env, { pool, member: mh1, cycle: 1, isFinalInstallment: true });
 
       // Slot 1 payout — monotonicity check: current_cycle==1, slot==1.
       await claimPayout(env, { pool, member: mh1, cycle: 1 });

@@ -9,9 +9,10 @@ import { useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// 50/30/10 ladder column. Current level highlighted with the teal
-// tint. Bottom CTA bridges to /insights for the score-up path —
-// matches the locked-modal patterns on /grupos.
+// 50/25/10/3 ladder column (v5.2 four-tier). Current level highlighted
+// with the teal tint. Bottom CTA bridges to /insights for the score-up
+// path — matches the locked-modal patterns on /grupos. Renders straight
+// from the LEVELS fixture, so adding the L4 Elite row needs no change here.
 
 export function LevelsList() {
   const { tokens, palette } = useTheme();
@@ -22,8 +23,8 @@ export function LevelsList() {
   const pointsToNext = Math.max(0, user.nextLevel - user.score);
   const atTopTier = user.level >= 3;
 
-  const colorFor = (lv: 1 | 2 | 3): string =>
-    lv === 1 ? tokens.amber : lv === 2 ? tokens.teal : tokens.green;
+  const colorFor = (lv: 1 | 2 | 3 | 4): string =>
+    lv === 1 ? tokens.amber : lv === 2 ? tokens.teal : lv === 3 ? tokens.green : tokens.purple;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -40,7 +41,9 @@ export function LevelsList() {
             ? t("level.beginner")
             : l.lv === 2
               ? t("level.provenName")
-              : t("level.veteran");
+              : l.lv === 3
+                ? t("level.veteran")
+                : t("level.elite");
         return (
           <div
             key={l.lv}

@@ -128,10 +128,17 @@ pub const SEED_DRAW_BPS:              u16 = 9_160;   // 91.6% month-1 retention
 pub const SOLIDARITY_BPS:             u16 = 100;     // 1% per installment
 pub const DEFAULT_ESCROW_RELEASE_BPS: u16 = 2_500;   // 25% per milestone
 
-// ─── 50-30-10 Rule — stake bps by reputation level ──────────────────────
+// ─── 50-25-10-3 Rule — stake bps by reputation level (v5.2 four-tier) ───
+// v5.2 ladder (06-team-decisions.md decisão 2): L2 dropped 30%→25% and an
+// L4 "Elite" tier was added at 3%. L4 promotion is gated on a score
+// threshold + cycles like L2/L3 (LEVEL_4_THRESHOLD in roundfi-reputation)
+// — the proposal's metric-based Elite criteria (Reliability≥94 etc.) live
+// off-chain and harden a future upgrade; this on-chain gate is the
+// v1-provisional path.
 pub const STAKE_BPS_LEVEL_1: u16 = 5_000; // 50%
-pub const STAKE_BPS_LEVEL_2: u16 = 3_000; // 30%
+pub const STAKE_BPS_LEVEL_2: u16 = 2_500; // 25%
 pub const STAKE_BPS_LEVEL_3: u16 = 1_000; // 10%
+pub const STAKE_BPS_LEVEL_4: u16 = 300; // 3% (Elite)
 
 // ─── Bounds ─────────────────────────────────────────────────────────────
 pub const MAX_MEMBERS:        u8  = 64;   // safety ceiling; protocol default 24
@@ -187,6 +194,7 @@ pub fn stake_bps_for_level(level: u8) -> Option<u16> {
         1 => Some(STAKE_BPS_LEVEL_1),
         2 => Some(STAKE_BPS_LEVEL_2),
         3 => Some(STAKE_BPS_LEVEL_3),
+        4 => Some(STAKE_BPS_LEVEL_4),
         _ => None,
     }
 }
@@ -204,16 +212,17 @@ mod tests {
     // ─── Stake tier bijective mapping (invariant #5) ────────────────────
 
     #[test]
-    fn stake_tier_maps_exactly_three_levels() {
+    fn stake_tier_maps_exactly_four_levels() {
         assert_eq!(stake_bps_for_level(1), Some(STAKE_BPS_LEVEL_1));
         assert_eq!(stake_bps_for_level(2), Some(STAKE_BPS_LEVEL_2));
         assert_eq!(stake_bps_for_level(3), Some(STAKE_BPS_LEVEL_3));
+        assert_eq!(stake_bps_for_level(4), Some(STAKE_BPS_LEVEL_4));
     }
 
     #[test]
     fn stake_tier_rejects_unknown_levels() {
         assert_eq!(stake_bps_for_level(0),   None);
-        assert_eq!(stake_bps_for_level(4),   None);
+        assert_eq!(stake_bps_for_level(5),   None);
         assert_eq!(stake_bps_for_level(100), None);
         assert_eq!(stake_bps_for_level(u8::MAX), None);
     }
@@ -221,25 +230,34 @@ mod tests {
     #[test]
     fn stake_tier_is_injective() {
         // No two levels map to the same bps value (bijection).
-        let ls: [u16; 3] = [STAKE_BPS_LEVEL_1, STAKE_BPS_LEVEL_2, STAKE_BPS_LEVEL_3];
-        assert_ne!(ls[0], ls[1]);
-        assert_ne!(ls[1], ls[2]);
-        assert_ne!(ls[0], ls[2]);
+        let ls: [u16; 4] = [
+            STAKE_BPS_LEVEL_1,
+            STAKE_BPS_LEVEL_2,
+            STAKE_BPS_LEVEL_3,
+            STAKE_BPS_LEVEL_4,
+        ];
+        for i in 0..ls.len() {
+            for j in (i + 1)..ls.len() {
+                assert_ne!(ls[i], ls[j], "tiers {i} and {j} collide");
+            }
+        }
     }
 
     #[test]
     fn stake_tier_is_monotone_decreasing() {
-        // Higher reputation = lower stake requirement (50-30-10 rule).
+        // Higher reputation = lower stake requirement (50-25-10-3 rule).
         assert!(STAKE_BPS_LEVEL_1 > STAKE_BPS_LEVEL_2);
         assert!(STAKE_BPS_LEVEL_2 > STAKE_BPS_LEVEL_3);
+        assert!(STAKE_BPS_LEVEL_3 > STAKE_BPS_LEVEL_4);
     }
 
     #[test]
     fn stake_tier_values_match_whitepaper() {
-        // 50-30-10 rule — hard-coded whitepaper values.
+        // 50-25-10-3 rule (v5.2) — hard-coded whitepaper values.
         assert_eq!(STAKE_BPS_LEVEL_1, 5_000); // 50%
-        assert_eq!(STAKE_BPS_LEVEL_2, 3_000); // 30%
+        assert_eq!(STAKE_BPS_LEVEL_2, 2_500); // 25%
         assert_eq!(STAKE_BPS_LEVEL_3, 1_000); // 10%
+        assert_eq!(STAKE_BPS_LEVEL_4, 300); // 3% (Elite)
     }
 
     #[test]
@@ -248,6 +266,7 @@ mod tests {
         assert!(STAKE_BPS_LEVEL_1 <= MAX_BPS);
         assert!(STAKE_BPS_LEVEL_2 <= MAX_BPS);
         assert!(STAKE_BPS_LEVEL_3 <= MAX_BPS);
+        assert!(STAKE_BPS_LEVEL_4 <= MAX_BPS);
     }
 
     #[test]
@@ -256,16 +275,19 @@ mod tests {
         //   "Veteran deposits 10% of the credit (carta) and accesses
         //    100% of it → 10× leverage over the stake."
         // i.e. credit / stake = 10_000 / 1_000 = 10.
-        // Same pattern for the other tiers:
+        // v5.2 four-tier ladder:
         //   L1 (Iniciante):  10_000 / 5_000 = 2×
-        //   L2 (Comprovado): 10_000 / 3_000 ≈ 3.33×
+        //   L2 (Comprovado): 10_000 / 2_500 = 4×
         //   L3 (Veterano):   10_000 / 1_000 = 10×
+        //   L4 (Elite):      10_000 /   300 ≈ 33×
         // Guard the headline claim so a future bps tweak doesn't
         // silently break the pitch number.
         assert_eq!(MAX_BPS / STAKE_BPS_LEVEL_3, 10);
         assert_eq!(MAX_BPS / STAKE_BPS_LEVEL_1, 2);
-        // L2 is 3.33×; integer division gives 3, just sanity-check
-        // the ladder is monotone: higher tier → bigger leverage.
+        assert_eq!(MAX_BPS / STAKE_BPS_LEVEL_2, 4); // L2 now exactly 4×
+        assert_eq!(MAX_BPS / STAKE_BPS_LEVEL_4, 33); // Elite ≈ 33×
+        // Monotone: higher tier → bigger leverage.
+        assert!(MAX_BPS / STAKE_BPS_LEVEL_4 > MAX_BPS / STAKE_BPS_LEVEL_3);
         assert!(MAX_BPS / STAKE_BPS_LEVEL_3 > MAX_BPS / STAKE_BPS_LEVEL_2);
         assert!(MAX_BPS / STAKE_BPS_LEVEL_2 > MAX_BPS / STAKE_BPS_LEVEL_1);
     }

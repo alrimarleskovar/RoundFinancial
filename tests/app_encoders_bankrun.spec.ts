@@ -82,13 +82,12 @@ const INSTALLMENT = 5_000_000n; // $5 USDC
 const CREDIT = 5_000_000n; // $5 — solo pool, credit == installment
 const STAKE_INITIAL = 2_500_000n; // 50% of credit (Lv1)
 const SOLIDARITY_PRESEED = 0n;
-// Real `join_pool` locks the member's stake in the escrow vault and sets
-// member.escrow_balance = stake (join_pool.rs:263). The SEV-034 release
-// vesting math (compute_release_delta_target) derives total_paid from
-// `(stake_initial + total_escrow_deposited) − escrow_balance`, so escrow
-// MUST start funded with the stake or the math concludes the stake was
-// already released and release_escrow reverts EscrowNothingToRelease.
-const ESCROW_PRESEED = 2_500_000n; // = STAKE_INITIAL, locked at join
+// SEV-034: the stake is deposited into the escrow vault at join, so the
+// escrow vault (and member/pool escrow_balance) start holding it. The
+// release-delta derivation (stake_init + total_escrow_deposited −
+// escrow_balance) treats escrow_balance==0 as "everything already
+// released", which makes release_escrow revert EscrowNothingToRelease.
+const ESCROW_PRESEED = STAKE_INITIAL;
 const POOL_VAULT_PRESEED = 0n;
 const MEMBER_USDC_BAL = 10_000_000n; // $10 — plenty for one $5 contribution
 
@@ -207,10 +206,7 @@ async function seedFixture(
     totalContributed: new BN(0),
     totalPaidOut: new BN(0),
     solidarityBalance: new BN(0),
-    // Pool's aggregated escrow counter mirrors the sum of member escrow
-    // balances. With one member whose stake is locked at join, it starts
-    // at STAKE_INITIAL; release_escrow does `pool.escrow_balance -= delta`
-    // (checked_sub) so it must cover the released stake or underflow.
+    // SEV-034: stake lives in the escrow vault from join (see ESCROW_PRESEED).
     escrowBalance: new BN(STAKE_INITIAL.toString()),
     yieldAccrued: new BN(0),
     guaranteeFundBalance: new BN(0),
@@ -237,8 +233,7 @@ async function seedFixture(
     contributionsPaid: 0,
     totalContributed: new BN(0),
     totalReceived: new BN(0),
-    // join_pool sets escrow_balance = stake at join (join_pool.rs:263);
-    // the SEV-034 release-vesting derivation depends on it (see ESCROW_PRESEED).
+    // SEV-034: the join-time stake sits in escrow_balance from the start.
     escrowBalance: new BN(STAKE_INITIAL.toString()),
     onTimeCount: 0,
     lateCount: 0,
@@ -526,11 +521,14 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         threw = true;
         const err = e as { logs?: string[]; message?: string };
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
-        // Anchor surfaces errors as a code OR a name in the log. Anchor
-        // 0.30 logged the error name (`WrongCycle`); Anchor 1.0's bankrun
-        // error object only carries `custom program error: 0x<code>`. Match
-        // both forms so this test stays stable across anchor versions.
-        // 0x1773 = 6003 = PoolNotActive, 0x1777 = 6007 = WrongCycle.
+        // Anchor surfaces errors as a code OR a name in the log. The
+        // `WrongCycle` name appears in the program log line. Match
+        // either form so this test stays stable across anchor versions.
+        // Bankrun's transport error only surfaces the hex code in
+        // `err.message` (logs aren't propagated), so accept the relevant
+        // anchor codes too: 0x1773 = PoolNotActive (6003) fires here
+        // because the pool transitioned to Completed in the W2 chain
+        // before this cycle guard could be reached.
         expect(haystack).to.match(
           /WrongCycle|PoolStatus|PoolNotActive|AlreadyContributed|Pool is in Completed|0x1773|0x1777/i,
           `expected pool/cycle-related reject; got:\n${haystack}`,
@@ -604,8 +602,8 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         threw = true;
         const err = e as { logs?: string[]; message?: string };
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
-        // Anchor 1.0 bankrun only logs the hex code:
-        // 0x177c = 6012 = EscrowNothingToRelease.
+        // Bankrun surfaces only the hex code in err.message (no logs);
+        // accept 0x177c = EscrowNothingToRelease (6012) too.
         expect(haystack).to.match(
           /EscrowNothingToRelease|EscrowLocked|already.*released|0x177c/i,
           `expected monotonic-checkpoint reject; got:\n${haystack}`,
@@ -770,6 +768,8 @@ describe("app encoders — escape_valve_list round-trip", function () {
     const listingAfter = await env.context.banksClient.getAccount(listingAddr);
     expect(listingAfter, "Listing PDA must exist after list").to.not.equal(null);
 
+    // Account name in the IDL is `escapeValveListing` (snake
+    // `escape_valve_listing` from the #[account] struct in state/listing.rs).
     const listing = await (env.programs.core.account as any).escapeValveListing.fetch(listingAddr);
     expect(listing.pool.toBase58()).to.equal(poolPk.toBase58());
     expect(listing.seller.toBase58()).to.equal(seller.publicKey.toBase58());
@@ -812,11 +812,11 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
   const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
   const SETTLE_NEXT_CYCLE_AT = 1_800_000_000n;
-  // Production GRACE_PERIOD_SECS — the SBF build under `anchor build` does
-  // NOT enable the `devnet-canary` feature, so the on-chain constant is the
-  // 604_800 (7d) production value, not the 60s devnet patch. Matches the
-  // working edge_grace_default* specs. The clock warp below must clear this.
-  const SETTLE_GRACE_PERIOD_SECS = 604_800n; // constants.rs:62 (non-devnet-canary)
+  // SEV-002 hardening: GRACE_PERIOD_SECS is the mainnet floor of 7 days.
+  // The previous 60s value here was a stale devnet-patch constant; the
+  // clock warp must clear pool.next_cycle_at + GRACE for settle_default
+  // to pass the GracePeriodNotElapsed guard.
+  const SETTLE_GRACE_PERIOD_SECS = 604_800n; // 7 days — matches constants.rs::GRACE_PERIOD_SECS
   const SETTLE_INSTALLMENT = 10_000_000n; // $10 USDC
   const SETTLE_CREDIT = 30_000_000n; // 3 × installment
   const SETTLE_STAKE = 15_000_000n; // 50% of credit
@@ -988,10 +988,9 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
       caller: cranker.publicKey,
       defaultedMemberWallet: defaulter.publicKey,
       slotIndex: 1,
-      // settle_default's guard is `args.cycle == pool.current_cycle`
-      // (settle_default.rs:161), matching the working edge_grace_default
-      // tests (cycle == CURRENT_CYCLE == 2). The defaulter is behind
-      // because contributions_paid (1) < current_cycle (2).
+      // settle_default requires args.cycle == pool.current_cycle (the
+      // member is settled as of the cycle they're now behind on, not the
+      // earlier cycle they first missed). current_cycle == 2 here.
       cycle: 2,
       programIds: { core: env.ids.core, reputation: env.ids.reputation },
       usdcMint,
@@ -1202,6 +1201,12 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
     expect(poolBefore.yieldPrincipalDeposited.toString()).to.equal("0");
 
     // ─── Build via the APP ENCODER + send ────────────────────────
+    // The mock adapter's `Deposit` accounts struct requires its
+    // YieldVaultState PDA, which the core handler forwards verbatim via
+    // remaining_accounts. The encoder exposes that through its
+    // `remainingAccounts` parameter — pass the mock's state PDA so a
+    // single call builds the complete instruction (without it the
+    // mock-side CPI fails with AccountNotInitialized, 0xbbd / 3005).
     const ix = buildDepositIdleToYieldIx({
       pool: poolPk,
       caller: cranker.publicKey,
@@ -1210,6 +1215,7 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
       yieldAdapterProgram: env.ids.yieldMock,
       programIds: { core: env.ids.core },
       usdcMint,
+      remainingAccounts: [{ pubkey: yieldStatePk, isSigner: false, isWritable: true }],
     });
     // The adapter CPI forwards `remaining_accounts` verbatim to the
     // yield adapter. yield-mock's `Deposit` requires its `YieldVaultState`

@@ -165,8 +165,13 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
       const solBefore = await balanceOf(env, pool.solidarityVault);
       const escBefore = await balanceOf(env, pool.escrowVault);
 
+      // Pass-3 (Caio HIGH): on cycle == CYCLES_TOTAL-1 each member's
+      // contribute is their final installment of the pool — the
+      // on-chain handler escalates to SCHEMA_POOL_COMPLETE; the harness
+      // must mirror that or the attestation PDA seeds diverge.
+      const isFinalInstallment = cycle === CYCLES_TOTAL - 1;
       for (const h of handles) {
-        await contribute(env, { pool, member: h, cycle });
+        await contribute(env, { pool, member: h, cycle, isFinalInstallment });
       }
 
       // Vault deltas match the per-cycle split exactly.

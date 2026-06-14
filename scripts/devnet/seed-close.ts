@@ -120,13 +120,13 @@ async function main() {
 
   // Account order matches `ClosePool` in
   // programs/roundfi-core/src/instructions/close_pool.rs:
-  //   1. config    (PDA, read)
+  //   1. config    (PDA, mut — handler decrements committed_protocol_tvl_usdc)
   //   2. authority (signer)
   //   3. pool      (PDA, mut)
   const ix = new TransactionInstruction({
     programId: coreProgram,
     keys: [
-      { pubkey: protocolConfig, isSigner: false, isWritable: false },
+      { pubkey: protocolConfig, isSigner: false, isWritable: true },
       { pubkey: authority.publicKey, isSigner: true, isWritable: false },
       { pubkey: pool, isSigner: false, isWritable: true },
     ],

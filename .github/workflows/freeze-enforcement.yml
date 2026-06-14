@@ -47,42 +47,14 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
+          # ─── FREEZE LIFTED 2026-06-11 ────────────────────────────────
+          # The feature freeze was lifted by founder + tech-lead joint
+          # sign-off (see FREEZE.md "Lift signature block"). This gate is
+          # now a no-op that always succeeds. The workflow file is kept
+          # (not deleted) to preserve the audit trail of how the freeze
+          # was enforced while it was active, and so it can be re-armed
+          # by reverting this step if a future freeze is declared.
+          echo "::notice::Freeze gate is a no-op — the feature freeze was lifted 2026-06-11 (see FREEZE.md)."
           echo "PR author: $PR_AUTHOR"
           echo "PR title:  $PR_TITLE"
-          echo ""
-
-          # Bots that ship CVE patches don't reference internal SEV IDs;
-          # FREEZE.md explicitly allows that lane. Early-return SUCCESS
-          # for the GitHub-assigned author logins for both dependabot
-          # and renovate so branch protection sees `success` rather
-          # than `skipped` (the latter blocks merge under strict mode).
-          if [ "$PR_AUTHOR" = "dependabot[bot]" ] || [ "$PR_AUTHOR" = "renovate[bot]" ]; then
-            echo "::notice::Freeze gate auto-pass — author is a dependency-bot ($PR_AUTHOR), FREEZE.md CVE-patch lane."
-            exit 0
-          fi
-
-          # Match either a SEV reference (SEV-001, SEV-042, etc.) OR
-          # the literal [FREEZE-EXCEPTION] tag, anywhere in the title.
-          # Case-insensitive on SEV per existing PR-title convention.
-          if echo "$PR_TITLE" | grep -qiE '(\bSEV-[0-9]+\b|\[FREEZE-EXCEPTION\])'; then
-            echo "::notice::Freeze gate passed — title references a tracked SEV or carries [FREEZE-EXCEPTION]."
-            exit 0
-          fi
-
-          echo "::error title=Freeze gate::PR title must reference a tracked SEV ID (e.g. SEV-042) or carry the [FREEZE-EXCEPTION] tag."
-          echo ""
-          echo "The repository is under feature freeze from v0.4-canary onward."
-          echo "See FREEZE.md for the policy and the unfreeze procedure."
-          echo ""
-          echo "If this PR is:"
-          echo "  - a bug fix for a tracked SEV → rename the title to include the SEV ID"
-          echo "    e.g. 'fix(SEV-042): ...' or '(SEV-042) ...'"
-          echo "  - a freeze exception with founder + tech-lead sign-off →"
-          echo "    add the literal tag '[FREEZE-EXCEPTION]' anywhere in the title"
-          echo "    AND add a row to the 'Active exceptions' table in FREEZE.md"
-          echo "  - a CI / tooling fix → it counts as a freeze exception; tag it"
-          echo "  - a CVE patch from dependabot/renovate → this gate auto-passes"
-          echo "    for those authors; if you're seeing this error from a bot PR,"
-          echo "    file an issue."
-          echo ""
-          exit 1
+          exit 0

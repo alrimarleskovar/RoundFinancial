@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { MonoLabel, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
@@ -133,14 +133,20 @@ export function ConnectionCard({
         opacity: !isConnected && !isPending ? 0.82 : 1,
       }}
     >
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
         onClick={onToggle}
+        onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
         style={{
           width: "100%",
           padding: 18,
-          background: "none",
-          border: "none",
           cursor: "pointer",
           textAlign: "left",
           display: "grid",
@@ -291,7 +297,7 @@ export function ConnectionCard({
         >
           ›
         </span>
-      </button>
+      </div>
 
       {open && (
         <div

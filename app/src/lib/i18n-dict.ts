@@ -85,6 +85,7 @@ export const DICT: Record<Lang, Dict> = {
     "level.beginner": "Iniciante",
     "level.provenName": "Comprovado",
     "level.veteran": "Veterano",
+    "level.elite": "Elite",
     "level.youLabel": "← VOCÊ",
     "level.ptsToNext": "{n} pts até Veterano",
     "level.maxBadge": "✦ NÍVEL MÁXIMO",
@@ -379,7 +380,7 @@ export const DICT: Record<Lang, Dict> = {
     "lab.shields.s1.target": "Retenção alvo",
     "lab.shields.s2.title": "Escrow Adaptativo + Stake",
     "lab.shields.s2.rule":
-      "Lv {stake}/{payout}/{escrow} — stake/payout/escrow split + janela de release de {months}m. Reputação aumenta → menos colateral, mais payout (50-30-10 rule).",
+      "Lv {stake}/{payout}/{escrow} — stake/payout/escrow split + janela de release de {months}m. Reputação aumenta → menos colateral, mais payout (50-25-10-3 rule).",
     "lab.shields.s2.outstanding": "Escrow trancado",
     "lab.shields.s3.title": "Cofre Solidário + Cascata Yield",
     "lab.shields.s3.rule":
@@ -590,6 +591,7 @@ export const DICT: Record<Lang, Dict> = {
     "admin.setup.lvl.iniciante": "Iniciante",
     "admin.setup.lvl.comprovado": "Comprovado",
     "admin.setup.lvl.veterano": "Veterano",
+    "admin.setup.lvl.elite": "Elite",
     "admin.setup.groupTitle": "◆ Grupo",
     "admin.setup.carta": "Carta (R$)",
     "admin.setup.months": "Meses",
@@ -1445,6 +1447,7 @@ export const DICT: Record<Lang, Dict> = {
     "level.beginner": "Beginner",
     "level.provenName": "Proven",
     "level.veteran": "Veteran",
+    "level.elite": "Elite",
     "level.youLabel": "← YOU",
     "level.ptsToNext": "{n} pts to Veteran",
     "level.maxBadge": "✦ MAX LEVEL",
@@ -1734,7 +1737,7 @@ export const DICT: Record<Lang, Dict> = {
     "lab.shields.s1.target": "Retention target",
     "lab.shields.s2.title": "Adaptive Escrow + Stake",
     "lab.shields.s2.rule":
-      "Lv {stake}/{payout}/{escrow} — stake/payout/escrow split + {months}-month release window. Higher reputation → less collateral, more payout (50-30-10 rule).",
+      "Lv {stake}/{payout}/{escrow} — stake/payout/escrow split + {months}-month release window. Higher reputation → less collateral, more payout (50-25-10-3 rule).",
     "lab.shields.s2.outstanding": "Locked escrow",
     "lab.shields.s3.title": "Solidarity Vault + Yield Cascade",
     "lab.shields.s3.rule":
@@ -1945,6 +1948,7 @@ export const DICT: Record<Lang, Dict> = {
     "admin.setup.lvl.iniciante": "Starter",
     "admin.setup.lvl.comprovado": "Proven",
     "admin.setup.lvl.veterano": "Veteran",
+    "admin.setup.lvl.elite": "Elite",
     "admin.setup.groupTitle": "◆ Group",
     "admin.setup.carta": "Credit letter (R$)",
     "admin.setup.months": "Months",

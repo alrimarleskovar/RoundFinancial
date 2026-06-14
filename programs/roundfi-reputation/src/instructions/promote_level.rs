@@ -74,9 +74,11 @@ pub fn handler(ctx: Context<PromoteLevel>) -> Result<()> {
         profile.score,
         LEVEL_2_THRESHOLD,
         LEVEL_3_THRESHOLD,
+        LEVEL_4_THRESHOLD,
         profile.cycles_completed,
         LEVEL_2_MIN_CYCLES,
         LEVEL_3_MIN_CYCLES,
+        LEVEL_4_MIN_CYCLES,
     );
 
     // Identity floor (SEV-047 Part 2). No-op when required_min_level == 0.

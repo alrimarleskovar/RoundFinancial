@@ -26,13 +26,22 @@ import {
   reputationProfileFor,
 } from "./pda.js";
 
-/** Matches `roundfi_reputation::constants::SCHEMA_*`. */
+/** Matches `roundfi_reputation::constants::SCHEMA_*`.
+ *
+ *  Pass-3 (Caio HIGH, 2026-06-12): id 4 renamed CycleComplete→PoolComplete
+ *  with new semantics (emitted by contribute at the last installment, not
+ *  by claim_payout). id 6 added as PayoutClaimed (claim_payout, score-
+ *  neutral). Both old name and new name kept here so legacy localnet
+ *  fixtures continue to compile without semantic surprise. */
 export const SCHEMA = {
   Payment: 1,
   Late: 2,
   Default: 3,
-  CycleComplete: 4,
+  PoolComplete: 4,
   LevelUp: 5,
+  PayoutClaimed: 6,
+  /** @deprecated Pass-3 rename — use PoolComplete. */
+  CycleComplete: 4,
 } as const;
 
 export interface ReputationInitOpts {

@@ -4,8 +4,8 @@
  * Walks a single pool through its entire life:
  *
  *   initializeProtocol
- *     → createPool (4 members, 4 cycles, MIN_CYCLE_DURATION)
- *     → joinPool × 4 (fresh Level-1 members, 50% stake)
+ *     → createPool (4 members, 4 cycles, 60s duration)
+ *     → joinPool × 4 (Level-1 members, 50% stake — see LEVEL note below)
  *         pool auto-activates when the 4th member joins
  *     → For each cycle c ∈ [0, 3]:
  *         contribute × 4
@@ -38,11 +38,10 @@
  *
  * Uses deterministic keypairs from `memberKeypairs()` so addresses are
  * stable across runs — makes debugging failed assertions much easier.
- * `cycle_duration = 86_400` is the on-chain MIN_CYCLE_DURATION (SEV-023);
+ * `cycle_duration = 86_400` is the MIN_CYCLE_DURATION (1 day, SEV-023);
  * the test never waits between cycles because contribute/claim both
- * succeed immediately within the grace window and claim_payout is what
- * advances `pool.current_cycle` (the counter is driven by claim_payout,
- * not by Clock, so the 1-day floor has no wall-time cost here).
+ * succeed immediately within the (now day-long) on-time window and
+ * claim_payout is what advances `pool.current_cycle`.
  */
 
 import { expect } from "chai";
@@ -86,15 +85,19 @@ import {
 
 const MEMBERS_TARGET = 4;
 const CYCLES_TOTAL = 4;
-const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (SEV-023, constants.rs:152)
+const CYCLE_DURATION_SEC = 86_400; // MIN_CYCLE_DURATION (1 day, SEV-023)
 const INSTALLMENT_USDC = 1_250n; // whole USDC
 const CREDIT_USDC = 3_500n;
 
-// join_pool derives the trusted reputation level from the on-chain
-// ReputationProfile PDA (Step 4d audit close-out). Fresh wallets have no
-// profile, so the program treats them as level 1 — asserting any higher
-// level reverts ReputationLevelMismatch. These members never paid into a
-// prior pool, so level 1 (50% stake) is their real on-chain level.
+// join_pool now asserts args.reputation_level against the on-chain
+// ReputationProfile PDA (Step 4d hardening). Promoting a fresh wallet
+// to Level 2 requires score >= 500 + cycles_completed >= 1, with a
+// per-subject admin-attest cooldown — not feasible in a localnet run.
+// The L2-specific path (promote_level) is exercised by
+// reputation_lifecycle.spec.ts; this happy-path now joins at Level 1
+// (50% stake) so it runs end-to-end on plain localnet. All downstream
+// balance assertions derive from STAKE_BASE, so they re-scale
+// automatically.
 const LEVEL: 1 | 2 | 3 = 1; // 50% stake → 1_750 USDC per member
 const LEVEL_STAKE_BPS = 5_000;
 
@@ -258,11 +261,17 @@ describe("lifecycle — full happy path", function () {
       const escBefore = await balanceOf(env, pool.escrowVault);
 
       for (const h of handles) {
+        // Pass-3 (Caio HIGH): on the final cycle this contribution IS
+        // the member's last installment — escalate the schema so the
+        // attestation PDA derives with POOL_COMPLETE (id=4 / new
+        // semantics) instead of PAYMENT (id=1). Otherwise Anchor
+        // rejects with ConstraintSeeds (2006).
+        const isFinal = cycle === CYCLES_TOTAL - 1;
         const sig = await contribute(env, {
           pool,
           member: h,
           cycle,
-          schemaId: SCHEMA.Payment,
+          schemaId: isFinal ? SCHEMA.PoolComplete : SCHEMA.Payment,
         });
         expect(sig).to.be.a("string");
 
@@ -452,7 +461,11 @@ describe("lifecycle — full happy path", function () {
   it("closes the pool", async function () {
     await closePool(env, { pool });
     const p = await poolState(env, pool.pool);
-    expect(p.status).to.equal(2); // Completed (terminal)
+    // SEV-005 fix: close_pool flips the pool to a distinct terminal
+    // `Closed = 4` variant (not back to Completed = 2) so the entry
+    // constraint (status == Completed) bars any replay that would
+    // deflate `committed_protocol_tvl_usdc`.
+    expect(p.status).to.equal(4); // Closed (terminal)
   });
 
   it("global conservation: every USDC base unit is accounted for", async function () {

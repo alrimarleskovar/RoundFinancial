@@ -3,8 +3,9 @@
  * `roundfi_core.claim_payout(0)`. The handler transfers
  * `pool.credit_amount` from `pool_usdc_vault` to the winner's USDC ATA,
  * sets `member.paid_out = true`, and advances `pool.current_cycle` to 1
- * (refreshing `pool.next_cycle_at`). Also fires a CycleComplete
- * reputation attestation (`SCHEMA_CYCLE_COMPLETE = 4`).
+ * (refreshing `pool.next_cycle_at`). Also fires a PayoutClaimed
+ * reputation attestation (`SCHEMA_PAYOUT_CLAIMED = 6`, score-neutral
+ * — Pass-3, Jun 2026).
  *
  * Liquidity gap pre-handling:
  *   With the demo pool params (3 members × $10 installment × 3 cycles,
@@ -54,7 +55,10 @@ const DEPLOYMENT_CONFIG_PATH = resolve(process.cwd(), "config/program-ids.devnet
 const KEYPAIRS_DIR = resolve(process.cwd(), "keypairs");
 
 // Reputation schema id (mirror programs/roundfi-reputation/src/constants.rs).
-const SCHEMA_CYCLE_COMPLETE: number = 4;
+// Pass-3 (Jun 2026): claim_payout now emits SCHEMA_PAYOUT_CLAIMED (6),
+// score-neutral. The old SCHEMA_CYCLE_COMPLETE (4) is reused for
+// POOL_COMPLETE — emitted by contribute on the final installment.
+const SCHEMA_PAYOUT_CLAIMED: number = 6;
 
 // Small extra cushion above the strict gap so the tx survives
 // concurrent rounding / timestamp drift on the cluster's view of the
@@ -279,7 +283,7 @@ async function callClaimPayout(
     reputationProgram,
     pool,
     member.publicKey,
-    SCHEMA_CYCLE_COMPLETE,
+    SCHEMA_PAYOUT_CLAIMED,
     nonce,
   );
 

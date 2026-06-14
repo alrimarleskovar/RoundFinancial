@@ -1,0 +1,57 @@
+name: Crank
+
+# Path-filtered: only fires when the crank service or its SDK dep change.
+# Branch-protection should NOT require this lane until the canary launch —
+# it's advisory while the service is being shaken out.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/crank/**"
+      - "sdk/**"
+      - ".github/workflows/crank.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/crank/**"
+      - "sdk/**"
+      - ".github/workflows/crank.yml"
+
+concurrency:
+  group: crank-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  crank:
+    name: crank · typecheck + test (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+          pnpm --version
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: TypeScript typecheck
+        run: pnpm --filter @roundfi/crank typecheck
+
+      - name: Vitest
+        # Four pure-function spec files: classifyError, healthServer,
+        # settleDefaults (eligibility + INFRA classification), and
+        # pollingLoop (lease + RPC + per-pool isolation). The actual
+        # settle_default CPI is integration-level — bankrun/litesvm
+        # lanes cover that.
+        run: pnpm --filter @roundfi/crank test
