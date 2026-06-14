@@ -108,7 +108,7 @@ pub fn handler(ctx: Context<MigrateProtocolConfig>) -> Result<()> {
         // against the caller passing an unrelated account that happens to
         // sit at the same PDA seeds.
         require!(
-            data[0..8] == ProtocolConfig::DISCRIMINATOR,
+            data[0..8] == *ProtocolConfig::DISCRIMINATOR,
             RoundfiError::InvalidBps,
         );
 
@@ -151,8 +151,10 @@ pub fn handler(ctx: Context<MigrateProtocolConfig>) -> Result<()> {
         )?;
     }
 
-    // ─── Step 4: realloc with zero-init for the new tail bytes ──────────
-    config_info.realloc(target_len, true)?;
+    // ─── Step 4: grow to the new LEN ────────────────────────────────────
+    // Anchor 1.0 / solana-account-info 3.x: `realloc(len, zero_init)` was
+    // replaced by `resize(len)` (zero-init is implicit for growth).
+    config_info.resize(target_len)?;
 
     // ─── Step 5: write the one field that needs a non-zero default ──────
     //

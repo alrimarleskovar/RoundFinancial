@@ -131,7 +131,7 @@ fn drain_and_close<'info>(
     if amount > 0 {
         token::transfer(
             CpiContext::new_with_signer(
-                token_program.to_account_info(),
+                token_program.key(),
                 Transfer {
                     from: vault.to_account_info(),
                     to: treasury.to_account_info(),
@@ -143,7 +143,7 @@ fn drain_and_close<'info>(
         )?;
     }
     close_account(CpiContext::new_with_signer(
-        token_program.to_account_info(),
+        token_program.key(),
         CloseAccount {
             account: vault.to_account_info(),
             destination: rent_recipient,

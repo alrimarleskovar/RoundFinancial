@@ -227,7 +227,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         ];
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.solidarity_vault.to_account_info(),
                     to:        ctx.accounts.pool_usdc_vault.to_account_info(),
@@ -246,7 +246,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         ];
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.escrow_vault.to_account_info(),
                     to:        ctx.accounts.pool_usdc_vault.to_account_info(),
@@ -268,7 +268,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         ];
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.escrow_vault.to_account_info(),
                     to:        ctx.accounts.pool_usdc_vault.to_account_info(),

@@ -23,7 +23,8 @@
 //! `ListingNotPending`.
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash;
+// Anchor 1.0's `solana_program` shim no longer re-exports `hash`.
+use solana_program::hash;
 
 use crate::constants::*;
 use crate::error::RoundfiError;

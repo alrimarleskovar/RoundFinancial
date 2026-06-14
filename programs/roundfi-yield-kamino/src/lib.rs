@@ -59,10 +59,12 @@
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
-    hash,
     instruction::{AccountMeta, Instruction},
     program::invoke_signed,
 };
+// Anchor 1.0's `solana_program` shim no longer re-exports `hash` or the
+// `sysvar::instructions` id; pull them from solana-program 3.x directly.
+use solana_program::hash;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
@@ -289,7 +291,7 @@ pub mod roundfi_yield_kamino {
         // ─── Step 1 — pool vault → shadow vault ─────────────────────
         token::transfer(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.source.to_account_info(),
                     to:        ctx.accounts.destination.to_account_info(),
@@ -397,7 +399,7 @@ pub mod roundfi_yield_kamino {
     ///     Kamino (shouldn't happen — c-token rate is monotone — but
     ///     fail loud rather than silently mutate `tracked_principal`).
     pub fn harvest<'info>(
-        ctx: Context<'_, '_, '_, 'info, Harvest<'info>>,
+        ctx: Context<'info, Harvest<'info>>,
     ) -> Result<()> {
         // ─── Auth checks ────────────────────────────────────────────
         let state = &ctx.accounts.state;
@@ -480,7 +482,7 @@ pub mod roundfi_yield_kamino {
         if realized > 0 {
             token::transfer(
                 CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
+                    ctx.accounts.token_program.key(),
                     Transfer {
                         from:      ctx.accounts.source.to_account_info(),
                         to:        ctx.accounts.destination.to_account_info(),
@@ -527,7 +529,7 @@ pub mod roundfi_yield_kamino {
 // is still pending" comment.
 
 fn kamino_cpi_redeem<'info>(
-    ctx: &Context<'_, '_, '_, 'info, Harvest<'info>>,
+    ctx: &Context<'info, Harvest<'info>>,
     c_token_amount: u64,
     signer_seeds: &[&[&[u8]]],
 ) -> Result<()> {
@@ -581,7 +583,7 @@ fn kamino_cpi_redeem<'info>(
 }
 
 fn kamino_cpi_deposit<'info>(
-    ctx: &Context<'_, '_, '_, 'info, Harvest<'info>>,
+    ctx: &Context<'info, Harvest<'info>>,
     amount: u64,
     signer_seeds: &[&[&[u8]]],
 ) -> Result<()> {
@@ -763,7 +765,7 @@ pub struct Deposit<'info> {
     /// sysvar address.
     ///
     /// CHECK: Sysvar Instructions — fixed canonical address.
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    #[account(address = solana_program::sysvar::instructions::id())]
     pub instruction_sysvar: UncheckedAccount<'info>,
 }
 
@@ -847,7 +849,7 @@ pub struct Harvest<'info> {
     /// the Sysvar Instructions account.
     ///
     /// CHECK: Sysvar Instructions — fixed canonical address.
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    #[account(address = solana_program::sysvar::instructions::id())]
     pub instruction_sysvar: UncheckedAccount<'info>,
 }
 

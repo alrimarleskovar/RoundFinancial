@@ -4,7 +4,7 @@ name: deploy · devnet
 #
 # Triggered on tag push `devnet-deploy-v*` OR manual workflow_dispatch.
 # Builds the 4 RoundFi Anchor programs from a clean ubuntu-latest
-# runner using the same Agave 3.0.0 + Anchor 0.30.1 toolchain as the
+# runner using the same Agave 3.0.0 + Anchor 1.0.2 toolchain as the
 # `anchor · build` CI lane, then deploys to devnet using the
 # `DEVNET_DEPLOYER_KEYPAIR` repo secret.
 #
@@ -76,10 +76,15 @@ jobs:
           tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
-      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # Clone + bump `time` + `--locked` to dodge the brotli/alloc-no-stdlib
+        # drift a bare `cargo install --tag` now hits (identical to ci.yml).
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
       - name: Restore deployer keypair from secret
         # The secret holds the JSON keypair as base64. Restore to disk

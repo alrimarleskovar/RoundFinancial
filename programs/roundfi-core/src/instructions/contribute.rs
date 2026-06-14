@@ -151,7 +151,7 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     // ─── Three transfers: solidarity, escrow, pool float ────────────────
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.member_usdc.to_account_info(),
                 to:        ctx.accounts.solidarity_vault.to_account_info(),
@@ -163,7 +163,7 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
 
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.member_usdc.to_account_info(),
                 to:        ctx.accounts.escrow_vault.to_account_info(),
@@ -175,7 +175,7 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
 
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.member_usdc.to_account_info(),
                 to:        ctx.accounts.pool_usdc_vault.to_account_info(),

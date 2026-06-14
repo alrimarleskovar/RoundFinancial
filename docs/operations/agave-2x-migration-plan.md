@@ -2,7 +2,7 @@
 
 > **Purpose:** unblock issue [#230](https://github.com/alrimarleskovar/RoundFinancial/issues/230) by enumerating the risks + mitigation steps for coordinated toolchain bump from Solana 1.18.26 to Anza Agave 2.x.
 >
-> **Status:** **research only — no migration executed yet.** This doc is the team's pre-flight before the coordinated PR lands.
+> **Status:** **EXECUTED in [#487](https://github.com/alrimarleskovar/RoundFinancial/pull/487)** (2026-06-14) — the coordinated migration landed (Agave 3.x / anchor 1.0 / mpl-core 0.12) and is CI-green (`anchor build` + `js` + `litesvm` + `bankrun`). Pending devnet redeploy + OtterSec re-attestation + merge. The risk register below is retained as the historical pre-flight; the borsh stalemate it anticipated was resolved by dropping mpl-core's `anchor` feature (`default-features = false` + `borsh-v1`), not by any upstream fix.
 >
 > **Audience:** RoundFi engineering (toolchain owners) + audit firm pre-engagement liaison.
 

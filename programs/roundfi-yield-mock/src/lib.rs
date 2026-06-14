@@ -82,7 +82,7 @@ pub mod roundfi_yield_mock {
 
         token::transfer(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.source.to_account_info(),
                     to:        ctx.accounts.destination.to_account_info(),
@@ -153,7 +153,7 @@ pub mod roundfi_yield_mock {
 
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.source.to_account_info(),
                     to:        ctx.accounts.destination.to_account_info(),

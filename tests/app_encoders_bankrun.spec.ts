@@ -565,11 +565,11 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
         // Either AlreadyPaidOut (the explicit guard) or
         // PoolStatusNotActive / PoolStatus::Completed (pool transitioned)
-        // — both are valid rejections of a double-claim attempt.
-        // Bankrun surfaces only the hex code in err.message (no logs);
-        // accept the anchor codes too. 0x1773 = PoolNotActive (6003).
+        // — both are valid rejections of a double-claim attempt. Anchor 1.0
+        // only logs the hex code in bankrun: 0x1773 = 6003 = PoolNotActive,
+        // 0x1777 = 6007 = WrongCycle.
         expect(haystack).to.match(
-          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle|0x1773/i,
+          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle|0x1773|0x1777/i,
           `expected paid-out / pool-status reject; got:\n${haystack}`,
         );
       }
@@ -785,9 +785,9 @@ describe("app encoders — escape_valve_list round-trip", function () {
 // `settle_default` requires:
 //   1. `clock.unix_timestamp >= pool.next_cycle_at + GRACE_PERIOD_SECS`
 //      — we use `setBankrunUnixTs` to push the clock past the deadline
-//   2. `args.cycle == pool.current_cycle - 1` — pool has already
-//      advanced past the missed cycle
-//   3. `member.contributions_paid <= args.cycle` — member missed it
+//   2. `args.cycle == pool.current_cycle` — the cycle being settled
+//      (settle_default.rs:161; matches the working edge_grace_default tests)
+//   3. `member.contributions_paid < pool.current_cycle` — member is behind
 //   4. `!member.defaulted` — not already flagged
 //
 // We pre-seed the solidarity vault with $0.20 so the cascade has
@@ -1217,6 +1217,14 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
       usdcMint,
       remainingAccounts: [{ pubkey: yieldStatePk, isSigner: false, isWritable: true }],
     });
+    // The adapter CPI forwards `remaining_accounts` verbatim to the
+    // yield adapter. yield-mock's `Deposit` requires its `YieldVaultState`
+    // PDA at position 5 (after the 4-account prelude source/destination/
+    // authority/token_program). The builder only emits the 8 explicit
+    // core accounts (see its doc-comment); the caller appends the
+    // adapter-specific tail — exactly what `sendDepositIdleToYield` does
+    // in prod via its `remainingAccounts` option.
+    ix.keys.push({ pubkey: yieldStatePk, isSigner: false, isWritable: true });
 
     const tx = new Transaction().add(ix);
     tx.feePayer = cranker.publicKey;
