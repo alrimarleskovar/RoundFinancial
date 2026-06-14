@@ -7,8 +7,12 @@ const nextConfig = {
   transpilePackages: ["@roundfi/sdk", "@roundfi/orchestrator", "@roundfi/indexer"],
   // Prisma's client loads a native query engine that webpack must not
   // bundle — keep it external on the server (admin route handlers).
-  // Next 15 promoted this out of `experimental` and renamed it.
   serverExternalPackages: ["@prisma/client", "@prisma/engines", "prisma"],
+  // NOTE: Next 16 defaults to Turbopack, but Turbopack does not yet support
+  // `.js -> .ts/.tsx` extension aliasing (vercel/next.js#82945), which the
+  // workspace packages' NodeNext-style `from "./foo.js"` imports require.
+  // We therefore stay on the webpack builder (`next build/dev --webpack`,
+  // see package.json scripts) until that gap is closed.
   webpack: (config, { isServer }) => {
     // The @roundfi/sdk and @roundfi/orchestrator packages ship as raw TS
     // with NodeNext-style imports (`from "./foo.js"`). Webpack needs this
