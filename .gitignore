@@ -38,8 +38,12 @@ wallet*.json
 .DS_Store
 Thumbs.db
 
-# Claude Code session artifacts (per-developer, local only)
-.claude/
+# Claude Code — ignore per-developer/local artifacts, but TRACK the shared
+# session-start hook + project settings (committed so web sessions use them).
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 
 # Logs
 *.log
