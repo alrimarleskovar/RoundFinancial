@@ -84,10 +84,15 @@ jobs:
           tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
-      - name: Install Anchor 0.30.1
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # Clone + bump `time` + `--locked` to dodge the brotli/alloc-no-stdlib
+        # drift a bare `cargo install --tag` now hits (identical to ci.yml).
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
       - name: anchor build (--no-idl)
         run: anchor build --no-idl
@@ -166,10 +171,15 @@ jobs:
           tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
-      - name: Install Anchor 0.30.1
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # Clone + bump `time` + `--locked` to dodge the brotli/alloc-no-stdlib
+        # drift a bare `cargo install --tag` now hits (identical to ci.yml).
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
       - name: Restore deployer keypair from environment secret
         env:
