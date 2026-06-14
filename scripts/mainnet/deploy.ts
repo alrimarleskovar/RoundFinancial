@@ -174,10 +174,9 @@ async function main() {
 
   console.log("━━━ anchor build + keys sync + redeploy ━━━");
   console.log("");
-  // `--no-idl` mirrors the working CI lanes (anchor · build, devnet-deploy).
-  // anchor-syn 0.30.1's IDL builder hits removed `source_file()` API on
-  // stable rustc — fails without the local `patch-anchor-syn-319.sh`
-  // patch. IDLs aren't needed for the on-chain deploy. SEV-046 follow-up.
+  // `--no-idl` skips IDL generation — IDLs aren't needed for the on-chain
+  // deploy (build-time optimization). Anchor 1.0 emits IDLs natively
+  // post-#487; the old anchor-syn #319 patch workaround is retired.
   run("anchor build --no-idl");
   run("anchor keys sync");
   run("anchor build --no-idl");
