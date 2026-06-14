@@ -2,6 +2,8 @@
 
 This guide takes RoundFi's 4 deployed Anchor programs from "open source on GitHub" to **"Verified Build" badge on Solscan** — Solscan/OtterSec's hash-attestation flow that proves the deployed bytecode was built reproducibly from a specific GitHub commit.
 
+> **⚠ Status note (post-#487, 2026-06-14).** The 4 devnet programs were upgraded **in-place** by the Agave 3.x / anchor 1.0 / mpl-core 0.12 migration (#487) using a non-reproducible `anchor build`, so any verify-build attestations recorded **before** #487 are now **stale** — `solana-verify get-program-hash <pid>` (deployed) no longer matches the attested hash. Refreshing via Steps 1-4 below requires `solana-verify build` to support the **Agave-3.x / anchor-1.0** toolchain image; the older Solana-1.18.26 image referenced in Troubleshooting **cannot** compile the migrated code. **Confirm an Agave-3.x verifiable-build image is available** (`solana-verify build --library-name roundfi_core` on one program is the cheapest probe) before relying on this flow — if it isn't published yet, the refresh is blocked on the same upstream gap as the mainnet OtterSec attestation (R4).
+
 ## Why bother
 
 Without this, Solscan shows the program account but no verification badge. Anyone can compare the source manually, but there's no automated proof. The badge:
