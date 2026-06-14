@@ -12,9 +12,9 @@
  * Idempotent: `set_identity_gate` is `init_if_needed` on-chain, so
  * re-running is safe — it just (re)writes `required_min_level`.
  *
- * Manual instruction encoding (no Anchor SDK runtime) — same rationale
- * as `init-protocol.ts` (Anchor 0.30.1 IDL gen broken on the pinned
- * toolchain):
+ * Manual instruction encoding (no Anchor TS client) — same rationale
+ * as `init-protocol.ts` (IDL-free by design, ADR 0002; hand-rolled,
+ * not blocked):
  *
  *   discriminator = sha256("global:set_identity_gate")[0..8]
  *   args          = u8 required_min_level

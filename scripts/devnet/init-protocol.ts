@@ -3,18 +3,19 @@
  * the configured cluster. Idempotent: reuses an existing PDA if already
  * initialized (and prints the existing config).
  *
- * Manual instruction encoding (no Anchor SDK runtime). Anchor 0.30.1
- * IDL gen is broken on Rust 1.95 + proc-macro2 1.0.106 (the
- * `Span::source_file()` API was removed from stable proc-macro2), so we
- * build instructions by hand:
+ * Manual instruction encoding (no Anchor TS client). These devnet
+ * scripts hand-roll the instruction wire format:
  *
  *   discriminator = sha256("global:" + ix_name)[0..8]
  *   args          = borsh-encoded args
  *   accounts      = [{ pubkey, isSigner, isWritable }, …]
  *
- * Once the toolchain unblock lands (anchor 0.31+ has the source_file
- * fix), this script can be rewritten to use the SDK's
- * `initializeProtocol()` wrapper from `sdk/src/actions.ts`.
+ * This is IDL-free by design (ADR 0002) — the encoders are hand-rolled
+ * so the scripts never depend on a generated IDL or the Anchor TS
+ * client. (Historically the hand-rolling was also forced by the
+ * anchor-0.30.1 IDL-gen break on Rust 1.95; that's moot since the
+ * anchor-1.0 migration in #487, which emits IDLs natively. The
+ * hand-rolled path now stays by choice, not necessity.)
  */
 
 import { existsSync, readFileSync } from "node:fs";

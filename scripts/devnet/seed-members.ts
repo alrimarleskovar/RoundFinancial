@@ -15,8 +15,8 @@
  *   Lv1 lets us skip `init_profile` entirely and ship the demo with
  *   3 join_pool ixs, period.
  *
- * Manual instruction encoding (no Anchor SDK runtime — IDL gen still
- * blocked on the toolchain bump documented in `init-protocol.ts`).
+ * Manual instruction encoding (no Anchor TS client — IDL-free by
+ * design, ADR 0002; see `init-protocol.ts` header).
  *
  * Pre-flight requirements (script enforces with helpful errors):
  *   1. Pool exists at the deterministic PDA (created by seed-pool).

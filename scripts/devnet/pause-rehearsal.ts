@@ -23,9 +23,9 @@
  *   8. Write a rehearsal log to docs/operations/rehearsal-logs/
  *      YYYY-MM-DD-pause.md with all the tx refs captured.
  *
- * Manual instruction encoding (no Anchor SDK runtime) — same pattern
- * as `init-protocol.ts`. Once Anchor 0.31+ unblocks IDL gen, this
- * can use `sdk/src/actions.ts` directly.
+ * Manual instruction encoding (no Anchor TS client) — same pattern
+ * as `init-protocol.ts` (IDL-free by design, ADR 0002; hand-rolled,
+ * not blocked on a toolchain limitation).
  *
  * Usage:
  *

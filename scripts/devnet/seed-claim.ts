@@ -20,8 +20,8 @@
  *   for that flow until `deposit_idle_to_yield` + `harvest_yield` are
  *   driven on-chain.
  *
- * Manual instruction encoding (no Anchor SDK runtime — IDL gen still
- * blocked on the toolchain bump documented in `init-protocol.ts`).
+ * Manual instruction encoding (no Anchor TS client — IDL-free by
+ * design, ADR 0002; see `init-protocol.ts` header).
  *
  * Idempotent: reads `Member.paid_out` and skips if already true.
  */

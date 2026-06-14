@@ -30,7 +30,7 @@
  *   EVLIST_SLOT_INDEX    (default 0 — seller = member-0.json)
  *   EVLIST_PRICE_USDC    (default 2 — sized for a credit=4 demo pool)
  *
- * Manual ix encoding (Anchor IDL gen still blocked).
+ * Manual ix encoding (IDL-free by design — ADR 0002; hand-rolled, not blocked).
  */
 
 import { existsSync, readFileSync } from "node:fs";

@@ -2,8 +2,7 @@
  * Raw on-chain account decoders — IDL-free path for clients.
  *
  * The Anchor SDK's `program.account.<name>.fetch()` requires a
- * generated IDL. Our build chain currently ships with `--no-idl`
- * (the toolchain bump in `init-protocol.ts` blocks IDL gen), so
+ * generated IDL. This SDK is IDL-free by design (ADR 0002), so
  * front-end + scripts that need to read on-chain state import this
  * module instead — it does the same Borsh-style decode by hand using
  * the field offsets from `programs/roundfi-core/src/state/pool.rs`
