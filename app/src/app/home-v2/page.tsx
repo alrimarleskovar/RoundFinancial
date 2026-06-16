@@ -130,7 +130,7 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
   return (
     <Link
       href="/reputacao"
-      className={`relative group overflow-hidden border p-4 sm:p-5 rounded-2xl h-full w-full flex flex-col justify-between transition-all duration-500 delay-150 hover:delay-0 hover:scale-[1.02] hover:border-white/40 cursor-pointer block ${
+      className={`relative group overflow-hidden border p-4 sm:p-5 rounded-2xl h-full w-full flex flex-col justify-between transition-all duration-500 hover:scale-[1.02] cursor-pointer block ${
         theme === "light"
           ? "bg-white border-black/10 shadow-lg"
           : "bg-[#0C1018] border-white/10 shadow-[0_0_30px_rgba(153,69,255,0.15)]"
