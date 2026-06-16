@@ -78,22 +78,19 @@ export function DeskKpi({
           cursor: href ? "pointer" : "default",
           transition: "transform 180ms ease, border-color 180ms ease",
         }}
-        onMouseEnter={
-          href
-            ? (e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.borderColor = `${toneColor}55`;
-              }
-            : undefined
-        }
-        onMouseLeave={
-          href
-            ? (e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.borderColor = "";
-              }
-            : undefined
-        }
+        // Subtle hover lift + tone-tinted border — applied whether or not
+        // the card links somewhere, so non-link KPIs (e.g. /home-v2's
+        // Receivable / Collateral) get the same feedback as linked ones.
+        // The `cursor` above still distinguishes clickable (pointer) from
+        // display-only (default).
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-2px)";
+          e.currentTarget.style.borderColor = `${toneColor}55`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.borderColor = "";
+        }}
       >
         <div
           style={{

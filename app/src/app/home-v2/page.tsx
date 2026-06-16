@@ -289,29 +289,27 @@ export default function HomeV2Page() {
           </h1>
         </Link>
 
-        <nav className="flex-1 flex justify-center min-w-0">
-          <div className="flex items-center gap-1 bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
-            {NAV_ITEMS.map((item) => {
-              const active =
-                pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all ${
-                    active
-                      ? "bg-[#14F195] text-black shadow-[0_0_20px_rgba(20,241,149,0.3)]"
-                      : "text-gray-400 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <item.icon size={15} sw={active ? 2 : 1.7} />
-                  <span className="hidden text-[10px] font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
-                    {t(item.labelKey)}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+        <nav className="flex-1 flex items-center justify-center gap-2 xl:gap-6 min-w-0">
+          {NAV_ITEMS.map((item) => {
+            const active =
+              pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all ${
+                  active
+                    ? "bg-[#14F195] text-black shadow-[0_0_20px_rgba(20,241,149,0.3)]"
+                    : "text-gray-400 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <item.icon size={15} sw={active ? 2 : 1.7} />
+                <span className="hidden text-[10px] font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
+                  {t(item.labelKey)}
+                </span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2.5 shrink-0">
@@ -354,6 +352,7 @@ export default function HomeV2Page() {
               numericValue={liveBalance}
               delta=""
               tone="g"
+              href="/carteira"
             />
           </div>
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
@@ -380,7 +379,7 @@ export default function HomeV2Page() {
         </div>
 
         <div
-          className={`p-8 rounded-[2.5rem] border transition-colors ${theme === "light" ? "bg-white border-black/5 shadow-md" : "bg-white/[0.02] border-white/5 shadow-2xl"}`}
+          className={`p-8 rounded-[2.5rem] border transition-all duration-200 hover:-translate-y-0.5 ${theme === "light" ? "bg-white border-black/5 shadow-md hover:border-black/10" : "bg-white/[0.02] border-white/5 shadow-2xl hover:border-white/10"}`}
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500">
@@ -412,7 +411,7 @@ export default function HomeV2Page() {
         </div>
 
         <div
-          className={`p-8 rounded-[2.5rem] border transition-colors ${theme === "light" ? "bg-white border-black/5" : "bg-white/[0.01] border-white/5"}`}
+          className={`p-8 rounded-[2.5rem] border transition-all duration-200 hover:-translate-y-0.5 ${theme === "light" ? "bg-white border-black/5 hover:border-black/10" : "bg-white/[0.01] border-white/5 hover:border-white/10"}`}
         >
           <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 mb-6 flex items-center gap-3">
             <span className="flex h-2 w-2 rounded-full bg-[#14F195] shadow-[0_0_8px_#14F195]"></span>
