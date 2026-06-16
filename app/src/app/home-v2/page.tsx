@@ -130,7 +130,7 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
   return (
     <Link
       href="/reputacao"
-      className={`relative group overflow-hidden border p-4 sm:p-5 rounded-2xl h-full w-full flex flex-col justify-between transition-all duration-500 hover:scale-[1.02] cursor-pointer block ${
+      className={`relative group overflow-hidden border p-4 sm:p-5 rounded-2xl h-full w-full flex flex-col justify-between transition-all duration-500 delay-150 hover:delay-0 hover:scale-[1.02] hover:border-white/40 cursor-pointer block ${
         theme === "light"
           ? "bg-white border-black/10 shadow-lg"
           : "bg-[#0C1018] border-white/10 shadow-[0_0_30px_rgba(153,69,255,0.15)]"
@@ -275,6 +275,10 @@ export default function HomeV2Page() {
 
   const tx = (key: string) => tr(lang, key);
 
+  // White outline + delayed fade-back on hover, shared by the KPI cards
+  // (quick in, lingers ~200ms then fades). Matches the panels below.
+  const kpiHover = { hoverBorderColor: "rgba(255,255,255,0.6)", hoverReturnDelayMs: 200 };
+
   return (
     <div
       className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === "light" ? "bg-[#F5F1EA] text-[#2A2E38]" : "bg-[#06090F] text-[#EEF0F8]"}`}
@@ -303,8 +307,8 @@ export default function HomeV2Page() {
                     : "text-gray-400 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <item.icon size={15} sw={active ? 2 : 1.7} />
-                <span className="hidden text-[10px] font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
+                <item.icon size={16} sw={active ? 2 : 1.7} />
+                <span className="hidden text-xs font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
                   {t(item.labelKey)}
                 </span>
               </Link>
@@ -353,6 +357,7 @@ export default function HomeV2Page() {
               delta=""
               tone="g"
               href="/carteira"
+              {...kpiHover}
             />
           </div>
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
@@ -362,6 +367,7 @@ export default function HomeV2Page() {
               numericValue={12500}
               delta=""
               tone="p"
+              {...kpiHover}
             />
           </div>
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
@@ -371,6 +377,7 @@ export default function HomeV2Page() {
               numericValue={user.colateralPct}
               delta=""
               tone="a"
+              {...kpiHover}
             />
           </div>
           <div className="h-full w-full">
@@ -379,7 +386,7 @@ export default function HomeV2Page() {
         </div>
 
         <div
-          className={`p-8 rounded-[2.5rem] border transition-all duration-200 hover:-translate-y-0.5 ${theme === "light" ? "bg-white border-black/5 shadow-md hover:border-black/10" : "bg-white/[0.02] border-white/5 shadow-2xl hover:border-white/10"}`}
+          className={`p-8 rounded-[2.5rem] border transition-all duration-300 delay-200 ease-out hover:delay-0 hover:duration-200 hover:-translate-y-0.5 ${theme === "light" ? "bg-white border-black/5 shadow-md hover:border-black/30" : "bg-white/[0.02] border-white/5 shadow-2xl hover:border-white/40"}`}
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500">
@@ -411,7 +418,7 @@ export default function HomeV2Page() {
         </div>
 
         <div
-          className={`p-8 rounded-[2.5rem] border transition-all duration-200 hover:-translate-y-0.5 ${theme === "light" ? "bg-white border-black/5 hover:border-black/10" : "bg-white/[0.01] border-white/5 hover:border-white/10"}`}
+          className={`p-8 rounded-[2.5rem] border transition-all duration-300 delay-200 ease-out hover:delay-0 hover:duration-200 hover:-translate-y-0.5 ${theme === "light" ? "bg-white border-black/5 hover:border-black/30" : "bg-white/[0.01] border-white/5 hover:border-white/40"}`}
         >
           <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 mb-6 flex items-center gap-3">
             <span className="flex h-2 w-2 rounded-full bg-[#14F195] shadow-[0_0_8px_#14F195]"></span>

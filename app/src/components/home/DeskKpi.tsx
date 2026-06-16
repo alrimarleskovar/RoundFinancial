@@ -21,6 +21,8 @@ export function DeskKpi({
   tone,
   sub,
   href,
+  hoverBorderColor,
+  hoverReturnDelayMs,
 }: {
   label: string;
   value: string | number;
@@ -33,6 +35,11 @@ export function DeskKpi({
   tone: Tone;
   sub?: string;
   href?: string;
+  // Hover border override + delayed return (opt-in; /home keeps the default
+  // tone-tinted border with a symmetric transition). /home-v2 passes a
+  // white outline + a return delay so the border lingers before fading.
+  hoverBorderColor?: string;
+  hoverReturnDelayMs?: number;
 }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -51,6 +58,10 @@ export function DeskKpi({
     }
   })();
 
+  const hoverBorder = hoverBorderColor ?? `${toneColor}55`;
+  const returnDelay = hoverReturnDelayMs ?? 0;
+  const baseTransition = "transform 180ms ease, border-color 180ms ease";
+
   const Wrapper = href
     ? ({ children }: { children: React.ReactNode }) => (
         <Link
@@ -59,6 +70,8 @@ export function DeskKpi({
             display: "block",
             textDecoration: "none",
             color: "inherit",
+            height: "100%",
+            width: "100%",
           }}
         >
           {children}
@@ -75,19 +88,27 @@ export function DeskKpi({
           padding: 18,
           position: "relative",
           overflow: "hidden",
+          height: "100%",
+          boxSizing: "border-box",
           cursor: href ? "pointer" : "default",
-          transition: "transform 180ms ease, border-color 180ms ease",
+          transition: baseTransition,
         }}
-        // Subtle hover lift + tone-tinted border — applied whether or not
-        // the card links somewhere, so non-link KPIs (e.g. /home-v2's
-        // Receivable / Collateral) get the same feedback as linked ones.
-        // The `cursor` above still distinguishes clickable (pointer) from
-        // display-only (default).
+        // Subtle hover lift + outlined border — applied whether or not the
+        // card links somewhere, so non-link KPIs (e.g. /home-v2's Receivable
+        // / Collateral) get the same feedback as linked ones. The `cursor`
+        // above still distinguishes clickable (pointer) from display-only
+        // (default). On leave, an optional `hoverReturnDelayMs` keeps the
+        // border lit briefly before it fades back (quick in, delayed out).
         onMouseEnter={(e) => {
+          e.currentTarget.style.transition = baseTransition;
           e.currentTarget.style.transform = "translateY(-2px)";
-          e.currentTarget.style.borderColor = `${toneColor}55`;
+          e.currentTarget.style.borderColor = hoverBorder;
         }}
         onMouseLeave={(e) => {
+          e.currentTarget.style.transition =
+            returnDelay > 0
+              ? `transform 180ms ease, border-color 520ms ease ${returnDelay}ms`
+              : baseTransition;
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.borderColor = "";
         }}
