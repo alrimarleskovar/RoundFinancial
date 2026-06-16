@@ -116,7 +116,7 @@ function SegToggle({
 function CompactPassport({ score, theme, lang }: { score: number; theme: string; lang: Lang }) {
   return (
     <Link
-      href="/insights"
+      href="/reputacao"
       className={`relative group overflow-hidden border p-4 sm:p-5 rounded-2xl h-full w-full flex flex-col justify-between transition-all duration-500 hover:scale-[1.02] cursor-pointer block ${
         theme === "light"
           ? "bg-white border-black/10 shadow-lg"
@@ -227,10 +227,12 @@ function GroupCard({
         </div>
 
         <div className="flex gap-2">
-          <button className="bg-[#14F195] text-black text-[10px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(20,241,149,0.2)] uppercase">
+          {/* PAGAR — primary CTA: green gradient fill, soft lift on hover */}
+          <button className="rounded-xl bg-gradient-to-b from-[#14F195] to-[#0FCB7E] px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#04130D] [font-family:var(--font-dm-sans)] shadow-[0_4px_14px_rgba(20,241,149,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_22px_rgba(20,241,149,0.45)] active:translate-y-0 active:scale-[0.98]">
             {tr(lang, "card.pay")}
           </button>
-          <button className="bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-black px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-all uppercase">
+          {/* VENDER — secondary action: soft coral outline, gentle hover */}
+          <button className="rounded-xl border border-[#FF7A7A]/25 bg-[#FF7A7A]/[0.08] px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#FF9090] [font-family:var(--font-dm-sans)] transition-all duration-200 hover:border-[#FF7A7A]/45 hover:bg-[#FF7A7A]/15 hover:text-[#FFB0B0] active:scale-[0.98]">
             {tr(lang, "card.sell")}
           </button>
         </div>
