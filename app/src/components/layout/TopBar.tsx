@@ -1,6 +1,7 @@
 "use client";
 
 import { Icons } from "@/components/brand/icons";
+import { NetworkBadge } from "@/components/layout/NetworkBadge";
 import { SegToggle } from "@/components/layout/SegToggle";
 import { WalletChip } from "@/components/layout/WalletChip";
 import { WalletErrorToast } from "@/components/layout/WalletErrorToast";
@@ -18,8 +19,6 @@ export function TopBar() {
   const wallet = useWallet();
 
   const connected = wallet.status === "connected";
-  const netLabel = connected ? t("top.network.devnet") : t("top.network.offline");
-  const netDotColor = connected ? tokens.green : tokens.muted;
 
   return (
     <div
@@ -106,51 +105,7 @@ export function TopBar() {
           ]}
         />
 
-        <div
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            background: tokens.fillSoft,
-            border: `1px solid ${connected ? `${tokens.green}33` : tokens.border}`,
-            color: connected ? tokens.green : tokens.text2,
-            fontSize: 10,
-            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            userSelect: "none",
-            letterSpacing: "0.12em",
-            fontWeight: 600,
-          }}
-        >
-          <span style={{ position: "relative", display: "inline-flex" }}>
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: netDotColor,
-                boxShadow: connected ? `0 0 8px ${netDotColor}` : "none",
-                position: "relative",
-                zIndex: 1,
-              }}
-            />
-            {connected && (
-              <span
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: netDotColor,
-                  animation: "rfi-pulse 1.6s ease-in-out infinite",
-                }}
-              />
-            )}
-          </span>
-          {netLabel}
-        </div>
+        <NetworkBadge connected={connected} />
 
         <button
           type="button"

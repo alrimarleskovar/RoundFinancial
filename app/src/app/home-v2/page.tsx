@@ -3,14 +3,17 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Activity } from "@/components/home/Activity";
 import { RFILogoMark } from "@/components/brand/brand";
-import { useI18n, type Currency, type Lang } from "@/lib/i18n";
+import { NetworkBadge } from "@/components/layout/NetworkBadge";
+import { SegToggle } from "@/components/layout/SegToggle";
+import { WalletChip } from "@/components/layout/WalletChip";
+import { useI18n, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
+import { useWallet } from "@/lib/wallet";
 
 // /home-v2 — CANDIDATE dashboard redesign, staged for approval.
 //
@@ -35,6 +38,12 @@ import { useSession } from "@/lib/session";
 //   - R$/USDC toggle wired to setCurrency — fmtMoney() reformats live.
 // Copy lives in a LOCAL STRINGS map (not the shared dict) to keep the
 // candidate self-contained; it ports to DICT when v2 becomes /home.
+//
+// Refinement round 2: the header's right cluster now reuses the SAME
+// components as the real TopBar — SegToggle (PT/EN, R$/USDC), NetworkBadge
+// (SOLANA_DEVNET / PHANTOM_OFFLINE) and WalletChip (copy / airdrop /
+// explorer / disconnect) — so the controls are pixel-identical to every
+// other tab. NetworkBadge was extracted out of TopBar for this reuse.
 
 type V2Strings = Record<string, string>;
 
@@ -81,35 +90,6 @@ const STRINGS: Record<Lang, V2Strings> = {
 
 function tr(lang: Lang, key: string): string {
   return STRINGS[lang]?.[key] ?? STRINGS.pt[key] ?? key;
-}
-
-// ─── COMPONENTE DE TOGGLE (IDIOMA / MOEDA) ─────────────────────────────────
-function SegToggle({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { v: string; l: string }[];
-}) {
-  return (
-    <div className="flex p-0.5 bg-white/5 border border-white/10 rounded-lg shadow-inner">
-      {options.map((o) => (
-        <button
-          key={o.v}
-          onClick={() => onChange(o.v)}
-          className={`px-3 py-1.5 rounded-md text-[9px] font-black transition-all uppercase tracking-wider ${
-            value === o.v
-              ? "bg-[#14F195] text-black shadow-[0_0_10px_rgba(20,241,149,0.2)]"
-              : "text-gray-500 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          {o.l}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 // ─── COMPONENTE SAS PASSPORT ULTRA CHAMATIVO (AGORA É UM BOTÃO) ────────────
@@ -245,6 +225,7 @@ export default function HomeV2Page() {
   const pathname = usePathname();
   const { lang, currency, setLang, setCurrency, fmtMoney } = useI18n();
   const { user } = useSession();
+  const wallet = useWallet();
 
   const [theme, setTheme] = useState("dark");
   const [liveBalance, setLiveBalance] = useState(user.balance + user.yield);
@@ -296,12 +277,15 @@ export default function HomeV2Page() {
           </div>
         </nav>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Toggles de Idioma e Moeda — ligados ao contexto i18n real */}
-          <div className="hidden xl:flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Toggles + rede + carteira: mesmos componentes da TopBar real
+              (SegToggle / NetworkBadge / WalletChip) — paridade com as
+              outras abas. Eles leem o tema global (useTheme), então seguem
+              o visual do app independente do toggle ☀️/🌙 local desta página. */}
+          <div className="hidden lg:flex items-center gap-2.5">
             <SegToggle
               value={lang}
-              onChange={(v) => setLang(v as Lang)}
+              onChange={setLang}
               options={[
                 { v: "pt", l: "PT" },
                 { v: "en", l: "EN" },
@@ -309,12 +293,13 @@ export default function HomeV2Page() {
             />
             <SegToggle
               value={currency}
-              onChange={(v) => setCurrency(v as Currency)}
+              onChange={setCurrency}
               options={[
                 { v: "BRL", l: "R$" },
                 { v: "USDC", l: "$" },
               ]}
             />
+            <NetworkBadge connected={wallet.status === "connected"} />
           </div>
 
           <button
@@ -324,18 +309,7 @@ export default function HomeV2Page() {
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
 
-          <WalletMultiButton
-            style={{
-              backgroundColor: "#14F195",
-              color: "#000",
-              borderRadius: "12px",
-              fontWeight: "900",
-              fontSize: "11px",
-              height: "44px",
-              padding: "0 24px",
-              boxShadow: "0 0 20px rgba(20,241,149,0.2)",
-            }}
-          />
+          <WalletChip wallet={wallet} />
         </div>
       </header>
 
