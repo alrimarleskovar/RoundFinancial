@@ -8,7 +8,8 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Activity } from "@/components/home/Activity";
-import { useI18n } from "@/lib/i18n";
+import { RFILogoMark } from "@/components/brand/brand";
+import { useI18n, type Currency, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 
 // /home-v2 — CANDIDATE dashboard redesign, staged for approval.
@@ -26,10 +27,61 @@ import { useSession } from "@/lib/session";
 // (Session, i18n, theme, wallet) come from the root ClientProviders, so
 // useSession() / useI18n() / WalletMultiButton work here standalone.
 //
-// Faithful port of the supplied design. Only compile-blocking edits were
-// made: typed the local prop bags (no `any`), wired the passport score to
-// the real session (user.score), satisfied DeskKpi's required `delta`, and
-// fixed a malformed inline box-shadow value.
+// Refinement round 1 (toward graduating to /home):
+//   - real brand logo (RFILogoMark) instead of the placeholder square;
+//   - PT/EN toggle wired to the real i18n context (setLang) — drives this
+//     page's own copy via the local STRINGS map below AND the shared
+//     dict that HomeHero / Activity already read, so the whole page flips;
+//   - R$/USDC toggle wired to setCurrency — fmtMoney() reformats live.
+// Copy lives in a LOCAL STRINGS map (not the shared dict) to keep the
+// candidate self-contained; it ports to DICT when v2 becomes /home.
+
+type V2Strings = Record<string, string>;
+
+const STRINGS: Record<Lang, V2Strings> = {
+  pt: {
+    "nav.home": "Início",
+    "nav.groups": "Buscar Grupos",
+    "nav.market": "Mercado",
+    "nav.insights": "Insights",
+    "nav.wallet": "Carteira",
+    "kpi.balance": "Saldo Protegido",
+    "kpi.receivable": "À Receber",
+    "kpi.collateral": "Colateral Exigido",
+    "passport.tier": "Nível de Reputação",
+    "passport.tierValue": "Tier 3 / Veterano",
+    "cycles.title": "Meus Ciclos de Crédito Ativos",
+    "cycles.escrow": "Escrow Verificado",
+    "card.quota": "Cota de Crédito",
+    "card.progress": "Progresso do Ciclo",
+    "card.due": "Vencimento",
+    "card.pay": "Pagar",
+    "card.sell": "Vender",
+  },
+  en: {
+    "nav.home": "Home",
+    "nav.groups": "Find Groups",
+    "nav.market": "Market",
+    "nav.insights": "Insights",
+    "nav.wallet": "Wallet",
+    "kpi.balance": "Protected Balance",
+    "kpi.receivable": "Receivable",
+    "kpi.collateral": "Required Collateral",
+    "passport.tier": "Reputation Tier",
+    "passport.tierValue": "Tier 3 / Veteran",
+    "cycles.title": "My Active Credit Cycles",
+    "cycles.escrow": "Escrow Verified",
+    "card.quota": "Credit Quota",
+    "card.progress": "Cycle Progress",
+    "card.due": "Due Date",
+    "card.pay": "Pay",
+    "card.sell": "Sell",
+  },
+};
+
+function tr(lang: Lang, key: string): string {
+  return STRINGS[lang]?.[key] ?? STRINGS.pt[key] ?? key;
+}
 
 // ─── COMPONENTE DE TOGGLE (IDIOMA / MOEDA) ─────────────────────────────────
 function SegToggle({
@@ -61,7 +113,7 @@ function SegToggle({
 }
 
 // ─── COMPONENTE SAS PASSPORT ULTRA CHAMATIVO (AGORA É UM BOTÃO) ────────────
-function CompactPassport({ score, theme }: { score: number; theme: string }) {
+function CompactPassport({ score, theme, lang }: { score: number; theme: string; lang: Lang }) {
   return (
     <Link
       href="/insights"
@@ -104,8 +156,8 @@ function CompactPassport({ score, theme }: { score: number; theme: string }) {
 
       <div className="mt-2 relative z-10">
         <div className="flex justify-between text-[7px] sm:text-[8px] mb-1 font-bold text-gray-500 uppercase">
-          <span>Nível de Reputação</span>
-          <span className="text-[#9945FF]">Tier 3 / Veterano</span>
+          <span>{tr(lang, "passport.tier")}</span>
+          <span className="text-[#9945FF]">{tr(lang, "passport.tierValue")}</span>
         </div>
         <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
           <div
@@ -125,12 +177,14 @@ function GroupCard({
   total,
   dueDate,
   theme,
+  lang,
 }: {
   name: string;
   progress: number;
   total: number;
   dueDate: string;
   theme: string;
+  lang: Lang;
 }) {
   return (
     <div
@@ -138,7 +192,7 @@ function GroupCard({
     >
       <div className="flex flex-col gap-0.5 min-w-[140px]">
         <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tight">
-          Cota de Crédito
+          {tr(lang, "card.quota")}
         </span>
         <h4
           className={`text-xs font-bold truncate ${theme === "light" ? "text-[#2A2E38]" : "text-white"}`}
@@ -149,7 +203,7 @@ function GroupCard({
 
       <div className="flex-1 flex flex-col gap-1 hidden sm:flex">
         <div className="flex justify-between text-[9px] font-mono">
-          <span className="text-gray-400">Progresso do Ciclo</span>
+          <span className="text-gray-400">{tr(lang, "card.progress")}</span>
           <span className="text-[#14F195] font-bold">
             {progress}/{total}
           </span>
@@ -164,7 +218,7 @@ function GroupCard({
 
       <div className="flex items-center gap-4 shrink-0">
         <div className="text-right flex flex-col">
-          <span className="text-[8px] text-gray-500 uppercase">Vencimento</span>
+          <span className="text-[8px] text-gray-500 uppercase">{tr(lang, "card.due")}</span>
           <span
             className={`text-[10px] font-mono font-bold ${theme === "light" ? "text-[#2A2E38]" : "text-white"}`}
           >
@@ -173,11 +227,11 @@ function GroupCard({
         </div>
 
         <div className="flex gap-2">
-          <button className="bg-[#14F195] text-black text-[10px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(20,241,149,0.2)]">
-            PAGAR
+          <button className="bg-[#14F195] text-black text-[10px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-all shadow-[0_0_15px_rgba(20,241,149,0.2)] uppercase">
+            {tr(lang, "card.pay")}
           </button>
-          <button className="bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-black px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-            VENDER
+          <button className="bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-black px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-all uppercase">
+            {tr(lang, "card.sell")}
           </button>
         </div>
       </div>
@@ -187,12 +241,10 @@ function GroupCard({
 
 export default function HomeV2Page() {
   const pathname = usePathname();
-  const { fmtMoney } = useI18n();
+  const { lang, currency, setLang, setCurrency, fmtMoney } = useI18n();
   const { user } = useSession();
 
   const [theme, setTheme] = useState("dark");
-  const [lang, setLang] = useState("pt");
-  const [currency, setCurrency] = useState("USDC");
   const [liveBalance, setLiveBalance] = useState(user.balance + user.yield);
 
   useEffect(() => {
@@ -202,6 +254,8 @@ export default function HomeV2Page() {
     return () => clearInterval(interval);
   }, []);
 
+  const tx = (key: string) => tr(lang, key);
+
   return (
     <div
       className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === "light" ? "bg-[#F5F1EA] text-[#2A2E38]" : "bg-[#06090F] text-[#EEF0F8]"}`}
@@ -210,7 +264,7 @@ export default function HomeV2Page() {
         className={`sticky top-0 z-50 h-20 border-b backdrop-blur-xl px-6 md:px-12 flex items-center ${theme === "light" ? "bg-white/80 border-black/5 shadow-sm" : "bg-[#06090F]/80 border-white/10"}`}
       >
         <Link href="/" className="flex items-center gap-3 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#14F195] to-[#9945FF] shadow-[0_0_15px_rgba(153,69,255,0.2)]"></div>
+          <RFILogoMark size={32} />
           <h1 className="text-xl font-black italic tracking-tighter hidden sm:block uppercase">
             Round<span className="text-[#14F195]">Fi</span>
           </h1>
@@ -219,11 +273,11 @@ export default function HomeV2Page() {
         <nav className="flex-1 flex justify-center">
           <div className="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
             {[
-              { id: "home", label: "Início", href: "/" },
-              { id: "groups", label: "Buscar Grupos", href: "/grupos" },
-              { id: "market", label: "Mercado", href: "/mercado" },
-              { id: "insights", label: "Insights", href: "/insights" },
-              { id: "wallet", label: "Carteira", href: "/carteira" },
+              { id: "home", href: "/" },
+              { id: "groups", href: "/grupos" },
+              { id: "market", href: "/mercado" },
+              { id: "insights", href: "/insights" },
+              { id: "wallet", href: "/carteira" },
             ].map((item) => (
               <Link
                 key={item.id}
@@ -234,18 +288,18 @@ export default function HomeV2Page() {
                     : "text-gray-400 hover:text-white hover:bg-white/10"
                 }`}
               >
-                {item.label}
+                {tx(`nav.${item.id}`)}
               </Link>
             ))}
           </div>
         </nav>
 
         <div className="flex items-center gap-3 shrink-0">
-          {/* Toggles de Idioma e Moeda restaurados */}
+          {/* Toggles de Idioma e Moeda — ligados ao contexto i18n real */}
           <div className="hidden xl:flex items-center gap-2">
             <SegToggle
               value={lang}
-              onChange={setLang}
+              onChange={(v) => setLang(v as Lang)}
               options={[
                 { v: "pt", l: "PT" },
                 { v: "en", l: "EN" },
@@ -253,7 +307,7 @@ export default function HomeV2Page() {
             />
             <SegToggle
               value={currency}
-              onChange={setCurrency}
+              onChange={(v) => setCurrency(v as Currency)}
               options={[
                 { v: "BRL", l: "R$" },
                 { v: "USDC", l: "$" },
@@ -289,7 +343,7 @@ export default function HomeV2Page() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-fr items-stretch">
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
             <DeskKpi
-              label="Saldo Protegido"
+              label={tx("kpi.balance")}
               value={fmtMoney(liveBalance)}
               numericValue={liveBalance}
               delta=""
@@ -298,7 +352,7 @@ export default function HomeV2Page() {
           </div>
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
             <DeskKpi
-              label="À Receber"
+              label={tx("kpi.receivable")}
               value={fmtMoney(12500)}
               numericValue={12500}
               delta=""
@@ -307,7 +361,7 @@ export default function HomeV2Page() {
           </div>
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
             <DeskKpi
-              label="Colateral Exigido"
+              label={tx("kpi.collateral")}
               value={`${user.colateralPct}%`}
               numericValue={user.colateralPct}
               delta=""
@@ -315,7 +369,7 @@ export default function HomeV2Page() {
             />
           </div>
           <div className="h-full w-full">
-            <CompactPassport score={user.score} theme={theme} />
+            <CompactPassport score={user.score} theme={theme} lang={lang} />
           </div>
         </div>
 
@@ -324,10 +378,10 @@ export default function HomeV2Page() {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500">
-              Meus Ciclos de Crédito Ativos
+              {tx("cycles.title")}
             </h3>
             <span className="text-[10px] text-[#14F195] bg-[#14F195]/10 px-3 py-1 rounded-full font-mono font-black uppercase border border-[#14F195]/20">
-              Escrow Verificado
+              {tx("cycles.escrow")}
             </span>
           </div>
 
@@ -338,6 +392,7 @@ export default function HomeV2Page() {
               total={12}
               dueDate="12/Mai"
               theme={theme}
+              lang={lang}
             />
             <GroupCard
               name="Reserva CoFi Protegida"
@@ -345,6 +400,7 @@ export default function HomeV2Page() {
               total={24}
               dueDate="18/Mai"
               theme={theme}
+              lang={lang}
             />
           </div>
         </div>
