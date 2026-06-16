@@ -8,6 +8,7 @@ import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Activity } from "@/components/home/Activity";
 import { RFILogoMark } from "@/components/brand/brand";
+import { Icons } from "@/components/brand/icons";
 import { NetworkBadge } from "@/components/layout/NetworkBadge";
 import { SegToggle } from "@/components/layout/SegToggle";
 import { WalletChip } from "@/components/layout/WalletChip";
@@ -49,11 +50,6 @@ type V2Strings = Record<string, string>;
 
 const STRINGS: Record<Lang, V2Strings> = {
   pt: {
-    "nav.home": "Início",
-    "nav.groups": "Buscar Grupos",
-    "nav.market": "Mercado",
-    "nav.insights": "Insights",
-    "nav.wallet": "Carteira",
     "kpi.balance": "Saldo Protegido",
     "kpi.receivable": "À Receber",
     "kpi.collateral": "Colateral Exigido",
@@ -68,11 +64,6 @@ const STRINGS: Record<Lang, V2Strings> = {
     "card.sell": "Vender",
   },
   en: {
-    "nav.home": "Home",
-    "nav.groups": "Find Groups",
-    "nav.market": "Market",
-    "nav.insights": "Insights",
-    "nav.wallet": "Wallet",
     "kpi.balance": "Protected Balance",
     "kpi.receivable": "Receivable",
     "kpi.collateral": "Required Collateral",
@@ -91,6 +82,48 @@ const STRINGS: Record<Lang, V2Strings> = {
 function tr(lang: Lang, key: string): string {
   return STRINGS[lang]?.[key] ?? STRINGS.pt[key] ?? key;
 }
+
+// Top-bar navigation — same routes / icons / labels as the left SideNav
+// (Icons.* + the shared nav.* dict keys), just laid out horizontally. The
+// active item is matched by path prefix exactly like the sidebar does.
+const NAV_ITEMS = [
+  { id: "home", href: "/home", icon: Icons.home, labelKey: "nav.home", matchPrefix: "/home" },
+  {
+    id: "groups",
+    href: "/grupos",
+    icon: Icons.groups,
+    labelKey: "nav.groups",
+    matchPrefix: "/grupos",
+  },
+  {
+    id: "score",
+    href: "/reputacao",
+    icon: Icons.shield,
+    labelKey: "nav.score",
+    matchPrefix: "/reputacao",
+  },
+  {
+    id: "wallet",
+    href: "/carteira",
+    icon: Icons.wallet,
+    labelKey: "nav.wallet",
+    matchPrefix: "/carteira",
+  },
+  {
+    id: "market",
+    href: "/mercado",
+    icon: Icons.ticket,
+    labelKey: "nav.market",
+    matchPrefix: "/mercado",
+  },
+  {
+    id: "insights",
+    href: "/insights",
+    icon: Icons.chart,
+    labelKey: "nav.insights",
+    matchPrefix: "/insights",
+  },
+];
 
 // ─── COMPONENTE SAS PASSPORT ULTRA CHAMATIVO (AGORA É UM BOTÃO) ────────────
 function CompactPassport({ score, theme, lang }: { score: number; theme: string; lang: Lang }) {
@@ -223,11 +256,14 @@ function GroupCard({
 
 export default function HomeV2Page() {
   const pathname = usePathname();
-  const { lang, currency, setLang, setCurrency, fmtMoney } = useI18n();
+  const { lang, currency, setLang, setCurrency, fmtMoney, t } = useI18n();
   const { user } = useSession();
   const wallet = useWallet();
 
-  const [theme, setTheme] = useState("dark");
+  // Theme is locked to dark — the page bg stays the brand ground color.
+  // (The ☀️/🌙 screen-tint chip was removed; the global app theme owns
+  // the shared TopBar controls below.)
+  const [theme] = useState("dark");
   const [liveBalance, setLiveBalance] = useState(user.balance + user.yield);
 
   useEffect(() => {
@@ -253,27 +289,28 @@ export default function HomeV2Page() {
           </h1>
         </Link>
 
-        <nav className="flex-1 flex justify-center">
-          <div className="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
-            {[
-              { id: "home", href: "/" },
-              { id: "groups", href: "/grupos" },
-              { id: "market", href: "/mercado" },
-              { id: "insights", href: "/insights" },
-              { id: "wallet", href: "/carteira" },
-            ].map((item) => (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={`px-6 py-2.5 rounded-xl text-[11px] font-black transition-all uppercase tracking-wider ${
-                  pathname === item.href
-                    ? "bg-[#14F195] text-black shadow-[0_0_20px_rgba(20,241,149,0.3)]"
-                    : "text-gray-400 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                {tx(`nav.${item.id}`)}
-              </Link>
-            ))}
+        <nav className="flex-1 flex justify-center min-w-0">
+          <div className="flex items-center gap-1 bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
+            {NAV_ITEMS.map((item) => {
+              const active =
+                pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all ${
+                    active
+                      ? "bg-[#14F195] text-black shadow-[0_0_20px_rgba(20,241,149,0.3)]"
+                      : "text-gray-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <item.icon size={15} sw={active ? 2 : 1.7} />
+                  <span className="hidden text-[10px] font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
+                    {t(item.labelKey)}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </nav>
 
@@ -301,13 +338,6 @@ export default function HomeV2Page() {
             />
             <NetworkBadge connected={wallet.status === "connected"} />
           </div>
-
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm transition-all active:scale-95"
-          >
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
 
           <WalletChip wallet={wallet} />
         </div>
