@@ -3,14 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { NftPosition, Tone } from "@/data/carteira";
+import { DEVNET_POOLS } from "@/lib/devnet";
+import { sendEscapeValveList } from "@/lib/escape-valve-list";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
+import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Sell-share modal. Uses a discount slider (0-30%) to set ask price;
 // previews face / ask / equivalent buyer APY.
@@ -34,12 +39,19 @@ export function SellShareModal({
   const [discount, setDiscount] = useState(8);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [txSig, setTxSig] = useState<string | null>(null);
+  const [chainError, setChainError] = useState<string | null>(null);
+  const { connection } = useConnection();
+  const adapter = useAdapterWallet();
+  const wallet = useWallet();
 
   useEffect(() => {
     if (open) {
       setDiscount(8);
       setSubmitting(false);
       setDone(false);
+      setTxSig(null);
+      setChainError(null);
     }
   }, [open]);
 
@@ -50,15 +62,64 @@ export function SellShareModal({
   // 30% discount -> APY_AT_FULL_DISCOUNT bonus (rough hint).
   const buyerApy = (discount / 30) * APY_AT_FULL_DISCOUNT;
 
+  // Real escape_valve_list when this is the wallet's REAL on-chain slot
+  // (surfaced from usePoolMembers — carries devnetPool + slotIndex). Mock
+  // positions lack those, so they keep the original demo flow unchanged.
+  const onChainReady =
+    !!position.devnetPool &&
+    position.slotIndex != null &&
+    wallet.status === "connected" &&
+    !!adapter.publicKey;
+
   const reset = () => {
     setSubmitting(false);
     setDone(false);
+    setTxSig(null);
+    setChainError(null);
     onClose();
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!position) return;
     setSubmitting(true);
+    setChainError(null);
+
+    if (
+      onChainReady &&
+      position.devnetPool &&
+      position.slotIndex != null &&
+      adapter.publicKey &&
+      adapter.sendTransaction
+    ) {
+      try {
+        const sig = await sendEscapeValveList({
+          connection,
+          sendTransaction: adapter.sendTransaction,
+          pool: DEVNET_POOLS[position.devnetPool].pda,
+          sellerWallet: adapter.publicKey,
+          slotIndex: position.slotIndex,
+          priceUsdc: Math.round(askPrice * 1e6),
+        });
+        setTxSig(sig);
+        // Mirror the mock bookkeeping so the listings UI advances.
+        sellShare(position, askPrice, discount);
+        setSubmitting(false);
+        setDone(true);
+      } catch (err) {
+        const e = err as { message?: string; logs?: string[]; cause?: unknown };
+        const parts: string[] = [];
+        if (e.message) parts.push(e.message);
+        if (Array.isArray(e.logs) && e.logs.length > 0) parts.push("logs:\n" + e.logs.join("\n"));
+        if (e.cause) parts.push("cause: " + String(e.cause));
+        if (parts.length === 0) parts.push(String(err));
+        // eslint-disable-next-line no-console
+        console.error("[RoundFi] escape_valve_list failed:", err);
+        setChainError(parts.join("\n"));
+        setSubmitting(false);
+      }
+      return;
+    }
+
     setTimeout(() => {
       sellShare(position, askPrice, discount);
       setSubmitting(false);
@@ -78,7 +139,36 @@ export function SellShareModal({
       {done ? (
         <ModalSuccess
           title={t("modal.sell.success.title")}
-          body={t("modal.sell.success.body", { d: discount.toFixed(1) })}
+          body={
+            txSig ? (
+              <>
+                {t("modal.sell.success.body", { d: discount.toFixed(1) })}
+                <a
+                  href={wallet.explorerTx(txSig)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 12,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontSize: 11,
+                    color: tokens.green,
+                    background: `${tokens.green}1a`,
+                    border: `1px solid ${tokens.green}55`,
+                    textDecoration: "none",
+                  }}
+                >
+                  on-chain tx · {shortAddr(txSig, 6, 6)}
+                </a>
+              </>
+            ) : (
+              t("modal.sell.success.body", { d: discount.toFixed(1) })
+            )
+          }
           cta={
             <button
               type="button"
@@ -265,6 +355,49 @@ export function SellShareModal({
               </div>
             </div>
           </div>
+
+          {onChainReady ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.green}14`,
+                border: `1px solid ${tokens.green}33`,
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.green}>
+                REAL · DEVNET
+              </MonoLabel>
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                slot on-chain #{position.slotIndex} · Phantom
+              </span>
+            </div>
+          ) : null}
+
+          {chainError ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.red}14`,
+                border: `1px solid ${tokens.red}33`,
+                fontSize: 11,
+                color: tokens.text2,
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                wordBreak: "break-word",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.red}>
+                TX FAILED
+              </MonoLabel>
+              <div style={{ marginTop: 4 }}>{chainError}</div>
+            </div>
+          ) : null}
 
           {/* Footer */}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
