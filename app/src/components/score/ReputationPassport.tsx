@@ -47,14 +47,17 @@ export function ReputationPassport() {
 
   return (
     <div
+      className="group transition-transform duration-500 hover:scale-[1.01]"
       style={{
         borderRadius: 22,
         padding: 28,
         position: "relative",
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
         background: `linear-gradient(155deg, ${tokens.navy} 0%, ${tokens.bgDeep} 60%, ${tokens.navyDeep})`,
         border: `1px solid ${tokens.borderStr}`,
-        minHeight: 340,
+        minHeight: 380,
       }}
     >
       <div
@@ -79,7 +82,9 @@ export function ReputationPassport() {
           background: `radial-gradient(circle, rgba(0,200,255,0.15), transparent 70%)`,
         }}
       />
-      <div style={{ position: "relative" }}>
+      {/* Mirrored shine sweep on hover — same effect as the home SAS passport. */}
+      <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <RFILogoMark size={36} />
           <div style={{ textAlign: "right" }}>
@@ -167,10 +172,11 @@ export function ReputationPassport() {
         </div>
 
         {/* Reputation tier bar — same 0-1000, four-tier scale and animated
-            gradient as the home SAS passport, blown up for this detail card. */}
+            gradient as the home SAS passport, blown up for this detail card.
+            Auto top-margin drops it toward the card's footer. */}
         <div
           style={{
-            marginTop: 24,
+            marginTop: "auto",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "baseline",
@@ -247,7 +253,7 @@ export function ReputationPassport() {
 
         <div
           style={{
-            marginTop: 24,
+            marginTop: 16,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
