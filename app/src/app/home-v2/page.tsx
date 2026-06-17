@@ -6,44 +6,22 @@ import Link from "next/link";
 import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Activity } from "@/components/home/Activity";
-import { RFILogoMark } from "@/components/brand/brand";
-import { NetworkBadge } from "@/components/layout/NetworkBadge";
-import { SegToggle } from "@/components/layout/SegToggle";
-import { SessionNav } from "@/components/layout/SessionNav";
-import { WalletChip } from "@/components/layout/WalletChip";
+import { TopBar } from "@/components/layout/TopBar";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
-import { useWallet } from "@/lib/wallet";
 
-// /home-v2 — CANDIDATE dashboard redesign, staged for approval.
+// /home-v2 — CANDIDATE dashboard redesign, staged for the team to review
+// alongside the current /home.
 //
-// This is the "segunda sessão de teste" the operator asked for: the
-// proposed new /home model rendered at its OWN route so the live /home
-// stays untouched. If approved, this becomes /home — note that the real
-// /home lives inside the (app) route group under DeskShell, so the swap
-// means either moving /home out of (app) or stripping this page's
-// self-contained header/footer to sit inside DeskShell.
+// Rendered at its OWN route, OUTSIDE the (app) route group, so the live
+// /home stays untouched. It renders the SAME shared <TopBar /> as every
+// (app) route — so the header (size + chrome) is identical when navigating
+// in and out of v2 — then its own bento body + footer. All providers
+// (Session, i18n, theme, wallet) come from the root ClientProviders, so the
+// shared components work here standalone.
 //
-// Mounted OUTSIDE (app) deliberately: the design ships its own header +
-// footer + theme/lang/currency toggles, so it must NOT inherit the
-// DeskShell SideNav (which would double the chrome). All providers
-// (Session, i18n, theme, wallet) come from the root ClientProviders, so
-// useSession() / useI18n() / WalletMultiButton work here standalone.
-//
-// Refinement round 1 (toward graduating to /home):
-//   - real brand logo (RFILogoMark) instead of the placeholder square;
-//   - PT/EN toggle wired to the real i18n context (setLang) — drives this
-//     page's own copy via the local STRINGS map below AND the shared
-//     dict that HomeHero / Activity already read, so the whole page flips;
-//   - R$/USDC toggle wired to setCurrency — fmtMoney() reformats live.
-// Copy lives in a LOCAL STRINGS map (not the shared dict) to keep the
-// candidate self-contained; it ports to DICT when v2 becomes /home.
-//
-// Refinement round 2: the header's right cluster now reuses the SAME
-// components as the real TopBar — SegToggle (PT/EN, R$/USDC), NetworkBadge
-// (SOLANA_DEVNET / PHANTOM_OFFLINE) and WalletChip (copy / airdrop /
-// explorer / disconnect) — so the controls are pixel-identical to every
-// other tab. NetworkBadge was extracted out of TopBar for this reuse.
+// Page copy lives in a LOCAL STRINGS map (not the shared dict) to keep the
+// candidate self-contained; it ports to DICT when v2 graduates to /home.
 
 type V2Strings = Record<string, string>;
 
@@ -244,9 +222,8 @@ function GroupCard({
 }
 
 export default function HomeV2Page() {
-  const { lang, currency, setLang, setCurrency, fmtMoney } = useI18n();
+  const { lang, fmtMoney } = useI18n();
   const { user } = useSession();
-  const wallet = useWallet();
 
   // Theme is locked to dark — the page bg stays the brand ground color.
   // (The ☀️/🌙 screen-tint chip was removed; the global app theme owns
@@ -275,49 +252,9 @@ export default function HomeV2Page() {
     <div
       className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === "light" ? "bg-[#F5F1EA] text-[#2A2E38]" : "bg-[#06090F] text-[#EEF0F8]"}`}
     >
-      <header
-        className={`sticky top-0 z-50 h-20 border-b backdrop-blur-xl px-6 md:px-12 flex items-center ${theme === "light" ? "bg-white/80 border-black/5 shadow-sm" : "bg-[#06090F]/80 border-white/10"}`}
-      >
-        <Link
-          href="/"
-          className="flex items-center gap-3 shrink-0 transition-transform hover:scale-105"
-        >
-          <RFILogoMark size={32} />
-          <h1 className="text-xl font-black italic tracking-tighter hidden sm:block uppercase">
-            Round<span className="text-[#14F195]">Fi</span>
-          </h1>
-        </Link>
-
-        <SessionNav className="flex-1" />
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Toggles + rede + carteira: mesmos componentes da TopBar real
-              (SegToggle / NetworkBadge / WalletChip) — paridade com as
-              outras abas. Eles leem o tema global (useTheme), então seguem
-              o visual do app independente do toggle ☀️/🌙 local desta página. */}
-          <div className="hidden lg:flex items-center gap-2.5">
-            <SegToggle
-              value={lang}
-              onChange={setLang}
-              options={[
-                { v: "pt", l: "PT" },
-                { v: "en", l: "EN" },
-              ]}
-            />
-            <SegToggle
-              value={currency}
-              onChange={setCurrency}
-              options={[
-                { v: "BRL", l: "R$" },
-                { v: "USDC", l: "$" },
-              ]}
-            />
-            <NetworkBadge connected={wallet.status === "connected"} />
-          </div>
-
-          <WalletChip wallet={wallet} />
-        </div>
-      </header>
+      {/* Same shared TopBar every other dashboard route renders — guarantees
+          an identical header (size + chrome) when navigating in/out of v2. */}
+      <TopBar />
 
       <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full flex flex-col gap-8 animate-in fade-in duration-700">
         <HomeHero />
