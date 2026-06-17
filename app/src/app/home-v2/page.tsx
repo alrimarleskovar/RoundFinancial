@@ -12,7 +12,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { ACTIVE_GROUPS, type ActiveGroup } from "@/data/groups";
-import type { NftPosition } from "@/data/carteira";
+import type { NftPosition, Tone } from "@/data/carteira";
 
 // /home-v2 — CANDIDATE dashboard redesign, staged for the team to review
 // alongside the current /home.
@@ -41,6 +41,8 @@ const STRINGS: Record<Lang, V2Strings> = {
     "tier.4": "Elite",
     "cycles.title": "Meus Ciclos de Crédito Ativos",
     "cycles.escrow": "Escrow Verificado",
+    "cycles.empty.title": "Nenhum ciclo de crédito ativo ainda.",
+    "cycles.empty.cta": "Buscar grupos",
     "card.quota": "Cota de Crédito",
     "card.progress": "Progresso do Ciclo",
     "card.due": "Vencimento",
@@ -58,6 +60,8 @@ const STRINGS: Record<Lang, V2Strings> = {
     "tier.4": "Elite",
     "cycles.title": "My Active Credit Cycles",
     "cycles.escrow": "Escrow Verified",
+    "cycles.empty.title": "No active credit cycles yet.",
+    "cycles.empty.cta": "Browse groups",
     "card.quota": "Credit Quota",
     "card.progress": "Cycle Progress",
     "card.due": "Due Date",
@@ -80,6 +84,15 @@ const PASSPORT_TIERS = [
   { level: 3, min: 750 },
   { level: 4, min: 950 },
 ];
+
+// Per-group accent colors (mirrors the tone palette the /home GroupRow uses).
+const TONE_HEX: Record<Tone, string> = {
+  g: "#14F195",
+  t: "#00C8FF",
+  p: "#9945FF",
+  a: "#FFB547",
+  r: "#FF5656",
+};
 
 // Next-installment due date from a group's "days until" offset, formatted
 // DD/Mon in the active locale (e.g. "17/Jun" / "17/Jun").
@@ -190,6 +203,7 @@ function GroupCard({
   const [payOpen, setPayOpen] = useState(false);
   const [sellOpen, setSellOpen] = useState(false);
   const dueDate = dueLabel(g.nextDue, lang);
+  const tone = TONE_HEX[g.tone];
   // The user's cota in this cycle, shaped for the escape-valve sell flow.
   // Face value = the prize; SellShareModal applies the discount slider on top.
   const monthsLeft = Math.max(0, g.total - month);
@@ -211,28 +225,36 @@ function GroupCard({
     <div
       className={`border p-4 rounded-xl flex items-center justify-between gap-4 transition-all w-full ${theme === "light" ? "bg-white border-black/5 shadow-sm" : "bg-white/5 border-white/10 hover:bg-white/[0.08]"}`}
     >
-      <div className="flex flex-col gap-0.5 min-w-[140px]">
-        <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tight">
-          {tr(lang, "card.quota")}
-        </span>
-        <h4
-          className={`text-xs font-bold truncate ${theme === "light" ? "text-[#2A2E38]" : "text-white"}`}
+      <div className="flex items-center gap-3 min-w-[150px]">
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base"
+          style={{ background: `${tone}1A`, border: `1px solid ${tone}40` }}
         >
-          {g.name}
-        </h4>
+          {g.emoji}
+        </div>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tight">
+            {tr(lang, "card.quota")}
+          </span>
+          <h4
+            className={`text-xs font-bold truncate ${theme === "light" ? "text-[#2A2E38]" : "text-white"}`}
+          >
+            {g.name}
+          </h4>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col gap-1 hidden sm:flex">
         <div className="flex justify-between text-[9px] font-mono">
           <span className="text-gray-400">{tr(lang, "card.progress")}</span>
-          <span className="text-[#14F195] font-bold">
+          <span className="font-bold" style={{ color: tone }}>
             {month}/{g.total}
           </span>
         </div>
         <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
           <div
-            className="bg-[#14F195] h-full"
-            style={{ width: `${(month / g.total) * 100}%` }}
+            className="h-full"
+            style={{ background: tone, width: `${(month / g.total) * 100}%` }}
           ></div>
         </div>
       </div>
@@ -369,14 +391,27 @@ export default function HomeV2Page() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            {ACTIVE_GROUPS.map((g) => {
-              // Live month overlay — advances as installments are paid this
-              // session (same pattern as the real /home GroupRow).
-              const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
-              return <GroupCard key={g.id} g={g} month={month} theme={theme} lang={lang} />;
-            })}
-          </div>
+          {ACTIVE_GROUPS.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+              <div className="text-3xl opacity-70">🪙</div>
+              <p className="text-sm text-gray-400">{tx("cycles.empty.title")}</p>
+              <Link
+                href="/grupos"
+                className="rounded-xl border border-[#14F195]/30 bg-[#14F195]/10 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-[#14F195] transition-all hover:bg-[#14F195]/20"
+              >
+                {tx("cycles.empty.cta")}
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {ACTIVE_GROUPS.map((g) => {
+                // Live month overlay — advances as installments are paid this
+                // session (same pattern as the real /home GroupRow).
+                const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
+                return <GroupCard key={g.id} g={g} month={month} theme={theme} lang={lang} />;
+              })}
+            </div>
+          )}
         </div>
 
         <div
