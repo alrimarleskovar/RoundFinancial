@@ -10,6 +10,7 @@ import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { ACTIVE_GROUPS, type ActiveGroup } from "@/data/groups";
 import type { NftPosition, Tone } from "@/data/carteira";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n, type Lang } from "@/lib/i18n";
 import {
   PASSPORT_TIERS,
@@ -148,7 +149,8 @@ function GroupCard({ g, month, theme }: { g: ActiveGroup; month: number; theme: 
 
   return (
     <div
-      className={`border p-4 rounded-xl flex items-center justify-between gap-4 transition-all w-full ${theme === "light" ? "bg-white border-black/5 shadow-sm" : "bg-white/5 border-white/10 hover:bg-white/[0.08]"}`}
+      className={`border border-transparent p-4 rounded-xl flex items-center justify-between gap-4 transition-all w-full ${theme === "light" ? "bg-white shadow-sm" : "bg-white/5"}`}
+      {...liftHover(tone)}
     >
       <div className="flex items-center gap-3 min-w-[150px]">
         <div

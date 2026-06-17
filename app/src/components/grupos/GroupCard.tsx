@@ -10,6 +10,7 @@ import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import type { CatalogGroup } from "@/lib/groups";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -91,6 +92,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
     <div
       style={{
         ...glass,
+        border: "1px solid transparent",
         borderRadius: 18,
         padding: 18,
         position: "relative",
@@ -99,7 +101,9 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         flexDirection: "column",
         gap: 14,
         opacity: locked ? 0.72 : 1,
+        transition: "transform 180ms ease, border-color 180ms ease",
       }}
+      {...liftHover(tc)}
     >
       <div
         style={{

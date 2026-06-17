@@ -88,6 +88,9 @@ export function DeskKpi({
       <div
         style={{
           ...glass,
+          // Transparent resting border — the tone outline only shows on hover
+          // (matches the reputacao cards), never a white edge.
+          border: "1px solid transparent",
           borderRadius: 16,
           padding: 18,
           position: "relative",
@@ -114,9 +117,7 @@ export function DeskKpi({
               ? `transform 180ms ease, border-color 520ms ease ${returnDelay}ms`
               : baseTransition;
           e.currentTarget.style.transform = "translateY(0)";
-          // Restore the glass hairline — "" falls back to the white currentColor
-          // and leaves a bright edge after the first hover.
-          e.currentTarget.style.border = glass.border as string;
+          e.currentTarget.style.borderColor = "transparent";
         }}
       >
         <div
