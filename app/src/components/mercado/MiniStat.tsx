@@ -1,6 +1,7 @@
 "use client";
 
 import { MonoLabel } from "@/components/brand/brand";
+import { liftHover } from "@/lib/hoverLift";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Compact stat card used in the Mercado top row. Color of the delta
@@ -23,9 +24,12 @@ export function MiniStat({
     <div
       style={{
         ...glass,
+        border: "1px solid transparent",
         padding: 14,
         borderRadius: 12,
+        transition: "transform 180ms ease, border-color 180ms ease",
       }}
+      {...liftHover(color)}
     >
       <MonoLabel size={11} color={tokens.text2} style={{ letterSpacing: "0.12em" }}>
         {label}
