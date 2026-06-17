@@ -9,7 +9,7 @@ import { WithdrawYieldModal } from "@/components/carteira/WithdrawYieldModal";
 import { CountUp } from "@/components/ui/CountUp";
 import { liftHover } from "@/lib/hoverLift";
 import { useSession } from "@/lib/session";
-import { useI18n } from "@/lib/i18n";
+import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { useIsMobile } from "@/lib/useIsMobile";
 
@@ -26,7 +26,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
-  const { t, currency, fmtMoney } = useI18n();
+  const { t, currency, fmtMoney, lang } = useI18n();
   const { user } = useSession();
   const isMobile = useIsMobile();
 
@@ -36,6 +36,13 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
     { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%", flex: 1.4 },
     { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%", flex: 0.6 },
   ];
+
+  // Total balance expressed in devnet USDC (the on-chain unit), shown right
+  // at the composition bar regardless of the BRL/USDC display toggle.
+  const usdcTotal = (user.balance / USDC_RATE).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   return (
     <div
@@ -120,7 +127,27 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
 
             {/* composition bar — grouped with the 24h delta at the card's lower edge */}
             <div style={{ marginTop: 14 }}>
-              <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
+                {/* Total in devnet USDC, anchored right at the bar. */}
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: tokens.text2,
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  }}
+                >
+                  {usdcTotal} USDC
+                </span>
+              </div>
               <div
                 style={{
                   marginTop: 10,
@@ -290,7 +317,9 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
+              transition: "transform 180ms ease, border-color 180ms ease",
             }}
+            {...liftHover(tokens.teal, tokens.borderStr)}
           >
             {t("wallet.withdraw")}
           </button>

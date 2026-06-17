@@ -235,10 +235,10 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // White-outline hover that lingers ~200ms before fading + a 12px title.
+  // Tone-tinted hover border + lift, identical to the other toggles polished
+  // this session — no white edge, symmetric quick in/out (DeskKpi falls back
+  // to `${toneColor}55` when hoverBorderColor is omitted). The 12px title stays.
   const kpiProps = {
-    hoverBorderColor: "rgba(255,255,255,0.6)",
-    hoverReturnDelayMs: 200,
     labelSize: 12,
   };
 
