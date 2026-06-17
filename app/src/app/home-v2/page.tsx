@@ -9,6 +9,7 @@ import { Activity } from "@/components/home/Activity";
 import { TopBar } from "@/components/layout/TopBar";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
+import { ACTIVE_GROUPS } from "@/data/groups";
 
 // /home-v2 — CANDIDATE dashboard redesign, staged for the team to review
 // alongside the current /home.
@@ -77,8 +78,29 @@ const PASSPORT_TIERS = [
   { level: 4, min: 950 },
 ];
 
+// Next-installment due date from a group's "days until" offset, formatted
+// DD/Mon in the active locale (e.g. "17/Jun" / "17/Jun").
+function dueLabel(daysUntil: number, lang: Lang): string {
+  const d = new Date(Date.now() + daysUntil * 86_400_000);
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = d
+    .toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", { month: "short" })
+    .replace(".", "");
+  return `${day}/${mon.charAt(0).toUpperCase()}${mon.slice(1)}`;
+}
+
 // ─── COMPONENTE SAS PASSPORT ULTRA CHAMATIVO (AGORA É UM BOTÃO) ────────────
-function CompactPassport({ score, theme, lang }: { score: number; theme: string; lang: Lang }) {
+function CompactPassport({
+  score,
+  passportId,
+  theme,
+  lang,
+}: {
+  score: number;
+  passportId: string;
+  theme: string;
+  lang: Lang;
+}) {
   // Highest tier whose threshold the score clears (1-4), and the fill % on
   // the 0-PASSPORT_MAX_SCORE scale — keeps the label + bar in sync.
   const tier = [...PASSPORT_TIERS].reverse().find((t) => score >= t.min) ?? PASSPORT_TIERS[0];
@@ -104,7 +126,7 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
           <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#9945FF] to-[#14F195]">
             SAS Digital Passport
           </span>
-          <span className="text-[7px] sm:text-[8px] text-gray-500 font-mono">ID: RND-882-SAS</span>
+          <span className="text-[7px] sm:text-[8px] text-gray-500 font-mono">ID: {passportId}</span>
         </div>
         <div className="w-2.5 h-2.5 rounded-full bg-[#14F195] shadow-[0_0_10px_#14F195] animate-pulse"></div>
       </div>
@@ -223,7 +245,7 @@ function GroupCard({
 
 export default function HomeV2Page() {
   const { lang, fmtMoney } = useI18n();
-  const { user } = useSession();
+  const { user, monthsPaidByGroup, claimedGroups } = useSession();
 
   // Theme is locked to dark — the page bg stays the brand ground color.
   // (The ☀️/🌙 screen-tint chip was removed; the global app theme owns
@@ -247,6 +269,12 @@ export default function HomeV2Page() {
     hoverReturnDelayMs: 200,
     labelSize: 12,
   };
+
+  // "À Receber" = prizes of active cycles you haven't been drawn for /
+  // claimed yet — the credit still coming to you.
+  const receivable = ACTIVE_GROUPS.filter(
+    (g) => g.status !== "drawn" && !claimedGroups.includes(g.name),
+  ).reduce((sum, g) => sum + g.prize, 0);
 
   return (
     <div
@@ -274,8 +302,8 @@ export default function HomeV2Page() {
           <div className="h-full w-full [&>div]:h-full [&>div]:w-full">
             <DeskKpi
               label={tx("kpi.receivable")}
-              value={fmtMoney(12500)}
-              numericValue={12500}
+              value={fmtMoney(receivable)}
+              numericValue={receivable}
               delta=""
               tone="p"
               {...kpiHover}
@@ -292,7 +320,12 @@ export default function HomeV2Page() {
             />
           </div>
           <div className="h-full w-full">
-            <CompactPassport score={user.score} theme={theme} lang={lang} />
+            <CompactPassport
+              score={user.score}
+              passportId={user.walletShort}
+              theme={theme}
+              lang={lang}
+            />
           </div>
         </div>
 
@@ -309,22 +342,22 @@ export default function HomeV2Page() {
           </div>
 
           <div className="grid grid-cols-1 gap-3">
-            <GroupCard
-              name="Expansão M5 Aço Design"
-              progress={4}
-              total={12}
-              dueDate="12/Mai"
-              theme={theme}
-              lang={lang}
-            />
-            <GroupCard
-              name="Reserva CoFi Protegida"
-              progress={1}
-              total={24}
-              dueDate="18/Mai"
-              theme={theme}
-              lang={lang}
-            />
+            {ACTIVE_GROUPS.map((g) => {
+              // Live month overlay — advances as installments are paid this
+              // session (same pattern as the real /home GroupRow).
+              const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
+              return (
+                <GroupCard
+                  key={g.id}
+                  name={g.name}
+                  progress={month}
+                  total={g.total}
+                  dueDate={dueLabel(g.nextDue, lang)}
+                  theme={theme}
+                  lang={lang}
+                />
+              );
+            })}
           </div>
         </div>
 
