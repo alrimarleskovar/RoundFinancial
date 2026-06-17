@@ -143,14 +143,14 @@ export function DeskKpi({
         >
           <span
             style={{
-              // DM Sans + tabular figures: every digit the same width so the
-              // value reads aligned and doesn't wobble as CountUp animates
-              // (Syne, a display font, has only proportional figures).
-              fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+              fontFamily: "var(--font-syne), Syne",
               fontSize: 28,
-              fontWeight: 700,
+              fontWeight: 800,
               color: tokens.text,
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.02em",
+              // tabular figures only — keeps digit widths equal so the value
+              // stays aligned (and the animated Saldo doesn't jitter) without
+              // changing the Syne display look.
               fontVariantNumeric: "tabular-nums",
               lineHeight: 1,
             }}

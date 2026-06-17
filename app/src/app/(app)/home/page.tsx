@@ -251,7 +251,7 @@ export default function HomePage() {
   ).reduce((sum, g) => sum + g.prize, 0);
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto w-full flex flex-col gap-8 animate-in fade-in duration-700">
+    <div className="font-sans p-4 md:p-8 max-w-6xl mx-auto w-full flex flex-col gap-8 animate-in fade-in duration-700">
       <HomeHero />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-fr items-stretch">
