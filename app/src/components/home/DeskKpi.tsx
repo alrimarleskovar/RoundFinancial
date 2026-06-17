@@ -114,7 +114,9 @@ export function DeskKpi({
               ? `transform 180ms ease, border-color 520ms ease ${returnDelay}ms`
               : baseTransition;
           e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.borderColor = "";
+          // Restore the glass hairline — "" falls back to the white currentColor
+          // and leaves a bright edge after the first hover.
+          e.currentTarget.style.border = glass.border as string;
         }}
       >
         <div

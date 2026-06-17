@@ -59,6 +59,7 @@ function CarteiraContent() {
       fontSize: 12,
       fontWeight: 600,
       fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+      transition: "transform 180ms ease, border-color 180ms ease",
     }),
     [tokens],
   );
@@ -73,6 +74,7 @@ function CarteiraContent() {
       fontSize: 12,
       fontWeight: 700,
       fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+      transition: "transform 180ms ease, box-shadow 180ms ease",
     }),
     [tokens],
   );
@@ -107,10 +109,34 @@ function CarteiraContent() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" style={btnSoft} onClick={() => setReceiveOpen(true)}>
+          <button
+            type="button"
+            style={btnSoft}
+            onClick={() => setReceiveOpen(true)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.borderColor = `${tokens.green}66`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.borderColor = tokens.border;
+            }}
+          >
             {t("wallet.receive")}
           </button>
-          <button type="button" style={btnPrimary} onClick={() => setSendOpen(true)}>
+          <button
+            type="button"
+            style={btnPrimary}
+            onClick={() => setSendOpen(true)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow = `0 8px 20px ${tokens.green}40`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
             {t("wallet.send")}
           </button>
         </div>

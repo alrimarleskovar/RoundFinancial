@@ -69,7 +69,10 @@ export function LevelsList() {
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.borderColor = "";
+              // Revert to the row's explicit base (teal for the current tier,
+              // transparent otherwise). "" would fall back to currentColor
+              // (white) and leave a white edge after the first hover.
+              e.currentTarget.style.borderColor = isCurrent ? `${tokens.teal}4D` : "transparent";
             }}
           >
             <div

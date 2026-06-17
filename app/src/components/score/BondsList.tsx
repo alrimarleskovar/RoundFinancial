@@ -93,7 +93,10 @@ export function BondsList() {
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.borderColor = "";
+                // Revert to the explicit transparent base. Setting borderColor
+                // to "" would drop the inline color and fall back to
+                // currentColor (white text) — that was the lingering white edge.
+                e.currentTarget.style.borderColor = "transparent";
               }}
             >
               <div
