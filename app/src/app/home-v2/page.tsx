@@ -54,7 +54,10 @@ const STRINGS: Record<Lang, V2Strings> = {
     "kpi.receivable": "À Receber",
     "kpi.collateral": "Colateral Exigido",
     "passport.tier": "Nível de Reputação",
-    "passport.tierValue": "Tier 3 / Veterano",
+    "tier.1": "Iniciante",
+    "tier.2": "Comprovado",
+    "tier.3": "Veterano",
+    "tier.4": "Elite",
     "cycles.title": "Meus Ciclos de Crédito Ativos",
     "cycles.escrow": "Escrow Verificado",
     "card.quota": "Cota de Crédito",
@@ -68,7 +71,10 @@ const STRINGS: Record<Lang, V2Strings> = {
     "kpi.receivable": "Receivable",
     "kpi.collateral": "Required Collateral",
     "passport.tier": "Reputation Tier",
-    "passport.tierValue": "Tier 3 / Veteran",
+    "tier.1": "Beginner",
+    "tier.2": "Proven",
+    "tier.3": "Veteran",
+    "tier.4": "Elite",
     "cycles.title": "My Active Credit Cycles",
     "cycles.escrow": "Escrow Verified",
     "card.quota": "Credit Quota",
@@ -125,8 +131,23 @@ const NAV_ITEMS = [
   },
 ];
 
+// SAS reputation ladder — 4 tiers on a 0-1000 score scale (mirrors the
+// thresholds in lib/session.tsx). Drives the passport's tier label + the
+// progress bar's boundary ticks so both map correctly up to tier 4.
+const PASSPORT_MAX_SCORE = 1000;
+const PASSPORT_TIERS = [
+  { level: 1, min: 0 },
+  { level: 2, min: 500 },
+  { level: 3, min: 750 },
+  { level: 4, min: 950 },
+];
+
 // ─── COMPONENTE SAS PASSPORT ULTRA CHAMATIVO (AGORA É UM BOTÃO) ────────────
 function CompactPassport({ score, theme, lang }: { score: number; theme: string; lang: Lang }) {
+  // Highest tier whose threshold the score clears (1-4), and the fill % on
+  // the 0-PASSPORT_MAX_SCORE scale — keeps the label + bar in sync.
+  const tier = [...PASSPORT_TIERS].reverse().find((t) => score >= t.min) ?? PASSPORT_TIERS[0];
+  const pct = Math.max(0, Math.min(100, (score / PASSPORT_MAX_SCORE) * 100));
   return (
     <Link
       href="/reputacao"
@@ -145,7 +166,7 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
 
       <div className="flex items-center justify-between relative z-10 mb-2">
         <div className="flex flex-col">
-          <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#9945FF] to-[#14F195]">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#9945FF] to-[#14F195]">
             SAS Digital Passport
           </span>
           <span className="text-[7px] sm:text-[8px] text-gray-500 font-mono">ID: RND-882-SAS</span>
@@ -155,28 +176,39 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
 
       <div className="flex items-baseline gap-2 my-auto relative z-10">
         <span
-          className={`text-3xl sm:text-4xl font-black italic tracking-tighter transition-colors ${theme === "light" ? "text-black" : "text-white"}`}
+          className={`text-4xl sm:text-5xl font-black italic tracking-tighter transition-colors ${theme === "light" ? "text-black" : "text-white"}`}
         >
           {score}
         </span>
         <div className="flex flex-col">
-          <span className="text-[9px] sm:text-[10px] text-[#14F195] font-black leading-none">
+          <span className="text-[9px] sm:text-[10px] text-[#14F195] font-black italic leading-none">
             TRUSTED
           </span>
-          <span className="text-[9px] sm:text-[10px] text-gray-500 font-bold">SCORE</span>
+          <span className="text-[9px] sm:text-[10px] text-gray-500 font-bold italic">SCORE</span>
         </div>
       </div>
 
       <div className="mt-2 relative z-10">
         <div className="flex justify-between text-[7px] sm:text-[8px] mb-1 font-bold text-gray-500 uppercase">
           <span>{tr(lang, "passport.tier")}</span>
-          <span className="text-[#9945FF]">{tr(lang, "passport.tierValue")}</span>
+          <span className="text-[#9945FF]">
+            Tier {tier.level} / {tr(lang, `tier.${tier.level}`)}
+          </span>
         </div>
-        <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+        <div className="relative w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
           <div
             className="bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#9945FF] h-full bg-[length:200%_auto] animate-gradient-x"
-            style={{ width: `${(score / 1000) * 100}%` }}
+            style={{ width: `${pct}%` }}
           ></div>
+          {/* Tier boundary ticks (T2 / T3 / T4) so the 4-tier scale reads
+              correctly across the bar. */}
+          {PASSPORT_TIERS.slice(1).map((tt) => (
+            <span
+              key={tt.level}
+              className="absolute top-0 bottom-0 w-px bg-white/25"
+              style={{ left: `${(tt.min / PASSPORT_MAX_SCORE) * 100}%` }}
+            />
+          ))}
         </div>
       </div>
     </Link>
@@ -286,7 +318,10 @@ export default function HomeV2Page() {
       <header
         className={`sticky top-0 z-50 h-20 border-b backdrop-blur-xl px-6 md:px-12 flex items-center ${theme === "light" ? "bg-white/80 border-black/5 shadow-sm" : "bg-[#06090F]/80 border-white/10"}`}
       >
-        <Link href="/" className="flex items-center gap-3 shrink-0">
+        <Link
+          href="/"
+          className="flex items-center gap-3 shrink-0 transition-transform hover:scale-105"
+        >
           <RFILogoMark size={32} />
           <h1 className="text-xl font-black italic tracking-tighter hidden sm:block uppercase">
             Round<span className="text-[#14F195]">Fi</span>
