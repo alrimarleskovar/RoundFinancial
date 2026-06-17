@@ -41,6 +41,7 @@ export function DeskBtn({
         boxShadow: `0 6px 18px ${tokens.green}33`,
         textDecoration: "none",
         fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+        transition: "transform 120ms ease",
       }
     : {
         padding: "10px 16px",
@@ -56,6 +57,7 @@ export function DeskBtn({
         gap: 8,
         textDecoration: "none",
         fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+        transition: "transform 120ms ease",
       };
 
   const inner = (
@@ -65,15 +67,29 @@ export function DeskBtn({
     </>
   );
 
+  // Press "relief" — the button dips slightly on mouse-down and springs
+  // back on release (or when the cursor leaves mid-press).
+  const press = {
+    onMouseDown: (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "scale(0.96)";
+    },
+    onMouseUp: (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "scale(1)";
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "scale(1)";
+    },
+  };
+
   if (href) {
     return (
-      <Link href={href} style={style as React.CSSProperties}>
+      <Link href={href} style={style as React.CSSProperties} {...press}>
         {inner}
       </Link>
     );
   }
   return (
-    <button type="button" onClick={onClick} style={style as React.CSSProperties}>
+    <button type="button" onClick={onClick} style={style as React.CSSProperties} {...press}>
       {inner}
     </button>
   );

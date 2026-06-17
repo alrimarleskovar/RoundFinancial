@@ -174,9 +174,9 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
         <div className="w-2.5 h-2.5 rounded-full bg-[#14F195] shadow-[0_0_10px_#14F195] animate-pulse"></div>
       </div>
 
-      <div className="flex items-baseline gap-2 my-auto relative z-10">
+      <div className="flex items-end gap-2 my-auto relative z-10">
         <span
-          className={`text-4xl sm:text-5xl font-black italic tracking-tighter transition-colors ${theme === "light" ? "text-black" : "text-white"}`}
+          className={`text-5xl sm:text-6xl font-black italic tracking-tighter transition-colors ${theme === "light" ? "text-black" : "text-white"}`}
         >
           {score}
         </span>
@@ -307,9 +307,13 @@ export default function HomeV2Page() {
 
   const tx = (key: string) => tr(lang, key);
 
-  // White outline + delayed fade-back on hover, shared by the KPI cards
-  // (quick in, lingers ~200ms then fades). Matches the panels below.
-  const kpiHover = { hoverBorderColor: "rgba(255,255,255,0.6)", hoverReturnDelayMs: 200 };
+  // Shared props for the three KPI cards: white-outline hover that lingers
+  // ~200ms before fading, plus a 4x-larger title (label 9px -> 36px).
+  const kpiHover = {
+    hoverBorderColor: "rgba(255,255,255,0.6)",
+    hoverReturnDelayMs: 200,
+    labelSize: 36,
+  };
 
   return (
     <div

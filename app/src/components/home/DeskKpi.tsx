@@ -23,6 +23,7 @@ export function DeskKpi({
   href,
   hoverBorderColor,
   hoverReturnDelayMs,
+  labelSize,
 }: {
   label: string;
   value: string | number;
@@ -40,6 +41,9 @@ export function DeskKpi({
   // white outline + a return delay so the border lingers before fading.
   hoverBorderColor?: string;
   hoverReturnDelayMs?: number;
+  // KPI title (label) font size in px. Defaults to 9 (the original tiny
+  // mono caption). /home-v2 passes a larger value for bolder titles.
+  labelSize?: number;
 }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -123,7 +127,12 @@ export function DeskKpi({
             background: `linear-gradient(90deg, ${toneColor}, transparent 70%)`,
           }}
         />
-        <MonoLabel size={9}>{label}</MonoLabel>
+        <MonoLabel
+          size={labelSize ?? 9}
+          style={labelSize ? { letterSpacing: "0.04em", lineHeight: 1.1 } : undefined}
+        >
+          {label}
+        </MonoLabel>
         <div
           style={{
             display: "flex",
