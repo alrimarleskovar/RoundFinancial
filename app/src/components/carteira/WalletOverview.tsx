@@ -105,7 +105,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             </div>
             <div
               style={{
-                marginTop: 10,
+                marginTop: "auto",
                 display: "flex",
                 gap: 16,
                 fontSize: 12,
@@ -118,8 +118,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               <span style={{ color: tokens.text2 }}>{t("home.kpi.delta.balance")}</span>
             </div>
 
-            {/* composition bar — pushed to the card's lower edge */}
-            <div style={{ marginTop: "auto", paddingTop: 28 }}>
+            {/* composition bar — grouped with the 24h delta at the card's lower edge */}
+            <div style={{ marginTop: 14 }}>
               <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
               <div
                 style={{
@@ -133,11 +133,14 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                 {composition.map((x, i) => (
                   <div
                     key={x.l}
+                    onMouseEnter={() => setHoveredSlice(i)}
+                    onMouseLeave={() => setHoveredSlice(null)}
                     style={{
                       flex: x.flex,
                       background: x.c,
                       opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.25,
                       transition: "opacity 180ms ease",
+                      cursor: "pointer",
                     }}
                   />
                 ))}
