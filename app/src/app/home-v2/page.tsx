@@ -2,15 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Activity } from "@/components/home/Activity";
 import { RFILogoMark } from "@/components/brand/brand";
-import { Icons } from "@/components/brand/icons";
 import { NetworkBadge } from "@/components/layout/NetworkBadge";
 import { SegToggle } from "@/components/layout/SegToggle";
+import { SessionNav } from "@/components/layout/SessionNav";
 import { WalletChip } from "@/components/layout/WalletChip";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -89,48 +88,6 @@ function tr(lang: Lang, key: string): string {
   return STRINGS[lang]?.[key] ?? STRINGS.pt[key] ?? key;
 }
 
-// Top-bar navigation — same routes / icons / labels as the left SideNav
-// (Icons.* + the shared nav.* dict keys), just laid out horizontally. The
-// active item is matched by path prefix exactly like the sidebar does.
-const NAV_ITEMS = [
-  { id: "home", href: "/home", icon: Icons.home, labelKey: "nav.home", matchPrefix: "/home" },
-  {
-    id: "groups",
-    href: "/grupos",
-    icon: Icons.groups,
-    labelKey: "nav.groups",
-    matchPrefix: "/grupos",
-  },
-  {
-    id: "score",
-    href: "/reputacao",
-    icon: Icons.shield,
-    labelKey: "nav.score",
-    matchPrefix: "/reputacao",
-  },
-  {
-    id: "wallet",
-    href: "/carteira",
-    icon: Icons.wallet,
-    labelKey: "nav.wallet",
-    matchPrefix: "/carteira",
-  },
-  {
-    id: "market",
-    href: "/mercado",
-    icon: Icons.ticket,
-    labelKey: "nav.market",
-    matchPrefix: "/mercado",
-  },
-  {
-    id: "insights",
-    href: "/insights",
-    icon: Icons.chart,
-    labelKey: "nav.insights",
-    matchPrefix: "/insights",
-  },
-];
-
 // SAS reputation ladder — 4 tiers on a 0-1000 score scale (mirrors the
 // thresholds in lib/session.tsx). Drives the passport's tier label + the
 // progress bar's boundary ticks so both map correctly up to tier 4.
@@ -176,7 +133,7 @@ function CompactPassport({ score, theme, lang }: { score: number; theme: string;
 
       <div className="flex items-end gap-2 my-auto relative z-10">
         <span
-          className={`text-5xl sm:text-6xl font-black italic tracking-tighter transition-colors ${theme === "light" ? "text-black" : "text-white"}`}
+          className={`text-5xl sm:text-[3.375rem] font-black italic tracking-tighter transition-colors ${theme === "light" ? "text-black" : "text-white"}`}
         >
           {score}
         </span>
@@ -287,8 +244,7 @@ function GroupCard({
 }
 
 export default function HomeV2Page() {
-  const pathname = usePathname();
-  const { lang, currency, setLang, setCurrency, fmtMoney, t } = useI18n();
+  const { lang, currency, setLang, setCurrency, fmtMoney } = useI18n();
   const { user } = useSession();
   const wallet = useWallet();
 
@@ -308,11 +264,11 @@ export default function HomeV2Page() {
   const tx = (key: string) => tr(lang, key);
 
   // Shared props for the three KPI cards: white-outline hover that lingers
-  // ~200ms before fading, plus a larger title (label 9px -> 18px).
+  // ~200ms before fading, plus a larger title (label 9px -> 12px).
   const kpiHover = {
     hoverBorderColor: "rgba(255,255,255,0.6)",
     hoverReturnDelayMs: 200,
-    labelSize: 18,
+    labelSize: 12,
   };
 
   return (
@@ -332,28 +288,7 @@ export default function HomeV2Page() {
           </h1>
         </Link>
 
-        <nav className="flex-1 flex items-center justify-center gap-2 xl:gap-6 min-w-0">
-          {NAV_ITEMS.map((item) => {
-            const active =
-              pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all ${
-                  active
-                    ? "bg-[#14F195] text-black shadow-[0_0_20px_rgba(20,241,149,0.3)]"
-                    : "text-gray-400 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <item.icon size={16} sw={active ? 2 : 1.7} />
-                <span className="hidden text-xs font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
-                  {t(item.labelKey)}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+        <SessionNav className="flex-1" />
 
         <div className="flex items-center gap-2.5 shrink-0">
           {/* Toggles + rede + carteira: mesmos componentes da TopBar real
