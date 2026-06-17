@@ -5,6 +5,7 @@ import { useState } from "react";
 import { MonoLabel } from "@/components/brand/brand";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -87,9 +88,11 @@ export function PositionsList({ limit }: { limit?: number }) {
                 padding: 12,
                 borderRadius: 12,
                 background: tokens.fillSoft,
-                border: `1px solid ${tokens.border}`,
+                border: "1px solid transparent",
                 alignItems: "center",
+                transition: "transform 180ms ease, border-color 180ms ease",
               }}
+              {...liftHover(c)}
             >
               <div
                 style={{

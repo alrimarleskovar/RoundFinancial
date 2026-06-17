@@ -7,6 +7,7 @@ import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { WithdrawYieldModal } from "@/components/carteira/WithdrawYieldModal";
 import { CountUp } from "@/components/ui/CountUp";
+import { liftHover } from "@/lib/hoverLift";
 import { useSession } from "@/lib/session";
 import { useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -51,6 +52,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
       >
         {/* Balance hero */}
         <div
+          className="group transition-transform duration-500 hover:scale-[1.01]"
           style={{
             ...glass,
             padding: 28,
@@ -60,6 +62,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             background: `linear-gradient(145deg, ${tokens.navy}AA 0%, rgba(255,255,255,0.04) 80%)`,
           }}
         >
+          {/* Mirrored shine sweep on hover — same effect as the home SAS passport. */}
+          <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
           <div
             style={{
               position: "absolute",
@@ -185,13 +189,16 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
         <div
           style={{
             ...glass,
+            border: "1px solid transparent",
             padding: 22,
             borderRadius: 20,
             position: "relative",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
+            transition: "transform 180ms ease, border-color 180ms ease",
           }}
+          {...liftHover(tokens.teal)}
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <MonoLabel color={tokens.teal}>{t("wallet.kamino")}</MonoLabel>
@@ -220,8 +227,12 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             {t("wallet.yieldAcc")}
           </div>
 
-          <div style={{ marginTop: 18, flex: 1 }}>
-            <svg viewBox="0 0 200 60" style={{ width: "100%", height: 80 }}>
+          <div style={{ marginTop: 18, flex: 1, display: "flex", minHeight: 96 }}>
+            <svg
+              viewBox="0 0 200 60"
+              preserveAspectRatio="none"
+              style={{ width: "100%", height: "100%" }}
+            >
               <defs>
                 <linearGradient id="rfi-spark-g" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0" stopColor={tokens.teal} stopOpacity="0.4" />
