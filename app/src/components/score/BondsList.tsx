@@ -75,6 +75,7 @@ export function BondsList() {
               onClick={() => setOpened(b)}
               style={{
                 ...glass,
+                border: "1px solid transparent",
                 padding: 14,
                 borderRadius: 14,
                 display: "flex",

@@ -57,7 +57,7 @@ export function ReputationPassport() {
         flexDirection: "column",
         background: `linear-gradient(155deg, ${tokens.navy} 0%, ${tokens.bgDeep} 60%, ${tokens.navyDeep})`,
         border: `1px solid ${tokens.borderStr}`,
-        minHeight: 380,
+        minHeight: 400,
       }}
     >
       <div
@@ -131,8 +131,10 @@ export function ReputationPassport() {
           </div>
         </div>
 
-        <div style={{ marginTop: 44 }}>
-          <MonoLabel size={10}>{t("score.cardLabel")}</MonoLabel>
+        {/* Score + bar sit together, dropped toward the lower half of the
+            card via this auto top-margin (the header stays pinned up top). */}
+        <div style={{ marginTop: "auto" }}>
+          <MonoLabel size={12}>{t("score.cardLabel")}</MonoLabel>
           <div
             style={{
               display: "flex",
@@ -173,10 +175,10 @@ export function ReputationPassport() {
 
         {/* Reputation tier bar — same 0-1000, four-tier scale and animated
             gradient as the home SAS passport, blown up for this detail card.
-            Auto top-margin drops it toward the card's footer. */}
+            Kept tight under the score (the score block carries the auto push). */}
         <div
           style={{
-            marginTop: "auto",
+            marginTop: 18,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "baseline",

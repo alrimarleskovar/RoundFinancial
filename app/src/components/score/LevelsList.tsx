@@ -49,6 +49,7 @@ export function LevelsList() {
             key={l.lv}
             style={{
               ...glass,
+              border: "1px solid transparent",
               padding: 16,
               borderRadius: 14,
               ...(isCurrent
@@ -60,6 +61,15 @@ export function LevelsList() {
               display: "flex",
               alignItems: "center",
               gap: 14,
+              transition: "transform 180ms ease, border-color 180ms ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.borderColor = `${c}55`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.borderColor = "";
             }}
           >
             <div
