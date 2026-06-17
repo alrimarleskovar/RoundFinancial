@@ -3,6 +3,7 @@
 import { MonoLabel } from "@/components/brand/brand";
 import type { NftPosition } from "@/data/carteira";
 import { NFT_POSITIONS } from "@/data/carteira";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession, type ActiveListing } from "@/lib/session";
 import { glassSurfaceStyle, useTheme, type ThemeTokens } from "@/lib/theme";
@@ -234,8 +235,10 @@ export function SellPositionsList({
                   padding: 14,
                   borderRadius: 12,
                   background: tokens.fillSoft,
-                  border: `1px solid ${tokens.border}`,
+                  border: "1px solid transparent",
+                  transition: "transform 180ms ease, border-color 180ms ease",
                 }}
+                {...liftHover(toneColor(p.tone, tokens))}
               >
                 <div
                   style={{
