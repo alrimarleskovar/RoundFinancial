@@ -707,6 +707,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.demoBadge": "MODO DEMO",
     "modal.send.demoBody":
       "Operação simulada. A assinatura via Phantom + spl-token::transfer entra em devnet no M3 do roadmap.",
+    "modal.send.realBadge": "REAL · DEVNET",
+    "modal.send.realBody":
+      "Transferência real de SOL na devnet — o Phantom vai pedir sua assinatura.",
+    "modal.send.realConfirm": "Enviar SOL",
     "modal.send.confirm": "Enviar (demo)",
     "modal.send.successTitle": "Transferência simulada",
     "modal.send.successHeadline": "USDC enviado (demo)",
@@ -2076,6 +2080,9 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.demoBadge": "DEMO MODE",
     "modal.send.demoBody":
       "Simulated action. Phantom signing + spl-token::transfer ships on devnet at M3 of the roadmap.",
+    "modal.send.realBadge": "REAL · DEVNET",
+    "modal.send.realBody": "Real SOL transfer on devnet — Phantom will prompt you to sign.",
+    "modal.send.realConfirm": "Send SOL",
     "modal.send.confirm": "Send (demo)",
     "modal.send.successTitle": "Simulated transfer",
     "modal.send.successHeadline": "USDC sent (demo)",

@@ -21,6 +21,9 @@ import { useIsMobile } from "@/lib/useIsMobile";
 
 export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // Composition slice the cursor is over — emphasize it, dim the rest
+  // (both the bar segment and its legend entry).
+  const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney } = useI18n();
@@ -28,10 +31,10 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const isMobile = useIsMobile();
 
   const composition = [
-    { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%" },
-    { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%" },
-    { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%" },
-    { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%" },
+    { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%", flex: 5.2 },
+    { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%", flex: 2.8 },
+    { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%", flex: 1.4 },
+    { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%", flex: 0.6 },
   ];
 
   return (
@@ -59,6 +62,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             borderRadius: 20,
             position: "relative",
             overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
             background: `linear-gradient(145deg, ${tokens.navy}AA 0%, rgba(255,255,255,0.04) 80%)`,
           }}
         >
@@ -75,7 +80,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               background: `radial-gradient(circle, ${tokens.green}22, transparent 65%)`,
             }}
           />
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column" }}>
             <MonoLabel>{t("wallet.total", { c: currency })}</MonoLabel>
             <div
               style={{
@@ -113,8 +118,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               <span style={{ color: tokens.text2 }}>{t("home.kpi.delta.balance")}</span>
             </div>
 
-            {/* composition bar */}
-            <div style={{ marginTop: 28 }}>
+            {/* composition bar — pushed to the card's lower edge */}
+            <div style={{ marginTop: "auto", paddingTop: 28 }}>
               <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
               <div
                 style={{
@@ -125,10 +130,17 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                   overflow: "hidden",
                 }}
               >
-                <div style={{ flex: 5.2, background: tokens.green }} />
-                <div style={{ flex: 2.8, background: tokens.teal }} />
-                <div style={{ flex: 1.4, background: tokens.purple }} />
-                <div style={{ flex: 0.6, background: tokens.amber }} />
+                {composition.map((x, i) => (
+                  <div
+                    key={x.l}
+                    style={{
+                      flex: x.flex,
+                      background: x.c,
+                      opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.25,
+                      transition: "opacity 180ms ease",
+                    }}
+                  />
+                ))}
               </div>
               <div
                 style={{
@@ -138,8 +150,17 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                   gap: 8,
                 }}
               >
-                {composition.map((x) => (
-                  <div key={x.l}>
+                {composition.map((x, i) => (
+                  <div
+                    key={x.l}
+                    onMouseEnter={() => setHoveredSlice(i)}
+                    onMouseLeave={() => setHoveredSlice(null)}
+                    style={{
+                      opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.4,
+                      transition: "opacity 180ms ease",
+                      cursor: "default",
+                    }}
+                  >
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span
                         style={{
