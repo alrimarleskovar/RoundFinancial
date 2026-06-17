@@ -308,11 +308,11 @@ export default function HomeV2Page() {
   const tx = (key: string) => tr(lang, key);
 
   // Shared props for the three KPI cards: white-outline hover that lingers
-  // ~200ms before fading, plus a 4x-larger title (label 9px -> 36px).
+  // ~200ms before fading, plus a larger title (label 9px -> 18px).
   const kpiHover = {
     hoverBorderColor: "rgba(255,255,255,0.6)",
     hoverReturnDelayMs: 200,
-    labelSize: 36,
+    labelSize: 18,
   };
 
   return (

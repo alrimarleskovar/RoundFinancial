@@ -67,29 +67,26 @@ export function DeskBtn({
     </>
   );
 
-  // Press "relief" — the button dips slightly on mouse-down and springs
-  // back on release (or when the cursor leaves mid-press).
-  const press = {
-    onMouseDown: (e: React.MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.transform = "scale(0.96)";
-    },
-    onMouseUp: (e: React.MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.transform = "scale(1)";
+  // Hover "relief" — the button raises slightly while hovered and settles
+  // back when the cursor leaves.
+  const hover = {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "translateY(-2px)";
     },
     onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.transform = "scale(1)";
+      e.currentTarget.style.transform = "translateY(0)";
     },
   };
 
   if (href) {
     return (
-      <Link href={href} style={style as React.CSSProperties} {...press}>
+      <Link href={href} style={style as React.CSSProperties} {...hover}>
         {inner}
       </Link>
     );
   }
   return (
-    <button type="button" onClick={onClick} style={style as React.CSSProperties} {...press}>
+    <button type="button" onClick={onClick} style={style as React.CSSProperties} {...hover}>
       {inner}
     </button>
   );
