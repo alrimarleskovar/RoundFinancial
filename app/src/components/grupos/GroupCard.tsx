@@ -340,7 +340,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
               : t("groups.card.cta.join")}
         </button>
       )}
-      <JoinGroupModal group={g} open={joinOpen} onClose={() => setJoinOpen(false)} />
+      {joinOpen && <JoinGroupModal group={g} open={joinOpen} onClose={() => setJoinOpen(false)} />}
       <GroupDetailsModal group={g} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
       {claimReadyDemo ? (
         <ClaimPayoutModal
