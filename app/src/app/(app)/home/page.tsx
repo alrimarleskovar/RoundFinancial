@@ -11,6 +11,13 @@ import { SellShareModal } from "@/components/modals/SellShareModal";
 import { ACTIVE_GROUPS, type ActiveGroup } from "@/data/groups";
 import type { NftPosition, Tone } from "@/data/carteira";
 import { useI18n, type Lang } from "@/lib/i18n";
+import {
+  PASSPORT_TIERS,
+  PASSPORT_MAX_SCORE,
+  TIER_KEYS,
+  tierForScore,
+  scorePct,
+} from "@/lib/passport";
 import { useSession } from "@/lib/session";
 
 // /home — the RoundFi dashboard. Graduated from the /home-v2 candidate
@@ -20,18 +27,6 @@ import { useSession } from "@/lib/session";
 // Lives inside the (app) route group, so the shared DeskShell (sticky
 // TopBar + horizontal SessionNav + scroll container) wraps it — this file
 // renders only the page body.
-
-// SAS reputation ladder — 4 tiers on a 0-1000 score scale (mirrors the
-// thresholds in lib/session.tsx). Drives the passport's tier label + bar.
-const PASSPORT_MAX_SCORE = 1000;
-const PASSPORT_TIERS = [
-  { level: 1, min: 0 },
-  { level: 2, min: 500 },
-  { level: 3, min: 750 },
-  { level: 4, min: 950 },
-];
-// Tier-name dict keys by level (reuses the shared level.* strings).
-const TIER_KEYS = ["", "level.beginner", "level.provenName", "level.veteran", "level.elite"];
 
 // Per-group accent colors (mirrors the tone palette the GroupRow uses).
 const TONE_HEX: Record<Tone, string> = {
@@ -63,8 +58,8 @@ function CompactPassport({
   theme: string;
 }) {
   const { t } = useI18n();
-  const tier = [...PASSPORT_TIERS].reverse().find((tt) => score >= tt.min) ?? PASSPORT_TIERS[0];
-  const pct = Math.max(0, Math.min(100, (score / PASSPORT_MAX_SCORE) * 100));
+  const tier = tierForScore(score);
+  const pct = scorePct(score);
   return (
     <Link
       href="/reputacao"
