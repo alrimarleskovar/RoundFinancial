@@ -6,10 +6,13 @@ import Link from "next/link";
 import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Activity } from "@/components/home/Activity";
+import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
+import { SellShareModal } from "@/components/modals/SellShareModal";
 import { TopBar } from "@/components/layout/TopBar";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
-import { ACTIVE_GROUPS } from "@/data/groups";
+import { ACTIVE_GROUPS, type ActiveGroup } from "@/data/groups";
+import type { NftPosition } from "@/data/carteira";
 
 // /home-v2 — CANDIDATE dashboard redesign, staged for the team to review
 // alongside the current /home.
@@ -174,20 +177,36 @@ function CompactPassport({
 
 // ─── CARD DE GRUPO (VÁLVULA DE ESCAPE) ───────────────────────────
 function GroupCard({
-  name,
-  progress,
-  total,
-  dueDate,
+  g,
+  month,
   theme,
   lang,
 }: {
-  name: string;
-  progress: number;
-  total: number;
-  dueDate: string;
+  g: ActiveGroup;
+  month: number;
   theme: string;
   lang: Lang;
 }) {
+  const [payOpen, setPayOpen] = useState(false);
+  const [sellOpen, setSellOpen] = useState(false);
+  const dueDate = dueLabel(g.nextDue, lang);
+  // The user's cota in this cycle, shaped for the escape-valve sell flow.
+  // Face value = the prize; SellShareModal applies the discount slider on top.
+  const monthsLeft = Math.max(0, g.total - month);
+  const sellPosition: NftPosition = {
+    id: g.id,
+    num: g.id.replace(/\D/g, "").padStart(2, "0"),
+    group: g.name,
+    tone: g.tone,
+    month,
+    total: g.total,
+    exp: new Date(Date.now() + monthsLeft * 30 * 86_400_000)
+      .toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", { month: "short", year: "2-digit" })
+      .replace(".", ""),
+    value: g.prize,
+    yieldPct: 0,
+  };
+
   return (
     <div
       className={`border p-4 rounded-xl flex items-center justify-between gap-4 transition-all w-full ${theme === "light" ? "bg-white border-black/5 shadow-sm" : "bg-white/5 border-white/10 hover:bg-white/[0.08]"}`}
@@ -199,7 +218,7 @@ function GroupCard({
         <h4
           className={`text-xs font-bold truncate ${theme === "light" ? "text-[#2A2E38]" : "text-white"}`}
         >
-          {name}
+          {g.name}
         </h4>
       </div>
 
@@ -207,13 +226,13 @@ function GroupCard({
         <div className="flex justify-between text-[9px] font-mono">
           <span className="text-gray-400">{tr(lang, "card.progress")}</span>
           <span className="text-[#14F195] font-bold">
-            {progress}/{total}
+            {month}/{g.total}
           </span>
         </div>
         <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
           <div
             className="bg-[#14F195] h-full"
-            style={{ width: `${(progress / total) * 100}%` }}
+            style={{ width: `${(month / g.total) * 100}%` }}
           ></div>
         </div>
       </div>
@@ -229,16 +248,25 @@ function GroupCard({
         </div>
 
         <div className="flex gap-2">
-          {/* PAGAR — primary CTA: green gradient fill, soft lift on hover */}
-          <button className="rounded-xl bg-gradient-to-b from-[#14F195] to-[#0FCB7E] px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#04130D] [font-family:var(--font-dm-sans)] shadow-[0_4px_14px_rgba(20,241,149,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_22px_rgba(20,241,149,0.45)] active:translate-y-0 active:scale-[0.98]">
+          {/* PAGAR → opens the real PayInstallmentModal (mock / on-chain). */}
+          <button
+            onClick={() => setPayOpen(true)}
+            className="rounded-xl bg-gradient-to-b from-[#14F195] to-[#0FCB7E] px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#04130D] [font-family:var(--font-dm-sans)] shadow-[0_4px_14px_rgba(20,241,149,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_22px_rgba(20,241,149,0.45)] active:translate-y-0 active:scale-[0.98]"
+          >
             {tr(lang, "card.pay")}
           </button>
-          {/* VENDER — secondary action: soft coral outline, gentle hover */}
-          <button className="rounded-xl border border-[#FF7A7A]/25 bg-[#FF7A7A]/[0.08] px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#FF9090] [font-family:var(--font-dm-sans)] transition-all duration-200 hover:border-[#FF7A7A]/45 hover:bg-[#FF7A7A]/15 hover:text-[#FFB0B0] active:scale-[0.98]">
+          {/* VENDER → opens the real SellShareModal (escape valve). */}
+          <button
+            onClick={() => setSellOpen(true)}
+            className="rounded-xl border border-[#FF7A7A]/25 bg-[#FF7A7A]/[0.08] px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#FF9090] [font-family:var(--font-dm-sans)] transition-all duration-200 hover:border-[#FF7A7A]/45 hover:bg-[#FF7A7A]/15 hover:text-[#FFB0B0] active:scale-[0.98]"
+          >
             {tr(lang, "card.sell")}
           </button>
         </div>
       </div>
+
+      <PayInstallmentModal group={g} open={payOpen} onClose={() => setPayOpen(false)} />
+      <SellShareModal position={sellPosition} open={sellOpen} onClose={() => setSellOpen(false)} />
     </div>
   );
 }
@@ -346,17 +374,7 @@ export default function HomeV2Page() {
               // Live month overlay — advances as installments are paid this
               // session (same pattern as the real /home GroupRow).
               const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
-              return (
-                <GroupCard
-                  key={g.id}
-                  name={g.name}
-                  progress={month}
-                  total={g.total}
-                  dueDate={dueLabel(g.nextDue, lang)}
-                  theme={theme}
-                  lang={lang}
-                />
-              );
+              return <GroupCard key={g.id} g={g} month={month} theme={theme} lang={lang} />;
             })}
           </div>
         </div>
