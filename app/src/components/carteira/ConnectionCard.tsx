@@ -7,6 +7,7 @@ import { Icons } from "@/components/brand/icons";
 import { ConnectionGlyph, type GlyphKind } from "@/components/carteira/ConnectionGlyph";
 import { ManageConnectionModal } from "@/components/carteira/ManageConnectionModal";
 import { PhantomFaucet } from "@/components/carteira/PhantomFaucet";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import type { ConnId, ConnRuntime, ConnStatus } from "@/lib/connections";
@@ -127,11 +128,12 @@ export function ConnectionCard({
       style={{
         ...glass,
         borderRadius: 16,
-        border: `1px solid ${open ? `${tc}4D` : (glass.border as string)}`,
+        border: `1px solid ${open ? `${tc}4D` : "transparent"}`,
         overflow: "hidden",
         transition: "all 180ms ease",
         opacity: !isConnected && !isPending ? 0.82 : 1,
       }}
+      {...liftHover(tc, open ? `${tc}4D` : "transparent")}
     >
       <div
         role="button"

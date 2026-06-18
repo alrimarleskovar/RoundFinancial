@@ -49,6 +49,7 @@ export function LevelsList() {
             key={l.lv}
             style={{
               ...glass,
+              border: "1px solid transparent",
               padding: 16,
               borderRadius: 14,
               ...(isCurrent
@@ -60,6 +61,18 @@ export function LevelsList() {
               display: "flex",
               alignItems: "center",
               gap: 14,
+              transition: "transform 180ms ease, border-color 180ms ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.borderColor = `${c}55`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              // Revert to the row's explicit base (teal for the current tier,
+              // transparent otherwise). "" would fall back to currentColor
+              // (white) and leave a white edge after the first hover.
+              e.currentTarget.style.borderColor = isCurrent ? `${tokens.teal}4D` : "transparent";
             }}
           >
             <div

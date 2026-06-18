@@ -4,6 +4,8 @@
 //
 // These are stand-ins until the on-chain accounts / indexer hook up.
 
+import type { DevnetPoolKey } from "@/lib/devnet";
+
 export interface User {
   name: string;
   handle: string;
@@ -51,6 +53,11 @@ export interface NftPosition {
   exp: string;
   value: number; // BRL
   yieldPct: number;
+  /** Set when this position is the wallet's REAL on-chain Member slot
+   *  (surfaced from usePoolMembers). Drives the real escape_valve_list
+   *  path in SellShareModal; absent on the mock fixtures. */
+  devnetPool?: DevnetPoolKey;
+  slotIndex?: number;
 }
 
 export const NFT_POSITIONS: NftPosition[] = [

@@ -88,6 +88,9 @@ export function DeskKpi({
       <div
         style={{
           ...glass,
+          // Transparent resting border — the tone outline only shows on hover
+          // (matches the reputacao cards), never a white edge.
+          border: "1px solid transparent",
           borderRadius: 16,
           padding: 18,
           position: "relative",
@@ -114,7 +117,7 @@ export function DeskKpi({
               ? `transform 180ms ease, border-color 520ms ease ${returnDelay}ms`
               : baseTransition;
           e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.borderColor = "";
+          e.currentTarget.style.borderColor = "transparent";
         }}
       >
         <div
@@ -148,6 +151,10 @@ export function DeskKpi({
               fontWeight: 800,
               color: tokens.text,
               letterSpacing: "-0.02em",
+              // tabular figures only — keeps digit widths equal so the value
+              // stays aligned (and the animated Saldo doesn't jitter) without
+              // changing the Syne display look.
+              fontVariantNumeric: "tabular-nums",
               lineHeight: 1,
             }}
           >

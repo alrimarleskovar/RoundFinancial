@@ -9,6 +9,7 @@ import {
 } from "@/components/insights/RecommendationModal";
 import type { Tone } from "@/data/carteira";
 import { RECOMMENDATIONS } from "@/data/insights";
+import { liftHover } from "@/lib/hoverLift";
 import { useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
@@ -58,6 +59,7 @@ export function Recommendations() {
               onClick={() => setOpened({ key: r.key, pts: r.pts, accent: c })}
               style={{
                 ...glass,
+                border: "1px solid transparent",
                 padding: 18,
                 borderRadius: 14,
                 position: "relative",
@@ -68,14 +70,7 @@ export function Recommendations() {
                 color: "inherit",
                 transition: "transform 180ms ease, border-color 180ms ease",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.borderColor = `${c}55`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.borderColor = "";
-              }}
+              {...liftHover(c)}
             >
               <div
                 style={{

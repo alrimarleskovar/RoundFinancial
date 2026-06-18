@@ -81,6 +81,20 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool3.headline":
       "Mecanismos de proteção em ação: default resolvido com retenção da garantia do membro inadimplente.",
     // levels
+    // home (redesigned dashboard — graduated from /home-v2)
+    "home.kpi.protected": "Saldo Protegido",
+    "home.kpi.receivable": "À Receber",
+    "home.kpi.collateral": "Colateral Exigido",
+    "home.passport.tierLabel": "Nível de Reputação",
+    "home.cycles.title": "Meus Ciclos de Crédito Ativos",
+    "home.cycles.escrow": "Escrow Verificado",
+    "home.cycles.empty.title": "Nenhum ciclo de crédito ativo ainda.",
+    "home.cycles.empty.cta": "Buscar grupos",
+    "home.card.quota": "Cota de Crédito",
+    "home.card.progress": "Progresso do Ciclo",
+    "home.card.due": "Vencimento",
+    "home.card.pay": "Pagar",
+    "home.card.sell": "Vender",
     "level.proven": "COMPROVADO Nv.2",
     "level.beginner": "Iniciante",
     "level.provenName": "Comprovado",
@@ -95,9 +109,6 @@ export const DICT: Record<Lang, Dict> = {
     "score.title": "Reputação on-chain",
     "score.cardChain": "SOLANA · SAS",
     "score.cardLabel": "REPUTATION SCORE",
-    "score.scaleLow": "BAIXO 300",
-    "score.scaleMid": "● COMPROVADO",
-    "score.scaleHigh": "VETERANO 850",
     "score.lvPill": "Nv.{n} · {name}",
     "score.levelsTitle": "◆ Níveis de reputação",
     "score.lvDetail": "{c}% colateral · {l}x alavancagem",
@@ -251,6 +262,7 @@ export const DICT: Record<Lang, Dict> = {
     "insights.evolution.delta": "+{n} mês",
     "insights.threshold.lv2": "Nv.2 · 500",
     "insights.threshold.lv3": "Nv.3 Veterano · 750",
+    "insights.threshold.lv4": "Nv.4 Elite · 950",
     "insights.factors.title": "◆ Fatores",
     "insights.factor.punctuality.label": "Pontualidade",
     "insights.factor.punctuality.detail": "{paid} pagamentos pontuais",
@@ -695,6 +707,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.demoBadge": "MODO DEMO",
     "modal.send.demoBody":
       "Operação simulada. A assinatura via Phantom + spl-token::transfer entra em devnet no M3 do roadmap.",
+    "modal.send.realBadge": "REAL · DEVNET",
+    "modal.send.realBody":
+      "Transferência real de SOL na devnet — o Phantom vai pedir sua assinatura.",
+    "modal.send.realConfirm": "Enviar SOL",
     "modal.send.confirm": "Enviar (demo)",
     "modal.send.successTitle": "Transferência simulada",
     "modal.send.successHeadline": "USDC enviado (demo)",
@@ -718,6 +734,16 @@ export const DICT: Record<Lang, Dict> = {
     "modal.withdraw.successBody":
       "Em produção, {amount} teriam sido transferidos da Kamino vault pra sua wallet.",
     "modal.withdraw.close": "Fechar",
+    "modal.withdraw.realTitle": "Liberar escrow",
+    "modal.withdraw.realSubtitle":
+      "Saque on-chain do seu escrow vestido (stake-refund cashback) na devnet.",
+    "modal.withdraw.realAvailable": "ESCROW ON-CHAIN",
+    "modal.withdraw.realNote": "Libera a parcela vestida no checkpoint {n} · assinado na Phantom.",
+    "modal.withdraw.realConfirm": "Liberar escrow",
+    "modal.withdraw.realSuccessTitle": "Escrow liberado",
+    "modal.withdraw.realSuccessHeadline": "Escrow liberado on-chain",
+    "modal.withdraw.realSuccessBody":
+      "O valor vestido foi transferido do escrow on-chain para a sua carteira.",
     // manage connection (carteira)
     "modal.manage.title": "Gerenciar · {name}",
     "modal.manage.connected": "CONECTADO",
@@ -1443,6 +1469,20 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool3.label": "Pool 3 · 3 members · 60s grace · Default",
     "home.devnet.pool3.headline":
       "Protection mechanisms in action: default resolved by seizing the delinquent member's collateral.",
+    // home (redesigned dashboard — graduated from /home-v2)
+    "home.kpi.protected": "Protected Balance",
+    "home.kpi.receivable": "Receivable",
+    "home.kpi.collateral": "Required Collateral",
+    "home.passport.tierLabel": "Reputation Tier",
+    "home.cycles.title": "My Active Credit Cycles",
+    "home.cycles.escrow": "Escrow Verified",
+    "home.cycles.empty.title": "No active credit cycles yet.",
+    "home.cycles.empty.cta": "Browse groups",
+    "home.card.quota": "Credit Quota",
+    "home.card.progress": "Cycle Progress",
+    "home.card.due": "Due Date",
+    "home.card.pay": "Pay",
+    "home.card.sell": "Sell",
     "level.proven": "PROVEN Lv.2",
     "level.beginner": "Beginner",
     "level.provenName": "Proven",
@@ -1457,9 +1497,6 @@ export const DICT: Record<Lang, Dict> = {
     "score.title": "On-chain reputation",
     "score.cardChain": "SOLANA · SAS",
     "score.cardLabel": "REPUTATION SCORE",
-    "score.scaleLow": "LOW 300",
-    "score.scaleMid": "● PROVEN",
-    "score.scaleHigh": "VETERAN 850",
     "score.lvPill": "Lv.{n} · {name}",
     "score.levelsTitle": "◆ Reputation tiers",
     "score.lvDetail": "{c}% collateral · {l}x leverage",
@@ -1609,6 +1646,7 @@ export const DICT: Record<Lang, Dict> = {
     "insights.evolution.delta": "+{n} this month",
     "insights.threshold.lv2": "Lv.2 · 500",
     "insights.threshold.lv3": "Lv.3 Veteran · 750",
+    "insights.threshold.lv4": "Lv.4 Elite · 950",
     "insights.factors.title": "◆ Factors",
     "insights.factor.punctuality.label": "Punctuality",
     "insights.factor.punctuality.detail": "{paid} on-time payments",
@@ -2052,6 +2090,9 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.demoBadge": "DEMO MODE",
     "modal.send.demoBody":
       "Simulated action. Phantom signing + spl-token::transfer ships on devnet at M3 of the roadmap.",
+    "modal.send.realBadge": "REAL · DEVNET",
+    "modal.send.realBody": "Real SOL transfer on devnet — Phantom will prompt you to sign.",
+    "modal.send.realConfirm": "Send SOL",
     "modal.send.confirm": "Send (demo)",
     "modal.send.successTitle": "Simulated transfer",
     "modal.send.successHeadline": "USDC sent (demo)",
@@ -2074,6 +2115,16 @@ export const DICT: Record<Lang, Dict> = {
     "modal.withdraw.successBody":
       "In production, {amount} would have been transferred from the Kamino vault to your wallet.",
     "modal.withdraw.close": "Close",
+    "modal.withdraw.realTitle": "Release escrow",
+    "modal.withdraw.realSubtitle":
+      "On-chain withdrawal of your vested escrow (stake-refund cashback) on devnet.",
+    "modal.withdraw.realAvailable": "ON-CHAIN ESCROW",
+    "modal.withdraw.realNote": "Releases the vested slice at checkpoint {n} · signed in Phantom.",
+    "modal.withdraw.realConfirm": "Release escrow",
+    "modal.withdraw.realSuccessTitle": "Escrow released",
+    "modal.withdraw.realSuccessHeadline": "Escrow released on-chain",
+    "modal.withdraw.realSuccessBody":
+      "The vested amount was transferred from on-chain escrow to your wallet.",
     // manage connection (carteira)
     "modal.manage.title": "Manage · {name}",
     "modal.manage.connected": "CONNECTED",

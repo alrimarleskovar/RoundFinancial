@@ -82,7 +82,9 @@ export function GroupRow({ g: baseG }: { g: ActiveGroup }) {
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "translateX(0)";
-        e.currentTarget.style.borderColor = "";
+        // Restore the glass hairline — "" falls back to the white currentColor
+        // and leaves a bright edge after the first hover.
+        e.currentTarget.style.border = glass.border as string;
       }}
     >
       <div

@@ -3,6 +3,7 @@
 import type { BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { MonoLabel } from "@/components/brand/brand";
 import { FEATURED_OFFER } from "@/data/market";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -24,7 +25,9 @@ export function FeaturedOffer({ onBuy }: { onBuy: (target: BuyOfferTarget) => vo
         overflow: "hidden",
         background: `linear-gradient(145deg, ${tokens.purple}22, ${tokens.surface1} 70%)`,
         border: `1px solid ${tokens.purple}33`,
+        transition: "transform 180ms ease, border-color 180ms ease",
       }}
+      {...liftHover(tokens.purple, `${tokens.purple}33`)}
     >
       <MonoLabel color={tokens.purple}>{t("market.featured.badge")}</MonoLabel>
       <div

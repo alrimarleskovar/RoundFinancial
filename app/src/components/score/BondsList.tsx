@@ -75,6 +75,7 @@ export function BondsList() {
               onClick={() => setOpened(b)}
               style={{
                 ...glass,
+                border: "1px solid transparent",
                 padding: 14,
                 borderRadius: 14,
                 display: "flex",
@@ -92,7 +93,10 @@ export function BondsList() {
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.borderColor = "";
+                // Revert to the explicit transparent base. Setting borderColor
+                // to "" would drop the inline color and fall back to
+                // currentColor (white text) — that was the lingering white edge.
+                e.currentTarget.style.borderColor = "transparent";
               }}
             >
               <div

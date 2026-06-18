@@ -92,10 +92,10 @@ export function ReceiveModal({ open, onClose }: { open: boolean; onClose: () => 
             marginTop: 14,
             maxWidth: 200,
             marginInline: "auto",
-            borderRadius: 14,
-            background: "#ffffff",
+            borderRadius: 16,
+            background: "rgba(255,255,255,0.05)",
             border: `1px solid ${tokens.borderStr}`,
-            padding: 14,
+            padding: 18,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -106,8 +106,8 @@ export function ReceiveModal({ open, onClose }: { open: boolean; onClose: () => 
             size={172}
             level="M"
             marginSize={2}
-            bgColor="#ffffff"
-            fgColor="#0a0a0a"
+            bgColor="transparent"
+            fgColor={tokens.text}
             style={{ width: "100%", height: "auto" }}
           />
         </div>
