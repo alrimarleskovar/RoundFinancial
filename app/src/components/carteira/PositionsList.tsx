@@ -1,17 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-
-import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
+import { useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
 import { liftHover } from "@/lib/hoverLift";
 import { useI18n } from "@/lib/i18n";
+import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
-import { usePool, usePoolMembers } from "@/lib/usePool";
 
 // NFT positions list. When `limit` is set, renders a short preview
 // without the "Sell" action (used inside Visão geral); otherwise the
@@ -27,38 +25,11 @@ export function PositionsList({ limit }: { limit?: number }) {
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
   const { acquiredPositions, listings } = useSession();
-  const adapter = useAdapterWallet();
-  const onChainMembers = usePoolMembers("pool3");
-  const onChainPool = usePool("pool3");
+  // The connected wallet's REAL on-chain cotas across every devnet pool —
+  // drives the real escape_valve_list path in SellShareModal. Empty unless a
+  // connected wallet is a live member (so the demo is unchanged otherwise).
+  const realPositions = useMyDevnetPositions();
   const [selling, setSelling] = useState<NftPosition | null>(null);
-
-  // Surface the connected wallet's REAL pool3 membership as a sellable
-  // position — this is what drives the real escape_valve_list path in
-  // SellShareModal. Empty unless a connected wallet is a live, non-
-  // defaulted member (so the demo is unchanged for everyone else).
-  const connectedWallet = adapter.publicKey;
-  const realPositions = useMemo<NftPosition[]>(() => {
-    if (!connectedWallet) return [];
-    if (onChainMembers.status !== "ok" || onChainPool.status !== "ok" || !onChainPool.pool) {
-      return [];
-    }
-    const pool = onChainPool.pool;
-    return onChainMembers.members
-      .filter((m) => m.wallet.equals(connectedWallet) && !m.defaulted && !m.paidOut)
-      .map<NftPosition>((m) => ({
-        id: `onchain-pool3-${m.slotIndex}`,
-        num: String(m.slotIndex).padStart(2, "0"),
-        group: `Cota on-chain · pool ${pool.seedId.toString()}`,
-        tone: "t",
-        month: m.contributionsPaid,
-        total: pool.membersTarget,
-        exp: "devnet",
-        value: Number(pool.creditAmount) / 1e6,
-        yieldPct: 0,
-        devnetPool: "pool3",
-        slotIndex: m.slotIndex,
-      }));
-  }, [connectedWallet, onChainMembers, onChainPool]);
 
   const allPositions = [...realPositions, ...NFT_POSITIONS, ...acquiredPositions];
   const rows: NftPosition[] = limit ? allPositions.slice(0, limit) : allPositions;

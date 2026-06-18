@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 
 import { Activity } from "@/components/home/Activity";
@@ -8,7 +8,7 @@ import { DeskKpi } from "@/components/home/DeskKpi";
 import { HomeHero } from "@/components/home/HomeHero";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { SellShareModal } from "@/components/modals/SellShareModal";
-import { ACTIVE_GROUPS, type ActiveGroup } from "@/data/groups";
+import { ACTIVE_GROUPS, DISCOVER_GROUPS, type ActiveGroup } from "@/data/groups";
 import type { NftPosition, Tone } from "@/data/carteira";
 import { liftHover } from "@/lib/hoverLift";
 import { useI18n, type Lang } from "@/lib/i18n";
@@ -20,6 +20,7 @@ import {
   scorePct,
 } from "@/lib/passport";
 import { useSession } from "@/lib/session";
+import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 
 // /home — the RoundFi dashboard. Graduated from the /home-v2 candidate
 // (PR #494): a bento of KPI cards + the SAS passport, the active credit
@@ -247,6 +248,42 @@ export default function HomePage() {
     (g) => g.status !== "drawn" && !claimedGroups.includes(g.name),
   ).reduce((sum, g) => sum + g.prize, 0);
 
+  // Real on-chain memberships — the connected wallet's live cotas across all
+  // devnet pools. Surface any that isn't already a static active card as a
+  // live cycle card, so a real join_pool shows up here on /home (read from
+  // chain, not the session mock). Empty for the disconnected demo user.
+  const realPositions = useMyDevnetPositions();
+  const joinedOnChainGroups = useMemo<ActiveGroup[]>(() => {
+    const activePools = new Set(ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean));
+    const seen = new Set<string>();
+    const out: ActiveGroup[] = [];
+    for (const pos of realPositions) {
+      if (!pos.devnetPool || activePools.has(pos.devnetPool) || seen.has(pos.devnetPool)) continue;
+      const d = DISCOVER_GROUPS.find((g) => g.devnetPool === pos.devnetPool);
+      if (!d) continue;
+      seen.add(pos.devnetPool);
+      out.push({
+        id: `onchain-${d.id}`,
+        name: d.name,
+        emoji: d.emoji,
+        tone: d.tone,
+        prize: d.prize,
+        month: pos.month,
+        total: d.months,
+        status: "paying",
+        nextDue: 7,
+        progress: d.months > 0 ? pos.month / d.months : 0,
+        members: d.total,
+        draw: "",
+        installment: d.installment,
+        level: d.level,
+        devnetPool: d.devnetPool,
+      });
+    }
+    return out;
+  }, [realPositions]);
+  const cycleGroups = [...ACTIVE_GROUPS, ...joinedOnChainGroups];
+
   return (
     <div className="font-sans p-4 md:p-8 max-w-6xl mx-auto w-full flex flex-col gap-8 animate-in fade-in duration-700">
       <HomeHero />
@@ -300,7 +337,7 @@ export default function HomePage() {
           </span>
         </div>
 
-        {ACTIVE_GROUPS.length === 0 ? (
+        {cycleGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
             <div className="text-3xl opacity-70">🪙</div>
             <p className="text-sm text-gray-400">{t("home.cycles.empty.title")}</p>
@@ -313,7 +350,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {ACTIVE_GROUPS.map((g) => {
+            {cycleGroups.map((g) => {
               // Live month overlay — advances as installments are paid this
               // session (same pattern as the legacy GroupRow).
               const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
