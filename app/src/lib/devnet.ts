@@ -40,14 +40,14 @@ export const DEVNET_POOLS = {
     seedId: 3n,
     pda: new PublicKey("D9PS7QDGUsAwHa4T6Gibw6HV9Lx2sbB5aZM5GsNzpDE5"),
   },
-  // pool4 is the live JOIN target — a Forming pool (created via
+  // pool4 — the live JOIN target: a Forming pool (created via
   // `POOL_SEED_ID=4 pnpm devnet:seed`, no members seeded) so the real
-  // join_pool path in JoinGroupModal can be exercised end-to-end. PDA is
-  // deterministic: [b"pool", deployer, seed_id=4]. Until it's seeded,
-  // usePool("pool4") returns "fallback" and the UI stays on the mock flow.
+  // join_pool path in JoinGroupModal can be exercised end-to-end. Seeded
+  // under the ANCHOR_WALLET authority (B8CjP1mC…ci8di) → this is that
+  // pool's actual on-chain PDA, created + verified live on devnet.
   pool4: {
     seedId: 4n,
-    pda: new PublicKey("4Wf6dd9PLJN6Vyuvv7rGp5fqK98YbcoRsUFQ9bgFztbd"),
+    pda: new PublicKey("5pEMW2yR13cLZQLUUW8jEs5MdgJtP8PsWoYS4YqKd2gu"),
   },
 } as const;
 
