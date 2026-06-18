@@ -734,6 +734,16 @@ export const DICT: Record<Lang, Dict> = {
     "modal.withdraw.successBody":
       "Em produção, {amount} teriam sido transferidos da Kamino vault pra sua wallet.",
     "modal.withdraw.close": "Fechar",
+    "modal.withdraw.realTitle": "Liberar escrow",
+    "modal.withdraw.realSubtitle":
+      "Saque on-chain do seu escrow vestido (stake-refund cashback) na devnet.",
+    "modal.withdraw.realAvailable": "ESCROW ON-CHAIN",
+    "modal.withdraw.realNote": "Libera a parcela vestida no checkpoint {n} · assinado na Phantom.",
+    "modal.withdraw.realConfirm": "Liberar escrow",
+    "modal.withdraw.realSuccessTitle": "Escrow liberado",
+    "modal.withdraw.realSuccessHeadline": "Escrow liberado on-chain",
+    "modal.withdraw.realSuccessBody":
+      "O valor vestido foi transferido do escrow on-chain para a sua carteira.",
     // manage connection (carteira)
     "modal.manage.title": "Gerenciar · {name}",
     "modal.manage.connected": "CONECTADO",
@@ -2105,6 +2115,16 @@ export const DICT: Record<Lang, Dict> = {
     "modal.withdraw.successBody":
       "In production, {amount} would have been transferred from the Kamino vault to your wallet.",
     "modal.withdraw.close": "Close",
+    "modal.withdraw.realTitle": "Release escrow",
+    "modal.withdraw.realSubtitle":
+      "On-chain withdrawal of your vested escrow (stake-refund cashback) on devnet.",
+    "modal.withdraw.realAvailable": "ON-CHAIN ESCROW",
+    "modal.withdraw.realNote": "Releases the vested slice at checkpoint {n} · signed in Phantom.",
+    "modal.withdraw.realConfirm": "Release escrow",
+    "modal.withdraw.realSuccessTitle": "Escrow released",
+    "modal.withdraw.realSuccessHeadline": "Escrow released on-chain",
+    "modal.withdraw.realSuccessBody":
+      "The vested amount was transferred from on-chain escrow to your wallet.",
     // manage connection (carteira)
     "modal.manage.title": "Manage · {name}",
     "modal.manage.connected": "CONNECTED",

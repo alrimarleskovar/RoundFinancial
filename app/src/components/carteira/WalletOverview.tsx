@@ -91,7 +91,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             <MonoLabel>{t("wallet.total", { c: currency })}</MonoLabel>
             <div
               style={{
-                marginTop: 10,
+                marginTop: "auto",
                 display: "flex",
                 alignItems: "baseline",
                 gap: 12,
@@ -112,7 +112,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             </div>
             <div
               style={{
-                marginTop: "auto",
+                marginTop: 14,
                 display: "flex",
                 gap: 16,
                 fontSize: 12,
