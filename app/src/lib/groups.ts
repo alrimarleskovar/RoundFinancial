@@ -80,5 +80,6 @@ export function fromDiscover(g: DiscoverGroup): CatalogGroup {
     level: g.level,
     category: categorizeGroup(g),
     joined: false,
+    devnetPool: g.devnetPool,
   };
 }

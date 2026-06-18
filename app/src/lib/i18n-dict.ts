@@ -80,6 +80,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool3.label": "Pool 3 · 3 membros · carência 60s · Default",
     "home.devnet.pool3.headline":
       "Mecanismos de proteção em ação: default resolvido com retenção da garantia do membro inadimplente.",
+    "home.devnet.pool4.label": "Pool 4 · 3 vagas · em formação · Entrar",
+    "home.devnet.pool4.headline":
+      "Pool aberto em formação na devnet — conecte a Phantom e entre numa vaga para exercer o join_pool real.",
     // levels
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Saldo Protegido",
@@ -1469,6 +1472,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool3.label": "Pool 3 · 3 members · 60s grace · Default",
     "home.devnet.pool3.headline":
       "Protection mechanisms in action: default resolved by seizing the delinquent member's collateral.",
+    "home.devnet.pool4.label": "Pool 4 · 3 slots · forming · Join",
+    "home.devnet.pool4.headline":
+      "Open Forming pool on devnet — connect Phantom and take a slot to exercise the real join_pool path.",
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Protected Balance",
     "home.kpi.receivable": "Receivable",

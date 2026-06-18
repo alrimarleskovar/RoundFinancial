@@ -105,6 +105,10 @@ export interface DiscoverGroup {
   filled: number;
   total: number;
   level: GroupLevel;
+  // Optional link to a deployed devnet pool — when set, the catalog card
+  // shows an "on-chain · devnet" badge and JoinGroupModal fires the real
+  // join_pool instruction (instead of the mock) once the pool is Forming.
+  devnetPool?: DevnetPoolKey;
 }
 
 export const DISCOVER_GROUPS: DiscoverGroup[] = [
@@ -155,5 +159,23 @@ export const DISCOVER_GROUPS: DiscoverGroup[] = [
     filled: 11,
     total: 12,
     level: 1,
+  },
+  // Live devnet join target. Sized to the on-chain pool4 params
+  // (3 slots, 30 USDC credit, 15 USDC installment, 3 cycles — BRL display
+  // at the 5.5 USDC rate). Lv1 so a fresh Phantom wallet (defaults to Lv1
+  // on-chain) can actually join. Pointed at the deterministic pool4 PDA;
+  // the real join_pool fires once `POOL_SEED_ID=4 pnpm devnet:seed` runs.
+  {
+    id: "d5",
+    name: "Piloto Devnet · Pool 4",
+    emoji: "🧪",
+    tone: "t",
+    prize: 165,
+    months: 3,
+    installment: 82.5,
+    filled: 0,
+    total: 3,
+    level: 1,
+    devnetPool: "pool4",
   },
 ];

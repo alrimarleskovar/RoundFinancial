@@ -6,7 +6,7 @@ import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme, type ThemeTokens } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
 import { usePool, type UsePoolResult } from "@/lib/usePool";
-import { DEVNET_POOLS, type DevnetPoolKey } from "@/lib/devnet";
+import { DEVNET_POOLS } from "@/lib/devnet";
 
 // /home — devnet showcase row. Reads all three deployed pools live and
 // renders status + cycle + members + credit so the demo can prove
@@ -17,7 +17,9 @@ import { DEVNET_POOLS, type DevnetPoolKey } from "@/lib/devnet";
 // FeaturedGroup card above this one already does the same for pool2,
 // so this component is a complementary fleet view.
 
-const POOL_KEYS: DevnetPoolKey[] = ["pool1", "pool2", "pool3"];
+// The /home showcase row covers the three Active "driven" pools; pool4 is a
+// separate Forming join target surfaced in the /grupos catalog, not here.
+const POOL_KEYS = ["pool1", "pool2", "pool3"] as const;
 
 function statusColor(name: string | undefined, tokens: ThemeTokens): string {
   switch (name) {
@@ -42,7 +44,7 @@ export function DevnetPoolStatus() {
   const pool1 = usePool("pool1");
   const pool2 = usePool("pool2");
   const pool3 = usePool("pool3");
-  const results: Record<DevnetPoolKey, UsePoolResult> = {
+  const results: Record<(typeof POOL_KEYS)[number], UsePoolResult> = {
     pool1,
     pool2,
     pool3,
