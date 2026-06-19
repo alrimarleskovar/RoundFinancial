@@ -502,7 +502,7 @@ function LevelsPanel() {
         <MonoTitle>Níveis de reputação</MonoTitle>
         <Icons.info size={13} stroke="#14F195" sw={1.8} />
       </div>
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 flex flex-1 flex-col justify-between gap-3">
         {LEVELS.map((l) => (
           <div
             key={l.level}
@@ -539,11 +539,6 @@ function LevelsPanel() {
           </div>
         ))}
       </div>
-
-      {/* spacer — pushes "Próximo nível" to the bottom when the panel
-          stretches to match the passport hero (0-height otherwise, so it
-          doesn't inflate the panel's natural height) */}
-      <div className="flex-1" />
 
       {/* próximo nível — folded into the levels panel (print) */}
       <div className="mt-5 rounded-2xl border border-[#14F195]/15 bg-[#14F195]/[0.05] p-4">
@@ -583,17 +578,20 @@ function BenefitsPanel() {
             className="flex h-full flex-col rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-colors hover:border-white/20"
           >
             <div
-              className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl"
+              className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl"
               style={{ background: `${b.color}16`, border: `1px solid ${b.color}40` }}
             >
               <Glyph name={b.icon} color={b.color} size={19} sw={1.9} />
             </div>
-            <div className="text-xl font-black" style={{ color: b.color }}>
-              {b.value}
+            {/* stats bottom-align as one block so a stretched card reads as
+                "icon up top, figures down low" rather than an empty base */}
+            <div className="mt-auto">
+              <div className="text-xl font-black" style={{ color: b.color }}>
+                {b.value}
+              </div>
+              <div className="mt-0.5 text-sm font-bold text-white/85">{b.title}</div>
+              <div className="mt-1.5 text-[11px] leading-relaxed text-white/42">{b.desc}</div>
             </div>
-            <div className="mt-0.5 text-sm font-bold text-white/85">{b.title}</div>
-            {/* description bottom-anchors so stretched cards stay balanced */}
-            <div className="mt-auto pt-2.5 text-[11px] leading-relaxed text-white/42">{b.desc}</div>
           </div>
         ))}
       </div>
@@ -813,7 +811,7 @@ export default function ReputacaoV2Page() {
       </header>
 
       <main className="flex flex-col gap-6">
-        <div className="grid gap-6 lg:grid-cols-[1.45fr_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <PassportHero />
           <LevelsPanel />
         </div>
