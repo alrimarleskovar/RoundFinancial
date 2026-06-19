@@ -131,49 +131,102 @@ function MonoTitle({ children, color = "#14F195" }: { children: React.ReactNode;
 function ScoreHero() {
   return (
     <Card className="relative overflow-hidden p-7 md:p-8">
-      <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-[#14F195]/10 blur-[80px]" />
-      <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-[#9945FF]/10 blur-[80px]" />
-      <div className="relative grid gap-8 md:grid-cols-[260px_1fr] md:items-center">
-        <div className="flex items-center gap-8">
+      {/* ambient glows */}
+      <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#14F195]/10 blur-[80px]" />
+      <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-[#9945FF]/10 blur-[80px]" />
+
+      {/* info affordance, top-right */}
+      <button
+        type="button"
+        aria-label="Sobre o score"
+        className="absolute right-5 top-5 text-gray-500 transition-colors hover:text-gray-300"
+      >
+        <Icons.info size={18} stroke="currentColor" sw={1.8} />
+      </button>
+
+      <div className="relative grid items-center gap-8 md:grid-cols-[auto_1fr]">
+        {/* left — gradient gauge ring + score */}
+        <div className="flex items-center gap-7">
           <div
-            className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full p-[7px] shadow-[0_0_45px_rgba(20,241,149,0.18)]"
-            style={{
-              background:
-                "conic-gradient(from 220deg, #14F195 0 34%, #00C8FF 34% 62%, #9945FF 62% 82%, rgba(255,255,255,0.08) 82% 100%)",
-            }}
+            className="relative h-[132px] w-[132px] shrink-0"
+            style={{ filter: "drop-shadow(0 0 22px rgba(20,241,149,0.16))" }}
           >
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0B111A]">
-              <Icons.shield size={46} stroke="#14F195" sw={1.7} />
+            <svg viewBox="0 0 120 120" className="h-full w-full">
+              <defs>
+                <linearGradient id="rfiRing" x1="0" y1="0.5" x2="1" y2="0.5">
+                  <stop offset="0%" stopColor="#14F195" />
+                  <stop offset="50%" stopColor="#00C8FF" />
+                  <stop offset="100%" stopColor="#9945FF" />
+                </linearGradient>
+              </defs>
+              {/* faint full track */}
+              <circle
+                cx="60"
+                cy="60"
+                r="50"
+                fill="none"
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth="9"
+              />
+              {/* ~79% gradient arc, rounded caps, gap at the bottom */}
+              <path
+                d="M24.65 95.35 A50 50 0 1 1 85 103.3"
+                fill="none"
+                stroke="url(#rfiRing)"
+                strokeWidth="9"
+                strokeLinecap="round"
+              />
+            </svg>
+            {/* shield + check, centered */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg
+                width="46"
+                height="46"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#14F195"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
+                <path d="M8.5 12l2.4 2.4L15.6 9.6" />
+              </svg>
             </div>
           </div>
           <div>
             <div
-              className={`text-[5.5rem] font-black leading-none tracking-[-0.08em] text-white ${MONO}`}
+              className={`text-[5.5rem] font-black leading-[0.85] tracking-[-0.07em] text-white ${MONO}`}
             >
               684
             </div>
-            <div className="mt-1 text-2xl font-semibold text-[#14F195]">pontos</div>
+            <div className="mt-2 text-2xl font-semibold text-[#14F195]">pontos</div>
           </div>
         </div>
+
+        {/* right — level + progress */}
         <div className="border-white/10 md:border-l md:pl-10">
           <div className="text-sm font-black uppercase tracking-[0.18em] text-[#14F195]">
-            Nível 2 <span className="text-[#9945FF]">• Comprovado</span>
+            Nível 2 • Comprovado
           </div>
           <div className="mt-3 text-base text-gray-300">Faltam 66 pontos para o próximo nível</div>
           <div className="mt-1 text-xl font-bold text-[#9945FF]">Veterano</div>
-          <div className="mt-8 flex items-center gap-4">
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/5">
+          <div className="mt-7 flex items-center gap-4">
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
               <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]" />
             </div>
-            <span className={`text-sm text-gray-200 ${MONO}`}>684 / 750</span>
-          </div>
-          <div className="mt-8 flex justify-center md:justify-start">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#14F195]/20 bg-[#14F195]/10 px-5 py-2 text-sm font-bold text-[#14F195]">
-              <Icons.people size={16} stroke="#14F195" sw={2} /> Você está melhor que 72% dos
-              usuários
-            </div>
+            <span className={`shrink-0 text-sm text-gray-300 ${MONO}`}>684 / 750</span>
           </div>
         </div>
+      </div>
+
+      {/* bottom — percentile, centered across the card */}
+      <div className="relative mt-7 flex items-center justify-center gap-3">
+        <span className="text-sm text-gray-400">Você está melhor que</span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-1.5 text-sm font-bold text-[#14F195]">
+          <Icons.people size={15} stroke="#14F195" sw={2} />
+          72% dos usuários
+        </span>
       </div>
     </Card>
   );
