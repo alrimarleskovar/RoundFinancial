@@ -436,6 +436,10 @@ function ScoreChart() {
   const months = monthsForRange(range, lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN);
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
   const area = `0,220 ${line} 600,220`;
+  const lastPoint = points[points.length - 1];
+  const clamp = (v: number) => Math.max(4, Math.min(96, v));
+  const dotLeft = lastPoint ? clamp((lastPoint[0] / 600) * 100) : 96;
+  const dotTop = lastPoint ? clamp((lastPoint[1] / 220) * 100) : 12;
 
   return (
     <Card className="p-5 md:p-7">
@@ -453,35 +457,17 @@ function ScoreChart() {
           ))}
         </div>
       </div>
-      <div className="relative mt-8 h-[320px] overflow-hidden rounded-2xl border border-white/5 bg-[#070B11] p-6">
-        <div className="absolute left-6 right-6 top-[58px] border-t border-dashed border-[#9945FF]/50" />
-        <div className="absolute left-6 right-6 top-[160px] border-t border-dashed border-[#14F195]/45" />
-        <div className="absolute left-6 right-6 top-[252px] border-t border-dashed border-[#00C8FF]/40" />
-        {/* Level labels sit centered ON their gridline, with a bg chip that
-            masks the dashed line behind the text + z-10 above the chart. */}
-        <span
-          className={`absolute left-6 top-[58px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#9945FF] ${MONO}`}
-        >
-          Nv.4 Elite • 950
-        </span>
-        <span
-          className={`absolute left-6 top-[160px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
-        >
-          Nv.3 Veterano • 750
-        </span>
-        <span
-          className={`absolute left-6 top-[252px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#00C8FF] ${MONO}`}
-        >
-          Nv.2 Comprovado • 500
-        </span>
+      <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
+        {/* gradient area + line — fills the whole panel */}
         <svg
           viewBox="0 0 600 220"
-          className="absolute bottom-12 left-8 right-8 h-[210px] w-[calc(100%-4rem)] overflow-visible"
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full"
         >
           <defs>
             <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#14F195" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#14F195" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#14F195" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#14F195" stopOpacity="0.015" />
             </linearGradient>
           </defs>
           <polygon points={area} fill="url(#scoreFill)" />
@@ -489,21 +475,47 @@ function ScoreChart() {
             points={line}
             fill="none"
             stroke="#14F195"
-            strokeWidth="4"
+            strokeWidth="3"
+            vectorEffect="non-scaling-stroke"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          {points.length > 0 && (
-            <circle
-              cx={points[points.length - 1]![0]}
-              cy={points[points.length - 1]![1]}
-              r="6"
-              fill="#14F195"
-              className="drop-shadow-[0_0_14px_#14F195]"
-            />
-          )}
         </svg>
-        <div className="absolute bottom-5 left-8 right-8 flex justify-between text-sm text-gray-500">
+
+        {/* tier guides — percentage-positioned so they track the panel height */}
+        <div className="pointer-events-none absolute inset-x-5 top-[20%] border-t border-dashed border-[#9945FF]/45" />
+        <div className="pointer-events-none absolute inset-x-5 top-[48%] border-t border-dashed border-[#14F195]/40" />
+        <div className="pointer-events-none absolute inset-x-5 top-[76%] border-t border-dashed border-[#00C8FF]/35" />
+        <span
+          className={`absolute left-5 top-[20%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#9945FF] ${MONO}`}
+        >
+          Nv.4 Elite • 950
+        </span>
+        <span
+          className={`absolute left-5 top-[48%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
+        >
+          Nv.3 Veterano • 750
+        </span>
+        <span
+          className={`absolute left-5 top-[76%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#00C8FF] ${MONO}`}
+        >
+          Nv.2 Comprovado • 500
+        </span>
+
+        {/* end-of-curve marker */}
+        {lastPoint && (
+          <div
+            className="absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
+            style={{
+              left: `${dotLeft}%`,
+              top: `${dotTop}%`,
+              boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
+            }}
+          />
+        )}
+
+        {/* month axis */}
+        <div className="absolute inset-x-6 bottom-3 flex justify-between text-xs text-gray-500">
           {months.map((m) => (
             <span key={m}>{m}</span>
           ))}
