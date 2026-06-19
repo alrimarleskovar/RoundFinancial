@@ -309,18 +309,26 @@ function ScoreChart() {
         </div>
       </div>
       <div className="relative mt-8 h-[320px] overflow-hidden rounded-2xl border border-white/5 bg-[#070B11] p-6">
-        <div className="absolute left-6 right-6 top-[58px] border-t border-dashed border-[#9945FF]/65" />
-        <div className="absolute left-6 right-6 top-[160px] border-t border-dashed border-[#14F195]/55" />
-        <div className="absolute left-6 right-6 top-[252px] border-t border-dashed border-[#00C8FF]/45" />
-        <div className={`absolute left-6 top-[48px] text-xs text-[#9945FF] ${MONO}`}>
+        <div className="absolute left-6 right-6 top-[58px] border-t border-dashed border-[#9945FF]/50" />
+        <div className="absolute left-6 right-6 top-[160px] border-t border-dashed border-[#14F195]/45" />
+        <div className="absolute left-6 right-6 top-[252px] border-t border-dashed border-[#00C8FF]/40" />
+        {/* Level labels sit centered ON their gridline, with a bg chip that
+            masks the dashed line behind the text + z-10 above the chart. */}
+        <span
+          className={`absolute left-6 top-[58px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#9945FF] ${MONO}`}
+        >
           Nv.3 Veterano • 750
-        </div>
-        <div className={`absolute left-6 top-[150px] text-xs text-[#14F195] ${MONO}`}>
+        </span>
+        <span
+          className={`absolute left-6 top-[160px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
+        >
           Nv.2 Comprovado • 500
-        </div>
-        <div className={`absolute left-6 top-[242px] text-xs text-[#00C8FF] ${MONO}`}>
+        </span>
+        <span
+          className={`absolute left-6 top-[252px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#00C8FF] ${MONO}`}
+        >
           Nv.1 Iniciante • 250
-        </div>
+        </span>
         <svg
           viewBox="0 0 600 220"
           className="absolute bottom-12 left-8 right-8 h-[210px] w-[calc(100%-4rem)] overflow-visible"
