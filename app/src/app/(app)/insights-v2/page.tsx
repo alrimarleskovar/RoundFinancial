@@ -2,21 +2,25 @@
 
 // /insights-v2 — VISUAL-FIRST preview of the team's new Insights design.
 //
-// Standalone shadow route (like /home-v2 was) so the real /insights and main
-// stay untouched until this graduates. Per the agreed workflow this pass is
-// VISUAL ONLY: it reuses the existing @/data/insights fixtures, but the score
-// hero / level / percentile are the design's static values and there are no
-// real integrations yet — the re-wire pass connects them to useSession()/the
-// passport lib, then we migrate strings to i18n and graduate to /insights.
+// Now lives inside the (app) route group so it inherits the DeskShell TopBar
+// (the horizontal session nav) + the shared dark ground — the real /insights
+// and main stay untouched until this graduates. Faithful to the provided
+// layout, reusing the existing @/data/insights fixtures.
 //
-// Faithful to the provided layout. Two adaptations: the design's
-// `--font-geist-mono` (not loaded in this project) is mapped to the project
-// mono `--font-jetbrains-mono`; the right "Por que cada edição?" aside is
-// design-rationale, kept here for review fidelity (drop at graduation).
+// Polish pass vs. the raw export: emoji glyphs swapped for the project's
+// stroke icon set (@/components/brand/icons); the score ring uses an inline
+// conic-gradient (reliable vs. the Tailwind arbitrary value); the design's
+// Geist Mono is loaded for real; the "Por que cada edição?" rationale aside
+// is removed (main is full-width).
+//
+// Still visual-only: the score hero / level / percentile are the design's
+// static values — the re-wire pass connects them to useSession()/the passport
+// lib, then strings migrate to i18n and it graduates onto /insights.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
+import { Icons } from "@/components/brand/icons";
 import {
   DEFAULT_RANGE,
   FACTORS,
@@ -40,91 +44,61 @@ const TONE_HEX: Record<Tone, string> = {
   r: "#FF3B8D",
 };
 
+const MONO = "[font-family:var(--font-geist-mono),var(--font-jetbrains-mono),monospace]";
+
 const FACTOR_META: Record<
   BehaviorFactor["key"],
-  {
-    icon: string;
-    titlePt: string;
-    titleEn: string;
-    descPt: string;
-    descEn: string;
-    statusPt: string;
-    statusEn: string;
-  }
+  { icon: string; titlePt: string; descPt: string; statusPt: string }
 > = {
   punctuality: {
-    icon: "📅",
+    icon: "check",
     titlePt: "Pontualidade",
-    titleEn: "Punctuality",
     descPt: "Pagamentos em dia",
-    descEn: "On-time payments",
     statusPt: "Excelente",
-    statusEn: "Excellent",
   },
   anticipation: {
-    icon: "⏱️",
+    icon: "bolt",
     titlePt: "Antecipações",
-    titleEn: "Early payments",
     descPt: "Ações de pagamento",
-    descEn: "Payment actions",
     statusPt: "Bom",
-    statusEn: "Good",
   },
   consistency: {
-    icon: "🎯",
+    icon: "pulse",
     titlePt: "Consistência",
-    titleEn: "Consistency",
     descPt: "Regularidade nos ciclos",
-    descEn: "Cycle regularity",
     statusPt: "A desenvolver",
-    statusEn: "Needs work",
   },
   engagement: {
-    icon: "👥",
+    icon: "people",
     titlePt: "Engajamento",
-    titleEn: "Engagement",
     descPt: "Participação na rede",
-    descEn: "Network participation",
     statusPt: "Pode melhorar",
-    statusEn: "Can improve",
   },
   diversity: {
-    icon: "▦",
+    icon: "layers",
     titlePt: "Diversidade",
-    titleEn: "Diversity",
     descPt: "Variedade de categorias",
-    descEn: "Category variety",
     statusPt: "A desenvolver",
-    statusEn: "Needs work",
   },
 };
 
-const REC_META: Record<
-  string,
-  { icon: string; titlePt: string; titleEn: string; ctaPt: string; ctaEn: string; href: string }
-> = {
+const REC_META: Record<string, { icon: string; titlePt: string; ctaPt: string; href: string }> = {
   anticipate: {
-    icon: "★",
+    icon: "bolt",
     titlePt: "Pague 3 parcelas adiantadas",
-    titleEn: "Pay 3 installments early",
     ctaPt: "Fazer isso",
-    ctaEn: "Do this",
     href: "/",
   },
   diversify: {
-    icon: "👥",
+    icon: "groups",
     titlePt: "Entre em um grupo PME",
-    titleEn: "Join an SME group",
     ctaPt: "Ver grupos",
-    ctaEn: "See groups",
     href: "/grupos",
   },
   complete: {
-    icon: "🏆",
+    icon: "shield",
     titlePt: "Conclua Renovação MEI sem atraso",
-    titleEn: "Complete Renovação MEI on time",
     ctaPt: "Ver progresso",
-    ctaEn: "See progress",
     href: "/",
   },
 };
@@ -161,13 +135,21 @@ function ScoreHero() {
       <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-[#9945FF]/10 blur-[80px]" />
       <div className="relative grid gap-8 md:grid-cols-[260px_1fr] md:items-center">
         <div className="flex items-center gap-8">
-          <div className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(from_220deg,#14F195_0_34%,#00C8FF_34%_62%,#9945FF_62%_82%,rgba(255,255,255,0.08)_82%_100%)] p-[7px] shadow-[0_0_45px_rgba(20,241,149,0.18)]">
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0B111A] text-5xl">
-              🛡️
+          <div
+            className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full p-[7px] shadow-[0_0_45px_rgba(20,241,149,0.18)]"
+            style={{
+              background:
+                "conic-gradient(from 220deg, #14F195 0 34%, #00C8FF 34% 62%, #9945FF 62% 82%, rgba(255,255,255,0.08) 82% 100%)",
+            }}
+          >
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0B111A]">
+              <Icons.shield size={46} stroke="#14F195" sw={1.7} />
             </div>
           </div>
           <div>
-            <div className="text-[5.5rem] font-black leading-none tracking-[-0.08em] text-white [font-family:var(--font-jetbrains-mono),monospace]">
+            <div
+              className={`text-[5.5rem] font-black leading-none tracking-[-0.08em] text-white ${MONO}`}
+            >
               684
             </div>
             <div className="mt-1 text-2xl font-semibold text-[#14F195]">pontos</div>
@@ -183,11 +165,12 @@ function ScoreHero() {
             <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/5">
               <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]" />
             </div>
-            <span className="font-mono text-sm text-gray-200">684 / 750</span>
+            <span className={`text-sm text-gray-200 ${MONO}`}>684 / 750</span>
           </div>
           <div className="mt-8 flex justify-center md:justify-start">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#14F195]/20 bg-[#14F195]/10 px-5 py-2 text-sm font-bold text-[#14F195]">
-              <span>👥</span> Você está melhor que 72% dos usuários
+              <Icons.people size={16} stroke="#14F195" sw={2} /> Você está melhor que 72% dos
+              usuários
             </div>
           </div>
         </div>
@@ -204,6 +187,7 @@ function RecommendationCards() {
         {RECOMMENDATIONS.map((rec) => {
           const meta = REC_META[rec.key];
           const color = TONE_HEX[rec.tone];
+          const Ic = Icons[meta.icon]!;
           return (
             <Link
               key={rec.key}
@@ -215,13 +199,13 @@ function RecommendationCards() {
                 style={{ backgroundColor: color }}
               />
               <div
-                className="relative flex h-14 w-14 items-center justify-center rounded-full text-2xl"
-                style={{ backgroundColor: `${color}22`, color }}
+                className="relative flex h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: `${color}1f`, border: `1px solid ${color}40` }}
               >
-                {meta.icon}
+                <Ic size={26} stroke={color} sw={1.9} />
               </div>
               <div
-                className="relative mt-5 text-3xl font-black tracking-[-0.05em]"
+                className={`relative mt-5 text-3xl font-black tracking-[-0.05em] ${MONO}`}
                 style={{ color }}
               >
                 +{rec.pts} pts
@@ -236,7 +220,9 @@ function RecommendationCards() {
                 }}
               >
                 {meta.ctaPt}
-                <span className="transition-transform group-hover:translate-x-1">›</span>
+                <span className="transition-transform group-hover:translate-x-1">
+                  <Icons.arrow size={16} stroke="#06110D" sw={2.4} />
+                </span>
               </div>
             </Link>
           );
@@ -249,13 +235,14 @@ function RecommendationCards() {
 function FactorRow({ factor }: { factor: BehaviorFactor }) {
   const meta = FACTOR_META[factor.key];
   const color = TONE_HEX[factor.tone];
+  const Ic = Icons[meta.icon]!;
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4">
+    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-colors hover:border-white/20">
       <div
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl"
-        style={{ backgroundColor: `${color}20`, color }}
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+        style={{ backgroundColor: `${color}1c`, border: `1px solid ${color}3a` }}
       >
-        {meta.icon}
+        <Ic size={22} stroke={color} sw={2} />
       </div>
       <div className="min-w-[150px] flex-1">
         <div className="text-base font-bold text-white">{meta.titlePt}</div>
@@ -272,7 +259,7 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
         />
       </div>
       <div
-        className="w-14 text-right text-3xl font-black tracking-[-0.06em] [font-family:var(--font-jetbrains-mono),monospace]"
+        className={`w-14 text-right text-3xl font-black tracking-[-0.06em] ${MONO}`}
         style={{ color }}
       >
         {factor.value}
@@ -280,7 +267,6 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
       <div className="hidden w-28 text-sm font-semibold md:block" style={{ color }}>
         {meta.statusPt}
       </div>
-      <button className="text-gray-500 transition-colors hover:text-white">⌄</button>
     </div>
   );
 }
@@ -322,17 +308,17 @@ function ScoreChart() {
           ))}
         </div>
       </div>
-      <div className="relative mt-8 h-[320px] overflow-hidden rounded-2xl bg-[#070B11] p-6">
+      <div className="relative mt-8 h-[320px] overflow-hidden rounded-2xl border border-white/5 bg-[#070B11] p-6">
         <div className="absolute left-6 right-6 top-[58px] border-t border-dashed border-[#9945FF]/65" />
         <div className="absolute left-6 right-6 top-[160px] border-t border-dashed border-[#14F195]/55" />
         <div className="absolute left-6 right-6 top-[252px] border-t border-dashed border-[#00C8FF]/45" />
-        <div className="absolute left-6 top-[48px] text-xs font-mono text-[#9945FF]">
+        <div className={`absolute left-6 top-[48px] text-xs text-[#9945FF] ${MONO}`}>
           Nv.3 Veterano • 750
         </div>
-        <div className="absolute left-6 top-[150px] text-xs font-mono text-[#14F195]">
+        <div className={`absolute left-6 top-[150px] text-xs text-[#14F195] ${MONO}`}>
           Nv.2 Comprovado • 500
         </div>
-        <div className="absolute left-6 top-[242px] text-xs font-mono text-[#00C8FF]">
+        <div className={`absolute left-6 top-[242px] text-xs text-[#00C8FF] ${MONO}`}>
           Nv.1 Iniciante • 250
         </div>
         <svg
@@ -376,7 +362,7 @@ function ScoreChart() {
 
 export default function InsightsV2Page() {
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
       <header className="flex items-end justify-between gap-6">
         <div>
           <MonoTitle>Insights</MonoTitle>
@@ -389,74 +375,12 @@ export default function InsightsV2Page() {
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <main className="flex flex-col gap-6">
-          <ScoreHero />
-          <RecommendationCards />
-          <FactorsPanel />
-          <ScoreChart />
-        </main>
-
-        <aside className="hidden lg:block">
-          <Card className="sticky top-8 p-6">
-            <h2 className="text-lg font-black uppercase tracking-[0.08em] text-[#14F195]">
-              Por que cada edição?
-            </h2>
-            <div className="mt-8 space-y-7">
-              {[
-                [
-                  "1",
-                  "Hero com seu nível e progresso",
-                  "Mostra imediatamente onde o usuário está e quanto falta para o próximo nível.",
-                ],
-                [
-                  "2",
-                  "Próximos passos em destaque",
-                  "Mostra ações práticas que o usuário pode fazer agora para ganhar pontos.",
-                ],
-                [
-                  "3",
-                  "Métricas com contexto",
-                  "Além do número, mostramos o status para leitura rápida.",
-                ],
-                [
-                  "4",
-                  "Comparação social",
-                  "Mostra que está melhor que 72% dos usuários e aumenta motivação.",
-                ],
-                ["5", "Gráfico no final", "O histórico é útil, mas não deve competir com ações."],
-                ["6", "Linguagem humana", "Troca jargão por ações claras e entendíveis."],
-                ["7", "Design mais premium", "Mais espaço, ícones vivos e barras mais fortes."],
-                ["8", "Foco na progressão", "A tela responde: o que faço para melhorar?"],
-              ].map(([num, title, text], idx) => {
-                const color =
-                  idx === 4 ? "#9945FF" : idx === 5 ? "#FFB547" : idx === 7 ? "#9945FF" : "#14F195";
-                return (
-                  <div key={num} className="border-b border-white/10 pb-6 last:border-0 last:pb-0">
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black text-[#06110D]"
-                        style={{ backgroundColor: color }}
-                      >
-                        {num}
-                      </div>
-                      <div>
-                        <h3
-                          className="text-sm font-black uppercase leading-tight tracking-[0.08em]"
-                          style={{ color }}
-                        >
-                          {title}
-                        </h3>
-                        <p className="mt-3 text-sm leading-6 text-gray-300">{text}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </aside>
-      </div>
+      <main className="flex flex-col gap-6">
+        <ScoreHero />
+        <RecommendationCards />
+        <FactorsPanel />
+        <ScoreChart />
+      </main>
     </div>
   );
 }

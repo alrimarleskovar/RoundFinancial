@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, JetBrains_Mono, Syne } from "next/font/google";
+import { DM_Sans, Geist_Mono, JetBrains_Mono, Syne } from "next/font/google";
 
 import "./globals.css";
 import "@solana/wallet-adapter-react-ui/styles.css";
@@ -26,6 +26,14 @@ const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-jetbrains-mono",
+  display: "swap",
+});
+// Geist Mono — the team's chosen display mono for the redesigned screens
+// (e.g. /insights-v2). Exposed as --font-geist-mono.
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-geist-mono",
   display: "swap",
 });
 
@@ -63,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="pt-BR"
-      className={`dark ${syne.variable} ${dmSans.variable} ${jetBrainsMono.variable}`}
+      className={`dark ${syne.variable} ${dmSans.variable} ${jetBrainsMono.variable} ${geistMono.variable}`}
     >
       {/* Body keeps Tailwind tokens so /demo still renders with its
           dark palette; ported screens override via inline tokens
