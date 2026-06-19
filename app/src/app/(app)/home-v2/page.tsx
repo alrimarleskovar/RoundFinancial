@@ -137,16 +137,19 @@ function dueLabel(daysUntil: number, lang: Lang): string {
 
 // ── action hero ──────────────────────────────────────────────────────────
 
+// A 3D tear-off calendar page showing the countdown (days remaining), the
+// focal visual of the action hero per the print.
 function CountdownCalendar({ day, mon }: { day: string; mon: string }) {
   return (
-    <div className="relative h-28 w-24 shrink-0">
-      <span className="absolute -top-1 left-4 h-3 w-1.5 rounded-full bg-white/30" />
-      <span className="absolute -top-1 right-4 h-3 w-1.5 rounded-full bg-white/30" />
-      <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#14F195]/30 bg-[#0A1A14] shadow-[0_8px_30px_rgba(20,241,149,0.18)]">
-        <div className="flex h-7 items-center justify-center bg-gradient-to-r from-[#14F195] to-[#00C8FF] text-[10px] font-black uppercase tracking-[0.18em] text-[#04130D]">
+    <div className="relative -rotate-[5deg]">
+      {/* binder rings */}
+      <span className="absolute -top-2 left-5 z-10 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
+      <span className="absolute -top-2 right-5 z-10 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
+      <div className="h-32 w-28 overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] ring-1 ring-black/10">
+        <div className="flex h-9 items-center justify-center bg-gradient-to-r from-[#14F195] to-[#0FCB7E] text-[11px] font-black uppercase tracking-[0.2em] text-[#04130D]">
           {mon}
         </div>
-        <div className="flex flex-1 items-center justify-center text-[2.75rem] font-black leading-none text-white">
+        <div className="flex h-[calc(100%-2.25rem)] items-center justify-center text-[3.5rem] font-black leading-none text-[#0B0F16]">
           {day}
         </div>
       </div>
@@ -158,48 +161,117 @@ function ActionHero({
   nextDue,
   installment,
   daysUntil,
-  dueDay,
   dueMon,
 }: {
   nextDue: string;
   installment: string;
   daysUntil: number;
-  dueDay: string;
   dueMon: string;
 }) {
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-[#14F195]/35 bg-[#071018] p-5 shadow-[0_0_45px_rgba(20,241,149,0.08)] sm:p-7">
-      <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[70px]" />
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[80px]" />
+      <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-[#00C8FF]/[0.08] blur-[80px]" />
 
-      <div className="relative z-10 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <div className="relative z-10 grid gap-6 lg:grid-cols-[1.05fr_0.8fr_1fr] lg:items-center">
+        {/* left — the action */}
         <div>
           <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#14F195]">
             <span className="h-2 w-2 rounded-full bg-[#14F195] shadow-[0_0_10px_#14F195]" />
             Próxima ação
           </div>
-          <h1 className="max-w-xl text-2xl font-black tracking-tight text-white sm:text-4xl">
-            Sua parcela vence em <span className="text-[#14F195]">{daysUntil} dias</span>
-          </h1>
-          <p className="mt-4 text-sm text-gray-400">Valor da parcela</p>
-          <div className="mt-1 text-4xl font-black tracking-tight text-white sm:text-5xl">
+          <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+            Sua parcela vence em
+          </h2>
+          <div className="mt-1 text-4xl font-black tracking-tight text-[#14F195] sm:text-5xl">
+            {daysUntil} dias
+          </div>
+          <p className="mt-5 text-sm text-gray-400">Valor da parcela</p>
+          <div className="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">
             {installment}
           </div>
-          <button className="mt-6 inline-flex min-w-[260px] items-center justify-between rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-6 py-4 text-sm font-black text-[#04130D] shadow-[0_8px_32px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(20,241,149,0.36)]">
+          <button className="mt-6 inline-flex w-full max-w-[280px] items-center justify-between rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-6 py-4 text-sm font-black text-[#04130D] shadow-[0_8px_32px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(20,241,149,0.36)]">
             Pagar agora
             <Glyph name="chevronRight" color="#04130D" size={18} sw={2.4} />
           </button>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-5">
-          <CountdownCalendar day={dueDay} mon={dueMon} />
-          <div className="grid flex-1 gap-3">
-            <HeroFact icon="calendar" title="Vencimento" value={nextDue} />
-            <HeroFact icon="stopwatch" title="Dias restantes" value={`${daysUntil} dias`} />
-            <HeroFact icon="shield" title="Mantenha seu score" value="Evite juros e multas" />
-          </div>
+        {/* center — countdown calendar inside a glowing green arc */}
+        <div className="relative flex items-center justify-center py-2">
+          <svg
+            viewBox="0 0 120 120"
+            className="pointer-events-none absolute h-[210px] w-[210px]"
+            style={{ filter: "drop-shadow(0 0 14px rgba(20,241,149,0.45))" }}
+          >
+            <circle
+              cx="60"
+              cy="60"
+              r="52"
+              fill="none"
+              stroke="#14F195"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray="245 100"
+              opacity="0.5"
+              transform="rotate(130 60 60)"
+            />
+          </svg>
+          <CountdownCalendar day={String(daysUntil)} mon={dueMon} />
+        </div>
+
+        {/* right — the facts */}
+        <div className="grid gap-2.5 rounded-3xl border border-white/10 bg-black/20 p-3 backdrop-blur">
+          <HeroFact icon="calendar" title="Vencimento" value={nextDue} />
+          <HeroFact icon="stopwatch" title="Dias restantes" value={`${daysUntil} dias`} />
+          <HeroFact icon="shield" title="Mantenha seu score" value="Evite juros e multas" />
         </div>
       </div>
     </section>
+  );
+}
+
+// Top greeting strip (the redesign export dropped this; the target print
+// keeps it). Time-aware salutation + the two primary CTAs — Pagar parcela
+// opens the real installment modal, Entrar em grupo bridges to /grupos.
+function Greeting({
+  firstName,
+  payGroup,
+}: {
+  firstName: string;
+  payGroup: ActiveGroup | undefined;
+}) {
+  const [payOpen, setPayOpen] = useState(false);
+  const hour = new Date().getHours();
+  const salutation = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="text-3xl font-black tracking-[-0.03em] text-white [font-family:var(--font-syne),sans-serif] sm:text-4xl">
+          {salutation}, {firstName} <span className="align-middle">👋</span>
+        </h1>
+        <p className="mt-2 text-sm text-gray-400">Vamos construir mais conquistas hoje.</p>
+      </div>
+      <div className="flex shrink-0 gap-2.5">
+        <button
+          type="button"
+          onClick={() => setPayOpen(true)}
+          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-5 py-3 text-sm font-black text-[#04130D] shadow-[0_8px_28px_rgba(20,241,149,0.25)] transition hover:-translate-y-0.5"
+        >
+          <Icons.send size={16} stroke="#04130D" sw={1.9} />
+          Pagar parcela
+        </button>
+        <Link
+          href="/grupos"
+          className="inline-flex items-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:border-white/30"
+        >
+          <Icons.plus size={16} stroke="currentColor" sw={2} />
+          Entrar em grupo
+        </Link>
+      </div>
+      {payGroup ? (
+        <PayInstallmentModal group={payGroup} open={payOpen} onClose={() => setPayOpen(false)} />
+      ) : null}
+    </div>
   );
 }
 
@@ -365,38 +437,6 @@ function CollateralDetails({ pct }: { pct: number }) {
   );
 }
 
-function PassportDetails({ score }: { score: number }) {
-  const tier = tierForScore(score);
-  const pct = scorePct(score);
-  return (
-    <div className="space-y-4 border-t border-white/10 pt-4">
-      <div className="relative h-2 rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]"
-          style={{ width: `${pct}%` }}
-        />
-        {PASSPORT_TIERS.slice(1).map((tt) => (
-          <span
-            key={tt.level}
-            className="absolute top-0 h-full w-px bg-white/25"
-            style={{ left: `${(tt.min / PASSPORT_MAX_SCORE) * 100}%` }}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between text-[11px] text-gray-400">
-        <span>Tier {tier.level}</span>
-        <span>750</span>
-      </div>
-      <Link
-        href="/reputacao"
-        className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
-      >
-        Ver meu perfil <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
-      </Link>
-    </div>
-  );
-}
-
 function Legend({ color, label, value }: { color: string; label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
@@ -406,6 +446,118 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
       </span>
       <span className="font-mono font-bold text-white">{value}</span>
     </div>
+  );
+}
+
+// Standout SAS passport tile — the glow / gradient label / italic score /
+// animated tier bar from the original /home CompactPassport, kept expandable
+// so it sits alongside the three metric cards but clearly carries more weight.
+function PassportTile({
+  score,
+  passportId,
+  expanded,
+  onToggle,
+}: {
+  score: number;
+  passportId: string;
+  expanded: boolean;
+  onToggle: (id: ExpandKey) => void;
+}) {
+  const { t } = useI18n();
+  const tier = tierForScore(score);
+  const pct = scorePct(score);
+  const nextTier = PASSPORT_TIERS.find((tt) => tt.min > score);
+  const toNext = nextTier ? nextTier.min - score : 0;
+
+  return (
+    <article
+      className={`group relative h-full overflow-hidden rounded-2xl border p-5 transition-all duration-300 ${
+        expanded
+          ? "border-[#9945FF]/55 bg-[#9945FF]/[0.07] shadow-[0_0_40px_rgba(153,69,255,0.24)]"
+          : "border-[#9945FF]/30 bg-[#0C1018] shadow-[0_0_30px_rgba(153,69,255,0.15)] hover:border-[#9945FF]/55"
+      }`}
+    >
+      {/* signature passport glows + shine sweep */}
+      <div className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 animate-pulse rounded-full bg-[#9945FF] opacity-20 blur-[60px]" />
+      <div className="pointer-events-none absolute -bottom-10 -right-10 h-32 w-32 animate-pulse rounded-full bg-[#14F195] opacity-10 blur-[60px]" />
+      <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="bg-gradient-to-r from-[#9945FF] to-[#14F195] bg-clip-text text-[11px] font-black uppercase tracking-[0.16em] text-transparent">
+            SAS Digital Passport
+          </span>
+          <div className="mt-0.5 font-mono text-[8px] text-gray-500">ID: {passportId}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onToggle(expanded ? null : "passport")}
+          className="shrink-0 rounded-xl border border-white/10 bg-white/5 p-2 text-gray-400 transition hover:border-white/25 hover:text-white"
+          aria-label={expanded ? "Recolher informações" : "Expandir informações"}
+        >
+          {expanded ? (
+            <Glyph name="chevronDown" color="currentColor" size={17} sw={2} />
+          ) : (
+            <Icons.wallet size={17} stroke="currentColor" sw={1.9} />
+          )}
+        </button>
+      </div>
+
+      <div className="relative z-10 mt-3 flex items-end gap-2">
+        <span className="text-[3.25rem] font-black italic leading-none tracking-tighter text-white">
+          {score}
+        </span>
+        <div className="mb-1 flex flex-col">
+          <span className="text-[10px] font-black italic leading-none text-[#14F195]">TRUSTED</span>
+          <span className="text-[10px] font-bold italic text-gray-500">SCORE</span>
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-4">
+        <div className="mb-1 flex justify-between text-[8px] font-bold uppercase text-gray-500">
+          <span>{t("home.passport.tierLabel")}</span>
+          <span className="text-[#9945FF]">
+            Tier {tier.level} / {t(TIER_KEYS[tier.level])}
+          </span>
+        </div>
+        <div className="relative h-1.5 w-full overflow-hidden rounded-full border border-white/5 bg-white/5">
+          <div
+            className="h-full animate-gradient-x bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#9945FF] bg-[length:200%_auto]"
+            style={{ width: `${pct}%` }}
+          />
+          {PASSPORT_TIERS.slice(1).map((tt) => (
+            <span
+              key={tt.level}
+              className="absolute bottom-0 top-0 w-px bg-white/25"
+              style={{ left: `${(tt.min / PASSPORT_MAX_SCORE) * 100}%` }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* expand → next-level note + profile CTA */}
+      <div
+        className={`relative z-10 grid transition-all duration-300 ${
+          expanded ? "mt-4 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="space-y-3 border-t border-white/10 pt-4">
+            <p className="text-[11px] leading-relaxed text-gray-400">
+              {toNext > 0
+                ? `Faltam ${toNext} pontos para o próximo nível.`
+                : "Você está no nível máximo. Reputação on-chain auditável."}
+            </p>
+            <Link
+              href="/reputacao"
+              className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
+            >
+              Ver meu perfil <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -554,26 +706,27 @@ export default function HomeV2Page() {
     [claimedGroups],
   );
 
+  const firstName = user.name.split(" ")[0];
   const firstGroup = ACTIVE_GROUPS[0];
   const daysUntil = firstGroup ? firstGroup.nextDue : 5;
-  const nextDue = firstGroup ? dueLabel(firstGroup.nextDue, "pt") : "22/Jun";
   const installment = firstGroup ? fmtMoney(firstGroup.installment) : fmtMoney(892);
+  // Real due date for the "Vencimento" fact (DD / Mon / YYYY); the calendar
+  // shows the countdown (daysUntil) per the print.
   const dueDate = new Date(Date.now() + daysUntil * 86_400_000);
-  const dueDay = String(dueDate.getDate()).padStart(2, "0");
-  const dueMon = dueDate
-    .toLocaleDateString("pt-BR", { month: "short" })
-    .replace(".", "")
-    .toUpperCase();
-
-  const passportTier = tierForScore(user.score);
+  const dd = String(dueDate.getDate()).padStart(2, "0");
+  const monShort = dueDate.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  const monCap = monShort.charAt(0).toUpperCase() + monShort.slice(1);
+  const nextDue = `${dd} / ${monCap} / ${dueDate.getFullYear()}`;
+  const dueMon = monCap.toUpperCase();
 
   return (
     <div className="mx-auto flex w-full max-w-6xl animate-in flex-col gap-6 p-4 font-sans fade-in duration-700 md:p-8">
+      <Greeting firstName={firstName} payGroup={firstGroup} />
+
       <ActionHero
         nextDue={nextDue}
         installment={installment}
         daysUntil={daysUntil}
-        dueDay={dueDay}
         dueMon={dueMon}
       />
 
@@ -617,18 +770,12 @@ export default function HomeV2Page() {
           <CollateralDetails pct={user.colateralPct} />
         </ExpandableMetricCard>
 
-        <ExpandableMetricCard
-          id="passport"
+        <PassportTile
+          score={user.score}
+          passportId={user.walletShort}
           expanded={expanded === "passport"}
           onToggle={setExpanded}
-          tone="#9945FF"
-          title="SAS Digital Passport"
-          value={String(user.score)}
-          subtitle={`Tier ${passportTier.level} • ${t(TIER_KEYS[passportTier.level])}`}
-          icon={<Icons.wallet size={17} stroke="currentColor" sw={1.9} />}
-        >
-          <PassportDetails score={user.score} />
-        </ExpandableMetricCard>
+        />
       </div>
 
       <section className="rounded-[2rem] border border-white/8 bg-white/[0.025] p-5 shadow-2xl sm:p-7">
