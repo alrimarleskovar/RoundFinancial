@@ -437,9 +437,11 @@ function ScoreChart() {
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
   const area = `0,220 ${line} 600,220`;
   const lastPoint = points[points.length - 1];
-  const clamp = (v: number) => Math.max(4, Math.min(96, v));
-  const dotLeft = lastPoint ? clamp((lastPoint[0] / 600) * 100) : 96;
-  const dotTop = lastPoint ? clamp((lastPoint[1] / 220) * 100) : 12;
+  // The dot shares the plot area's inset coordinate space, so the exact
+  // curve-end percentage lands it on the line — no clamp (which is what
+  // floated it off the curve before).
+  const dotLeft = lastPoint ? (lastPoint[0] / 600) * 100 : 100;
+  const dotTop = lastPoint ? (lastPoint[1] / 220) * 100 : 0;
 
   return (
     <Card className="p-5 md:p-7">
@@ -458,34 +460,50 @@ function ScoreChart() {
         </div>
       </div>
       <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
-        {/* gradient area + line — fills the whole panel */}
-        <svg
-          viewBox="0 0 600 220"
-          preserveAspectRatio="none"
-          className="absolute inset-0 h-full w-full"
-        >
-          <defs>
-            <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#14F195" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#14F195" stopOpacity="0.015" />
-            </linearGradient>
-          </defs>
-          <polygon points={area} fill="url(#scoreFill)" />
-          <polyline
-            points={line}
-            fill="none"
-            stroke="#14F195"
-            strokeWidth="3"
-            vectorEffect="non-scaling-stroke"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-
-        {/* tier guides — percentage-positioned so they track the panel height */}
+        {/* tier guides — behind the curve, spanning the plot width */}
         <div className="pointer-events-none absolute inset-x-5 top-[20%] border-t border-dashed border-[#9945FF]/45" />
         <div className="pointer-events-none absolute inset-x-5 top-[48%] border-t border-dashed border-[#14F195]/40" />
         <div className="pointer-events-none absolute inset-x-5 top-[76%] border-t border-dashed border-[#00C8FF]/35" />
+
+        {/* plot area — the curve + the end dot share this inset coordinate
+            space, so the dot lands exactly on the curve end and stays inside
+            the panel (a small horizontal inset, matching the print's margins) */}
+        <div className="absolute inset-x-5 inset-y-0">
+          <svg
+            viewBox="0 0 600 220"
+            preserveAspectRatio="none"
+            className="absolute inset-0 h-full w-full"
+          >
+            <defs>
+              <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#14F195" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#14F195" stopOpacity="0.015" />
+              </linearGradient>
+            </defs>
+            <polygon points={area} fill="url(#scoreFill)" />
+            <polyline
+              points={line}
+              fill="none"
+              stroke="#14F195"
+              strokeWidth="3"
+              vectorEffect="non-scaling-stroke"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {lastPoint && (
+            <div
+              className="absolute z-20 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
+              style={{
+                left: `${dotLeft}%`,
+                top: `${dotTop}%`,
+                boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
+              }}
+            />
+          )}
+        </div>
+
+        {/* tier labels — on top, the bg chip masks the dashed line behind */}
         <span
           className={`absolute left-5 top-[20%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#9945FF] ${MONO}`}
         >
@@ -502,20 +520,8 @@ function ScoreChart() {
           Nv.2 Comprovado • 500
         </span>
 
-        {/* end-of-curve marker */}
-        {lastPoint && (
-          <div
-            className="absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
-            style={{
-              left: `${dotLeft}%`,
-              top: `${dotTop}%`,
-              boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
-            }}
-          />
-        )}
-
         {/* month axis */}
-        <div className="absolute inset-x-6 bottom-3 flex justify-between text-xs text-gray-500">
+        <div className="absolute inset-x-5 bottom-3 flex justify-between text-xs text-gray-500">
           {months.map((m) => (
             <span key={m}>{m}</span>
           ))}
