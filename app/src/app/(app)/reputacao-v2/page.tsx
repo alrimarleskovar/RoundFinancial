@@ -340,7 +340,7 @@ function PassportHero() {
   };
 
   return (
-    <Card className="relative overflow-hidden p-6 md:p-8">
+    <Card className="relative flex flex-col overflow-hidden p-6 md:p-8">
       {/* ambient glows */}
       <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[#00C8FF]/15 blur-[80px]" />
       <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[90px]" />
@@ -393,7 +393,7 @@ function PassportHero() {
         </div>
 
         <div
-          className="relative mx-auto h-[156px] w-[156px] shrink-0"
+          className="relative mx-auto h-[184px] w-[184px] shrink-0"
           style={{ filter: "drop-shadow(0 0 24px rgba(20,241,149,0.16))" }}
         >
           <svg viewBox="0 0 120 120" className="h-full w-full">
@@ -420,10 +420,10 @@ function PassportHero() {
               strokeLinecap="round"
             />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
             <svg
-              width="52"
-              height="52"
+              width="60"
+              height="60"
               viewBox="0 0 24 24"
               fill="none"
               stroke="#14F195"
@@ -434,12 +434,17 @@ function PassportHero() {
               <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
               <path d="M8.5 12l2.4 2.4L15.6 9.6" />
             </svg>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-[0.18em] text-white/45 ${MONO}`}
+            >
+              Nível 2
+            </span>
           </div>
         </div>
       </div>
 
       {/* progress to next level */}
-      <div className="relative z-10 mt-7">
+      <div className="relative z-10 mt-6">
         <div className="mb-2 flex items-center justify-between text-xs text-white/55">
           <span>Faltam 66 pontos para o próximo nível</span>
           <span className={MONO}>
@@ -458,8 +463,12 @@ function PassportHero() {
         </div>
       </div>
 
+      {/* spacer — keeps the identity row pinned to the card's base if the
+          hero stretches to match the levels panel */}
+      <div className="flex-1" />
+
       {/* identity row */}
-      <div className="relative z-10 mt-7 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
+      <div className="relative z-10 mt-6 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#14F195]/30 to-[#9945FF]/30 text-sm font-black text-white ring-1 ring-white/15">
             ML
@@ -531,6 +540,11 @@ function LevelsPanel() {
         ))}
       </div>
 
+      {/* spacer — pushes "Próximo nível" to the bottom when the panel
+          stretches to match the passport hero (0-height otherwise, so it
+          doesn't inflate the panel's natural height) */}
+      <div className="flex-1" />
+
       {/* próximo nível — folded into the levels panel (print) */}
       <div className="mt-5 rounded-2xl border border-[#14F195]/15 bg-[#14F195]/[0.05] p-4">
         <div className="flex items-center justify-between gap-3">
@@ -566,19 +580,20 @@ function BenefitsPanel() {
         {BENEFITS.map((b) => (
           <div
             key={b.title}
-            className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-colors hover:border-white/20"
+            className="flex h-full flex-col rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-colors hover:border-white/20"
           >
             <div
-              className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl"
+              className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl"
               style={{ background: `${b.color}16`, border: `1px solid ${b.color}40` }}
             >
-              <Glyph name={b.icon} color={b.color} size={20} sw={1.9} />
+              <Glyph name={b.icon} color={b.color} size={19} sw={1.9} />
             </div>
             <div className="text-xl font-black" style={{ color: b.color }}>
               {b.value}
             </div>
             <div className="mt-0.5 text-sm font-bold text-white/85">{b.title}</div>
-            <div className="mt-1.5 text-[11px] leading-relaxed text-white/42">{b.desc}</div>
+            {/* description bottom-anchors so stretched cards stay balanced */}
+            <div className="mt-auto pt-2.5 text-[11px] leading-relaxed text-white/42">{b.desc}</div>
           </div>
         ))}
       </div>
@@ -594,7 +609,7 @@ function NextLevelPanel() {
         {NEXT_PERKS.map((p) => (
           <div
             key={p.title}
-            className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5"
+            className="flex flex-1 items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5"
           >
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
@@ -660,7 +675,7 @@ function Timeline() {
       </div>
       <div className="relative mt-6 flex-1">
         <div className="absolute bottom-3 left-[15px] top-3 w-px bg-white/10" />
-        <div className="space-y-5">
+        <div className="flex h-full flex-col justify-between gap-5">
           {TIMELINE.map((item) => (
             <div key={item.title} className="relative flex items-start gap-4">
               <div
