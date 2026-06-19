@@ -17,7 +17,7 @@
 // static values — the re-wire pass connects them to useSession()/the passport
 // lib, then strings migrate to i18n and it graduates onto /insights.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
@@ -46,24 +46,108 @@ const TONE_HEX: Record<Tone, string> = {
 
 const MONO = "[font-family:var(--font-geist-mono),var(--font-jetbrains-mono),monospace]";
 
+// Local stroke glyphs to match the design print (the shared Icons set lacks
+// calendar / stopwatch / target / grid / trophy / star). Visual-first — these
+// can be promoted to @/components/brand/icons at graduation if reused.
+const GLYPHS: Record<string, ReactNode> = {
+  star: (
+    <path
+      d="M12 3.6l2.6 5.27 5.82.85-4.21 4.1.99 5.8L12 16.9l-5.2 2.73.99-5.8L3.58 9.72l5.82-.85z"
+      fill="currentColor"
+      stroke="none"
+    />
+  ),
+  trophy: (
+    <>
+      <path d="M8 4h8v4a4 4 0 0 1-8 0z" />
+      <path d="M8 5.2H5.4v1A2.6 2.6 0 0 0 8 8.8" />
+      <path d="M16 5.2h2.6v1A2.6 2.6 0 0 1 16 8.8" />
+      <path d="M12 12v3M9 19.5h6M9.8 19.5l.5-4M14.2 19.5l-.5-4" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="4" y="5" width="16" height="15" rx="2.2" />
+      <path d="M4 9.5h16M8.5 3.2v3.4M15.5 3.2v3.4" />
+      <path d="M9 14.4l1.7 1.7 3.6-3.6" />
+    </>
+  ),
+  stopwatch: (
+    <>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9.2v4l2.6 1.6M9.6 2.6h4.8M12 2.6V5" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.4" />
+      <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="5" y="5" width="5.5" height="5.5" rx="1.2" />
+      <rect x="13.5" y="5" width="5.5" height="5.5" rx="1.2" />
+      <rect x="5" y="13.5" width="5.5" height="5.5" rx="1.2" />
+      <rect x="13.5" y="13.5" width="5.5" height="5.5" rx="1.2" />
+    </>
+  ),
+  chevronDown: <path d="M6 9.5l6 6 6-6" />,
+};
+
+// Renders a local GLYPH by name, falling back to the shared Icons set.
+function Glyph({
+  name,
+  color,
+  size = 22,
+  sw = 1.8,
+}: {
+  name: string;
+  color: string;
+  size?: number;
+  sw?: number;
+}) {
+  const g = GLYPHS[name];
+  if (!g) {
+    const Ic = Icons[name];
+    return Ic ? <Ic size={size} stroke={color} sw={sw} /> : null;
+  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={sw}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ color }}
+    >
+      {g}
+    </svg>
+  );
+}
+
 const FACTOR_META: Record<
   BehaviorFactor["key"],
   { icon: string; titlePt: string; descPt: string; statusPt: string }
 > = {
   punctuality: {
-    icon: "check",
+    icon: "calendar",
     titlePt: "Pontualidade",
     descPt: "Pagamentos em dia",
     statusPt: "Excelente",
   },
   anticipation: {
-    icon: "bolt",
+    icon: "stopwatch",
     titlePt: "Antecipações",
     descPt: "Ações de pagamento",
     statusPt: "Bom",
   },
   consistency: {
-    icon: "pulse",
+    icon: "target",
     titlePt: "Consistência",
     descPt: "Regularidade nos ciclos",
     statusPt: "A desenvolver",
@@ -75,7 +159,7 @@ const FACTOR_META: Record<
     statusPt: "Pode melhorar",
   },
   diversity: {
-    icon: "layers",
+    icon: "grid",
     titlePt: "Diversidade",
     descPt: "Variedade de categorias",
     statusPt: "A desenvolver",
@@ -84,19 +168,19 @@ const FACTOR_META: Record<
 
 const REC_META: Record<string, { icon: string; titlePt: string; ctaPt: string; href: string }> = {
   anticipate: {
-    icon: "bolt",
+    icon: "star",
     titlePt: "Pague 3 parcelas adiantadas",
     ctaPt: "Fazer isso",
     href: "/",
   },
   diversify: {
-    icon: "groups",
+    icon: "people",
     titlePt: "Entre em um grupo PME",
     ctaPt: "Ver grupos",
     href: "/grupos",
   },
   complete: {
-    icon: "shield",
+    icon: "trophy",
     titlePt: "Conclua Renovação MEI sem atraso",
     ctaPt: "Ver progresso",
     href: "/",
@@ -240,7 +324,6 @@ function RecommendationCards() {
         {RECOMMENDATIONS.map((rec) => {
           const meta = REC_META[rec.key];
           const color = TONE_HEX[rec.tone];
-          const Ic = Icons[meta.icon]!;
           return (
             <Link
               key={rec.key}
@@ -252,10 +335,10 @@ function RecommendationCards() {
                 style={{ backgroundColor: color }}
               />
               <div
-                className="relative flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: `${color}1f`, border: `1px solid ${color}40` }}
+                className="relative flex h-14 w-14 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${color}1f`, border: `1px solid ${color}33` }}
               >
-                <Ic size={26} stroke={color} sw={1.9} />
+                <Glyph name={meta.icon} color={color} size={26} sw={1.9} />
               </div>
               <div
                 className={`relative mt-5 text-3xl font-black tracking-[-0.05em] ${MONO}`}
@@ -288,14 +371,13 @@ function RecommendationCards() {
 function FactorRow({ factor }: { factor: BehaviorFactor }) {
   const meta = FACTOR_META[factor.key];
   const color = TONE_HEX[factor.tone];
-  const Ic = Icons[meta.icon]!;
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-colors hover:border-white/20">
       <div
         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
         style={{ backgroundColor: `${color}1c`, border: `1px solid ${color}3a` }}
       >
-        <Ic size={22} stroke={color} sw={2} />
+        <Glyph name={meta.icon} color={color} size={22} sw={2} />
       </div>
       <div className="min-w-[150px] flex-1">
         <div className="text-base font-bold text-white">{meta.titlePt}</div>
@@ -320,6 +402,13 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
       <div className="hidden w-28 text-sm font-semibold md:block" style={{ color }}>
         {meta.statusPt}
       </div>
+      <button
+        type="button"
+        aria-label="Detalhes do fator"
+        className="shrink-0 text-gray-500 transition-colors hover:text-gray-300"
+      >
+        <Glyph name="chevronDown" color="currentColor" size={18} sw={2} />
+      </button>
     </div>
   );
 }
@@ -327,7 +416,10 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
 function FactorsPanel() {
   return (
     <Card className="p-4 md:p-5">
-      <MonoTitle>Fatores que compõem seu score</MonoTitle>
+      <div className="flex items-center gap-2">
+        <MonoTitle>Fatores que compõem seu score</MonoTitle>
+        <Icons.info size={14} stroke="#14F195" sw={1.8} />
+      </div>
       <div className="mt-5 grid gap-3">
         {FACTORS.map((factor) => (
           <FactorRow key={factor.key} factor={factor} />
@@ -370,17 +462,17 @@ function ScoreChart() {
         <span
           className={`absolute left-6 top-[58px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#9945FF] ${MONO}`}
         >
-          Nv.3 Veterano • 750
+          Nv.4 Elite • 950
         </span>
         <span
           className={`absolute left-6 top-[160px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
         >
-          Nv.2 Comprovado • 500
+          Nv.3 Veterano • 750
         </span>
         <span
           className={`absolute left-6 top-[252px] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#00C8FF] ${MONO}`}
         >
-          Nv.1 Iniciante • 250
+          Nv.2 Comprovado • 500
         </span>
         <svg
           viewBox="0 0 600 220"
