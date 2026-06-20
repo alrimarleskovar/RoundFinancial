@@ -302,6 +302,58 @@ export const DICT: Record<Lang, Dict> = {
       "Completar um ciclo inteiro sem atraso é a maior fonte de pontos no SAS. O atestado CycleComplete é o único que carrega peso 5x — é o que separa Comprovado de Veterano na ladder.",
     "insights.modal.complete.onchain":
       "Quando você recebe o pagamento do último mês do ciclo, é emitido um atestado de ciclo completo. É esse atestado que dispara a subida de nível.",
+    // insights-v2 (integration pass)
+    "insightsv2.badge": "Insights",
+    "insightsv2.hero.points": "pontos",
+    "insightsv2.hero.level": "Nível {n} • {name}",
+    "insightsv2.hero.toNext": "Faltam {n} pontos para o próximo nível",
+    "insightsv2.hero.atMax": "Você atingiu o nível máximo",
+    "insightsv2.hero.aboutAria": "Sobre o score",
+    "insightsv2.hero.betterThan": "Você está melhor que",
+    "insightsv2.hero.percentile": "{n}% dos usuários",
+    "insightsv2.next.title": "Próximos passos para upar seu score",
+    "insightsv2.next.anticipate.label": "Pague 3 parcelas adiantadas",
+    "insightsv2.next.anticipate.cta": "Fazer isso",
+    "insightsv2.next.diversify.label": "Entre em um grupo PME",
+    "insightsv2.next.diversify.cta": "Ver grupos",
+    "insightsv2.next.complete.label": "Conclua Renovação MEI sem atraso",
+    "insightsv2.next.complete.cta": "Ver progresso",
+    "insightsv2.pts": "+{n} pts",
+    "insightsv2.factors.title": "Fatores que compõem seu score",
+    "insightsv2.factors.improve": "Como melhorar: ",
+    "insightsv2.factor.punctuality.desc": "Pagamentos em dia",
+    "insightsv2.factor.punctuality.long":
+      "Mede a proporção de parcelas quitadas até a data de vencimento. É o sinal de maior peso no seu score SAS.",
+    "insightsv2.factor.punctuality.tip":
+      "Mantenha o pagamento em dia — ou adiante parcelas — para segurar os 96 pontos.",
+    "insightsv2.factor.anticipation.desc": "Ações de pagamento",
+    "insightsv2.factor.anticipation.long":
+      "Reflete com que frequência você paga antes do vencimento, sinalizando folga de caixa e baixo risco.",
+    "insightsv2.factor.anticipation.tip":
+      "Antecipe 1 ou 2 parcelas neste ciclo para subir de 78 para 85+.",
+    "insightsv2.factor.consistency.desc": "Regularidade nos ciclos",
+    "insightsv2.factor.consistency.long":
+      "Avalia a regularidade dos seus ciclos ao longo do tempo, sem lacunas nem atrasos recorrentes.",
+    "insightsv2.factor.consistency.tip":
+      "Conclua o ciclo atual sem pular meses para firmar a consistência.",
+    "insightsv2.factor.engagement.desc": "Participação na rede",
+    "insightsv2.factor.engagement.long":
+      "Considera sua participação ativa na rede: grupos, convites e interações dentro do protocolo.",
+    "insightsv2.factor.engagement.tip":
+      "Entre em um novo grupo ou convide um membro para elevar o engajamento.",
+    "insightsv2.factor.diversity.desc": "Variedade de categorias",
+    "insightsv2.factor.diversity.long":
+      "Mede a variedade de categorias de grupos em que você participa (PME, casa, pessoal e mais).",
+    "insightsv2.factor.diversity.tip":
+      "Diversifique entrando em um grupo de categoria diferente das que você já tem.",
+    "insightsv2.status.excellent": "Excelente",
+    "insightsv2.status.good": "Bom",
+    "insightsv2.status.developing": "A desenvolver",
+    "insightsv2.status.improve": "Pode melhorar",
+    "insightsv2.chart.title": "Evolução do seu score",
+    "insightsv2.tier.lv4": "Nv.4 Elite • 950",
+    "insightsv2.tier.lv3": "Nv.3 Veterano • 750",
+    "insightsv2.tier.lv2": "Nv.2 Comprovado • 500",
     // stress lab (M1 of grant roadmap)
     "lab.back": "Voltar à página inicial",
     "lab.title": "Stress Lab",
@@ -1689,6 +1741,56 @@ export const DICT: Record<Lang, Dict> = {
       "Completing a full cycle without delay is the largest single point source in SAS. The CycleComplete attestation is the only one with 5x weight — it's what separates Proven from Veteran on the ladder.",
     "insights.modal.complete.onchain":
       "When you receive the last month's payout of a cycle, a cycle-complete attestation is minted. That's the attestation that triggers the level transition.",
+    // insights-v2 (integration pass)
+    "insightsv2.badge": "Insights",
+    "insightsv2.hero.points": "points",
+    "insightsv2.hero.level": "Level {n} • {name}",
+    "insightsv2.hero.toNext": "{n} points to the next level",
+    "insightsv2.hero.atMax": "You've reached the top level",
+    "insightsv2.hero.aboutAria": "About the score",
+    "insightsv2.hero.betterThan": "You're ahead of",
+    "insightsv2.hero.percentile": "{n}% of users",
+    "insightsv2.next.title": "Next steps to boost your score",
+    "insightsv2.next.anticipate.label": "Pay 3 installments early",
+    "insightsv2.next.anticipate.cta": "Do this",
+    "insightsv2.next.diversify.label": "Join an SME group",
+    "insightsv2.next.diversify.cta": "See groups",
+    "insightsv2.next.complete.label": "Finish Renovação MEI on time",
+    "insightsv2.next.complete.cta": "See progress",
+    "insightsv2.pts": "+{n} pts",
+    "insightsv2.factors.title": "Signals behind your score",
+    "insightsv2.factors.improve": "How to improve: ",
+    "insightsv2.factor.punctuality.desc": "On-time payments",
+    "insightsv2.factor.punctuality.long":
+      "Measures the share of installments paid by their due date. It's the heaviest signal in your SAS score.",
+    "insightsv2.factor.punctuality.tip": "Keep paying on time — or pay ahead — to hold your 96.",
+    "insightsv2.factor.anticipation.desc": "Early payment actions",
+    "insightsv2.factor.anticipation.long":
+      "Reflects how often you pay before the due date, signaling cash headroom and low risk.",
+    "insightsv2.factor.anticipation.tip":
+      "Pay 1 or 2 installments early this cycle to move from 78 to 85+.",
+    "insightsv2.factor.consistency.desc": "Regularity across cycles",
+    "insightsv2.factor.consistency.long":
+      "Gauges how regular your cycles are over time, with no gaps or recurring delays.",
+    "insightsv2.factor.consistency.tip":
+      "Finish the current cycle without skipping months to firm up consistency.",
+    "insightsv2.factor.engagement.desc": "Network participation",
+    "insightsv2.factor.engagement.long":
+      "Considers your active participation in the network: groups, invites and protocol interactions.",
+    "insightsv2.factor.engagement.tip": "Join a new group or invite a member to lift engagement.",
+    "insightsv2.factor.diversity.desc": "Category variety",
+    "insightsv2.factor.diversity.long":
+      "Measures the variety of group categories you take part in (SME, home, personal and more).",
+    "insightsv2.factor.diversity.tip":
+      "Diversify by joining a group in a category you don't have yet.",
+    "insightsv2.status.excellent": "Excellent",
+    "insightsv2.status.good": "Good",
+    "insightsv2.status.developing": "Developing",
+    "insightsv2.status.improve": "Could improve",
+    "insightsv2.chart.title": "Your score over time",
+    "insightsv2.tier.lv4": "Lv.4 Elite • 950",
+    "insightsv2.tier.lv3": "Lv.3 Veteran • 750",
+    "insightsv2.tier.lv2": "Lv.2 Proven • 500",
     // stress lab
     "lab.back": "Back to landing",
     "lab.title": "Stress Lab",

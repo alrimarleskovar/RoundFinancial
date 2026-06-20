@@ -1,21 +1,12 @@
 "use client";
 
-// /insights-v2 — VISUAL-FIRST preview of the team's new Insights design.
+// /insights-v2 — the team's new Insights design, now on its integration pass.
 //
-// Now lives inside the (app) route group so it inherits the DeskShell TopBar
-// (the horizontal session nav) + the shared dark ground — the real /insights
-// and main stay untouched until this graduates. Faithful to the provided
-// layout, reusing the existing @/data/insights fixtures.
-//
-// Polish pass vs. the raw export: emoji glyphs swapped for the project's
-// stroke icon set (@/components/brand/icons); the score ring uses an inline
-// conic-gradient (reliable vs. the Tailwind arbitrary value); the design's
-// Geist Mono is loaded for real; the "Por que cada edição?" rationale aside
-// is removed (main is full-width).
-//
-// Still visual-only: the score hero / level / percentile are the design's
-// static values — the re-wire pass connects them to useSession()/the passport
-// lib, then strings migrate to i18n and it graduates onto /insights.
+// Lives inside the (app) route group (inherits the DeskShell TopBar + nav).
+// The score hero reads the live session (useSession + the passport lib) and
+// every string flows through i18n, so the PT/EN toggle works here. Behaviour
+// signals + the score curve still come from the shared @/data/insights
+// fixtures (the official /insights reads the same).
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -35,6 +26,8 @@ import {
   type ScoreRange,
 } from "@/data/insights";
 import { useI18n } from "@/lib/i18n";
+import { PASSPORT_TIERS, TIER_KEYS, tierForScore } from "@/lib/passport";
+import { useSession } from "@/lib/session";
 import type { Tone } from "@/data/carteira";
 
 const TONE_HEX: Record<Tone, string> = {
@@ -131,76 +124,21 @@ function Glyph({
   );
 }
 
-const FACTOR_META: Record<
-  BehaviorFactor["key"],
-  { icon: string; titlePt: string; descPt: string; statusPt: string; longPt: string; tipPt: string }
-> = {
-  punctuality: {
-    icon: "calendar",
-    titlePt: "Pontualidade",
-    descPt: "Pagamentos em dia",
-    statusPt: "Excelente",
-    longPt:
-      "Mede a proporção de parcelas quitadas até a data de vencimento. É o sinal de maior peso no seu score SAS.",
-    tipPt: "Mantenha o pagamento em dia — ou adiante parcelas — para segurar os 96 pontos.",
-  },
-  anticipation: {
-    icon: "stopwatch",
-    titlePt: "Antecipações",
-    descPt: "Ações de pagamento",
-    statusPt: "Bom",
-    longPt:
-      "Reflete com que frequência você paga antes do vencimento, sinalizando folga de caixa e baixo risco.",
-    tipPt: "Antecipe 1 ou 2 parcelas neste ciclo para subir de 78 para 85+.",
-  },
-  consistency: {
-    icon: "target",
-    titlePt: "Consistência",
-    descPt: "Regularidade nos ciclos",
-    statusPt: "A desenvolver",
-    longPt:
-      "Avalia a regularidade dos seus ciclos ao longo do tempo, sem lacunas nem atrasos recorrentes.",
-    tipPt: "Conclua o ciclo atual sem pular meses para firmar a consistência.",
-  },
-  engagement: {
-    icon: "people",
-    titlePt: "Engajamento",
-    descPt: "Participação na rede",
-    statusPt: "Pode melhorar",
-    longPt:
-      "Considera sua participação ativa na rede: grupos, convites e interações dentro do protocolo.",
-    tipPt: "Entre em um novo grupo ou convide um membro para elevar o engajamento.",
-  },
-  diversity: {
-    icon: "grid",
-    titlePt: "Diversidade",
-    descPt: "Variedade de categorias",
-    statusPt: "A desenvolver",
-    longPt:
-      "Mede a variedade de categorias de grupos em que você participa (PME, casa, pessoal e mais).",
-    tipPt: "Diversifique entrando em um grupo de categoria diferente das que você já tem.",
-  },
+// Per-factor metadata; all copy (label / desc / long / tip) lives in the i18n
+// dict keyed by the factor key, so the PT/EN toggle drives it.
+const FACTOR_META: Record<BehaviorFactor["key"], { icon: string; statusKey: string }> = {
+  punctuality: { icon: "calendar", statusKey: "excellent" },
+  anticipation: { icon: "stopwatch", statusKey: "good" },
+  consistency: { icon: "target", statusKey: "developing" },
+  engagement: { icon: "people", statusKey: "improve" },
+  diversity: { icon: "grid", statusKey: "developing" },
 };
 
-const REC_META: Record<string, { icon: string; titlePt: string; ctaPt: string; href: string }> = {
-  anticipate: {
-    icon: "star",
-    titlePt: "Pague 3 parcelas adiantadas",
-    ctaPt: "Fazer isso",
-    href: "/",
-  },
-  diversify: {
-    icon: "people",
-    titlePt: "Entre em um grupo PME",
-    ctaPt: "Ver grupos",
-    href: "/grupos",
-  },
-  complete: {
-    icon: "trophy",
-    titlePt: "Conclua Renovação MEI sem atraso",
-    ctaPt: "Ver progresso",
-    href: "/",
-  },
+// Per-recommendation metadata; label + CTA copy live in the i18n dict.
+const REC_META: Record<string, { icon: string; href: string }> = {
+  anticipate: { icon: "star", href: "/" },
+  diversify: { icon: "people", href: "/grupos" },
+  complete: { icon: "trophy", href: "/" },
 };
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -229,6 +167,20 @@ function MonoTitle({ children, color = "#14F195" }: { children: React.ReactNode;
 }
 
 function ScoreHero() {
+  const { t } = useI18n();
+  const { user } = useSession();
+  const score = user.score;
+  const tier = tierForScore(score);
+  const nextTier = PASSPORT_TIERS.find((tt) => tt.min > score);
+  const nextMin = nextTier ? nextTier.min : score;
+  const toNext = nextTier ? nextTier.min - score : 0;
+  const pct = nextTier
+    ? Math.max(4, Math.min(100, Math.round(((score - tier.min) / (nextMin - tier.min)) * 100)))
+    : 100;
+  const levelName = t(TIER_KEYS[tier.level]);
+  const nextLevelName = nextTier ? t(TIER_KEYS[nextTier.level]) : levelName;
+  const percentile = 72; // static — no population data on devnet yet
+
   return (
     <Card className="relative overflow-hidden p-7 md:p-8">
       {/* ambient glows */}
@@ -238,7 +190,7 @@ function ScoreHero() {
       {/* info affordance, top-right */}
       <button
         type="button"
-        aria-label="Sobre o score"
+        aria-label={t("insightsv2.hero.aboutAria")}
         className="absolute right-5 top-5 text-gray-500 transition-colors hover:text-gray-300"
       >
         <Icons.info size={18} stroke="currentColor" sw={1.8} />
@@ -298,34 +250,45 @@ function ScoreHero() {
             <div
               className={`text-[5.5rem] font-black leading-[0.85] tracking-[-0.07em] text-white ${MONO}`}
             >
-              684
+              {score}
             </div>
-            <div className="mt-2 text-2xl font-semibold text-[#14F195]">pontos</div>
+            <div className="mt-2 text-2xl font-semibold text-[#14F195]">
+              {t("insightsv2.hero.points")}
+            </div>
           </div>
         </div>
 
         {/* right — level + progress */}
         <div className="border-white/10 md:border-l md:pl-10">
           <div className="text-sm font-black uppercase tracking-[0.18em] text-[#14F195]">
-            Nível 2 • Comprovado
+            {t("insightsv2.hero.level", { n: tier.level, name: levelName })}
           </div>
-          <div className="mt-3 text-base text-gray-300">Faltam 66 pontos para o próximo nível</div>
-          <div className="mt-1 text-xl font-bold text-[#9945FF]">Veterano</div>
+          <div className="mt-3 text-base text-gray-300">
+            {toNext > 0 ? t("insightsv2.hero.toNext", { n: toNext }) : t("insightsv2.hero.atMax")}
+          </div>
+          {toNext > 0 && (
+            <div className="mt-1 text-xl font-bold text-[#9945FF]">{nextLevelName}</div>
+          )}
           <div className="mt-7 flex items-center gap-4">
             <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]" />
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]"
+                style={{ width: `${pct}%` }}
+              />
             </div>
-            <span className={`shrink-0 text-sm text-gray-300 ${MONO}`}>684 / 750</span>
+            <span className={`shrink-0 text-sm text-gray-300 ${MONO}`}>
+              {score} / {nextMin}
+            </span>
           </div>
         </div>
       </div>
 
       {/* bottom — percentile, centered across the card */}
       <div className="relative mt-7 flex items-center justify-center gap-3">
-        <span className="text-sm text-gray-400">Você está melhor que</span>
+        <span className="text-sm text-gray-400">{t("insightsv2.hero.betterThan")}</span>
         <span className="inline-flex items-center gap-2 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-1.5 text-sm font-bold text-[#14F195]">
           <Icons.people size={15} stroke="#14F195" sw={2} />
-          72% dos usuários
+          {t("insightsv2.hero.percentile", { n: percentile })}
         </span>
       </div>
     </Card>
@@ -333,9 +296,10 @@ function ScoreHero() {
 }
 
 function RecommendationCards() {
+  const { t } = useI18n();
   return (
     <Card className="p-4 md:p-5">
-      <MonoTitle>Próximos passos para upar seu score</MonoTitle>
+      <MonoTitle>{t("insightsv2.next.title")}</MonoTitle>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         {RECOMMENDATIONS.map((rec) => {
           const meta = REC_META[rec.key];
@@ -350,20 +314,21 @@ function RecommendationCards() {
                 className="absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-20 blur-3xl"
                 style={{ backgroundColor: color }}
               />
-              <div
-                className="relative flex h-14 w-14 items-center justify-center rounded-full"
-                style={{ backgroundColor: `${color}1f`, border: `1px solid ${color}33` }}
-              >
-                <Glyph name={meta.icon} color={color} size={26} sw={1.9} />
+              {/* icon + points share the top row (per the print) */}
+              <div className="relative flex items-center gap-3">
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${color}1f`, border: `1px solid ${color}33` }}
+                >
+                  <Glyph name={meta.icon} color={color} size={22} sw={1.9} />
+                </div>
+                <div className={`text-3xl font-black tracking-[-0.05em] ${MONO}`} style={{ color }}>
+                  {t("insightsv2.pts", { n: rec.pts })}
+                </div>
               </div>
-              <div
-                className={`relative mt-5 text-3xl font-black tracking-[-0.05em] ${MONO}`}
-                style={{ color }}
-              >
-                +{rec.pts} pts
-              </div>
-              <div className="relative mt-4 min-h-[48px] text-base font-semibold text-white">
-                {meta.titlePt}
+              {/* min-height keeps the CTAs aligned across the three cards */}
+              <div className="relative mt-4 min-h-[44px] text-base font-semibold leading-snug text-white">
+                {t(`insightsv2.next.${rec.key}.label`)}
               </div>
               <div
                 className="relative mt-5 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-black text-[#06110D]"
@@ -371,7 +336,7 @@ function RecommendationCards() {
                   background: `linear-gradient(135deg, ${color}, ${rec.tone === "g" ? "#00C8FF" : color})`,
                 }}
               >
-                {meta.ctaPt}
+                {t(`insightsv2.next.${rec.key}.cta`)}
                 <span className="transition-transform group-hover:translate-x-1">
                   <Icons.arrow size={16} stroke="#06110D" sw={2.4} />
                 </span>
@@ -385,9 +350,12 @@ function RecommendationCards() {
 }
 
 function FactorRow({ factor }: { factor: BehaviorFactor }) {
+  const { t } = useI18n();
   const meta = FACTOR_META[factor.key];
   const color = TONE_HEX[factor.tone];
   const [open, setOpen] = useState(false);
+  const label = t(`insights.factor.${factor.key}.label`);
+  const status = t(`insightsv2.status.${meta.statusKey}`);
   return (
     <div
       className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-all duration-200"
@@ -407,8 +375,8 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
           <Glyph name={meta.icon} color={color} size={22} sw={2} />
         </div>
         <div className="min-w-[150px] flex-1">
-          <div className="text-base font-bold text-white">{meta.titlePt}</div>
-          <div className="text-sm text-gray-400">{meta.descPt}</div>
+          <div className="text-base font-bold text-white">{label}</div>
+          <div className="text-sm text-gray-400">{t(`insightsv2.factor.${factor.key}.desc`)}</div>
         </div>
         <div className="hidden h-2 flex-[1.25] overflow-hidden rounded-full bg-white/5 md:block">
           <div
@@ -427,7 +395,7 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
           {factor.value}
         </div>
         <div className="hidden w-28 text-sm font-semibold md:block" style={{ color }}>
-          {meta.statusPt}
+          {status}
         </div>
         <span
           className="shrink-0 text-gray-500 transition-transform duration-300"
@@ -448,11 +416,13 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
             {/* on small screens the status/value hide in the header — show them here */}
             <div className="mb-3 flex items-center gap-2 md:hidden">
               <span className="text-sm font-semibold" style={{ color }}>
-                {meta.statusPt}
+                {status}
               </span>
               <span className="text-xs text-gray-500">· {factor.value}/100</span>
             </div>
-            <p className="text-sm leading-relaxed text-gray-400">{meta.longPt}</p>
+            <p className="text-sm leading-relaxed text-gray-400">
+              {t(`insightsv2.factor.${factor.key}.long`)}
+            </p>
             <div
               className="mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-3"
               style={{ borderColor: `${color}33`, background: `${color}12` }}
@@ -462,9 +432,9 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
               </span>
               <p className="text-[13px] leading-relaxed text-white/80">
                 <span className="font-bold" style={{ color }}>
-                  Como melhorar:{" "}
+                  {t("insightsv2.factors.improve")}
                 </span>
-                {meta.tipPt}
+                {t(`insightsv2.factor.${factor.key}.tip`)}
               </p>
             </div>
           </div>
@@ -475,10 +445,11 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
 }
 
 function FactorsPanel() {
+  const { t } = useI18n();
   return (
     <Card className="p-4 md:p-5">
       <div className="flex items-center gap-2">
-        <MonoTitle>Fatores que compõem seu score</MonoTitle>
+        <MonoTitle>{t("insightsv2.factors.title")}</MonoTitle>
         <Icons.info size={14} stroke="#14F195" sw={1.8} />
       </div>
       <div className="mt-5 grid gap-3">
@@ -491,7 +462,7 @@ function FactorsPanel() {
 }
 
 function ScoreChart() {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
   const points = useMemo(() => curveForRange(range), [range]);
   const months = monthsForRange(range, lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN);
@@ -507,7 +478,7 @@ function ScoreChart() {
   return (
     <Card className="p-5 md:p-7">
       <div className="flex items-center justify-between gap-4">
-        <MonoTitle>Evolução do seu score</MonoTitle>
+        <MonoTitle>{t("insightsv2.chart.title")}</MonoTitle>
         <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
           {SCORE_RANGES.map((r) => (
             <button
@@ -567,17 +538,17 @@ function ScoreChart() {
         <span
           className={`absolute left-5 top-[20%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#9945FF] ${MONO}`}
         >
-          Nv.4 Elite • 950
+          {t("insightsv2.tier.lv4")}
         </span>
         <span
           className={`absolute left-5 top-[48%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
         >
-          Nv.3 Veterano • 750
+          {t("insightsv2.tier.lv3")}
         </span>
         <span
           className={`absolute left-5 top-[76%] z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#00C8FF] ${MONO}`}
         >
-          Nv.2 Comprovado • 500
+          {t("insightsv2.tier.lv2")}
         </span>
 
         {/* month axis — aligned to the full-bleed curve */}
@@ -592,17 +563,16 @@ function ScoreChart() {
 }
 
 export default function InsightsV2Page() {
+  const { t } = useI18n();
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
       <header className="flex items-end justify-between gap-6">
         <div>
-          <MonoTitle>Insights</MonoTitle>
+          <MonoTitle>{t("insightsv2.badge")}</MonoTitle>
           <h1 className="mt-4 text-4xl font-black tracking-[-0.05em] text-white [font-family:var(--font-syne),sans-serif] md:text-5xl">
-            Seu comportamento financeiro
+            {t("insights.title")}
           </h1>
-          <p className="mt-3 text-base text-gray-400">
-            Sinais on-chain que moldam sua reputação SAS.
-          </p>
+          <p className="mt-3 text-base text-gray-400">{t("insights.subtitle")}</p>
         </div>
       </header>
 
