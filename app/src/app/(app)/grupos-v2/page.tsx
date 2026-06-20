@@ -1,29 +1,40 @@
 "use client";
 
-// /grupos-v2 — VISUAL-FIRST preview of the team's new Grupos (catalog) design.
+// /grupos-v2 — the team's new Grupos (catalog) design, now on its integration
+// pass. Lives inside the (app) route group so it inherits the DeskShell TopBar
+// (PT/EN + currency toggle) + shared dark ground; the real /grupos stays
+// untouched until this graduates.
 //
-// Lives inside the (app) route group so it inherits the DeskShell TopBar +
-// shared dark ground; the real /grupos and main stay untouched until this
-// graduates. Faithful to the provided layout, reusing the existing
-// ACTIVE_GROUPS / DISCOVER_GROUPS fixtures. Structural emoji glyphs (lock /
-// check / people / info / plus) are swapped for the project's stroke icons.
+// Wired to the live session: the catalog is the same CatalogGroup[] the real
+// /grupos reads (ACTIVE ∪ DISCOVER ∪ any Demo Studio preset), the eligibility
+// badge / level gate / "faltam N pontos" all read useSession() (user.level /
+// score / nextLevel), and the three CTAs open the real modals —
+// JoinGroupModal (which owns its own locked-state explainer), GroupDetailsModal
+// (joined groups), and NewCycleModal ("Abrir novo ciclo"). Every string flows
+// through i18n so the PT/EN toggle works here too.
 //
-// Functional (client-side) filtering mirrors the real /grupos: the four top
-// chips drive the sort, and "Mais filtros" expands a panel (nível / categoria
-// / prêmio / duração / disponibilidade) that filters the grid live. The card
-// footer (prêmio·parcela + bar + CTA) is pinned to the bottom so it aligns
-// across cards regardless of description length.
-//
-// Still visual-only on the on-chain side: the level gate / "faltam N pontos" /
-// "Entrar no grupo" are static — the re-wire pass connects them to
-// useSession() + the real JoinGroupModal, then it graduates onto /grupos.
+// The four top chips drive the sort and "Mais filtros" expands a panel
+// (nível / categoria / prêmio / duração / disponibilidade) that filters the
+// grid live. The card footer (prêmio·parcela + bar + CTA) is pinned to the
+// bottom so it aligns across cards regardless of description length.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
-import { ACTIVE_GROUPS, DISCOVER_GROUPS, type DiscoverGroup } from "@/data/groups";
-import { categorizeGroup, CATEGORY_KEYS, type Category } from "@/lib/groups";
+import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
+import { NewCycleModal } from "@/components/grupos/NewCycleModal";
+import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
+import { ACTIVE_GROUPS, DISCOVER_GROUPS, type GroupLevel } from "@/data/groups";
+import {
+  CATEGORY_KEYS,
+  fromActive,
+  fromDiscover,
+  type Category,
+  type CatalogGroup,
+} from "@/lib/groups";
+import { useI18n } from "@/lib/i18n";
+import { useSession } from "@/lib/session";
 
 const TONE_HEX: Record<string, string> = {
   g: "#14F195",
@@ -33,69 +44,30 @@ const TONE_HEX: Record<string, string> = {
   r: "#FF5656",
 };
 
-const CAT_LABELS: Record<Category, string> = {
-  pme: "PME",
-  vip: "VIP",
-  dev: "Dev",
-  delivery: "Delivery",
-  estudo: "Estudo",
-  casa: "Casa",
-  pessoal: "Pessoal",
-};
-
-type CatGroup = DiscoverGroup & { category: Category };
-
-// Catalog = active groups (mapped to the discover shape) ∪ discover groups,
-// each tagged with a category for filtering. Derived from static fixtures.
-const OPEN_GROUPS: CatGroup[] = [
-  ...ACTIVE_GROUPS.map((g) => ({
-    id: g.id,
-    name: g.name,
-    emoji: g.emoji,
-    tone: g.tone,
-    prize: g.prize,
-    months: g.total,
-    installment: g.installment,
-    filled: g.members,
-    total: g.total,
-    level: g.level ?? 2,
-  })),
-  ...DISCOVER_GROUPS,
-].map((g) => ({ ...g, category: categorizeGroup({ name: g.name }) }));
-
 type Sort = "relevant" | "popular" | "prize-high" | "installment-low";
-type LevelFilter = "all" | 1 | 2 | 3 | 4;
+type LevelFilter = "all" | GroupLevel;
 type CategoryFilter = "all" | Category;
 type Budget = "all" | "lt15" | "15to30" | "gt30";
 type Duration = "all" | "short" | "mid" | "long";
 
-const SORTS: ReadonlyArray<readonly [Sort, string]> = [
-  ["relevant", "⭐ Recomendados"],
-  ["popular", "🔥 Populares"],
-  ["prize-high", "🏆 Maior prêmio"],
-  ["installment-low", "⚡ Menor parcela"],
+// [sort key, emoji glyph, i18n key] — emoji stays in code, label translates.
+const SORTS: ReadonlyArray<readonly [Sort, string, string]> = [
+  ["relevant", "⭐", "groupsV2.sort.relevant"],
+  ["popular", "🔥", "groupsV2.sort.popular"],
+  ["prize-high", "🏆", "groupsV2.sort.prizeHigh"],
+  ["installment-low", "⚡", "groupsV2.sort.installmentLow"],
 ];
 
-function brl(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function descriptionFor(name: string) {
-  if (name.includes("PME")) return "Capital de giro para pequenas e médias empresas.";
-  if (name.includes("Intercâmbio"))
-    return "Realize seu intercâmbio com tranquilidade e planejamento.";
-  if (name.includes("Veteranos"))
-    return "Grupo exclusivo para membros de alto nível e histórico comprovado.";
-  if (name.includes("Moto")) return "Conquiste sua moto e potencialize seus ganhos.";
-  if (name.includes("Casa")) return "Capital para entrada, reforma ou regularização do seu imóvel.";
-  if (name.includes("Dev")) return "Equipamentos e ferramentas para desenvolvedores e criadores.";
-  if (name.includes("Piloto"))
-    return "Pool piloto on-chain na devnet — entre para exercer o fluxo real.";
-  return "Capital para alcançar seu objetivo com planejamento.";
+// Group name → description i18n key (bilingual copy lives in the dict).
+function descKeyFor(name: string): string {
+  if (name.includes("PME")) return "groupsV2.desc.pme";
+  if (name.includes("Intercâmbio")) return "groupsV2.desc.intercambio";
+  if (name.includes("Veteranos")) return "groupsV2.desc.veteranos";
+  if (name.includes("Moto")) return "groupsV2.desc.moto";
+  if (name.includes("Casa")) return "groupsV2.desc.casa";
+  if (name.includes("Dev")) return "groupsV2.desc.dev";
+  if (name.includes("Piloto")) return "groupsV2.desc.piloto";
+  return "groupsV2.desc.default";
 }
 
 function Chip({
@@ -136,10 +108,22 @@ function FilterRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function GroupCard({ group, compatible = true }: { group: DiscoverGroup; compatible?: boolean }) {
+// A single catalog card. Owns its modal state (join / details) and reads the
+// live session so the eligibility badge, level gate and points-gap CTA are real.
+function GroupCard({ group }: { group: CatalogGroup }) {
+  const { t, fmtMoney } = useI18n();
+  const { user, joinedGroupNames } = useSession();
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
   const tone = TONE_HEX[group.tone] ?? "#14F195";
   const pct = Math.min(100, Math.round((group.filled / group.total) * 100));
-  const locked = group.level > 2;
+  // Joined = static fixture flag OR runtime session membership (JOIN_GROUP).
+  const isJoined = group.joined || joinedGroupNames.includes(group.name);
+  // Level gate mirrors roundfi-core::join_pool — block before paying gas.
+  const locked = !isJoined && group.level > user.level;
+  // Same gap the JoinGroupModal locked card shows: score → next tier.
+  const pointsNeeded = Math.max(0, user.nextLevel - user.score);
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/[0.08] bg-[#0C111A]/95 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
@@ -163,15 +147,16 @@ function GroupCard({ group, compatible = true }: { group: DiscoverGroup; compati
 
         {locked ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#9945FF]/30 bg-[#9945FF]/10 px-3 py-1 text-[11px] font-bold text-[#B782FF]">
-            <Icons.lock size={12} stroke="currentColor" sw={2} /> Requer Nv. {group.level}
+            <Icons.lock size={12} stroke="currentColor" sw={2} />{" "}
+            {t("groupsV2.card.requires", { lv: group.level })}
           </span>
-        ) : compatible ? (
+        ) : isJoined ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-3 py-1 text-[11px] font-bold text-[#14F195]">
-            <Icons.check size={13} stroke="currentColor" sw={2.6} /> Compatível
+            <Icons.check size={13} stroke="currentColor" sw={2.6} /> {t("groupsV2.card.joined")}
           </span>
         ) : (
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-bold text-gray-400">
-            Nv. {group.level}+
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-3 py-1 text-[11px] font-bold text-[#14F195]">
+            <Icons.check size={13} stroke="currentColor" sw={2.6} /> {t("groupsV2.card.compatible")}
           </span>
         )}
       </div>
@@ -179,14 +164,14 @@ function GroupCard({ group, compatible = true }: { group: DiscoverGroup; compati
       <div className="mb-2 flex items-end gap-2">
         <h3 className="text-2xl font-black tracking-[-0.04em] text-white">{group.name}</h3>
         <span className="mb-1 text-sm font-black" style={{ color: tone }}>
-          {group.months} meses
+          {t("groupsV2.card.months", { n: group.months })}
         </span>
       </div>
 
-      <p className="mb-3 text-sm leading-relaxed text-gray-400">{descriptionFor(group.name)}</p>
+      <p className="mb-3 text-sm leading-relaxed text-gray-400">{t(descKeyFor(group.name))}</p>
 
       <div className="text-sm text-gray-500">
-        {group.months}m • {group.filled}/{group.total} cotas
+        {t("groupsV2.card.spots", { m: group.months, f: group.filled, t: group.total })}
       </div>
 
       {/* footer — pinned to the bottom so it aligns across cards */}
@@ -194,16 +179,18 @@ function GroupCard({ group, compatible = true }: { group: DiscoverGroup; compati
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
-              Prêmio
+              {t("home.meta.prize")}
             </p>
-            <p className="text-2xl font-black tracking-[-0.04em] text-white">{brl(group.prize)}</p>
+            <p className="text-2xl font-black tracking-[-0.04em] text-white">
+              {fmtMoney(group.prize, { noCents: true })}
+            </p>
           </div>
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
-              Parcela
+              {t("home.installment")}
             </p>
             <p className="text-2xl font-black tracking-[-0.04em] text-white">
-              {brl(group.installment)}
+              {fmtMoney(group.installment, { noCents: true })}
             </p>
           </div>
         </div>
@@ -216,25 +203,45 @@ function GroupCard({ group, compatible = true }: { group: DiscoverGroup; compati
         </div>
 
         {locked ? (
-          <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-gray-400">
-            <Icons.lock size={14} stroke="currentColor" sw={2} /> Faltam 66 pontos para Nv.{" "}
-            {group.level}
+          <button
+            type="button"
+            onClick={() => setJoinOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-gray-400 transition hover:border-white/20 hover:text-gray-300"
+          >
+            <Icons.lock size={14} stroke="currentColor" sw={2} />{" "}
+            {t("groupsV2.card.cta.locked", { pts: pointsNeeded, lv: group.level })}
           </button>
-        ) : compatible ? (
-          <button className="w-full rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-4 py-3 text-sm font-black text-[#03130D] shadow-[0_10px_30px_rgba(20,241,149,0.18)] transition hover:scale-[1.01]">
-            Entrar no grupo
+        ) : isJoined ? (
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-white transition hover:border-white/20"
+          >
+            {t("groups.card.cta.view")}
           </button>
         ) : (
-          <button className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-white">
-            Ver detalhes
+          <button
+            type="button"
+            onClick={() => setJoinOpen(true)}
+            className="w-full rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-4 py-3 text-sm font-black text-[#03130D] shadow-[0_10px_30px_rgba(20,241,149,0.18)] transition hover:scale-[1.01]"
+          >
+            {t("groups.card.cta.join")}
           </button>
         )}
       </div>
+
+      {joinOpen && (
+        <JoinGroupModal group={group} open={joinOpen} onClose={() => setJoinOpen(false)} />
+      )}
+      <GroupDetailsModal group={group} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
     </article>
   );
 }
 
 export default function GruposV2Page() {
+  const { t, fmtMoneyThreshold } = useI18n();
+  const { user, demoGroup } = useSession();
+
   const [sort, setSort] = useState<Sort>("relevant");
   const [level, setLevel] = useState<LevelFilter>("all");
   const [category, setCategory] = useState<CategoryFilter>("all");
@@ -243,11 +250,24 @@ export default function GruposV2Page() {
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [onlyAccessible, setOnlyAccessible] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [newCycleOpen, setNewCycleOpen] = useState(false);
 
-  const compatibleCount = OPEN_GROUPS.filter((g) => g.level <= 2).length;
+  // Catalog = ACTIVE ∪ DISCOVER (∪ any Demo Studio preset), same as /grupos.
+  const enriched: CatalogGroup[] = useMemo(() => {
+    const base: CatalogGroup[] = [
+      ...ACTIVE_GROUPS.map(fromActive),
+      ...DISCOVER_GROUPS.map(fromDiscover),
+    ];
+    if (demoGroup && !base.some((g) => g.id === demoGroup.id)) {
+      return [fromActive(demoGroup), ...base];
+    }
+    return base;
+  }, [demoGroup]);
+
+  const compatibleCount = enriched.filter((g) => g.level <= user.level).length;
 
   const filtered = useMemo(() => {
-    let rows = OPEN_GROUPS;
+    let rows = enriched;
     if (level !== "all") rows = rows.filter((g) => g.level === level);
     if (category !== "all") rows = rows.filter((g) => g.category === category);
     if (budget !== "all") {
@@ -265,13 +285,13 @@ export default function GruposV2Page() {
       );
     }
     if (onlyOpen) rows = rows.filter((g) => g.filled < g.total);
-    if (onlyAccessible) rows = rows.filter((g) => g.level <= 2);
+    if (onlyAccessible) rows = rows.filter((g) => g.level <= user.level);
     if (sort === "popular")
       rows = [...rows].sort((a, b) => b.filled / b.total - a.filled / a.total);
     if (sort === "prize-high") rows = [...rows].sort((a, b) => b.prize - a.prize);
     if (sort === "installment-low") rows = [...rows].sort((a, b) => a.installment - b.installment);
     return rows;
-  }, [sort, level, category, budget, duration, onlyOpen, onlyAccessible]);
+  }, [enriched, sort, level, category, budget, duration, onlyOpen, onlyAccessible, user.level]);
 
   const activeCount =
     [level, category, budget, duration].filter((x) => x !== "all").length +
@@ -294,28 +314,30 @@ export default function GruposV2Page() {
         <div>
           <div className="mb-3 flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.24em] text-[#14F195]">
             <span className="h-2 w-2 rounded-full bg-[#14F195] shadow-[0_0_12px_#14F195]" />{" "}
-            Catálogo
+            {t("groupsV2.badge")}
           </div>
           <h1 className="text-4xl font-black tracking-[-0.05em] [font-family:var(--font-syne),sans-serif] md:text-6xl">
-            Grupos disponíveis
+            {t("groups.title")}
           </h1>
-          <p className="mt-3 max-w-2xl text-base text-gray-400">
-            Encontre o grupo ideal para seus objetivos e evolua sua reputação.
-          </p>
+          <p className="mt-3 max-w-2xl text-base text-gray-400">{t("groupsV2.subtitle")}</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <span className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
-              <Icons.people size={15} stroke="currentColor" /> {OPEN_GROUPS.length} grupos
-              disponíveis
+              <Icons.people size={15} stroke="currentColor" />{" "}
+              {t("groupsV2.stat.available", { n: enriched.length })}
             </span>
             <span className="inline-flex items-center gap-2 rounded-xl border border-[#14F195]/15 bg-[#14F195]/[0.06] px-4 py-2 text-sm text-gray-300">
-              <Icons.check size={15} stroke="#14F195" sw={2.4} /> {compatibleCount} compatíveis com
-              seu nível
+              <Icons.check size={15} stroke="#14F195" sw={2.4} />{" "}
+              {t("groupsV2.stat.compatible", { n: compatibleCount })}
             </span>
           </div>
         </div>
 
-        <button className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-7 py-4 text-sm font-black text-[#03130D] shadow-[0_12px_36px_rgba(20,241,149,0.22)] transition hover:scale-[1.01]">
-          <Icons.plus size={16} stroke="#03130D" sw={2.6} /> Abrir novo ciclo
+        <button
+          type="button"
+          onClick={() => setNewCycleOpen(true)}
+          className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-7 py-4 text-sm font-black text-[#03130D] shadow-[0_12px_36px_rgba(20,241,149,0.22)] transition hover:scale-[1.01]"
+        >
+          <Icons.plus size={16} stroke="#03130D" sw={2.6} /> {t("groups.newCycle")}
         </button>
       </section>
 
@@ -323,7 +345,7 @@ export default function GruposV2Page() {
       <section className="rounded-[1.5rem] border border-white/[0.08] bg-[#0B1018]/90 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-3">
-            {SORTS.map(([key, label]) => (
+            {SORTS.map(([key, glyph, labelKey]) => (
               <button
                 key={key}
                 type="button"
@@ -334,7 +356,7 @@ export default function GruposV2Page() {
                     : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
                 }`}
               >
-                {label}
+                {glyph} {t(labelKey)}
               </button>
             ))}
           </div>
@@ -347,7 +369,7 @@ export default function GruposV2Page() {
                 : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
             }`}
           >
-            Mais filtros
+            {t("groupsV2.moreFilters")}
             {activeCount > 0 && (
               <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#14F195] px-1 text-[11px] font-black text-[#03130D]">
                 {activeCount}
@@ -362,78 +384,85 @@ export default function GruposV2Page() {
         {/* expandable panel */}
         {showFilters && (
           <div className="mt-4 flex flex-col gap-4 border-t border-white/[0.07] pt-4">
-            <FilterRow label="Nível">
+            <FilterRow label={t("groups.filter.level")}>
               <Chip active={level === "all"} onClick={() => setLevel("all")}>
-                Todos
+                {t("groups.chip.all")}
               </Chip>
               <Chip active={level === 1} onClick={() => setLevel(1)}>
-                Nv. 1
+                {t("groupsV2.lvl", { n: 1 })}
               </Chip>
               <Chip active={level === 2} onClick={() => setLevel(2)}>
-                Nv. 2
+                {t("groupsV2.lvl", { n: 2 })}
               </Chip>
               <Chip active={level === 3} tone="#9945FF" onClick={() => setLevel(3)}>
-                Nv. 3
+                {t("groupsV2.lvl", { n: 3 })}
               </Chip>
               <Chip active={level === 4} tone="#9945FF" onClick={() => setLevel(4)}>
-                Nv. 4
+                {t("groupsV2.lvl", { n: 4 })}
               </Chip>
             </FilterRow>
 
-            <FilterRow label="Categoria">
+            <FilterRow label={t("groups.filter.category")}>
               <Chip active={category === "all"} onClick={() => setCategory("all")}>
-                Todas
+                {t("groups.chip.all")}
               </Chip>
               {CATEGORY_KEYS.map((k) => (
                 <Chip key={k} active={category === k} onClick={() => setCategory(k)}>
-                  {CAT_LABELS[k]}
+                  {t(`cat.${k}`)}
                 </Chip>
               ))}
             </FilterRow>
 
-            <FilterRow label="Prêmio">
+            <FilterRow label={t("groups.filter.prize")}>
               <Chip active={budget === "all"} onClick={() => setBudget("all")}>
-                Qualquer
+                {t("groups.chip.any")}
               </Chip>
               <Chip active={budget === "lt15"} onClick={() => setBudget("lt15")}>
-                {"< R$ 15k"}
+                {t("groups.chip.lt15", { v: fmtMoneyThreshold(15000) })}
               </Chip>
               <Chip active={budget === "15to30"} onClick={() => setBudget("15to30")}>
-                R$ 15k–30k
+                {t("groups.chip.15to30", {
+                  a: fmtMoneyThreshold(15000),
+                  b: fmtMoneyThreshold(30000),
+                })}
               </Chip>
               <Chip active={budget === "gt30"} onClick={() => setBudget("gt30")}>
-                {"> R$ 30k"}
+                {t("groups.chip.gt30", { v: fmtMoneyThreshold(30000) })}
               </Chip>
             </FilterRow>
 
-            <FilterRow label="Duração">
+            <FilterRow label={t("groups.filter.duration")}>
               <Chip active={duration === "all"} onClick={() => setDuration("all")}>
-                Qualquer
+                {t("groups.chip.any")}
               </Chip>
               <Chip active={duration === "short"} onClick={() => setDuration("short")}>
-                Até 6m
+                {t("groups.chip.lt6")}
               </Chip>
               <Chip active={duration === "mid"} onClick={() => setDuration("mid")}>
-                7–12m
+                {t("groups.chip.7to12")}
               </Chip>
               <Chip active={duration === "long"} onClick={() => setDuration("long")}>
-                {"> 12m"}
+                {t("groups.chip.gt12")}
               </Chip>
             </FilterRow>
 
-            <FilterRow label="Disponibilidade">
+            <FilterRow label={t("groups.filter.avail")}>
               <Chip active={onlyOpen} onClick={() => setOnlyOpen((v) => !v)}>
-                Só com vagas
+                {t("groupsV2.chip.onlyOpen")}
               </Chip>
               <Chip active={onlyAccessible} onClick={() => setOnlyAccessible((v) => !v)}>
-                Só compatíveis
+                {t("groupsV2.chip.onlyCompatible")}
               </Chip>
             </FilterRow>
 
             <div className="flex items-center justify-between gap-3 border-t border-white/[0.07] pt-3 text-[11px]">
               <span className="font-mono text-gray-400">
-                {filtered.length} de {OPEN_GROUPS.length} grupos
-                {activeCount > 0 ? ` · ${activeCount} filtro${activeCount > 1 ? "s" : ""}` : ""}
+                {t("groups.ofN", {
+                  n: filtered.length,
+                  total: enriched.length,
+                  c: activeCount,
+                  s: activeCount > 1 ? "s" : "",
+                })}
               </span>
               {activeCount > 0 && (
                 <button
@@ -441,7 +470,7 @@ export default function GruposV2Page() {
                   onClick={clearAll}
                   className="inline-flex items-center gap-1 font-bold text-[#00C8FF] hover:text-[#14F195]"
                 >
-                  <Icons.close size={12} stroke="currentColor" sw={2.4} /> Limpar filtros
+                  <Icons.close size={12} stroke="currentColor" sw={2.4} /> {t("groups.clear")}
                 </button>
               )}
             </div>
@@ -453,19 +482,19 @@ export default function GruposV2Page() {
       {filtered.length === 0 ? (
         <section className="flex flex-col items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] py-16 text-center">
           <span className="text-4xl opacity-70">🔍</span>
-          <p className="text-base text-gray-400">Nenhum grupo bate com esses filtros.</p>
+          <p className="text-base text-gray-400">{t("groups.empty.title")}</p>
           <button
             type="button"
             onClick={clearAll}
             className="rounded-xl border border-[#14F195]/30 bg-[#14F195]/10 px-5 py-2.5 text-sm font-bold text-[#14F195] transition hover:bg-[#14F195]/20"
           >
-            Limpar filtros
+            {t("groups.clear")}
           </button>
         </section>
       ) : (
         <section className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((group) => (
-            <GroupCard key={group.id} group={group} compatible={group.level <= 2} />
+            <GroupCard key={group.id} group={group} />
           ))}
         </section>
       )}
@@ -476,15 +505,17 @@ export default function GruposV2Page() {
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-gray-300">
             <Icons.info size={16} stroke="currentColor" sw={1.8} />
           </span>
-          <span>Sua reputação e nível de acesso determinam os grupos disponíveis para você.</span>
+          <span>{t("groupsV2.footer.note")}</span>
         </div>
         <Link
           href="/reputacao"
           className="font-bold text-[#14F195] transition-colors hover:text-[#00C8FF]"
         >
-          Entenda como funciona →
+          {t("groupsV2.footer.link")} →
         </Link>
       </section>
+
+      <NewCycleModal open={newCycleOpen} onClose={() => setNewCycleOpen(false)} />
     </main>
   );
 }
