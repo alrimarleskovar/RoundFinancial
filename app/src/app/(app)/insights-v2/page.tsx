@@ -21,6 +21,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
+import { liftHover } from "@/lib/hoverLift";
 import {
   DEFAULT_RANGE,
   FACTORS,
@@ -132,37 +133,52 @@ function Glyph({
 
 const FACTOR_META: Record<
   BehaviorFactor["key"],
-  { icon: string; titlePt: string; descPt: string; statusPt: string }
+  { icon: string; titlePt: string; descPt: string; statusPt: string; longPt: string; tipPt: string }
 > = {
   punctuality: {
     icon: "calendar",
     titlePt: "Pontualidade",
     descPt: "Pagamentos em dia",
     statusPt: "Excelente",
+    longPt:
+      "Mede a proporção de parcelas quitadas até a data de vencimento. É o sinal de maior peso no seu score SAS.",
+    tipPt: "Mantenha o pagamento em dia — ou adiante parcelas — para segurar os 96 pontos.",
   },
   anticipation: {
     icon: "stopwatch",
     titlePt: "Antecipações",
     descPt: "Ações de pagamento",
     statusPt: "Bom",
+    longPt:
+      "Reflete com que frequência você paga antes do vencimento, sinalizando folga de caixa e baixo risco.",
+    tipPt: "Antecipe 1 ou 2 parcelas neste ciclo para subir de 78 para 85+.",
   },
   consistency: {
     icon: "target",
     titlePt: "Consistência",
     descPt: "Regularidade nos ciclos",
     statusPt: "A desenvolver",
+    longPt:
+      "Avalia a regularidade dos seus ciclos ao longo do tempo, sem lacunas nem atrasos recorrentes.",
+    tipPt: "Conclua o ciclo atual sem pular meses para firmar a consistência.",
   },
   engagement: {
     icon: "people",
     titlePt: "Engajamento",
     descPt: "Participação na rede",
     statusPt: "Pode melhorar",
+    longPt:
+      "Considera sua participação ativa na rede: grupos, convites e interações dentro do protocolo.",
+    tipPt: "Entre em um novo grupo ou convide um membro para elevar o engajamento.",
   },
   diversity: {
     icon: "grid",
     titlePt: "Diversidade",
     descPt: "Variedade de categorias",
     statusPt: "A desenvolver",
+    longPt:
+      "Mede a variedade de categorias de grupos em que você participa (PME, casa, pessoal e mais).",
+    tipPt: "Diversifique entrando em um grupo de categoria diferente das que você já tem.",
   },
 };
 
@@ -190,7 +206,7 @@ const REC_META: Record<string, { icon: string; titlePt: string; ctaPt: string; h
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <section
-      className={`rounded-[1.75rem] border border-white/10 bg-[#0B111A]/80 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl ${className}`}
+      className={`rounded-[1.75rem] border border-white/10 bg-[#0B111A]/80 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14F195]/25 hover:shadow-[0_28px_90px_rgba(0,0,0,0.4),0_0_44px_rgba(20,241,149,0.09)] ${className}`}
     >
       {children}
     </section>
@@ -371,44 +387,89 @@ function RecommendationCards() {
 function FactorRow({ factor }: { factor: BehaviorFactor }) {
   const meta = FACTOR_META[factor.key];
   const color = TONE_HEX[factor.tone];
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-colors hover:border-white/20">
-      <div
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
-        style={{ backgroundColor: `${color}1c`, border: `1px solid ${color}3a` }}
-      >
-        <Glyph name={meta.icon} color={color} size={22} sw={2} />
-      </div>
-      <div className="min-w-[150px] flex-1">
-        <div className="text-base font-bold text-white">{meta.titlePt}</div>
-        <div className="text-sm text-gray-400">{meta.descPt}</div>
-      </div>
-      <div className="hidden h-2 flex-[1.25] overflow-hidden rounded-full bg-white/5 md:block">
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${factor.value}%`,
-            backgroundColor: color,
-            boxShadow: `0 0 18px ${color}55`,
-          }}
-        />
-      </div>
-      <div
-        className={`w-14 text-right text-3xl font-black tracking-[-0.06em] ${MONO}`}
-        style={{ color }}
-      >
-        {factor.value}
-      </div>
-      <div className="hidden w-28 text-sm font-semibold md:block" style={{ color }}>
-        {meta.statusPt}
-      </div>
+    <div
+      className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-all duration-200"
+      {...liftHover(color, "rgba(255,255,255,0.1)")}
+    >
+      {/* header — the whole row toggles the detail */}
       <button
         type="button"
-        aria-label="Detalhes do fator"
-        className="shrink-0 text-gray-500 transition-colors hover:text-gray-300"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-4 text-left"
       >
-        <Glyph name="chevronDown" color="currentColor" size={18} sw={2} />
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: `${color}1c`, border: `1px solid ${color}3a` }}
+        >
+          <Glyph name={meta.icon} color={color} size={22} sw={2} />
+        </div>
+        <div className="min-w-[150px] flex-1">
+          <div className="text-base font-bold text-white">{meta.titlePt}</div>
+          <div className="text-sm text-gray-400">{meta.descPt}</div>
+        </div>
+        <div className="hidden h-2 flex-[1.25] overflow-hidden rounded-full bg-white/5 md:block">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${factor.value}%`,
+              backgroundColor: color,
+              boxShadow: `0 0 18px ${color}55`,
+            }}
+          />
+        </div>
+        <div
+          className={`w-14 text-right text-3xl font-black tracking-[-0.06em] ${MONO}`}
+          style={{ color }}
+        >
+          {factor.value}
+        </div>
+        <div className="hidden w-28 text-sm font-semibold md:block" style={{ color }}>
+          {meta.statusPt}
+        </div>
+        <span
+          className="shrink-0 text-gray-500 transition-transform duration-300"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          <Glyph name="chevronDown" color="currentColor" size={18} sw={2} />
+        </span>
       </button>
+
+      {/* expandable detail — what the signal measures + how to improve it */}
+      <div
+        className={`grid transition-all duration-300 ${
+          open ? "mt-4 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-white/10 pt-4">
+            {/* on small screens the status/value hide in the header — show them here */}
+            <div className="mb-3 flex items-center gap-2 md:hidden">
+              <span className="text-sm font-semibold" style={{ color }}>
+                {meta.statusPt}
+              </span>
+              <span className="text-xs text-gray-500">· {factor.value}/100</span>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-400">{meta.longPt}</p>
+            <div
+              className="mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-3"
+              style={{ borderColor: `${color}33`, background: `${color}12` }}
+            >
+              <span className="mt-0.5 shrink-0">
+                <Glyph name="spark" color={color} size={16} sw={1.9} />
+              </span>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                <span className="font-bold" style={{ color }}>
+                  Como melhorar:{" "}
+                </span>
+                {meta.tipPt}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -437,9 +498,9 @@ function ScoreChart() {
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
   const area = `0,220 ${line} 600,220`;
   const lastPoint = points[points.length - 1];
-  // The dot shares the plot area's inset coordinate space, so the exact
-  // curve-end percentage lands it on the line — no clamp (which is what
-  // floated it off the curve before).
+  // The dot shares the full-bleed plot area (inset-0), so the exact curve-end
+  // percentage lands it on the line. A clamp keeps it ~8px inside the rounded
+  // box so the glow isn't clipped at the right edge.
   const dotLeft = lastPoint ? (lastPoint[0] / 600) * 100 : 100;
   const dotTop = lastPoint ? (lastPoint[1] / 220) * 100 : 0;
 
@@ -460,15 +521,14 @@ function ScoreChart() {
         </div>
       </div>
       <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
-        {/* tier guides — behind the curve, spanning the plot width */}
-        <div className="pointer-events-none absolute inset-x-5 top-[20%] border-t border-dashed border-[#9945FF]/45" />
-        <div className="pointer-events-none absolute inset-x-5 top-[48%] border-t border-dashed border-[#14F195]/40" />
-        <div className="pointer-events-none absolute inset-x-5 top-[76%] border-t border-dashed border-[#00C8FF]/35" />
+        {/* tier guides — behind the curve, spanning the full box width */}
+        <div className="pointer-events-none absolute inset-x-0 top-[20%] border-t border-dashed border-[#9945FF]/45" />
+        <div className="pointer-events-none absolute inset-x-0 top-[48%] border-t border-dashed border-[#14F195]/40" />
+        <div className="pointer-events-none absolute inset-x-0 top-[76%] border-t border-dashed border-[#00C8FF]/35" />
 
-        {/* plot area — the curve + the end dot share this inset coordinate
-            space, so the dot lands exactly on the curve end and stays inside
-            the panel (a small horizontal inset, matching the print's margins) */}
-        <div className="absolute inset-x-5 inset-y-0">
+        {/* plot area — full-bleed so the fill + line reach every edge of the
+            box; the end dot shares this same coordinate space */}
+        <div className="absolute inset-0">
           <svg
             viewBox="0 0 600 220"
             preserveAspectRatio="none"
@@ -476,8 +536,8 @@ function ScoreChart() {
           >
             <defs>
               <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#14F195" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#14F195" stopOpacity="0.015" />
+                <stop offset="0%" stopColor="#14F195" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#14F195" stopOpacity="0.02" />
               </linearGradient>
             </defs>
             <polygon points={area} fill="url(#scoreFill)" />
@@ -495,8 +555,8 @@ function ScoreChart() {
             <div
               className="absolute z-20 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
               style={{
-                left: `${dotLeft}%`,
-                top: `${dotTop}%`,
+                left: `clamp(8px, ${dotLeft}%, calc(100% - 8px))`,
+                top: `clamp(8px, ${dotTop}%, calc(100% - 8px))`,
                 boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
               }}
             />
@@ -520,8 +580,8 @@ function ScoreChart() {
           Nv.2 Comprovado • 500
         </span>
 
-        {/* month axis */}
-        <div className="absolute inset-x-5 bottom-3 flex justify-between text-xs text-gray-500">
+        {/* month axis — aligned to the full-bleed curve */}
+        <div className="absolute inset-x-2 bottom-3 flex justify-between text-xs text-gray-500">
           {months.map((m) => (
             <span key={m}>{m}</span>
           ))}
