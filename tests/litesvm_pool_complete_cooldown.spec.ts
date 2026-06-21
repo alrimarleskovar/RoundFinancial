@@ -19,14 +19,18 @@
  * `cycles_completed` is NOT bumped and NO attestation is written for the
  * skipped completion.
  *
- * This spec proves it on the mpl_core (litesvm) path — the only CI lane
- * that can run `join_pool`:
+ * Proof, on the mpl_core (litesvm) path — the only CI lane that can run
+ * `join_pool`:
  *   • pool A — subject S completes a pool and earns POOL_COMPLETE.
  *   • pool B — S completes the final installment WHILE inside the 30-day
  *     window. Pre-fix this reverted; post-fix the payment lands and the
  *     reward is skipped (no `cycles_completed` bump, no attestation).
  *   • a FRESH co-member of pool B still earns ITS POOL_COMPLETE — the skip
  *     is specific to the cooled-down subject, not a blanket disable.
+ *
+ * Clock ordering: all funding / join / cycle-0 run at the DEFAULT clock
+ * (the path litesvm_join_pool exercises); the cooldown warp happens AFTER
+ * every join — the same ordering the litesvm parity specs warp safely.
  *
  * Skips cleanly when the build artifacts are absent (same guard as
  * litesvm_join_pool.spec.ts).
@@ -72,10 +76,9 @@ const INSTALLMENT = usdc(1_000n);
 const CREDIT = usdc(1_480n);
 const CYCLE_DURATION = 86_400;
 
-// Pin the wall clock comfortably past one cooldown window since the epoch, so
-// the FIRST completion is never itself inside the cooldown. litesvm keeps the
-// clock stationary unless `setClock` is called, so the SECOND completion (no
-// time advanced) lands squarely inside the 30-day window.
+// Once every join is done we jump the clock comfortably past one cooldown
+// window (since the epoch). The subject's FIRST completion then applies; the
+// SECOND lands at the SAME clock, squarely inside the 30-day window.
 const BASE_TS = 1_700_000_000n;
 
 interface ProfileLike {
@@ -107,10 +110,8 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
       }
     }
     try {
+      // Setup runs at the DEFAULT clock (the warp comes later, post-join).
       env = await setupLitesvmEnv();
-      // Pin the clock past one cooldown window so pool A's completion applies;
-      // it then stays put so pool B's completion is in-cooldown.
-      await setLitesvmUnixTs(env.svm, BASE_TS);
       usdcMint = await createUsdcMint(env, { forceFresh: true });
       await initializeProtocol(env, { usdcMint });
       await initializeReputation(env, { coreProgram: env.ids.core });
@@ -161,87 +162,100 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
       return;
     }
 
-    // ─── Pool A — subject earns its first POOL_COMPLETE ─────────────────
-    const fillerA = Keypair.generate();
-    {
-      const { pool, sH, fH } = await setupPoolThroughCycle0(fillerA);
+    try {
+      // ── Setup BOTH pools through cycle 0 at the default clock ──────────
+      const fillerA = Keypair.generate();
+      const a = await setupPoolThroughCycle0(fillerA);
+      const fillerB = Keypair.generate();
+      const b = await setupPoolThroughCycle0(fillerB);
 
-      // Cycle 1 — both members' FINAL installment → SCHEMA_POOL_COMPLETE.
-      // Neither has completed a pool before, so both rewards apply.
-      await contribute(env, { pool, member: sH, cycle: 1, isFinalInstallment: true });
-      await contribute(env, { pool, member: fH, cycle: 1, isFinalInstallment: true });
-      await claimPayout(env, { pool, member: fH, cycle: 1 }); // slot 1 claims; pool completes
+      // Every join is done — now jump past one cooldown window. (Final-cycle
+      // contributes are merely "late" at this clock, which is fine: the final
+      // installment escalates to POOL_COMPLETE regardless of punctuality.)
+      await setLitesvmUnixTs(env.svm, BASE_TS);
 
-      const sProfile = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
-      expect(sProfile.cyclesCompleted, "subject credited one completed pool").to.equal(1);
-      expect(bn(sProfile.lastCycleCompleteAt) > 0n, "cooldown anchor recorded").to.equal(true);
+      // ── Pool A — subject earns its FIRST POOL_COMPLETE ────────────────
+      // Neither member has completed a pool, so both rewards apply.
+      await contribute(env, { pool: a.pool, member: a.sH, cycle: 1, isFinalInstallment: true });
+      await contribute(env, { pool: a.pool, member: a.fH, cycle: 1, isFinalInstallment: true });
+      await claimPayout(env, { pool: a.pool, member: a.fH, cycle: 1 }); // slot 1; pool completes
 
-      const pda = attestationFor(
+      const sAfterA = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
+      expect(sAfterA.cyclesCompleted, "subject credited one completed pool").to.equal(1);
+      expect(bn(sAfterA.lastCycleCompleteAt) > 0n, "cooldown anchor recorded").to.equal(true);
+      const pdaA = attestationFor(
         env,
-        pool.pool,
+        a.pool.pool,
         subject.publicKey,
         ATTESTATION_SCHEMA.PoolComplete,
-        attestationNonce(1, sH.slotIndex),
+        attestationNonce(1, a.sH.slotIndex),
       );
-      expect(await env.connection.getAccountInfo(pda), "pool A POOL_COMPLETE attestation").to.not.be
-        .null;
+      expect(await env.connection.getAccountInfo(pdaA), "pool A POOL_COMPLETE attestation").to.not
+        .be.null;
+
+      // ── Pool B — subject completes a SECOND pool inside the cooldown ──
+      const before = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
+
+      // The crux: the subject's FINAL installment would emit POOL_COMPLETE,
+      // but the 30-day cooldown is active (pool A completed at the same clock).
+      // Pre-SEV-A2 this reverted the whole tx. It MUST now settle.
+      await contribute(env, { pool: b.pool, member: b.sH, cycle: 1, isFinalInstallment: true });
+
+      // 1. Liveness: the installment was recorded (payment kept).
+      const sMember = (await fetchMember(env, b.sH.member)) as unknown as {
+        contributionsPaid: number;
+      };
+      expect(sMember.contributionsPaid, "final installment recorded").to.equal(2);
+
+      // 2. Anti-farming intact: no cycles_completed bump, no score change, and
+      //    the cooldown anchor is NOT advanced by the skipped completion.
+      const after = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
+      expect(after.cyclesCompleted, "no second completion credited in-cooldown").to.equal(
+        before.cyclesCompleted,
+      );
+      expect(bn(after.score), "score unchanged on the skipped completion").to.equal(
+        bn(before.score),
+      );
+      expect(bn(after.lastCycleCompleteAt), "cooldown anchor not advanced").to.equal(
+        bn(before.lastCycleCompleteAt),
+      );
+
+      // 3. No POOL_COMPLETE attestation was written for the skipped completion.
+      const skippedPda = attestationFor(
+        env,
+        b.pool.pool,
+        subject.publicKey,
+        ATTESTATION_SCHEMA.PoolComplete,
+        attestationNonce(1, b.sH.slotIndex),
+      );
+      expect(
+        await env.connection.getAccountInfo(skippedPda),
+        "skipped completion writes NO attestation",
+      ).to.be.null;
+
+      // 4. Differential — a FRESH co-member's final installment still earns its
+      //    POOL_COMPLETE, so the skip is specific to the cooled-down subject.
+      await contribute(env, { pool: b.pool, member: b.fH, cycle: 1, isFinalInstallment: true });
+      const fProfile = (await fetchProfile(env, fillerB.publicKey)) as unknown as ProfileLike;
+      expect(fProfile.cyclesCompleted, "fresh co-member still earns its completion").to.equal(1);
+      const fPda = attestationFor(
+        env,
+        b.pool.pool,
+        fillerB.publicKey,
+        ATTESTATION_SCHEMA.PoolComplete,
+        attestationNonce(1, b.fH.slotIndex),
+      );
+      expect(await env.connection.getAccountInfo(fPda), "fresh member's POOL_COMPLETE attestation")
+        .to.not.be.null;
+
+      // Pool still finalizes cleanly (slot 1 claims).
+      await claimPayout(env, { pool: b.pool, member: b.fH, cycle: 1 });
+    } catch (e) {
+      // Surface the on-chain program logs litesvm attached to the error so a
+      // remaining failure is diagnosable in one run rather than opaque ("6").
+      const logs = (e as { logs?: string[] }).logs;
+      if (logs?.length) console.error("\n[litesvm] program logs:\n" + logs.join("\n"));
+      throw e;
     }
-
-    // ─── Pool B — subject completes a SECOND pool inside the cooldown ────
-    const fillerB = Keypair.generate();
-    const { pool, sH, fH } = await setupPoolThroughCycle0(fillerB);
-
-    const before = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
-
-    // The crux: the subject's FINAL installment would emit POOL_COMPLETE,
-    // but the 30-day cooldown is active (pool A completed at the same clock).
-    // Pre-SEV-A2 this reverted the whole tx. It MUST now settle.
-    await contribute(env, { pool, member: sH, cycle: 1, isFinalInstallment: true });
-
-    // 1. Liveness: the installment was recorded (payment kept).
-    const sMember = (await fetchMember(env, sH.member)) as unknown as { contributionsPaid: number };
-    expect(sMember.contributionsPaid, "final installment recorded").to.equal(2);
-
-    // 2. Anti-farming intact: no cycles_completed bump, no score change, and
-    //    the cooldown anchor is NOT advanced by the skipped completion.
-    const after = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
-    expect(after.cyclesCompleted, "no second completion credited in-cooldown").to.equal(
-      before.cyclesCompleted,
-    );
-    expect(bn(after.score), "score unchanged on the skipped completion").to.equal(bn(before.score));
-    expect(bn(after.lastCycleCompleteAt), "cooldown anchor not advanced").to.equal(
-      bn(before.lastCycleCompleteAt),
-    );
-
-    // 3. No POOL_COMPLETE attestation was written for the skipped completion.
-    const skippedPda = attestationFor(
-      env,
-      pool.pool,
-      subject.publicKey,
-      ATTESTATION_SCHEMA.PoolComplete,
-      attestationNonce(1, sH.slotIndex),
-    );
-    expect(
-      await env.connection.getAccountInfo(skippedPda),
-      "skipped completion writes NO attestation",
-    ).to.be.null;
-
-    // 4. Differential — a FRESH co-member's final installment still earns its
-    //    POOL_COMPLETE, so the skip is specific to the cooled-down subject.
-    await contribute(env, { pool, member: fH, cycle: 1, isFinalInstallment: true });
-    const fProfile = (await fetchProfile(env, fillerB.publicKey)) as unknown as ProfileLike;
-    expect(fProfile.cyclesCompleted, "fresh co-member still earns its completion").to.equal(1);
-    const fPda = attestationFor(
-      env,
-      pool.pool,
-      fillerB.publicKey,
-      ATTESTATION_SCHEMA.PoolComplete,
-      attestationNonce(1, fH.slotIndex),
-    );
-    expect(await env.connection.getAccountInfo(fPda), "fresh member's POOL_COMPLETE attestation").to
-      .not.be.null;
-
-    // Pool still finalizes cleanly (slot 1 claims).
-    await claimPayout(env, { pool, member: fH, cycle: 1 });
   });
 });
