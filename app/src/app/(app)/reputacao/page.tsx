@@ -196,7 +196,10 @@ function PassportHero() {
   const tier = tierForScore(user.score);
   const floor = tier.min;
   const next = user.nextLevel;
-  const pct = Math.max(0, Math.min(100, ((user.score - floor) / (next - floor)) * 100));
+  const atTop = user.level >= 4;
+  const pct = atTop
+    ? 100
+    : Math.max(0, Math.min(100, ((user.score - floor) / (next - floor)) * 100));
   const pointsToNext = Math.max(0, next - user.score);
   const [copied, setCopied] = useState(false);
 
@@ -211,10 +214,12 @@ function PassportHero() {
   };
 
   return (
-    <Card className="relative flex flex-col overflow-hidden p-6 md:p-8">
+    <Card className="group relative flex flex-col overflow-hidden p-6 transition-transform duration-500 hover:scale-[1.01] md:p-8">
       {/* ambient glows */}
       <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[#00C8FF]/15 blur-[80px]" />
       <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[90px]" />
+      {/* mirrored shine sweep on hover — same effect as the home SAS passport */}
+      <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
 
       {/* header row */}
       <div className="relative z-10 mb-7 flex items-center justify-between gap-4">
@@ -317,10 +322,8 @@ function PassportHero() {
       {/* progress to next level */}
       <div className="relative z-10 mt-6">
         <div className="mb-2 flex items-center justify-between text-xs text-white/55">
-          <span>{t("rep.toNext", { n: pointsToNext })}</span>
-          <span className={MONO}>
-            {user.score} / {next}
-          </span>
+          <span>{atTop ? t("rep.maxTier") : t("rep.toNext", { n: pointsToNext })}</span>
+          <span className={MONO}>{atTop ? user.score : `${user.score} / ${next}`}</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
           <div
@@ -330,7 +333,9 @@ function PassportHero() {
         </div>
         <div className={`mt-2 flex justify-between text-[10px] uppercase text-white/35 ${MONO}`}>
           <span>{t("rep.levelMark", { min: floor, n: user.level })}</span>
-          <span>{t("rep.levelMark", { min: next, n: user.level + 1 })}</span>
+          <span>
+            {atTop ? t("rep.maxMark") : t("rep.levelMark", { min: next, n: user.level + 1 })}
+          </span>
         </div>
       </div>
 
@@ -811,7 +816,7 @@ export default function ReputacaoPage() {
           <LevelsPanel />
         </div>
 
-        <div className="grid items-start gap-6 lg:grid-cols-[1.25fr_1fr]">
+        <div className="grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
           <BenefitsPanel />
           <NextLevelPanel />
         </div>
