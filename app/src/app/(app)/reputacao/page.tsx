@@ -17,12 +17,13 @@
 // Local stroke glyphs cover the icons the shared set lacks; the score uses the
 // design's Geist Mono; the hero gauge reuses the insights-v2 gradient ring.
 
-import { useState, type MouseEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
 import type { Tone } from "@/data/carteira";
 import { LEVELS, SAS_BONDS, SAS_TOTAL_CYCLES, SAS_TOTAL_INSTALLMENTS } from "@/data/score";
+import { cardHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { tierForScore } from "@/lib/passport";
 import { useSession } from "@/lib/session";
@@ -150,21 +151,6 @@ function Card({ children, className = "" }: { children: ReactNode; className?: s
   );
 }
 
-// Accent hover for the card-like rows: a subtle lift + tone-colored border,
-// reverting to the className border on leave. Pair with a `transition`.
-function cardHover(color: string) {
-  return {
-    onMouseEnter: (e: MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.borderColor = `${color}66`;
-      e.currentTarget.style.transform = "translateY(-2px)";
-    },
-    onMouseLeave: (e: MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.borderColor = "";
-      e.currentTarget.style.transform = "translateY(0)";
-    },
-  };
-}
-
 function MonoTitle({ children, color = "#14F195" }: { children: ReactNode; color?: string }) {
   return (
     <div
@@ -214,7 +200,7 @@ function PassportHero() {
   };
 
   return (
-    <Card className="group relative flex flex-col overflow-hidden p-6 transition-transform duration-500 hover:scale-[1.01] md:p-8">
+    <Card className="group relative flex flex-col justify-between gap-6 overflow-hidden p-6 transition-transform duration-500 hover:scale-[1.01] md:p-8">
       {/* ambient glows */}
       <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[#00C8FF]/15 blur-[80px]" />
       <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[90px]" />
@@ -222,7 +208,7 @@ function PassportHero() {
       <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
 
       {/* header row */}
-      <div className="relative z-10 mb-7 flex items-center justify-between gap-4">
+      <div className="relative z-10 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="h-9 w-9 animate-spin rounded-full border-4 border-[#00C8FF]/80 border-t-transparent [animation-duration:6s]" />
           <div>
@@ -320,7 +306,7 @@ function PassportHero() {
       </div>
 
       {/* progress to next level */}
-      <div className="relative z-10 mt-6">
+      <div className="relative z-10">
         <div className="mb-2 flex items-center justify-between text-xs text-white/55">
           <span>{atTop ? t("rep.maxTier") : t("rep.toNext", { n: pointsToNext })}</span>
           <span className={MONO}>{atTop ? user.score : `${user.score} / ${next}`}</span>
@@ -340,7 +326,7 @@ function PassportHero() {
       </div>
 
       {/* identity row */}
-      <div className="relative z-10 mt-6 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
+      <div className="relative z-10 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#14F195]/30 to-[#9945FF]/30 text-sm font-black text-white ring-1 ring-white/15">
             {user.name
@@ -384,7 +370,7 @@ function LevelsPanel() {
         <MonoTitle>{t("rep.levelsTitle")}</MonoTitle>
         <Icons.info size={13} stroke="#14F195" sw={1.8} />
       </div>
-      <div className="mt-5 flex flex-col gap-3">
+      <div className="mt-5 flex flex-1 flex-col justify-between gap-3">
         {LEVELS.map((l) => {
           const isCurrent = l.lv === user.level;
           const isUnlocked = l.lv <= user.level;
@@ -498,26 +484,28 @@ function BenefitsPanel() {
     },
   ];
   return (
-    <Card className="p-5 md:p-6">
+    <Card className="flex h-full flex-col p-5 md:p-6">
       <MonoTitle>{t("rep.benefits.title")}</MonoTitle>
-      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-5 grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
         {benefits.map((b) => (
           <div
             key={b.title}
             {...cardHover(b.color)}
-            className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition"
+            className="flex h-full flex-col justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition"
           >
             <div
-              className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl"
+              className="flex h-10 w-10 items-center justify-center rounded-xl"
               style={{ background: `${b.color}16`, border: `1px solid ${b.color}40` }}
             >
               <Glyph name={b.icon} color={b.color} size={19} sw={1.9} />
             </div>
-            <div className="text-xl font-black" style={{ color: b.color }}>
+            <div className="text-2xl font-black" style={{ color: b.color }}>
               {b.value}
             </div>
-            <div className="mt-0.5 text-sm font-bold text-white/85">{b.title}</div>
-            <div className="mt-1.5 text-[11px] leading-relaxed text-white/42">{b.desc}</div>
+            <div>
+              <div className="text-sm font-bold text-white/85">{b.title}</div>
+              <div className="mt-1.5 text-[11px] leading-relaxed text-white/42">{b.desc}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -563,7 +551,7 @@ function NextLevelPanel() {
   return (
     <Card className="flex flex-col p-5 md:p-6">
       <MonoTitle>{t("rep.nextPanel.title", { name: t(levelNameKey(nextTier.lv)) })}</MonoTitle>
-      <div className="mt-5 flex flex-col gap-3">
+      <div className="mt-5 flex flex-1 flex-col justify-between gap-3">
         {perks.map((p) => (
           <div
             key={p.title}
@@ -811,12 +799,12 @@ export default function ReputacaoPage() {
       </header>
 
       <main className="flex flex-col gap-6">
-        <div className="grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <PassportHero />
           <LevelsPanel />
         </div>
 
-        <div className="grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <BenefitsPanel />
           <NextLevelPanel />
         </div>

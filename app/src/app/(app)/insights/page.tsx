@@ -180,10 +180,12 @@ function ScoreHero() {
   const percentile = 72; // static — no population data on devnet yet
 
   return (
-    <Card className="relative overflow-hidden p-7 md:p-8">
+    <Card className="group relative overflow-hidden p-7 md:p-8">
       {/* ambient glows */}
       <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#14F195]/10 blur-[80px]" />
       <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-[#9945FF]/10 blur-[80px]" />
+      {/* mirrored shine sweep on hover — same effect as the home SAS passport */}
+      <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
 
       {/* info affordance, top-right */}
       <button

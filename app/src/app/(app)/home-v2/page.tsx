@@ -29,7 +29,7 @@ import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { ACTIVE_GROUPS, type ActiveGroup } from "@/data/groups";
 import type { NftPosition, Tone } from "@/data/carteira";
-import { liftHover } from "@/lib/hoverLift";
+import { cardHover } from "@/lib/hoverLift";
 import { useI18n, type Lang } from "@/lib/i18n";
 import {
   PASSPORT_TIERS,
@@ -589,7 +589,7 @@ function GroupCard({ g, month, theme }: { g: ActiveGroup; month: number; theme: 
       className={`w-full rounded-2xl border border-white/8 p-4 transition-all ${
         theme === "light" ? "bg-white shadow-sm" : "bg-white/[0.04]"
       }`}
-      {...liftHover(tone)}
+      {...cardHover(tone)}
     >
       <div className="grid items-center gap-4 sm:grid-cols-[230px_1fr_90px_190px]">
         <div className="flex min-w-0 items-center gap-3">
