@@ -1,150 +1,31 @@
 "use client";
 
 // /mercado — secondary market for NFT shares ("válvula de escape").
-// Graduated from the /mercado-v2 candidate.
+// Graduated from the /mercado-v2 candidate, now on real data.
 //
-// Wired CTAs: every money button opens the real modal and persists through the
-// session (→ /carteira) —
+// Buy side reads the shared @/data/market fixtures (MARKET_OFFERS +
+// FEATURED_OFFER); sell side reads the live session — your real holdings
+// (NFT_POSITIONS ∪ session.acquiredPositions) minus anything already listed,
+// plus a "Minhas listagens" section over session.listings with cancel via
+// ListingDetailsModal. Every money CTA opens the real modal and persists
+// through the session (→ /carteira):
 //   - "Comprar" / "Garantir agora" → BuyOfferModal → buyShare()
 //   - "Vender" / "Listar agora"    → SellPositionModal → sellShare()
-// Self-contained mock rows (as the design shipped them), adapted to the modal
-// shapes (BuyOfferTarget / NftPosition). "Como funciona" / "Saiba mais"
-// smooth-scroll to the steps section. Every string flows through i18n
-// (marketV2.* namespace) and money through fmtMoney, so the TopBar PT/EN +
-// BRL/USDC toggle drives this screen.
+//   - a listing row                → ListingDetailsModal → cancelListing()
+// "Como funciona" / "Saiba mais" smooth-scroll to the steps section. Every
+// string flows through i18n (marketV2.* + shared market.* atoms) and money
+// through fmtMoney, so the TopBar PT/EN + BRL/USDC toggle drives this screen.
 
 import { useMemo, useState } from "react";
 
 import { Icons } from "@/components/brand/icons";
 import { BuyOfferModal, type BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
+import { ListingDetailsModal } from "@/components/mercado/ListingDetailsModal";
 import { SellPositionModal } from "@/components/mercado/SellPositionModal";
-import type { NftPosition, Tone } from "@/data/carteira";
+import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
+import { FEATURED_OFFER, MARKET_OFFERS, type MarketOffer } from "@/data/market";
 import { useI18n, useT } from "@/lib/i18n";
-import { useSession } from "@/lib/session";
-
-type MarketOffer = {
-  id: string;
-  num: string;
-  group: string;
-  month: number;
-  total: number;
-  face: number;
-  price: number;
-  disc: number;
-};
-
-const MARKET_OFFERS: MarketOffer[] = [
-  {
-    id: "m1",
-    num: "02",
-    group: "Intercâmbio 2026",
-    month: 2,
-    total: 12,
-    face: 1640,
-    price: 1440,
-    disc: 12.2,
-  },
-  {
-    id: "m2",
-    num: "05",
-    group: "Renovação MEI",
-    month: 4,
-    total: 12,
-    face: 892,
-    price: 812,
-    disc: 9.0,
-  },
-  {
-    id: "m3",
-    num: "11",
-    group: "PME · Capital de Giro",
-    month: 7,
-    total: 18,
-    face: 1520,
-    price: 1320,
-    disc: 13.2,
-  },
-  {
-    id: "m4",
-    num: "04",
-    group: "Dev Setup · 6m",
-    month: 3,
-    total: 6,
-    face: 1840,
-    price: 1620,
-    disc: 12.0,
-  },
-  {
-    id: "m5",
-    num: "08",
-    group: "Reforma Casa",
-    month: 5,
-    total: 24,
-    face: 1200,
-    price: 1092,
-    disc: 9.0,
-  },
-  {
-    id: "m6",
-    num: "14",
-    group: "Enxoval · 6m",
-    month: 4,
-    total: 6,
-    face: 740,
-    price: 680,
-    disc: 8.1,
-  },
-];
-
-const FEATURED_OFFER = {
-  group: "Dev Setup · cota #04",
-  monthsLeft: 4,
-  sellerScore: 712,
-  face: 1840,
-  price: 1620,
-  effectiveDiscount: 12,
-  apyEquivalent: 7.8,
-};
-
-type MyPosition = {
-  id: string;
-  num: string;
-  group: string;
-  month: number;
-  total: number;
-  face: number;
-  suggestedDisc: number;
-};
-
-const MY_POSITIONS: MyPosition[] = [
-  {
-    id: "p1",
-    num: "03",
-    group: "Renovação MEI · 12m",
-    month: 4,
-    total: 12,
-    face: 1890,
-    suggestedDisc: 8,
-  },
-  {
-    id: "p2",
-    num: "07",
-    group: "Dev Setup · 6m",
-    month: 3,
-    total: 6,
-    face: 1420,
-    suggestedDisc: 6,
-  },
-  {
-    id: "p3",
-    num: "01",
-    group: "Intercâmbio 2026",
-    month: 2,
-    total: 12,
-    face: 1070,
-    suggestedDisc: 10,
-  },
-];
+import { useSession, type ActiveListing } from "@/lib/session";
 
 // Category filter keys (internal) + their i18n label keys.
 const categories = ["Todas", "PME", "Casa", "Dev", "Pessoal", "Delivery"];
@@ -216,8 +97,14 @@ const categoryFor = (group: string) => {
 
 const apyFor = (offer: MarketOffer) => Number((6.4 + offer.disc / 8).toFixed(1));
 
+// Suggested resale discount for a holding — scales with the term still ahead
+// (more cycle left → a touch deeper discount). The seller still sets the final
+// price in the modal; this is just the card's hint.
+const suggestedDiscFor = (pos: NftPosition) =>
+  Math.max(5, Math.round(((pos.total - pos.month) / pos.total) * 12));
+
 // category → Tone letter (drives the modal accent + the carteira position color
-// once a buy/listing lands in the session).
+// once a buy lands in the session).
 const CAT_TONE: Record<string, Tone> = {
   PME: "g",
   Casa: "t",
@@ -227,9 +114,8 @@ const CAT_TONE: Record<string, Tone> = {
 };
 const toneFor = (group: string): Tone => CAT_TONE[categoryFor(group)] ?? "g";
 
-// Adapters: the v2 mock rows → the shapes the real buy/sell modals consume, so
-// confirming a purchase/listing flows through the session (→ /carteira) just
-// like the official /mercado does.
+// Adapter: a market offer → the shape BuyOfferModal consumes, so confirming a
+// purchase flows through the session (→ /carteira).
 function offerToBuyTarget(offer: MarketOffer): BuyOfferTarget {
   return {
     id: offer.id,
@@ -242,20 +128,6 @@ function offerToBuyTarget(offer: MarketOffer): BuyOfferTarget {
     month: offer.month,
     total: offer.total,
     tone: toneFor(offer.group),
-  };
-}
-
-function positionToNft(pos: MyPosition): NftPosition {
-  return {
-    id: pos.id,
-    num: pos.num,
-    group: pos.group,
-    tone: toneFor(pos.group),
-    month: pos.month,
-    total: pos.total,
-    exp: `${pos.total - pos.month}m`,
-    value: pos.face,
-    yieldPct: 0,
   };
 }
 
@@ -390,9 +262,10 @@ function OfferRow({
   );
 }
 
-function SellRow({ pos, onSell }: { pos: MyPosition; onSell: (position: NftPosition) => void }) {
+function SellRow({ pos, onSell }: { pos: NftPosition; onSell: (position: NftPosition) => void }) {
   const { t, fmtMoney } = useI18n();
-  const sellPrice = Math.round(pos.face * (1 - pos.suggestedDisc / 100));
+  const disc = suggestedDiscFor(pos);
+  const sellPrice = Math.round(pos.value * (1 - disc / 100));
   return (
     <div className="grid grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
       <div className="flex min-w-0 items-center gap-3">
@@ -411,25 +284,74 @@ function SellRow({ pos, onSell }: { pos: MyPosition; onSell: (position: NftPosit
         </div>
       </div>
       <div>
-        <div className="text-sm font-black text-white">{fmtMoney(pos.face, { noCents: true })}</div>
+        <div className="text-sm font-black text-white">
+          {fmtMoney(pos.value, { noCents: true })}
+        </div>
         <div className="text-xs text-slate-500">{t("marketV2.row.faceValue")}</div>
       </div>
       <div>
         <div className="text-sm font-black text-[#14F195]">
           {fmtMoney(sellPrice, { noCents: true })}
         </div>
-        <div className="text-xs text-slate-500">
-          {t("marketV2.row.suggested", { n: pos.suggestedDisc })}
-        </div>
+        <div className="text-xs text-slate-500">{t("marketV2.row.suggested", { n: disc })}</div>
       </div>
       <button
         type="button"
-        onClick={() => onSell(positionToNft(pos))}
+        onClick={() => onSell(pos)}
         className="rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-4 py-2 text-xs font-black text-[#03130D] transition hover:scale-[1.02] hover:brightness-110"
       >
         {t("marketV2.cta.sell")}
       </button>
     </div>
+  );
+}
+
+// One row in "Minhas listagens" — opens the listing detail (with cancel).
+function ListingRow({
+  listing,
+  onOpen,
+}: {
+  listing: ActiveListing;
+  onOpen: (l: ActiveListing) => void;
+}) {
+  const { t, fmtMoney } = useI18n();
+  const p = listing.position;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(listing)}
+      className="grid grid-cols-[1.7fr_0.9fr_0.9fr_0.6fr] items-center gap-3 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.06] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#14F195]/50"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <CatIcon group={p.group} />
+        <div className="min-w-0">
+          <div className="truncate text-sm font-extrabold text-white">{p.group}</div>
+          <div className="mt-0.5 text-xs text-slate-500">
+            {t("marketV2.row.share", { num: p.num })}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="text-sm font-black text-white">
+          {fmtMoney(listing.askPrice, { noCents: true })}
+        </div>
+        <div className="text-xs text-slate-500">{t("marketV2.resalePrice")}</div>
+      </div>
+      <div>
+        <div className="text-sm font-black text-[#14F195]">
+          {listing.discountPct > 0
+            ? `−${listing.discountPct.toFixed(0)}%`
+            : t("market.listings.facePrice")}
+        </div>
+        <div className="text-xs text-slate-500">{t("marketV2.col.discount")}</div>
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <span className="rounded-full bg-[#14F195]/10 px-2.5 py-1 text-[10px] font-black uppercase text-[#14F195]">
+          {t("market.listings.statusActive")}
+        </span>
+        <Icons.arrow size={14} stroke="currentColor" sw={2} />
+      </div>
+    </button>
   );
 }
 
@@ -500,7 +422,7 @@ function FeaturedOfferCard({ onBuy }: { onBuy: (target: BuyOfferTarget) => void 
         type="button"
         onClick={() =>
           onBuy({
-            id: "featured-dev04",
+            id: FEATURED_OFFER.id,
             group: FEATURED_OFFER.group,
             detail: t("marketV2.months", { n: FEATURED_OFFER.monthsLeft }),
             face: FEATURED_OFFER.face,
@@ -517,10 +439,17 @@ function FeaturedOfferCard({ onBuy }: { onBuy: (target: BuyOfferTarget) => void 
   );
 }
 
-function FeaturedSellCard({ onSell }: { onSell: (position: NftPosition) => void }) {
+function FeaturedSellCard({
+  positions,
+  onSell,
+}: {
+  positions: NftPosition[];
+  onSell: (position: NftPosition) => void;
+}) {
   const { t, fmtMoney } = useI18n();
-  const best = [...MY_POSITIONS].sort((a, b) => b.face - a.face)[0]!;
-  const sellPrice = Math.round(best.face * (1 - best.suggestedDisc / 100));
+  const best = [...positions].sort((a, b) => b.value - a.value)[0]!;
+  const disc = suggestedDiscFor(best);
+  const sellPrice = Math.round(best.value * (1 - disc / 100));
   return (
     <aside className="rounded-[2rem] border border-[#14F195]/35 bg-[radial-gradient(circle_at_25%_0%,rgba(20,241,149,0.18),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] p-7 shadow-[0_0_70px_rgba(20,241,149,0.12)]">
       <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#14F195]">
@@ -533,11 +462,11 @@ function FeaturedSellCard({ onSell }: { onSell: (position: NftPosition) => void 
         <div className="flex items-center justify-between text-xs uppercase tracking-[0.13em] text-slate-500">
           <span>{t("marketV2.faceValue")}</span>
           <span className="rounded-lg bg-[#14F195]/10 px-2 py-1 font-black text-[#14F195]">
-            {t("marketV2.row.suggested", { n: best.suggestedDisc })}
+            {t("marketV2.row.suggested", { n: disc })}
           </span>
         </div>
         <div className="mt-2 text-xl font-bold text-slate-500 line-through decoration-slate-600">
-          {fmtMoney(best.face, { noCents: true })}
+          {fmtMoney(best.value, { noCents: true })}
         </div>
 
         <div className="mt-6 text-xs uppercase tracking-[0.13em] text-slate-500">
@@ -583,7 +512,7 @@ function FeaturedSellCard({ onSell }: { onSell: (position: NftPosition) => void 
 
       <button
         type="button"
-        onClick={() => onSell(positionToNft(best))}
+        onClick={() => onSell(best)}
         className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-5 py-4 text-sm font-black text-[#03130D] shadow-[0_10px_35px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_45px_rgba(20,241,149,0.34)]"
       >
         {t("marketV2.cta.list")}
@@ -653,11 +582,13 @@ function HowItWorks({
 
 export default function MercadoPage() {
   const { t, fmtMoney, lang } = useI18n();
-  const { buyShare, sellShare, purchasedOfferIds } = useSession();
+  const { buyShare, sellShare, cancelListing, listings, acquiredPositions, purchasedOfferIds } =
+    useSession();
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [category, setCategory] = useState("Todas");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
   const [selling, setSelling] = useState<NftPosition | null>(null);
+  const [openListing, setOpenListing] = useState<ActiveListing | null>(null);
   const purchasedSet = new Set(purchasedOfferIds);
 
   // Locale-aware one-decimal percentage (PT comma / EN dot).
@@ -673,18 +604,26 @@ export default function MercadoPage() {
     ).sort((a, b) => b.disc - a.disc);
   }, [category]);
 
+  // Sell side = real holdings minus anything already listed this session.
+  const available = useMemo(() => {
+    const listed = new Set(listings.map((l) => l.position.id));
+    return [...NFT_POSITIONS, ...acquiredPositions].filter((p) => !listed.has(p.id));
+  }, [listings, acquiredPositions]);
+
   const avgEconomy =
     MARKET_OFFERS.reduce((sum, offer) => sum + (offer.face - offer.price), 0) /
     MARKET_OFFERS.length;
   const avgApy =
     MARKET_OFFERS.reduce((sum, offer) => sum + apyFor(offer), 0) / MARKET_OFFERS.length;
 
-  const myFaceTotal = MY_POSITIONS.reduce((sum, p) => sum + p.face, 0);
-  const myResaleTotal = MY_POSITIONS.reduce(
-    (sum, p) => sum + Math.round(p.face * (1 - p.suggestedDisc / 100)),
+  const myFaceTotal = available.reduce((sum, p) => sum + p.value, 0);
+  const myResaleTotal = available.reduce(
+    (sum, p) => sum + Math.round(p.value * (1 - suggestedDiscFor(p) / 100)),
     0,
   );
-  const myAvgDisc = MY_POSITIONS.reduce((sum, p) => sum + p.suggestedDisc, 0) / MY_POSITIONS.length;
+  const myAvgDisc = available.length
+    ? available.reduce((sum, p) => sum + suggestedDiscFor(p), 0) / available.length
+    : 0;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-8 text-white animate-in fade-in duration-700 md:px-8">
@@ -734,7 +673,7 @@ export default function MercadoPage() {
           <section className="grid gap-4 md:grid-cols-4">
             <MiniStat
               label={t("marketV2.yourShares")}
-              value={`${MY_POSITIONS.length}`}
+              value={`${available.length}`}
               helper={t("marketV2.kpi.count.helper")}
             />
             <MiniStat
@@ -757,23 +696,50 @@ export default function MercadoPage() {
             />
           </section>
 
+          {/* active listings — with cancel via ListingDetailsModal */}
+          {listings.length > 0 && (
+            <section className="rounded-[2rem] border border-white/[0.07] bg-white/[0.025] p-3 md:p-5">
+              <div className="mb-3 flex items-center justify-between px-4 pt-2">
+                <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#14F195]">
+                  {t("market.listings.title")}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {t("market.listings.count", { n: listings.length })}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {listings.map((l) => (
+                  <ListingRow key={l.id} listing={l} onOpen={setOpenListing} />
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="grid gap-6 lg:grid-cols-[1.6fr_0.9fr]">
             <div className="rounded-[2rem] border border-white/[0.07] bg-white/[0.025] p-3 md:p-5">
               <div className="mb-3 px-4 pt-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
                 {t("marketV2.yourShares")}
               </div>
-              <div className="hidden grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] gap-3 px-4 pb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 md:grid">
-                <span>{t("marketV2.col.group")}</span>
-                <span>{t("marketV2.col.term")}</span>
-                <span>{t("marketV2.faceValue")}</span>
-                <span>{t("marketV2.col.resale")}</span>
-                <span>{t("marketV2.col.action")}</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {MY_POSITIONS.map((pos) => (
-                  <SellRow key={pos.id} pos={pos} onSell={setSelling} />
-                ))}
-              </div>
+              {available.length === 0 ? (
+                <div className="m-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-slate-400">
+                  {t("market.sellList.allListed")}
+                </div>
+              ) : (
+                <>
+                  <div className="hidden grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] gap-3 px-4 pb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 md:grid">
+                    <span>{t("marketV2.col.group")}</span>
+                    <span>{t("marketV2.col.term")}</span>
+                    <span>{t("marketV2.faceValue")}</span>
+                    <span>{t("marketV2.col.resale")}</span>
+                    <span>{t("marketV2.col.action")}</span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {available.map((pos) => (
+                      <SellRow key={pos.id} pos={pos} onSell={setSelling} />
+                    ))}
+                  </div>
+                </>
+              )}
               <button
                 type="button"
                 onClick={scrollToHow}
@@ -785,7 +751,9 @@ export default function MercadoPage() {
             </div>
 
             <div className="flex flex-col gap-5">
-              <FeaturedSellCard onSell={setSelling} />
+              {available.length > 0 && (
+                <FeaturedSellCard positions={available} onSell={setSelling} />
+              )}
               <WhyCard titleKey="marketV2.whySell.title" itemKeys={WHY_SELL} />
             </div>
           </section>
@@ -942,6 +910,12 @@ export default function MercadoPage() {
         onListed={({ position, askPrice, discountPct }) =>
           sellShare(position, askPrice, discountPct)
         }
+      />
+      <ListingDetailsModal
+        listing={openListing}
+        open={openListing !== null}
+        onClose={() => setOpenListing(null)}
+        onCancel={(listingId) => cancelListing(listingId)}
       />
     </main>
   );
