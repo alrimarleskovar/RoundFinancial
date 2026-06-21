@@ -20,3 +20,23 @@ export function liftHover(toneColor: string, base = "transparent", lift = 2) {
     },
   };
 }
+
+// Hover relief for inline-styled buttons. CSS `:hover` can't reach inline
+// styles, so interactive buttons built with the `style` prop need JS handlers
+// to get any pointer feedback (same idiom as DeskBtn). A subtle lift plus a
+// brightness bump that settles on leave — reads well on both gradient and
+// subtle fill buttons. Pair with a `transition` that animates transform +
+// filter on the button. Disabled buttons don't receive pointer events, so this
+// is automatically inert while a CTA is mid-submit.
+export function hoverBtn(lift = 2) {
+  return {
+    onMouseEnter: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = `translateY(-${lift}px)`;
+      e.currentTarget.style.filter = "brightness(1.1)";
+    },
+    onMouseLeave: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.filter = "none";
+    },
+  };
+}

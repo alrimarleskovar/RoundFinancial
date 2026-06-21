@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
+import { hoverBtn } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -195,7 +196,9 @@ export function BuyOfferModal({
                 fontSize: 12,
                 cursor: "pointer",
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "transform 140ms ease, filter 140ms ease",
               }}
+              {...hoverBtn()}
             >
               {t("market.buyModal.cancel")}
             </button>
@@ -224,7 +227,9 @@ export function BuyOfferModal({
                 cursor: submitting ? "default" : "pointer",
                 opacity: submitting ? 0.7 : 1,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "transform 140ms ease, filter 140ms ease",
               }}
+              {...hoverBtn()}
             >
               {submitting ? t("modal.processing") : t("market.buyModal.confirm")}
             </button>
@@ -252,7 +257,9 @@ export function BuyOfferModal({
                 fontSize: 12,
                 cursor: "pointer",
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "transform 140ms ease, filter 140ms ease",
               }}
+              {...hoverBtn()}
             >
               {t("market.buyModal.close")}
             </button>

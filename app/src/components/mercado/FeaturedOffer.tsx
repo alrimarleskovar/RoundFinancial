@@ -3,7 +3,7 @@
 import type { BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { MonoLabel } from "@/components/brand/brand";
 import { FEATURED_OFFER } from "@/data/market";
-import { liftHover } from "@/lib/hoverLift";
+import { hoverBtn, liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -160,7 +160,9 @@ export function FeaturedOffer({ onBuy }: { onBuy: (target: BuyOfferTarget) => vo
           fontSize: 12,
           cursor: "pointer",
           fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+          transition: "transform 140ms ease, filter 140ms ease",
         }}
+        {...hoverBtn()}
       >
         {t("market.featured.cta")}
       </button>

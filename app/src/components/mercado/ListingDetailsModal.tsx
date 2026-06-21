@@ -2,6 +2,7 @@
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
+import { hoverBtn } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { type ActiveListing } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
@@ -255,7 +256,9 @@ export function ListingDetailsModal({
             fontSize: 12,
             cursor: "pointer",
             fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+            transition: "transform 140ms ease, filter 140ms ease",
           }}
+          {...hoverBtn()}
         >
           {t("market.listingDetails.close")}
         </button>
@@ -276,7 +279,9 @@ export function ListingDetailsModal({
             fontSize: 12,
             cursor: "pointer",
             fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+            transition: "transform 140ms ease, filter 140ms ease",
           }}
+          {...hoverBtn()}
         >
           {t("market.listingDetails.cancelListing")}
         </button>

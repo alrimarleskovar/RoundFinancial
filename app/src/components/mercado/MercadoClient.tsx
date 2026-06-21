@@ -88,6 +88,19 @@ export function MercadoClient() {
                 fontSize: 12,
                 fontWeight: 600,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "background 140ms ease, color 140ms ease",
+              }}
+              onMouseEnter={(e) => {
+                if (tab !== id) {
+                  e.currentTarget.style.background = tokens.fillMed;
+                  e.currentTarget.style.color = tokens.text;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (tab !== id) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = tokens.text2;
+                }
               }}
             >
               {id === "buy" ? t("market.tab.buy") : t("market.tab.sell")}

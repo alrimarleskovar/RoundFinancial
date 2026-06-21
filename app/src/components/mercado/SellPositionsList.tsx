@@ -3,7 +3,7 @@
 import { MonoLabel } from "@/components/brand/brand";
 import type { NftPosition } from "@/data/carteira";
 import { NFT_POSITIONS } from "@/data/carteira";
-import { liftHover } from "@/lib/hoverLift";
+import { hoverBtn, liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession, type ActiveListing } from "@/lib/session";
 import { glassSurfaceStyle, useTheme, type ThemeTokens } from "@/lib/theme";
@@ -312,7 +312,9 @@ export function SellPositionsList({
                     border: `1px solid ${tokens.purple}55`,
                     fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                     whiteSpace: "nowrap",
+                    transition: "transform 140ms ease, filter 140ms ease",
                   }}
+                  {...hoverBtn(1)}
                 >
                   {t("market.sellList.cta")}
                 </button>

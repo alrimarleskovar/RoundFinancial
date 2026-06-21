@@ -4,6 +4,7 @@ import type { BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
 import { MonoLabel } from "@/components/brand/brand";
 import { NoListingsYet } from "@/components/mercado/NoListingsYet";
 import { MARKET_OFFERS } from "@/data/market";
+import { hoverBtn } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -208,7 +209,9 @@ export function OffersTable({ onBuy }: { onBuy: (target: BuyOfferTarget) => void
                   fontSize: 11,
                   fontWeight: 600,
                   border: `1px solid ${tokens.borderStr}`,
+                  transition: "transform 140ms ease, filter 140ms ease",
                 }}
+                {...hoverBtn(1)}
               >
                 {t("market.offers.cta.buy")}
               </button>
