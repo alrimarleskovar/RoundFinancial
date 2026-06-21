@@ -20,3 +20,45 @@ export function liftHover(toneColor: string, base = "transparent", lift = 2) {
     },
   };
 }
+
+// Hover relief for inline-styled buttons. CSS `:hover` can't reach inline
+// styles, so interactive buttons built with the `style` prop need JS handlers
+// to get any pointer feedback (same idiom as DeskBtn). A subtle lift plus a
+// brightness bump that settles on leave — reads well on both gradient and
+// subtle fill buttons. Pair with a `transition` that animates transform +
+// filter on the button. Disabled buttons don't receive pointer events, so this
+// is automatically inert while a CTA is mid-submit.
+export function hoverBtn(lift = 2) {
+  return {
+    onMouseEnter: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = `translateY(-${lift}px)`;
+      e.currentTarget.style.filter = "brightness(1.1)";
+    },
+    onMouseLeave: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.filter = "none";
+    },
+  };
+}
+
+// Accent hover for Tailwind-className cards (the reputacao look): a subtle lift
+// plus a tone-colored border that, on leave, reverts borderColor to "" so the
+// element falls back to its *className* border-color. This is only safe when
+// the card sets an explicit border-color via class (e.g. `border-white/8`,
+// `border-white/10`) — then "" cleanly drops the inline color back to that
+// class value, with no white `currentColor` edge. Pair with a `transition`
+// (not `transition-colors`) so the transform animates too. For inline-styled
+// elements that have no class border-color, use `liftHover(tone, base)` and
+// pass the explicit resting color instead.
+export function cardHover(toneColor: string, lift = 2) {
+  return {
+    onMouseEnter: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = `translateY(-${lift}px)`;
+      e.currentTarget.style.borderColor = `${toneColor}66`;
+    },
+    onMouseLeave: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.borderColor = "";
+    },
+  };
+}

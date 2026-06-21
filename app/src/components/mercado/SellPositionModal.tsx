@@ -6,6 +6,7 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { NftPosition } from "@/data/carteira";
+import { hoverBtn } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -264,7 +265,9 @@ export function SellPositionModal({
                 fontSize: 12,
                 cursor: "pointer",
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "transform 140ms ease, filter 140ms ease",
               }}
+              {...hoverBtn()}
             >
               {t("market.sellModal.cancel")}
             </button>
@@ -295,7 +298,9 @@ export function SellPositionModal({
                 cursor: submitting ? "default" : "pointer",
                 opacity: submitting ? 0.7 : 1,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "transform 140ms ease, filter 140ms ease",
               }}
+              {...hoverBtn()}
             >
               {submitting ? t("modal.processing") : t("market.sellModal.confirm")}
             </button>
@@ -325,7 +330,9 @@ export function SellPositionModal({
                 fontSize: 12,
                 cursor: "pointer",
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                transition: "transform 140ms ease, filter 140ms ease",
               }}
+              {...hoverBtn()}
             >
               {t("market.sellModal.close")}
             </button>
