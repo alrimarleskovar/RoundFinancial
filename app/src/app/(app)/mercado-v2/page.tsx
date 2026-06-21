@@ -1,22 +1,28 @@
 "use client";
 
-// /mercado-v2 — VISUAL-FIRST preview of the team's new Mercado secundário design.
-//
-// Lives inside the (app) route group so it inherits the DeskShell TopBar +
-// shared dark ground; the real /mercado and main stay untouched until this
-// graduates. Self-contained mock data (as the design shipped it). The tab
-// (Comprar / Vender) and the category filter are functional client-side;
+// /mercado-v2 — the team's new Mercado secundário design, now on its
+// integration pass. Lives inside the (app) route group so it inherits the
+// DeskShell TopBar + shared dark ground; the real /mercado stays untouched
+// until this graduates. Self-contained mock rows (as the design shipped them);
 // emoji glyphs are swapped for the project's stroke icon set + a couple of
-// local glyphs (play / search). The "Vender" view mirrors the "Comprar"
-// formatting (KPIs · table · featured · how-it-works).
+// local glyphs (play / search).
 //
-// Visual-only on the on-chain side: "Comprar" / "Garantir agora" / "Vender" /
-// "Listar agora" are static — the re-wire pass connects them to the real
-// buy/escape-valve modals + market data, then it graduates onto /mercado.
+// Wired CTAs: every money button opens the real modal and persists through the
+// session (→ /carteira), exactly like the official /mercado —
+//   - "Comprar" / "Garantir agora" → BuyOfferModal → buyShare()
+//   - "Vender" / "Listar agora"    → SellPositionModal → sellShare()
+// The local mock rows are adapted to the modal shapes (BuyOfferTarget /
+// NftPosition). "Como funciona" / "Saiba mais" smooth-scroll to the steps
+// section. The tab + category toggles filter client-side and now carry a clear
+// hover (bg + accent shift), not just a faint text tint.
 
 import { useMemo, useState } from "react";
 
 import { Icons } from "@/components/brand/icons";
+import { BuyOfferModal, type BuyOfferTarget } from "@/components/mercado/BuyOfferModal";
+import { SellPositionModal } from "@/components/mercado/SellPositionModal";
+import type { NftPosition, Tone } from "@/data/carteira";
+import { useSession } from "@/lib/session";
 
 type MarketOffer = {
   id: string;
@@ -194,6 +200,49 @@ const categoryFor = (group: string) => {
 
 const apyFor = (offer: MarketOffer) => Number((6.4 + offer.disc / 8).toFixed(1));
 
+// category → Tone letter (drives the modal accent + the carteira position color
+// once a buy/listing lands in the session).
+const CAT_TONE: Record<string, Tone> = {
+  PME: "g",
+  Casa: "t",
+  Dev: "p",
+  Delivery: "a",
+  Pessoal: "r",
+};
+const toneFor = (group: string): Tone => CAT_TONE[categoryFor(group)] ?? "g";
+
+// Adapters: the v2 mock rows → the shapes the real buy/sell modals consume, so
+// confirming a purchase/listing flows through the session (→ /carteira) just
+// like the official /mercado does.
+function offerToBuyTarget(offer: MarketOffer): BuyOfferTarget {
+  return {
+    id: offer.id,
+    group: offer.group,
+    detail: `Cota #${offer.num} · ${offer.month}/${offer.total}`,
+    face: offer.face,
+    price: offer.price,
+    discount: offer.disc,
+    num: offer.num,
+    month: offer.month,
+    total: offer.total,
+    tone: toneFor(offer.group),
+  };
+}
+
+function positionToNft(pos: MyPosition): NftPosition {
+  return {
+    id: pos.id,
+    num: pos.num,
+    group: pos.group,
+    tone: toneFor(pos.group),
+    month: pos.month,
+    total: pos.total,
+    exp: `${pos.total - pos.month}m restantes`,
+    value: pos.face,
+    yieldPct: 0,
+  };
+}
+
 function PlayIcon({ size = 13 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -263,7 +312,15 @@ function MiniStat({
   );
 }
 
-function OfferRow({ offer }: { offer: MarketOffer }) {
+function OfferRow({
+  offer,
+  onBuy,
+  purchased,
+}: {
+  offer: MarketOffer;
+  onBuy: (target: BuyOfferTarget) => void;
+  purchased: boolean;
+}) {
   const economy = offer.face - offer.price;
   const apy = apyFor(offer);
   return (
@@ -295,14 +352,24 @@ function OfferRow({ offer }: { offer: MarketOffer }) {
         <div className="text-sm font-black text-white">{apy}%</div>
         <div className="text-xs text-slate-500">a.a.</div>
       </div>
-      <button className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-bold text-white transition hover:border-[#14F195]/50 hover:bg-[#14F195]/10 hover:text-[#14F195]">
-        Comprar
-      </button>
+      {purchased ? (
+        <span className="inline-flex items-center justify-center rounded-xl border border-[#14F195]/40 bg-[#14F195]/10 px-4 py-2 text-xs font-black text-[#14F195]">
+          ✓ Comprada
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onBuy(offerToBuyTarget(offer))}
+          className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:border-[#14F195]/50 hover:bg-[#14F195]/10 hover:text-[#14F195]"
+        >
+          Comprar
+        </button>
+      )}
     </div>
   );
 }
 
-function SellRow({ pos }: { pos: MyPosition }) {
+function SellRow({ pos, onSell }: { pos: MyPosition; onSell: (position: NftPosition) => void }) {
   const sellPrice = Math.round(pos.face * (1 - pos.suggestedDisc / 100));
   return (
     <div className="grid grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
@@ -327,14 +394,18 @@ function SellRow({ pos }: { pos: MyPosition }) {
         <div className="text-sm font-black text-[#14F195]">{fmtBRL(sellPrice)}</div>
         <div className="text-xs text-slate-500">−{pos.suggestedDisc}% sugerido</div>
       </div>
-      <button className="rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-4 py-2 text-xs font-black text-[#03130D] transition hover:scale-[1.02]">
+      <button
+        type="button"
+        onClick={() => onSell(positionToNft(pos))}
+        className="rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-4 py-2 text-xs font-black text-[#03130D] transition hover:scale-[1.02] hover:brightness-110"
+      >
         Vender
       </button>
     </div>
   );
 }
 
-function FeaturedOfferCard() {
+function FeaturedOfferCard({ onBuy }: { onBuy: (target: BuyOfferTarget) => void }) {
   const economy = FEATURED_OFFER.face - FEATURED_OFFER.price;
   return (
     <aside className="rounded-[2rem] border border-[#9945FF]/35 bg-[radial-gradient(circle_at_25%_0%,rgba(153,69,255,0.22),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] p-7 shadow-[0_0_70px_rgba(153,69,255,0.12)]">
@@ -386,14 +457,28 @@ function FeaturedOfferCard() {
         </div>
       </div>
 
-      <button className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-5 py-4 text-sm font-black text-white shadow-[0_10px_35px_rgba(0,200,255,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_45px_rgba(0,200,255,0.34)]">
+      <button
+        type="button"
+        onClick={() =>
+          onBuy({
+            id: "featured-dev04",
+            group: FEATURED_OFFER.group,
+            detail: `${FEATURED_OFFER.monthsLeft} meses restantes · score ${FEATURED_OFFER.sellerScore}`,
+            face: FEATURED_OFFER.face,
+            price: FEATURED_OFFER.price,
+            discount: FEATURED_OFFER.effectiveDiscount,
+            tone: "p",
+          })
+        }
+        className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-5 py-4 text-sm font-black text-white shadow-[0_10px_35px_rgba(0,200,255,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_45px_rgba(0,200,255,0.34)]"
+      >
         Garantir agora
       </button>
     </aside>
   );
 }
 
-function FeaturedSellCard() {
+function FeaturedSellCard({ onSell }: { onSell: (position: NftPosition) => void }) {
   const best = [...MY_POSITIONS].sort((a, b) => b.face - a.face)[0]!;
   const sellPrice = Math.round(best.face * (1 - best.suggestedDisc / 100));
   return (
@@ -446,7 +531,11 @@ function FeaturedSellCard() {
         </div>
       </div>
 
-      <button className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-5 py-4 text-sm font-black text-[#03130D] shadow-[0_10px_35px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_45px_rgba(20,241,149,0.34)]">
+      <button
+        type="button"
+        onClick={() => onSell(positionToNft(best))}
+        className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-5 py-4 text-sm font-black text-[#03130D] shadow-[0_10px_35px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_45px_rgba(20,241,149,0.34)]"
+      >
         Listar agora
       </button>
     </aside>
@@ -471,9 +560,17 @@ function WhyCard({ title, items }: { title: string; items: readonly string[] }) 
   );
 }
 
-function HowItWorks({ title, steps }: { title: string; steps: ReadonlyArray<StepTuple> }) {
+function HowItWorks({
+  id,
+  title,
+  steps,
+}: {
+  id?: string;
+  title: string;
+  steps: ReadonlyArray<StepTuple>;
+}) {
   return (
-    <section className="rounded-[2rem] border border-white/[0.07] bg-white/[0.025] p-7">
+    <section id={id} className="rounded-[2rem] border border-white/[0.07] bg-white/[0.025] p-7">
       <h3 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{title}</h3>
       <div className="mt-8 grid gap-6 md:grid-cols-4">
         {steps.map(([icon, stepTitle, desc], index) => {
@@ -499,8 +596,16 @@ function HowItWorks({ title, steps }: { title: string; steps: ReadonlyArray<Step
 }
 
 export default function MercadoV2Page() {
+  const { buyShare, sellShare, purchasedOfferIds } = useSession();
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [category, setCategory] = useState("Todas");
+  const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
+  const [selling, setSelling] = useState<NftPosition | null>(null);
+  const purchasedSet = new Set(purchasedOfferIds);
+
+  // "Como funciona" / "Saiba mais" jump to the steps section.
+  const scrollToHow = () =>
+    document.getElementById("mv2-how")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const offers = useMemo(() => {
     return MARKET_OFFERS.filter(
@@ -537,7 +642,11 @@ export default function MercadoV2Page() {
               : "Antecipe sua saída listando suas cotas para outros participantes."}
           </p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.08] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#14F195]/[0.14]">
+        <button
+          type="button"
+          onClick={scrollToHow}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.08] px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:border-[#14F195]/50 hover:bg-[#14F195]/[0.16]"
+        >
           <span className="text-[#14F195]">
             <PlayIcon />
           </span>
@@ -547,14 +656,16 @@ export default function MercadoV2Page() {
 
       <div className="flex w-fit rounded-2xl border border-white/[0.07] bg-white/[0.035] p-1">
         <button
+          type="button"
           onClick={() => setTab("buy")}
-          className={`rounded-xl px-5 py-3 text-sm font-black transition ${tab === "buy" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:text-white"}`}
+          className={`rounded-xl px-5 py-3 text-sm font-black transition ${tab === "buy" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}
         >
           Comprar cotas
         </button>
         <button
+          type="button"
           onClick={() => setTab("sell")}
-          className={`rounded-xl px-5 py-3 text-sm font-black transition ${tab === "sell" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:text-white"}`}
+          className={`rounded-xl px-5 py-3 text-sm font-black transition ${tab === "sell" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}
         >
           Vender cotas
         </button>
@@ -602,7 +713,7 @@ export default function MercadoV2Page() {
               </div>
               <div className="flex flex-col gap-2">
                 {MY_POSITIONS.map((pos) => (
-                  <SellRow key={pos.id} pos={pos} />
+                  <SellRow key={pos.id} pos={pos} onSell={setSelling} />
                 ))}
               </div>
               <button className="mx-auto mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-sm font-bold text-slate-300 transition hover:border-white/[0.18] hover:text-white">
@@ -612,7 +723,7 @@ export default function MercadoV2Page() {
             </div>
 
             <div className="flex flex-col gap-5">
-              <FeaturedSellCard />
+              <FeaturedSellCard onSell={setSelling} />
               <WhyCard
                 title="Por que vender aqui?"
                 items={[
@@ -626,7 +737,7 @@ export default function MercadoV2Page() {
             </div>
           </section>
 
-          <HowItWorks title="Como funciona a venda" steps={SELL_STEPS} />
+          <HowItWorks id="mv2-how" title="Como funciona a venda" steps={SELL_STEPS} />
 
           <footer className="flex flex-col gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-2.5">
@@ -635,7 +746,11 @@ export default function MercadoV2Page() {
               </span>
               Ambiente 100% seguro · Todas as transações são protegidas pela RoundFi
             </div>
-            <button className="font-bold text-[#14F195] transition-colors hover:text-[#00C8FF]">
+            <button
+              type="button"
+              onClick={scrollToHow}
+              className="font-bold text-[#14F195] transition-colors hover:text-[#00C8FF]"
+            >
               Saiba mais sobre segurança →
             </button>
           </footer>
@@ -675,8 +790,9 @@ export default function MercadoV2Page() {
                   {categories.map((cat) => (
                     <button
                       key={cat}
+                      type="button"
                       onClick={() => setCategory(cat)}
-                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide transition ${category === cat ? "bg-[#14F195]/[0.14] text-[#14F195]" : "bg-white/[0.04] text-slate-400 hover:text-white"}`}
+                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide transition ${category === cat ? "bg-[#14F195]/[0.14] text-[#14F195]" : "bg-white/[0.04] text-slate-400 hover:bg-[#14F195]/[0.08] hover:text-[#14F195]"}`}
                     >
                       {cat}
                     </button>
@@ -701,7 +817,12 @@ export default function MercadoV2Page() {
 
               <div className="flex flex-col gap-2">
                 {offers.map((offer) => (
-                  <OfferRow key={offer.id} offer={offer} />
+                  <OfferRow
+                    key={offer.id}
+                    offer={offer}
+                    onBuy={setBuying}
+                    purchased={purchasedSet.has(offer.id)}
+                  />
                 ))}
               </div>
 
@@ -712,7 +833,7 @@ export default function MercadoV2Page() {
             </div>
 
             <div className="flex flex-col gap-5">
-              <FeaturedOfferCard />
+              <FeaturedOfferCard onBuy={setBuying} />
               <WhyCard
                 title="Por que comprar aqui?"
                 items={[
@@ -726,7 +847,7 @@ export default function MercadoV2Page() {
             </div>
           </section>
 
-          <HowItWorks title="Como funciona o mercado secundário" steps={BUY_STEPS} />
+          <HowItWorks id="mv2-how" title="Como funciona o mercado secundário" steps={BUY_STEPS} />
 
           <footer className="flex flex-col gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-2.5">
@@ -735,12 +856,42 @@ export default function MercadoV2Page() {
               </span>
               Ambiente 100% seguro · Todas as transações são protegidas pela RoundFi
             </div>
-            <button className="font-bold text-[#14F195] transition-colors hover:text-[#00C8FF]">
+            <button
+              type="button"
+              onClick={scrollToHow}
+              className="font-bold text-[#14F195] transition-colors hover:text-[#00C8FF]"
+            >
               Saiba mais sobre segurança →
             </button>
           </footer>
         </>
       )}
+
+      <BuyOfferModal
+        target={buying}
+        open={buying !== null}
+        onClose={() => setBuying(null)}
+        onPurchased={(t) =>
+          buyShare({
+            offerId: t.id,
+            group: t.group,
+            price: t.price,
+            face: t.face,
+            num: t.num,
+            month: t.month,
+            total: t.total,
+            tone: t.tone,
+          })
+        }
+      />
+      <SellPositionModal
+        position={selling}
+        open={selling !== null}
+        onClose={() => setSelling(null)}
+        onListed={({ position, askPrice, discountPct }) =>
+          sellShare(position, askPrice, discountPct)
+        }
+      />
     </main>
   );
 }
