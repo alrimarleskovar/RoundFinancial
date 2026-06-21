@@ -21,7 +21,7 @@
 // useSession()/@/data/score + the passport lib, strings migrate to i18n,
 // then it graduates onto /reputacao.
 
-import { useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
@@ -121,6 +121,23 @@ function Card({ children, className = "" }: { children: ReactNode; className?: s
       {children}
     </section>
   );
+}
+
+// Accent hover for the card-like rows: a subtle lift + tone-colored border,
+// reverting to the className border on leave. Tailwind can't express a
+// per-item dynamic border color, so the hover rides inline style — pair it
+// with a `transition` (not `transition-colors`) so the transform animates too.
+function cardHover(color: string) {
+  return {
+    onMouseEnter: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.borderColor = `${color}66`;
+      e.currentTarget.style.transform = "translateY(-2px)";
+    },
+    onMouseLeave: (e: MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.borderColor = "";
+      e.currentTarget.style.transform = "translateY(0)";
+    },
+  };
 }
 
 function MonoTitle({ children, color = "#14F195" }: { children: ReactNode; color?: string }) {
@@ -363,109 +380,109 @@ function PassportHero() {
         </span>
       </div>
 
-      {/* score + gauge ring */}
-      <div className="relative z-10 grid items-center gap-6 lg:grid-cols-[1fr_auto]">
-        <div>
-          <div
-            className={`text-[11px] font-black uppercase tracking-[0.22em] text-[#14F195] ${MONO}`}
-          >
-            Reputation Score
-          </div>
-          <div className="mt-2 flex flex-wrap items-end gap-4">
+      {/* core (score + gauge + progress) is vertically centered, so when the
+          hero stretches to match the levels panel the slack splits evenly
+          above and below instead of pooling into one empty band */}
+      <div className="relative z-10 flex flex-1 flex-col justify-center gap-7">
+        <div className="grid items-center gap-6 lg:grid-cols-[1fr_auto]">
+          <div>
             <div
-              className={`text-[84px] font-black leading-[0.82] tracking-[-0.07em] text-white md:text-[104px] ${MONO}`}
+              className={`text-[11px] font-black uppercase tracking-[0.22em] text-[#14F195] ${MONO}`}
             >
-              {score}
+              Reputation Score
             </div>
-            <div className="mb-3">
-              <div className="text-2xl font-black text-[#14F195]">+18</div>
-              <div className="text-xs text-white/45">desde maio</div>
+            <div className="mt-2 flex flex-wrap items-end gap-4">
+              <div
+                className={`text-[84px] font-black leading-[0.82] tracking-[-0.07em] text-white md:text-[104px] ${MONO}`}
+              >
+                {score}
+              </div>
+              <div className="mb-3">
+                <div className="text-2xl font-black text-[#14F195]">+18</div>
+                <div className="text-xs text-white/45">desde maio</div>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <span className="rounded-xl border border-[#00C8FF]/25 bg-[#00C8FF]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#55DFFF]">
+                Nível 2
+              </span>
+              <span className="rounded-xl border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#14F195]">
+                Comprovado
+              </span>
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="rounded-xl border border-[#00C8FF]/25 bg-[#00C8FF]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#55DFFF]">
-              Nível 2
-            </span>
-            <span className="rounded-xl border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#14F195]">
-              Comprovado
-            </span>
-          </div>
-        </div>
 
-        <div
-          className="relative mx-auto h-[184px] w-[184px] shrink-0"
-          style={{ filter: "drop-shadow(0 0 24px rgba(20,241,149,0.16))" }}
-        >
-          <svg viewBox="0 0 120 120" className="h-full w-full">
-            <defs>
-              <linearGradient id="repRing" x1="0" y1="0.5" x2="1" y2="0.5">
-                <stop offset="0%" stopColor="#14F195" />
-                <stop offset="50%" stopColor="#00C8FF" />
-                <stop offset="100%" stopColor="#9945FF" />
-              </linearGradient>
-            </defs>
-            <circle
-              cx="60"
-              cy="60"
-              r="50"
-              fill="none"
-              stroke="rgba(255,255,255,0.06)"
-              strokeWidth="9"
-            />
-            <path
-              d="M24.65 95.35 A50 50 0 1 1 85 103.3"
-              fill="none"
-              stroke="url(#repRing)"
-              strokeWidth="9"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-            <svg
-              width="60"
-              height="60"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#14F195"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
-              <path d="M8.5 12l2.4 2.4L15.6 9.6" />
-            </svg>
-            <span
-              className={`text-[10px] font-bold uppercase tracking-[0.18em] text-white/45 ${MONO}`}
-            >
-              Nível 2
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* progress to next level */}
-      <div className="relative z-10 mt-6">
-        <div className="mb-2 flex items-center justify-between text-xs text-white/55">
-          <span>Faltam 66 pontos para o próximo nível</span>
-          <span className={MONO}>
-            {score} / {next}
-          </span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]"
-            style={{ width: `${pct}%` }}
-          />
+            className="relative mx-auto h-[184px] w-[184px] shrink-0"
+            style={{ filter: "drop-shadow(0 0 24px rgba(20,241,149,0.16))" }}
+          >
+            <svg viewBox="0 0 120 120" className="h-full w-full">
+              <defs>
+                <linearGradient id="repRing" x1="0" y1="0.5" x2="1" y2="0.5">
+                  <stop offset="0%" stopColor="#14F195" />
+                  <stop offset="50%" stopColor="#00C8FF" />
+                  <stop offset="100%" stopColor="#9945FF" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="60"
+                cy="60"
+                r="50"
+                fill="none"
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth="9"
+              />
+              <path
+                d="M24.65 95.35 A50 50 0 1 1 85 103.3"
+                fill="none"
+                stroke="url(#repRing)"
+                strokeWidth="9"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+              <svg
+                width="60"
+                height="60"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#14F195"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
+                <path d="M8.5 12l2.4 2.4L15.6 9.6" />
+              </svg>
+              <span
+                className={`text-[10px] font-bold uppercase tracking-[0.18em] text-white/45 ${MONO}`}
+              >
+                Nível 2
+              </span>
+            </div>
+          </div>
         </div>
-        <div className={`mt-2 flex justify-between text-[10px] uppercase text-white/35 ${MONO}`}>
-          <span>500 · Nível 2</span>
-          <span>750 · Nível 3</span>
+
+        {/* progress to next level */}
+        <div className="relative z-10">
+          <div className="mb-2 flex items-center justify-between text-xs text-white/55">
+            <span>Faltam 66 pontos para o próximo nível</span>
+            <span className={MONO}>
+              {score} / {next}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className={`mt-2 flex justify-between text-[10px] uppercase text-white/35 ${MONO}`}>
+            <span>500 · Nível 2</span>
+            <span>750 · Nível 3</span>
+          </div>
         </div>
       </div>
-
-      {/* spacer — keeps the identity row pinned to the card's base if the
-          hero stretches to match the levels panel */}
-      <div className="flex-1" />
 
       {/* identity row */}
       <div className="relative z-10 mt-6 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
@@ -506,7 +523,8 @@ function LevelsPanel() {
         {LEVELS.map((l) => (
           <div
             key={l.level}
-            className={`flex items-center gap-4 rounded-2xl border p-4 transition-colors ${
+            {...cardHover(l.color)}
+            className={`flex items-center gap-4 rounded-2xl border p-4 transition ${
               l.status === "current"
                 ? "border-[#00C8FF]/50 bg-[#00C8FF]/[0.08]"
                 : "border-white/[0.08] bg-white/[0.025]"
@@ -569,13 +587,16 @@ function LevelsPanel() {
 
 function BenefitsPanel() {
   return (
-    <Card className="p-5 md:p-6">
+    <Card className="flex h-full flex-col p-5 md:p-6">
       <MonoTitle>Seus benefícios atuais</MonoTitle>
-      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* grid grows to fill the card so a stretched panel reads as taller cards
+          (icon up top, figures down low) rather than an empty band below */}
+      <div className="mt-5 grid flex-1 grid-cols-2 gap-3 md:grid-cols-4">
         {BENEFITS.map((b) => (
           <div
             key={b.title}
-            className="flex h-full flex-col rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-colors hover:border-white/20"
+            {...cardHover(b.color)}
+            className="flex h-full flex-col rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition"
           >
             <div
               className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl"
@@ -607,7 +628,8 @@ function NextLevelPanel() {
         {NEXT_PERKS.map((p) => (
           <div
             key={p.title}
-            className="flex flex-1 items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5"
+            {...cardHover(p.color)}
+            className="flex flex-1 items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5 transition"
           >
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
@@ -641,7 +663,8 @@ function TrajectorySummary() {
         {SUMMARY.map((s) => (
           <div
             key={s.label}
-            className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4"
+            {...cardHover(s.color)}
+            className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition"
           >
             <div
               className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl"
@@ -720,7 +743,8 @@ function Attestations() {
         {ATTESTATIONS.map((a) => (
           <div
             key={a.title}
-            className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5 transition-colors hover:border-white/20"
+            {...cardHover(a.color)}
+            className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5 transition"
           >
             <div
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
