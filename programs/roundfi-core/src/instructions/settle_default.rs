@@ -359,7 +359,10 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
             Some(ctx.accounts.identity_record.to_account_info())
         };
 
-        invoke_attest(AttestCall {
+        // SCHEMA_DEFAULT carries no cooldown, so the outcome is always
+        // `Applied`; the value is intentionally discarded (only `contribute`'s
+        // final-installment POOL_COMPLETE can be a SEV-A2 cooldown skip).
+        let _ = invoke_attest(AttestCall {
             reputation_program:  &ctx.accounts.reputation_program.to_account_info(),
             expected_program_id: config.reputation_program,
             accounts: AttestAccounts {
