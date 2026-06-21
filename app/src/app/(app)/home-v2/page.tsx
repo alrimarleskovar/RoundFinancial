@@ -141,17 +141,34 @@ function dueLabel(daysUntil: number, lang: Lang): string {
 // focal visual of the action hero per the print.
 function CountdownCalendar({ day, mon }: { day: string; mon: string }) {
   return (
-    <div className="relative -rotate-[5deg]">
+    <div className="relative -rotate-[4deg]">
+      {/* stacked pages behind the top sheet — gives the pad real depth */}
+      <div className="absolute left-2 top-2.5 h-32 w-28 rounded-2xl bg-white/20 blur-[1px]" />
+      <div className="absolute left-1 top-1 h-32 w-28 rounded-2xl bg-white/45" />
       {/* binder rings */}
-      <span className="absolute -top-2 left-5 z-10 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
-      <span className="absolute -top-2 right-5 z-10 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
-      <div className="h-32 w-28 overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] ring-1 ring-black/10">
-        <div className="flex h-9 items-center justify-center bg-gradient-to-r from-[#14F195] to-[#0FCB7E] text-[11px] font-black uppercase tracking-[0.2em] text-[#04130D]">
+      <span className="absolute -top-2 left-5 z-20 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
+      <span className="absolute -top-2 right-5 z-20 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
+      {/* top sheet */}
+      <div className="relative flex h-32 w-28 flex-col overflow-hidden rounded-2xl bg-gradient-to-b from-white to-gray-100 shadow-[0_30px_60px_rgba(0,0,0,0.6)] ring-1 ring-black/10">
+        <div className="flex h-9 items-center justify-center bg-gradient-to-r from-[#14F195] to-[#0FCB7E] text-[11px] font-black uppercase tracking-[0.2em] text-[#04130D] shadow-[inset_0_-2px_3px_rgba(4,19,13,0.18)]">
           {mon}
         </div>
-        <div className="flex h-[calc(100%-2.25rem)] items-center justify-center text-[3.5rem] font-black leading-none text-[#0B0F16]">
+        {/* perforation — the tear-off line under the header */}
+        <div className="flex justify-around px-2 py-1">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <span key={i} className="h-1 w-1 rounded-full bg-gray-300" />
+          ))}
+        </div>
+        <div className="flex flex-1 items-center justify-center text-[3.25rem] font-black leading-none text-[#0B0F16] [text-shadow:0_2px_1px_rgba(0,0,0,0.12)]">
           {day}
         </div>
+        {/* folded bottom-right corner */}
+        <div
+          className="absolute bottom-0 right-0 h-7 w-7 bg-gradient-to-tl from-gray-300 to-transparent"
+          style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
+        />
+        {/* glossy diagonal sheen */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-transparent" />
       </div>
     </div>
   );
@@ -168,8 +185,10 @@ function ActionHero({
   daysUntil: number;
   dueMon: string;
 }) {
+  // Ring fills as the due date approaches (fewer days left → more complete).
+  const ringPct = Math.max(8, Math.min(100, Math.round((1 - daysUntil / 30) * 100)));
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-[#14F195]/35 bg-[#071018] p-5 shadow-[0_0_45px_rgba(20,241,149,0.08)] sm:p-7">
+    <section className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[#071018] p-5 shadow-[0_0_45px_rgba(20,241,149,0.08)] sm:p-7">
       <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[80px]" />
       <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-[#00C8FF]/[0.08] blur-[80px]" />
 
@@ -196,24 +215,40 @@ function ActionHero({
           </button>
         </div>
 
-        {/* center — countdown calendar inside a glowing green arc */}
+        {/* center — countdown calendar framed by a gradient progress ring */}
         <div className="relative flex items-center justify-center py-2">
+          {/* soft radial halo grounds the calendar in the green accent */}
+          <div className="pointer-events-none absolute h-[210px] w-[210px] rounded-full bg-[radial-gradient(circle,rgba(20,241,149,0.16),transparent_62%)]" />
+          {/* progress ring — fills as the due date nears */}
           <svg
             viewBox="0 0 120 120"
-            className="pointer-events-none absolute h-[210px] w-[210px]"
-            style={{ filter: "drop-shadow(0 0 14px rgba(20,241,149,0.45))" }}
+            className="pointer-events-none absolute h-[208px] w-[208px] -rotate-90"
+            style={{ filter: "drop-shadow(0 0 10px rgba(20,241,149,0.4))" }}
           >
+            <defs>
+              <linearGradient id="calRing" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#14F195" />
+                <stop offset="100%" stopColor="#00C8FF" />
+              </linearGradient>
+            </defs>
             <circle
               cx="60"
               cy="60"
-              r="52"
+              r="54"
               fill="none"
-              stroke="#14F195"
-              strokeWidth="3"
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth="5"
+            />
+            <circle
+              cx="60"
+              cy="60"
+              r="54"
+              fill="none"
+              stroke="url(#calRing)"
+              strokeWidth="5"
               strokeLinecap="round"
-              strokeDasharray="245 100"
-              opacity="0.5"
-              transform="rotate(130 60 60)"
+              pathLength={100}
+              strokeDasharray={`${ringPct} ${100 - ringPct}`}
             />
           </svg>
           <CountdownCalendar day={String(daysUntil)} mon={dueMon} />
