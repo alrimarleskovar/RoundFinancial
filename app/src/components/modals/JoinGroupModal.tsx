@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+
+import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
+import { DEVNET_POOLS } from "@/lib/devnet";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
+import { sendJoinPool } from "@/lib/join-pool";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
+import { usePool, usePoolMembers } from "@/lib/usePool";
+import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Confirmation modal for joining a ROSCA group. Three states:
 //   - locked: group's level is above the user's tier — show the
@@ -35,22 +41,99 @@ export function JoinGroupModal({
   const { fmtMoney } = useI18n();
   const { joinGroup, user } = useSession();
   const router = useRouter();
+  const { connection } = useConnection();
+  const adapter = useAdapterWallet();
+  const { explorerTx } = useWallet();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [txSig, setTxSig] = useState<string | null>(null);
+  const [chainError, setChainError] = useState<string | null>(null);
+
+  // ─── On-chain join detection ─────────────────────────────────────────
+  // Fire a real join_pool() only when the group points at a devnet pool
+  // that's still Forming with a free slot and the wallet isn't already a
+  // member. Otherwise the original mock 1200ms flow runs unchanged. (No
+  // devnet pool is Forming today, so this path stays dormant until one is
+  // deployed — the mock fallback keeps the demo identical meanwhile.)
+  const seedKey = group?.devnetPool ?? null;
+  const onChainPool = usePool(seedKey ?? "pool1");
+  const onChainMembers = usePoolMembers(seedKey ?? "pool1");
+  const connectedWallet = adapter.publicKey;
+  const freeSlot = useMemo(() => {
+    if (!seedKey || onChainPool.status !== "ok" || !onChainPool.pool) return null;
+    if (onChainMembers.status !== "ok") return null;
+    const taken = new Set(onChainMembers.members.map((m) => m.slotIndex));
+    for (let i = 0; i < onChainPool.pool.membersTarget; i++) {
+      if (!taken.has(i)) return i;
+    }
+    return null;
+  }, [seedKey, onChainPool, onChainMembers]);
+  const alreadyMember =
+    !!connectedWallet &&
+    onChainMembers.status === "ok" &&
+    onChainMembers.members.some((m) => m.wallet.equals(connectedWallet));
+  const onChainReady =
+    !!seedKey &&
+    !!connectedWallet &&
+    onChainPool.status === "ok" &&
+    !!onChainPool.pool &&
+    onChainPool.pool.status === "forming" &&
+    onChainPool.pool.membersJoined < onChainPool.pool.membersTarget &&
+    !alreadyMember &&
+    freeSlot !== null;
 
   const reset = () => {
     setSubmitting(false);
     setDone(false);
+    setTxSig(null);
+    setChainError(null);
     onClose();
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!group) return;
     // Defensive guard: even if the locked branch below renders, a
     // race-condition state could try to flip to confirm. Hard-block
     // joinGroup() against the same rule the chain enforces.
     if (group.level > user.level) return;
     setSubmitting(true);
+    setChainError(null);
+
+    if (onChainReady && connectedWallet && adapter.sendTransaction && freeSlot !== null) {
+      try {
+        const sig = await sendJoinPool({
+          connection,
+          sendTransaction: adapter.sendTransaction,
+          pool: DEVNET_POOLS[seedKey!].pda,
+          memberWallet: connectedWallet,
+          slotIndex: freeSlot,
+        });
+        setTxSig(sig);
+        // Mirror the mock bookkeeping so any session-reading UI advances.
+        joinGroup(group);
+        void onChainPool.refresh();
+        void onChainMembers.refresh();
+        setSubmitting(false);
+        setDone(true);
+      } catch (err) {
+        // Phantom often surfaces a generic message while the real revert
+        // log lives on err.logs — concatenate everything for a diagnosable
+        // banner (same pattern as PayInstallmentModal).
+        const e = err as { message?: string; logs?: string[]; cause?: unknown };
+        const parts: string[] = [];
+        if (e.message) parts.push(e.message);
+        if (Array.isArray(e.logs) && e.logs.length > 0) parts.push("logs:\n" + e.logs.join("\n"));
+        if (e.cause) parts.push("cause: " + String(e.cause));
+        if (parts.length === 0) parts.push(String(err));
+        // eslint-disable-next-line no-console
+        console.error("[RoundFi] join_pool failed:", err);
+        setChainError(parts.join("\n"));
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Mock fallback — preserves the original demo flow exactly.
     setTimeout(() => {
       joinGroup(group);
       setSubmitting(false);
@@ -58,7 +141,9 @@ export function JoinGroupModal({
     }, 1200);
   };
 
-  const collateralPct = group?.level === 1 ? 50 : group?.level === 2 ? 30 : 10;
+  // v5.2 ladder 50/25/10/3 (pre-redeploy — see lib/session.tsx note).
+  const collateralPct =
+    group?.level === 1 ? 50 : group?.level === 2 ? 25 : group?.level === 4 ? 3 : 10;
   const locked = group ? group.level > user.level && !group.joined : false;
   const pointsNeeded = group && locked ? Math.max(0, user.nextLevel - user.score) : 0;
 
@@ -191,7 +276,36 @@ export function JoinGroupModal({
       ) : done ? (
         <ModalSuccess
           title={t("modal.join.success.title")}
-          body={t("modal.join.success.body")}
+          body={
+            txSig ? (
+              <>
+                {t("modal.join.success.body")}
+                <a
+                  href={explorerTx(txSig)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 12,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    fontSize: 11,
+                    color: tokens.green,
+                    background: `${tokens.green}1a`,
+                    border: `1px solid ${tokens.green}55`,
+                    textDecoration: "none",
+                  }}
+                >
+                  on-chain tx · {shortAddr(txSig, 6, 6)}
+                </a>
+              </>
+            ) : (
+              t("modal.join.success.body")
+            )
+          }
           cta={
             <button
               type="button"
@@ -297,6 +411,27 @@ export function JoinGroupModal({
             {t("modal.join.summary.feeValue")} —{" "}
             {fmtMoney(group.installment * 0.015, { noCents: true })} por parcela.
           </div>
+
+          {chainError ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.red}14`,
+                border: `1px solid ${tokens.red}33`,
+                fontSize: 11,
+                color: tokens.text2,
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                wordBreak: "break-word",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.red}>
+                TX FAILED
+              </MonoLabel>
+              <div style={{ marginTop: 4 }}>{chainError}</div>
+            </div>
+          ) : null}
 
           {/* Footer */}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

@@ -39,14 +39,25 @@ import { PrismaClient } from "@prisma/client";
 import { decodePoolRaw, decodeMemberRaw } from "@roundfi/sdk";
 
 import { createLogger } from "./log.js";
+import { accountDiscriminatorBase58 } from "./discriminator.js";
+import { backfillAttestations } from "./attestationBackfill.js";
 
-// Pool::SIZE = 244 bytes (8 disc + 236 fields). Member::SIZE = 187.
-// These are the dataSize filters we hand to getProgramAccounts.
-const POOL_ACCOUNT_SIZE = 244;
-const MEMBER_ACCOUNT_SIZE = 187;
+// getProgramAccounts filters by the 8-byte Anchor account DISCRIMINATOR
+// (memcmp at offset 0), NOT by dataSize. A dataSize filter is brittle: when
+// a struct gains/loses a field the size drifts and the filter silently
+// returns 0 rows (this exact bug shipped — Pool::SIZE is 255, not 244, so a
+// `dataSize: 244` filter found no pools and orphaned every member). The
+// discriminator only changes if the account's *type name* changes, so it
+// survives layout edits.
+const POOL_DISCRIMINATOR = accountDiscriminatorBase58("Pool");
+const MEMBER_DISCRIMINATOR = accountDiscriminatorBase58("Member");
 
 const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
+// Optional: when set, the backfill also scans + decodes Attestation
+// accounts (reputation v5.2 Hybrid, Phase C.2b). Left unset, the
+// attestation pass is skipped — the pool/member backfill is unchanged.
+const REPUTATION_PROGRAM = process.env.ROUNDFI_REPUTATION_PROGRAM_ID;
 
 const logger = createLogger({ service: "backfill" });
 
@@ -73,6 +84,7 @@ async function main(): Promise<void> {
 
   let poolsTouched = 0;
   let membersTouched = 0;
+  let attestationsTouched = 0;
   let finalStatus: "ok" | "error" = "ok";
   let errorMessage: string | null = null;
 
@@ -85,7 +97,7 @@ async function main(): Promise<void> {
     // ─── Pools ──────────────────────────────────────────────────────
     const poolAccounts = await connection.getProgramAccounts(programId, {
       commitment: "confirmed",
-      filters: [{ dataSize: POOL_ACCOUNT_SIZE }],
+      filters: [{ memcmp: { offset: 0, bytes: POOL_DISCRIMINATOR } }],
     });
     logger.info(
       { event_type: "backfill_pools_fetched", count: poolAccounts.length },
@@ -149,7 +161,7 @@ async function main(): Promise<void> {
     // ─── Members ────────────────────────────────────────────────────
     const memberAccounts = await connection.getProgramAccounts(programId, {
       commitment: "confirmed",
-      filters: [{ dataSize: MEMBER_ACCOUNT_SIZE }],
+      filters: [{ memcmp: { offset: 0, bytes: MEMBER_DISCRIMINATOR } }],
     });
     logger.info(
       { event_type: "backfill_members_fetched", count: memberAccounts.length },
@@ -214,11 +226,30 @@ async function main(): Promise<void> {
       membersTouched += 1;
     }
 
+    // ─── Attestations (reputation v5.2 Hybrid, Phase C.2b) ──────────
+    // Pools + members must be in the DB first (above) so the optional
+    // Member FK resolves. Skipped entirely when the reputation program
+    // id is unset.
+    if (REPUTATION_PROGRAM) {
+      attestationsTouched = await backfillAttestations(
+        prisma,
+        connection,
+        new PublicKey(REPUTATION_PROGRAM),
+        logger,
+      );
+    } else {
+      logger.info(
+        { event_type: "backfill_attestations_skipped" },
+        "ROUNDFI_REPUTATION_PROGRAM_ID unset — skipping attestation backfill",
+      );
+    }
+
     logger.info(
       {
         event_type: "backfill_complete",
         poolsTouched,
         membersTouched,
+        attestationsTouched,
         durationMs: Date.now() - startedAt,
       },
       "backfill done",
@@ -240,6 +271,7 @@ async function main(): Promise<void> {
         durationMs: Date.now() - startedAt,
         poolsTouched,
         membersTouched,
+        attestationsTouched,
         errorMessage,
       },
     });

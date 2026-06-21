@@ -175,7 +175,7 @@ pub fn handler(ctx: Context<ReleaseEscrow>, args: ReleaseEscrowArgs) -> Result<(
     ];
     token::transfer(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.escrow_vault.to_account_info(),
                 to:        ctx.accounts.member_usdc.to_account_info(),

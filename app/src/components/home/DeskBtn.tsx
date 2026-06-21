@@ -41,6 +41,7 @@ export function DeskBtn({
         boxShadow: `0 6px 18px ${tokens.green}33`,
         textDecoration: "none",
         fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+        transition: "transform 120ms ease",
       }
     : {
         padding: "10px 16px",
@@ -56,6 +57,7 @@ export function DeskBtn({
         gap: 8,
         textDecoration: "none",
         fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+        transition: "transform 120ms ease",
       };
 
   const inner = (
@@ -65,15 +67,26 @@ export function DeskBtn({
     </>
   );
 
+  // Hover "relief" — the button raises slightly while hovered and settles
+  // back when the cursor leaves.
+  const hover = {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "translateY(-2px)";
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.transform = "translateY(0)";
+    },
+  };
+
   if (href) {
     return (
-      <Link href={href} style={style as React.CSSProperties}>
+      <Link href={href} style={style as React.CSSProperties} {...hover}>
         {inner}
       </Link>
     );
   }
   return (
-    <button type="button" onClick={onClick} style={style as React.CSSProperties}>
+    <button type="button" onClick={onClick} style={style as React.CSSProperties} {...hover}>
       {inner}
     </button>
   );

@@ -1,0 +1,29 @@
+{
+  "name": "@roundfi/crank",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RoundFi crank — daemon that advances pool lifecycle on-chain. Polls active pools, fires settle_default when a member misses the grace deadline, and emits structured events for the indexer/admin to surface (incl. INFRA_FAILURE vs PAYMENT_MISSED classification for off-chain score contestation). Required for Canary: ciclos de 48h + grace de 24h precisam de cranking automático contínuo.",
+  "license": "Apache-2.0",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@roundfi/sdk": "workspace:*",
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.95.3",
+    "@prisma/client": "^5.22.0",
+    "bs58": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^6",
+    "vitest": "^4.1.8"
+  }
+}

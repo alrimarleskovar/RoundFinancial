@@ -29,6 +29,7 @@ app/public/partners/README.md
 
 # Generated IDLs + types from `anchor build`
 sdk/src/generated/
+app/public/idls/*.json
 
 # Grant submission docs — written for humans, prettier breaks the
 # layout patterns we use for the bundle.

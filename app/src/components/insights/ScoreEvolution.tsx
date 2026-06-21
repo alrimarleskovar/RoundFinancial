@@ -14,12 +14,21 @@ import {
   type ScoreRange,
 } from "@/data/insights";
 import { useI18n, useT } from "@/lib/i18n";
+import { PASSPORT_TIERS } from "@/lib/passport";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
 // Big chart card on /insights. SVG curve + 2 dashed level
 // thresholds + month axis + 1M/3M/6M/12M range pill. Pill drives
 // `curveForRange()` which slices and rescales the synthetic curve
 // so shorter ranges actually zoom into the most recent points.
+
+// Map a 0-1000 score onto the chart's 0-220 viewBox Y (lower Y = higher
+// score), anchored on the tier-2 (500) and tier-3 (750) thresholds so the
+// tier lines land where the score scale says they should.
+function scoreToY(score: number): number {
+  const y = 140 - 0.28 * (score - 500);
+  return Math.max(6, Math.min(214, y));
+}
 
 export function ScoreEvolution() {
   const { tokens, palette } = useTheme();
@@ -29,13 +38,32 @@ export function ScoreEvolution() {
   const { user } = useSession();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
 
-  const curve = curveForRange(range);
+  // Remap the synthetic curve onto the real 0-1000 score scale so it lands
+  // on the tier lines and ENDS at the live user.score — functional, not a
+  // free-floating mock. The shape (relative ups/downs) is preserved; only
+  // the Y scale is anchored to the tiers.
+  const raw = curveForRange(range);
+  const ys = raw.map(([, y]) => y);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const span = maxY - minY || 1;
+  const startScore = Math.max(320, user.score - 170);
+  const curve = raw.map(([x, y]) => {
+    const tnorm = (maxY - y) / span; // 0 at the lowest score, 1 at the most recent
+    const s = startScore + tnorm * (user.score - startScore);
+    return [x, scoreToY(s)] as const;
+  });
   const linePath = curve.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
   const areaPath = `${linePath} L600,220 L0,220 Z`;
 
   const allMonths = lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN;
   const months = monthsForRange(range, allMonths);
   const last = curve[curve.length - 1]!;
+
+  // Tier line/label color — teal (lv2) / green (lv3) / purple (lv4 Elite),
+  // matching the reputacao ladder.
+  const tierLineColor = (lv: number): string =>
+    lv === 2 ? tokens.teal : lv === 3 ? tokens.green : tokens.purple;
 
   return (
     <div
@@ -148,60 +176,48 @@ export function ScoreEvolution() {
             strokeWidth="2"
             strokeLinecap="round"
           />
-          {/* level thresholds */}
-          <line
-            x1="0"
-            y1="140"
-            x2="600"
-            y2="140"
-            stroke={tokens.teal}
-            strokeDasharray="4 4"
-            strokeWidth="1"
-          />
-          <line
-            x1="0"
-            y1="70"
-            x2="600"
-            y2="70"
-            stroke={tokens.purple}
-            strokeDasharray="4 4"
-            strokeWidth="1"
-          />
+          {/* tier thresholds (lv2 / lv3 / lv4 Elite) on the real score scale */}
+          {PASSPORT_TIERS.slice(1).map((tier) => {
+            const y = scoreToY(tier.min);
+            return (
+              <line
+                key={tier.level}
+                x1="0"
+                y1={y}
+                x2="600"
+                y2={y}
+                stroke={tierLineColor(tier.level)}
+                strokeDasharray="4 4"
+                strokeWidth="1"
+              />
+            );
+          })}
           {/* current point */}
           <circle cx={last[0]} cy={last[1]} r="4" fill={tokens.green} />
           <circle cx={last[0]} cy={last[1]} r="8" fill={tokens.green} opacity="0.2" />
         </svg>
 
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: "23%",
-            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-            fontSize: 9,
-            color: tokens.purple,
-            background: tokens.surface1,
-            padding: "2px 6px",
-            borderRadius: 4,
-          }}
-        >
-          {t("insights.threshold.lv3")}
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: "55%",
-            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-            fontSize: 9,
-            color: tokens.teal,
-            background: tokens.surface1,
-            padding: "2px 6px",
-            borderRadius: 4,
-          }}
-        >
-          {t("insights.threshold.lv2")}
-        </div>
+        {PASSPORT_TIERS.slice(1).map((tier) => {
+          const top = Math.max(2, Math.min(198, scoreToY(tier.min) - 16));
+          return (
+            <div
+              key={tier.level}
+              style={{
+                position: "absolute",
+                left: 0,
+                top,
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                fontSize: 9,
+                color: tierLineColor(tier.level),
+                background: tokens.surface1,
+                padding: "2px 6px",
+                borderRadius: 4,
+              }}
+            >
+              {t(`insights.threshold.lv${tier.level}`)}
+            </div>
+          );
+        })}
       </div>
 
       <div

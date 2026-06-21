@@ -1,0 +1,1930 @@
+{
+  "address": "Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2",
+  "metadata": {
+    "name": "roundfi_reputation",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "RoundFi reputation — SAS-compatible attestation service and reputation ladder",
+    "repository": "https://github.com/alrimarleskovar/RoundFinancial"
+  },
+  "instructions": [
+    {
+      "name": "attest",
+      "discriminator": [
+        83,
+        148,
+        120,
+        119,
+        144,
+        139,
+        117,
+        160
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "docs": [
+            "Either the pool PDA (via core CPI) or the config authority."
+          ],
+          "signer": true
+        },
+        {
+          "name": "subject"
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity",
+          "docs": [
+            "Optional identity record for the subject (anti-sybil weighting).",
+            "If missing, subject is treated as Unverified.",
+            ""
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              }
+            ]
+          }
+        },
+        {
+          "name": "attestation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "issuer"
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              },
+              {
+                "kind": "arg",
+                "path": "args.schema_id"
+              },
+              {
+                "kind": "arg",
+                "path": "args.nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "AttestArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancel_new_reputation_authority",
+      "docs": [
+        "Reputation-authority rotation step 2/3 (Adevar SEV-021) —",
+        "abort a pending proposal before its eta. Authority-only."
+      ],
+      "discriminator": [
+        24,
+        171,
+        60,
+        159,
+        227,
+        208,
+        33,
+        223
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "commit_new_reputation_authority",
+      "docs": [
+        "Reputation-authority rotation step 3/3 (Adevar SEV-021) —",
+        "commit a pending proposal once the 7-day eta has passed.",
+        "Permissionless crank."
+      ],
+      "discriminator": [
+        64,
+        76,
+        52,
+        136,
+        216,
+        249,
+        107,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "Anyone can crank — no signer/authority constraint. The 7-day",
+            "timelock + the prior `propose_new_reputation_authority` signed",
+            "by the then-current authority are the gates."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "get_profile",
+      "docs": [
+        "Public read-only view (Step 4f). Returns a `ProfileSnapshot`",
+        "via both an anchor event and `set_return_data`, so off-chain",
+        "consumers (B2B score API, indexers) and on-chain composers",
+        "(partner programs CPIing into this view) share one canonical",
+        "read surface."
+      ],
+      "discriminator": [
+        85,
+        133,
+        144,
+        124,
+        215,
+        255,
+        164,
+        144
+      ],
+      "accounts": [
+        {
+          "name": "profile",
+          "docs": [
+            "The reputation profile being read."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.wallet",
+                "account": "ReputationProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity_record",
+          "docs": [
+            "id itself to signal \"no identity linked\" (same Anchor",
+            "Option<Account> convention used by `attest`). When a real",
+            "record is passed, the handler validates ownership (= this",
+            "program) and that the record belongs to `profile.wallet`",
+            "before reading any fields."
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_profile",
+      "discriminator": [
+        210,
+        162,
+        212,
+        95,
+        95,
+        186,
+        89,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "wallet",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "initialize_reputation",
+      "discriminator": [
+        150,
+        240,
+        109,
+        53,
+        147,
+        42,
+        152,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "InitializeReputationArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "link_passport_identity",
+      "discriminator": [
+        16,
+        218,
+        172,
+        202,
+        85,
+        231,
+        115,
+        124
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "gateway_token",
+          "docs": [
+            "the 83-byte attestation account written by the off-chain bridge",
+            "service under `config.passport_attestation_authority`."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "migrate_reputation_config",
+      "docs": [
+        "Authority-gated in-place migration of the `ReputationConfig`",
+        "singleton to the current struct layout. Reallocs the account up to",
+        "the current `LEN` (zero-initializing the grown region) so a config",
+        "PDA created by an older program build — which would otherwise fail",
+        "to deserialize after the struct grew (e.g. the SEV-021 authority",
+        "rotation fields) — becomes loadable again. Idempotent."
+      ],
+      "discriminator": [
+        130,
+        129,
+        201,
+        93,
+        143,
+        50,
+        193,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "NOT use `Account<ReputationConfig>` — the stored layout may",
+            "predate the current struct, so Anchor's deserialize would revert",
+            "with `AccountDidNotDeserialize` before the handler runs. Owner,",
+            "PDA seeds, and the stored authority are all checked manually."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "ping",
+      "docs": [
+        "Dev-only smoke instruction; retained until Step 10 deprecates it."
+      ],
+      "discriminator": [
+        173,
+        0,
+        94,
+        236,
+        73,
+        133,
+        225,
+        153
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "promote_level",
+      "discriminator": [
+        4,
+        48,
+        227,
+        153,
+        111,
+        0,
+        62,
+        126
+      ],
+      "accounts": [
+        {
+          "name": "subject"
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity_gate",
+          "docs": [
+            "SEV-047 identity-gate config (singleton). REQUIRED — the policy must be",
+            "loadable so the gate can't be bypassed by omitting it. With",
+            "`required_min_level == 0` (default) it is a no-op. Created via",
+            "`set_identity_gate` (run once per deployment before `promote_level`)."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121,
+                  45,
+                  103,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity",
+          "docs": [
+            "Optional `IdentityRecord` for the subject. Absence ≡ Unverified — which,",
+            "when the gate is enabled, caps the subject below the identity floor.",
+            "Seeds-constrained so it can't be forged; passing a non-IdentityRecord",
+            "account (e.g. the program ID) resolves to `None`.",
+            ""
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "propose_new_reputation_authority",
+      "docs": [
+        "Reputation-authority rotation step 1/3 (Adevar SEV-021).",
+        "Stages a new authority behind a 7-day timelock. Mirror of",
+        "roundfi-core's `propose_new_authority` (PR #323). Reverts",
+        "if another proposal is already pending."
+      ],
+      "discriminator": [
+        200,
+        199,
+        87,
+        30,
+        152,
+        240,
+        29,
+        155
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ProposeNewReputationAuthorityArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "refresh_identity",
+      "discriminator": [
+        254,
+        104,
+        161,
+        177,
+        45,
+        187,
+        78,
+        11
+      ],
+      "accounts": [
+        {
+          "name": "subject"
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              }
+            ]
+          }
+        },
+        {
+          "name": "gateway_token"
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "revoke",
+      "discriminator": [
+        170,
+        23,
+        31,
+        34,
+        133,
+        173,
+        93,
+        242
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "signer": true
+        },
+        {
+          "name": "subject"
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subject"
+              }
+            ]
+          }
+        },
+        {
+          "name": "attestation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attestation.issuer",
+                "account": "Attestation"
+              },
+              {
+                "kind": "account",
+                "path": "attestation.subject",
+                "account": "Attestation"
+              },
+              {
+                "kind": "account",
+                "path": "attestation.schema_id",
+                "account": "Attestation"
+              },
+              {
+                "kind": "account",
+                "path": "attestation.nonce",
+                "account": "Attestation"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_identity_gate",
+      "docs": [
+        "SEV-047 defense-in-depth — authority sets the identity-gate floor",
+        "(`required_min_level`: 0 = off/default, 2 or 3 = require verified",
+        "identity at that tier+). Creates the `IdentityGateConfig` PDA on first",
+        "call (init_if_needed). Enforced in `promote_level` (caps unverified",
+        "subjects below the floor)."
+      ],
+      "discriminator": [
+        112,
+        36,
+        225,
+        51,
+        9,
+        112,
+        8,
+        0
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "identity_gate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121,
+                  45,
+                  103,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "required_min_level",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "unlink_identity",
+      "discriminator": [
+        99,
+        3,
+        38,
+        80,
+        87,
+        237,
+        49,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "identity",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_reputation_config",
+      "discriminator": [
+        170,
+        90,
+        21,
+        54,
+        122,
+        145,
+        235,
+        81
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "UpdateReputationConfigArgs"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Attestation",
+      "discriminator": [
+        152,
+        125,
+        183,
+        86,
+        36,
+        146,
+        121,
+        73
+      ]
+    },
+    {
+      "name": "IdentityGateConfig",
+      "discriminator": [
+        215,
+        217,
+        30,
+        6,
+        179,
+        115,
+        47,
+        122
+      ]
+    },
+    {
+      "name": "IdentityRecord",
+      "discriminator": [
+        168,
+        35,
+        21,
+        172,
+        113,
+        130,
+        226,
+        19
+      ]
+    },
+    {
+      "name": "ReputationConfig",
+      "discriminator": [
+        46,
+        222,
+        226,
+        114,
+        243,
+        60,
+        242,
+        75
+      ]
+    },
+    {
+      "name": "ReputationProfile",
+      "discriminator": [
+        73,
+        32,
+        193,
+        201,
+        177,
+        91,
+        104,
+        136
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ProfileSnapshot",
+      "discriminator": [
+        90,
+        66,
+        79,
+        233,
+        184,
+        74,
+        53,
+        212
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidIssuer",
+      "msg": "Issuer is not on the whitelist and is not the config authority."
+    },
+    {
+      "code": 6001,
+      "name": "UnauthorizedProvider",
+      "msg": "Unauthorized identity provider."
+    },
+    {
+      "code": 6002,
+      "name": "InvalidSchema",
+      "msg": "Unknown or unsupported attestation schema id."
+    },
+    {
+      "code": 6003,
+      "name": "AttestationRevoked",
+      "msg": "Attestation has already been revoked."
+    },
+    {
+      "code": 6004,
+      "name": "CooldownActive",
+      "msg": "Cooldown window for this attestation type has not elapsed."
+    },
+    {
+      "code": 6005,
+      "name": "DefaultSticky",
+      "msg": "Member has a sticky default on this pool; no further positive attestations accepted."
+    },
+    {
+      "code": 6006,
+      "name": "InvalidPayload",
+      "msg": "Attestation payload length mismatch."
+    },
+    {
+      "code": 6007,
+      "name": "ReputationUnderflow",
+      "msg": "Reputation score underflow."
+    },
+    {
+      "code": 6008,
+      "name": "MathOverflow",
+      "msg": "Math overflow in reputation arithmetic."
+    },
+    {
+      "code": 6009,
+      "name": "LevelThresholdNotMet",
+      "msg": "Requested level is not permitted — threshold not met or out of range."
+    },
+    {
+      "code": 6010,
+      "name": "ProfileNotFound",
+      "msg": "Reputation profile not initialized for this wallet."
+    },
+    {
+      "code": 6011,
+      "name": "InvalidIdentityProof",
+      "msg": "Identity proof failed validation (owner, state, network, or signer mismatch)."
+    },
+    {
+      "code": 6012,
+      "name": "IdentityExpired",
+      "msg": "Identity proof is expired."
+    },
+    {
+      "code": 6013,
+      "name": "IdentityAlreadyLinked",
+      "msg": "Identity is already linked to this profile — unlink first."
+    },
+    {
+      "code": 6014,
+      "name": "ImplausibleAttestationTtl",
+      "msg": "Attestation expires_at is implausibly far in the future — exceeds MAX_PASSPORT_HORIZON_SECS (Wave 9 defense against a compromised bridge writing a multi-year TTL)."
+    },
+    {
+      "code": 6015,
+      "name": "Unauthorized",
+      "msg": "Caller is not the reputation program authority."
+    },
+    {
+      "code": 6016,
+      "name": "ImmutableConfigField",
+      "msg": "ReputationConfig is frozen after initialization — this field is immutable."
+    },
+    {
+      "code": 6017,
+      "name": "NoPendingAuthorityChange",
+      "msg": "No pending reputation-authority rotation to commit or cancel"
+    },
+    {
+      "code": 6018,
+      "name": "AuthorityTimelockActive",
+      "msg": "Reputation-authority rotation timelock has not yet elapsed"
+    },
+    {
+      "code": 6019,
+      "name": "AuthorityProposalAlreadyPending",
+      "msg": "A reputation-authority rotation is already pending — cancel it first"
+    }
+  ],
+  "types": [
+    {
+      "name": "AttestArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "schema_id",
+            "type": "u16"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "payload",
+            "type": {
+              "defined": {
+                "name": "Payload"
+              }
+            }
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Pool PDA key (used to derive `(subject, pool)` default-sticky",
+              "check via the payload; caller must include it here so we can",
+              "verify the issuer signer matches pool-PDA derivation)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool_authority",
+            "docs": [
+              "Pool authority (1st seed) + seed_id (2nd seed), needed to re-derive",
+              "the pool PDA under `roundfi_core_program`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool_seed_id",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Attestation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "issuer",
+            "type": "pubkey"
+          },
+          {
+            "name": "subject",
+            "type": "pubkey"
+          },
+          {
+            "name": "schema_id",
+            "type": "u16"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "payload",
+            "docs": [
+              "Fixed 96-byte payload. Schema-specific layout; see",
+              "architecture.md §4.6.3."
+            ],
+            "type": {
+              "defined": {
+                "name": "Payload"
+              }
+            }
+          },
+          {
+            "name": "issued_at",
+            "type": "i64"
+          },
+          {
+            "name": "revoked",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "verified_at_attest",
+            "docs": [
+              "Whether the subject had a verified `IdentityRecord` at the",
+              "moment this attestation was issued. Snapshotted at attest time",
+              "and immutable thereafter — `revoke` uses this stored value",
+              "(not the CURRENT identity status) to determine the score",
+              "reversal weight, ensuring `apply + revoke` is exactly",
+              "zero-sum.",
+              "",
+              "Adevar Labs SEV-008 fix: without this snapshot, a subject who",
+              "passed unverified→verified between attest and revoke would",
+              "have their score over-reversed (apply with weight 1/2, revoke",
+              "with weight 2/2 → score goes negative)."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                13
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "IdentityGateConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Authority allowed to change the gate. Set to `ReputationConfig.authority`",
+              "at creation; `set_identity_gate` re-checks the live config authority on",
+              "every call, so a later authority rotation is honored."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "required_min_level",
+            "docs": [
+              "Lowest reputation level that requires a verified `IdentityRecord`.",
+              "- `0` ≡ gate DISABLED (no level requires identity — the default).",
+              "- `N` (2..=`LEVEL_MAX`) ≡ promotion to level ≥ N requires a verified",
+              "identity; unverified subjects are capped at `N − 1`."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "IdentityRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "provider",
+            "docs": [
+              "See `IdentityProvider` enum."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "docs": [
+              "See `IdentityStatus` enum."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "verified_at",
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "docs": [
+              "0 ≡ never expires; else unix seconds of expiry."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "gateway_token",
+            "docs": [
+              "Passport-attestation account address (when provider ==",
+              "HumanPassport). Default pubkey for other providers. Field name",
+              "kept as `gateway_token` for byte-compat with already-allocated",
+              "IdentityRecord PDAs on devnet; semantic is now \"the off-chain",
+              "bridge-service-written attestation account\" rather than the",
+              "original Civic Gateway Token. See `identity/passport.rs`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                13
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeReputationArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "roundfi_core_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "passport_attestation_authority",
+            "docs": [
+              "Off-chain Human Passport bridge service pubkey. Field name",
+              "matches `ReputationConfig.passport_attestation_authority`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "passport_network",
+            "docs": [
+              "Passport network scope. Field name matches",
+              "`ReputationConfig.passport_network`."
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Payload",
+      "type": {
+        "kind": "type",
+        "alias": {
+          "array": [
+            "u8",
+            96
+          ]
+        }
+      }
+    },
+    {
+      "name": "ProfileSnapshot",
+      "docs": [
+        "Canonical read snapshot. Order and field names are part of the",
+        "public wire format — do not reorder; add new fields only by",
+        "consuming bytes from `reserved`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "level",
+            "type": "u8"
+          },
+          {
+            "name": "score",
+            "type": "u64"
+          },
+          {
+            "name": "cycles_completed",
+            "type": "u32"
+          },
+          {
+            "name": "on_time_payments",
+            "type": "u32"
+          },
+          {
+            "name": "late_payments",
+            "type": "u32"
+          },
+          {
+            "name": "defaults",
+            "type": "u32"
+          },
+          {
+            "name": "total_participated",
+            "type": "u32"
+          },
+          {
+            "name": "last_cycle_complete_at",
+            "type": "i64"
+          },
+          {
+            "name": "first_seen_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "identity_provider",
+            "type": "u8"
+          },
+          {
+            "name": "identity_status",
+            "type": "u8"
+          },
+          {
+            "name": "identity_expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "identity_verified_now",
+            "type": "bool"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Reserved for future schema additions without breaking",
+              "consumers. Always zero in v1."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProposeNewReputationAuthorityArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReputationConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Admin authority — can update `passport_network` and whitelist issuers."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "roundfi_core_program",
+            "docs": [
+              "The roundfi-core program ID whose `Pool` PDAs are trusted as",
+              "attestation issuers. FROZEN after initialization."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "passport_attestation_authority",
+            "docs": [
+              "**Passport attestation authority** — pubkey of the off-chain",
+              "bridge service that translates Human Passport score queries",
+              "into on-chain 83-byte attestation accounts. Validator requires",
+              "`attestation_account.owner == passport_attestation_authority`.",
+              "FROZEN at initialization. Field name kept generic so a future",
+              "provider migration (e.g. → Sumsub for KYC-grade signal in",
+              "Phase 3 B2B) is also byte-compatible."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "passport_network",
+            "docs": [
+              "Passport \"network\" pubkey — a free-form scope identifier the",
+              "bridge service embeds in every attestation it issues so",
+              "rotation between e.g. \"passport-prod\" and \"passport-staging\"",
+              "scopes is possible without re-deploying. Mutable so a",
+              "mainnet migration can switch scope without a program upgrade."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Emergency stop — short-circuits write-path instructions.",
+              "**Adevar Labs SEV-022 carve-out:** pool-PDA-signed CPI from",
+              "roundfi-core continues even when paused (so core's",
+              "settle_default / contribute / claim_payout never lock-up via",
+              "the back door of a paused reputation). See attest.rs handler."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "pending_authority",
+            "docs": [
+              "Pending authority rotation. `Pubkey::default()` (all-zero) when",
+              "no rotation queued. Set by `propose_new_reputation_authority`,",
+              "cleared by `cancel_new_reputation_authority` or finalized by",
+              "`commit_new_reputation_authority`. Mirrors the core program's",
+              "authority rotation pattern (PR #323) — was originally a",
+              "no-timelock rotation via `update_reputation_config`, which",
+              "the auditor flagged as asymmetric with core's protection."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_authority_eta",
+            "docs": [
+              "Earliest unix-ts at which `commit_new_reputation_authority`",
+              "may execute. `0` when no rotation pending. Equals",
+              "`now + REPUTATION_AUTHORITY_TIMELOCK_SECS` (7d) at proposal",
+              "time. Same window as core's authority + treasury rotations."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "_padding",
+            "docs": [
+              "Reserved for future fields without a migration. Adevar SEV-021",
+              "consumed 30 of the original 30 pad bytes (Pubkey 32 + i64 8 =",
+              "40, exceeded pad by 10) — LEN grew by 10 to 170. Pre-PR",
+              "devnet `ReputationConfig` accounts need re-init since Anchor",
+              "sizes accounts at create time."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                0
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReputationProfile",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "level",
+            "docs": [
+              "1..=3. Promoted permissionlessly via `promote_level`."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "cycles_completed",
+            "docs": [
+              "Lifetime counters — additive-only for `cycles_completed` /",
+              "`on_time_payments`, and non-negative for the *_count fields."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "on_time_payments",
+            "type": "u32"
+          },
+          {
+            "name": "late_payments",
+            "type": "u32"
+          },
+          {
+            "name": "defaults",
+            "type": "u32"
+          },
+          {
+            "name": "total_participated",
+            "docs": [
+              "Unique pools this wallet has ever participated in. Incremented on",
+              "the FIRST `CycleComplete` per (subject, pool). Duplicate-suppressed",
+              "via the default-sticky bit and the cooldown guard."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "score",
+            "docs": [
+              "Saturating non-negative score."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_cycle_complete_at",
+            "docs": [
+              "Anti-gaming: timestamp of last `CycleComplete` attestation. Used",
+              "to enforce `MIN_CYCLE_COOLDOWN_SECS` between two cycle closures",
+              "for the same subject, even across pools."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "first_seen_at",
+            "docs": [
+              "Bookkeeping."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "last_updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "last_admin_attest_at",
+            "docs": [
+              "**Adevar Labs SEV-027 fix** — anti-spam cooldown for admin-",
+              "issued attestations. Updated on every attest where issuer ==",
+              "config.authority (the admin path). Pool-PDA-issued attests",
+              "have natural cooldown via the per-cycle structure of the",
+              "core pool, so they do NOT bump this field.",
+              "",
+              "Used in attest.rs handler: admin-issued SCHEMA_PAYMENT requires",
+              "`now - last_admin_attest_at >= MIN_ADMIN_ATTEST_COOLDOWN_SECS`.",
+              "Without this, admin could pump score arbitrarily by issuing",
+              "PAYMENT attestations in a tight loop."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateReputationConfigArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_authority",
+            "docs": [
+              "**DEPRECATED — ignored at the handler level (Adevar Labs SEV-021).**",
+              "",
+              "Was previously the only path to rotate `config.authority` —",
+              "no timelock, no public window, single-tx irreversible attack",
+              "if the key was compromised. Now the rotation flows through",
+              "`propose_new_reputation_authority` → 7d wait →",
+              "`commit_new_reputation_authority`, mirror of core's",
+              "authority rotation (PR #323).",
+              "",
+              "The field is retained for SDK back-compat (old encoders pass",
+              "`Option<Pubkey>` at this offset). The handler ignores any",
+              "value passed here and emits a warning if non-None so a stale",
+              "SDK is visible in monitoring."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "new_passport_network",
+            "docs": [
+              "Passport \"network\" scope rotation. Mutable so canary rampup can",
+              "switch e.g. `passport-staging` → `passport-prod` without a",
+              "program upgrade."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "new_paused",
+            "type": {
+              "option": "bool"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

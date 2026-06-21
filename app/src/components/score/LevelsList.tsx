@@ -9,9 +9,10 @@ import { useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 
-// 50/30/10 ladder column. Current level highlighted with the teal
-// tint. Bottom CTA bridges to /insights for the score-up path —
-// matches the locked-modal patterns on /grupos.
+// 50/25/10/3 ladder column (v5.2 four-tier). Current level highlighted
+// with the teal tint. Bottom CTA bridges to /insights for the score-up
+// path — matches the locked-modal patterns on /grupos. Renders straight
+// from the LEVELS fixture, so adding the L4 Elite row needs no change here.
 
 export function LevelsList() {
   const { tokens, palette } = useTheme();
@@ -22,8 +23,8 @@ export function LevelsList() {
   const pointsToNext = Math.max(0, user.nextLevel - user.score);
   const atTopTier = user.level >= 3;
 
-  const colorFor = (lv: 1 | 2 | 3): string =>
-    lv === 1 ? tokens.amber : lv === 2 ? tokens.teal : tokens.green;
+  const colorFor = (lv: 1 | 2 | 3 | 4): string =>
+    lv === 1 ? tokens.amber : lv === 2 ? tokens.teal : lv === 3 ? tokens.green : tokens.purple;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -40,12 +41,15 @@ export function LevelsList() {
             ? t("level.beginner")
             : l.lv === 2
               ? t("level.provenName")
-              : t("level.veteran");
+              : l.lv === 3
+                ? t("level.veteran")
+                : t("level.elite");
         return (
           <div
             key={l.lv}
             style={{
               ...glass,
+              border: "1px solid transparent",
               padding: 16,
               borderRadius: 14,
               ...(isCurrent
@@ -57,6 +61,18 @@ export function LevelsList() {
               display: "flex",
               alignItems: "center",
               gap: 14,
+              transition: "transform 180ms ease, border-color 180ms ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.borderColor = `${c}55`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              // Revert to the row's explicit base (teal for the current tier,
+              // transparent otherwise). "" would fall back to currentColor
+              // (white) and leave a white edge after the first hover.
+              e.currentTarget.style.borderColor = isCurrent ? `${tokens.teal}4D` : "transparent";
             }}
           >
             <div

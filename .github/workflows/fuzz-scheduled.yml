@@ -95,7 +95,7 @@ jobs:
         target: ${{ fromJSON(needs.list-targets.outputs.targets) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload merged corpus (for next scheduled run)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: merged-corpus-${{ matrix.target }}
           path: crates/math/fuzz/corpus/${{ matrix.target }}/
@@ -165,7 +165,7 @@ jobs:
 
       - name: Upload run logs + crash artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-scheduled-${{ matrix.target }}
           path: |

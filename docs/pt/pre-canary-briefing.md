@@ -6,7 +6,7 @@
 
 ## Estado em uma frase
 
-PRs #401 (treasury ADR 0008) e #403 (Pass-18 judge readiness — 47 SEVs / 13-13 C+H / 300+ testes sincados) mergearam hoje. Doc da proposta v0.5.3 + 3 templates operacionais (procedimento aborto, termo participação, onboarding) + infra do critical path estão prontos no PR #400. **Falta só este time bater martelo nas 8 decisões pra começar Dia 1-2 do critical path (~2-3 semanas até start do Canary).**
+PRs #401 (treasury ADR 0008) e #403 (Pass-18 judge readiness — 47 SEVs / 13-13 C+H no merge; **49 / 14-14 após o external-audit pass 2026-05-24** que trouxe SEV-047/048 / 300+ testes sincados) mergearam hoje. Doc da proposta v0.5.3 + 3 templates operacionais (procedimento aborto, termo participação, onboarding) + infra do critical path estão prontos no PR #400. **Falta só este time bater martelo nas 8 decisões pra começar Dia 1-2 do critical path (~2-3 semanas até start do Canary).**
 
 ---
 

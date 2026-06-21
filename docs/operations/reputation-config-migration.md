@@ -1,29 +1,34 @@
-# `ReputationConfig` Migration — devnet re-init procedure
+# `ReputationConfig` Migration — automated realloc procedure
 
 > **Why this doc exists:** [PR #337](https://github.com/alrimarleskovar/roundfinancial/pull/337)
 > (SEV-021 fix — reputation authority rotation timelock) grew the
-> `ReputationConfig` account from **160 → 170 bytes** by adding
-> `pending_authority: Pubkey` and `pending_authority_eta: i64`.
+> `ReputationConfig` account from **168 → 178 bytes** (discriminator-inclusive;
+> +40 for `pending_authority: Pubkey` + `pending_authority_eta: i64`, −30
+> reclaimed from the reserved padding ⇒ +10 net) by adding those two fields.
 >
 > Anchor allocates the account at `init` time using the **then-current**
 > `LEN` constant. Existing devnet `ReputationConfig` accounts that were
-> allocated under the old 160-byte layout will fail to deserialize once
-> the program is upgraded to the 170-byte version — the discriminator
-> matches but the trailing field offsets are off-by-10.
+> allocated under the old 168-byte layout fail to deserialize once the
+> program is upgraded to the 178-byte version — the discriminator matches
+> but the trailing field offsets are off by 10 (`AccountDidNotDeserialize`,
+> custom program error `0xbbb`).
 >
-> The auditor's W3 re-audit (Risk #5) flagged the absence of an
-> automated migration path. This doc closes the operational gap by
-> documenting the manual re-init procedure. **No production accounts
-> exist yet** (mainnet has not launched), so the action surface is
-> devnet only.
+> The auditor's W3 re-audit (Risk #5) flagged the absence of an automated
+> migration path. **That gap is now closed in code:** the authority-gated
+> `migrate_reputation_config` instruction ([PR #408](https://github.com/alrimarleskovar/RoundFinancial/pull/408))
+> reallocs the account up to the current `LEN` in place (zero-initializing
+> the grown region — `pending_authority`/`eta` read back as
+> `default`/`0`, the canonical "no rotation pending" state). This doc now
+> documents the **automated** procedure. **No production accounts exist
+> yet** (mainnet has not launched), so the action surface is devnet only.
 
 ## Scope
 
 | Cluster      | Action                                                                                                                         |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | **localnet** | None — `anchor test` runs a fresh validator per test, no migration needed.                                                     |
-| **devnet**   | Required if a `ReputationConfig` PDA exists from before PR #337 (2026-05).                                                     |
-| **mainnet**  | Not yet deployed; new `ReputationConfig` will be allocated at the correct 170-byte size on first `initialize_reputation` call. |
+| **devnet**   | Run `pnpm devnet:migrate-reputation-config` if a `ReputationConfig` PDA exists from before PR #337 (2026-05).                  |
+| **mainnet**  | Not yet deployed; new `ReputationConfig` will be allocated at the correct 178-byte size on first `initialize_reputation` call. |
 
 ## Pre-flight check
 
@@ -46,73 +51,78 @@ pnpm tsx -e '
 
 **Decision tree:**
 
-- Account size **170 bytes**: ✅ already migrated. No action.
-- Account size **160 bytes**: 🔴 needs re-init.
-- Account does not exist: ✅ first `initialize_reputation` call will allocate at 170. No action.
+- Account size **178 bytes**: ✅ already migrated. No action.
+- Account size **168 bytes** (or any size below 178): 🔴 needs migration.
+- Account does not exist: ✅ first `initialize_reputation` call will allocate at 178. No action.
 
-## Re-init procedure (devnet)
+## Migration procedure (devnet)
 
 Because `ReputationConfig` is a PDA seeded by a constant `[b"rep-config"]`,
 the same PDA address is recovered on every derivation — we cannot
-re-allocate by changing the seed. The procedure is:
+re-allocate by changing the seed, and there is no need to: the
+`migrate_reputation_config` instruction reallocs the existing account in
+place. The procedure is:
 
-1. **Close the existing account** (refunds rent to the close-authority
-   wallet). Currently the program does **not** expose a
-   `close_reputation_config` instruction (deliberate — closing protocol
-   state should be a multi-step ceremony, not a one-shot ix), so on
-   devnet the operator must redeploy the reputation program with a
-   one-time `close_reputation_config` admin instruction included, run
-   it, then redeploy without the close instruction.
-
-2. **Re-run `initialize_reputation`** with the same authority signer
-   that owned the prior config:
+1. **Upgrade the reputation program** to the build that contains
+   `migrate_reputation_config` (any build from PR #408 onward):
 
    ```bash
-   pnpm tsx scripts/devnet/init-protocol.ts --reputation-only
+   anchor build --no-idl
+   solana program deploy target/deploy/roundfi_reputation.so \
+     --program-id target/deploy/roundfi_reputation-keypair.json \
+     --upgrade-authority "$ANCHOR_WALLET" --keypair "$ANCHOR_WALLET" \
+     --url https://api.devnet.solana.com
    ```
 
-   The script's existing "skip if PDA exists" check (`init-protocol.ts:173-177`)
-   will now allocate the new 170-byte shape because the PDA was closed
-   in step 1.
-
-3. **Verify** the new account is 170 bytes and `pending_authority` is
-   `Pubkey::default()`:
+2. **Run the migration.** Idempotent — the script reads the on-chain
+   size first and no-ops if the account is already at the current `LEN`:
 
    ```bash
-   pnpm tsx -e '
-     // ... fetch ReputationConfig, assert pending_authority == 11111...111
-   '
+   pnpm devnet:migrate-reputation-config
    ```
 
-4. **Re-link any downstream pools.** Pools created against the old
+   `migrate_reputation_config` (authority-gated) reallocs the account to
+   the current `LEN` and lets the runtime zero-init the grown region. The
+   first 138 bytes (discriminator + 4 Pubkeys + `paused` + `bump`) are
+   byte-identical across the layouts and preserved untouched; the appended
+   `pending_authority`/`pending_authority_eta` read back as `default`/`0`.
+
+3. **Verify** the new account is 178 bytes (the script prints
+   `new size: 178 bytes` on success) and `pending_authority` is
+   `Pubkey::default()`.
+
+4. **Downstream pools are unaffected.** Pools created against the old
    reputation config still point at the same PDA (the address didn't
-   change), so this is transparent.
+   change), so the migration is transparent to them.
+
+> **Implementation note:** the migration takes the config as an
+> `UncheckedAccount` and validates owner + PDA + the stored authority by
+> raw bytes — it **cannot** use `Account<ReputationConfig>` because the
+> too-short legacy account would fail Anchor's deserialize during account
+> validation, before the handler runs. See
+> [`programs/roundfi-reputation/src/instructions/migrate_reputation_config.rs`](../../programs/roundfi-reputation/src/instructions/migrate_reputation_config.rs).
 
 ## What about future field additions?
 
-The 30-byte padding budget in `ReputationConfig` was **fully consumed**
-by the SEV-021 additions. Future additions will require:
-
-- A protocol upgrade with **explicit `realloc`** in a one-shot ix
-  (Anchor supports this via `#[account(mut, realloc = NEW_LEN, ...)]`), OR
-- A close-and-reinit cycle as above.
+The padding budget in `ReputationConfig` was **fully consumed** by the
+SEV-021 additions, so any future field will again grow `LEN`. That is now
+a **handled** case rather than an operational hazard: bump the struct +
+`LEN`, ship the upgrade, and re-run `migrate_reputation_config` — the same
+realloc path grows the account to whatever the new `LEN` is and zero-inits
+the new tail. (Defaults that are NOT zero would need the migration handler
+extended to write them, but every field added so far defaults to
+zero/`Pubkey::default()`.)
 
 Tracked as **SEV-032** in
-[`docs/security/internal-audit-findings.md`](../security/internal-audit-findings.md).
-The auditor accepts the design constraint; the cost is operational
-discipline for the next state-shape change.
-
-## Why not automate it?
-
-The migration is a **one-time** operation per cluster. Building a
-production-grade migration framework (versioned schemas, rolling
-upgrades, snapshot-and-restore) is a non-trivial project that does not
-clear a mainnet-blocker bar today. The runbook above is sufficient for
-the only environment where the migration applies (devnet) and any
-future field addition is rare enough to justify a fresh decision then.
+[`docs/security/internal-audit-findings.md`](../security/internal-audit-findings.md):
+the padding-exhaustion is a deliberate layout choice, and
+`migrate_reputation_config` (#408) is the in-place escape hatch that
+removes the "no automated migration path" consequence the auditor flagged.
 
 ## See also
 
 - [`docs/security/internal-audit-findings.md`](../security/internal-audit-findings.md) — SEV-021 status + SEV-032 design constraint.
-- [`programs/roundfi-reputation/src/state/config.rs`](../../programs/roundfi-reputation/src/state/config.rs) — current `ReputationConfig` layout (170 bytes, 0 padding).
+- [`programs/roundfi-reputation/src/instructions/migrate_reputation_config.rs`](../../programs/roundfi-reputation/src/instructions/migrate_reputation_config.rs) — the in-place realloc migration instruction (#408).
+- [`scripts/devnet/migrate-reputation-config.ts`](../../scripts/devnet/migrate-reputation-config.ts) — `pnpm devnet:migrate-reputation-config` runner.
+- [`programs/roundfi-reputation/src/state/config.rs`](../../programs/roundfi-reputation/src/state/config.rs) — current `ReputationConfig` layout (178 bytes, 0 padding).
 - [`scripts/devnet/init-protocol.ts`](../../scripts/devnet/init-protocol.ts) — bootstrap script that allocates fresh `ReputationConfig`.

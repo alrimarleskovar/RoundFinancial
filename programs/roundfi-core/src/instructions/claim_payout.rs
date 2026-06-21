@@ -1,10 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-use roundfi_reputation::constants::SCHEMA_CYCLE_COMPLETE;
+// Pass-3 (Caio HIGH, 2026-06-12): `claim_payout` now emits the
+// score-neutral `PAYOUT_CLAIMED` schema. The +50-and-cycles-bump
+// `POOL_COMPLETE` schema is emitted by `contribute` at the member's last
+// installment — "received payout" no longer counts as "completed the
+// pool's obligations."
+use roundfi_reputation::constants::SCHEMA_PAYOUT_CLAIMED;
+use roundfi_reputation::state::{BehavioralPayload, CLASS_PAYOUT_CLAIMED, NO_TIMESTAMP};
 
 use crate::constants::*;
-use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall};
 use crate::error::RoundfiError;
 use crate::math::retained_meets_seed_draw;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -120,11 +126,22 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
     // ─── Ensure pool float can cover the payout ─────────────────────────
     // 4c: Guarantee Fund is earmarked inside pool_usdc_vault — it must
     // remain after a payout so the shock absorber is never drained.
+    //
+    // **SEV-048 fix** — the LP-distribution earmark (yield realized for
+    // LPs in harvest_yield, tracked on `pool.lp_distribution_balance`)
+    // must ALSO survive a payout. Before this fix only the GF balance was
+    // reserved, so LP-earmarked yield sitting in pool_usdc_vault was
+    // spendable by claim_payout — under-collateralizing the LP obligation
+    // once M3 LP-withdrawal ships. Same earmark-class as the GF; the LP
+    // leg was simply omitted. Reserve both.
+    let earmark = pool
+        .guarantee_fund_balance
+        .saturating_add(pool.lp_distribution_balance);
     let spendable = ctx
         .accounts
         .pool_usdc_vault
         .amount
-        .saturating_sub(pool.guarantee_fund_balance);
+        .saturating_sub(earmark);
     require!(
         spendable >= pool.credit_amount,
         RoundfiError::WaterfallUnderflow,
@@ -143,7 +160,7 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
     ];
     token::transfer(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.pool_usdc_vault.to_account_info(),
                 to:        ctx.accounts.member_usdc.to_account_info(),
@@ -183,11 +200,29 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
         args.cycle, member.slot_index, credit, ctx.accounts.pool_usdc_vault.amount,
     );
 
-    // ─── Step 4e: CycleComplete attestation ─────────────────────────────
+    // ─── Step 4e: PAYOUT_CLAIMED attestation (Pass-3 rename) ────────────
     let config = &ctx.accounts.config;
     if config.reputation_program != Pubkey::default() {
         let nonce = ((args.cycle as u64) << 32) | (member.slot_index as u64);
         let pool_key = pool.key();
+
+        // v5.2 Pass-3: payload for the PAYOUT_CLAIMED event.
+        // This is a payout claim — receiving funds, not completing
+        // obligations. Timing-vs-deadline is not meaningful
+        // (due_ts = 0, paid_ts = NO_TIMESTAMP, parcels = 0). amount = 0;
+        // the indexer joins the Pool for the credit figure if it needs
+        // it. The schema is score-neutral on the reputation side; the
+        // attestation exists for the audit trail and for the indexer to
+        // track "drawn" status.
+        let payload = BehavioralPayload::new(
+            CLASS_PAYOUT_CLAIMED,
+            pool.members_target,
+            0,
+            0,
+            NO_TIMESTAMP,
+            0,
+        )
+        .encode();
 
         let signer_seeds_inner: &[&[u8]] = &[
             SEED_POOL,
@@ -219,9 +254,9 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
                 system_program: ctx.accounts.system_program.to_account_info(),
             },
             signer_seeds: signer_seeds_arr,
-            schema_id:    SCHEMA_CYCLE_COMPLETE,
+            schema_id:    SCHEMA_PAYOUT_CLAIMED,
             nonce,
-            payload:      EMPTY_PAYLOAD,
+            payload,
             pool:         pool_key,
             pool_authority: authority_key,
             pool_seed_id:   pool.seed_id,

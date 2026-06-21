@@ -264,14 +264,21 @@ describe("security — audit error path coverage", function () {
     //    in the handler is `treasury_locked` first, then
     //    `pending_treasury == default` — so a passing test means the
     //    lock guard fired before the pending-proposal check.
-    const newTreasury = Keypair.generate().publicKey;
+    //
+    // SEV-006: the proposed treasury is no longer a Pubkey arg — it's a
+    // typed Account<TokenAccount> pinned to config.usdc_mint, validated
+    // at account-resolution time. We pass the existing `treasury` ATA as
+    // a valid stand-in; the `treasury_locked` guard fires before the
+    // handler ever reads it, so any valid account on the mint reaches it.
     await expectRejected(
       () =>
         (env.programs.core.methods as any)
-          .proposeNewTreasury({ newTreasury })
+          .proposeNewTreasury({})
           .accounts({
             config: configPda(env),
             authority: env.payer.publicKey,
+            usdcMint,
+            newTreasury: treasury,
           })
           .signers([env.payer])
           .rpc(),

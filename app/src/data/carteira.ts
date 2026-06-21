@@ -4,11 +4,13 @@
 //
 // These are stand-ins until the on-chain accounts / indexer hook up.
 
+import type { DevnetPoolKey } from "@/lib/devnet";
+
 export interface User {
   name: string;
   handle: string;
   avatar: string; // initials
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   levelLabel: string;
   score: number;
   scoreDelta: number;
@@ -30,8 +32,10 @@ export const USER: User = {
   scoreDelta: +18,
   nextLevel: 750,
   walletShort: "7xG3…k9Fn",
-  colateralPct: 30,
-  leverageX: 3.3,
+  // v5.2 ladder: L2 "Comprovado" = 25% collateral, 4× leverage.
+  // (Pre-redeploy — see LEVEL_TABLE note in lib/session.tsx.)
+  colateralPct: 25,
+  leverageX: 4,
   balance: 8420.55,
   yield: 312.08,
 };
@@ -49,6 +53,11 @@ export interface NftPosition {
   exp: string;
   value: number; // BRL
   yieldPct: number;
+  /** Set when this position is the wallet's REAL on-chain Member slot
+   *  (surfaced from usePoolMembers). Drives the real escape_valve_list
+   *  path in SellShareModal; absent on the mock fixtures. */
+  devnetPool?: DevnetPoolKey;
+  slotIndex?: number;
 }
 
 export const NFT_POSITIONS: NftPosition[] = [

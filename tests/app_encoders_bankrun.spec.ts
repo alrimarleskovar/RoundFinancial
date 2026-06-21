@@ -82,7 +82,12 @@ const INSTALLMENT = 5_000_000n; // $5 USDC
 const CREDIT = 5_000_000n; // $5 — solo pool, credit == installment
 const STAKE_INITIAL = 2_500_000n; // 50% of credit (Lv1)
 const SOLIDARITY_PRESEED = 0n;
-const ESCROW_PRESEED = 0n;
+// SEV-034: the stake is deposited into the escrow vault at join, so the
+// escrow vault (and member/pool escrow_balance) start holding it. The
+// release-delta derivation (stake_init + total_escrow_deposited −
+// escrow_balance) treats escrow_balance==0 as "everything already
+// released", which makes release_escrow revert EscrowNothingToRelease.
+const ESCROW_PRESEED = STAKE_INITIAL;
 const POOL_VAULT_PRESEED = 0n;
 const MEMBER_USDC_BAL = 10_000_000n; // $10 — plenty for one $5 contribution
 
@@ -201,7 +206,8 @@ async function seedFixture(
     totalContributed: new BN(0),
     totalPaidOut: new BN(0),
     solidarityBalance: new BN(0),
-    escrowBalance: new BN(0),
+    // SEV-034: stake lives in the escrow vault from join (see ESCROW_PRESEED).
+    escrowBalance: new BN(STAKE_INITIAL.toString()),
     yieldAccrued: new BN(0),
     guaranteeFundBalance: new BN(0),
     totalProtocolFeeAccrued: new BN(0),
@@ -227,7 +233,8 @@ async function seedFixture(
     contributionsPaid: 0,
     totalContributed: new BN(0),
     totalReceived: new BN(0),
-    escrowBalance: new BN(0),
+    // SEV-034: the join-time stake sits in escrow_balance from the start.
+    escrowBalance: new BN(STAKE_INITIAL.toString()),
     onTimeCount: 0,
     lateCount: 0,
     defaulted: false,
@@ -517,8 +524,13 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         // Anchor surfaces errors as a code OR a name in the log. The
         // `WrongCycle` name appears in the program log line. Match
         // either form so this test stays stable across anchor versions.
+        // Bankrun's transport error only surfaces the hex code in
+        // `err.message` (logs aren't propagated), so accept the relevant
+        // anchor codes too: 0x1773 = PoolNotActive (6003) fires here
+        // because the pool transitioned to Completed in the W2 chain
+        // before this cycle guard could be reached.
         expect(haystack).to.match(
-          /WrongCycle|PoolStatus|PoolNotActive|AlreadyContributed|Pool is in Completed/i,
+          /WrongCycle|PoolStatus|PoolNotActive|AlreadyContributed|Pool is in Completed|0x1773|0x1777/i,
           `expected pool/cycle-related reject; got:\n${haystack}`,
         );
       }
@@ -553,9 +565,11 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
         // Either AlreadyPaidOut (the explicit guard) or
         // PoolStatusNotActive / PoolStatus::Completed (pool transitioned)
-        // — both are valid rejections of a double-claim attempt.
+        // — both are valid rejections of a double-claim attempt. Anchor 1.0
+        // only logs the hex code in bankrun: 0x1773 = 6003 = PoolNotActive,
+        // 0x1777 = 6007 = WrongCycle.
         expect(haystack).to.match(
-          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle/i,
+          /AlreadyPaidOut|paid_out|PoolNotActive|PoolStatus|Completed|WrongCycle|0x1773|0x1777/i,
           `expected paid-out / pool-status reject; got:\n${haystack}`,
         );
       }
@@ -588,8 +602,10 @@ describe("app encoders — bankrun round-trip (#290)", function () {
         threw = true;
         const err = e as { logs?: string[]; message?: string };
         const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+        // Bankrun surfaces only the hex code in err.message (no logs);
+        // accept 0x177c = EscrowNothingToRelease (6012) too.
         expect(haystack).to.match(
-          /EscrowNothingToRelease|EscrowLocked|already.*released/i,
+          /EscrowNothingToRelease|EscrowLocked|already.*released|0x177c/i,
           `expected monotonic-checkpoint reject; got:\n${haystack}`,
         );
       }
@@ -752,7 +768,9 @@ describe("app encoders — escape_valve_list round-trip", function () {
     const listingAfter = await env.context.banksClient.getAccount(listingAddr);
     expect(listingAfter, "Listing PDA must exist after list").to.not.equal(null);
 
-    const listing = await (env.programs.core.account as any).listing.fetch(listingAddr);
+    // Account name in the IDL is `escapeValveListing` (snake
+    // `escape_valve_listing` from the #[account] struct in state/listing.rs).
+    const listing = await (env.programs.core.account as any).escapeValveListing.fetch(listingAddr);
     expect(listing.pool.toBase58()).to.equal(poolPk.toBase58());
     expect(listing.seller.toBase58()).to.equal(seller.publicKey.toBase58());
     expect(listing.slotIndex).to.equal(0);
@@ -767,9 +785,9 @@ describe("app encoders — escape_valve_list round-trip", function () {
 // `settle_default` requires:
 //   1. `clock.unix_timestamp >= pool.next_cycle_at + GRACE_PERIOD_SECS`
 //      — we use `setBankrunUnixTs` to push the clock past the deadline
-//   2. `args.cycle == pool.current_cycle - 1` — pool has already
-//      advanced past the missed cycle
-//   3. `member.contributions_paid <= args.cycle` — member missed it
+//   2. `args.cycle == pool.current_cycle` — the cycle being settled
+//      (settle_default.rs:161; matches the working edge_grace_default tests)
+//   3. `member.contributions_paid < pool.current_cycle` — member is behind
 //   4. `!member.defaulted` — not already flagged
 //
 // We pre-seed the solidarity vault with $0.20 so the cascade has
@@ -794,7 +812,11 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
   const metaplexCore = new PublicKey("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
 
   const SETTLE_NEXT_CYCLE_AT = 1_800_000_000n;
-  const SETTLE_GRACE_PERIOD_SECS = 60n; // matches `constants.rs::GRACE_PERIOD_SECS` (devnet patch)
+  // SEV-002 hardening: GRACE_PERIOD_SECS is the mainnet floor of 7 days.
+  // The previous 60s value here was a stale devnet-patch constant; the
+  // clock warp must clear pool.next_cycle_at + GRACE for settle_default
+  // to pass the GracePeriodNotElapsed guard.
+  const SETTLE_GRACE_PERIOD_SECS = 604_800n; // 7 days — matches constants.rs::GRACE_PERIOD_SECS
   const SETTLE_INSTALLMENT = 10_000_000n; // $10 USDC
   const SETTLE_CREDIT = 30_000_000n; // 3 × installment
   const SETTLE_STAKE = 15_000_000n; // 50% of credit
@@ -966,7 +988,10 @@ describe("app encoders — settle_default round-trip (#290 W3)", function () {
       caller: cranker.publicKey,
       defaultedMemberWallet: defaulter.publicKey,
       slotIndex: 1,
-      cycle: 1, // pool.current_cycle - 1
+      // settle_default requires args.cycle == pool.current_cycle (the
+      // member is settled as of the cycle they're now behind on, not the
+      // earlier cycle they first missed). current_cycle == 2 here.
+      cycle: 2,
       programIds: { core: env.ids.core, reputation: env.ids.reputation },
       usdcMint,
     });
@@ -1176,6 +1201,12 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
     expect(poolBefore.yieldPrincipalDeposited.toString()).to.equal("0");
 
     // ─── Build via the APP ENCODER + send ────────────────────────
+    // The mock adapter's `Deposit` accounts struct requires its
+    // YieldVaultState PDA, which the core handler forwards verbatim via
+    // remaining_accounts. The encoder exposes that through its
+    // `remainingAccounts` parameter — pass the mock's state PDA so a
+    // single call builds the complete instruction (without it the
+    // mock-side CPI fails with AccountNotInitialized, 0xbbd / 3005).
     const ix = buildDepositIdleToYieldIx({
       pool: poolPk,
       caller: cranker.publicKey,
@@ -1184,7 +1215,16 @@ describe("app encoders — deposit_idle_to_yield round-trip (#290 W3)", function
       yieldAdapterProgram: env.ids.yieldMock,
       programIds: { core: env.ids.core },
       usdcMint,
+      remainingAccounts: [{ pubkey: yieldStatePk, isSigner: false, isWritable: true }],
     });
+    // The adapter CPI forwards `remaining_accounts` verbatim to the
+    // yield adapter. yield-mock's `Deposit` requires its `YieldVaultState`
+    // PDA at position 5 (after the 4-account prelude source/destination/
+    // authority/token_program). The builder only emits the 8 explicit
+    // core accounts (see its doc-comment); the caller appends the
+    // adapter-specific tail — exactly what `sendDepositIdleToYield` does
+    // in prod via its `remainingAccounts` option.
+    ix.keys.push({ pubkey: yieldStatePk, isSigner: false, isWritable: true });
 
     const tx = new Transaction().add(ix);
     tx.feePayer = cranker.publicKey;

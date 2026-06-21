@@ -17,6 +17,14 @@ env:
   CARGO_INCREMENTAL: 0 # CI cache hits matter more than incremental
   RUST_BACKTRACE: 1
 
+# Default GITHUB_TOKEN on this org is restricted to `contents: read` +
+# `metadata: read`. The bankrun + litesvm diagnostic post-steps POST a
+# comment with the failing build log tail; that needs `pull-requests: write`.
+# Granted at the workflow level so every job inherits it.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # ─── 1. JS / TS lane (required) ──────────────────────────────────────
   # Seven checks:
@@ -47,9 +55,9 @@ jobs:
     name: js · lint + typecheck + parity + L1
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
 
@@ -103,11 +111,142 @@ jobs:
         # grouping + Loki/Datadog log queries silently. Sub-second.
         run: pnpm test:indexer-log
 
+      - name: Indexer webhook auth gate (11 tests)
+        # Pins the three hardening properties of the Helius webhook
+        # auth gate (SEV-009 / SEV-033 + RoundFi internal audit
+        # follow-up): constant-time Bearer compare, default-DENY when
+        # HELIUS_WEBHOOK_SECRET unset, length-mismatch shortcut so
+        # timingSafeEqual never throws. Drift = the webhook silently
+        # becomes unauthenticated again (the SEV-009 shape). Sub-second.
+        run: pnpm test:indexer-webhook-auth
+
+      - name: Indexer RPC quorum (12 tests)
+        # Wave 9.1 — pins decideTxQuorum + parseRpcUrls, the pure
+        # consensus layer for the `backfill-events` ingest path. With
+        # SOLANA_RPC_URLS=<csv> set, each getTransaction is fanned out
+        # across N providers and only ingests on ≥ ceil(N/2) agreement
+        # on (slot, blockTime, logsHash). Same threshold convention as
+        # reconciler::checkFinalizedQuorum. Drift = single-RPC trust
+        # silently slips back in. Sub-second.
+        run: pnpm test:rpc-quorum
+
+      - name: Admin auth rate-limit gate (21 tests)
+        # Pins the sliding-window rate limiter on /api/admin/auth/nonce
+        # (default 10/min/IP) and /verify (default 5/min/IP), plus the
+        # X-Forwarded-For first-hop extraction AND the Onda 6
+        # `observeClientKey` collapse-detector (warns loud in prod-like
+        # env when >= 50% of recent admin requests fall into the
+        # "unknown" bucket — proxy misconfig). RoundFi internal audit
+        # follow-up. Drift = the canary silently becomes brute-forceable
+        # again OR the proxy misconfig signal stays invisible. Sub-second.
+        run: pnpm test:admin-rate-limit
+
+      - name: Admin on-chain authority cache (11 tests)
+        # Pins the fail-closed contract on `fetchProtocolAuthority`
+        # (RoundFi internal audit follow-up): null on any RPC failure,
+        # split-TTL cache (5min hit / 30s miss) so a transient blip
+        # doesn't drop the on-chain authority for the full hit-TTL,
+        # explicit logs on RPC-unset / fetch failure / empty effective
+        # allowlist. Drift = silent fail-open or a flaky-RPC lockout.
+        # Sub-second.
+        run: pnpm test:admin-authority-cache
+
+      - name: Admin SIWS auth core (14 tests)
+        # Pins the pure-crypto SIWS path (ADR 0009 §1): ed25519 verify,
+        # session HMAC, stateless challenge SHAPE (HMAC + TTL), allowlist
+        # set algebra. Previously ran nowhere in CI — wired in alongside
+        # the Wave 2 shared-store split. Sub-second.
+        run: pnpm test:admin-auth
+
+      - name: Admin shared store — in-memory backend (9 tests)
+        # Pins the Wave 2 pluggable store: env selector (memory default /
+        # postgres opt-in), in-memory consume-once challenge guard, and
+        # the rate-limit sliding window through the async interface. The
+        # Postgres backend's SQL behavior is operator-run (DB-backed,
+        # services/indexer/test/admin_shared_store_pg.spec.ts — no DB in
+        # this lane). Sub-second.
+        run: pnpm test:admin-shared-store
+
+      - name: Harvest slippage floor (7 tests)
+        # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
+        # computes a LIVE min_realized_usdc floor from the expected surplus
+        # by default (was 0 = guard inert), keeping the on-chain
+        # `realized >= min_realized_usdc` slippage guard live. Opt-out is
+        # explicit. Sub-second.
+        run: pnpm test:yield-harvest-floor
+
+      - name: Kamino program-id pin drift gate (7 tests)
+        # Audit Wave 7 (INFO/operator follow-up). The roundfi-yield-kamino
+        # adapter hardcodes KAMINO_LEND_PROGRAM_ID — drift to a wrong
+        # address routes every yield CPI to a different program. This spec
+        # extracts the on-disk const and compares it against the canonical
+        # value in scripts/mainnet/kamino-pin.ts. Drift in EITHER side fails
+        # the lane. Liveness (`getAccountInfo` on mainnet) belongs to the
+        # operator pre-deploy script `pnpm verify:kamino-pin --verify-rpc`.
+        # Sub-second.
+        run: pnpm test:kamino-pin
+
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
       - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events
+
+      - name: BehavioralPayload TS↔Rust codec parity (12 tests)
+        # Reputation v5.2 Hybrid (Phase C.1). Pins the TS mirror
+        # (sdk/src/behavioralPayload.ts) byte-for-byte against the
+        # on-chain Rust codec (behavioral_payload.rs). Drift = the
+        # indexer scores against different bytes than every reputation
+        # client sees — silent miscount. Pure, sub-second.
+        run: pnpm test:behavioral-payload
+
+      - name: Attestation account decoder (3 tests)
+        # Reputation v5.2 Hybrid (Phase C.2a). Pins decodeAttestationRaw
+        # offsets against attestation.rs (incl. the (cycle, slotIndex)
+        # nonce split + embedded payload + legacy-zero → null). Pure.
+        run: pnpm test:attestation-decode
+
+      - name: EventClassification derivation (13 tests)
+        # Reputation v5.2 Hybrid (Phase C.2a). Pins the authoritative
+        # classification derived from delta_seconds (inclusive on-time,
+        # open-interval grace) — the indexer's verdict, not the on-chain
+        # hint byte. Pure, sub-second.
+        run: pnpm test:behavioral-classification
+
+      - name: Attestation row mapping (6 tests)
+        # Reputation v5.2 Hybrid (Phase C.2b). Pins attestationToRowFields
+        # (decoded bytes → DB columns) — the deterministic, DB-free half
+        # of the attestation backfill. The DB round-trip itself is
+        # operator-run (needs Postgres; not in this lane). Pure, sub-second.
+        run: pnpm test:attestation-row
+
+      - name: Reputation metrics — Reliability + Punctuality (proposal vectors)
+        # Reputation v5.2 Hybrid (Phase C.3). Pins the proposal's published
+        # test vectors for reliability() / punctuality() incl. the two
+        # mandatory bug-fixes (div-by-zero guard + clamp; fold-preserved
+        # count). v1-provisional weights — drift fails CI. Pure, sub-second.
+        run: pnpm test:reputation-metrics
+
+      - name: Reputation score assembly (endpoint shape)
+        # Reputation v5.2 Hybrid (Phase C.3.3). Pins scoreFromSignals — the
+        # public /score/:subject response shape: v1-provisional tag, deferred
+        # commitment/recovery as null + pending list (never 0), classification
+        # + polarity tallies. DB-backed loadSubjectScore is operator-run.
+        run: pnpm test:reputation-score
+
+      - name: Score route handler (GET /score/:subject, stub DB)
+        # Reputation v5.2 Hybrid (Phase C.3.3). Drives the Fastify handler
+        # end-to-end via app.inject + a stub PrismaClient: subject 400
+        # validation (no DB hit), fresh-wallet default, score from injected
+        # rows, unknown-class → unspecified. Only the real Postgres query is
+        # operator-run.
+        run: pnpm test:score-route
+
+      - name: inferDefaultReason decision tree (security review Caio HIGH #2/#3)
+        # Pure decision tree (no DB) that classifies a Default by its
+        # Triple-Shield cascade fields. Replaces a previous stub that
+        # always returned "MissedDeadline". Pure, sub-second.
+        run: pnpm test:infer-default-reason
 
       - name: Stress Lab L1 economic-parity (34 tests)
         run: pnpm test:economic-parity-l1
@@ -156,7 +295,7 @@ jobs:
     name: audit · cargo-audit (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -176,41 +315,17 @@ jobs:
         run: |
           cargo audit \
             --deny warnings \
-            --ignore RUSTSEC-2024-0344 \
-            --ignore RUSTSEC-2022-0093 \
-            --ignore RUSTSEC-2024-0375 \
             --ignore RUSTSEC-2025-0141 \
-            --ignore RUSTSEC-2024-0388 \
-            --ignore RUSTSEC-2025-0161 \
-            --ignore RUSTSEC-2024-0436 \
-            --ignore RUSTSEC-2024-0370 \
-            --ignore RUSTSEC-2021-0145 \
-            --ignore RUSTSEC-2023-0033 \
-            --ignore RUSTSEC-2026-0097
-        # Each --ignore tied to a known-transient from the `solana-program
-        # 1.18.x` / `mpl-core 0.8` dep tree (anchor-lang 0.30.1 pulls
-        # 1.18.x transitively). Tracked under #230 (Solana SDK transitive
-        # bump). The Agave CLI/runtime half of #230 is already shipping
-        # (Agave 3.0.0 in CI + CD pipeline + 7 devnet rehearsals); these
-        # ignores stay until anchor bumps (0.31+ → solana-program 2.x) or
-        # an explicit workspace patch lands. Any NEW ID that appears here
-        # is a real signal that needs review.
-        #
-        # RUSTSEC-2024-0344 — curve25519-dalek timing variability
-        #   (solana-zk-token-sdk 1.18 transitive). Fixed in 4.1.3.
-        # RUSTSEC-2022-0093 — ed25519-dalek double-PK signing oracle
-        #   (solana-sdk 1.18 transitive). Fixed in 2.0.
-        # RUSTSEC-2024-0375 — atty unmaintained.
-        # RUSTSEC-2021-0145 — atty unaligned read.
-        # RUSTSEC-2025-0141 — bincode unmaintained (solana SDK).
-        # RUSTSEC-2024-0388 — derivative unmaintained (solana SDK).
-        # RUSTSEC-2025-0161 — libsecp256k1 unmaintained (solana-secp256k1-recover).
-        # RUSTSEC-2024-0436 — paste unmaintained (solana / anchor).
-        # RUSTSEC-2024-0370 — proc-macro-error unmaintained.
-        # RUSTSEC-2023-0033 — borsh 0.x ZST unsoundness (mpl-core 0.8 transitive;
-        #   borsh 1.x in newer paths is unaffected).
-        # RUSTSEC-2026-0097 — rand unsound with custom logger (solana SDK
-        #   transitive). Not triggerable in our use; gone with Agave 2.x.
+            --ignore RUSTSEC-2024-0436
+        # Post-#487 (Agave 3.x / anchor 1.0 / mpl-core 0.12 migration): the
+        # old Solana-1.18 / mpl-core-0.8 transitive advisories were retired,
+        # so only two unmaintained-crate notices remain in the new tree —
+        # kept in sync with deny.toml's [advisories] ignore list, validated
+        # with `cargo audit` against the migrated Cargo.lock:
+        #   RUSTSEC-2025-0141 — bincode unmaintained (solana 3.x SDK).
+        #   RUSTSEC-2024-0436 — paste unmaintained (mpl-core 0.12 → rmp-serde
+        #     → rmp → paste).
+        # Any NEW ID that appears here is a real signal that needs review.
 
   # ─── 3b. Supply-chain lane (required) ────────────────────────────────
   # cargo-deny extends cargo-audit's RustSec coverage with licence
@@ -224,7 +339,7 @@ jobs:
     name: deny · supply-chain (advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -248,30 +363,29 @@ jobs:
         # policy independent of advisories.
 
   # ─── 4. Anchor lane (required) ───────────────────────────────────────
-  # `anchor build --no-idl` against Agave 3.0.0 + Anchor 0.30.1.
+  # `anchor build` against Agave 3.0.0 + Anchor 1.0.2 (#319 migration).
   # Toolchain alignment landed in PR #138 (Anchor.toml + Cargo.lock pins);
-  # codebase fixes landed in PR #139 (Payload newtype, get_profile
-  # lifetime, mpl-core 0.8.0 pin). The lane is now required — a red badge
-  # here means a real regression, not toolchain drift.
+  # the #319 PR bumped anchor-lang 0.30.1 → 1.0 + mpl-core 0.8 → 0.12.
+  # The lane is required — a red badge here means a real regression.
   #
-  # `pnpm test:bankrun` is deliberately NOT run here yet. The bankrun
-  # harness in `tests/_harness/bankrun.ts` loads `target/idl/*.json`,
-  # but `--no-idl` skips that generation. The full IDL build path
-  # invokes anchor-syn which calls the removed `Span::source_file()` API
-  # — fixed in Anchor 0.31+. Once we bump anchor or land a workaround,
-  # bankrun goes back into this lane as required.
+  # Anchor 1.0 builds IDLs natively (the anchor-syn 0.30.1
+  # `Span::source_file()` removal that forced `--no-idl` is gone), so the
+  # full build emits target/idl/*.json. `pnpm test:bankrun` is still not
+  # run in this lane because part of its glob (economic_parity, lifecycle)
+  # uses the localnet harness which needs a running validator; the
+  # in-memory bankrun specs run in the dedicated lane below.
   anchor:
     name: anchor · build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Install Solana Agave 3.0.0 (pinned)
         # Stable channel had platform-tools download issues mid-2026
@@ -288,23 +402,35 @@ jobs:
       - name: Verify solana CLI
         run: solana --version
 
-      - name: Install Anchor 0.30.1
-        # `--locked` fails on Rust 1.85+ because anchor's pinned `time`
-        # crate doesn't compile (E0282 type inference). Without
-        # `--locked`, cargo resolves a compatible newer `time`.
+      - name: Install Anchor 1.0.2
+        # #319: migrated to anchor-lang 1.0 + mpl-core 0.12. The CLI must
+        # match the lang crate to parse the 1.0 macros / IDL. Build from a
+        # shallow clone so we keep anchor's own consistent transitive pins via
+        # `--locked` — a bare unlocked `cargo install` drifts into a
+        # brotli/alloc-no-stdlib version skew (E0277 StandardAlloc) — while
+        # bumping `time` first so the pinned lockfile still compiles on rustc.
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
-      - name: anchor build (--no-idl)
-        # `--no-idl` skips the IDL build step. anchor-syn 0.30.1's
-        # IDL builder calls `Span::source_file()` which was removed
-        # from stable rustc; until Anchor 0.31 lands the fix, IDL
-        # generation can't run. The committed Cargo.lock pins
-        # solana-program 1.18.26 + blake3 1.5.0 + mpl-core 0.8.0 so
-        # the SBF target compile itself is reproducible against
-        # platform-tools v1.51 cargo 1.84.
-        run: anchor build --no-idl
+      - name: anchor build
+        # #319: Anchor 1.0 fixed the anchor-syn `Span::source_file()`
+        # removal that forced `--no-idl` under 0.30.1, so the full IDL
+        # build runs again (and feeds the bankrun harness). The committed
+        # Cargo.lock now pins solana-program 3.x + mpl-core 0.12 (no-anchor
+        # feature + borsh-v1); the SBF compile is reproducible against the
+        # Agave 3.0.0 platform-tools.
+        #
+        # `--ignore-keys` skips Anchor 1.0's new pre-build check that
+        # compares `declare_id!` against target/deploy/*-keypair.json.
+        # On a fresh CI runner those keypair files don't exist, so Anchor
+        # generates random ones and the check fails. Our declare_id!s are
+        # the authoritative source — the keypairs are operator-side
+        # deploy artifacts (gitignored) and have no role in CI compile.
+        run: anchor build --ignore-keys
 
       # NOTE: `pnpm test:bankrun` is intentionally not in this lane.
       # The bankrun harness loads `target/idl/*.json`, which `--no-idl`
@@ -314,9 +440,9 @@ jobs:
       # mask.
 
   # ─── bankrun · no-mpl-core (SEV-012 partial) ─────────────────────
-  # Bankrun specs that DON'T need mpl_core can run today via the
-  # rebuild-idls.sh workaround (anchor-syn #319 patch + anchor idl
-  # build per program). Current scope: tests/security_kamino_cpi.spec.ts
+  # Bankrun specs that DON'T need mpl_core. IDLs come from the native
+  # `anchor build` (anchor 1.0, post-#487 migration — the anchor-syn #319
+  # patch workaround is retired). Current scope: tests/security_kamino_cpi.spec.ts
   # (~17 tests covering Kamino program load + discriminator validation
   # + cascade-clone integrity + deposit/harvest CPI vs cloned state).
   #
@@ -354,23 +480,23 @@ jobs:
   # took over and the legacy installer can return non-zero) than the
   # working `anchor · build` lane (`anza-xyz/agave v3.0.0` via direct
   # GitHub release tarball). This re-attempt mirrors the anchor lane's
-  # toolchain install verbatim. Also fixed: `rebuild-idls.sh` now
-  # builds all 4 program IDLs (was missing `roundfi_yield_kamino`,
-  # which `bankrun.ts::loadIdl()` requires unconditionally).
+  # toolchain install verbatim. IDLs for all 4 programs come from the
+  # native `anchor build` (anchor 1.0); `bankrun.ts::loadIdl()` reads
+  # them from target/idl/.
   bankrun-no-mpl-core:
     name: bankrun · no-mpl-core (security_kamino_cpi)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: anchor # piggyback on the SBF artifact path semantics
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: anchor-bpf
+          shared-key: anchor-bpf-2026-W22d
 
       - name: Enable Corepack (resolves pnpm via packageManager)
         run: |
@@ -392,28 +518,58 @@ jobs:
           tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
           echo "$HOME/agave/bin" >> "$GITHUB_PATH"
 
-      - name: Install Anchor 0.30.1 (matches anchor · build lane)
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # See the anchor · build lane: clone + bump time + locked install to
+        # dodge the brotli/alloc-no-stdlib drift in a bare `cargo install`.
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor \
-            --tag v0.30.1 anchor-cli
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
 
-      - name: anchor build (--no-idl) + IDL regen (#319 workaround)
-        # The .so binaries come from `anchor build --no-idl` (same as
-        # the anchor lane). IDLs come from rebuild-idls.sh which applies
-        # the patch-anchor-syn-319.sh patch then runs `anchor idl build`
-        # per program. The bankrun harness loads IDLs unconditionally
-        # via `loadIdl()` for all 4 programs (core, reputation,
-        # yield_mock, yield_kamino).
+      - name: anchor build (#319 — native IDL under Anchor 1.0)
+        # #319: Anchor 1.0 builds IDLs natively (the anchor-syn 0.30.1
+        # `Span::source_file()` removal that forced the --no-idl +
+        # rebuild-idls.sh patch workaround is gone). Plain `anchor build`
+        # now emits target/idl/*.json for all 4 programs, which the
+        # bankrun harness loads via `loadIdl()`.
         run: |
-          anchor build --no-idl
-          bash scripts/dev/rebuild-idls.sh
+          set -x
+          set -o pipefail
+          # Tee everything into /tmp/build.log so the failure post-step
+          # can mirror the tail into $GITHUB_STEP_SUMMARY (visible in the
+          # workflow run page without auth) and upload the full thing as
+          # an artifact.
+          exec > >(tee -a /tmp/build.log) 2>&1
+
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version || true
+          cargo --version
+          rustc --version
+          solana --version
+          echo "::endgroup::"
+
+          echo "::group::anchor build"
+          anchor build --ignore-keys
+          echo "::endgroup::"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cache klend.so (Kamino Lend mainnet binary)
         # ~600KB binary, hashed against the Kamino program ID. Cached
         # weekly via the key date suffix; if Kamino redeploys their
         # program (rare), bump the cache key.
         id: klend-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target/deploy/klend.so
           key: klend-so-2026-W20
@@ -438,3 +594,159 @@ jobs:
         # would shift the failure class to `AccountValidationFailed`
         # / `Constraint*` and surface immediately.
         run: pnpm test:bankrun:no-mpl-core
+
+      - name: Run bankrun spec (SEV-047 identity gate — no mpl_core needed)
+        # Validates promote_level's identity-gate enforcement (SEV-047
+        # Part 2) end-to-end: drives a profile to the L2 threshold
+        # (score 500 + 1 cycle) by warping the clock +61s between each
+        # admin attest (defeats MIN_ADMIN_ATTEST_COOLDOWN_SECS — the
+        # reason the localnet reputation specs can't run this path),
+        # then asserts floor=2 caps an unverified subject at L1 and
+        # floor=0 promotes it to L2. roundfi-reputation has no mpl-core
+        # CPI, so the spec boots with loadMplCore:false (eligible for
+        # this lane, unlike the SEV-012-gated localnet reputation specs).
+        run: pnpm test:bankrun:reputation-gate
+
+  # ─── litesvm · mpl-core path (SEV-012 unblock) ───────────────────
+  # The mpl_core-dependent path (join_pool / escape_valve_buy) that
+  # bankrun CANNOT run: solana-bankrun's solana-program-test 1.18 only
+  # reads eBPF/SBFv1 and panics loading the current mainnet SBFv2
+  # mpl_core.so. litesvm 1.x tracks current Agave and loads SBFv2 fine,
+  # so this lane runs the full pool-formation lifecycle — each step
+  # minting an mpl_core asset via the CreateV2 CPI — on the repo's anchor
+  # 0.30.1, via a thin custom Provider + one-point v1→v2 tx bridge (see
+  # tests/_harness/litesvm.ts). This closes the SEV-012 coverage gap for
+  # the mpl_core path without waiting on the #230 anchor-0.31 bump.
+  litesvm-mpl-core:
+    name: litesvm · mpl-core path (join_pool lifecycle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: anchor
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          # Node 24 (not 20): the abort was a std::bad_alloc inside V8's GC
+          # pretenuring-feedback hashtable rehash (Heap::PerformGarbageCollection
+          # → PretenuringHandler::ProcessPretenuringFeedback → std::__throw_bad_alloc),
+          # a non-deterministic V8 bug in Node 20.20.2's V8 — NOT litesvm and NOT
+          # RAM (14GB free, ulimit -v unlimited). It never reproduces on the
+          # author's local Node 25; Node 24's newer V8 carries the fix. (SEV-012)
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: anchor-bpf-2026-W22d
+
+      - name: Enable Corepack (resolves pnpm via packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Solana Agave 3.0.0 (matches anchor · build lane)
+        run: |
+          curl -sL -o /tmp/agave.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v3.0.0/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          mkdir -p "$HOME/agave"
+          tar -xjf /tmp/agave.tar.bz2 -C "$HOME/agave" --strip-components=1
+          echo "$HOME/agave/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor 1.0.2 (matches anchor · build lane)
+        # See the anchor · build lane: clone + bump time + locked install to
+        # dodge the brotli/alloc-no-stdlib drift in a bare `cargo install`.
+        run: |
+          git clone --depth 1 --branch v1.0.2 \
+            https://github.com/coral-xyz/anchor /tmp/anchor-cli-src
+          cargo update --manifest-path /tmp/anchor-cli-src/Cargo.toml -p time
+          cargo install --path /tmp/anchor-cli-src/cli --locked
+          rm -rf /tmp/anchor-cli-src
+
+      - name: anchor build (#319 — native IDL under Anchor 1.0)
+        run: |
+          set -x
+          set -o pipefail
+          exec > >(tee -a /tmp/build.log) 2>&1
+
+          echo "::group::pre-build environment"
+          which anchor cargo rustc solana
+          anchor --version || true
+          cargo --version
+          rustc --version
+          solana --version
+          echo "::endgroup::"
+
+          echo "::group::anchor build"
+          anchor build --ignore-keys
+          echo "::endgroup::"
+
+      - name: Diagnostic — upload full build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-${{ github.job }}
+          path: /tmp/build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Cache mpl_core.so (Metaplex Core mainnet binary)
+        # ~1MB SBFv2 binary. Bump the suffix to force a clean re-dump — the
+        # W22 cache held a truncated dump that made litesvm abort (SEV-012).
+        id: mplcore-cache
+        uses: actions/cache@v5
+        with:
+          path: target/deploy/mpl_core.so
+          key: mpl-core-so-2026-W22c
+
+      - name: Ensure a complete, valid mpl_core.so
+        # Hygiene guard (not the SEV-012 root cause — that was a V8-GC bad_alloc
+        # on Node 20, fixed by the Node 24 bump above): a truncated/corrupt dump
+        # would make litesvm's SBFv2 loader choke, so never feed it a bad ELF —
+        # (re)dump with retries whenever the file is missing or fails the
+        # ELF-magic + size sanity check, and fail hard if a good binary can't
+        # be produced.
+        run: |
+          set -euo pipefail
+          mkdir -p target/deploy
+          SO=target/deploy/mpl_core.so
+          MIN_BYTES=524288   # ~512KB; Core is ~1MB — a truncated dump is far smaller
+
+          valid() {
+            [ -f "$SO" ] || return 1
+            printf '\x7fELF' | cmp -s -n 4 - "$SO" || return 1
+            [ "$(stat -c%s "$SO")" -ge "$MIN_BYTES" ] || return 1
+          }
+
+          if valid; then
+            echo "Cached mpl_core.so looks valid ($(stat -c%s "$SO") bytes)."
+          else
+            echo "mpl_core.so missing/invalid — dumping from mainnet."
+            rm -f "$SO"
+            for i in 1 2 3 4; do
+              if solana program dump -u mainnet-beta \
+                   CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d "$SO" && valid; then
+                break
+              fi
+              echo "dump attempt $i failed/invalid; retrying in $((i * 2))s"
+              rm -f "$SO"; sleep "$((i * 2))"
+            done
+          fi
+
+          if ! valid; then
+            echo "::error::could not obtain a valid mpl_core.so"
+            ls -la target/deploy || true
+            file "$SO" 2>/dev/null || true
+            exit 1
+          fi
+          echo "mpl_core.so OK: $(stat -c%s "$SO") bytes"
+          file "$SO" || true
+          sha256sum "$SO" || true
+
+      - name: Run litesvm mpl_core-path lifecycle spec
+        # createUsdcMint → initializeProtocol → createPool → joinMembers;
+        # create_pool mints the pool Collection NFT and join_pool the
+        # member position NFT, both via the mpl_core CreateV2 CPI — the
+        # exact path bankrun can't execute.
+        run: pnpm test:litesvm

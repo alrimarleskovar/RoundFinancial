@@ -41,6 +41,12 @@ allow = [
   "0BSD",
   "Unlicense",
   "OpenSSL",                 # exception clause; needed by ring transitives
+  # mpl-core 0.12 relicensed from Apache-2.0 to Metaplex's custom NFT license
+  # (non-SPDX). Reviewed + explicitly accepted for the #487 migration: RoundFi
+  # mints position NFTs (the intended use), not a competing NFT product, so the
+  # "Competitive Products" clause (§4c) does not apply. Named as a LicenseRef
+  # so the acceptance is explicit + auditable (see the mpl-core clarify below).
+  "LicenseRef-Metaplex-NFT-OSL-1.0",
 ]
 confidence-threshold = 0.93
 exceptions = []
@@ -54,26 +60,17 @@ license-files = [
   { path = "LICENSE", hash = 0xbd0eed23 },
 ]
 
-# Adevar Labs SEV-011 follow-up: mpl-core 0.8.x ships a LICENSE file
-# (Apache-2.0) but doesn't declare a `license` field in Cargo.toml.
-# cargo-deny's text-fingerprint heuristic gets 0.80 confidence —
-# below the 0.93 threshold — so it can't auto-resolve. This clarify
-# entry pins the resolution explicitly. Retire when we move to a
-# version of mpl-core that declares its license field properly
-# (tracked via the Agave 2.x / mpl-core 0.12 upgrade in PR #319).
-#
-# Version range "0.8" matches both 0.8.0 and 0.8.1 — LICENSE files
-# are byte-identical, so the same hash applies. The pin in
-# programs/roundfi-core/Cargo.toml (=0.8.0) keeps the resolution
-# deterministic; the range here just future-proofs against a patch
-# bump within 0.8.x.
+# mpl-core relicensed from Apache-2.0 (0.8.x) to the "Metaplex(TM) NFT Open
+# Source License v1.0" (custom, non-SPDX) by 0.12. Its Cargo.toml declares
+# `license = "non-standard"`, which cargo-deny cannot parse → reported as
+# unlicensed. Map it to an explicit LicenseRef (allow-listed above) so the
+# dependency's real license is named honestly in the audit trail rather than
+# mislabelled Apache-2.0. Reviewed + accepted for the #487 Agave 3.x /
+# anchor 1.0 / mpl-core 0.12 migration.
 [[licenses.clarify]]
 name = "mpl-core"
-version = "0.8"
-expression = "Apache-2.0"
-license-files = [
-  { path = "LICENSE", hash = 0xd3dacb8e },
-]
+expression = "LicenseRef-Metaplex-NFT-OSL-1.0"
+license-files = []
 
 # ─── Bans ────────────────────────────────────────────────────────────
 # Hard bans on crates we deliberately don't want in the tree.
@@ -107,17 +104,14 @@ skip = []
 skip-tree = []
 
 # ─── Sources ─────────────────────────────────────────────────────────
-# Restrict registries + git-source allow-list. All crates must come
-# from crates.io; the one git source we trust is the Anchor
-# repository because `anchor build` uses git tags (not crates.io
-# publishes) for some Anchor crates during the 0.30.x cycle.
+# Restrict registries. All crates must come from crates.io. Anchor 1.0 is
+# published to crates.io, so the 0.30.x-era git-tag source is no longer used
+# after the #487 migration and the git allow-list is now empty.
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = [
-  "https://github.com/coral-xyz/anchor",
-]
+allow-git = []
 
 [sources.allow-org]
 github = []
@@ -136,21 +130,13 @@ db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "warn"
 
-# Adevar Labs SEV-011 fix: explicit RUSTSEC-IDs for each known Solana
-# 1.18 / mpl-core 0.8 transient. Same list as the cargo-audit job in
-# .github/workflows/ci.yml — defence in depth, both scanners catch
-# anything new that bypasses either's filter. When the Agave 2.x
-# migration (#319) lands, this entire block goes away.
+# Post-migration (#487): the Agave 3.x / anchor 1.0 / mpl-core 0.12 bump
+# retired most of the old Solana 1.18 / mpl-core 0.8 transitive advisories.
+# Two unmaintained-crate notices remain in the new tree (verified locally
+# with `cargo deny check advisories`): bincode (solana 3.x SDK) and paste
+# (mpl-core 0.12 → rmp-serde → rmp → paste). Kept in sync with the
+# cargo-audit job in .github/workflows/ci.yml.
 ignore = [
-  "RUSTSEC-2024-0344",  # curve25519-dalek timing variability (solana-zk-token-sdk 1.18)
-  "RUSTSEC-2022-0093",  # ed25519-dalek double-PK signing oracle (solana-sdk 1.18)
-  "RUSTSEC-2024-0375",  # atty unmaintained
-  "RUSTSEC-2021-0145",  # atty unaligned read
-  "RUSTSEC-2025-0141",  # bincode unmaintained (solana SDK)
-  "RUSTSEC-2024-0388",  # derivative unmaintained (solana SDK)
-  "RUSTSEC-2025-0161",  # libsecp256k1 unmaintained (solana-secp256k1-recover)
-  "RUSTSEC-2024-0436",  # paste unmaintained (solana / anchor)
-  "RUSTSEC-2024-0370",  # proc-macro-error unmaintained
-  "RUSTSEC-2023-0033",  # borsh 0.x ZST unsoundness (mpl-core 0.8 transitive)
-  "RUSTSEC-2026-0097",  # rand unsound with custom logger (solana SDK)
+  "RUSTSEC-2025-0141",  # bincode unmaintained (solana 3.x SDK)
+  "RUSTSEC-2024-0436",  # paste unmaintained (mpl-core 0.12 → rmp-serde → rmp → paste)
 ]

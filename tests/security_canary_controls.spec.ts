@@ -212,11 +212,13 @@ describe("canary controls — TVL caps + adapter allowlist (negative paths)", fu
 
     it("caps=0 accepts pools of any size (back-compat default)", async () => {
       // Both caps disabled; arbitrarily large pool succeeds.
+      // SEV-031 viable: 10 × 150 × 0.74 = 1110 >= 1000 (credit).
+      // (retention = 1 − solidarity 1% − escrow 25% = 0.74)
       const pool = await createPool(env, {
         authority,
         usdcMint,
         creditAmount: usdc(1_000n), // $1k
-        installmentAmount: usdc(100n),
+        installmentAmount: usdc(150n),
         cyclesTotal: 10,
         membersTarget: 10,
       });

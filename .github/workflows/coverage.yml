@@ -58,7 +58,7 @@ jobs:
       pull-requests: write # for the PR comment
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -121,7 +121,7 @@ jobs:
 
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request' && steps.tarpaulin.outputs.pct != '0' && steps.tarpaulin.outputs.pct != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pct = `${{ steps.tarpaulin.outputs.pct }}`;
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload LCOV artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov
           path: coverage/math/lcov.info

@@ -26,9 +26,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use roundfi_reputation::constants::SCHEMA_DEFAULT;
+use roundfi_reputation::state::{BehavioralPayload, CLASS_DEFAULT, NO_TIMESTAMP};
 
 use crate::constants::*;
-use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, EMPTY_PAYLOAD};
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall};
 use crate::error::RoundfiError;
 use crate::math::{dc_invariant_holds, seize_for_default, CascadeInputs};
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -226,7 +227,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         ];
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.solidarity_vault.to_account_info(),
                     to:        ctx.accounts.pool_usdc_vault.to_account_info(),
@@ -245,7 +246,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         ];
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.escrow_vault.to_account_info(),
                     to:        ctx.accounts.pool_usdc_vault.to_account_info(),
@@ -267,7 +268,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         ];
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from:      ctx.accounts.escrow_vault.to_account_info(),
                     to:        ctx.accounts.pool_usdc_vault.to_account_info(),
@@ -326,6 +327,20 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
         let nonce = ((args.cycle as u64) << 32) | (member_slot_index as u64);
         let seed_id_le = pool_seed_id.to_le_bytes();
 
+        // v5.2 Hybrid (Phase B): payload for the DEFAULT event. The member
+        // paid nothing (paid_ts = NO_TIMESTAMP, parcels_paid = 0,
+        // amount = 0 — the member moved no funds; the seizure detail stays
+        // in the msg! log above). due_ts is the deadline they missed.
+        let payload = BehavioralPayload::new(
+            CLASS_DEFAULT,
+            pool.members_target,
+            0,
+            pool.next_cycle_at,
+            NO_TIMESTAMP,
+            0,
+        )
+        .encode();
+
         let signer_seeds_inner: &[&[u8]] = &[
             SEED_POOL,
             pool_authority.as_ref(),
@@ -360,7 +375,7 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
             signer_seeds: signer_seeds_arr,
             schema_id:    SCHEMA_DEFAULT,
             nonce,
-            payload:      EMPTY_PAYLOAD,
+            payload,
             pool:         pool_key,
             pool_authority,
             pool_seed_id,

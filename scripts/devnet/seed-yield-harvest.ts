@@ -15,9 +15,16 @@
  * Pool state requires `status = Active` and `yield_adapter` set.
  *
  * Env:
- *   POOL_SEED_ID         (default 1)
- *   YIELD_LP_SHARE_BPS   (default 6500 = 65% — DEFAULT_LP_SHARE_BPS)
- *   YIELD_MIN_REALIZED   (default 0 — opt out of slippage guard)
+ *   POOL_SEED_ID                  (default 1)
+ *   YIELD_LP_SHARE_BPS            (default 6500 = 65% — DEFAULT_LP_SHARE_BPS)
+ *   YIELD_MIN_REALIZED            explicit floor override in USDC. When
+ *                                 UNSET, the floor is computed from the
+ *                                 on-chain expected surplus × (1 −
+ *                                 tolerance) so the slippage guard stays
+ *                                 LIVE by default (audit Wave 3). Set to
+ *                                 0 to explicitly opt out.
+ *   YIELD_SLIPPAGE_TOLERANCE_BPS tolerance for the computed floor
+ *                                 (default 100 = 1%).
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -35,14 +42,23 @@ import {
 } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
+import { computeHarvestFloor, DEFAULT_HARVEST_TOLERANCE_BPS } from "@roundfi/sdk";
+
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
 const POOL_SEED_ID = process.env.POOL_SEED_ID ? BigInt(process.env.POOL_SEED_ID) : 1n;
 const DEPLOYMENT_CONFIG_PATH = resolve(process.cwd(), "config/program-ids.devnet.json");
 const LP_SHARE_BPS = Number(process.env.YIELD_LP_SHARE_BPS ?? 6_500);
-const MIN_REALIZED_USDC = process.env.YIELD_MIN_REALIZED
+// Explicit operator override (USDC → base units). UNSET → undefined, so
+// the floor is COMPUTED from the on-chain expected surplus below; the
+// slippage guard is live by default. Set YIELD_MIN_REALIZED=0 to opt out
+// explicitly.
+const MIN_REALIZED_OVERRIDE = process.env.YIELD_MIN_REALIZED
   ? BigInt(Math.round(Number(process.env.YIELD_MIN_REALIZED) * 1e6))
-  : 0n;
+  : undefined;
+const SLIPPAGE_TOLERANCE_BPS = process.env.YIELD_SLIPPAGE_TOLERANCE_BPS
+  ? Number(process.env.YIELD_SLIPPAGE_TOLERANCE_BPS)
+  : DEFAULT_HARVEST_TOLERANCE_BPS;
 
 function loadKeypair(path: string): Keypair {
   const secret = Uint8Array.from(JSON.parse(readFileSync(path, "utf-8")));
@@ -122,7 +138,6 @@ async function main() {
   console.log(`→ Yield state    : ${yieldStatePda.toBase58()}`);
   console.log(`→ Treasury ATA   : ${treasuryAta.toBase58()}`);
   console.log(`→ lp_share_bps   : ${LP_SHARE_BPS} (${(LP_SHARE_BPS / 100).toFixed(2)}%)`);
-  console.log(`→ min_realized   : ${(Number(MIN_REALIZED_USDC) / 1e6).toFixed(6)} USDC\n`);
 
   const connection = new Connection(cluster.rpcUrl, "confirmed");
 
@@ -142,11 +157,27 @@ async function main() {
   console.log(`→ tracked_principal  : ${(Number(trackedPrincipal) / 1e6).toFixed(6)} USDC`);
   console.log(`→ yield_vault.amount : ${(Number(yieldVaultAcct.amount) / 1e6).toFixed(6)} USDC`);
   console.log(`→ expected realized  : ${(Number(expectedRealized) / 1e6).toFixed(6)} USDC`);
-  console.log(`→ pool float pre     : ${(Number(poolVaultBefore.amount) / 1e6).toFixed(6)} USDC\n`);
-  if (expectedRealized === 0n && MIN_REALIZED_USDC === 0n) {
+  console.log(`→ pool float pre     : ${(Number(poolVaultBefore.amount) / 1e6).toFixed(6)} USDC`);
+
+  // ─── Slippage floor (audit Wave 3) ──────────────────────────────────
+  // Default to a LIVE floor computed from the on-chain expected surplus,
+  // so the core `realized >= min_realized_usdc` guard actually bites.
+  // The operator can override or explicitly opt out via env.
+  const floor = computeHarvestFloor({
+    expectedRealized,
+    toleranceBps: SLIPPAGE_TOLERANCE_BPS,
+    override: MIN_REALIZED_OVERRIDE,
+  });
+  const MIN_REALIZED_USDC = floor.minRealizedUsdc;
+  console.log(
+    `→ min_realized       : ${(Number(MIN_REALIZED_USDC) / 1e6).toFixed(6)} USDC ` +
+      `(${floor.source}${floor.source === "computed" ? `, tol ${SLIPPAGE_TOLERANCE_BPS}bps` : ""})\n`,
+  );
+  if (floor.source === "disabled" || MIN_REALIZED_USDC === 0n) {
     console.log(
-      `⚠  Yield vault has no surplus and min_realized=0; harvest will short-circuit. ` +
-        `Set YIELD_PREFUND_USDC > 0 in seed-yield-deposit, or accept the no-op.`,
+      `⚠  Slippage guard is DISABLED (min_realized=0). ` +
+        `${expectedRealized === 0n ? "Yield vault has no surplus; harvest will short-circuit. " : ""}` +
+        `Unset YIELD_MIN_REALIZED to compute a live floor from the expected surplus.`,
     );
   }
 

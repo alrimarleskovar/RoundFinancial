@@ -72,14 +72,14 @@ pub mod roundfi_core {
     }
 
     pub fn deposit_idle_to_yield<'info>(
-        ctx: Context<'_, '_, '_, 'info, DepositIdleToYield<'info>>,
+        ctx: Context<'info, DepositIdleToYield<'info>>,
         args: DepositIdleToYieldArgs,
     ) -> Result<()> {
         instructions::deposit_idle_to_yield::handler(ctx, args)
     }
 
     pub fn harvest_yield<'info>(
-        ctx: Context<'_, '_, '_, 'info, HarvestYield<'info>>,
+        ctx: Context<'info, HarvestYield<'info>>,
         args: HarvestYieldArgs,
     ) -> Result<()> {
         instructions::harvest_yield::handler(ctx, args)
@@ -87,6 +87,17 @@ pub mod roundfi_core {
 
     pub fn settle_default(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<()> {
         instructions::settle_default::handler(ctx, args)
+    }
+
+    /// Permissionless cycle advance for a slot whose contemplated member
+    /// defaulted pre-contemplation (otherwise the pool locks — claim_payout
+    /// requires `!defaulted` but only it advances the cycle). No payout; the
+    /// forfeited pot stays in the float. See `instructions::skip_defaulted_payout`.
+    pub fn skip_defaulted_payout(
+        ctx: Context<SkipDefaultedPayout>,
+        args: SkipDefaultedPayoutArgs,
+    ) -> Result<()> {
+        instructions::skip_defaulted_payout::handler(ctx, args)
     }
 
     pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
@@ -131,11 +142,42 @@ pub mod roundfi_core {
         instructions::close_pool::handler(ctx)
     }
 
+    /// SEV-039: reclaim a finalized pool's per-member rent by closing one
+    /// Member PDA after the pool is Closed (decrements the live-member count
+    /// so `close_pool_vaults` knows when it's safe to close the Pool PDA).
+    /// See `instructions::close_member`.
+    pub fn close_member(ctx: Context<CloseMember>) -> Result<()> {
+        instructions::close_member::handler(ctx)
+    }
+
+    /// SEV-039 (final step): drain the four vaults' residual USDC to the
+    /// protocol treasury, close the four vault ATAs, and close the Pool PDA —
+    /// reclaiming all of that rent. Requires every Member PDA closed first
+    /// (`pool.members_joined == 0`). Ceremony: `close_pool` → `close_member`
+    /// × N → `close_pool_vaults`. See `instructions::close_pool_vaults`.
+    pub fn close_pool_vaults(ctx: Context<ClosePoolVaults>) -> Result<()> {
+        instructions::close_pool_vaults::handler(ctx)
+    }
+
     pub fn update_protocol_config(
         ctx: Context<UpdateProtocolConfig>,
         args: UpdateProtocolConfigArgs,
     ) -> Result<()> {
         instructions::update_protocol_config::handler(ctx, args)
+    }
+
+    /// One-shot rescue ix for `ProtocolConfig` accounts created under an
+    /// earlier (smaller) struct layout. Reallocates to the current
+    /// `ProtocolConfig::SIZE` with zero-init tail bytes + pays the rent
+    /// delta + writes `DEFAULT_LP_SHARE_BPS` (the only field where zero
+    /// would be the wrong default). Idempotent: a no-op if the account
+    /// is already at the target size. Authority is the on-chain
+    /// authority slot (validated via raw bytes — the struct doesn't
+    /// deserialize yet). Devnet-rescue scope; removed in a follow-up
+    /// wave once devnet is on the current layout. See the module
+    /// docstring for the field-by-field justification.
+    pub fn migrate_protocol_config(ctx: Context<MigrateProtocolConfig>) -> Result<()> {
+        instructions::migrate_protocol_config::handler(ctx)
     }
 
     /// Treasury rotation step 1/3 — stage a new treasury behind a
@@ -226,6 +268,18 @@ pub mod roundfi_core {
         ctx: Context<LockApprovedYieldAdapter>,
     ) -> Result<()> {
         instructions::lock_approved_yield_adapter::handler(ctx)
+    }
+
+    /// Confirm on-chain that `reputation_program` was initialised to
+    /// a real program (refuses to lock when it equals `Pubkey::default()`).
+    /// Authority-only, idempotent, one-way. Mainnet operators call this
+    /// immediately after `initialize_protocol` so the live deployment
+    /// can't silently run in the no-reputation skip-path mode.
+    /// Partner review MEDIUM #2 (2026-06-12).
+    pub fn lock_reputation_program(
+        ctx: Context<LockReputationProgram>,
+    ) -> Result<()> {
+        instructions::lock_reputation_program::handler(ctx)
     }
 
     pub fn pause(ctx: Context<Pause>, args: PauseArgs) -> Result<()> {

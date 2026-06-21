@@ -128,8 +128,11 @@ pub struct JoinPool<'info> {
 }
 
 pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
+    // v5.2 four-tier ladder: levels 1..=4 (L4 = Elite). The asserted
+    // level is verified against the ReputationProfile below; this is the
+    // cheap range guard before the PDA read.
     require!(
-        (1..=3).contains(&args.reputation_level),
+        (1..=4).contains(&args.reputation_level),
         RoundfiError::InvalidReputationLevel,
     );
     // ─── metadata_uri validation (audit hardening) ────────────────────
@@ -202,7 +205,7 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     // ─── Lock stake in escrow ───────────────────────────────────────────
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from:      ctx.accounts.member_usdc.to_account_info(),
                 to:        ctx.accounts.escrow_vault.to_account_info(),
@@ -331,8 +334,8 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
 //      first attestation in `contribute`.
 //   4. Otherwise the account owner must equal the reputation program,
 //      and the deserialized `profile.wallet` must match the joining
-//      wallet. Level is clamped to 1..=3 in case a future schema bump
-//      ever stores anything outside that band.
+//      wallet. Level is clamped to 1..=4 (v5.2 four-tier) in case a
+//      future schema bump ever stores anything outside that band.
 //
 // Backwards compat: if `config.reputation_program == Pubkey::default()`
 // (legacy pre-Step-4e devnet fixtures), falls back to level 1 without
@@ -390,5 +393,7 @@ fn derive_trusted_reputation_level(
         RoundfiError::ReputationProgramMismatch,
     );
 
-    Ok(profile.level.clamp(1, 3))
+    // v5.2 four-tier ladder — clamp to 1..=4 (L4 = Elite). Defends
+    // against a future schema bump storing anything outside the band.
+    Ok(profile.level.clamp(1, 4))
 }

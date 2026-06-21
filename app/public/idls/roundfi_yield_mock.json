@@ -1,0 +1,439 @@
+{
+  "address": "GPTMPgxexhwkhXNovnfrcSsmoWPUhedvKAQfTV2Ef5AQ",
+  "metadata": {
+    "name": "roundfi_yield_mock",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "RoundFi yield adapter (mock) — simulated APY for Devnet; interface-compatible with the Kamino adapter",
+    "repository": "https://github.com/alrimarleskovar/RoundFinancial"
+  },
+  "instructions": [
+    {
+      "name": "deposit",
+      "docs": [
+        "Receive `amount` tokens from `source` into our `vault`. The",
+        "SPL transfer is authorized by the pool PDA whose signature is",
+        "propagated from the parent `invoke_signed` in core."
+      ],
+      "discriminator": [
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Pool PDA; signer bit set by the parent program's `invoke_signed`.",
+            "against `state.pool` inside the handler."
+          ],
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  105,
+                  101,
+                  108,
+                  100,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "state.pool",
+                "account": "YieldVaultState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "harvest",
+      "docs": [
+        "Send `source.amount - tracked_principal` back to `destination`.",
+        "Principal stays in the vault; only the pre-funded surplus flows",
+        "out. The state PDA (vault authority) signs the transfer.",
+        "",
+        "`destination.owner` must equal the bound `pool` — prevents a",
+        "stray caller from routing yield to an arbitrary token account."
+      ],
+      "discriminator": [
+        228,
+        241,
+        31,
+        182,
+        53,
+        169,
+        59,
+        199
+      ],
+      "accounts": [
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "against `state.pool`."
+          ],
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  105,
+                  101,
+                  108,
+                  100,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "state.pool",
+                "account": "YieldVaultState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_vault",
+      "docs": [
+        "One-time setup per pool: allocate the state PDA and its",
+        "state-owned vault ATA. Must be called before any `deposit` /",
+        "`harvest` from `roundfi-core` targeting this pool."
+      ],
+      "discriminator": [
+        77,
+        79,
+        85,
+        150,
+        33,
+        217,
+        52,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Anchor does not deserialize pool state here; that is core's job."
+          ]
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  105,
+                  101,
+                  108,
+                  100,
+                  45,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "state"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "ping",
+      "discriminator": [
+        173,
+        0,
+        94,
+        236,
+        73,
+        133,
+        225,
+        153
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "YieldVaultState",
+      "discriminator": [
+        52,
+        125,
+        252,
+        137,
+        151,
+        157,
+        212,
+        70
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ZeroAmount",
+      "msg": "amount must be > 0"
+    },
+    {
+      "code": 6001,
+      "name": "Overflow",
+      "msg": "arithmetic overflow"
+    },
+    {
+      "code": 6002,
+      "name": "UnauthorizedPool",
+      "msg": "authority does not match bound pool"
+    },
+    {
+      "code": 6003,
+      "name": "VaultMismatch",
+      "msg": "vault account does not match state.vault"
+    },
+    {
+      "code": 6004,
+      "name": "MintMismatch",
+      "msg": "mint does not match state.underlying_mint"
+    },
+    {
+      "code": 6005,
+      "name": "DestinationNotPoolOwned",
+      "msg": "destination token account is not owned by the bound pool"
+    }
+  ],
+  "types": [
+    {
+      "name": "YieldVaultState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pubkey of the owning pool (from `roundfi-core`). Only this key,",
+              "acting as signer, may call `deposit` / `harvest` against us."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "underlying_mint",
+            "docs": [
+              "USDC mint (or whatever the pool settled on)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "docs": [
+              "Our own vault ATA (authority = this state PDA)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "tracked_principal",
+            "docs": [
+              "Sum of deposited principal. Reduced by harvest only if the",
+              "caller asks — not implemented in the minimum-viable mock, so",
+              "this monotonically increases."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

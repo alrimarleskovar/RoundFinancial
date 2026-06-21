@@ -19,8 +19,8 @@
  */
 
 import { expect } from "chai";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 // Direct sub-path imports (not the barrel) so legacy ts-node 7's
 // CommonJS resolver doesn't try to load the `.js`-suffixed re-exports
@@ -245,6 +245,7 @@ describe("Rust ↔ TS constants parity", () => {
       expect(Number(rust.get("STAKE_BPS_LEVEL_1"))).to.equal(STAKE_BPS_BY_LEVEL[1]);
       expect(Number(rust.get("STAKE_BPS_LEVEL_2"))).to.equal(STAKE_BPS_BY_LEVEL[2]);
       expect(Number(rust.get("STAKE_BPS_LEVEL_3"))).to.equal(STAKE_BPS_BY_LEVEL[3]);
+      expect(Number(rust.get("STAKE_BPS_LEVEL_4"))).to.equal(STAKE_BPS_BY_LEVEL[4]);
     });
 
     it("pool defaults match", () => {
@@ -264,7 +265,15 @@ describe("Rust ↔ TS constants parity", () => {
       expect(Number(rust.get("SCHEMA_PAYMENT"))).to.equal(ATTESTATION_SCHEMA.Payment);
       expect(Number(rust.get("SCHEMA_LATE"))).to.equal(ATTESTATION_SCHEMA.Late);
       expect(Number(rust.get("SCHEMA_DEFAULT"))).to.equal(ATTESTATION_SCHEMA.Default);
-      expect(Number(rust.get("SCHEMA_CYCLE_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.CycleComplete);
+      // Pass-3 rename. id=4 unchanged on disk. SDK exposes both
+      // PoolComplete (canonical) and CycleComplete (alias); Rust source
+      // exposes SCHEMA_POOL_COMPLETE as the literal. The legacy alias on
+      // the Rust side is `pub const SCHEMA_CYCLE_COMPLETE = SCHEMA_POOL_COMPLETE`
+      // (not a numeric literal), so `extractInt` doesn't see it — the
+      // alias parity is asserted via the SDK-level equality below.
+      expect(Number(rust.get("SCHEMA_POOL_COMPLETE"))).to.equal(ATTESTATION_SCHEMA.PoolComplete);
+      expect(ATTESTATION_SCHEMA.CycleComplete).to.equal(ATTESTATION_SCHEMA.PoolComplete);
+      expect(Number(rust.get("SCHEMA_PAYOUT_CLAIMED"))).to.equal(ATTESTATION_SCHEMA.PayoutClaimed);
       expect(Number(rust.get("SCHEMA_LEVEL_UP"))).to.equal(ATTESTATION_SCHEMA.LevelUp);
     });
   });
@@ -336,5 +345,52 @@ describe("Rust ↔ TS constants parity", () => {
         IDENTITY_STATUS as unknown as Record<string, number>,
       );
     });
+  });
+});
+
+// ─── ECO-001 reachability guard (cryptoeconomic audit 2026-05-24) ─────────
+// ECO-001 (netSolvency mis-measures cycle solvency — it credits no future
+// installments, only the immediate-liquidation frame) was downgraded
+// Critical → Medium on a REACHABILITY argument: `netSolvency` has ZERO
+// call-sites in `programs/`. It is a display/analysis metric in the TS
+// Stress Lab only — it gates NO on-chain instruction, transfer, seizure, or
+// guard, so the mis-definition can never move funds. This test pins that
+// argument so a future change can't silently wire the broken metric into
+// on-chain logic and quietly invalidate the downgrade.
+describe("ECO-001 reachability — netSolvency must not leak into programs/", () => {
+  const PROGRAMS_DIR = resolve(process.cwd(), "programs");
+  const NET_SOLVENCY_RE = /net[_]?[Ss]olvency/;
+
+  function rustFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Skip build artifacts and fuzz corpora — only first-party src.
+        if (entry.name === "target" || entry.name === "fuzz") continue;
+        out.push(...rustFiles(full));
+      } else if (entry.name.endsWith(".rs")) {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  it("no on-chain Rust source references netSolvency / net_solvency", () => {
+    const offenders: string[] = [];
+    for (const file of rustFiles(PROGRAMS_DIR)) {
+      readFileSync(file, "utf-8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (NET_SOLVENCY_RE.test(line)) {
+            offenders.push(`${file}:${i + 1}: ${line.trim()}`);
+          }
+        });
+    }
+    expect(
+      offenders,
+      `netSolvency is a display-only L1 metric (ECO-001 reachability argument). ` +
+        `Any on-chain reference breaks the Critical→Medium downgrade rationale.\n${offenders.join("\n")}`,
+    ).to.deep.equal([]);
   });
 });

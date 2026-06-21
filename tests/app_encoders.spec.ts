@@ -44,8 +44,12 @@
 
 import { expect } from "chai";
 import { createHash } from "node:crypto";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 
 // Direct sub-path imports (not the barrel) so legacy ts-node 7's
 // CommonJS resolver doesn't choke on the `.js`-suffixed re-exports
@@ -57,12 +61,14 @@ import {
   escrowVaultAuthorityPda,
   listingPda,
   memberPda,
+  positionAuthorityPda,
   protocolConfigPda,
   reputationProfilePda,
   solidarityVaultAuthorityPda,
 } from "@roundfi/sdk/pda";
 
 import { buildContributeIx } from "../app/src/lib/contribute";
+import { buildJoinPoolIx } from "../app/src/lib/join-pool";
 import { buildClaimPayoutIx } from "../app/src/lib/claim-payout";
 import { buildReleaseEscrowIx } from "../app/src/lib/release-escrow";
 import { buildEscapeValveListIx } from "../app/src/lib/escape-valve-list";
@@ -211,13 +217,16 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
       expect(key(ix, 0).isSigner).to.equal(true);
     });
 
-    it("uses SCHEMA_CYCLE_COMPLETE for the attestation PDA", () => {
+    it("uses SCHEMA_PAYOUT_CLAIMED for the attestation PDA (Pass-3 rename of CYCLE_COMPLETE)", () => {
+      // Pre-Pass-3 this was CycleComplete (schema=4); claim_payout now
+      // emits PayoutClaimed (schema=6, score-neutral). The PDA must be
+      // derived under the new schema id or the on-chain CPI will reject.
       const nonce = attestationNonce(2, 2);
       const [attestation] = attestationPda(
         REPUTATION,
         POOL,
         MEMBER,
-        ATTESTATION_SCHEMA.CycleComplete,
+        ATTESTATION_SCHEMA.PayoutClaimed,
         nonce,
       );
       expect(key(ix, 12).pubkey.toBase58()).to.equal(attestation.toBase58());
@@ -530,10 +539,101 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
     });
   });
 
+  describe("buildJoinPoolIx", () => {
+    const META_URI = "https://roundfi.app/positions/test.json";
+    const ix = buildJoinPoolIx({
+      pool: POOL,
+      memberWallet: MEMBER,
+      nftAsset: NFT_ASSET,
+      slotIndex: 1,
+      reputationLevel: 2,
+      metadataUri: META_URI,
+    });
+
+    it("uses sha256(global:join_pool)[:8] as discriminator", () => {
+      const expected = expectedDiscriminator("join_pool");
+      expect(ix.data.subarray(0, 8).toString("hex")).to.equal(expected.toString("hex"));
+    });
+
+    it("encodes [discriminator | slot u8 | level u8 | uri (u32 LE len + bytes)]", () => {
+      const uriBytes = Buffer.from(META_URI, "utf8");
+      expect(ix.data.length).to.equal(8 + 1 + 1 + 4 + uriBytes.length);
+      expect(ix.data[8]).to.equal(1); // slot_index
+      expect(ix.data[9]).to.equal(2); // reputation_level
+      expect(ix.data.readUInt32LE(10)).to.equal(uriBytes.length);
+      expect(ix.data.subarray(14).toString("utf8")).to.equal(META_URI);
+    });
+
+    it("targets the roundfi-core program", () => {
+      expect(ix.programId.toBase58()).to.equal(CORE.toBase58());
+    });
+
+    it("has 17 accounts in the program-mandated order", () => {
+      // Mirrors JoinPool<'info> in join_pool.rs.
+      expect(ix.keys.length).to.equal(17);
+    });
+
+    it("places the member wallet as signer at index 0", () => {
+      expect(key(ix, 0).pubkey.toBase58()).to.equal(MEMBER.toBase58());
+      expect(key(ix, 0).isSigner).to.equal(true);
+      expect(key(ix, 0).isWritable).to.equal(true);
+    });
+
+    it("places the fresh NFT asset as a co-signer at index 9", () => {
+      expect(key(ix, 9).pubkey.toBase58()).to.equal(NFT_ASSET.toBase58());
+      expect(key(ix, 9).isSigner).to.equal(true);
+      expect(key(ix, 9).isWritable).to.equal(true);
+    });
+
+    it("derives the canonical Member + ProtocolConfig PDAs", () => {
+      const [config] = protocolConfigPda(CORE);
+      const [member] = memberPda(CORE, POOL, MEMBER);
+      expect(key(ix, 1).pubkey.toBase58()).to.equal(config.toBase58());
+      expect(key(ix, 3).pubkey.toBase58()).to.equal(member.toBase58());
+    });
+
+    it("derives the Escrow vault authority + Position authority PDAs", () => {
+      const [escrowAuth] = escrowVaultAuthorityPda(CORE, POOL);
+      const [positionAuth] = positionAuthorityPda(CORE, POOL, 1);
+      expect(key(ix, 6).pubkey.toBase58()).to.equal(escrowAuth.toBase58());
+      expect(key(ix, 8).pubkey.toBase58()).to.equal(positionAuth.toBase58());
+    });
+
+    it("references mpl-core + reputation program + reputation Profile PDA", () => {
+      const [repProfile] = reputationProfilePda(REPUTATION, MEMBER);
+      expect(key(ix, 10).pubkey.toBase58()).to.equal(
+        "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
+      );
+      expect(key(ix, 11).pubkey.toBase58()).to.equal(REPUTATION.toBase58());
+      expect(key(ix, 12).pubkey.toBase58()).to.equal(repProfile.toBase58());
+    });
+
+    it("derives the member's USDC ATA at index 5", () => {
+      const memberUsdc = getAssociatedTokenAddressSync(USDC, MEMBER);
+      expect(key(ix, 5).pubkey.toBase58()).to.equal(memberUsdc.toBase58());
+    });
+
+    it("ends with Token, Associated-Token, System programs + Rent sysvar", () => {
+      expect(key(ix, 13).pubkey.toBase58()).to.equal(TOKEN_PROGRAM_ID.toBase58());
+      expect(key(ix, 14).pubkey.toBase58()).to.equal(ASSOCIATED_TOKEN_PROGRAM_ID.toBase58());
+      expect(key(ix, 15).pubkey.toBase58()).to.equal(SystemProgram.programId.toBase58());
+      expect(key(ix, 16).pubkey.toBase58()).to.equal(SYSVAR_RENT_PUBKEY.toBase58());
+    });
+  });
+
   describe("cross-encoder invariants", () => {
+    const META_URI = "https://roundfi.app/p.json";
     function allIxs() {
       return [
         buildContributeIx({ pool: POOL, memberWallet: MEMBER, cycle: 0 }),
+        buildJoinPoolIx({
+          pool: POOL,
+          memberWallet: MEMBER,
+          nftAsset: NFT_ASSET,
+          slotIndex: 0,
+          reputationLevel: 1,
+          metadataUri: META_URI,
+        }),
         buildClaimPayoutIx({ pool: POOL, memberWallet: MEMBER, cycle: 0, slotIndex: 0 }),
         buildReleaseEscrowIx({ pool: POOL, memberWallet: MEMBER, checkpoint: 1 }),
         buildEscapeValveListIx({ pool: POOL, sellerWallet: MEMBER, slotIndex: 0, priceUsdc: 1 }),
@@ -582,6 +682,14 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
       // shifts config to index 2.
       const configAtOne = [
         buildContributeIx({ pool: POOL, memberWallet: MEMBER, cycle: 0 }),
+        buildJoinPoolIx({
+          pool: POOL,
+          memberWallet: MEMBER,
+          nftAsset: NFT_ASSET,
+          slotIndex: 0,
+          reputationLevel: 1,
+          metadataUri: META_URI,
+        }),
         buildClaimPayoutIx({ pool: POOL, memberWallet: MEMBER, cycle: 0, slotIndex: 0 }),
         buildReleaseEscrowIx({ pool: POOL, memberWallet: MEMBER, checkpoint: 1 }),
         buildEscapeValveListIx({ pool: POOL, sellerWallet: MEMBER, slotIndex: 0, priceUsdc: 1 }),

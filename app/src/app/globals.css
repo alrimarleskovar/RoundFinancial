@@ -152,6 +152,13 @@ body {
   animation: rfi-gradient-flow 6s ease-in-out infinite;
 }
 
+/* Alias used by the home + /reputacao SAS passport bars: they tag the
+   gradient fill with `animate-gradient-x` for the same slow sweep. The
+   fill element must set background-size: 200% auto. */
+.animate-gradient-x {
+  animation: rfi-gradient-flow 6s ease-in-out infinite;
+}
+
 /* Wrapper-based glow for the WalletMultiButton instances on the
    landing. The lib's CSS resets sometimes drop animations set on
    the button itself, so the halo is driven from a wrapper element

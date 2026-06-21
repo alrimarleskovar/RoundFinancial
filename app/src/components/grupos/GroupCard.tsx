@@ -10,6 +10,7 @@ import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import type { CatalogGroup } from "@/lib/groups";
+import { liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -91,6 +92,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
     <div
       style={{
         ...glass,
+        border: "1px solid transparent",
         borderRadius: 18,
         padding: 18,
         position: "relative",
@@ -99,7 +101,9 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         flexDirection: "column",
         gap: 14,
         opacity: locked ? 0.72 : 1,
+        transition: "transform 180ms ease, border-color 180ms ease",
       }}
+      {...liftHover(tc)}
     >
       <div
         style={{
@@ -180,7 +184,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
         </div>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 12,
             color: tokens.muted,
             marginTop: 4,
             fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
@@ -296,10 +300,10 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
             fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
             boxShadow: `0 6px 18px ${tokens.purple}55`,
           }}
-          title="Você é o slot contemplado deste ciclo"
+          title={t("home.featured.claimTooltip")}
         >
           <Icons.ticket size={13} stroke={tokens.text} sw={2} />
-          Receber {fmtMoney(g.prize, { noCents: true })}
+          {t("home.featured.claimReceive")} {fmtMoney(g.prize, { noCents: true })}
         </button>
       ) : (
         <button
@@ -336,7 +340,7 @@ export function GroupCard({ g }: { g: CatalogGroup }) {
               : t("groups.card.cta.join")}
         </button>
       )}
-      <JoinGroupModal group={g} open={joinOpen} onClose={() => setJoinOpen(false)} />
+      {joinOpen && <JoinGroupModal group={g} open={joinOpen} onClose={() => setJoinOpen(false)} />}
       <GroupDetailsModal group={g} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
       {claimReadyDemo ? (
         <ClaimPayoutModal

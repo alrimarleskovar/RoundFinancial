@@ -173,7 +173,7 @@ pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
     // Sequential calls share peak depth instead of stacking.
 
     create_idempotent(CpiContext::new(
-        ctx.accounts.associated_token_program.to_account_info(),
+        ctx.accounts.associated_token_program.key(),
         Create {
             payer:             ctx.accounts.authority.to_account_info(),
             associated_token:  ctx.accounts.pool_usdc_vault.to_account_info(),
@@ -185,7 +185,7 @@ pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
     ))?;
 
     create_idempotent(CpiContext::new(
-        ctx.accounts.associated_token_program.to_account_info(),
+        ctx.accounts.associated_token_program.key(),
         Create {
             payer:             ctx.accounts.authority.to_account_info(),
             associated_token:  ctx.accounts.escrow_vault.to_account_info(),
@@ -197,7 +197,7 @@ pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
     ))?;
 
     create_idempotent(CpiContext::new(
-        ctx.accounts.associated_token_program.to_account_info(),
+        ctx.accounts.associated_token_program.key(),
         Create {
             payer:             ctx.accounts.authority.to_account_info(),
             associated_token:  ctx.accounts.solidarity_vault.to_account_info(),
@@ -209,7 +209,7 @@ pub fn handler(ctx: Context<InitPoolVaults>) -> Result<()> {
     ))?;
 
     create_idempotent(CpiContext::new(
-        ctx.accounts.associated_token_program.to_account_info(),
+        ctx.accounts.associated_token_program.key(),
         Create {
             payer:             ctx.accounts.authority.to_account_info(),
             associated_token:  ctx.accounts.yield_vault.to_account_info(),

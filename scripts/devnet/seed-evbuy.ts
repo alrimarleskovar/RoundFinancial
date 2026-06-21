@@ -21,7 +21,7 @@
  *   POOL_SEED_ID         (default 1)
  *   EVBUY_SLOT_INDEX     (default 1 — must match the listing's slot)
  *
- * Manual ix encoding (Anchor IDL gen still blocked).
+ * Manual ix encoding (IDL-free by design — ADR 0002; hand-rolled, not blocked).
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

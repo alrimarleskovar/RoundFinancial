@@ -100,26 +100,38 @@ export interface ActiveListing {
 
 const SLASHING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-// SAS reputation tiers. Score thresholds match the demo fixtures —
-// lvl 2 is "Comprovado" at 500+, lvl 3 is "Veterano" at 750+. Each
-// tier also drives the collateral % + leverage multiplier shown on
-// the home KPI ("seu colat. ativo · 3.3x leverage"); the LEVELS data
-// fixture mirrors these for the /reputacao ladder copy.
+// SAS reputation tiers — v5.2 four-level ladder (Iniciante / Comprovado /
+// Veterano / Elite) with the 50 / 25 / 10 / 3 % collateral ladder.
+//
+// ⚠️ PRE-REDEPLOY: the DEPLOYED roundfi-core still uses the 3-level
+// 50/30/10 ladder (STAKE_BPS_LEVEL_2 = 3000, LEVEL_MAX = 3). This UI
+// anticipates the v5.2 4-tier ladder decided in
+// `mobile/docs/reputation-v2/06-team-decisions.md` (decisão 2) BEFORE
+// the on-chain change ships. Until the protocol is redeployed with
+// STAKE_BPS_LEVEL_2 = 2500 + a LEVEL_4 = 300 tier, the % shown here for
+// L2 (25%) and the L4 Elite tier do not yet match the stake the program
+// actually snapshots at join_pool. Keep this comment until the redeploy
+// lands and reconcile then.
+//
+// Score thresholds are demo-fixture values (0–1000). The collateral % +
+// leverage multiplier feed the home KPI; the LEVELS fixture in
+// `data/score.ts` mirrors these for the /reputacao ladder copy.
 const LEVEL_TABLE: ReadonlyArray<{
   min: number;
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   label: string;
   next: number;
   colat: number;
   lev: number;
 }> = [
   { min: 0, level: 1, label: "Iniciante", next: 500, colat: 50, lev: 2 },
-  { min: 500, level: 2, label: "Comprovado", next: 750, colat: 30, lev: 3.3 },
-  { min: 750, level: 3, label: "Veterano", next: 999, colat: 10, lev: 10 },
+  { min: 500, level: 2, label: "Comprovado", next: 750, colat: 25, lev: 4 },
+  { min: 750, level: 3, label: "Veterano", next: 950, colat: 10, lev: 10 },
+  { min: 950, level: 4, label: "Elite", next: 999, colat: 3, lev: 33 },
 ];
 
 function computeLevel(score: number): {
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4;
   label: string;
   next: number;
   colat: number;

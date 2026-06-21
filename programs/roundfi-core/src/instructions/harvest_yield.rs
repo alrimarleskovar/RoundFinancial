@@ -161,7 +161,7 @@ pub struct HarvestYield<'info> {
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, '_, 'info, HarvestYield<'info>>,
+    ctx: Context<'info, HarvestYield<'info>>,
     args: HarvestYieldArgs,
 ) -> Result<()> {
     // Adevar Labs SEV-003 fix: `lp_share_bps` is no longer caller-
@@ -295,7 +295,7 @@ pub fn handler<'info>(
     if w.protocol_fee > 0 {
         token::transfer(
             CpiContext::new_with_signer(
-                token_program_info.clone(),
+                token_program_info.key(),
                 Transfer {
                     from:      pool_vault_info.clone(),
                     to:        ctx.accounts.treasury_usdc.to_account_info(),

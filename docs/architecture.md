@@ -1,9 +1,11 @@
 # RoundFi — Architecture Specification
 
+> ⚠️ **Superseded as the canonical reference (2026-06-12).** The single source of truth is now **[`docs/spec/MASTER-SPEC.md`](spec/MASTER-SPEC.md)**, reflecting the post-v5.2 / four-tier / Pass-3 protocol validated end-to-end on devnet. This document (last substantively revised 2026-04-22) is retained as a **deeper-dive companion** on specific subsystems; where it disagrees with the Master Spec, the Master Spec wins. The version/status line below is historical.
+
 **Version:** 0.5 (2026-04-22 — Step 4f: narrative alignment + `get_profile` read path + stress-test script)
 **Status:** Implementation in progress — Step 4f (pre-Step-5)
 
-This document is the single source of truth for RoundFi's on-chain and off-chain architecture. Every subsequent implementation step must conform to what is written here, or amend this document first.
+This document is a detailed architecture companion to the [Master Spec](spec/MASTER-SPEC.md). It predates the v5.2 reputation rework (four-tier ladder, Pass-3 attestation taxonomy, identity hard floor) — consult the Master Spec for those.
 
 > **Pitch alignment.** For the authoritative mapping between product-narrative claims and on-chain behavior (shield names, solvency framing, the "up to 10× capital advancement" wording, roadmap vs. shipped product), see [pitch-alignment.md](./pitch-alignment.md). For the yield waterfall + Guarantee Fund deep-dive, see [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md).
 >
@@ -17,7 +19,7 @@ This document is the single source of truth for RoundFi's on-chain and off-chain
 
 - Production-ready, hackathon-grade protocol on **Solana Devnet** with a clean **Mainnet migration path**.
 - Enforce all product invariants (Triple Shield, 50-30-10 ladder, seed draw 91.6%, 1% solidarity, yield waterfall) directly on-chain — off-chain services may read/present, never gate.
-- **Losses are bounded and the protocol remains solvent by construction.** The D/C invariant (per-member, in `settle_default`) and the Seed-Draw invariant (per-pool, in `claim_payout`) together bound per-transaction loss to the defaulter's own posted collateral, and guarantee the pool retains ≥91.6% of max-month-1 collections at cycle 0. No profit claim is made under stress; solvency is the claim.
+- **Losses are bounded by construction.** The D/C invariant (per-member, in `settle_default`) and the Seed-Draw invariant (per-pool, in `claim_payout`) together bound per-transaction loss to the defaulter's own posted collateral, and guarantee the pool retains ≥91.6% of max-month-1 collections at cycle 0 — no single transaction can drive the protocol underwater. **Terminal economic surplus, however, is yield-backed, NOT "by construction at 0% yield"** (cryptoeconomic audit 2026-05-24, ECO-005): executed `runSimulation` shows a healthy pool closing +$2,756 at 6.5% Kamino APY but exactly $0 at 0% yield (the ROSCA is zero-sum by design), and the 12.5%-default stress staying solvent only with yield. The precise claim: **loss-bounded by construction; surplus yield-backed.** No profit claim is made under stress.
 - Abstract volatile dependencies (**SAS**, **Kamino**) behind stable program interfaces so they can be swapped without changing the core contract.
 - Every account address is a deterministic PDA → SDK and indexer work without on-chain account discovery heuristics.
 
@@ -171,8 +173,8 @@ pub struct Member {
     pub wallet:              Pubkey,
     pub nft_asset:           Pubkey,   // Metaplex Core asset
     pub slot_index:          u8,       // 0..members_target-1 → determines payout cycle
-    pub reputation_level:    u8,       // 1 | 2 | 3 (snapshot at join)
-    pub stake_bps:           u16,      // 5000 | 3000 | 1000
+    pub reputation_level:    u8,       // 1 | 2 | 3 | 4 (snapshot at join)
+    pub stake_bps:           u16,      // 5000 | 2500 | 1000 | 300
     pub stake_deposited:     u64,
     pub contributions_paid:  u8,
     pub total_contributed:   u64,
@@ -185,6 +187,8 @@ pub struct Member {
     pub bump:                u8,
 }
 ```
+
+> **v5.2 four-tier ladder (implemented).** The reputation ladder is now **4 tiers** — stakes `5000 | 2500 | 1000 | 300` bps (L2 dropped 30% → 25%, new L4 Elite at 3%). `roundfi-core` enforces `1..=4` / `stake_bps_for_level`, and `roundfi-reputation` resolves L4 via `LEVEL_4_THRESHOLD = 5000` + `LEVEL_4_MIN_CYCLES = 8`. **The on-chain L4 gate is score+cycles (v1-provisional)** — the proposal's metric-based Elite criteria (Reliability≥94 / Punctuality≥88 / Commitment≥90 / 0 BadFaith) live off-chain in the indexer and will harden this gate in a future upgrade once the weights calibrate. **Requires a program redeploy** to take effect on devnet/mainnet; existing members keep their join-time stake snapshot. See §4.7.
 
 ### 3.4 `ReputationProfile` (program: `roundfi-reputation`)
 
@@ -208,6 +212,8 @@ pub struct ReputationProfile {
 ```
 
 Step 4d extends this struct with `total_participated` and `last_cycle_complete_at`. Absence of a profile is treated as score=0, level=1 (default unverified).
+
+> **v5.2 direction.** Under the approved Hybrid path (§4.7) this struct is **preserved as-is** — `level` extends to `1..=4` only when the implementation lands, and the rich per-event history arrives as an **additive** `BehavioralEvent` account type (separate PDA), not as a layout change here. No migration of existing profiles is required.
 
 ### 3.5 `Attestation` (program: `roundfi-reputation`)
 
@@ -295,7 +301,9 @@ pub struct YieldVaultState {
 - `-100` per `Late`
 - `-500` per `Default`
 - Saturating, no underflow below 0.
-- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`. Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score.
+- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`, `L4 = 5_000` (v5.2 Elite). Cycles floors: L2≥1, L3≥3, L4≥8 completed cycles (SEV-047 anti-farming). Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score AND whose cycles floor is met.
+
+> **v5.2 direction.** Under the approved Hybrid path (§4.7), the user-facing score migrates to an **off-chain computation in the indexer** with provisional v1-style weights, calibrated against real cycle data before any weight set is published as canonical. The on-chain score + thresholds above remain authoritative for the deployed program (stake-bps snapshot at `join_pool`) until that implementation lands.
 
 ### 4.3 `yield-adapter` interface (shared by mock + kamino)
 
@@ -378,6 +386,8 @@ The product narrative refers to a "Triple Shield" security architecture. The can
 | **Shield 2** | **Escrow Adaptativo + Stake**                       | Activates at every contemplation from cycle 2 onward | Reputation-tier-driven payout/escrow split + stake floor (Lv1 50/50/50/5m, Lv2 30/45/55/4m, Lv3 10/35/65/3m for stake/payout/escrow/release)                        | `LEVEL_PARAMS` in stress-lab + `member.escrow_balance` / `member.stake_deposited` |
 | **Shield 3** | **Cofre Solidário + Cascata de Yield**              | Accrues continuously across the pool's life          | 1% of every paid installment → segregated **Solidarity Vault** + Kamino yield waterfall (admin fee → Guarantee Fund cap 150% × credit → 65% LPs → 35% participants) | `solidarity_vault` PDA + `harvest_yield.rs` waterfall                             |
 
+> **v5.2 direction.** Shield 2's tier table extends to **4 levels** under the approved Hybrid path (Lv2 stake 30% → 25%; new Lv4 Elite at 3%). The Lv4 escrow/payout/release parameters are **not yet specified** — they get designed alongside the implementation. Deployed `LEVEL_PARAMS` remains 3-tier until then. See §4.7.
+
 **On-chain seizure order — implementation note.** When a default occurs, `settle_default.rs` draws capital in a _different_ order than the Shield build sequence above: solidarity vault first → escrow second → stake third, capped by the **D/C invariant** (`D_rem × C_init ≤ C_after × D_init`). This recovery sequence is orthogonal to the structural narrative; pitch / public-facing copy should always use the Shield 1 → 2 → 3 build order from the table above. The seizure order matters only for technical / due-diligence audiences.
 
 **Cascade flow when a default fires:**
@@ -412,7 +422,7 @@ flowchart TB
 
 All 4 firing paths shown were **captured live on devnet** during M3 testing — see [`docs/devnet-deployment.md`](./devnet-deployment.md) for the Pool 3 default exercise that fired Shield 1 only (D/C invariant held at first cascade step) and the cumulative `WaterfallUnderflow ×2` + `EscrowLocked` guards observed during the multi-cycle stress runs.
 
-**Framing in narrative.** "Losses are bounded and the protocol remains solvent by construction" is the only solvency claim approved for v1. The **"10× leverage"** wording is canonical (per the whitepaper + B2B plan): a Veteran deposits 10% of the credit and accesses 100% of it — `MAX_BPS / STAKE_BPS_LEVEL_3 = 10`. This is _not_ leveraged lending in the DeFi margin/liquidation sense (the member also commits to N-1 future installments), but the headline ratio is real and matches the pitch. The "Serasa da Web3 / on-chain behavior oracle" framing is the central thesis (per the [B2B plan](pt/plano-b2b.pdf)), with the ROSCA acting as the data-acquisition engine.
+**Framing in narrative.** "Losses are bounded by construction; surplus is yield-backed" is the only solvency claim approved for v1 (revised post cryptoeconomic audit 2026-05-24 — the older "solvent by construction at 0% yield" overclaimed; the ROSCA is zero-sum without yield, see ECO-005 in `docs/security/internal-audit-findings.md`). The **"10× leverage"** wording is canonical (per the whitepaper + B2B plan): a Veteran deposits 10% of the credit and accesses 100% of it — `MAX_BPS / STAKE_BPS_LEVEL_3 = 10`. This is _not_ leveraged lending in the DeFi margin/liquidation sense (the member also commits to N-1 future installments), but the headline ratio is real and matches the pitch. The "Serasa da Web3 / on-chain behavior oracle" framing is the central thesis (per the [B2B plan](pt/plano-b2b.pdf)), with the ROSCA acting as the data-acquisition engine.
 
 See [pitch-alignment.md](./pitch-alignment.md) §3 for the full Triple Shield narrative + script, and [yield-and-guarantee-fund.md](./yield-and-guarantee-fund.md) for the yield-waterfall explainer.
 
@@ -556,6 +566,135 @@ The reputation program:
 #### 4.6.4 Non-breaking guarantee
 
 Step 4d does NOT alter any instruction in `roundfi-core`'s storage layout. The existing `join_pool` still reads `ReputationProfile` for the stake-bps snapshot; the new identity record is an **optional** side-car that `join_pool` continues to ignore. If the reputation program is not yet deployed, `join_pool` treats `level = 1` (the same behavior it has today).
+
+### 4.7 Reputation v5.2 — Hybrid path (approved direction, 2026-06-09)
+
+> **Status: approved by team, NOT implemented.** Everything in §3.3, §3.4, §4.2 and §4.5.0 above describes the **deployed** program (3 tiers, on-chain score arithmetic). This section records the approved forward direction so the SSOT and the implementation never diverge silently. Source documents + full decision log: `mobile/docs/reputation-v2/` (proposal, spec, risk review, pending decisions, team decisions).
+
+#### 4.7.1 The decision — Hybrid, not v1-forever and not full v5.2
+
+The v5.2 proposal separates two questions that the original plan conflated:
+
+1. **"What data schema should we store on-chain?"** — answerable today with certainty.
+2. **"What weights should the score use?"** — only answerable with real cycle data.
+
+The Hybrid path answers them independently:
+
+- **On-chain (decided):** record the rich per-event data — `delta_seconds`, deterministic classification, group context — that the full v5.2 metrics (`reliability`, `punctuality`, `commitment`, `recovery`) will eventually consume. **Implementation correction (2026-06-11):** the proposal assumed a greenfield `BehavioralEvent` account with batched PDAs. A code review found this is unnecessary — the deployed program **already** stores one immutable, idempotent `Attestation` PDA per scoring event (`[b"attestation", issuer, subject, schema_id, nonce]`, `nonce = (cycle << 32) | slot_index`), and that account already carries a **96-byte `payload` field that `roundfi-core` currently writes as all zeros**. So the rich data lands by populating that reserved payload, not by adding an account. This is strictly smaller and lower-risk: no new account type, no batched-`Vec` sizing problem (one PDA per event already exists), no migration (legacy attestations keep their zero payload, which decodes to "no rich data"), and zero change to `ReputationProfile` or any `roundfi-core` account layout. The canonical 96-byte codec lives in `roundfi-reputation::state::behavioral_payload` (versioned, byte 0); `roundfi-core` imports it to write at each emit site; the indexer decodes it.
+- **Score (provisional, off-chain):** the user-facing score is computed by the **indexer** with simple v1-style weights and served over HTTP, explicitly versioned (`formula_versao: "v1-provisional"`). Weights get calibrated against real cycle data before any weight set is published as canonical — publishing v5.2's weights today would punish the first users with arbitrary numbers (and the proposal's `reliability()` / `punctuality()` reference implementations carry known bugs that must be fixed before those functions ever run).
+- **Ladder (decided): 4 tiers.** L1 Iniciante 50% · L2 Comprovado 25% · L3 Veterano 10% · L4 Elite 3% stake. L2 changes from the deployed 30%.
+
+#### 4.7.2 What ships in the canary vs what does NOT
+
+| In canary scope                                                              | Explicitly NOT in canary                                    |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Rich `Attestation.payload` (96-byte codec — reuses existing PDA)             | `query_score` CPI / Score Reader Program                    |
+| Indexer derives `EventClassification` deterministically from `delta_seconds` | `FrictionProof` on-chain verification                       |
+| Off-chain score endpoint (indexer HTTP, v1-provisional weights)              | `ORACLE_WHITELIST` / Switchboard feeds / governance program |
+| 4-tier surface in app + mobile (UI labels/colors)                            | `BadFaith` category in scoring                              |
+| Institutional docs updated for 50/25/10/3                                    | v5.2 weight publication (`reliability` et al. as canonical) |
+
+**B2B consequence, stated honestly:** without `query_score` CPI, the "any third party recomputes the score on-chain" property of full v5.2 is **not** a canary deliverable. Partners consume an HTTP endpoint with explicit provisional-formula versioning. The CPI oracle is the post-calibration milestone.
+
+#### 4.7.3 Open decisions (deferred, with rationale)
+
+- **Decisão 3 — Switchboard oracle (`ORACLE_WHITELIST`):** deferred. Nothing in the Hybrid canary consumes it (FrictionProof is out of scope). Required before any upgrade past v1-provisional weights.
+- **Decisão 4 — BadFaith attester:** deferred. v1-provisional weights have no BadFaith bucket; governance design is post-canary.
+- **Decisão 5 — upgrade vs redeploy of `roundfi-reputation`:** implementer's call, and now **clearly an upgrade** — the payload-reuse approach changes no account layout at all (the 96-byte `payload` already exists on `Attestation`; we only change the bytes core writes into it). Existing account layouts survive, Solscan evidence stays linked. Bundle a redeploy only if other refactors justify it.
+
+#### 4.7.4 Implementation sequencing (each step gates the next)
+
+Revised 2026-06-11 after the "reuse the existing payload" correction above
+(no greenfield account, no batched PDAs).
+
+1. ~~Amend this document~~ ← this section.
+2. ~~**Phase A — payload codec.** Canonical 96-byte `BehavioralPayload` in `roundfi-reputation::state::behavioral_payload` — versioned (byte 0), `encode`/`decode`, classification hints, `delta_seconds` derived in one place. Pure, exhaustively unit-tested, **zero on-chain behavior change** (core still writes zeros until Phase B). Decode of a legacy zero payload returns `None`.~~ **done.**
+3. ~~**Phase B — core writes it.** Replace `EMPTY_PAYLOAD` at the three emit sites (`contribute`, `settle_default`, `claim_payout` cycle-complete) with `BehavioralPayload::new(...).encode()`, computing `due_ts` / `paid_ts` / `delta` / `amount` / `group_size` from data already in scope. Integration-tested (`reputation_cpi.spec.ts`, localnet — the CI bankrun lane is SEV-012-blocked; assertion via `anchor test`). The production crank already sequences settle→attest in one tx (the attest CPI is inside `settle_default`), so the "atomic settle→record" requirement is met by construction — the payload rides the same CPI.~~ **done (PR #455).**
+4. **Phase C — codec on the read side.** Three sub-steps, ordered so each is independently shippable:
+   - ~~**C.1** SDK TS decoder mirroring `BehavioralPayload` — version dispatch lives here. Parity-tested byte-for-byte against the Rust source of truth (`tests/behavioral_payload_parity.spec.ts`).~~ **done (PR #456).**
+   - **C.2** Decode + derive primitives (the indexer is authoritative — the on-chain `classification` byte is a hint):
+     - ~~**C.2a** SDK `decodeAttestationRaw` (IDL-free Attestation account decoder, surfaces raw + structured `BehavioralPayload` + the `(cycle, slotIndex)` nonce split) + indexer `deriveEventClassification` (re-derives the timing sub-class from `delta_seconds` with the grace-window refinement the byte doesn't carry). Both pure + unit-tested.~~ **done (PR #457).**
+     - ~~**C.2b** Wire the decoders into ingest/backfill: read Attestation accounts via `getProgramAccounts`, persist `payload` + the derived `EventClassification` (schema migration adds the structured columns).~~ **done.** `backfillAttestations` scans every `Attestation` PDA under `ROUNDFI_REPUTATION_PROGRAM_ID` (opt-in env; unset = skip), decodes via `decodeAttestationRaw`, derives the classification, resolves the optional Member FK `(issuer→pool, subject→wallet)`, and upserts the structured row. Migration `attestation_behavioral_payload` adds `payloadVersion / classification / cycle / slotIndex / groupSize / parcelsPaid / deltaSeconds / amount / issuedAt / revoked` (+ `txSignature` nullable for account-scan rows). The pure mapper `attestationToRowFields` is CI-gated (`test:attestation-row`); the DB round-trip is operator-run (needs Postgres, same posture as `insights.spec.ts`). **← this PR.**
+   - **C.3** Off-chain reputation metrics + score endpoint. **Direction (founder + tech-lead, 2026-06-12): faithful to the v5.2 _proposal_ model** (`mobile/docs/reputation-v2/01-proposal.md` §6, §8) rather than the deliberately-simpler single-score the Hybrid note first sketched — the proposal's published taxonomy + metric formulas are the spec, and they are computable from the C.2b data today.
+     - ~~**C.3.1** Refine `EventClassification` to the proposal taxonomy (`payment_early / payment_on_time / friction_temporal / late_behavioral / temporary_incapacity / default / cycle_complete`) with the published boundaries (6h / 2d / 7d); add the published reliability weights (`weightOf`). `friction_operational` (needs FrictionProof) and `bad_faith` (needs governance) + the derived `recovery` event stay deferred per `06-team-decisions.md` (decisões 3 & 4). **C.3.2** Implement `reliability()` + `punctuality()` as pure functions with the proposal's two mandatory bug-fixes (div-by-zero guard + 0..100 clamp; fold-preserved count), exact-value tested against the proposal's published vectors. Both CI-gated (`test:reputation-metrics`, `test:behavioral-classification`).~~ **← this PR.** `commitment` + `recovery` deferred (need the identity-layer pool counts / the derived recovery event).
+     - ~~**C.3.3** HTTP endpoint on the indexer: load a subject's attestations, compute `reliability` + `punctuality`, return JSON tagged `formula_versao: "v1-provisional"`.~~ **done (← this PR).** `GET /score/:subject` (base58-validated) returns `{ reliability, punctuality, commitment: null, recovery: null, pending: [...], event_count, classification_counts, polarity_counts }`. A wallet with no attestations returns the honest fresh default (reliability 0, punctuality 80) — "no history" is a queryable state, not a 404. **Weights are NOT published as canonical** — calibrated against a real dataset before any set is canonical (`06-team-decisions.md`, decisão 1). The Fastify handler is CI-gated end-to-end via `app.inject` + a stub Prisma (`test:score-route`, `test:reputation-score`); only the real Postgres `findMany` is operator-run.
+5. App + mobile: 4-tier surface (gated behind upstream completion — see `mobile/docs/reputation-v2/06-team-decisions.md`, "Caminho 2").
+
+#### 4.7.5 Two reputations — operational vs analytical (read THIS before talking to partners)
+
+Security review (Caio MEDIUM #2, 2026-06-12): a partner reading the code without context can reasonably ask "which is _the_ score?" There are two surfaces and they are NOT the same thing.
+
+| Surface                  | What it is                                                                                                          | Where it lives                                 | Authoritative for                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **On-chain reputation**  | `score` (u64, integer SCORE_PAYMENT/LATE/DEFAULT/CYCLE_COMPLETE deltas) + `level` (1..=4) + `cycles_completed`      | `ReputationProfile` PDA (`roundfi-reputation`) | **Operational gates.** `join_pool` snapshots `stake_bps` against this level; promotions, identity caps, anti-farming cooldowns all read this. Determines whether a member can join an L2/L3/L4 pool.                           |
+| **Off-chain reputation** | `reliability` + `punctuality` (0..100 each, proposal v5.2 formulas with v1-provisional weights) + per-class tallies | `GET /score/:subject` (indexer HTTP)           | **Analytical / explainability.** Public score endpoint for partners + admin UI. Tagged `formula_versao: "v1-provisional"` — weights are NOT canonical; calibrated against real cycle data before any set is published as such. |
+
+**Rules of thumb:**
+
+- On-chain says "can this wallet act?" Off-chain says "should this wallet be trusted?"
+- A partner asking "what tier does this member get?" → on-chain answer.
+- A partner asking "how reliable is this member historically?" → off-chain answer.
+- The two never disagree by construction (off-chain is computed from attestations the on-chain program mints), but they answer different questions.
+- `commitment` + `recovery` are **off-chain only** and currently return `null` + a `pending` list. They are not stubs returning zero; they are explicitly "not computed yet."
+
+This split is by design (`mobile/docs/reputation-v2/06-team-decisions.md` decisão 1, the Hybrid path). It will be reconciled if/when the `query_score` CPI ships post-canary — see §4.7.3.
+
+#### 4.7.6 Pass-3 corrective rename — `claim_payout` ≠ `cycle_complete`
+
+Security review 2026-06-12 (Caio HIGH). The pre-Pass-3 schema conflated two distinct events:
+
+| Pre-Pass-3 (broken)     | Emit site      | Score Δ | `cycles_completed`++ |
+| ----------------------- | -------------- | ------: | -------------------- |
+| `SCHEMA_CYCLE_COMPLETE` | `claim_payout` |     +50 | yes                  |
+
+Reading the name, a partner expected "completed a cycle of obligations." The on-chain reality was "received the carta" — slot-0 members got the +50 reward and the gate-relevant `cycles_completed` bump the moment they received funds, before any post-payout installment was kept. The protocol's central thesis ("pay AFTER receiving") was effectively unmeasured by the on-chain reputation surface.
+
+Pass-3 splits the two signals:
+
+| Pass-3 (corrected)                     | Emit site                                                  | Score Δ | `cycles_completed`++ |
+| -------------------------------------- | ---------------------------------------------------------- | ------: | -------------------- |
+| `SCHEMA_PAYOUT_CLAIMED` (id 6, NEW)    | `claim_payout`                                             |   **0** | **no**               |
+| `SCHEMA_POOL_COMPLETE` (id 4, RENAMED) | `contribute` when `contributions_paid + 1 == cycles_total` |     +50 | yes                  |
+
+**Implications:**
+
+- `cycles_completed` now counts **pools the subject finished paying through end-to-end**, not payouts received. The SEV-047 anti-farming gate (`LEVEL_N_MIN_CYCLES`) becomes substantially stronger: each unit is now a ~6-month commitment (24 cycles × ≥7-day `MIN_CYCLE_DURATION`).
+- `MIN_CYCLE_COOLDOWN_SECS` renamed to `MIN_POOL_COMPLETE_COOLDOWN_SECS` and raised from 6 days to **30 days**. Honest pools complete at ≥6-month cadence, so the floor catches sybils without rejecting any legitimate event.
+- The `Attestation` PDA at `(issuer, subject, schema_id=4, nonce)` still derives the same address. The semantic of byte 5 in the payload was bumped in version (v1 → v2). Legacy v1 attestations on devnet keep their old meaning forever — `BehavioralPayload.version` is the version-dispatch key in `decodeBehavioralPayload` + the indexer's `deriveEventClassification`.
+- The deployed `ReputationProfile.last_cycle_complete_at` field retains its name on disk for Borsh-layout compatibility; its semantic is now "last time the subject completed a pool" (the cooldown anchor).
+- `PAYOUT_CLAIMED` lands on `total_participated` only; it's a pure audit-trail signal so the indexer can show "drawn this cycle" without polluting the commitment metric.
+
+**Out of scope (deliberate):** retroactive correction of `cycles_completed` on existing devnet profiles. Counters under the old semantics stay inflated; the new emit sites take over for events ingested after the redeploy. No migration ix.
+
+**Cutover sequence:**
+
+1. `anchor build` + `anchor deploy` updates the program binaries.
+2. The SDK (`@roundfi/sdk`) ships `ATTESTATION_SCHEMA.PoolComplete` (id 4) and `ATTESTATION_SCHEMA.PayoutClaimed` (id 6); the `CycleComplete` alias is kept for one deprecation cycle.
+3. The indexer's `deriveEventClassification` dispatches on `BehavioralPayload.version` — old v1 attestations still classify as `payout_claimed` (the old +50/cycles_completed signal is discarded by the new score arithmetic; this preserves the audit trail without rewarding past payouts).
+
+#### 4.7.7 Communication impact (for the institutional-doc owners)
+
+- The **"10× leverage"** headline (`MAX_BPS / STAKE_BPS_LEVEL_3 = 10`) survives — L3 stays at 10%. But L4 Elite at 3% implies **~33×**; whether that becomes a new headline or stays understated is a whitepaper/pitch decision, not an engineering one. Flagging so it's chosen deliberately.
+- Four documents pin the 50-30-10 ladder and must be updated by their owners before the 4-tier ladder is public-facing: technical whitepaper, behavioral-reputation-score doc, user guide (all PDFs under `docs/en/`), plus any marketing copy. `README.md` and `docs/pitch-alignment.md` carry forward-pointer notes as of this amendment.
+- Related issues: [#450](https://github.com/alrimarleskovar/roundfinancial/issues/450) (VOLUNTARY_EXIT ≠ DEFAULT satisfied by construction — canary sign-off), [#451](https://github.com/alrimarleskovar/roundfinancial/issues/451) (dead `EscapeValveLeavingDefault` enum cleanup).
+
+#### 4.7.8 Identity gate on the top tiers (security review Caio MEDIUM #1)
+
+`IdentityGateConfig` (SEV-047) + `cap_level_for_identity` can require a verified `IdentityRecord` to reach level ≥ N. The on-chain **default is `required_min_level = 0` (gate OFF)** — deliberate for devnet/canary, where testers promote without KYC.
+
+**Mainnet policy:** L4 Elite (3% stake, ~33× leverage) is the thinnest collateral in the protocol and must NOT be reachable on a purely score-based gate. Before the mainnet canary, the operator runs `set_identity_gate(required_min_level)` with a value in `2..=4` (recommend **4** — "only L4 needs identity", the least restrictive that satisfies the review). This is now a **deploy-time invariant**, enforced by `mainnet-hardening-check.ts` BLOCKER 13: on mainnet the check reads the `["identity-gate"]` PDA on the reputation program and fails the pre-flight if `required_min_level == 0`. Devnet downgrades it to a WARNING. Hardening the on-chain _default_ (rather than the deploy gate) is deferred — it would break the permissionless devnet promotion flow the canary relies on.
+
+#### 4.7.9 Wallet reputation vs position state (security review Caio MEDIUM #3)
+
+`escape_valve_buy` transfers a `Member` PDA to a new wallet with the seller's snapshotted state (`reputation_level`, `stake_bps`, `contributions_paid`, `on_time_count`, `late_count`, `paid_out`, `escrow_balance`). This raises a fair question: "is reputation the wallet's or the position's?" The answer is **both, split cleanly by account:**
+
+| Carried by the POSITION (`Member` PDA, pool-scoped)               | Stays with the WALLET (`ReputationProfile` PDA, global) |
+| ----------------------------------------------------------------- | ------------------------------------------------------- |
+| `reputation_level` / `stake_bps` **as snapshotted for this pool** | `score`                                                 |
+| `contributions_paid`, `escrow_balance` (the debt + collateral)    | `cycles_completed` (the promotion gate)                 |
+| `on_time_count`, `late_count`, `paid_out` (this pool's history)   | `level` resolved from the global score                  |
+
+The buyer **assumes the position's obligations** — including the already-deposited stake and the debt/escrow — so the position-scoped state must carry over (the stake is real money already locked; the debt is real). But the buyer does **not** inherit the seller's global `ReputationProfile`: their own wallet-level `score` / `cycles_completed` / `level` are untouched by the purchase, so the escape valve can't be used to "buy" a high global reputation. A buyer at wallet-level L1 who purchases an L3 position operates that position at its snapshotted L3 stake terms (they paid for it), but their own profile stays L1 and gates their _next_ `join_pool` at L1 stake. **Product copy must make this distinction explicit** so a partner reading "reputation transfers on escape valve" understands it's position-operational state, not portable wallet trust.
 
 ---
 
@@ -749,12 +888,13 @@ NEXT_PUBLIC_CORE_PROGRAM_ID=
   - Default in mid-cycle → `settle_default` → Triple Shield cascade → default attestation (`edge_grace_default.spec.ts`, 3/3 via clock-warp past the 7-day `GRACE_PERIOD_SECS` window)
   - `release_escrow` interleaved with `contribute` across 3 cycles (`security_sev034_release_escrow_lifecycle.spec.ts`, 2/2 — this is the spec that surfaced **SEV-034b** in PR #360)
   - Cycle-boundary on-time/late classification at `next_cycle_at ± SAFE_MARGIN_SEC` (`edge_cycle_boundary.spec.ts`, 4/4 via `setBankrunUnixTs`; unrunnable on localnet because of the 24h+ real-sleep)
-  - Escape valve: distressed member lists → buyer purchases → NFT transfers → Member re-anchors → reputation re-anchored
+  - Escape valve: distressed member lists → buyer purchases → NFT transfers → Member re-anchors → reputation re-anchored — the mpl_core-dependent specs in this group run in the **litesvm lane**, not bankrun (bankrun's `solana-program-test 1.18` panics on the SBFv2 `mpl_core.so`).
   - Waterfall: harvest with varying yield, assert bps splits across 10 randomized scenarios
   - Seed draw invariant: property-based test across a range of pool sizes
+- **Integration (TS + litesvm):** a litesvm-backed `Env` via [`tests/_harness/litesvm.ts`](../tests/_harness/litesvm.ts) — a custom anchor `Provider` plus a one-point v1→v2 transaction bridge — that loads the SBFv2 `mpl_core.so` which bankrun's `solana-program-test 1.18` panics on. [`tests/litesvm_join_pool.spec.ts`](../tests/litesvm_join_pool.spec.ts) runs the `createUsdcMint → initializeProtocol → createPool → joinMembers` lifecycle (create_pool mints the pool Collection NFT, join_pool the member position NFT, both via the mpl_core `CreateV2` CPI). Pinned to **Node 24** (a V8-GC `std::bad_alloc` hits it on Node 20). This is where every mpl_core-dependent spec (join-NFT mint, escape-valve NFT transfer) runs.
 - **Localnet (full real-time):** [`scripts/test-fresh.sh`](../scripts/test-fresh.sh) kills any running `solana-test-validator`, wipes ledger, fresh `--reset` start, `anchor build --no-idl` + `anchor deploy --provider.cluster localnet`. Used for specs that require actual cross-program-invocation timing (`tests/security_*.spec.ts` non-cooldown subset).
 - **E2E (Playwright):** frontend smoke tests against local-validator
-- **CI:** GitHub Actions — 4 required gates (`js · lint + typecheck + parity + L1`, `audit · cargo-audit (advisory)`, `deny · supply-chain (advisory)`, `anchor · build`) + advisory lanes (`coverage · roundfi-math (tarpaulin)`, `fuzz · roundfi-math (libfuzzer)` × 6 targets). All required gates enforce on `main` via branch protection.
+- **CI:** GitHub Actions — 6 lanes (`js · lint + typecheck + parity + L1`, `audit · cargo-audit`, `deny · supply-chain`, `anchor · build`, `bankrun · no-mpl-core` (the bankrun subset that does not touch mpl_core), `litesvm · mpl-core path` (the litesvm lane that loads the SBFv2 `mpl_core.so` and exercises the join_pool lifecycle; required)) + advisory lanes (`coverage · roundfi-math (tarpaulin)`, `fuzz · roundfi-math (libfuzzer)` × 6 targets). All required gates enforce on `main` via branch protection.
 
 ---
 

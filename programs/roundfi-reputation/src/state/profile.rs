@@ -75,18 +75,90 @@ impl ReputationProfile {
     }
 
     /// Resolve the canonical level for the current score.
+    ///
+    /// **SEV-047 fix** — promotion now requires BOTH a score threshold AND a
+    /// minimum `cycles_completed` count. The score alone was farmable:
+    /// `SCORE_PAYMENT` (+10) has no global per-subject rate-limit, so an
+    /// attacker could spin up N independent 1-member pools, contribute once
+    /// in each (+10 apiece in parallel), and reach `LEVEL_3_THRESHOLD` (2000
+    /// = 200 payments) within hours — then exploit the L3 stake discount
+    /// (10% vs 50%) via early-payout-then-default.
+    ///
+    /// `cycles_completed` only increments on `SCHEMA_CYCLE_COMPLETE`, which
+    /// carries a 6-day per-subject cooldown (`MIN_CYCLE_COOLDOWN_SECS` in
+    /// attest.rs). Gating promotion on it means L3 needs >= L3_MIN_CYCLES
+    /// real completed cycles spaced >= 6 days apart — minimum ~18 days of
+    /// farming for L3, which destroys the attack economics. Legitimate
+    /// members are unaffected: `cycles_completed` rises naturally with use.
     pub fn resolve_level(
         score: u64,
         l2_threshold: u64,
         l3_threshold: u64,
+        l4_threshold: u64,
+        cycles_completed: u32,
+        l2_min_cycles: u32,
+        l3_min_cycles: u32,
+        l4_min_cycles: u32,
     ) -> u8 {
-        if score >= l3_threshold {
+        // v5.2 four-tier ladder. L4 (Elite) is gated on a score threshold
+        // + cycles like L2/L3 — the v1-provisional on-chain path. The
+        // proposal's metric-based Elite criteria are off-chain (indexer)
+        // and will harden this in a future upgrade. The cycles floor is
+        // the unbypassable wall-clock anti-farming defense at every tier.
+        if score >= l4_threshold && cycles_completed >= l4_min_cycles {
+            4
+        } else if score >= l3_threshold && cycles_completed >= l3_min_cycles {
             3
-        } else if score >= l2_threshold {
+        } else if score >= l2_threshold && cycles_completed >= l2_min_cycles {
             2
         } else {
             1
         }
+    }
+
+    /// SEV-047 defense-in-depth (identity gate). Caps the score/cycles-resolved
+    /// level when the subject lacks a verified identity AND the protocol has
+    /// enabled an identity floor via `IdentityGateConfig`.
+    ///
+    /// `required_min_level`:
+    ///   - `0` → configurable gate disabled (devnet / Canary default). L2/L3 are
+    ///     reachable without identity; L4 still requires it (elite hard floor).
+    ///   - `N` (2..=LEVEL_MAX) → reaching level >= N requires `identity_verified`;
+    ///     an unverified subject is capped at `N - 1` (and never above L3).
+    ///
+    /// Pure + monotonic-safe: only ever caps DOWN, never raises a level.
+    /// Layered on top of the cycles gate (`resolve_level`) — the cycles gate is
+    /// the unbypassable primary anti-farming defense; this adds an identity
+    /// floor for the highest tiers.
+    ///
+    /// Two independent caps apply to an **unverified** subject; the tighter wins:
+    ///
+    ///   1. **Elite hard floor (partner review MEDIUM #1, 2026-06-12).** Levels
+    ///      at/above `IDENTITY_HARD_FLOOR_LEVEL` (L4 Elite) are NEVER granted
+    ///      without identity — even when the configurable gate is off
+    ///      (`required_min_level == 0`, the devnet default). The top tier carries
+    ///      the largest stake discount + strongest credit signal, so it's the
+    ///      most worth gaming; no config value can disable its PoP requirement.
+    ///   2. **Configurable gate (SEV-047).** When `required_min_level > 0`,
+    ///      unverified subjects cap at `required_min_level - 1`.
+    ///
+    /// A `identity_verified` subject bypasses both and keeps `resolved_level`.
+    pub fn cap_level_for_identity(
+        resolved_level: u8,
+        identity_verified: bool,
+        required_min_level: u8,
+    ) -> u8 {
+        if identity_verified {
+            return resolved_level;
+        }
+        // Unverified: take the tighter of the elite hard floor and the gate.
+        let elite_cap = crate::constants::IDENTITY_HARD_FLOOR_LEVEL.saturating_sub(1);
+        let gate_cap = if required_min_level == 0 {
+            u8::MAX // gate disabled — no additional cap beyond the elite floor
+        } else {
+            required_min_level.saturating_sub(1)
+        };
+        resolved_level.min(elite_cap).min(gate_cap)
     }
 }
 
@@ -140,10 +212,88 @@ mod tests {
 
     #[test]
     fn resolve_level_thresholds() {
-        assert_eq!(ReputationProfile::resolve_level(0,    500, 2_000), 1);
-        assert_eq!(ReputationProfile::resolve_level(499,  500, 2_000), 1);
-        assert_eq!(ReputationProfile::resolve_level(500,  500, 2_000), 2);
-        assert_eq!(ReputationProfile::resolve_level(1999, 500, 2_000), 2);
-        assert_eq!(ReputationProfile::resolve_level(2000, 500, 2_000), 3);
+        // Baseline: score thresholds with cycles_completed satisfied
+        // (20 cycles >> any floor) — pure score-ladder behavior preserved.
+        // Signature (v5.2): (score, l2_t, l3_t, l4_t, cycles, l2_c, l3_c, l4_c).
+        let big = 20u32;
+        let r = |score: u64| ReputationProfile::resolve_level(score, 500, 2_000, 5_000, big, 1, 3, 8);
+        assert_eq!(r(0), 1);
+        assert_eq!(r(499), 1);
+        assert_eq!(r(500), 2);
+        assert_eq!(r(1_999), 2);
+        assert_eq!(r(2_000), 3);
+        assert_eq!(r(4_999), 3);
+        assert_eq!(r(5_000), 4); // L4 Elite threshold
+        assert_eq!(r(u64::MAX), 4);
+    }
+
+    #[test]
+    fn resolve_level_cycles_gate_sev047() {
+        // SEV-047: score alone is no longer sufficient. The cycles_completed
+        // floor gates promotion regardless of how high the (farmable) score is.
+        let r = |score: u64, cycles: u32| {
+            ReputationProfile::resolve_level(score, 500, 2_000, 5_000, cycles, 1, 3, 8)
+        };
+
+        // L2 score met (500) but 0 cycles → stays L1 (the farming defense).
+        assert_eq!(r(500, 0), 1);
+        // L2 score + exactly 1 cycle → L2 unlocks.
+        assert_eq!(r(500, 1), 2);
+
+        // L3 score met (2000) but only 2 cycles → capped at L2.
+        assert_eq!(r(2_000, 2), 2);
+        // L3 score + exactly 3 cycles → L3 unlocks.
+        assert_eq!(r(2_000, 3), 3);
+
+        // L4 score met (5000) but only 7 cycles → capped at L3.
+        assert_eq!(r(5_000, 7), 3);
+        // L4 score + exactly 8 cycles → L4 Elite unlocks.
+        assert_eq!(r(5_000, 8), 4);
+
+        // Farmed score (way past L4) but 0 cycles → still L1. This is the
+        // exact attack vector closed: parallel 1-member pools give a huge
+        // score in hours, but cycles_completed stays 0 (no CYCLE_COMPLETE).
+        assert_eq!(r(50_000, 0), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_disabled_is_noop_sev047() {
+        // required_min_level = 0 → configurable gate OFF (default). L1-L3 are
+        // uncapped regardless of identity — the devnet / Canary path where
+        // testers promote freely up to L3. (L4 is the exception — see
+        // cap_level_for_identity_elite_hard_floor.)
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 0), 3);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 0), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 0), 1);
+    }
+
+    #[test]
+    fn cap_level_for_identity_elite_hard_floor() {
+        // Partner review MEDIUM #1: L4 (Elite) is NEVER granted to an
+        // unverified wallet, even with the configurable gate off.
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, false, 0), 3); // gate off → still capped at L3
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, false, 3), 2); // gate L3 → tighter cap wins (L2)
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, false, 2), 1); // gate L2 → caps at L1
+        // Verified wallets bypass the floor and reach L4.
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, true, 0), 4);
+        assert_eq!(ReputationProfile::cap_level_for_identity(4, true, 3), 4);
+        // The floor only bites at L4 — L3 stays reachable unverified when gate off.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 0), 3);
+    }
+
+    #[test]
+    fn cap_level_for_identity_gates_unverified_sev047() {
+        // floor = 2 (L2+ needs identity): unverified caps at L1; verified passes.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 2), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 2), 3);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, true, 2), 2);
+
+        // floor = 3 (only L3 needs identity): unverified caps at L2.
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, false, 3), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 3), 2);
+        assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 3), 1);
+        assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 3), 3);
     }
 }

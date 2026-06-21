@@ -6,6 +6,13 @@ import { MonoLabel, RFILogoMark, RFIPill } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { CountUp } from "@/components/ui/CountUp";
 import { useT } from "@/lib/i18n";
+import {
+  PASSPORT_TIERS,
+  PASSPORT_MAX_SCORE,
+  TIER_KEYS,
+  tierForScore,
+  scorePct,
+} from "@/lib/passport";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
@@ -19,7 +26,8 @@ export function ReputationPassport() {
   const { tokens } = useTheme();
   const t = useT();
   const { user } = useSession();
-  const pct = (user.score / 850) * 100;
+  const tier = tierForScore(user.score);
+  const pct = scorePct(user.score);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -39,14 +47,17 @@ export function ReputationPassport() {
 
   return (
     <div
+      className="group transition-transform duration-500 hover:scale-[1.01]"
       style={{
         borderRadius: 22,
         padding: 28,
         position: "relative",
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
         background: `linear-gradient(155deg, ${tokens.navy} 0%, ${tokens.bgDeep} 60%, ${tokens.navyDeep})`,
         border: `1px solid ${tokens.borderStr}`,
-        minHeight: 340,
+        minHeight: 400,
       }}
     >
       <div
@@ -71,7 +82,9 @@ export function ReputationPassport() {
           background: `radial-gradient(circle, rgba(0,200,255,0.15), transparent 70%)`,
         }}
       />
-      <div style={{ position: "relative" }}>
+      {/* Mirrored shine sweep on hover — same effect as the home SAS passport. */}
+      <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <RFILogoMark size={36} />
           <div style={{ textAlign: "right" }}>
@@ -118,8 +131,10 @@ export function ReputationPassport() {
           </div>
         </div>
 
-        <div style={{ marginTop: 44 }}>
-          <MonoLabel size={10}>{t("score.cardLabel")}</MonoLabel>
+        {/* Score + bar sit together, dropped toward the lower half of the
+            card via this auto top-margin (the header stays pinned up top). */}
+        <div style={{ marginTop: "auto" }}>
+          <MonoLabel size={12}>{t("score.cardLabel")}</MonoLabel>
           <div
             style={{
               display: "flex",
@@ -158,41 +173,89 @@ export function ReputationPassport() {
           </div>
         </div>
 
+        {/* Reputation tier bar — same 0-1000, four-tier scale and animated
+            gradient as the home SAS passport, blown up for this detail card.
+            Kept tight under the score (the score block carries the auto push). */}
         <div
           style={{
-            marginTop: 24,
-            height: 6,
+            marginTop: 18,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            color: tokens.muted,
+          }}
+        >
+          <span>{t("home.passport.tierLabel")}</span>
+          <span style={{ color: tokens.purple, fontWeight: 700 }}>
+            Tier {tier.level} / {t(TIER_KEYS[tier.level])}
+          </span>
+        </div>
+        <div
+          style={{
+            marginTop: 8,
+            height: 8,
             background: tokens.fillMed,
             borderRadius: 999,
             overflow: "hidden",
+            position: "relative",
+            border: `1px solid ${tokens.border}`,
           }}
         >
           <div
+            className="animate-gradient-x"
             style={{
               width: `${pct}%`,
               height: "100%",
-              background: `linear-gradient(90deg, ${tokens.green}, ${tokens.teal})`,
+              background: `linear-gradient(90deg, ${tokens.purple}, ${tokens.green}, ${tokens.purple})`,
+              backgroundSize: "200% auto",
             }}
           />
+          {PASSPORT_TIERS.slice(1).map((tt) => (
+            <span
+              key={tt.level}
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: `${(tt.min / PASSPORT_MAX_SCORE) * 100}%`,
+                width: 1,
+                background: "rgba(255,255,255,0.25)",
+              }}
+            />
+          ))}
         </div>
+        {/* Four-tier legend — the tier the score currently sits in lights up. */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             marginTop: 10,
             fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-            fontSize: 10,
-            color: tokens.muted,
+            fontSize: 9,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
           }}
         >
-          <span>{t("score.scaleLow")}</span>
-          <span style={{ color: tokens.teal }}>{t("score.scaleMid")}</span>
-          <span>{t("score.scaleHigh")}</span>
+          {PASSPORT_TIERS.map((tt) => (
+            <span
+              key={tt.level}
+              style={{
+                color: tt.level === tier.level ? tokens.green : tokens.muted,
+                fontWeight: tt.level === tier.level ? 700 : 400,
+              }}
+            >
+              {t(TIER_KEYS[tt.level])}
+            </span>
+          ))}
         </div>
 
         <div
           style={{
-            marginTop: 24,
+            marginTop: 16,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",

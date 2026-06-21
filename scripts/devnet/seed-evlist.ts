@@ -20,7 +20,7 @@
  *                          is the last slot in a 3-member pool)
  *   EVLIST_PRICE_USDC    (default 14 — slight discount vs $15 stake)
  *
- * Manual ix encoding (Anchor IDL gen still blocked).
+ * Manual ix encoding (IDL-free by design — ADR 0002; hand-rolled, not blocked).
  */
 
 import { existsSync, readFileSync } from "node:fs";

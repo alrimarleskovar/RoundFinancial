@@ -1,0 +1,6218 @@
+{
+  "address": "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw",
+  "metadata": {
+    "name": "roundfi_core",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "RoundFi core — ROSCA pool state machine, escrow, and solidarity vault",
+    "repository": "https://github.com/alrimarleskovar/RoundFinancial"
+  },
+  "instructions": [
+    {
+      "name": "cancel_new_authority",
+      "docs": [
+        "Authority rotation step 2/3 (optional) — abort a pending",
+        "authority proposal before its eta. Authority-only."
+      ],
+      "discriminator": [
+        250,
+        81,
+        8,
+        51,
+        249,
+        52,
+        149,
+        171
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_new_fee_bps_yield",
+      "docs": [
+        "Fee timelock step 2/3 (optional) — abort a pending fee_bps_yield",
+        "proposal before its eta. Authority-only."
+      ],
+      "discriminator": [
+        11,
+        105,
+        154,
+        131,
+        65,
+        212,
+        168,
+        114
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_new_treasury",
+      "docs": [
+        "Treasury rotation step 2/3 (optional) — abort a pending",
+        "proposal before its eta. Authority-only."
+      ],
+      "discriminator": [
+        120,
+        35,
+        177,
+        142,
+        91,
+        247,
+        134,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_pending_listing",
+      "docs": [
+        "Seller-only abort of a `Pending` escape-valve listing.",
+        "Closes the listing PDA, refunds rent to seller, frees the",
+        "slot for a fresh commit. Adevar Labs SEV-015 fix — without",
+        "this ix, a seller who commits but never reveals locks the",
+        "slot indefinitely (PDA seeds tie the slot to the listing)."
+      ],
+      "discriminator": [
+        110,
+        101,
+        135,
+        143,
+        15,
+        9,
+        58,
+        127
+      ],
+      "accounts": [
+        {
+          "name": "seller_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "docs": [
+            "The Pending listing being cancelled. Closes back to",
+            "`seller_wallet` so rent is reclaimed."
+          ],
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_payout",
+      "discriminator": [
+        127,
+        240,
+        132,
+        62,
+        227,
+        198,
+        146,
+        133
+      ],
+      "accounts": [
+        {
+          "name": "member_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "member_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "member_usdc",
+          "writable": true
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "reputation_program"
+        },
+        {
+          "name": "reputation_config",
+          "writable": true
+        },
+        {
+          "name": "reputation_profile",
+          "writable": true
+        },
+        {
+          "name": "identity_record"
+        },
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ClaimPayoutArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "close_member",
+      "docs": [
+        "SEV-039: reclaim a finalized pool's per-member rent by closing one",
+        "Member PDA after the pool is Closed (decrements the live-member count",
+        "so `close_pool_vaults` knows when it's safe to close the Pool PDA).",
+        "See `instructions::close_member`."
+      ],
+      "discriminator": [
+        221,
+        98,
+        181,
+        59,
+        120,
+        117,
+        20,
+        22
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member_wallet",
+          "writable": true
+        },
+        {
+          "name": "member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "member_wallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_pool",
+      "discriminator": [
+        140,
+        189,
+        209,
+        23,
+        239,
+        62,
+        239,
+        11
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "Protocol singleton. Mutable so the handler can decrement the",
+            "running `committed_protocol_tvl_usdc` total when the pool's",
+            "max-flow contribution leaves the active set (TVL caps —",
+            "items 4.2 + 4.3 of `MAINNET_READINESS.md`)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Authority must match the pool's creator OR the protocol authority."
+          ],
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_pool_vaults",
+      "docs": [
+        "SEV-039 (final step): drain the four vaults' residual USDC to the",
+        "protocol treasury, close the four vault ATAs, and close the Pool PDA —",
+        "reclaiming all of that rent. Requires every Member PDA closed first",
+        "(`pool.members_joined == 0`). Ceremony: `close_pool` → `close_member`",
+        "× N → `close_pool_vaults`. See `instructions::close_pool_vaults`."
+      ],
+      "discriminator": [
+        243,
+        34,
+        55,
+        86,
+        191,
+        30,
+        235,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_recipient",
+          "docs": [
+            "Receives the rent freed by closing the 4 vault ATAs + the Pool PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Closed via Anchor `close = rent_recipient` AFTER the handler drains +",
+            "closes the vaults (the handler still needs the live Pool PDA to sign the",
+            "`pool_usdc_vault` transfer/close — it is the vault's token authority)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "treasury_usdc",
+          "docs": [
+            "Drain destination — pinned to `config.treasury` (the treasury USDC token",
+            "account set at `initialize_protocol`)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "escrow_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "solidarity_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  105,
+                  100,
+                  97,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yield_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  105,
+                  101,
+                  108,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "solidarity_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "solidarity_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "yield_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "yield_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "commit_new_authority",
+      "docs": [
+        "Authority rotation step 3/3 — commit a pending authority",
+        "proposal once its eta has passed. Anyone can crank (timelock",
+        "is the gate). After commit, the new authority controls every",
+        "authority-gated ix."
+      ],
+      "discriminator": [
+        97,
+        103,
+        140,
+        57,
+        18,
+        109,
+        138,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "Anyone can crank — no signer/authority constraint. Gate is the",
+            "timelock + the prior `propose_new_authority` signed by the",
+            "then-current authority."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "commit_new_fee_bps_yield",
+      "docs": [
+        "Fee timelock step 3/3 — commit a pending fee_bps_yield proposal",
+        "once its eta has passed. Anyone can crank (timelock is the gate)."
+      ],
+      "discriminator": [
+        208,
+        70,
+        162,
+        45,
+        127,
+        55,
+        226,
+        185
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "Adevar Labs SEV-037 — added for consistency with the other",
+            "`commit_new_*` ixs (CommitNewTreasury, CommitNewAuthority).",
+            "The crank is still permissionless (no authority gate), but a",
+            "signer is required so the tx has an explicit fee-payer and",
+            "the account-list shape matches the rest of the timelock",
+            "commit family. Same convention these other handlers use."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "commit_new_treasury",
+      "docs": [
+        "Treasury rotation step 3/3 — commit a pending proposal once",
+        "its eta has passed. Anyone can crank (timelock is the gate)."
+      ],
+      "discriminator": [
+        204,
+        77,
+        233,
+        185,
+        217,
+        209,
+        248,
+        16
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "Anyone can crank — no signer/authority constraint."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "contribute",
+      "discriminator": [
+        82,
+        33,
+        68,
+        131,
+        32,
+        0,
+        205,
+        95
+      ],
+      "accounts": [
+        {
+          "name": "member_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "member_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "member_usdc",
+          "writable": true
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "solidarity_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  105,
+                  100,
+                  97,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "solidarity_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "solidarity_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "escrow_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "reputation_program"
+        },
+        {
+          "name": "reputation_config",
+          "writable": true
+        },
+        {
+          "name": "reputation_profile",
+          "writable": true
+        },
+        {
+          "name": "identity_record",
+          "docs": [
+            "to signal \"no identity linked\" (Anchor Option<Account> convention)."
+          ]
+        },
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ContributeArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_pool",
+      "discriminator": [
+        233,
+        146,
+        209,
+        142,
+        207,
+        104,
+        64,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "arg",
+                "path": "args.seed_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "yield_adapter"
+        },
+        {
+          "name": "escrow_vault_authority",
+          "docs": [
+            "USDC ATA gets created in `init_pool_vaults`."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "solidarity_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  105,
+                  100,
+                  97,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yield_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  105,
+                  101,
+                  108,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "CreatePoolArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "deposit_idle_to_yield",
+      "discriminator": [
+        222,
+        106,
+        241,
+        87,
+        230,
+        164,
+        18,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Anyone can crank this; the pool PDA authorizes the transfer."
+          ],
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "yield_vault",
+          "docs": [
+            "The adapter-side vault. Authority is adapter-controlled; we never",
+            "verify its layout, only read its `amount` field before/after CPI."
+          ],
+          "writable": true
+        },
+        {
+          "name": "yield_adapter_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "DepositIdleToYieldArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "escape_valve_buy",
+      "discriminator": [
+        196,
+        138,
+        207,
+        106,
+        113,
+        45,
+        156,
+        84
+      ],
+      "accounts": [
+        {
+          "name": "buyer_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "seller_wallet",
+          "docs": [
+            "listing rent refund. Must match `listing.seller`."
+          ],
+          "writable": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "writable": true
+        },
+        {
+          "name": "old_member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "seller_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "buyer_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "buyer_usdc",
+          "writable": true
+        },
+        {
+          "name": "seller_usdc",
+          "writable": true
+        },
+        {
+          "name": "nft_asset",
+          "docs": [
+            "`old_member.nft_asset` so the buyer can't substitute someone",
+            "else's NFT mid-transfer."
+          ],
+          "writable": true
+        },
+        {
+          "name": "position_authority",
+          "docs": [
+            "of the position NFT (set in join_pool). Signs the asset transfer",
+            "CPIs via PDA seeds."
+          ]
+        },
+        {
+          "name": "metaplex_core"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "EscapeValveBuyArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "escape_valve_list",
+      "discriminator": [
+        60,
+        21,
+        147,
+        73,
+        86,
+        220,
+        79,
+        195
+      ],
+      "accounts": [
+        {
+          "name": "seller_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "seller_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "EscapeValveListArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "escape_valve_list_commit",
+      "docs": [
+        "Commit-reveal step 1/2 (#232). Creates a listing in `Pending`",
+        "status with only a hash of `(price || salt)` stored on chain —",
+        "hides the price from searchers monitoring escape-valve flow."
+      ],
+      "discriminator": [
+        189,
+        208,
+        44,
+        234,
+        45,
+        1,
+        135,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "seller_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "seller_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "EscapeValveListCommitArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "escape_valve_list_reveal",
+      "docs": [
+        "Commit-reveal step 2/2 (#232). Validates the (price, salt)",
+        "pair against the stored hash, transitions the listing to",
+        "`Active`, and arms a `REVEAL_COOLDOWN_SECS` window before",
+        "the listing becomes buyable."
+      ],
+      "discriminator": [
+        7,
+        13,
+        169,
+        250,
+        26,
+        55,
+        42,
+        98
+      ],
+      "accounts": [
+        {
+          "name": "seller_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "EscapeValveListRevealArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "harvest_yield",
+      "discriminator": [
+        28,
+        200,
+        150,
+        200,
+        69,
+        56,
+        38,
+        133
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_usdc",
+          "docs": [
+            "Protocol treasury — pinned to config.treasury.",
+            "`config.treasury` is set at `initialize_protocol` time to the",
+            "treasury TOKEN ACCOUNT's pubkey (see `initialize_protocol.rs:75`),",
+            "not the wallet that owns it. The check is therefore `key() ==`,",
+            "not `owner ==`."
+          ],
+          "writable": true
+        },
+        {
+          "name": "yield_vault",
+          "docs": [
+            "pending yield. Intentionally `UncheckedAccount` — we do NOT",
+            "enforce `owner == pool.yield_adapter` here for two reasons:",
+            "",
+            "1. The adapter program ID is enforced separately via",
+            "`yield_adapter_program.key() == pool.yield_adapter`",
+            "inside `invoke_adapter` (see `cpi/yield_adapter.rs`).",
+            "2. The vault's authority topology is adapter-defined (e.g.",
+            "Kamino uses a strategy PDA as authority; the mock uses",
+            "its own state PDA). Hard-coding owner here would require",
+            "a per-adapter switch and re-introduce the trust we've",
+            "already moved into the program-id pin.",
+            "",
+            "What protects us instead is the **delta-balance** mitigation:",
+            "we snapshot `yield_vault_before` + `vault_before`, run the CPI,",
+            "then assert `yield_vault_drop <= realized + 1` (catches an",
+            "adapter that drains principal as if it were yield) and the",
+            "caller-provided `min_realized_usdc` slippage guard (catches an",
+            "adapter that under-reports yield to pocket the difference).",
+            "Together those make `yield_vault.owner` immaterial — the",
+            "authoritative number is the post-CPI delta on `pool_usdc_vault`,",
+            "which IS owner-checked (it's an Anchor `TokenAccount`)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "yield_adapter_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "HarvestYieldArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_pool_vaults",
+      "docs": [
+        "Second half of pool creation — initializes the four USDC vault",
+        "ATAs (pool/escrow/solidarity/yield) via sequential CPIs to the",
+        "SPL Associated Token Program. Must be called after `create_pool`",
+        "and before any `join_pool`. Idempotent."
+      ],
+      "discriminator": [
+        209,
+        118,
+        61,
+        154,
+        158,
+        189,
+        162,
+        244
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Protocol singleton. Mutable so the handler can update the",
+            "running `committed_protocol_tvl_usdc` total for the new pool's",
+            "max-flow contribution (TVL cap enforcement — items 4.2 + 4.3",
+            "of `MAINNET_READINESS.md`)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool created by `create_pool`. Bumps for the three vault",
+            "authority PDAs are read from here so this ix doesn't have to",
+            "re-derive them at compute cost."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "escrow_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "solidarity_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  105,
+                  100,
+                  97,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yield_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  105,
+                  101,
+                  108,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_usdc_vault",
+          "docs": [
+            "CPI inside the handler."
+          ],
+          "writable": true
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true
+        },
+        {
+          "name": "solidarity_vault",
+          "writable": true
+        },
+        {
+          "name": "yield_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_protocol",
+      "discriminator": [
+        188,
+        233,
+        252,
+        106,
+        134,
+        146,
+        202,
+        91
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "treasury",
+          "docs": [
+            "USDC token account receiving protocol fees; must be on the configured mint."
+          ]
+        },
+        {
+          "name": "metaplex_core",
+          "address": "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d"
+        },
+        {
+          "name": "default_yield_adapter"
+        },
+        {
+          "name": "reputation_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "InitializeProtocolArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "join_pool",
+      "discriminator": [
+        14,
+        65,
+        62,
+        16,
+        116,
+        17,
+        195,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "member_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "member_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "member_usdc",
+          "writable": true
+        },
+        {
+          "name": "escrow_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "position_authority"
+        },
+        {
+          "name": "nft_asset",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "metaplex_core"
+        },
+        {
+          "name": "reputation_program"
+        },
+        {
+          "name": "reputation_profile"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "JoinPoolArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "lock_approved_yield_adapter",
+      "docs": [
+        "One-way kill switch — once called, `approved_yield_adapter`",
+        "cannot be changed (mirrors `lock_treasury` for the adapter",
+        "allowlist). Authority-only, idempotent. Governance hardening",
+        "for the canary-rampup → mainnet-pinned transition."
+      ],
+      "discriminator": [
+        31,
+        68,
+        5,
+        4,
+        16,
+        69,
+        15,
+        84
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "lock_reputation_program",
+      "docs": [
+        "Confirm on-chain that `reputation_program` was initialised to",
+        "a real program (refuses to lock when it equals `Pubkey::default()`).",
+        "Authority-only, idempotent, one-way. Mainnet operators call this",
+        "immediately after `initialize_protocol` so the live deployment",
+        "can't silently run in the no-reputation skip-path mode.",
+        "Partner review MEDIUM #2 (2026-06-12)."
+      ],
+      "discriminator": [
+        241,
+        152,
+        67,
+        75,
+        108,
+        153,
+        200,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "lock_treasury",
+      "docs": [
+        "One-way kill switch — once called, treasury cannot be rotated",
+        "again (existing pending proposals still commit). Authority-only."
+      ],
+      "discriminator": [
+        73,
+        37,
+        204,
+        244,
+        84,
+        77,
+        12,
+        26
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "migrate_protocol_config",
+      "docs": [
+        "One-shot rescue ix for `ProtocolConfig` accounts created under an",
+        "earlier (smaller) struct layout. Reallocates to the current",
+        "`ProtocolConfig::SIZE` with zero-init tail bytes + pays the rent",
+        "delta + writes `DEFAULT_LP_SHARE_BPS` (the only field where zero",
+        "would be the wrong default). Idempotent: a no-op if the account",
+        "is already at the target size. Authority is the on-chain",
+        "authority slot (validated via raw bytes — the struct doesn't",
+        "deserialize yet). Devnet-rescue scope; removed in a follow-up",
+        "wave once devnet is on the current layout. See the module",
+        "docstring for the field-by-field justification."
+      ],
+      "discriminator": [
+        240,
+        133,
+        241,
+        218,
+        118,
+        253,
+        139,
+        28
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "on-chain account is at the OLD layout (smaller than the current",
+            "`ProtocolConfig::SIZE`). We validate manually: discriminator,",
+            "PDA seeds, owner == program, and authority bytes."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Must match the authority slot in the existing config bytes."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "pause",
+      "discriminator": [
+        211,
+        22,
+        221,
+        251,
+        74,
+        121,
+        193,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "PauseArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ping",
+      "docs": [
+        "Dev-only smoke instruction; retained until Step 10 deprecates it."
+      ],
+      "discriminator": [
+        173,
+        0,
+        94,
+        236,
+        73,
+        133,
+        225,
+        153
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "propose_new_authority",
+      "docs": [
+        "Authority rotation step 1/3 — stage a new protocol authority",
+        "behind a `TREASURY_TIMELOCK_SECS` (7d) window. Mirrors the",
+        "treasury propose/commit pattern (#122). At mainnet Squads",
+        "ceremony, this is the bootstrap from deployer → multisig",
+        "vault PDA. Reverts if another proposal is already pending.",
+        "Authority-only."
+      ],
+      "discriminator": [
+        17,
+        71,
+        93,
+        216,
+        228,
+        189,
+        11,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ProposeNewAuthorityArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "propose_new_fee_bps_yield",
+      "docs": [
+        "Fee timelock step 1/3 — propose a new `fee_bps_yield` value.",
+        "Stages on `pending_fee_bps_yield` behind a 1-day public window",
+        "(`FEE_BPS_YIELD_TIMELOCK_SECS`). Adevar Labs SEV-024 follow-up:",
+        "SEV-024 capped fee_bps_yield at 30%, this PR adds the timelock",
+        "gate so users can detect a fee change and opt out via the",
+        "escape valve before it takes effect. Authority-only."
+      ],
+      "discriminator": [
+        88,
+        193,
+        111,
+        253,
+        107,
+        62,
+        103,
+        85
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ProposeNewFeeBpsYieldArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "propose_new_treasury",
+      "docs": [
+        "Treasury rotation step 1/3 — stage a new treasury behind a",
+        "`TREASURY_TIMELOCK_SECS` (7d) window. Reverts if locked or",
+        "another proposal is already pending. Authority-only."
+      ],
+      "discriminator": [
+        89,
+        111,
+        179,
+        80,
+        216,
+        86,
+        79,
+        248
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint, pinned to `config.usdc_mint`. Used by the",
+            "`new_treasury` constraint to enforce it's an ATA on the",
+            "correct mint."
+          ]
+        },
+        {
+          "name": "new_treasury",
+          "docs": [
+            "The proposed new treasury — must be an existing TokenAccount",
+            "on `config.usdc_mint`. Anchor validates the layout + mint at",
+            "account-validation time, so a typo / wrong-mint / wallet",
+            "pubkey rejects HERE rather than after a 7-day wait.",
+            "",
+            "Adevar Labs SEV-006 — previously a raw Pubkey in args."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ProposeNewTreasuryArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "release_escrow",
+      "discriminator": [
+        146,
+        253,
+        129,
+        233,
+        20,
+        145,
+        181,
+        206
+      ],
+      "accounts": [
+        {
+          "name": "member_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "member_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "member_usdc",
+          "writable": true
+        },
+        {
+          "name": "escrow_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ReleaseEscrowArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "settle_default",
+      "discriminator": [
+        246,
+        228,
+        125,
+        180,
+        94,
+        53,
+        233,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "member.wallet",
+                "account": "Member"
+              }
+            ]
+          }
+        },
+        {
+          "name": "defaulted_member_wallet",
+          "docs": [
+            "Validated by constraint against `member.wallet`; does NOT sign."
+          ]
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "solidarity_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  105,
+                  100,
+                  97,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "solidarity_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "solidarity_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "escrow_vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault_authority"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "reputation_program"
+        },
+        {
+          "name": "reputation_config",
+          "writable": true
+        },
+        {
+          "name": "reputation_profile",
+          "writable": true
+        },
+        {
+          "name": "identity_record"
+        },
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "SettleDefaultArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "skip_defaulted_payout",
+      "docs": [
+        "Permissionless cycle advance for a slot whose contemplated member",
+        "defaulted pre-contemplation (otherwise the pool locks — claim_payout",
+        "requires `!defaulted` but only it advances the cycle). No payout; the",
+        "forfeited pot stays in the float. See `instructions::skip_defaulted_payout`."
+      ],
+      "discriminator": [
+        120,
+        24,
+        43,
+        202,
+        76,
+        59,
+        53,
+        195
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Permissionless crank — anyone can unstick the pool. Pays only tx fees."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.authority",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.seed_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "member",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "defaulted_member_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "defaulted_member_wallet"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "SkipDefaultedPayoutArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_protocol_config",
+      "discriminator": [
+        197,
+        97,
+        123,
+        54,
+        221,
+        168,
+        11,
+        135
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "UpdateProtocolConfigArgs"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "EscapeValveListing",
+      "discriminator": [
+        7,
+        233,
+        162,
+        208,
+        151,
+        158,
+        3,
+        230
+      ]
+    },
+    {
+      "name": "Member",
+      "discriminator": [
+        54,
+        19,
+        162,
+        21,
+        29,
+        166,
+        17,
+        198
+      ]
+    },
+    {
+      "name": "Pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
+    },
+    {
+      "name": "ProtocolConfig",
+      "discriminator": [
+        207,
+        91,
+        250,
+        28,
+        152,
+        179,
+        215,
+        209
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InsufficientStake",
+      "msg": "Stake below required amount for this reputation level"
+    },
+    {
+      "code": 6001,
+      "name": "PoolFull",
+      "msg": "Pool has reached members_target"
+    },
+    {
+      "code": 6002,
+      "name": "PoolNotForming",
+      "msg": "Pool is not in Forming state"
+    },
+    {
+      "code": 6003,
+      "name": "PoolNotActive",
+      "msg": "Pool is not in Active state"
+    },
+    {
+      "code": 6004,
+      "name": "PoolClosed",
+      "msg": "Pool is Completed or Liquidated"
+    },
+    {
+      "code": 6005,
+      "name": "AlreadyJoined",
+      "msg": "Wallet already has a Member account for this pool"
+    },
+    {
+      "code": 6006,
+      "name": "NotAMember",
+      "msg": "Caller is not a member of this pool"
+    },
+    {
+      "code": 6007,
+      "name": "WrongCycle",
+      "msg": "Cycle index does not match pool.current_cycle"
+    },
+    {
+      "code": 6008,
+      "name": "CycleNotReady",
+      "msg": "next_cycle_at not yet reached"
+    },
+    {
+      "code": 6009,
+      "name": "AlreadyContributed",
+      "msg": "Member already contributed for this cycle"
+    },
+    {
+      "code": 6010,
+      "name": "NotYourPayoutSlot",
+      "msg": "Caller is not the slot owner for this cycle"
+    },
+    {
+      "code": 6011,
+      "name": "EscrowLocked",
+      "msg": "Escrow release schedule not yet vested"
+    },
+    {
+      "code": 6012,
+      "name": "EscrowNothingToRelease",
+      "msg": "Nothing to release from escrow"
+    },
+    {
+      "code": 6013,
+      "name": "DefaultedMember",
+      "msg": "Member has defaulted"
+    },
+    {
+      "code": 6014,
+      "name": "SeedDrawShortfall",
+      "msg": "Seed Draw invariant would be violated"
+    },
+    {
+      "code": 6015,
+      "name": "SolidarityOverflow",
+      "msg": "Solidarity accounting overflow"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidYieldAdapter",
+      "msg": "Yield adapter program mismatch or not whitelisted"
+    },
+    {
+      "code": 6017,
+      "name": "YieldAdapterMismatch",
+      "msg": "Pool's yield_adapter does not match passed program"
+    },
+    {
+      "code": 6018,
+      "name": "WaterfallUnderflow",
+      "msg": "Yield waterfall underflow or reordering detected"
+    },
+    {
+      "code": 6019,
+      "name": "AttestationSchemaMismatch",
+      "msg": "Attestation schema does not match expected"
+    },
+    {
+      "code": 6020,
+      "name": "ReputationUnderflow",
+      "msg": "Reputation score underflow"
+    },
+    {
+      "code": 6021,
+      "name": "InvalidReputationLevel",
+      "msg": "Reputation level must be 1, 2, or 3"
+    },
+    {
+      "code": 6022,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6023,
+      "name": "Unauthorized",
+      "msg": "Caller is not authorized"
+    },
+    {
+      "code": 6024,
+      "name": "ProtocolPaused",
+      "msg": "Protocol is paused"
+    },
+    {
+      "code": 6025,
+      "name": "InvalidMint",
+      "msg": "Token mint does not match the expected USDC mint"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidNftAsset",
+      "msg": "NFT asset does not match Member.nft_asset"
+    },
+    {
+      "code": 6027,
+      "name": "EscapeValveNotListed",
+      "msg": "Position is not listed on the escape valve"
+    },
+    {
+      "code": 6028,
+      "name": "EscapeValvePriceMismatch",
+      "msg": "Escape valve price mismatch"
+    },
+    {
+      "code": 6029,
+      "name": "SlotTaken",
+      "msg": "Slot is already taken"
+    },
+    {
+      "code": 6030,
+      "name": "InvalidSlot",
+      "msg": "Slot index out of range"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidBps",
+      "msg": "Bps value must be <= 10_000 (or <= 50_000 for guarantee fund)"
+    },
+    {
+      "code": 6032,
+      "name": "InvalidMembersTarget",
+      "msg": "members_target must be in 1..=MAX_MEMBERS"
+    },
+    {
+      "code": 6033,
+      "name": "InvalidCycleDuration",
+      "msg": "cycle_duration below minimum"
+    },
+    {
+      "code": 6034,
+      "name": "InvalidAmount",
+      "msg": "Amount must be non-zero"
+    },
+    {
+      "code": 6035,
+      "name": "InvalidPoolParams",
+      "msg": "Pool parameters are inconsistent"
+    },
+    {
+      "code": 6036,
+      "name": "MetadataUriTooLong",
+      "msg": "Metadata URI exceeds MAX_URI_LEN"
+    },
+    {
+      "code": 6037,
+      "name": "MetadataUriInvalidScheme",
+      "msg": "Metadata URI scheme not allowed (must be https://, ipfs://, or ar://)"
+    },
+    {
+      "code": 6038,
+      "name": "GracePeriodNotElapsed",
+      "msg": "Grace period not yet elapsed — default cannot be settled"
+    },
+    {
+      "code": 6039,
+      "name": "MemberNotBehind",
+      "msg": "Member is current on contributions — default not applicable"
+    },
+    {
+      "code": 6040,
+      "name": "DebtCollateralViolation",
+      "msg": "Debt/collateral invariant would be violated: D/D_init > C/C_init"
+    },
+    {
+      "code": 6041,
+      "name": "YieldAdapterBalanceMismatch",
+      "msg": "Yield adapter returned a nonsensical balance delta"
+    },
+    {
+      "code": 6042,
+      "name": "WaterfallNotConserved",
+      "msg": "Waterfall bucket computation did not conserve total"
+    },
+    {
+      "code": 6043,
+      "name": "InvalidListingPrice",
+      "msg": "Listing price must be non-zero"
+    },
+    {
+      "code": 6044,
+      "name": "ListingNotActive",
+      "msg": "Listing is not active"
+    },
+    {
+      "code": 6045,
+      "name": "BuyerAlreadyMember",
+      "msg": "Buyer already holds a Member account for this pool"
+    },
+    {
+      "code": 6046,
+      "name": "PoolNotCompleted",
+      "msg": "Pool is not in Completed state"
+    },
+    {
+      "code": 6047,
+      "name": "ImmutableConfigField",
+      "msg": "Protocol config field is immutable after initialization"
+    },
+    {
+      "code": 6048,
+      "name": "TreasuryLocked",
+      "msg": "Treasury is permanently locked — `lock_treasury()` was called"
+    },
+    {
+      "code": 6049,
+      "name": "NoPendingTreasuryChange",
+      "msg": "No pending treasury rotation to commit or cancel"
+    },
+    {
+      "code": 6050,
+      "name": "TreasuryTimelockActive",
+      "msg": "Treasury rotation timelock has not yet elapsed"
+    },
+    {
+      "code": 6051,
+      "name": "TreasuryProposalAlreadyPending",
+      "msg": "A treasury rotation is already pending — cancel it first"
+    },
+    {
+      "code": 6052,
+      "name": "AssetTransferIncomplete",
+      "msg": "Post-CPI verification: asset owner is not the buyer after transfer"
+    },
+    {
+      "code": 6053,
+      "name": "AssetNotRefrozen",
+      "msg": "Post-CPI verification: asset is not frozen after re-freeze step"
+    },
+    {
+      "code": 6054,
+      "name": "HarvestSlippageExceeded",
+      "msg": "Harvest realized yield is below the caller's slippage threshold"
+    },
+    {
+      "code": 6055,
+      "name": "OutstandingDefaults",
+      "msg": "Pool has outstanding defaults — cannot close"
+    },
+    {
+      "code": 6056,
+      "name": "YieldAdapterNotConfigured",
+      "msg": "Yield adapter not configured for this pool"
+    },
+    {
+      "code": 6057,
+      "name": "ReputationCpiFailed",
+      "msg": "roundfi-reputation CPI failed — the attestation was rejected by the target program"
+    },
+    {
+      "code": 6058,
+      "name": "ReputationProgramMismatch",
+      "msg": "Passed reputation program does not match config.reputation_program"
+    },
+    {
+      "code": 6059,
+      "name": "ReputationLevelMismatch",
+      "msg": "Asserted reputation_level does not match the on-chain ReputationProfile"
+    },
+    {
+      "code": 6060,
+      "name": "PoolTvlCapExceeded",
+      "msg": "Pool max committed flow (credit_amount × cycles_total) exceeds config.max_pool_tvl_usdc"
+    },
+    {
+      "code": 6061,
+      "name": "ProtocolTvlCapExceeded",
+      "msg": "Protocol-wide committed TVL would exceed config.max_protocol_tvl_usdc"
+    },
+    {
+      "code": 6062,
+      "name": "AdapterAllowlistLocked",
+      "msg": "approved_yield_adapter is permanently locked — `lock_approved_yield_adapter()` was called"
+    },
+    {
+      "code": 6063,
+      "name": "CommitRevealRequired",
+      "msg": "Legacy single-step escape_valve_list disabled by config.commit_reveal_required — use the commit + reveal flow"
+    },
+    {
+      "code": 6064,
+      "name": "ListingNotPending",
+      "msg": "Listing is not in Pending status (reveal only valid on a committed-but-not-yet-revealed listing)"
+    },
+    {
+      "code": 6065,
+      "name": "InvalidCommitHash",
+      "msg": "Reveal price/salt does not match the stored commit_hash"
+    },
+    {
+      "code": 6066,
+      "name": "ListingNotBuyableYet",
+      "msg": "Listing is not yet buyable — wait for REVEAL_COOLDOWN_SECS to elapse past buyable_after"
+    },
+    {
+      "code": 6067,
+      "name": "NoPendingAuthorityChange",
+      "msg": "No pending authority rotation to commit or cancel"
+    },
+    {
+      "code": 6068,
+      "name": "AuthorityTimelockActive",
+      "msg": "Authority rotation timelock has not yet elapsed"
+    },
+    {
+      "code": 6069,
+      "name": "AuthorityProposalAlreadyPending",
+      "msg": "An authority rotation is already pending — cancel it first"
+    },
+    {
+      "code": 6070,
+      "name": "VaultsAlreadyInitialized",
+      "msg": "Pool vaults are already initialized — init_pool_vaults is one-shot"
+    },
+    {
+      "code": 6071,
+      "name": "SaltMustBeNonZero",
+      "msg": "Commit-reveal salt cannot be zero — use a cryptographically random u64"
+    },
+    {
+      "code": 6072,
+      "name": "PoolNotViable",
+      "msg": "Pool parameters are inviable: members × installment × (1 − solidarity − escrow) < credit (would fail cycle-0 Seed Draw guard)"
+    },
+    {
+      "code": 6073,
+      "name": "NoPendingFeeBpsYieldChange",
+      "msg": "No pending fee_bps_yield change to commit or cancel"
+    },
+    {
+      "code": 6074,
+      "name": "FeeBpsYieldTimelockActive",
+      "msg": "fee_bps_yield timelock has not yet elapsed"
+    },
+    {
+      "code": 6075,
+      "name": "FeeBpsYieldProposalAlreadyPending",
+      "msg": "A fee_bps_yield change is already pending — cancel it first"
+    },
+    {
+      "code": 6076,
+      "name": "DirectFeeBpsYieldMutationDisabled",
+      "msg": "Direct mutation of fee_bps_yield is disabled — use propose/cancel/commit timelock flow"
+    },
+    {
+      "code": 6077,
+      "name": "SlotNotDefaulted",
+      "msg": "Slot's contemplated member is not defaulted — use claim_payout, not skip_defaulted_payout"
+    },
+    {
+      "code": 6078,
+      "name": "PoolNotClosed",
+      "msg": "Pool is not in Closed state — call close_pool first before close_member"
+    },
+    {
+      "code": 6079,
+      "name": "MembersStillOpen",
+      "msg": "Pool still has open Member PDAs — close them all via close_member before close_pool_vaults"
+    }
+  ],
+  "types": [
+    {
+      "name": "ClaimPayoutArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cycle",
+            "docs": [
+              "Must equal `pool.current_cycle` AND `member.slot_index`."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ContributeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cycle",
+            "docs": [
+              "Must equal `pool.current_cycle` AND `member.contributions_paid` —",
+              "enforces ordered contributions (no skipping / no retroactive pay)."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreatePoolArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "seed_id",
+            "type": "u64"
+          },
+          {
+            "name": "members_target",
+            "type": "u8"
+          },
+          {
+            "name": "installment_amount",
+            "type": "u64"
+          },
+          {
+            "name": "credit_amount",
+            "type": "u64"
+          },
+          {
+            "name": "cycles_total",
+            "type": "u8"
+          },
+          {
+            "name": "cycle_duration",
+            "type": "i64"
+          },
+          {
+            "name": "escrow_release_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositIdleToYieldArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "docs": [
+              "Amount of USDC (base units) to move from pool vault to yield vault.",
+              "The adapter may deposit less than requested (e.g. due to caps) —",
+              "we book the actual post-CPI delta."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscapeValveBuyArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price_usdc",
+            "docs": [
+              "Must equal `listing.price_usdc` — buyer commits to the price",
+              "they saw off-chain. Rejects if the seller changed price between",
+              "view and buy."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscapeValveListArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price_usdc",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscapeValveListCommitArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "commit_hash",
+            "docs": [
+              "`SHA-256(price_usdc.to_le_bytes() || salt.to_le_bytes())`.",
+              "32 bytes. Hash format is fixed — the reveal handler",
+              "recomputes it byte-for-byte from the (price, salt) args.",
+              "",
+              "**Salt entropy requirement (Adevar Labs SEV-013):** the `salt`",
+              "half of the pre-image MUST be cryptographically random. SDK",
+              "helpers should use `crypto.randomBytes(8)` and BigInt-decode.",
+              "`salt = 0` or predictable patterns (timestamps, slot numbers,",
+              "counters) let a searcher brute-force the commit_hash by",
+              "enumerating prices in the expected range, breaking the",
+              "commit-reveal privacy property.",
+              "",
+              "The reveal handler rejects `salt = 0` outright with",
+              "`SaltMustBeNonZero` as a minimal trivially-broken-case guard.",
+              "Beyond that, salt-quality enforcement is the SDK's",
+              "responsibility — we cannot verify entropy from a single",
+              "64-bit observation on chain."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscapeValveListRevealArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "salt",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscapeValveListing",
+      "docs": [
+        "Escape-valve listing for a specific slot. PDA: `[b\"listing\", pool, slot_index]`.",
+        "",
+        "Two creation paths:",
+        "1. **Legacy single-step** — `escape_valve_list(price)` creates the",
+        "listing directly in `Active` status. `commit_hash = [0;32]`,",
+        "`buyable_after = listed_at` (immediately buyable). Devnet UX",
+        "default; mainnet-gated by `config.commit_reveal_required`.",
+        "2. **Commit-reveal** (#232 MEV mitigation) —",
+        "`escape_valve_list_commit(commit_hash)` creates the listing in",
+        "`Pending` status with `price_usdc = 0` and the hash of",
+        "`(price || salt)` stored. The seller later calls",
+        "`escape_valve_list_reveal(price, salt)` to transition",
+        "`Pending → Active`; reveal sets `buyable_after = now +",
+        "REVEAL_COOLDOWN_SECS`, giving the legitimate buyer a fixed",
+        "window to land their buy tx before the now-public price can be",
+        "sniped by a searcher.",
+        "",
+        "Consumed/closed by `escape_valve_buy` (which also enforces",
+        "`now >= buyable_after`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "slot_index",
+            "type": "u8"
+          },
+          {
+            "name": "price_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "listed_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "commit_hash",
+            "docs": [
+              "SHA-256(price.to_le_bytes() || salt.to_le_bytes()) for the",
+              "commit-reveal path. `[0u8; 32]` for legacy single-step listings",
+              "(sentinel — anything that *could* be a valid hash is fine here",
+              "because the legacy path never enters the reveal handler)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "buyable_after",
+            "docs": [
+              "UNIX timestamp at which the listing becomes buyable.",
+              "- Legacy single-step: equals `listed_at` (no cooldown).",
+              "- Commit-reveal: equals `reveal_ts + REVEAL_COOLDOWN_SECS`.",
+              "`escape_valve_buy` reverts with `ListingNotBuyableYet` while",
+              "`now < buyable_after`."
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HarvestYieldArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lp_share_bps",
+            "docs": [
+              "**DEPRECATED — ignored at the handler level (Adevar Labs SEV-003 fix).**",
+              "",
+              "Previously controlled the LP/participant split in the yield",
+              "waterfall. Was caller-controlled and unbound by any authoritative",
+              "policy — a permissionless cranker could rotate the split between",
+              "0% and 100% per call, breaking the contract with LP subscribers",
+              "(Anjos de Liquidez). The auditor flagged this as High severity.",
+              "",
+              "The handler now reads `config.lp_share_bps` and IGNORES whatever",
+              "value the caller passes here. The field is retained in the args",
+              "struct for SDK back-compat — old SDKs continue to encode a u16",
+              "at this offset; the handler silently overrides it. A future SDK",
+              "version drops this field entirely (tracked as a Fase 3 cleanup).",
+              "",
+              "Authoritative policy now lives at `ProtocolConfig.lp_share_bps`,",
+              "mutable via `update_protocol_config { new_lp_share_bps }`."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "min_realized_usdc",
+            "docs": [
+              "Slippage guard: minimum realized USDC the caller is willing to",
+              "accept on this harvest. If the adapter returns less, the tx",
+              "reverts with `HarvestSlippageExceeded`. Pass `0` to disable",
+              "(back-compat default — caller takes whatever the adapter",
+              "delivers, including zero).",
+              "",
+              "The crank computes this off-chain as",
+              "`expected_yield × (1 − tolerance_bps / 10_000)`",
+              "where `expected_yield = principal × adapter_apy × elapsed_secs / YEAR_SECS`.",
+              "Without this guard, a malicious or buggy adapter could return",
+              "e.g. 1 lamport when ~$50 USDC was due, the waterfall would",
+              "silently take a 20% fee on dust, and the residual yield",
+              "stays inside the adapter's own vault."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeProtocolArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fee_bps_yield",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps_cycle_l1",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps_cycle_l2",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps_cycle_l3",
+            "type": "u16"
+          },
+          {
+            "name": "guarantee_fund_bps",
+            "docs": [
+              "Guarantee Fund fill target, bps of protocol yield. May exceed 10_000 (default 15_000 = 150%)."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JoinPoolArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "slot_index",
+            "docs": [
+              "Slot to occupy (0..members_target). Client picks the first free slot."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "reputation_level",
+            "docs": [
+              "Asserted reputation level 1..=3 — the caller's expectation. The",
+              "handler derives the trusted level from the on-chain",
+              "`ReputationProfile` PDA owned by `config.reputation_program` and",
+              "rejects with `ReputationLevelMismatch` if the assertion drifts.",
+              "Closes the Step-4d audit gap (was: trusted client input)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "metadata_uri",
+            "docs": [
+              "Position NFT metadata URI. Max MAX_URI_LEN bytes; scheme must be",
+              "`https://`, `ipfs://`, or `ar://` (validated below)."
+            ],
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Member",
+      "docs": [
+        "Membership record. PDA seeds: `[b\"member\", pool, wallet]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "nft_asset",
+            "type": "pubkey"
+          },
+          {
+            "name": "slot_index",
+            "type": "u8"
+          },
+          {
+            "name": "reputation_level",
+            "type": "u8"
+          },
+          {
+            "name": "stake_bps",
+            "type": "u16"
+          },
+          {
+            "name": "stake_deposited",
+            "type": "u64"
+          },
+          {
+            "name": "contributions_paid",
+            "type": "u8"
+          },
+          {
+            "name": "total_contributed",
+            "type": "u64"
+          },
+          {
+            "name": "total_received",
+            "type": "u64"
+          },
+          {
+            "name": "escrow_balance",
+            "type": "u64"
+          },
+          {
+            "name": "on_time_count",
+            "type": "u16"
+          },
+          {
+            "name": "late_count",
+            "type": "u16"
+          },
+          {
+            "name": "defaulted",
+            "type": "bool"
+          },
+          {
+            "name": "paid_out",
+            "type": "bool"
+          },
+          {
+            "name": "last_released_checkpoint",
+            "type": "u8"
+          },
+          {
+            "name": "joined_at",
+            "type": "i64"
+          },
+          {
+            "name": "stake_deposited_initial",
+            "docs": [
+              "Stake at the moment of join_pool. Never mutated by contributions or",
+              "escrow releases — used as `C_initial` in the D/C invariant."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_escrow_deposited",
+            "docs": [
+              "Cumulative escrow deposited over the pool life (monotonic increments",
+              "during contribute). Never decreased by release_escrow or seizure —",
+              "the \"escrow half\" of `C_initial`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_transferred_at",
+            "docs": [
+              "Timestamp the member was last re-anchored via escape_valve_buy.",
+              "0 = original buyer at join_pool."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PauseArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pool",
+      "docs": [
+        "A ROSCA pool. PDA seeds: `[b\"pool\", authority, seed_id_le]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "seed_id",
+            "type": "u64"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "yield_adapter",
+            "type": "pubkey"
+          },
+          {
+            "name": "members_target",
+            "type": "u8"
+          },
+          {
+            "name": "installment_amount",
+            "type": "u64"
+          },
+          {
+            "name": "credit_amount",
+            "type": "u64"
+          },
+          {
+            "name": "cycles_total",
+            "type": "u8"
+          },
+          {
+            "name": "cycle_duration",
+            "type": "i64"
+          },
+          {
+            "name": "seed_draw_bps",
+            "type": "u16"
+          },
+          {
+            "name": "solidarity_bps",
+            "type": "u16"
+          },
+          {
+            "name": "escrow_release_bps",
+            "type": "u16"
+          },
+          {
+            "name": "members_joined",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "started_at",
+            "type": "i64"
+          },
+          {
+            "name": "current_cycle",
+            "type": "u8"
+          },
+          {
+            "name": "next_cycle_at",
+            "type": "i64"
+          },
+          {
+            "name": "total_contributed",
+            "type": "u64"
+          },
+          {
+            "name": "total_paid_out",
+            "type": "u64"
+          },
+          {
+            "name": "solidarity_balance",
+            "type": "u64"
+          },
+          {
+            "name": "escrow_balance",
+            "type": "u64"
+          },
+          {
+            "name": "yield_accrued",
+            "type": "u64"
+          },
+          {
+            "name": "guarantee_fund_balance",
+            "docs": [
+              "Running tally of USDC currently held in the Guarantee Fund.",
+              "Replenished in step 2 of the yield waterfall (after the protocol",
+              "fee is taken on gross). Debited on default shortfall (v2)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_protocol_fee_accrued",
+            "docs": [
+              "Cumulative protocol fee transferred to treasury over pool life.",
+              "GF top-up cap = `guarantee_fund_bps * total_protocol_fee_accrued / 10_000`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yield_principal_deposited",
+            "docs": [
+              "Principal currently deposited in the yield adapter (tracked locally,",
+              "never trusted from adapter)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "defaulted_members",
+            "docs": [
+              "Count of members that have been settled as defaulted."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "lp_distribution_balance",
+            "docs": [
+              "Earmark of the LP / Anjos de Liquidez slice from step 3 of the",
+              "yield waterfall. Funds remain in `pool_usdc_vault` (logical",
+              "accounting like the Guarantee Fund) until LP withdrawal pathway",
+              "ships in M3. Don't conflate with `solidarity_balance`, which is",
+              "funded ONLY from the 1% das parcelas in `contribute()`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "slots_bitmap",
+            "docs": [
+              "Bitmap over MAX_MEMBERS=64 slots. Bit set ⇒ slot taken."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "escrow_vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "solidarity_vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "yield_vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "vaults_initialized",
+            "docs": [
+              "`true` once `init_pool_vaults` has run successfully. Gates the",
+              "TVL counter increment + ATA creation so a repeated call (retry,",
+              "race between interfaces, hostile authority griefing canary",
+              "rampup) cannot double-count `config.committed_protocol_tvl_usdc`.",
+              "",
+              "Before this flag, the `create_idempotent` ATAs were no-op on",
+              "second call but the TVL counter increment was unconditional —",
+              "hostile authority could inflate the global counter to DoS the",
+              "`max_protocol_tvl_usdc` cap."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProposeNewAuthorityArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProposeNewFeeBpsYieldArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_fee_bps_yield",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProposeNewTreasuryArgs",
+      "type": {
+        "kind": "struct",
+        "fields": []
+      }
+    },
+    {
+      "name": "ProtocolConfig",
+      "docs": [
+        "Protocol-wide singleton configuration. PDA seeds: `[b\"config\"]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "metaplex_core",
+            "type": "pubkey"
+          },
+          {
+            "name": "default_yield_adapter",
+            "type": "pubkey"
+          },
+          {
+            "name": "reputation_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_bps_yield",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps_cycle_l1",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps_cycle_l2",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps_cycle_l3",
+            "type": "u16"
+          },
+          {
+            "name": "guarantee_fund_bps",
+            "type": "u16"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "treasury_locked",
+            "docs": [
+              "One-way kill switch. Once `true`, `treasury` is permanently",
+              "frozen — `propose_new_treasury` rejects further proposals.",
+              "Authority can call `lock_treasury()` after deployment when",
+              "confident the treasury wallet is final, getting full",
+              "immutability ON TOP of the time-lock."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "pending_treasury",
+            "docs": [
+              "Pending treasury rotation. `Pubkey::default()` (all-zero) when",
+              "no rotation is queued. Set by `propose_new_treasury`, cleared",
+              "by `cancel_new_treasury` or finalized by `commit_new_treasury`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_treasury_eta",
+            "docs": [
+              "Earliest unix-ts at which `commit_new_treasury` may execute.",
+              "`0` when no rotation is pending. Equals `now + TREASURY_TIMELOCK_SECS`",
+              "at the moment of proposal. Gives users a public window to",
+              "detect a malicious authority and migrate before the swap."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "max_pool_tvl_usdc",
+            "docs": [
+              "Maximum TVL allowed for a single pool, in USDC base units.",
+              "Enforced at `init_pool_vaults` against the pool's max committed",
+              "flow = `credit_amount * cycles_total`. A pool is the discrete",
+              "unit of trust — capping per-pool bounds blast radius if a",
+              "single pool turns adversarial.",
+              "",
+              "`0` means **disabled** (no cap) for back-compat with existing",
+              "devnet pools. Mainnet canary plan sets a low value (e.g. $5)",
+              "and ramps via `update_protocol_config` as canary data justifies."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "max_protocol_tvl_usdc",
+            "docs": [
+              "Maximum TVL allowed across all pools combined, in USDC base",
+              "units. Enforced at `init_pool_vaults` against",
+              "`committed_protocol_tvl_usdc + new_pool_committed`. Caps the",
+              "protocol's total exposure during canary roll-out.",
+              "",
+              "`0` means **disabled** (no cap). Mainnet canary plan starts at",
+              "a small bound (e.g. $5–50) and ramps in 4 waves per the plan",
+              "in `docs/operations/mainnet-canary-plan.md` §7."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "committed_protocol_tvl_usdc",
+            "docs": [
+              "Running total of committed TVL across active pools.",
+              "- Incremented at `init_pool_vaults` by",
+              "`credit_amount * cycles_total` of the new pool.",
+              "- Decremented at `close_pool` by the same amount when the",
+              "pool reaches Completed/Liquidated.",
+              "This is \"max possible flow\" not \"current outstanding\". The",
+              "conservative bound is what canary safety asks for."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "approved_yield_adapter",
+            "docs": [
+              "Pinned yield-adapter program ID. If non-default, `create_pool`",
+              "rejects any `args.yield_adapter` that doesn't match this value.",
+              "",
+              "`Pubkey::default()` (all-zero) **disables** the allowlist —",
+              "pools may point at any executable program. This is the devnet",
+              "default; mainnet canary sets this to the deployed",
+              "`roundfi-yield-kamino` program ID before the first pool is",
+              "created, locking the canary's yield-adapter surface.",
+              "",
+              "Mutable via `update_protocol_config` so canary rampup can",
+              "rotate (e.g. mock → kamino → kamino-v2). Distinct from",
+              "`default_yield_adapter` above, which is informational metadata",
+              "that's frozen at init."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "approved_yield_adapter_locked",
+            "docs": [
+              "One-way kill switch for the adapter allowlist. Mirrors",
+              "`treasury_locked` (#122) — once `true`, the",
+              "`approved_yield_adapter` Pubkey is permanently frozen:",
+              "`update_protocol_config` rejects further changes with",
+              "`AdapterAllowlistLocked`. Authority calls",
+              "`lock_approved_yield_adapter()` post-canary when confident",
+              "the production yield-adapter program ID is final. Idempotent",
+              "(calling twice is a no-op, not an error)."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "commit_reveal_required",
+            "docs": [
+              "Gates the legacy single-step `escape_valve_list` path.",
+              "When `true`, the legacy ix rejects with `CommitRevealRequired`",
+              "and sellers must use `escape_valve_list_commit` +",
+              "`escape_valve_list_reveal` (which apply the",
+              "`REVEAL_COOLDOWN_SECS` anti-snipe window). When `false`, both",
+              "paths coexist and the legacy listing is immediately buyable",
+              "(`buyable_after = listed_at`).",
+              "",
+              "Mainnet flip path: authority sets to `true` after the canary",
+              "validates the commit-reveal UX. Devnet stays `false` so demo",
+              "flows keep their single-step ergonomics. Mutable via",
+              "`update_protocol_config`; no lock-flag because flipping back",
+              "to permissive is a recoverable operator decision (not a",
+              "trust-surface change)."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "lp_share_bps",
+            "docs": [
+              "Share of the post-fee-and-GF residual that routes to LPs /",
+              "Anjos de Liquidez. **Authoritative protocol policy** — was",
+              "previously caller-controlled via `HarvestYieldArgs.lp_share_bps`,",
+              "which let any permissionless cranker rotate the LP/participant",
+              "split arbitrarily per call. The harvest_yield handler now",
+              "reads this field and ignores the args value (the args field",
+              "is retained for SDK back-compat but deprecated).",
+              "",
+              "Default initialized to `DEFAULT_LP_SHARE_BPS` (6_500 = 65%) per",
+              "the whitepaper. Mutable via `update_protocol_config` (capped",
+              "at MAX_BPS = 10_000). No lock-flag — LP economics may need",
+              "adjustment over time as canary-driven calibration progresses."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "pending_authority",
+            "docs": [
+              "Pending authority rotation. `Pubkey::default()` (all-zero) when",
+              "no rotation is queued. Set by `propose_new_authority`, cleared",
+              "by `cancel_new_authority` or finalized by `commit_new_authority`.",
+              "Mirrors the treasury rotation pattern (#122): authority signs",
+              "the propose, anyone can crank the commit after the timelock —",
+              "so the rotation eventually completes even if the old authority",
+              "key goes offline mid-window.",
+              "",
+              "Use case: bootstrap deployer → Squads multisig vault PDA at",
+              "mainnet ceremony time. Once the vault is the authority, ongoing",
+              "rotations (Squads-A → Squads-B) flow through the same instructions."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_authority_eta",
+            "docs": [
+              "Earliest unix-ts at which `commit_new_authority` may execute.",
+              "`0` when no rotation is pending. Equals",
+              "`now + TREASURY_TIMELOCK_SECS` (7d) at the moment of proposal —",
+              "the same window the treasury rotation uses, since authority is",
+              "at least as sensitive a surface (authority controls treasury,",
+              "fees, pause, allowlists, the whole config).",
+              "",
+              "No `authority_locked` kill-switch counterpart: locking authority",
+              "permanently would break future Squads-A → Squads-B rotations",
+              "(e.g. if a member key is compromised and the multisig needs to",
+              "re-form with new members). Treasury has lock_treasury because",
+              "\"freeze the fee sink forever\" is a coherent end-state; authority",
+              "has no equivalent end-state."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "pending_fee_bps_yield",
+            "docs": [
+              "Pending `fee_bps_yield` change, gated by a 1-day public window.",
+              "",
+              "**Why a timelock on fees:** SEV-024 capped `fee_bps_yield` at",
+              "`MAX_FEE_BPS_YIELD = 30%` to bound the blast-radius of an",
+              "authority compromise. The W3 audit (Risk #4 + point #6) asked",
+              "for a deeper fix: a public window so users can detect a fee",
+              "change and opt out via the escape valve before it takes effect.",
+              "",
+              "`0` is NOT a sentinel here (it's a valid value — fee disabled).",
+              "`pending_fee_bps_yield_eta == 0` is the \"no pending change\"",
+              "signal; the propose handler sets it to `now + FEE_BPS_YIELD_TIMELOCK_SECS`,",
+              "the cancel/commit handlers reset it to 0.",
+              "",
+              "This is the **pilot** for the 6-field timelock pattern documented",
+              "in `docs/security/economic-config-governance.md`. The other 5",
+              "bps fields (cycle_l1/l2/l3, guarantee_fund_bps, lp_share_bps)",
+              "follow the same shape and ship in subsequent PRs."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "pending_fee_bps_yield_eta",
+            "docs": [
+              "Earliest unix-ts at which `commit_new_fee_bps_yield` may execute.",
+              "`0` when no fee change is pending."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "reputation_program_locked",
+            "docs": [
+              "One-way confirmation that the `reputation_program` slot was",
+              "initialised to a real program (i.e. not `Pubkey::default()`).",
+              "Mirrors `treasury_locked` / `approved_yield_adapter_locked`,",
+              "but with a critical extra invariant: `lock_reputation_program`",
+              "**refuses to lock** when `reputation_program == Pubkey::default()`.",
+              "Once `true`, the protocol has proven on-chain that it shipped",
+              "with reputation wired up — i.e. the \"no-reputation\" skip paths",
+              "in `contribute` / `claim_payout` (which fire when",
+              "`reputation_program == default`) can never be reached on this",
+              "deployment again, because the field is immutable post-init",
+              "(`update_protocol_config.rs` lists it as frozen).",
+              "",
+              "Partner review MEDIUM #2 (2026-06-12). Devnet/test harnesses keep",
+              "the `false` default and continue to exercise the skip path (the",
+              "bankrun fixtures rely on `reputation_program = default`); mainnet",
+              "operators call `lock_reputation_program` immediately after",
+              "`initialize_protocol` to guarantee the live deployment can't",
+              "silently boot in no-reputation mode.",
+              "",
+              "**Layout note.** Placed at the end of the struct so existing",
+              "on-chain ProtocolConfig accounts (devnet, post-`migrate_protocol_config`)",
+              "read this field from a zero byte of the forward-compat pad — no",
+              "migration needed, no shift of any pre-existing offset."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReleaseEscrowArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "checkpoint",
+            "docs": [
+              "Milestone index 1..=cycles_total. Must be greater than",
+              "`member.last_released_checkpoint` (monotonic)."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleDefaultArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cycle",
+            "docs": [
+              "Cycle at which the member defaulted. Must equal `pool.current_cycle`.",
+              "Included so the crank caller commits to the exact scenario they",
+              "computed off-chain."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SkipDefaultedPayoutArgs",
+      "docs": [
+        "Permissionless cycle advance for a contemplation cycle whose contemplated",
+        "member defaulted **before** their payout slot.",
+        "",
+        "**Why this exists (liveness).** `claim_payout` is the only instruction that",
+        "advances `pool.current_cycle`, and it requires the claimant to be the",
+        "current slot's member (`slot_index == cycle`) AND `!member.defaulted`. A",
+        "member who defaults pre-contemplation is settled (`defaulted = true`) by the",
+        "permissionless `settle_default` crank during the grace window — so when",
+        "their own contemplation cycle arrives, NO ONE can claim it and the pool",
+        "would lock forever (never reaching `Completed` / `close_pool`). This",
+        "instruction advances such a cycle WITHOUT disbursing the credit: the",
+        "forfeited pot stays in the pool float as surplus (mirrors the L1 Stress Lab",
+        "`calote_pre` model, where the defaulter's `received` is 0 and the",
+        "undisbursed pot remains in `poolBalance`). It restores the",
+        "\"No indefinite locks\" guarantee in `docs/architecture.md`.",
+        "",
+        "Surfaced by the litesvm L1↔L2 parity slice (`tests/litesvm_parity.spec.ts`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cycle",
+            "docs": [
+              "Must equal `pool.current_cycle` AND the defaulted member's `slot_index`."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateProtocolConfigArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_fee_bps_yield",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "new_fee_bps_cycle_l1",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "new_fee_bps_cycle_l2",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "new_fee_bps_cycle_l3",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "new_guarantee_fund_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "new_max_pool_tvl_usdc",
+            "docs": [
+              "Per-pool TVL cap, USDC base units. `Some(0)` disables the cap;",
+              "`None` leaves the field unchanged. Used by the mainnet canary",
+              "rampup — start tight, raise as canary data justifies."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "new_max_protocol_tvl_usdc",
+            "docs": [
+              "Protocol-wide TVL cap, USDC base units. Same convention as",
+              "`new_max_pool_tvl_usdc`."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "new_approved_yield_adapter",
+            "docs": [
+              "Yield-adapter allowlist pin (item 4.4 of MAINNET_READINESS).",
+              "`Some(Pubkey::default())` disables the allowlist (back-compat).",
+              "`Some(<program_id>)` requires `create_pool` to match.",
+              "`None` leaves the field unchanged."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "new_commit_reveal_required",
+            "docs": [
+              "Commit-reveal gate (#232). `Some(true)` disables the legacy",
+              "single-step `escape_valve_list` path; `Some(false)` re-enables",
+              "it. `None` leaves unchanged. Mainnet flips to `Some(true)`",
+              "after canary validates the commit-reveal flow."
+            ],
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "new_lp_share_bps",
+            "docs": [
+              "Yield waterfall LP/participant split (Adevar Labs SEV-003 fix).",
+              "`Some(bps)` updates `config.lp_share_bps` — the authoritative",
+              "value harvest_yield reads (the args field there is now",
+              "deprecated). Capped at MAX_BPS (10_000). `None` leaves unchanged."
+            ],
+            "type": {
+              "option": "u16"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

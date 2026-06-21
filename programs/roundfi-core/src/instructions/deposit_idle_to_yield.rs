@@ -76,18 +76,28 @@ pub struct DepositIdleToYield<'info> {
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, '_, 'info, DepositIdleToYield<'info>>,
+    ctx: Context<'info, DepositIdleToYield<'info>>,
     args: DepositIdleToYieldArgs,
 ) -> Result<()> {
     require!(args.amount > 0, RoundfiError::InvalidAmount);
 
-    // ─── GF solvency guard ──────────────────────────────────────────────
+    // ─── GF + LP earmark solvency guard ─────────────────────────────────
     // Never pull an amount that would leave vault below the earmarked
     // guarantee-fund balance.
+    //
+    // **SEV-048 fix** — also reserve the LP-distribution earmark
+    // (`pool.lp_distribution_balance`). Depositing idle float into the
+    // yield adapter must not move LP-earmarked yield: that balance is an
+    // LP obligation realized in harvest_yield, not idle pool float. Before
+    // this fix only the GF balance was reserved, so LP yield could be
+    // swept into the adapter and double-counted. Same omission as the
+    // claim_payout leg (both fixed under SEV-048).
     let pool = &mut ctx.accounts.pool;
     let vault_before = ctx.accounts.pool_usdc_vault.amount;
-    let gf_earmark = pool.guarantee_fund_balance;
-    let spendable_idle = vault_before.saturating_sub(gf_earmark);
+    let earmark = pool
+        .guarantee_fund_balance
+        .saturating_add(pool.lp_distribution_balance);
+    let spendable_idle = vault_before.saturating_sub(earmark);
     require!(args.amount <= spendable_idle, RoundfiError::InsufficientStake);
 
     // Verify adapter program identity up front (redundant with CPI wrapper,

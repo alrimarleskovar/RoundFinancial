@@ -4,8 +4,8 @@
   "private": true,
   "description": "RoundFi demo SPA — Next.js + Tailwind, driven by @roundfi/orchestrator.",
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
+    "dev": "next dev --webpack -p 3000",
+    "build": "next build --webpack",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "next lint",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
+    "@roundfi/indexer": "workspace:*",
     "@roundfi/orchestrator": "workspace:*",
     "@roundfi/sdk": "workspace:*",
     "@solana/spl-token": "^0.4.8",
@@ -23,19 +24,20 @@
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/web3.js": "^1.95.3",
-    "framer-motion": "^11",
-    "next": "^14.2.15",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "framer-motion": "^12",
+    "next": "^16.2.9",
+    "qrcode.react": "4.2.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
-    "@types/node": "^22.7.4",
-    "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.0",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.0",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
+    "postcss": "^8.5.15",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.6.2"
   }

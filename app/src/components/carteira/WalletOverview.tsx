@@ -7,8 +7,9 @@ import { PositionsList } from "@/components/carteira/PositionsList";
 import { TransactionsList } from "@/components/carteira/TransactionsList";
 import { WithdrawYieldModal } from "@/components/carteira/WithdrawYieldModal";
 import { CountUp } from "@/components/ui/CountUp";
+import { liftHover } from "@/lib/hoverLift";
 import { useSession } from "@/lib/session";
-import { useI18n } from "@/lib/i18n";
+import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { useIsMobile } from "@/lib/useIsMobile";
 
@@ -20,18 +21,28 @@ import { useIsMobile } from "@/lib/useIsMobile";
 
 export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // Composition slice the cursor is over — emphasize it, dim the rest
+  // (both the bar segment and its legend entry).
+  const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
-  const { t, currency, fmtMoney } = useI18n();
+  const { t, currency, fmtMoney, lang } = useI18n();
   const { user } = useSession();
   const isMobile = useIsMobile();
 
   const composition = [
-    { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%" },
-    { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%" },
-    { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%" },
-    { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%" },
+    { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%", flex: 5.2 },
+    { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%", flex: 2.8 },
+    { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%", flex: 1.4 },
+    { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%", flex: 0.6 },
   ];
+
+  // Total balance expressed in devnet USDC (the on-chain unit), shown right
+  // at the composition bar regardless of the BRL/USDC display toggle.
+  const usdcTotal = (user.balance / USDC_RATE).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   return (
     <div
@@ -51,15 +62,20 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
       >
         {/* Balance hero */}
         <div
+          className="group transition-transform duration-500 hover:scale-[1.01]"
           style={{
             ...glass,
             padding: 28,
             borderRadius: 20,
             position: "relative",
             overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
             background: `linear-gradient(145deg, ${tokens.navy}AA 0%, rgba(255,255,255,0.04) 80%)`,
           }}
         >
+          {/* Mirrored shine sweep on hover — same effect as the home SAS passport. */}
+          <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
           <div
             style={{
               position: "absolute",
@@ -71,11 +87,11 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               background: `radial-gradient(circle, ${tokens.green}22, transparent 65%)`,
             }}
           />
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column" }}>
             <MonoLabel>{t("wallet.total", { c: currency })}</MonoLabel>
             <div
               style={{
-                marginTop: 10,
+                marginTop: "auto",
                 display: "flex",
                 alignItems: "baseline",
                 gap: 12,
@@ -96,7 +112,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             </div>
             <div
               style={{
-                marginTop: 10,
+                marginTop: 14,
                 display: "flex",
                 gap: 16,
                 fontSize: 12,
@@ -109,9 +125,29 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               <span style={{ color: tokens.text2 }}>{t("home.kpi.delta.balance")}</span>
             </div>
 
-            {/* composition bar */}
-            <div style={{ marginTop: 28 }}>
-              <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
+            {/* composition bar — grouped with the 24h delta at the card's lower edge */}
+            <div style={{ marginTop: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
+                {/* Total in devnet USDC, anchored right at the bar. */}
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: tokens.text2,
+                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                  }}
+                >
+                  {usdcTotal} USDC
+                </span>
+              </div>
               <div
                 style={{
                   marginTop: 10,
@@ -121,10 +157,20 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                   overflow: "hidden",
                 }}
               >
-                <div style={{ flex: 5.2, background: tokens.green }} />
-                <div style={{ flex: 2.8, background: tokens.teal }} />
-                <div style={{ flex: 1.4, background: tokens.purple }} />
-                <div style={{ flex: 0.6, background: tokens.amber }} />
+                {composition.map((x, i) => (
+                  <div
+                    key={x.l}
+                    onMouseEnter={() => setHoveredSlice(i)}
+                    onMouseLeave={() => setHoveredSlice(null)}
+                    style={{
+                      flex: x.flex,
+                      background: x.c,
+                      opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.25,
+                      transition: "opacity 180ms ease",
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
               </div>
               <div
                 style={{
@@ -134,8 +180,17 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                   gap: 8,
                 }}
               >
-                {composition.map((x) => (
-                  <div key={x.l}>
+                {composition.map((x, i) => (
+                  <div
+                    key={x.l}
+                    onMouseEnter={() => setHoveredSlice(i)}
+                    onMouseLeave={() => setHoveredSlice(null)}
+                    style={{
+                      opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.4,
+                      transition: "opacity 180ms ease",
+                      cursor: "default",
+                    }}
+                  >
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span
                         style={{
@@ -185,13 +240,16 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
         <div
           style={{
             ...glass,
+            border: "1px solid transparent",
             padding: 22,
             borderRadius: 20,
             position: "relative",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
+            transition: "transform 180ms ease, border-color 180ms ease",
           }}
+          {...liftHover(tokens.teal)}
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <MonoLabel color={tokens.teal}>{t("wallet.kamino")}</MonoLabel>
@@ -220,8 +278,12 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             {t("wallet.yieldAcc")}
           </div>
 
-          <div style={{ marginTop: 18, flex: 1 }}>
-            <svg viewBox="0 0 200 60" style={{ width: "100%", height: 80 }}>
+          <div style={{ marginTop: 18, flex: 1, display: "flex", minHeight: 96 }}>
+            <svg
+              viewBox="0 0 200 60"
+              preserveAspectRatio="none"
+              style={{ width: "100%", height: "100%" }}
+            >
               <defs>
                 <linearGradient id="rfi-spark-g" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0" stopColor={tokens.teal} stopOpacity="0.4" />
@@ -255,7 +317,9 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
+              transition: "transform 180ms ease, border-color 180ms ease",
             }}
+            {...liftHover(tokens.teal, tokens.borderStr)}
           >
             {t("wallet.withdraw")}
           </button>

@@ -19,15 +19,29 @@ import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 
 import type { Env } from "./env.js";
-import { attestationFor, reputationConfigFor, reputationProfileFor } from "./pda.js";
+import {
+  attestationFor,
+  identityGateFor,
+  reputationConfigFor,
+  reputationProfileFor,
+} from "./pda.js";
 
-/** Matches `roundfi_reputation::constants::SCHEMA_*`. */
+/** Matches `roundfi_reputation::constants::SCHEMA_*`.
+ *
+ *  Pass-3 (Caio HIGH, 2026-06-12): id 4 renamed CycleComplete→PoolComplete
+ *  with new semantics (emitted by contribute at the last installment, not
+ *  by claim_payout). id 6 added as PayoutClaimed (claim_payout, score-
+ *  neutral). Both old name and new name kept here so legacy localnet
+ *  fixtures continue to compile without semantic surprise. */
 export const SCHEMA = {
   Payment: 1,
   Late: 2,
   Default: 3,
-  CycleComplete: 4,
+  PoolComplete: 4,
   LevelUp: 5,
+  PayoutClaimed: 6,
+  /** @deprecated Pass-3 rename — use PoolComplete. */
+  CycleComplete: 4,
 } as const;
 
 export interface ReputationInitOpts {
@@ -283,6 +297,13 @@ export interface PromoteLevelOpts {
   subject: PublicKey;
   /** Anyone can crank. Defaults to env.payer. */
   caller?: Keypair;
+  /**
+   * Identity sentinel (SEV-047 gate). Defaults to `env.ids.reputation` —
+   * Anchor resolves the `Option<Account<IdentityRecord>>` to `None` (the
+   * program ID is the documented optional-account sentinel), i.e. Unverified.
+   * Pass a real `IdentityRecord` PDA to exercise the verified path.
+   */
+  identity?: PublicKey;
 }
 
 export async function promoteLevel(env: Env, opts: PromoteLevelOpts): Promise<string> {
@@ -293,9 +314,40 @@ export async function promoteLevel(env: Env, opts: PromoteLevelOpts): Promise<st
     .accounts({
       subject: opts.subject,
       profile,
+      // SEV-047: required gate config (singleton). Must be created via
+      // `setIdentityGate` before promote_level works on a deployment.
+      identityGate: identityGateFor(env),
+      identity: opts.identity ?? env.ids.reputation,
       caller: caller.publicKey,
     })
     .signers(caller.publicKey.equals(env.payer.publicKey) ? [env.payer] : [env.payer, caller])
+    .rpc();
+}
+
+export interface SetIdentityGateOpts {
+  /** 0 = gate OFF (default). 2 or 3 = require verified identity at that tier+. */
+  requiredMinLevel: number;
+  /** Reputation config authority. Defaults to env.payer (the test authority). */
+  authority?: Keypair;
+}
+
+/**
+ * SEV-047 — set (and lazily create) the `IdentityGateConfig` singleton.
+ * `init_if_needed`, so the FIRST call creates the PDA. Call once with
+ * `requiredMinLevel: 0` in setup so `promote_level` (which REQUIRES the gate
+ * account) can run; raise to 2/3 to exercise enforcement.
+ */
+export async function setIdentityGate(env: Env, opts: SetIdentityGateOpts): Promise<string> {
+  const authority = opts.authority ?? env.payer;
+  return (env.programs.reputation.methods as any)
+    .setIdentityGate(opts.requiredMinLevel)
+    .accounts({
+      authority: authority.publicKey,
+      config: reputationConfigFor(env),
+      identityGate: identityGateFor(env),
+      systemProgram: SystemProgram.programId,
+    })
+    .signers(authority.publicKey.equals(env.payer.publicKey) ? [env.payer] : [authority])
     .rpc();
 }
 

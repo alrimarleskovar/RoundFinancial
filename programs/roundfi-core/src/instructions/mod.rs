@@ -3,7 +3,9 @@ pub mod cancel_new_fee_bps_yield;
 pub mod cancel_new_treasury;
 pub mod cancel_pending_listing;
 pub mod claim_payout;
+pub mod close_member;
 pub mod close_pool;
+pub mod close_pool_vaults;
 pub mod commit_new_authority;
 pub mod commit_new_fee_bps_yield;
 pub mod commit_new_treasury;
@@ -19,13 +21,16 @@ pub mod init_pool_vaults;
 pub mod initialize_protocol;
 pub mod join_pool;
 pub mod lock_approved_yield_adapter;
+pub mod lock_reputation_program;
 pub mod lock_treasury;
+pub mod migrate_protocol_config;
 pub mod pause;
 pub mod propose_new_authority;
 pub mod propose_new_fee_bps_yield;
 pub mod propose_new_treasury;
 pub mod release_escrow;
 pub mod settle_default;
+pub mod skip_defaulted_payout;
 pub mod update_protocol_config;
 
 // Each handler module re-exports its `handler` fn + Accounts struct +
@@ -41,7 +46,9 @@ mod reexports {
     pub use super::cancel_new_treasury::*;
     pub use super::cancel_pending_listing::*;
     pub use super::claim_payout::*;
+    pub use super::close_member::*;
     pub use super::close_pool::*;
+    pub use super::close_pool_vaults::*;
     pub use super::commit_new_authority::*;
     pub use super::commit_new_fee_bps_yield::*;
     pub use super::commit_new_treasury::*;
@@ -57,13 +64,16 @@ mod reexports {
     pub use super::initialize_protocol::*;
     pub use super::join_pool::*;
     pub use super::lock_approved_yield_adapter::*;
+    pub use super::lock_reputation_program::*;
     pub use super::lock_treasury::*;
+    pub use super::migrate_protocol_config::*;
     pub use super::pause::*;
     pub use super::propose_new_authority::*;
     pub use super::propose_new_fee_bps_yield::*;
     pub use super::propose_new_treasury::*;
     pub use super::release_escrow::*;
     pub use super::settle_default::*;
+    pub use super::skip_defaulted_payout::*;
     pub use super::update_protocol_config::*;
 }
 pub use reexports::*;

@@ -161,9 +161,9 @@ if [[ "$DEPLOY" == 0 ]]; then
   exit 0
 fi
 
-# `anchor build --no-idl` skips the IDL generation step (which is broken by
-# spike #319 on Anchor 0.30.1). The .so files are what `anchor deploy` needs;
-# IDLs are a separate concern handled by scripts/dev/rebuild-idls.sh.
+# `anchor build --no-idl` skips IDL generation (not needed for the .so files
+# `anchor deploy` uses). Anchor 1.0 emits IDLs natively (the #319 patch
+# workaround is retired); run a plain `anchor build` if you need them.
 echo "→ anchor build --no-idl..."
 if ! anchor build --no-idl >/dev/null 2>&1; then
   # Re-run with visible output so we surface the actual error.

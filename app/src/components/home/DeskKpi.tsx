@@ -21,6 +21,9 @@ export function DeskKpi({
   tone,
   sub,
   href,
+  hoverBorderColor,
+  hoverReturnDelayMs,
+  labelSize,
 }: {
   label: string;
   value: string | number;
@@ -33,6 +36,14 @@ export function DeskKpi({
   tone: Tone;
   sub?: string;
   href?: string;
+  // Hover border override + delayed return (opt-in; /home keeps the default
+  // tone-tinted border with a symmetric transition). /home-v2 passes a
+  // white outline + a return delay so the border lingers before fading.
+  hoverBorderColor?: string;
+  hoverReturnDelayMs?: number;
+  // KPI title (label) font size in px. Defaults to 9 (the original tiny
+  // mono caption). /home-v2 passes a larger value for bolder titles.
+  labelSize?: number;
 }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -51,6 +62,10 @@ export function DeskKpi({
     }
   })();
 
+  const hoverBorder = hoverBorderColor ?? `${toneColor}55`;
+  const returnDelay = hoverReturnDelayMs ?? 0;
+  const baseTransition = "transform 180ms ease, border-color 180ms ease";
+
   const Wrapper = href
     ? ({ children }: { children: React.ReactNode }) => (
         <Link
@@ -59,6 +74,8 @@ export function DeskKpi({
             display: "block",
             textDecoration: "none",
             color: "inherit",
+            height: "100%",
+            width: "100%",
           }}
         >
           {children}
@@ -71,29 +88,37 @@ export function DeskKpi({
       <div
         style={{
           ...glass,
+          // Transparent resting border — the tone outline only shows on hover
+          // (matches the reputacao cards), never a white edge.
+          border: "1px solid transparent",
           borderRadius: 16,
           padding: 18,
           position: "relative",
           overflow: "hidden",
+          height: "100%",
+          boxSizing: "border-box",
           cursor: href ? "pointer" : "default",
-          transition: "transform 180ms ease, border-color 180ms ease",
+          transition: baseTransition,
         }}
-        onMouseEnter={
-          href
-            ? (e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.borderColor = `${toneColor}55`;
-              }
-            : undefined
-        }
-        onMouseLeave={
-          href
-            ? (e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.borderColor = "";
-              }
-            : undefined
-        }
+        // Subtle hover lift + outlined border — applied whether or not the
+        // card links somewhere, so non-link KPIs (e.g. /home-v2's Receivable
+        // / Collateral) get the same feedback as linked ones. The `cursor`
+        // above still distinguishes clickable (pointer) from display-only
+        // (default). On leave, an optional `hoverReturnDelayMs` keeps the
+        // border lit briefly before it fades back (quick in, delayed out).
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transition = baseTransition;
+          e.currentTarget.style.transform = "translateY(-2px)";
+          e.currentTarget.style.borderColor = hoverBorder;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transition =
+            returnDelay > 0
+              ? `transform 180ms ease, border-color 520ms ease ${returnDelay}ms`
+              : baseTransition;
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.borderColor = "transparent";
+        }}
       >
         <div
           style={{
@@ -105,7 +130,12 @@ export function DeskKpi({
             background: `linear-gradient(90deg, ${toneColor}, transparent 70%)`,
           }}
         />
-        <MonoLabel size={9}>{label}</MonoLabel>
+        <MonoLabel
+          size={labelSize ?? 9}
+          style={labelSize ? { letterSpacing: "0.04em", lineHeight: 1.1 } : undefined}
+        >
+          {label}
+        </MonoLabel>
         <div
           style={{
             display: "flex",
@@ -121,6 +151,10 @@ export function DeskKpi({
               fontWeight: 800,
               color: tokens.text,
               letterSpacing: "-0.02em",
+              // tabular figures only — keeps digit widths equal so the value
+              // stays aligned (and the animated Saldo doesn't jitter) without
+              // changing the Syne display look.
+              fontVariantNumeric: "tabular-nums",
               lineHeight: 1,
             }}
           >

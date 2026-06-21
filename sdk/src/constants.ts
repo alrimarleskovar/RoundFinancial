@@ -24,11 +24,14 @@ export const FEES = {
   escrowReleaseBps: 2_500, // 25%
 } as const;
 
-/** Stake requirement (as bps of credit amount) by reputation level. Snapshotted at join. */
+/** Stake requirement (as bps of credit amount) by reputation level. Snapshotted at join.
+ *  v5.2 four-tier ladder (50/25/10/3). Mirrors STAKE_BPS_LEVEL_* in
+ *  programs/roundfi-core/src/constants.rs (parity-tested in tests/parity.spec.ts). */
 export const STAKE_BPS_BY_LEVEL = {
   1: 5_000, // 50%
-  2: 3_000, // 30%
+  2: 2_500, // 25%
   3: 1_000, // 10%
+  4: 300, // 3% (Elite)
 } as const;
 
 /** Default ROSCA pool parameters. */
@@ -46,13 +49,25 @@ export const POOL_DEFAULTS = {
   cycleDurationSec: 2_592_000,
 } as const;
 
-/** Attestation schema IDs — mirrors roundfi-reputation::SchemaId. */
+/** Attestation schema IDs — mirrors roundfi-reputation::SchemaId.
+ *
+ *  Pass-3 (Caio HIGH, 2026-06-12): id 4 was renamed from `CycleComplete`
+ *  (claim_payout-emitted, score +50) to `PoolComplete` (contribute-
+ *  emitted at the last installment, score +50 — measures the
+ *  "pay-after-receiving" thesis). id 6 was added as `PayoutClaimed`
+ *  (claim_payout-emitted, score-neutral audit trail). The
+ *  `CycleComplete` alias is kept so external tooling reading the
+ *  constant directly doesn't error during the cutover. */
 export const ATTESTATION_SCHEMA = {
   Payment: 1,
   Late: 2,
   Default: 3,
-  CycleComplete: 4,
+  PoolComplete: 4,
   LevelUp: 5,
+  PayoutClaimed: 6,
+  /** @deprecated Pass-3 rename — use `PoolComplete` (same id 4, new
+   *  semantics) or `PayoutClaimed` (id 6) depending on the call site. */
+  CycleComplete: 4,
 } as const;
 
 /** PoolStatus enum values — mirrors roundfi-core::PoolStatus. */
