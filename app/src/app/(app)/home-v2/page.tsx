@@ -137,54 +137,19 @@ function dueLabel(daysUntil: number, lang: Lang): string {
 
 // ── action hero ──────────────────────────────────────────────────────────
 
-// A 3D tear-off calendar page showing the countdown (days remaining), the
-// focal visual of the action hero per the print.
-function CountdownCalendar({ day, mon }: { day: string; mon: string }) {
-  return (
-    <div className="relative -rotate-[4deg]">
-      {/* stacked pages behind the top sheet — gives the pad real depth */}
-      <div className="absolute left-2 top-2.5 h-32 w-28 rounded-2xl bg-white/20 blur-[1px]" />
-      <div className="absolute left-1 top-1 h-32 w-28 rounded-2xl bg-white/45" />
-      {/* binder rings */}
-      <span className="absolute -top-2 left-5 z-20 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
-      <span className="absolute -top-2 right-5 z-20 h-4 w-2 rounded-full bg-gradient-to-b from-gray-200 to-gray-500 shadow-md" />
-      {/* top sheet */}
-      <div className="relative flex h-32 w-28 flex-col overflow-hidden rounded-2xl bg-gradient-to-b from-white to-gray-100 shadow-[0_30px_60px_rgba(0,0,0,0.6)] ring-1 ring-black/10">
-        <div className="flex h-9 items-center justify-center bg-gradient-to-r from-[#14F195] to-[#0FCB7E] text-[11px] font-black uppercase tracking-[0.2em] text-[#04130D] shadow-[inset_0_-2px_3px_rgba(4,19,13,0.18)]">
-          {mon}
-        </div>
-        {/* perforation — the tear-off line under the header */}
-        <div className="flex justify-around px-2 py-1">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <span key={i} className="h-1 w-1 rounded-full bg-gray-300" />
-          ))}
-        </div>
-        <div className="flex flex-1 items-center justify-center text-[3.25rem] font-black leading-none text-[#0B0F16] [text-shadow:0_2px_1px_rgba(0,0,0,0.12)]">
-          {day}
-        </div>
-        {/* folded bottom-right corner */}
-        <div
-          className="absolute bottom-0 right-0 h-7 w-7 bg-gradient-to-tl from-gray-300 to-transparent"
-          style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
-        />
-        {/* glossy diagonal sheen */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-transparent" />
-      </div>
-    </div>
-  );
-}
-
 function ActionHero({
   nextDue,
   installment,
   daysUntil,
-  dueMon,
+  payGroup,
 }: {
   nextDue: string;
   installment: string;
   daysUntil: number;
-  dueMon: string;
+  payGroup: ActiveGroup | undefined;
 }) {
+  const { t } = useI18n();
+  const [payOpen, setPayOpen] = useState(false);
   // Ring fills as the due date approaches (fewer days left → more complete).
   const ringPct = Math.max(8, Math.min(100, Math.round((1 - daysUntil / 30) * 100)));
   return (
@@ -197,70 +162,95 @@ function ActionHero({
         <div>
           <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#14F195]">
             <span className="h-2 w-2 rounded-full bg-[#14F195] shadow-[0_0_10px_#14F195]" />
-            Próxima ação
+            {t("homeV2.hero.badge")}
           </div>
           <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
-            Sua parcela vence em
+            {t("homeV2.hero.dueIn")}
           </h2>
           <div className="mt-1 text-4xl font-black tracking-tight text-[#14F195] sm:text-5xl">
-            {daysUntil} dias
+            {t("homeV2.hero.daysCount", { n: daysUntil })}
           </div>
-          <p className="mt-5 text-sm text-gray-400">Valor da parcela</p>
+          <p className="mt-5 text-sm text-gray-400">{t("homeV2.hero.amountLabel")}</p>
           <div className="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">
             {installment}
           </div>
-          <button className="mt-6 inline-flex w-full max-w-[280px] items-center justify-between rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-6 py-4 text-sm font-black text-[#04130D] shadow-[0_8px_32px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(20,241,149,0.36)]">
-            Pagar agora
+          <button
+            type="button"
+            onClick={() => setPayOpen(true)}
+            disabled={!payGroup}
+            className="mt-6 inline-flex w-full max-w-[280px] items-center justify-between rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-6 py-4 text-sm font-black text-[#04130D] shadow-[0_8px_32px_rgba(20,241,149,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(20,241,149,0.36)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {t("homeV2.hero.payNow")}
             <Glyph name="chevronRight" color="#04130D" size={18} sw={2.4} />
           </button>
         </div>
 
-        {/* center — countdown calendar framed by a gradient progress ring */}
+        {/* center — modern countdown ring (same gauge language as /insights & /reputacao) */}
         <div className="relative flex items-center justify-center py-2">
-          {/* soft radial halo grounds the calendar in the green accent */}
           <div className="pointer-events-none absolute h-[210px] w-[210px] rounded-full bg-[radial-gradient(circle,rgba(20,241,149,0.16),transparent_62%)]" />
-          {/* progress ring — fills as the due date nears */}
-          <svg
-            viewBox="0 0 120 120"
-            className="pointer-events-none absolute h-[208px] w-[208px] -rotate-90"
-            style={{ filter: "drop-shadow(0 0 10px rgba(20,241,149,0.4))" }}
+          <div
+            className="relative h-[196px] w-[196px]"
+            style={{ filter: "drop-shadow(0 0 16px rgba(20,241,149,0.22))" }}
           >
-            <defs>
-              <linearGradient id="calRing" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#14F195" />
-                <stop offset="100%" stopColor="#00C8FF" />
-              </linearGradient>
-            </defs>
-            <circle
-              cx="60"
-              cy="60"
-              r="54"
-              fill="none"
-              stroke="rgba(255,255,255,0.06)"
-              strokeWidth="5"
-            />
-            <circle
-              cx="60"
-              cy="60"
-              r="54"
-              fill="none"
-              stroke="url(#calRing)"
-              strokeWidth="5"
-              strokeLinecap="round"
-              pathLength={100}
-              strokeDasharray={`${ringPct} ${100 - ringPct}`}
-            />
-          </svg>
-          <CountdownCalendar day={String(daysUntil)} mon={dueMon} />
+            <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+              <defs>
+                <linearGradient id="cdRing" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#14F195" />
+                  <stop offset="55%" stopColor="#00C8FF" />
+                  <stop offset="100%" stopColor="#9945FF" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="rgba(255,255,255,0.07)"
+                strokeWidth="10"
+              />
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="url(#cdRing)"
+                strokeWidth="10"
+                strokeLinecap="round"
+                pathLength={100}
+                strokeDasharray={`${ringPct} ${100 - ringPct}`}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <Glyph name="stopwatch" color="#14F195" size={20} sw={1.9} />
+              <span className="mt-1.5 text-[3.5rem] font-black leading-none tracking-tighter text-white [font-variant-numeric:tabular-nums]">
+                {daysUntil}
+              </span>
+              <span className="mt-1 text-[11px] font-black uppercase tracking-[0.28em] text-[#14F195]">
+                {t("homeV2.hero.daysWord")}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* right — the facts */}
         <div className="grid gap-2.5 rounded-3xl border border-white/10 bg-black/20 p-3 backdrop-blur">
-          <HeroFact icon="calendar" title="Vencimento" value={nextDue} />
-          <HeroFact icon="stopwatch" title="Dias restantes" value={`${daysUntil} dias`} />
-          <HeroFact icon="shield" title="Mantenha seu score" value="Evite juros e multas" />
+          <HeroFact icon="calendar" title={t("home.card.due")} value={nextDue} />
+          <HeroFact
+            icon="stopwatch"
+            title={t("homeV2.hero.daysLeft")}
+            value={t("homeV2.hero.daysCount", { n: daysUntil })}
+          />
+          <HeroFact
+            icon="shield"
+            title={t("homeV2.hero.keepScore")}
+            value={t("homeV2.hero.avoidFees")}
+          />
         </div>
       </div>
+
+      {payGroup ? (
+        <PayInstallmentModal group={payGroup} open={payOpen} onClose={() => setPayOpen(false)} />
+      ) : null}
     </section>
   );
 }
@@ -275,16 +265,22 @@ function Greeting({
   firstName: string;
   payGroup: ActiveGroup | undefined;
 }) {
+  const { t } = useI18n();
   const [payOpen, setPayOpen] = useState(false);
   const hour = new Date().getHours();
-  const salutation = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const salutation =
+    hour < 12
+      ? t("homeV2.greeting.morning")
+      : hour < 18
+        ? t("homeV2.greeting.afternoon")
+        : t("homeV2.greeting.evening");
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         <h1 className="text-3xl font-black tracking-[-0.03em] text-white [font-family:var(--font-syne),sans-serif] sm:text-4xl">
           {salutation}, {firstName} <span className="align-middle">👋</span>
         </h1>
-        <p className="mt-2 text-sm text-gray-400">Vamos construir mais conquistas hoje.</p>
+        <p className="mt-2 text-sm text-gray-400">{t("homeV2.greeting.sub")}</p>
       </div>
       <div className="flex shrink-0 gap-2.5">
         <button
@@ -293,14 +289,14 @@ function Greeting({
           className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-5 py-3 text-sm font-black text-[#04130D] shadow-[0_8px_28px_rgba(20,241,149,0.25)] transition hover:-translate-y-0.5"
         >
           <Icons.send size={16} stroke="#04130D" sw={1.9} />
-          Pagar parcela
+          {t("homeV2.cta.payInstallment")}
         </button>
         <Link
           href="/grupos"
           className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:border-white/30"
         >
           <Icons.plus size={16} stroke="currentColor" sw={2} />
-          Entrar em grupo
+          {t("homeV2.cta.joinGroup")}
         </Link>
       </div>
       {payGroup ? (
@@ -347,6 +343,7 @@ function ExpandableMetricCard({
   icon?: ReactNode;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <article
       className={`group relative h-full overflow-hidden rounded-2xl border p-5 transition-all duration-300 ${
@@ -368,7 +365,7 @@ function ExpandableMetricCard({
           type="button"
           onClick={() => onToggle(expanded ? null : id)}
           className="shrink-0 rounded-xl border border-white/10 bg-white/5 p-2 text-gray-400 transition hover:border-white/25 hover:text-white"
-          aria-label={expanded ? "Recolher informações" : "Expandir informações"}
+          aria-label={expanded ? t("homeV2.collapse") : t("homeV2.expand")}
         >
           {expanded ? (
             <Glyph name="chevronDown" color="currentColor" size={17} sw={2} />
@@ -390,7 +387,7 @@ function ExpandableMetricCard({
 }
 
 function ProtectedDetails({ liveBalance }: { liveBalance: number }) {
-  const { fmtMoney } = useI18n();
+  const { t, fmtMoney } = useI18n();
   return (
     <div className="space-y-4 border-t border-white/10 pt-4">
       <div className="h-16 rounded-xl bg-[linear-gradient(180deg,rgba(20,241,149,0.28),rgba(20,241,149,0.02))] p-3">
@@ -406,22 +403,23 @@ function ProtectedDetails({ liveBalance }: { liveBalance: number }) {
       </div>
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div>
-          <p className="text-gray-500">Rendimento acumulado</p>
+          <p className="text-gray-500">{t("homeV2.protected.accrued")}</p>
           <p className="mt-1 font-bold text-white">{fmtMoney(1587.76)}</p>
         </div>
         <div>
-          <p className="text-gray-500">Yield médio</p>
+          <p className="text-gray-500">{t("homeV2.protected.avgYield")}</p>
           <p className="mt-1 font-bold text-[#00C8FF]">57 USDC</p>
         </div>
       </div>
       <p className="text-[11px] leading-relaxed text-gray-500">
-        Saldo atualizado em tempo real. Total atual: {fmtMoney(liveBalance)}.
+        {t("homeV2.protected.note", { v: fmtMoney(liveBalance) })}
       </p>
     </div>
   );
 }
 
 function CycleValueDetails() {
+  const { t } = useI18n();
   return (
     <div className="space-y-4 border-t border-white/10 pt-4">
       <div className="flex items-center gap-4">
@@ -429,22 +427,23 @@ function CycleValueDetails() {
           <div className="absolute inset-4 rounded-full bg-[#0B0F16]" />
         </div>
         <div className="space-y-2 text-xs">
-          <Legend color="#14F195" label="Em andamento" value="62%" />
-          <Legend color="#00C8FF" label="Aguardando" value="23%" />
-          <Legend color="#9945FF" label="Encerrados" value="15%" />
+          <Legend color="#14F195" label={t("homeV2.cycles.ongoing")} value="62%" />
+          <Legend color="#00C8FF" label={t("homeV2.cycles.waiting")} value="23%" />
+          <Legend color="#9945FF" label={t("homeV2.cycles.closed")} value="15%" />
         </div>
       </div>
       <Link
         href="/grupos"
         className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
       >
-        Ver detalhes <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
+        {t("homeV2.seeDetails")} <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
       </Link>
     </div>
   );
 }
 
 function CollateralDetails({ pct }: { pct: number }) {
+  const { t } = useI18n();
   const left = Math.max(0, Math.min(100, ((pct - 20) / 30) * 100));
   return (
     <div className="space-y-4 border-t border-white/10 pt-4">
@@ -459,14 +458,15 @@ function CollateralDetails({ pct }: { pct: number }) {
         />
       </div>
       <div className="flex justify-between text-[11px] text-gray-400">
-        <span>Mínimo 20%</span>
-        <span>Máximo 50%</span>
+        <span>{t("homeV2.collateral.min")}</span>
+        <span>{t("homeV2.collateral.max")}</span>
       </div>
       <Link
         href="/reputacao"
         className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
       >
-        Como reduzir colateral <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
+        {t("homeV2.collateral.howReduce")}{" "}
+        <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
       </Link>
     </div>
   );
@@ -520,7 +520,7 @@ function PassportTile({
       <div className="relative z-10 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="bg-gradient-to-r from-[#9945FF] to-[#14F195] bg-clip-text text-[11px] font-black uppercase tracking-[0.16em] text-transparent">
-            SAS Digital Passport
+            {t("homeV2.passport.title")}
           </span>
           <div className="mt-0.5 font-mono text-[8px] text-gray-500">ID: {passportId}</div>
         </div>
@@ -528,7 +528,7 @@ function PassportTile({
           type="button"
           onClick={() => onToggle(expanded ? null : "passport")}
           className="shrink-0 rounded-xl border border-white/10 bg-white/5 p-2 text-gray-400 transition hover:border-white/25 hover:text-white"
-          aria-label={expanded ? "Recolher informações" : "Expandir informações"}
+          aria-label={expanded ? t("homeV2.collapse") : t("homeV2.expand")}
         >
           {expanded ? (
             <Glyph name="chevronDown" color="currentColor" size={17} sw={2} />
@@ -543,8 +543,12 @@ function PassportTile({
           {score}
         </span>
         <div className="mb-1 flex flex-col">
-          <span className="text-[10px] font-black italic leading-none text-[#14F195]">TRUSTED</span>
-          <span className="text-[10px] font-bold italic text-gray-500">SCORE</span>
+          <span className="text-[10px] font-black italic leading-none text-[#14F195]">
+            {t("homeV2.passport.trusted")}
+          </span>
+          <span className="text-[10px] font-bold italic text-gray-500">
+            {t("homeV2.passport.scoreWord")}
+          </span>
         </div>
       </div>
 
@@ -579,15 +583,14 @@ function PassportTile({
         <div className="overflow-hidden">
           <div className="space-y-3 border-t border-white/10 pt-4">
             <p className="text-[11px] leading-relaxed text-gray-400">
-              {toNext > 0
-                ? `Faltam ${toNext} pontos para o próximo nível.`
-                : "Você está no nível máximo. Reputação on-chain auditável."}
+              {toNext > 0 ? t("homeV2.passport.toNext", { n: toNext }) : t("homeV2.passport.max")}
             </p>
             <Link
               href="/reputacao"
               className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
             >
-              Ver meu perfil <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
+              {t("homeV2.passport.viewProfile")}{" "}
+              <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
             </Link>
           </div>
         </div>
@@ -755,7 +758,6 @@ export default function HomeV2Page() {
   const monShort = dueDate.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
   const monCap = monShort.charAt(0).toUpperCase() + monShort.slice(1);
   const nextDue = `${dd} / ${monCap} / ${dueDate.getFullYear()}`;
-  const dueMon = monCap.toUpperCase();
 
   return (
     <div className="mx-auto flex w-full max-w-6xl animate-in flex-col gap-6 p-4 font-sans fade-in duration-700 md:p-8">
@@ -765,7 +767,7 @@ export default function HomeV2Page() {
         nextDue={nextDue}
         installment={installment}
         daysUntil={daysUntil}
-        dueMon={dueMon}
+        payGroup={firstGroup}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -774,9 +776,9 @@ export default function HomeV2Page() {
           expanded={expanded === "protected"}
           onToggle={setExpanded}
           tone="#14F195"
-          title="Saldo protegido"
+          title={t("homeV2.metric.balance")}
           value={fmtMoney(liveBalance)}
-          subtitle="Rendendo em escrow na Solana"
+          subtitle={t("homeV2.metric.balanceSub")}
           icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
         >
           <ProtectedDetails liveBalance={liveBalance} />
@@ -787,9 +789,9 @@ export default function HomeV2Page() {
           expanded={expanded === "cycles"}
           onToggle={setExpanded}
           tone="#9945FF"
-          title="Valor dos ciclos"
+          title={t("homeV2.metric.cycles")}
           value={fmtMoney(receivable)}
-          subtitle="Capital total das cotas ativas"
+          subtitle={t("homeV2.metric.cyclesSub")}
           icon={<Glyph name="pie" color="currentColor" size={17} sw={1.9} />}
         >
           <CycleValueDetails />
@@ -800,9 +802,9 @@ export default function HomeV2Page() {
           expanded={expanded === "collateral"}
           onToggle={setExpanded}
           tone="#FFB547"
-          title="Colateral atual"
+          title={t("homeV2.metric.collateral")}
           value={`${user.colateralPct}%`}
-          subtitle="Sobre o valor da cota"
+          subtitle={t("homeV2.metric.collateralSub")}
           icon={<Icons.shield size={17} stroke="currentColor" sw={1.9} />}
         >
           <CollateralDetails pct={user.colateralPct} />
@@ -850,29 +852,29 @@ export default function HomeV2Page() {
       <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 sm:p-7">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
-            Próximas conquistas
+            {t("homeV2.achiev.title")}
           </h3>
           <Link href="/insights" className="text-xs font-bold text-gray-400 hover:text-white">
-            Ver todas
+            {t("homeV2.achiev.seeAll")}
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <AchievementCard
             icon="star"
-            title="Pague 2 parcelas no prazo"
-            subtitle="Ganhe +18 pontos"
+            title={t("homeV2.achiev.1.t")}
+            subtitle={t("homeV2.achiev.earn", { n: 18 })}
             progress="0/2"
           />
           <AchievementCard
             icon="people"
-            title="Entre em um grupo PME"
-            subtitle="Ganhe +24 pontos"
+            title={t("homeV2.achiev.2.t")}
+            subtitle={t("homeV2.achiev.earn", { n: 24 })}
             progress="0/1"
           />
           <AchievementCard
             icon="trophy"
-            title="Complete 1 ciclo"
-            subtitle="Ganhe +42 pontos"
+            title={t("homeV2.achiev.3.t")}
+            subtitle={t("homeV2.achiev.earn", { n: 42 })}
             progress="0/1"
           />
         </div>
@@ -881,11 +883,11 @@ export default function HomeV2Page() {
       <footer className="flex flex-col gap-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-2">
           <Icons.lock size={14} stroke="currentColor" sw={1.8} />
-          Seus fundos estão protegidos em escrow e gerando yield na Solana.
+          {t("homeV2.footer.protected")}
         </span>
         <span className="inline-flex items-center gap-2 text-[#14F195]">
           <Icons.check size={14} stroke="#14F195" sw={2.2} />
-          Auditado e verificado
+          {t("homeV2.footer.audited")}
         </span>
       </footer>
     </div>
