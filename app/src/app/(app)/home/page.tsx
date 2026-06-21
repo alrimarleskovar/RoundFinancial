@@ -134,11 +134,15 @@ function ActionHero({
   nextDue,
   installment,
   daysUntil,
+  dueDay,
+  dueMon,
   payGroup,
 }: {
   nextDue: string;
   installment: string;
   daysUntil: number;
+  dueDay: string;
+  dueMon: string;
   payGroup: ActiveGroup | undefined;
 }) {
   const { t } = useI18n();
@@ -214,12 +218,14 @@ function ActionHero({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <Glyph name="stopwatch" color="#14F195" size={20} sw={1.9} />
-              <span className="mt-1.5 text-[3.5rem] font-black leading-none tracking-tighter text-white [font-variant-numeric:tabular-nums]">
-                {daysUntil}
+              <span className="text-[11px] font-black uppercase tracking-[0.28em] text-[#14F195]">
+                {dueMon}
               </span>
-              <span className="mt-1 text-[11px] font-black uppercase tracking-[0.28em] text-[#14F195]">
-                {t("homeV2.hero.daysWord")}
+              <span className="text-[3.25rem] font-black leading-none tracking-tighter text-white [font-variant-numeric:tabular-nums]">
+                {dueDay}
+              </span>
+              <span className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-gray-500">
+                {t("home.card.due")}
               </span>
             </div>
           </div>
@@ -796,6 +802,8 @@ export default function HomePage() {
         nextDue={nextDue}
         installment={installment}
         daysUntil={daysUntil}
+        dueDay={dd}
+        dueMon={monCap.toUpperCase()}
         payGroup={firstGroup}
       />
 
