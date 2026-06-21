@@ -262,7 +262,7 @@ function Greeting({
         </button>
         <Link
           href="/grupos"
-          className="inline-flex items-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:border-white/30"
+          className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:border-white/30"
         >
           <Icons.plus size={16} stroke="currentColor" sw={2} />
           Entrar em grupo
@@ -586,7 +586,7 @@ function GroupCard({ g, month, theme }: { g: ActiveGroup; month: number; theme: 
 
   return (
     <div
-      className={`w-full rounded-2xl border border-white/8 p-4 transition-all ${
+      className={`w-full rounded-2xl border border-transparent p-4 transition-all ${
         theme === "light" ? "bg-white shadow-sm" : "bg-white/[0.04]"
       }`}
       {...cardHover(tone)}
@@ -669,14 +669,17 @@ function AchievementCard({
   progress: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-5">
+    <div
+      {...cardHover("#14F195")}
+      className="rounded-2xl border border-transparent bg-white/[0.035] p-5 transition"
+    >
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#14F195]/10">
         <Glyph name={icon} color="#14F195" size={22} sw={1.9} />
       </div>
       <h4 className="font-bold text-white">{title}</h4>
       <p className="mt-1 text-sm text-gray-400">{subtitle}</p>
       <div className="mt-5 flex items-center gap-3">
-        <div className="h-2 flex-1 rounded-full bg-white/8" />
+        <div className="h-2 flex-1 rounded-full bg-white/[0.08]" />
         <span className="font-mono text-xs text-gray-400">{progress}</span>
       </div>
     </div>
@@ -778,7 +781,7 @@ export default function HomeV2Page() {
         />
       </div>
 
-      <section className="rounded-[2rem] border border-white/8 bg-white/[0.025] p-5 shadow-2xl sm:p-7">
+      <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 shadow-2xl sm:p-7">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
             {t("home.cycles.title")}
@@ -809,7 +812,7 @@ export default function HomeV2Page() {
         )}
       </section>
 
-      <section className="rounded-[2rem] border border-white/8 bg-white/[0.025] p-5 sm:p-7">
+      <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 sm:p-7">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
             Próximas conquistas
