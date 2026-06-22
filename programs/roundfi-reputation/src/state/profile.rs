@@ -160,6 +160,36 @@ impl ReputationProfile {
         };
         resolved_level.min(elite_cap).min(gate_cap)
     }
+
+    /// **SEV-E fix** — re-apply the identity floor to the STORED `level` after
+    /// the subject's identity stops being verified (revoked / expired /
+    /// unlinked).
+    ///
+    /// `cap_level_for_identity` runs at `promote_level`, but the resulting
+    /// `level` is a *snapshot*: `roundfi-core::join_pool` consumes it directly
+    /// and MUST NOT read the `IdentityRecord` (the architecture boundary in
+    /// `state/identity.rs`). So when identity later lapses, the stale snapshot
+    /// would still grant the identity-gated tier — most damagingly the L4
+    /// Elite stake discount — on the next `join_pool`. The reputation program
+    /// closes this by re-capping the snapshot HERE, at the moment identity loss
+    /// is observed on-chain (`unlink_identity`, and `refresh_identity` when the
+    /// re-read flips the record out of `Verified`).
+    ///
+    /// Caps DOWN only — never raises a level (promotion stays in
+    /// `promote_level`). `now` is stamped onto `last_updated_at` only when the
+    /// level actually changes, so a no-op call doesn't churn the record.
+    /// Returns `true` iff the level changed.
+    pub fn demote_to_identity_floor(&mut self, required_min_level: u8, now: i64) -> bool {
+        // identity_verified = false: this is the lapsed-identity path.
+        let capped = Self::cap_level_for_identity(self.level, false, required_min_level);
+        if capped < self.level {
+            self.level = capped;
+            self.last_updated_at = now;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
@@ -295,5 +325,57 @@ mod tests {
         assert_eq!(ReputationProfile::cap_level_for_identity(2, false, 3), 2);
         assert_eq!(ReputationProfile::cap_level_for_identity(1, false, 3), 1);
         assert_eq!(ReputationProfile::cap_level_for_identity(3, true, 3), 3);
+    }
+
+    #[test]
+    fn demote_to_identity_floor_sev_e() {
+        let mk = |level: u8| ReputationProfile {
+            wallet: Pubkey::default(),
+            level,
+            cycles_completed: 0,
+            on_time_payments: 0,
+            late_payments: 0,
+            defaults: 0,
+            total_participated: 0,
+            score: 0,
+            last_cycle_complete_at: 0,
+            first_seen_at: 0,
+            last_updated_at: 0,
+            bump: 0,
+            last_admin_attest_at: 0,
+            _padding: [0; 7],
+        };
+
+        // Gate OFF: the elite hard floor still demotes an unverified L4 → L3
+        // and stamps last_updated_at. This is the exact verify→L4→unlink
+        // exploit being closed.
+        let mut p = mk(4);
+        assert!(p.demote_to_identity_floor(0, 1_000));
+        assert_eq!(p.level, 3);
+        assert_eq!(p.last_updated_at, 1_000);
+
+        // Idempotent: a second call at/below the floor is a no-op and does NOT
+        // re-stamp last_updated_at (no churn).
+        assert!(!p.demote_to_identity_floor(0, 2_000));
+        assert_eq!(p.level, 3);
+        assert_eq!(p.last_updated_at, 1_000);
+
+        // Gate = 2 (L2+ needs identity): L2 → L1.
+        let mut q = mk(2);
+        assert!(q.demote_to_identity_floor(2, 5));
+        assert_eq!(q.level, 1);
+
+        // Gate = 3 (only L3 needs identity): L3 → L2; an L2 stays put.
+        let mut r = mk(3);
+        assert!(r.demote_to_identity_floor(3, 7));
+        assert_eq!(r.level, 2);
+        let mut s = mk(2);
+        assert!(!s.demote_to_identity_floor(3, 9));
+        assert_eq!(s.level, 2);
+
+        // L1 never demotes under any gate.
+        let mut t = mk(1);
+        assert!(!t.demote_to_identity_floor(2, 11));
+        assert_eq!(t.level, 1);
     }
 }
