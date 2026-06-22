@@ -28,9 +28,13 @@
  *   • a FRESH co-member of pool B still earns ITS POOL_COMPLETE — the skip
  *     is specific to the cooled-down subject, not a blanket disable.
  *
- * Clock ordering: all funding / join / cycle-0 run at the DEFAULT clock
- * (the path litesvm_join_pool exercises); the cooldown warp happens AFTER
- * every join — the same ordering the litesvm parity specs warp safely.
+ * Harness setup mirrors the proven `litesvm_parity` pattern: anchor the
+ * (non-advancing) litesvm clock to a real epoch ONCE up front — so the
+ * first POOL_COMPLETE clears the cooldown while every contribute stays
+ * on-time (BASE_TS < next_cycle_at) — fund the authority, pre-fund each
+ * member's USDC before the join, and use seeded keypairs. Both completions
+ * then happen at the SAME anchored clock: the subject's first applies, the
+ * second lands inside the 30-day window.
  *
  * Skips cleanly when the build artifacts are absent (same guard as
  * litesvm_join_pool.spec.ts).
@@ -56,6 +60,7 @@ import {
   initializeProtocol,
   initializeReputation,
   joinMembers,
+  keypairFromSeed,
   usdc,
   type MemberHandle,
   type PoolHandle,
@@ -74,12 +79,16 @@ const ARTIFACTS = [
 // Same split ratios as edge_degenerate B/C (solidarity 1 %, escrow 25 %).
 const INSTALLMENT = usdc(1_000n);
 const CREDIT = usdc(1_480n);
+const STAKE = (CREDIT * 5_000n) / 10_000n; // Iniciante (Lv1) = 50 %
+const TOTAL_PER_MEMBER = 2n * INSTALLMENT + STAKE; // cyclesTotal = 2
 const CYCLE_DURATION = 86_400;
 
-// Once every join is done we jump the clock comfortably past one cooldown
-// window (since the epoch). The subject's FIRST completion then applies; the
-// SECOND lands at the SAME clock, squarely inside the 30-day window.
-const BASE_TS = 1_700_000_000n;
+// litesvm's clock does NOT auto-advance; anchor it to a real epoch ONCE so
+// the first POOL_COMPLETE clears the 30-day cooldown (now − 0). Kept BELOW
+// every next_cycle_at (= BASE_TS + cycle_duration) so contributes stay
+// on-time. Both completions run at this same clock → the second is inside
+// the window. (Matches litesvm_parity.spec.ts.)
+const BASE_TS = 1_750_000_000n;
 
 interface ProfileLike {
   cyclesCompleted: number;
@@ -98,8 +107,8 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
   let available = true;
   let usdcMint: PublicKey;
 
-  // S is in BOTH pools; the filler co-members are fresh per pool.
-  const subject = Keypair.generate();
+  // S is in BOTH pools (seeded so it is stable); the fillers are fresh per pool.
+  const subject = keypairFromSeed("sev-a2-cooldown-subject");
 
   before(async function () {
     for (const p of ARTIFACTS) {
@@ -110,8 +119,8 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
       }
     }
     try {
-      // Setup runs at the DEFAULT clock (the warp comes later, post-join).
       env = await setupLitesvmEnv();
+      await setLitesvmUnixTs(env.svm, BASE_TS); // anchor the clock up front
       usdcMint = await createUsdcMint(env, { forceFresh: true });
       await initializeProtocol(env, { usdcMint });
       await initializeReputation(env, { coreProgram: env.ids.core });
@@ -124,12 +133,21 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
   });
 
   // Build + run a 2×2 pool with `subject` at slot 0 and `filler` at slot 1
-  // through cycle 0 (S claims). Returns the handles so the caller can drive
-  // cycle 1 (the final installment) with its own assertions.
+  // through cycle 0 (S claims). Funding order mirrors litesvm_parity: fund the
+  // authority, pre-fund each member's USDC, THEN join. Returns the handles so
+  // the caller can drive cycle 1 (the final installment) with its own checks.
   async function setupPoolThroughCycle0(
+    authority: Keypair,
     filler: Keypair,
   ): Promise<{ pool: PoolHandle; sH: MemberHandle; fH: MemberHandle }> {
-    const authority = Keypair.generate();
+    // litesvm-native airdrops (no tx → no blockhash) so the harness never
+    // needs a payer→member SOL transfer; joinPool's `ensureFunded` then
+    // short-circuits. (A bare System transfer to a fresh account proved flaky
+    // on the local litesvm build; this sidesteps it without touching the
+    // shared harness.)
+    for (const kp of [authority, subject, filler]) {
+      env.svm.airdrop(kp.publicKey.toBase58(), 100_000_000_000n);
+    }
     const pool = await createPool(env, {
       authority,
       usdcMint,
@@ -139,16 +157,18 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
       cyclesTotal: 2,
       cycleDurationSec: CYCLE_DURATION,
     });
+
+    await fundUsdc(env, usdcMint, subject.publicKey, TOTAL_PER_MEMBER);
+    await fundUsdc(env, usdcMint, filler.publicKey, TOTAL_PER_MEMBER);
+
     const handles = await joinMembers(env, pool, [
       { member: subject, reputationLevel: 1 },
       { member: filler, reputationLevel: 1 },
     ]);
     const sH = handles[0]!;
     const fH = handles[1]!;
-    await fundUsdc(env, usdcMint, sH.wallet.publicKey, 2n * INSTALLMENT);
-    await fundUsdc(env, usdcMint, fH.wallet.publicKey, 2n * INSTALLMENT);
 
-    // Cycle 0 — both pay (PAYMENT), slot 0 (== subject) claims.
+    // Cycle 0 — both pay (PAYMENT, on-time), slot 0 (== subject) claims.
     await contribute(env, { pool, member: sH, cycle: 0 });
     await contribute(env, { pool, member: fH, cycle: 0 });
     await claimPayout(env, { pool, member: sH, cycle: 0 });
@@ -163,19 +183,14 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
     }
 
     try {
-      // ── Setup BOTH pools through cycle 0 at the default clock ──────────
-      const fillerA = Keypair.generate();
-      const a = await setupPoolThroughCycle0(fillerA);
-      const fillerB = Keypair.generate();
-      const b = await setupPoolThroughCycle0(fillerB);
-
-      // Every join is done — now jump past one cooldown window. (Final-cycle
-      // contributes are merely "late" at this clock, which is fine: the final
-      // installment escalates to POOL_COMPLETE regardless of punctuality.)
-      await setLitesvmUnixTs(env.svm, BASE_TS);
-
       // ── Pool A — subject earns its FIRST POOL_COMPLETE ────────────────
-      // Neither member has completed a pool, so both rewards apply.
+      const a = await setupPoolThroughCycle0(
+        keypairFromSeed("sev-a2-cooldown-authA"),
+        keypairFromSeed("sev-a2-cooldown-fillerA"),
+      );
+
+      // Cycle 1 — both members' FINAL installment → SCHEMA_POOL_COMPLETE.
+      // Neither has completed a pool before, so both rewards apply.
       await contribute(env, { pool: a.pool, member: a.sH, cycle: 1, isFinalInstallment: true });
       await contribute(env, { pool: a.pool, member: a.fH, cycle: 1, isFinalInstallment: true });
       await claimPayout(env, { pool: a.pool, member: a.fH, cycle: 1 }); // slot 1; pool completes
@@ -194,6 +209,12 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
         .be.null;
 
       // ── Pool B — subject completes a SECOND pool inside the cooldown ──
+      const b = await setupPoolThroughCycle0(
+        keypairFromSeed("sev-a2-cooldown-authB"),
+        keypairFromSeed("sev-a2-cooldown-fillerB"),
+      );
+      const fillerB = b.fH;
+
       const before = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
 
       // The crux: the subject's FINAL installment would emit POOL_COMPLETE,
@@ -233,23 +254,26 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
         "skipped completion writes NO attestation",
       ).to.be.null;
 
-      // 4. Differential — a FRESH co-member's final installment still earns its
-      //    POOL_COMPLETE, so the skip is specific to the cooled-down subject.
-      await contribute(env, { pool: b.pool, member: b.fH, cycle: 1, isFinalInstallment: true });
-      const fProfile = (await fetchProfile(env, fillerB.publicKey)) as unknown as ProfileLike;
+      // 4. Differential — the FRESH co-member's final installment still earns
+      //    its POOL_COMPLETE, so the skip is specific to the cooled-down subject.
+      await contribute(env, { pool: b.pool, member: fillerB, cycle: 1, isFinalInstallment: true });
+      const fProfile = (await fetchProfile(
+        env,
+        fillerB.wallet.publicKey,
+      )) as unknown as ProfileLike;
       expect(fProfile.cyclesCompleted, "fresh co-member still earns its completion").to.equal(1);
       const fPda = attestationFor(
         env,
         b.pool.pool,
-        fillerB.publicKey,
+        fillerB.wallet.publicKey,
         ATTESTATION_SCHEMA.PoolComplete,
-        attestationNonce(1, b.fH.slotIndex),
+        attestationNonce(1, fillerB.slotIndex),
       );
       expect(await env.connection.getAccountInfo(fPda), "fresh member's POOL_COMPLETE attestation")
         .to.not.be.null;
 
       // Pool still finalizes cleanly (slot 1 claims).
-      await claimPayout(env, { pool: b.pool, member: b.fH, cycle: 1 });
+      await claimPayout(env, { pool: b.pool, member: fillerB, cycle: 1 });
     } catch (e) {
       // Surface the on-chain program logs litesvm attached to the error so a
       // remaining failure is diagnosable in one run rather than opaque ("6").
