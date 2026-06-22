@@ -5,10 +5,14 @@
 // uses this module as the reference implementation; M2's Anchor
 // programs will run parity tests against runSimulation() outputs.
 
-// Canonical 3-tier ladder per data/score.ts and docs:
-// Lv1 Iniciante (50% stake) → Lv2 Comprovado (30%) → Lv3 Veterano (10%, ✦ VIP).
-// "VIP" is a visual badge on Lv3, not a separate level.
-export type GroupLevel = "Iniciante" | "Comprovado" | "Veterano";
+// Canonical 4-tier ladder, aligned to the on-chain v5.2 stake schedule
+// (stake_bps_for_level: 50/25/10/3):
+//   Lv1 Iniciante (50%) → Lv2 Comprovado (25%) → Lv3 Veterano (10%, ✦ VIP)
+//   → Lv4 Elite (3%).
+// "VIP" is a visual badge on Lv3, not a separate level. ECO-V52-1: Elite was
+// previously unmodelled here — the Stress Lab trailed the chain by one tier
+// (and Comprovado still read 30% vs the on-chain 25%).
+export type GroupLevel = "Iniciante" | "Comprovado" | "Veterano" | "Elite";
 // Matrix cell semantics:
 //   P = installment paid that cycle
 //   C = contemplation (this row's contemplation cycle, exactly one per row)
@@ -174,8 +178,17 @@ export interface LevelParams {
   releaseMonthsMature: number;
 }
 
-// Spec: 50/30/10 stake rule + adaptive escrow per level. Mature groups
-// drip faster (3/2/1 vs 5/4/3) — selected via StressLabConfig.maturity.
+// Spec: 50/25/10/3 stake rule + adaptive escrow per level. The stake floor
+// drops as trust rises, and escrow rises to compensate — so the protocol's
+// per-default exposure stays bounded even at the 3% Elite tier (the escrow it
+// holds back, released only against paid installments, is the offset for the
+// thin stake). Mature groups drip faster (3/2/1/1 vs 5/4/3/2) — selected via
+// StressLabConfig.maturity.
+//
+// ECO-V52: Comprovado fixed 30% → 25% (on-chain parity), and the Lv4 Elite
+// params — left "to be designed alongside implementation" in architecture.md
+// §4.7 — are now specified, continuing each column's monotonic trend
+// (stake 50/25/10/3, upfront .50/.45/.35/.30, escrow .50/.55/.65/.70).
 export const LEVEL_PARAMS: Record<GroupLevel, LevelParams> = {
   Iniciante: {
     stakePct: 50,
@@ -185,7 +198,7 @@ export const LEVEL_PARAMS: Record<GroupLevel, LevelParams> = {
     releaseMonthsMature: 3,
   },
   Comprovado: {
-    stakePct: 30,
+    stakePct: 25,
     upfrontPct: 0.45,
     escrowPct: 0.55,
     releaseMonths: 4,
@@ -196,6 +209,16 @@ export const LEVEL_PARAMS: Record<GroupLevel, LevelParams> = {
     upfrontPct: 0.35,
     escrowPct: 0.65,
     releaseMonths: 3,
+    releaseMonthsMature: 1,
+  },
+  Elite: {
+    // Lv4 Elite — 3% stake = 33× leverage (vs Veterano's 10×). The high
+    // escrow share (70%) is the adaptive offset for the thin stake; the
+    // residual tail at triple-default is what `eliteTripleDefault` quantifies.
+    stakePct: 3,
+    upfrontPct: 0.3,
+    escrowPct: 0.7,
+    releaseMonths: 2,
     releaseMonthsMature: 1,
   },
 };
@@ -779,6 +802,7 @@ export type PresetId =
   | "postDefault"
   | "cascade"
   | "tripleVeteranDefault"
+  | "eliteTripleDefault"
   // ── Pool-size variations ──
   | "healthyMin4"
   | "healthySmall8"
@@ -814,7 +838,7 @@ function withDefaults(N: number, defaults: Array<{ row: number; cycle: number }>
 }
 
 const BASE_CONFIG = {
-  // Lv2 Comprovado (30% stake) is the canonical mid-ladder default —
+  // Lv2 Comprovado (25% stake) is the canonical mid-ladder default —
   // demonstrates the protocol's middle of the leverage curve without
   // committing to either extreme. Credit (carta) of 12,000 USDC over
   // 12 members → derived installment of 1,000 USDC/cycle.
@@ -884,6 +908,31 @@ export const PRESETS: Record<PresetId, ScenarioPreset> = {
     // (default diagonal: row m → C at column m). They default at the
     // cycle right after their upfront — the canonical "post-
     // contemplation default after receiving payout" scenario.
+    matrix: withDefaults(24, [
+      { row: 1, cycle: 3 },
+      { row: 2, cycle: 4 },
+      { row: 3, cycle: 5 },
+    ]),
+  },
+  // ECO-V52-1: the Elite (Lv4, 3% stake) analogue of tripleVeteranDefault —
+  // identical 24-member / $10k / 3-post-contemplation-default shape, so the
+  // ONLY moving part vs the Veterano run is the tier (10% → 3% stake). This is
+  // the missing model the audit flagged: it lets the Stress Lab quantify the
+  // 33×-leverage tail (the auditor measured final netSolvency ≈ −$1.8k here vs
+  // ≈ +$28 for Veterano at 6.5% APY). Honest framing per ECO-001: netSolvency
+  // is a display-only metric, NOT an on-chain solvency gate — the on-chain D/C
+  // + Seed-Draw invariants still bound loss to the defaulter's collateral at
+  // every tier. The point is to STOP extending "solvent by construction" to the
+  // 3% tier without showing this tail.
+  eliteTripleDefault: {
+    id: "eliteTripleDefault",
+    config: {
+      level: "Elite",
+      members: 24,
+      creditAmountUsdc: 10_000,
+      kaminoApy: 6.5,
+      yieldFeePct: 20,
+    },
     matrix: withDefaults(24, [
       { row: 1, cycle: 3 },
       { row: 2, cycle: 4 },
@@ -1073,6 +1122,7 @@ export const PRESET_ORDER: PresetId[] = [
   "postDefault",
   "cascade",
   "tripleVeteranDefault",
+  "eliteTripleDefault",
   "healthyMin4",
   "healthySmall8",
   "healthyLarge24",

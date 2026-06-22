@@ -920,6 +920,62 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
 // Mature members get their credit faster, so the refund window
 // (which opens after the drip ends) gets longer.
 
+// ECO-V52: the Stress Lab tier ladder must track the on-chain stake schedule
+// (stake_bps_for_level → 50/25/10/3), and the new Lv4 Elite (3% stake) must be
+// modelled so its 33×-leverage tail is visible — not silently absent.
+describe("tier ladder — ECO-V52 on-chain parity + Elite tail", () => {
+  it("LEVEL_PARAMS stake floors mirror the on-chain 50/25/10/3 schedule", () => {
+    expect(LEVEL_PARAMS.Iniciante.stakePct).to.equal(50);
+    expect(LEVEL_PARAMS.Comprovado.stakePct).to.equal(25); // ECO-V52: was 30
+    expect(LEVEL_PARAMS.Veterano.stakePct).to.equal(10);
+    expect(LEVEL_PARAMS.Elite.stakePct).to.equal(3); // ECO-V52-1: new Lv4
+  });
+
+  it("every tier's upfront + escrow split sums to the full credit", () => {
+    for (const lvl of ["Iniciante", "Comprovado", "Veterano", "Elite"] as const) {
+      const p = LEVEL_PARAMS[lvl];
+      expect(p.upfrontPct + p.escrowPct, `${lvl} upfront+escrow`).to.be.closeTo(1, 1e-9);
+    }
+  });
+
+  it("Elite (3% stake) carries a strictly worse triple-default tail than Veterano (10%)", () => {
+    // Same 24 / $10k / 3-post-default shape; only the tier differs. The thinner
+    // stake (3% vs 10%) recovers less collateral on each default, so end-of-life
+    // netSolvency is lower — the exact 33×-leverage tail the audit flagged.
+    // netSolvency is DISPLAY-ONLY (ECO-001): this is a modelling signal, not an
+    // on-chain solvency gate. The point is to STOP extending "solvent by
+    // construction" to the 3% tier without showing this.
+    const elite = runSimulation(
+      PRESETS.eliteTripleDefault.config,
+      PRESETS.eliteTripleDefault.matrix,
+    );
+    const veterano = runSimulation(
+      PRESETS.tripleVeteranDefault.config,
+      PRESETS.tripleVeteranDefault.matrix,
+    );
+    const eliteFinal = elite[elite.length - 1]!.metrics.netSolvency;
+    const veteranoFinal = veterano[veterano.length - 1]!.metrics.netSolvency;
+    expect(eliteFinal, "Elite tail must be worse than Veterano").to.be.lessThan(veteranoFinal);
+  });
+
+  it("Elite triple-default is still loss-BOUNDED (no fund-drain at 3% stake)", () => {
+    // The display-only netSolvency dip is NOT a fund-drain: the on-chain D/C +
+    // Seed-Draw invariants cap loss to the defaulters' drawn collateral at every
+    // tier. Mirror that here — total loss is positive (real defaults) but can
+    // never exceed the 3 cartas actually drawn.
+    const frames = runSimulation(
+      PRESETS.eliteTripleDefault.config,
+      PRESETS.eliteTripleDefault.matrix,
+    );
+    const totalLoss = frames[frames.length - 1]!.metrics.totalLoss;
+    expect(Number.isFinite(totalLoss)).to.equal(true);
+    expect(totalLoss, "real defaults cause real loss").to.be.greaterThan(0);
+    expect(totalLoss, "loss cannot exceed the 3 drawn cartas").to.be.lessThan(
+      3 * PRESETS.eliteTripleDefault.config.creditAmountUsdc,
+    );
+  });
+});
+
 describe("runSimulation — mature group acceleration", () => {
   it("LEVEL_PARAMS exposes both immature and mature drip schedules", () => {
     expect(LEVEL_PARAMS.Iniciante.releaseMonths).to.equal(5);
@@ -928,6 +984,8 @@ describe("runSimulation — mature group acceleration", () => {
     expect(LEVEL_PARAMS.Comprovado.releaseMonthsMature).to.equal(2);
     expect(LEVEL_PARAMS.Veterano.releaseMonths).to.equal(3);
     expect(LEVEL_PARAMS.Veterano.releaseMonthsMature).to.equal(1);
+    expect(LEVEL_PARAMS.Elite.releaseMonths).to.equal(2);
+    expect(LEVEL_PARAMS.Elite.releaseMonthsMature).to.equal(1);
   });
 
   it("default config (no maturity field) behaves as immature — preserves prior behavior", () => {

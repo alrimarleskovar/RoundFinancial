@@ -709,6 +709,7 @@ export const DICT: Record<Lang, Dict> = {
     "lab.level.iniciante": "Iniciante",
     "lab.level.comprovado": "Comprovado",
     "lab.level.veterano": "Veterano",
+    "lab.level.elite": "Elite",
     // landing
     "landing.loading": "Carregando RoundFi Dashboard…",
     "landing.nav.simulator": "Simulador",
@@ -2386,6 +2387,7 @@ export const DICT: Record<Lang, Dict> = {
     "lab.level.iniciante": "Beginner",
     "lab.level.comprovado": "Proven",
     "lab.level.veterano": "Veteran",
+    "lab.level.elite": "Elite",
     // landing
     "landing.loading": "Loading RoundFi Dashboard…",
     "landing.nav.simulator": "Simulator",
