@@ -9,6 +9,33 @@
 
 ---
 
+> ### Update — 2026-06 (Pass-3 + ECO-V52)
+>
+> This model is the **Audit Wave 4** snapshot and predates two hardenings;
+> read it with these deltas:
+>
+> - **Cooldown 6d → 30d, cycles = full pools.** Pass-3 re-semanticised
+>   `cycles_completed` to count **pools completed end-to-end** (the member's
+>   last contribution landing), gated by `MIN_POOL_COMPLETE_COOLDOWN_SECS` =
+>   **30 days** (was the 6-day `MIN_CYCLE_COOLDOWN_SECS`). Every wall-clock
+>   floor quoted below is now ~5× larger.
+> - **Four-tier ladder.** L4 "Elite" (3% stake) was added with a hard
+>   Proof-of-Personhood floor (`IDENTITY_HARD_FLOOR_LEVEL`) that no config
+>   value can disable. The §1–§2 L3-centric framing carries to L4 a fortiori.
+> - **R2 applied at L2 (ECO-V52).** `LEVEL_2_MIN_CYCLES` raised **1 → 2**:
+>   the 4× tier now requires two completed pools, closing the residual where
+>   a single self-dealt pool reached L2 on the gate-off devnet path with no
+>   identity. Floor-guarded (`level_2_min_cycles_above_floor`).
+> - **R1 still open — owner decision.** The structural fix for the only
+>   regime where the farm clears (large-`credit_amount` pools, §5.1) is the
+>   graduated / absolute **stake-discount cap (R1, §7)**. It changes
+>   `roundfi-core::join_pool`'s stake economics — i.e. the headline leverage
+>   claim — so it is deliberately **left to the whitepaper owners** and is
+>   NOT part of ECO-V52. Recommended as the next step if monitoring (R4)
+>   surfaces farm attempts against high-credit pools.
+
+---
+
 ## 1. What an attacker actually buys by reaching L3
 
 Reputation level affects **exactly one** economic lever: the **stake
@@ -76,7 +103,7 @@ cost**. So the marginal product of farming is strictly the 4 000.
 | Score: CYCLE_COMPLETE       | +50                                             | `:54`                               | per completed cycle                                                                                  |
 | Score: LATE                 | −100                                            | `:55`                               | one late wipes 10 payments                                                                           |
 | Score: DEFAULT              | −500                                            | `:56`                               | the exploit itself costs 500                                                                         |
-| L2 gate                     | score ≥ 500 **and** cycles ≥ 1                  | `:60,72`                            | one full round                                                                                       |
+| L2 gate                     | score ≥ 500 **and** cycles ≥ 2 (ECO-V52; was 1) | `:60,72`                            | two full rounds                                                                                      |
 | L3 gate                     | score ≥ 2 000 **and** cycles ≥ 3                | `:61,73`                            | the prize tier                                                                                       |
 | **Cycle-complete cooldown** | **518 400 s = 6 days / subject**                | `:38`, enforced `attest.rs:191-195` | `cycles_completed` rises **≤ 1 per 6 days per wallet**, regardless of how many pools run in parallel |
 | Sybil halving               | positive deltas ×½ if unverified                | `attest.rs:225-237`                 | unverified PAYMENT +5, CYCLE_COMPLETE +25                                                            |
