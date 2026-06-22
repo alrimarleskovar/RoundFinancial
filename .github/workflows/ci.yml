@@ -251,6 +251,16 @@ jobs:
       - name: Stress Lab L1 economic-parity (34 tests)
         run: pnpm test:economic-parity-l1
 
+      - name: Crank default-settlement gate (ECO-V52-High)
+        # Pins the off-chain crank's settle_default gating: outageOverlapSecs +
+        # classifyDefaultReason. The crank WITHHOLDS the irreversible
+        # settle_default while a member's grace window was extended by a
+        # crank-RPC outage (non-attributable miss), and settles genuine
+        # defaulters as PAYMENT_MISSED once the extension elapses. Drift = the
+        # crank liquidates a member for our own infra outage again. Pure vitest,
+        # no network/DB. Sub-second.
+        run: pnpm --filter @roundfi/crank test
+
   # ─── 2. Rust lane (informational, BPF only) ──────────────────────────
   # No host-side rust job in this pipeline. roundfi-core depends on
   # mpl-core 0.8 which carries a transitive `Pubkey` type-confusion

@@ -923,7 +923,9 @@ describe("runSimulation — capital structure (Escudo 3)", () => {
 // ECO-V52: the Stress Lab tier ladder must track the on-chain stake schedule
 // (stake_bps_for_level → 50/25/10/3), and the new Lv4 Elite (3% stake) must be
 // modelled so its 33×-leverage tail is visible — not silently absent.
-describe("tier ladder — ECO-V52 on-chain parity + Elite tail", () => {
+// Named with the "runSimulation" prefix so it runs under the CI L1 lane
+// (`test:economic-parity-l1` greps L1 stress-lab sanity|toggleCell|runSimulation).
+describe("runSimulation — ECO-V52 tier ladder (on-chain stake parity + Elite tail)", () => {
   it("LEVEL_PARAMS stake floors mirror the on-chain 50/25/10/3 schedule", () => {
     expect(LEVEL_PARAMS.Iniciante.stakePct).to.equal(50);
     expect(LEVEL_PARAMS.Comprovado.stakePct).to.equal(25); // ECO-V52: was 30
