@@ -136,7 +136,7 @@ On `escape_valve_buy` the handler atomically: transfers `price` buyer→seller; 
 | Tier | Name      | Stake (bps of credit) | Score threshold | Min completed pools | Identity            |
 | ---- | --------- | --------------------: | --------------: | ------------------: | ------------------- |
 | L1   | Iniciante |            5000 (50%) |               0 |                   0 | —                   |
-| L2   | —         |            2500 (25%) |             500 |                   1 | gate-configurable   |
+| L2   | —         |            2500 (25%) |             500 |                   2 | gate-configurable   |
 | L3   | Veteran   |            1000 (10%) |            2000 |                   3 | gate-configurable   |
 | L4   | Elite     |              300 (3%) |            5000 |                   8 | **always required** |
 
@@ -149,7 +149,7 @@ The tier sets the **stake discount**: an L4 Elite member risks 3% of the credit 
 `promote_level` (permissionless) advances a wallet to the highest tier whose **score AND cycles** thresholds are both met (`resolve_level`), then applies the identity cap (`cap_level_for_identity`). Two independent anti-farming walls:
 
 - **Score** rises +10 per on-time payment, +50 per completed pool, −100 per late, −500 per default. Score alone is farmable (parallel 1-member pools).
-- **Completed-pools floor** (`cycles_completed`) is the **unbypassable wall-clock defense**: it only rises on `SCHEMA_POOL_COMPLETE`, which fires once per pool the member paid through to the end, and carries a 30-day per-subject cooldown (`MIN_POOL_COMPLETE_COOLDOWN_SECS`). L3 needs 3 completed pools; L4 needs 8 — each a multi-month commitment. A score farm can't buy time.
+- **Completed-pools floor** (`cycles_completed`) is the **unbypassable wall-clock defense**: it only rises on `SCHEMA_POOL_COMPLETE`, which fires once per pool the member paid through to the end, and carries a 30-day per-subject cooldown (`MIN_POOL_COMPLETE_COOLDOWN_SECS`). L2 needs 2 completed pools (ECO-V52, raised from 1 so the 4× tier is never reachable on a single self-dealt pool); L3 needs 3; L4 needs 8 — each a multi-month commitment. A score farm can't buy time.
 
 **Identity hard floor (partner review MEDIUM #1, resolved in code).** L4 Elite **always** requires `identity_verified`, independent of the configurable identity gate (`IDENTITY_HARD_FLOOR_LEVEL`, `cap_level_for_identity`). L2/L3 are governed by the configurable `IdentityGateConfig.required_min_level` (devnet `0` = open, mainnet `3` = verified-only). An unverified wallet is capped at L3 even with the gate off.
 

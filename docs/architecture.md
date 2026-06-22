@@ -301,7 +301,7 @@ pub struct YieldVaultState {
 - `-100` per `Late`
 - `-500` per `Default`
 - Saturating, no underflow below 0.
-- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`, `L4 = 5_000` (v5.2 Elite). Cycles floors: L2≥1, L3≥3, L4≥8 completed cycles (SEV-047 anti-farming). Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score AND whose cycles floor is met.
+- Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`, `L4 = 5_000` (v5.2 Elite). Cycles floors: L2≥2, L3≥3, L4≥8 completed cycles (SEV-047 anti-farming; L2 raised 1→2 by ECO-V52). Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score AND whose cycles floor is met.
 
 > **v5.2 direction.** Under the approved Hybrid path (§4.7), the user-facing score migrates to an **off-chain computation in the indexer** with provisional v1-style weights, calibrated against real cycle data before any weight set is published as canonical. The on-chain score + thresholds above remain authoritative for the deployed program (stake-bps snapshot at `join_pool`) until that implementation lands.
 
