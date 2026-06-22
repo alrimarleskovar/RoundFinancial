@@ -85,13 +85,19 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
             profile.defaults = profile.defaults.saturating_sub(1);
         }
         SCHEMA_POOL_COMPLETE => {
-            // Pass-3: same arithmetic as apply, inverted. last_cycle_complete_at
-            // intentionally NOT reset — the cooldown is a per-subject
-            // anti-gaming lockout that survives revocation by design.
-            let delta = SCORE_POOL_COMPLETE * weight_num / weight_den;
-            profile.apply_score_delta(-delta);
-            profile.cycles_completed = profile.cycles_completed.saturating_sub(1);
-            profile.total_participated = profile.total_participated.saturating_sub(1);
+            // SEV-A2: a neutralized POOL_COMPLETE (issued inside the cooldown
+            // on the pool-PDA path) applied NO credit, so revoking it must
+            // reverse nothing — otherwise apply(0) + revoke(−50) would drive
+            // the score negative. Normal completions reverse as before.
+            if !att.neutralized {
+                // Pass-3: same arithmetic as apply, inverted. last_cycle_complete_at
+                // intentionally NOT reset — the cooldown is a per-subject
+                // anti-gaming lockout that survives revocation by design.
+                let delta = SCORE_POOL_COMPLETE * weight_num / weight_den;
+                profile.apply_score_delta(-delta);
+                profile.cycles_completed = profile.cycles_completed.saturating_sub(1);
+                profile.total_participated = profile.total_participated.saturating_sub(1);
+            }
         }
         SCHEMA_PAYOUT_CLAIMED => {
             // Pass-3: pure audit trail; only total_participated was bumped.

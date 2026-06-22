@@ -82,6 +82,7 @@
     "test:bankrun": "pnpm exec mocha -t 120000 'tests/economic_parity.spec.ts' 'tests/lifecycle.spec.ts' 'tests/edge_*.spec.ts' 'tests/app_encoders_bankrun.spec.ts' 'tests/security_kamino_cpi.spec.ts'",
     "test:bankrun:no-mpl-core": "pnpm exec mocha -t 120000 'tests/security_kamino_cpi.spec.ts'",
     "test:bankrun:reputation-gate": "pnpm exec mocha -t 120000 'tests/reputation_gate_bankrun.spec.ts'",
+    "test:bankrun:identity-floor": "pnpm exec mocha -t 180000 'tests/reputation_identity_floor_bankrun.spec.ts'",
     "test:litesvm": "pnpm exec mocha -t 120000 'tests/litesvm_*.spec.ts'",
     "test:security:localnet": "pnpm exec mocha -t 120000 'tests/security_*.spec.ts'",
     "test:fuzz": "for t in bps cascade dc_invariant escrow_vesting seed_draw waterfall; do echo \"=== fuzz target: $t ===\"; cargo fuzz run --fuzz-dir crates/math/fuzz \"$t\" -- -max_total_time=60 || exit 1; done",
@@ -112,5 +113,10 @@
     "@solana/web3.js": "^1.95.3",
     "dotenv": "^16.4.5",
     "litesvm": "^1.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "shell-quote@<1.8.4": ">=1.8.4"
+    }
   }
 }

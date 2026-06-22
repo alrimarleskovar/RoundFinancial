@@ -14,7 +14,10 @@ use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::error::ReputationError;
 use crate::identity::{validate_passport_attestation, PassportStatus};
-use crate::state::{IdentityProvider, IdentityRecord, IdentityStatus, ReputationConfig};
+use crate::state::{
+    IdentityGateConfig, IdentityProvider, IdentityRecord, IdentityStatus, ReputationConfig,
+    ReputationProfile,
+};
 
 #[derive(Accounts)]
 pub struct RefreshIdentity<'info> {
@@ -35,6 +38,28 @@ pub struct RefreshIdentity<'info> {
             @ ReputationError::UnauthorizedProvider,
     )]
     pub identity: Account<'info, IdentityRecord>,
+
+    /// SEV-E: identity-gate policy (singleton, REQUIRED so the floor can't be
+    /// bypassed by omitting the account — mirrors `promote_level`). Supplies
+    /// `required_min_level` for the demotion below. With `required_min_level
+    /// == 0` only the elite hard floor (L4) bites.
+    #[account(
+        seeds = [SEED_IDENTITY_GATE],
+        bump = identity_gate.bump,
+    )]
+    pub identity_gate: Account<'info, IdentityGateConfig>,
+
+    /// SEV-E: the subject's reputation profile. Optional — `None` when the
+    /// wallet verified identity but never built a profile (no pool joined yet);
+    /// there is then no stored level to demote. When present and this refresh
+    /// leaves the subject unverified, its `level` is re-capped to the identity
+    /// floor so a later `join_pool` can't consume a stale identity-backed tier.
+    #[account(
+        mut,
+        seeds = [SEED_PROFILE, subject.key().as_ref()],
+        bump,
+    )]
+    pub profile: Option<Account<'info, ReputationProfile>>,
 
     /// CHECK: untrusted — validated byte-by-byte.
     pub gateway_token: UncheckedAccount<'info>,
@@ -103,5 +128,27 @@ pub fn handler(ctx: Context<RefreshIdentity>) -> Result<()> {
         "roundfi-reputation: refresh_identity subject={} status={}",
         rec.wallet, rec.status,
     );
+
+    // SEV-E: keep `profile.level` honest with the identity floor. If this
+    // refresh leaves the subject NOT verified (expired / revoked / structural
+    // failure → Revoked), re-apply the identity cap to the stored level so a
+    // later `join_pool` can't consume a stale identity-backed tier. `core`
+    // reads `profile.level` but MUST NOT read the IdentityRecord (the boundary
+    // in `state/identity.rs`), so the snapshot has to be corrected on this
+    // side. Profile is optional — a verified wallet that never joined a pool
+    // has no level to demote.
+    if !ctx.accounts.identity.is_verified(now) {
+        if let Some(profile) = ctx.accounts.profile.as_mut() {
+            let floor = ctx.accounts.identity_gate.required_min_level;
+            if profile.demote_to_identity_floor(floor, now) {
+                msg!(
+                    "roundfi-reputation: refresh_identity identity-floor demotion subject={} level={}",
+                    profile.wallet,
+                    profile.level,
+                );
+            }
+        }
+    }
+
     Ok(())
 }
