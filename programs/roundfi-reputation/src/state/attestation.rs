@@ -116,16 +116,27 @@ pub struct Attestation {
     /// with weight 2/2 → score goes negative).
     pub verified_at_attest: bool,
 
-    pub _padding: [u8; 13],
+    /// SEV-A2: set when a `SCHEMA_POOL_COMPLETE` attestation was issued on
+    /// the mandatory pool-PDA (contribute) path WHILE the subject was still
+    /// inside the 30-day completion cooldown. The attestation is recorded for
+    /// the audit trail but applied NO score / `cycles_completed` credit — the
+    /// cooldown is an anti-farming rate-limit, and reverting the CPI would
+    /// block the member's final-installment payment (a failed CPI cannot be
+    /// recovered by the caller). `revoke` treats a neutralized POOL_COMPLETE
+    /// as a no-op so apply + revoke stays exactly zero-sum.
+    pub neutralized: bool,
+
+    pub _padding: [u8; 12],
 }
 
 impl Attestation {
     /// discriminator(8) + issuer(32) + subject(32) + schema(2) + nonce(8)
     ///   + payload(96) + issued_at(8) + revoked(1) + bump(1)
-    ///   + verified_at_attest(1) + pad(13).
-    /// Total unchanged on disk — SEV-008 consumed 1 byte of pad.
+    ///   + verified_at_attest(1) + neutralized(1) + pad(12).
+    /// Total unchanged on disk — SEV-008 took 1 pad byte (verified_at_attest)
+    /// and SEV-A2 took another (neutralized); both carved from the original pad.
     pub const LEN: usize =
-        8 + 32 + 32 + 2 + 8 + ATTESTATION_PAYLOAD_LEN + 8 + 1 + 1 + 1 + 13;
+        8 + 32 + 32 + 2 + 8 + ATTESTATION_PAYLOAD_LEN + 8 + 1 + 1 + 1 + 1 + 12;
 }
 
 /// Reusable zero payload for emit sites that don't need the slot.

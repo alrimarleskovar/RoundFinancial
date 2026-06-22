@@ -12,7 +12,7 @@ use roundfi_reputation::state::{
 };
 
 use crate::constants::*;
-use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall, AttestOutcome};
+use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall};
 use crate::error::RoundfiError;
 use crate::math::split_installment;
 use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
@@ -316,7 +316,7 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
             Some(ctx.accounts.identity_record.to_account_info())
         };
 
-        let attest_outcome = invoke_attest(AttestCall {
+        invoke_attest(AttestCall {
             reputation_program: &ctx.accounts.reputation_program.to_account_info(),
             expected_program_id: config.reputation_program,
             accounts: AttestAccounts {
@@ -337,28 +337,6 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
             pool_authority,
             pool_seed_id,
         })?;
-
-        // SEV-A2 (liveness) — the POOL_COMPLETE attestation on the member's
-        // FINAL installment is gated by reputation's 30-day per-subject
-        // completion cooldown (`MIN_POOL_COMPLETE_COOLDOWN_SECS`). That
-        // cooldown is an anti-farming rate-limit on `cycles_completed`; it
-        // must NOT be able to revert the installment payment itself. A member
-        // legitimately finishing two pools < 30 days apart would otherwise be
-        // unable to pay their last installment — leaving the pool short and
-        // forfeiting the reward — so the completion credit is BEST-EFFORT: a
-        // cooldown skip lets the already-committed payment + bookkeeping
-        // stand. Every OTHER CPI failure still reverted via `?` above; only
-        // this one benign, expected outcome is tolerated.
-        match attest_outcome {
-            AttestOutcome::Applied => {}
-            AttestOutcome::SkippedPoolCompleteCooldown => {
-                msg!(
-                    "roundfi-core: contribute slot={} final POOL_COMPLETE within 30d cooldown \
-                     — completion credit skipped, installment payment settled (SEV-A2)",
-                    member.slot_index,
-                );
-            }
-        }
     } else {
         msg!("roundfi-core: contribute skipped reputation CPI (reputation_program unset)");
     }

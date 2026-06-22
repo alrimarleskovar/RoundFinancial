@@ -204,17 +204,28 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // semantics; now gates POOL_COMPLETE under the obligations-complete
     // semantics. Floor raised to 30 days because legitimate pool
     // completions cadence at ≥6 months (see MIN_POOL_COMPLETE_COOLDOWN_SECS).
-    if args.schema_id == SCHEMA_POOL_COMPLETE {
+    // SEV-A2: the pool-PDA (core CPI) path runs on contribute's MANDATORY
+    // money-path, so a revert here would block the member's final-installment
+    // payment whenever they finish two pools < 30 days apart — a liveness
+    // regression that also leaves the pool short. A failed CPI cannot be
+    // recovered by the caller (Agave aborts the calling instruction), so this
+    // path must NOT revert: instead we record the completion but NEUTRALIZE it
+    // (apply no farmable credit — handled in the POOL_COMPLETE arm below). The
+    // anti-farming guarantee still holds — `cycles_completed` cannot advance
+    // faster than the cooldown. Admin-direct POOL_COMPLETE keeps the hard
+    // reject (no payment is coupled; the admin retries after the cooldown).
+    let pool_complete_neutralized = if args.schema_id == SCHEMA_POOL_COMPLETE {
         // `last_cycle_complete_at` retains its name on the account for
         // Borsh-layout compatibility with deployed profiles, but its
         // semantics are now "last time the subject completed a pool
         // end-to-end" — not "last payout."
         let elapsed = now.saturating_sub(profile.last_cycle_complete_at);
-        require!(
-            elapsed >= MIN_POOL_COMPLETE_COOLDOWN_SECS,
-            ReputationError::CooldownActive,
-        );
-    }
+        let in_cooldown = elapsed < MIN_POOL_COMPLETE_COOLDOWN_SECS;
+        require!(!in_cooldown || is_pool_pda, ReputationError::CooldownActive);
+        in_cooldown
+    } else {
+        false
+    };
 
     // ─── 4b. Admin score-changing schema cooldown ──────────────────────
     //
@@ -319,11 +330,25 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
             // "pay-after-receiving" thesis is actually demonstrated, so
             // it's the right place to apply the +50 reward + bump
             // `cycles_completed` (the count of POOLS COMPLETED END-TO-END).
-            let delta = SCORE_POOL_COMPLETE * weight_num / weight_den;
-            profile.apply_score_delta(delta);
-            profile.cycles_completed = profile.cycles_completed.saturating_add(1);
-            profile.total_participated = profile.total_participated.saturating_add(1);
-            profile.last_cycle_complete_at = now;
+            if pool_complete_neutralized {
+                // SEV-A2: inside the 30-day floor on the mandatory pool-PDA
+                // path. The member's installment payment settles; we record a
+                // score-neutral, no-credit attestation (no +50, no
+                // cycles_completed bump, no cooldown-anchor reset). Flagged
+                // `neutralized` on the attestation below so `revoke` is a
+                // no-op for it.
+                msg!(
+                    "roundfi-reputation: POOL_COMPLETE within cooldown — credit skipped, \
+                     attestation neutralized (SEV-A2) subject={}",
+                    profile.wallet,
+                );
+            } else {
+                let delta = SCORE_POOL_COMPLETE * weight_num / weight_den;
+                profile.apply_score_delta(delta);
+                profile.cycles_completed = profile.cycles_completed.saturating_add(1);
+                profile.total_participated = profile.total_participated.saturating_add(1);
+                profile.last_cycle_complete_at = now;
+            }
         }
         SCHEMA_PAYOUT_CLAIMED => {
             // Pass-3 (NEW). Pure audit trail — the member was drawn this
@@ -360,7 +385,10 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // status so a future `revoke` can apply the correct weight even
     // if the subject's identity verification state has changed.
     a.verified_at_attest = verified;
-    a._padding  = [0; 13];
+    // SEV-A2: flag a cooldown-skipped POOL_COMPLETE so `revoke` knows it
+    // applied no credit and must reverse none.
+    a.neutralized = pool_complete_neutralized;
+    a._padding  = [0; 12];
 
     msg!(
         "roundfi-reputation: attest schema={} subject={} score={} level={}",

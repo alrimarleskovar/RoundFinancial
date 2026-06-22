@@ -13,18 +13,21 @@
  * — leaving the pool short and forfeiting the reward. Observed on devnet:
  * "Pool 50's cycle-1 POOL_COMPLETE reverted CooldownActive (6004)".
  *
- * The fix makes the completion credit BEST-EFFORT: core swallows ONLY a
- * cooldown rejection (every other CPI failure still reverts), so the
- * installment payment settles. The anti-farming guarantee is intact —
- * `cycles_completed` is NOT bumped and NO attestation is written for the
- * skipped completion.
+ * The fix makes the completion credit BEST-EFFORT inside the reputation
+ * program: on the mandatory pool-PDA (contribute) path it does NOT revert the
+ * cooldown — it records the attestation but NEUTRALIZES it (applies no score /
+ * cycles_completed credit), so the installment payment settles. (A failed CPI
+ * cannot be recovered by the caller, so the cooldown can't be allowed to
+ * revert here.) The anti-farming guarantee is intact — `cycles_completed` is
+ * NOT bumped, and the neutralized flag keeps `revoke` zero-sum. Admin-direct
+ * POOL_COMPLETE still hard-rejects on cooldown.
  *
  * Proof, on the mpl_core (litesvm) path — the only CI lane that can run
  * `join_pool`:
  *   • pool A — subject S completes a pool and earns POOL_COMPLETE.
  *   • pool B — S completes the final installment WHILE inside the 30-day
  *     window. Pre-fix this reverted; post-fix the payment lands and the
- *     reward is skipped (no `cycles_completed` bump, no attestation).
+ *     reward is skipped (no `cycles_completed` bump; attestation neutralized).
  *   • a FRESH co-member of pool B still earns ITS POOL_COMPLETE — the skip
  *     is specific to the cooled-down subject, not a blanket disable.
  *
@@ -241,7 +244,10 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
         bn(before.lastCycleCompleteAt),
       );
 
-      // 3. No POOL_COMPLETE attestation was written for the skipped completion.
+      // 3. The completion IS recorded but NEUTRALIZED — the reputation program
+      //    cannot revert here (a failed CPI would abort the contribute), so it
+      //    skips the credit and flags the attestation. No credit was applied,
+      //    so a later revoke reverses nothing.
       const skippedPda = attestationFor(
         env,
         b.pool.pool,
@@ -249,10 +255,13 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
         ATTESTATION_SCHEMA.PoolComplete,
         attestationNonce(1, b.sH.slotIndex),
       );
-      expect(
-        await env.connection.getAccountInfo(skippedPda),
-        "skipped completion writes NO attestation",
-      ).to.be.null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const skippedAtt = (await (env.programs.reputation.account as any).attestation.fetch(
+        skippedPda,
+      )) as { neutralized: boolean };
+      expect(skippedAtt.neutralized, "skipped completion is recorded as neutralized").to.equal(
+        true,
+      );
 
       // 4. Differential — the FRESH co-member's final installment still earns
       //    its POOL_COMPLETE, so the skip is specific to the cooled-down subject.
@@ -271,6 +280,13 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
       );
       expect(await env.connection.getAccountInfo(fPda), "fresh member's POOL_COMPLETE attestation")
         .to.not.be.null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fAtt = (await (env.programs.reputation.account as any).attestation.fetch(fPda)) as {
+        neutralized: boolean;
+      };
+      expect(fAtt.neutralized, "fresh member earns a real (non-neutralized) completion").to.equal(
+        false,
+      );
 
       // Pool still finalizes cleanly (slot 1 claims).
       await claimPayout(env, { pool: b.pool, member: fillerB, cycle: 1 });

@@ -17,10 +17,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::account_info::AccountInfo;
-use anchor_lang::solana_program::program_error::ProgramError;
 
 use roundfi_reputation::constants::ATTESTATION_PAYLOAD_LEN;
-use roundfi_reputation::ReputationError;
 
 use crate::error::RoundfiError;
 
@@ -116,56 +114,10 @@ pub struct AttestCall<'a, 'info> {
     pub pool_seed_id:   u64,
 }
 
-/// Result of an `attest` CPI from core's perspective.
-///
-/// `Applied` — the attestation landed and the subject's profile updated
-/// normally.
-///
-/// `SkippedPoolCompleteCooldown` — reputation rejected a
-/// `SCHEMA_POOL_COMPLETE` attestation with `CooldownActive` because the
-/// subject is still inside the per-subject 30-day completion floor
-/// (`MIN_POOL_COMPLETE_COOLDOWN_SECS`). The CPI reverted cleanly (no
-/// attestation written, no profile mutation, rent refunded). This is a
-/// BENIGN, expected outcome on the MANDATORY `contribute` money-path: the
-/// cooldown is only an anti-farming rate-limit on `cycles_completed`, and
-/// it must never revert a member's installment payment (SEV-A2). The
-/// caller decides whether to tolerate it — `contribute` does (payment
-/// stands, completion reward skipped), while `claim_payout` /
-/// `settle_default` never emit POOL_COMPLETE and so never see it.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum AttestOutcome {
-    Applied,
-    SkippedPoolCompleteCooldown,
-}
-
-/// Classify the raw `invoke_signed` result of an attest CPI, separating
-/// the benign POOL_COMPLETE cooldown rejection (SEV-A2) from genuine
-/// failures. Pure (no logging, no anchor `error!`) so it is unit-testable
-/// on host. The reputation `CooldownActive` error crosses the CPI boundary
-/// as `ProgramError::Custom(ERROR_CODE_OFFSET + CooldownActive)`; the code
-/// is derived from the reputation enum (not hard-coded) so a future
-/// reorder of `ReputationError` stays in sync automatically.
-fn classify_attest_outcome(
-    res: core::result::Result<(), ProgramError>,
-) -> core::result::Result<AttestOutcome, ProgramError> {
-    let cooldown_code =
-        anchor_lang::error::ERROR_CODE_OFFSET + ReputationError::CooldownActive as u32;
-    match res {
-        Ok(()) => Ok(AttestOutcome::Applied),
-        Err(ProgramError::Custom(code)) if code == cooldown_code => {
-            Ok(AttestOutcome::SkippedPoolCompleteCooldown)
-        }
-        Err(e) => Err(e),
-    }
-}
-
 /// Emit an attestation via CPI. Performs the program-id guard and
 /// constructs the call by hand so we avoid pulling in the full
 /// anchor-cpi proc-macro expansion.
-///
-/// Returns an [`AttestOutcome`] so the caller can distinguish a normal
-/// application from the benign POOL_COMPLETE-cooldown skip (SEV-A2).
-pub fn invoke_attest<'info>(call: AttestCall<'_, 'info>) -> Result<AttestOutcome> {
+pub fn invoke_attest<'info>(call: AttestCall<'_, 'info>) -> Result<()> {
     // ─── 1. Program-id guard (anti-spoof) ────────────────────────────
     require_keys_eq!(
         call.reputation_program.key(),
@@ -236,13 +188,13 @@ pub fn invoke_attest<'info>(call: AttestCall<'_, 'info>) -> Result<AttestOutcome
         data,
     };
 
-    match classify_attest_outcome(invoke_signed(&ix, &infos, call.signer_seeds)) {
-        Ok(outcome) => Ok(outcome),
-        Err(e) => {
+    invoke_signed(&ix, &infos, call.signer_seeds)
+        .map_err(|e| {
             msg!("roundfi-core: reputation::attest CPI failed: {:?}", e);
-            Err(error!(RoundfiError::ReputationCpiFailed))
-        }
-    }
+            error!(RoundfiError::ReputationCpiFailed)
+        })?;
+
+    Ok(())
 }
 
 /// Convenience: zero-byte payload. Core does not embed per-cycle data
@@ -340,47 +292,5 @@ mod tests {
                 "attest slot {pos} is_writable mismatch",
             );
         }
-    }
-
-    // ─── SEV-A2: attest-outcome classification ──────────────────────────
-    //
-    // The POOL_COMPLETE 30-day cooldown lives on the MANDATORY contribute
-    // money-path. `classify_attest_outcome` is what lets the installment
-    // payment settle when the (rate-limited) completion reward is rejected,
-    // while still reverting on any genuine attest failure. These pin that
-    // contract so a regression surfaces in `cargo test`, not on devnet.
-
-    #[test]
-    fn classify_applied_on_ok() {
-        assert_eq!(classify_attest_outcome(Ok(())), Ok(AttestOutcome::Applied));
-    }
-
-    #[test]
-    fn classify_maps_reputation_cooldown_to_skip() {
-        // CooldownActive is reputation's 5th error variant → wire code 6004.
-        // Pinned here so a reorder that shifts the code is caught loudly,
-        // even though `classify_attest_outcome` derives it dynamically.
-        let cd = anchor_lang::error::ERROR_CODE_OFFSET + ReputationError::CooldownActive as u32;
-        assert_eq!(cd, 6004, "reputation CooldownActive wire code drifted from 6004");
-        assert_eq!(
-            classify_attest_outcome(Err(ProgramError::Custom(cd))),
-            Ok(AttestOutcome::SkippedPoolCompleteCooldown),
-        );
-    }
-
-    #[test]
-    fn classify_propagates_genuine_failures() {
-        // Every other error — other reputation codes (InvalidIssuer=6000,
-        // InvalidSchema=6002, …) and non-custom errors — MUST surface as a
-        // failure so the contribute money-path reverts loudly rather than
-        // silently dropping a real attestation. 6004 (the cooldown) is the
-        // ONLY code that becomes a benign skip.
-        for code in [6000u32, 6001, 6002, 6003, 6005, 6006, 9999] {
-            assert!(
-                classify_attest_outcome(Err(ProgramError::Custom(code))).is_err(),
-                "custom code {code} must propagate as a failure, not a skip",
-            );
-        }
-        assert!(classify_attest_outcome(Err(ProgramError::InvalidAccountData)).is_err());
     }
 }
