@@ -50,10 +50,21 @@ pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
 /// **Pre-Ceremony Beta exception (feature `devnet-canary`):** the
 /// Genesis Canary phase uses cycle = 48h, which makes 7d grace
 /// ridiculous (3.5× the cycle duration). The `devnet-canary` build
-/// flag lowers the const to 86_400 (24h, exactly at the SEV-002 floor)
-/// for that phase only. The floor pinning test below (`grace_period_above_mainnet_floor`)
-/// still passes because 86_400 >= 86_400. The "≠ 604_800" pinning is
-/// gated by the feature to allow this devnet-only override.
+/// flag lowers the const to 86_400 (24h) for that phase only. The grace
+/// floor guard is **config-split** (ECO-V52): the mainnet/default build
+/// enforces a 48h floor (2× the canary override, so the 24h value can
+/// never appear in a non-canary build), and the `devnet-canary` build
+/// enforces the 24h canary minimum. Before the split the single floor was
+/// 24h — exactly the canary value — so the SEV-002 net had zero headroom on
+/// the mainnet build (a regression to 24h plus a matching pinning-test edit
+/// slipped through). The "≠ 604_800" pinning is likewise feature-gated to
+/// allow this devnet-only override.
+///
+/// NOTE: the feature is build-time, so a mainnet artifact accidentally
+/// compiled `--features devnet-canary` is NOT caught by any unit test (it
+/// runs the canary-config tests). The Cargo feature doc marks it "MUST NOT
+/// be enabled in mainnet builds"; the operational guard is reproducible
+/// verify-build + the canary pre-flight gate.
 ///
 /// See docs/pt/pre-ceremony-beta-proposta.md §6.3 (Opção B). Per-pool
 /// grace on-chain is the proper fix for mainnet — tracked separately
@@ -412,15 +423,44 @@ mod tests {
 mod floor_guards {
     use super::*;
 
-    /// Grace window cannot be shorter than 1 day on mainnet — would
-    /// permit settle_default flood under any operator connectivity
-    /// lapse. The 60s devnet patch (SEV-002) is well below this floor.
+    /// Grace window floor — **config-split** (ECO-V52, SEV-002 lineage).
+    ///
+    /// The `devnet-canary` feature lowers `GRACE_PERIOD_SECS` to 24h (86_400)
+    /// for the Genesis Canary phase. That value sat EXACTLY at the old single
+    /// 1-day floor, so the floor was vacuous at the canary edge: a regression
+    /// that set the *mainnet* const to 24h — even paired with a matching edit
+    /// to its pinning test (the exact SEV-002 double-edit that shipped a demo
+    /// value to prod) — slipped through. Splitting the floor by config
+    /// restores the headroom the SEV-002 net is supposed to provide.
+    ///
+    /// Mainnet / default build: grace must EXCEED the 24h canary override,
+    /// floored at 48h (2× the override) so the devnet value can never satisfy
+    /// the mainnet floor. (Residual: a mainnet artifact built `--features
+    /// devnet-canary` runs the canary test below instead, so no unit test
+    /// catches the feature leaking into a deploy — closed operationally by
+    /// verify-build + the canary pre-flight gate; see the `GRACE_PERIOD_SECS`
+    /// doc for the structural per-pool-grace follow-up.)
+    #[cfg(not(feature = "devnet-canary"))]
     #[test]
     fn grace_period_above_mainnet_floor() {
-        const FLOOR_SECS: i64 = 86_400; // 1 day
+        const FLOOR_SECS: i64 = 2 * 86_400; // 48h — 2× the canary override
         assert!(
             GRACE_PERIOD_SECS >= FLOOR_SECS,
-            "GRACE_PERIOD_SECS = {} below mainnet floor {} (SEV-002 regression shape)",
+            "GRACE_PERIOD_SECS = {} below mainnet floor {} (SEV-002/ECO-V52 — 24h is canary-only)",
+            GRACE_PERIOD_SECS, FLOOR_SECS,
+        );
+    }
+
+    /// Canary-build floor — grace cannot drop below the 24h Genesis Canary
+    /// value (the documented SEV-002 floor). Lowering the override further
+    /// (e.g. "12h for a faster demo") re-introduces the footgun and fails here.
+    #[cfg(feature = "devnet-canary")]
+    #[test]
+    fn grace_period_above_canary_floor() {
+        const FLOOR_SECS: i64 = 86_400; // 1 day — the canary minimum
+        assert!(
+            GRACE_PERIOD_SECS >= FLOOR_SECS,
+            "GRACE_PERIOD_SECS = {} below canary floor {} (SEV-002 regression shape)",
             GRACE_PERIOD_SECS, FLOOR_SECS,
         );
     }
