@@ -9,20 +9,33 @@
  * the missing tx. The `services/orchestrator/src/runCycle.ts` is
  * explicit that it does NOT do this — the crank is the only path.
  *
- * Off-chain `reason` (PAYMENT_MISSED vs INFRA_FAILURE):
- * The on-chain `settleDefault` instruction does NOT take a reason
- * argument — adding one would require a roundfi-core PR + new audit,
- * out of crank scope. Instead we emit it in the structured event log
- * here so the indexer / admin score-contestation UI can flip the
- * verdict off-chain (the score lives in roundfi-reputation; penalty is
- * effectively soft from this layer). Classification rule:
+ * INFRA_FAILURE vs PAYMENT_MISSED — ECO-V52-High fix:
+ * The on-chain `settleDefault` is an IRREVERSIBLE penalty (seizes
+ * collateral, sets `defaulted`, demotes the reputation level). The prior
+ * code classified the reason but fired `settle_default` ANYWAY, even when
+ * it deemed the miss non-attributable (the crank's own RPC was blind
+ * across the member's grace window) — an irreversible penalty for a fault
+ * that was not the member's. Worse, `checkRpcHealth` clears `rpcDownSince`
+ * before this runs (pollingLoop: health-check → settle), so the old
+ * `rpcDownSince ≤ deadline` rule could never even fire in production.
  *
- *   INFRA_FAILURE if rpcDownSince ≤ graceDeadline:
- *       the crank's RPC was unreachable across the member's deadline,
- *       so this member's missed tx is not necessarily their fault —
- *       eligible for off-chain score reversal.
- *   PAYMENT_MISSED otherwise:
- *       the crank was healthy and the member simply didn't pay.
+ * Now: when the crank's last outage overlapped a member's grace window,
+ * we EXTEND that member's deadline by the overlap and WITHHOLD
+ * `settle_default` (status `skipped`, reason `INFRA_FAILURE`) until the
+ * extended deadline passes. The classification reads the persisted
+ * `crankState.lastOutage` window (survives recovery), not the cleared
+ * `rpcDownSince`. Liveness is preserved: a genuine defaulter is settled as
+ * `PAYMENT_MISSED` on a later healthy tick once the extended deadline has
+ * elapsed — the extension is bounded by the outage duration, so the loop
+ * always terminates.
+ *
+ *   INFRA_FAILURE (defer, do NOT settle) while
+ *       now < graceDeadline + outageOverlap(graceWindow):
+ *       the crank was unreachable across the member's grace window, so the
+ *       miss is not necessarily their fault — give them the lost time back.
+ *   PAYMENT_MISSED (settle) otherwise:
+ *       the crank had a clean view of the (possibly extended) window and
+ *       the member still didn't pay.
  *
  * Preconditions the on-chain handler enforces (we mirror them here so
  * we skip un-eligible calls instead of paying gas for guaranteed
@@ -90,7 +103,8 @@ export async function checkAndSettleDefaults(
       continue;
     }
 
-    const reason = classifyDefaultReason(graceDeadlineSecs);
+    const graceWindowStartSecs = Number(pool.nextCycleAt);
+    const reason = classifyDefaultReason(graceWindowStartSecs, graceDeadlineSecs, nowEpochSecs);
     const ctx = {
       pool: pool.address.toBase58(),
       member: member.address.toBase58(),
@@ -98,6 +112,20 @@ export async function checkAndSettleDefaults(
       cycle: pool.currentCycle,
       reason,
     };
+
+    // ECO-V52-High: never fire the IRREVERSIBLE settle_default for a
+    // non-attributable (infra) miss. Defer instead — the member's deadline is
+    // extended by the outage overlap, and a later healthy tick past the
+    // extended deadline settles them as PAYMENT_MISSED if still behind.
+    if (reason === "INFRA_FAILURE") {
+      const graceExtensionSecs = outageOverlapSecs(graceWindowStartSecs, graceDeadlineSecs);
+      logger.warn(
+        { event_type: "settle.deferred_infra", ...ctx, graceExtensionSecs },
+        "Withholding settle_default — crank infra outage overlapped this member's grace window",
+      );
+      results.push({ ...ctx, status: "skipped" });
+      continue;
+    }
 
     try {
       logger.info({ event_type: "settle.start", ...ctx }, "Firing settle_default");
@@ -144,14 +172,40 @@ export function isEligibleForSettle(member: MemberView, pool: PoolView): Eligibi
   return { ok: true };
 }
 
-export function classifyDefaultReason(graceDeadlineSecs: number): DefaultReason {
-  // If the crank's RPC was down at the time the deadline elapsed,
-  // surface that — the member's failure to contribute may be due to
-  // our infra, not theirs. The check is conservative: if `rpcDownSince`
-  // is set at all and predates the deadline, classify as INFRA. If the
-  // RPC recovered before the deadline, classify as PAYMENT_MISSED.
-  const rpcDownSince = crankState.snapshot.rpcDownSince;
-  if (rpcDownSince && Math.floor(rpcDownSince.getTime() / 1000) <= graceDeadlineSecs) {
+/**
+ * Seconds the crank's last completed outage overlapped the grace window
+ * `[graceWindowStartSecs, graceDeadlineSecs]`. 0 if there was no outage or it
+ * fell entirely outside the window. This is the time the crank (our infra) was
+ * blind while the member could still have paid within grace — the amount we
+ * extend their deadline by before any liquidation. Reads the persisted
+ * `lastOutage` window (set on recovery), so it survives `rpcDownSince` being
+ * cleared by the pre-settle health check.
+ */
+export function outageOverlapSecs(graceWindowStartSecs: number, graceDeadlineSecs: number): number {
+  const outage = crankState.snapshot.lastOutage;
+  if (!outage) return 0;
+  const outStart = Math.floor(outage.start.getTime() / 1000);
+  const outEnd = Math.floor(outage.end.getTime() / 1000);
+  const lo = Math.max(outStart, graceWindowStartSecs);
+  const hi = Math.min(outEnd, graceDeadlineSecs);
+  return Math.max(0, hi - lo);
+}
+
+/**
+ * Decide whether a missed contribution is the member's fault
+ * (`PAYMENT_MISSED` → settle) or a non-attributable infra miss still inside its
+ * extension window (`INFRA_FAILURE` → defer). The member's effective deadline
+ * is `graceDeadline + outageOverlap`; while `now` is before it we withhold the
+ * irreversible liquidation. See the module header for the full rationale.
+ */
+export function classifyDefaultReason(
+  graceWindowStartSecs: number,
+  graceDeadlineSecs: number,
+  nowSecs: number = Math.floor(Date.now() / 1000),
+): DefaultReason {
+  const overlap = outageOverlapSecs(graceWindowStartSecs, graceDeadlineSecs);
+  const effectiveDeadlineSecs = graceDeadlineSecs + overlap;
+  if (overlap > 0 && nowSecs < effectiveDeadlineSecs) {
     return "INFRA_FAILURE";
   }
   return "PAYMENT_MISSED";

@@ -359,10 +359,12 @@ export function StressLabClient() {
                 >
                   {t("lab.controls.level")}
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                  {(["Iniciante", "Comprovado", "Veterano"] as const).map((lvl) => {
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                  {(["Iniciante", "Comprovado", "Veterano", "Elite"] as const).map((lvl) => {
                     const active = level === lvl;
-                    const isTopTier = lvl === "Veterano";
+                    // ✦ is the Lv3 "VIP" badge (Veterano), per the data model —
+                    // not a top-tier marker (Elite is now Lv4).
+                    const isVip = lvl === "Veterano";
                     return (
                       <button
                         key={lvl}
@@ -389,7 +391,7 @@ export function StressLabClient() {
                         }}
                       >
                         {t(`lab.level.${lvl.toLowerCase()}`)}
-                        {isTopTier && (
+                        {isVip && (
                           <span
                             style={{
                               fontSize: 8,
@@ -493,7 +495,7 @@ export function StressLabClient() {
                       fontSize: 10,
                     }}
                   >
-                    {(["Iniciante", "Comprovado", "Veterano"] as const).map((lvl) => {
+                    {(["Iniciante", "Comprovado", "Veterano", "Elite"] as const).map((lvl) => {
                       const lvlParams = LEVEL_PARAMS[lvl];
                       const months =
                         maturity === "mature"

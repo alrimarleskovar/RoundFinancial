@@ -18,7 +18,11 @@ import { PublicKey } from "@solana/web3.js";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 import { crankState } from "../src/crankState.js";
-import { classifyDefaultReason, isEligibleForSettle } from "../src/settleDefaults.js";
+import {
+  classifyDefaultReason,
+  isEligibleForSettle,
+  outageOverlapSecs,
+} from "../src/settleDefaults.js";
 
 const SOME_PK = new PublicKey("11111111111111111111111111111111");
 
@@ -80,43 +84,74 @@ describe("isEligibleForSettle", () => {
   });
 });
 
+// Grace window for the tests: [WINDOW_START, DEADLINE], 7-day grace.
+const WINDOW_START = 1_700_000_000;
+const GRACE = 7 * 24 * 60 * 60;
+const DEADLINE = WINDOW_START + GRACE;
+
+/** Record a completed outage window [startSecs, endSecs] via the real setters. */
+function recordOutage(startSecs: number, endSecs: number): void {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(startSecs * 1000));
+  crankState.markRpcDown();
+  vi.setSystemTime(new Date(endSecs * 1000));
+  crankState.markRpcUp();
+  vi.useRealTimers();
+}
+
+describe("outageOverlapSecs", () => {
+  beforeEach(() => crankState.__resetForTest());
+  afterEach(() => vi.useRealTimers());
+
+  it("is 0 when there was no outage", () => {
+    expect(outageOverlapSecs(WINDOW_START, DEADLINE)).toBe(0);
+  });
+
+  it("is the full duration when the outage is entirely inside the window", () => {
+    recordOutage(WINDOW_START + 100, WINDOW_START + 400);
+    expect(outageOverlapSecs(WINDOW_START, DEADLINE)).toBe(300);
+  });
+
+  it("clamps to the window when the outage starts before it", () => {
+    recordOutage(WINDOW_START - 50, WINDOW_START + 50);
+    expect(outageOverlapSecs(WINDOW_START, DEADLINE)).toBe(50);
+  });
+
+  it("is 0 when the outage fell entirely after the deadline", () => {
+    recordOutage(DEADLINE + 100, DEADLINE + 200);
+    expect(outageOverlapSecs(WINDOW_START, DEADLINE)).toBe(0);
+  });
+});
+
 describe("classifyDefaultReason", () => {
-  beforeEach(() => {
-    crankState.__resetForTest();
+  beforeEach(() => crankState.__resetForTest());
+  afterEach(() => vi.useRealTimers());
+
+  it("returns PAYMENT_MISSED when there was no outage", () => {
+    expect(classifyDefaultReason(WINDOW_START, DEADLINE, DEADLINE + 10)).toBe("PAYMENT_MISSED");
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  it("DEFERS (INFRA_FAILURE) while inside the outage-extended deadline", () => {
+    // 600s outage inside the grace window → deadline extended by 600s.
+    recordOutage(WINDOW_START + 1000, WINDOW_START + 1600);
+    expect(classifyDefaultReason(WINDOW_START, DEADLINE, DEADLINE + 100)).toBe("INFRA_FAILURE");
   });
 
-  it("returns PAYMENT_MISSED when RPC has never been down", () => {
-    expect(classifyDefaultReason(1_700_000_000)).toBe("PAYMENT_MISSED");
+  it("settles (PAYMENT_MISSED) once the extension has elapsed — no stall", () => {
+    recordOutage(WINDOW_START + 1000, WINDOW_START + 1600); // 600s extension
+    expect(classifyDefaultReason(WINDOW_START, DEADLINE, DEADLINE + 700)).toBe("PAYMENT_MISSED");
   });
 
-  it("returns INFRA_FAILURE when RPC was down at/before the grace deadline", () => {
-    // RPC went down "yesterday" (well before the deadline). Use
-    // vi.setSystemTime so markRpcDown's `new Date()` records that.
-    const downAt = new Date((1_700_000_000 - 86_400) * 1000);
-    vi.useFakeTimers();
-    vi.setSystemTime(downAt);
-    crankState.markRpcDown();
-    vi.useRealTimers();
-    expect(classifyDefaultReason(1_700_000_000)).toBe("INFRA_FAILURE");
+  it("returns PAYMENT_MISSED when the outage fell entirely before the grace window", () => {
+    recordOutage(WINDOW_START - 2000, WINDOW_START - 1000);
+    expect(classifyDefaultReason(WINDOW_START, DEADLINE, DEADLINE + 10)).toBe("PAYMENT_MISSED");
   });
 
-  it("returns PAYMENT_MISSED when RPC went down AFTER the grace deadline", () => {
-    // RPC went down 1 hour after the deadline — member's miss is on them.
-    const downAt = new Date((1_700_000_000 + 3600) * 1000);
-    vi.useFakeTimers();
-    vi.setSystemTime(downAt);
-    crankState.markRpcDown();
-    vi.useRealTimers();
-    expect(classifyDefaultReason(1_700_000_000)).toBe("PAYMENT_MISSED");
-  });
-
-  it("treats markRpcUp clearing rpcDownSince as PAYMENT_MISSED", () => {
-    crankState.markRpcDown();
-    crankState.markRpcUp();
-    expect(classifyDefaultReason(1_700_000_000)).toBe("PAYMENT_MISSED");
+  it("an outage spanning the deadline DEFERS (regression: recovery no longer forces a liquidation)", () => {
+    // The exact ECO-V52 bug: crank down across the deadline then recovered.
+    // Old code cleared rpcDownSince on markRpcUp → classified PAYMENT_MISSED →
+    // liquidated. Now the persisted outage window extends the deadline.
+    recordOutage(DEADLINE - 100, DEADLINE + 100); // overlap with [start,deadline] = 100
+    expect(classifyDefaultReason(WINDOW_START, DEADLINE, DEADLINE + 50)).toBe("INFRA_FAILURE");
   });
 });

@@ -25,12 +25,26 @@
  *                         deadline, the default is not the member's
  *                         fault and the score contestation can use this
  *                         to flip the verdict off-chain.
+ *   lastOutage:           the most recent COMPLETED outage window
+ *                         {start,end}, recorded on recovery (markRpcUp).
+ *                         Unlike `rpcDownSince` (which is cleared on
+ *                         recovery), this SURVIVES so settleDefaults can
+ *                         still tell that an outage overlapped a member's
+ *                         grace window — the input to the ECO-V52 grace
+ *                         extension that withholds liquidation for a
+ *                         non-attributable (infra-caused) miss.
  */
+
+export interface OutageWindow {
+  start: Date;
+  end: Date;
+}
 
 export interface CrankState {
   bootAt: Date;
   lastSuccessfulRun: Date | null;
   rpcDownSince: Date | null;
+  lastOutage: OutageWindow | null;
 }
 
 function makeInitialState(): CrankState {
@@ -38,6 +52,7 @@ function makeInitialState(): CrankState {
     bootAt: new Date(),
     lastSuccessfulRun: null,
     rpcDownSince: null,
+    lastOutage: null,
   };
 }
 
@@ -55,6 +70,12 @@ export const crankState = {
     if (!state.rpcDownSince) state.rpcDownSince = new Date();
   },
   markRpcUp(): void {
+    // Capture the completed outage window BEFORE clearing rpcDownSince so
+    // settleDefaults can still see that an outage overlapped a member's
+    // grace deadline after the RPC has recovered (ECO-V52 grace extension).
+    if (state.rpcDownSince) {
+      state.lastOutage = { start: state.rpcDownSince, end: new Date() };
+    }
     state.rpcDownSince = null;
   },
   /** TEST-ONLY: reset between cases. Not exported via index.ts. */
