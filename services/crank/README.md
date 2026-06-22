@@ -69,18 +69,32 @@ A "successful tick" is: lease held (or no-op lease) → RPC reachable →
 in one pool does NOT downgrade the tick; the pool's own log line is the
 escalation path.
 
-## INFRA_FAILURE vs PAYMENT_MISSED
+## INFRA_FAILURE vs PAYMENT_MISSED (ECO-V52-High)
 
-The on-chain `settle_default` instruction has no `reason` arg (would
-require a core PR + new audit). The crank emits the classification in
-the structured log so the indexer + admin score-contestation UI can
-flip the verdict off-chain:
+`settle_default` is an **irreversible** penalty (seizes collateral, sets
+`defaulted`, demotes the reputation level). The crank must not fire it for
+a miss that was its own infrastructure's fault. When the crank's last RPC
+outage overlapped a member's grace window, the crank **extends that
+member's deadline by the overlap and withholds liquidation** until the
+extended deadline passes — it does not just log a reason for off-chain
+contestation.
 
-- `INFRA_FAILURE`: the crank's RPC was down at or before this member's
-  grace deadline. The missed contribution isn't necessarily theirs to
-  own — eligible for off-chain score reversal.
-- `PAYMENT_MISSED`: RPC was healthy across the deadline. Member simply
-  didn't pay.
+- `INFRA_FAILURE` (status `skipped`, `event_type: settle.deferred_infra`):
+  the crank's RPC was unreachable across part of this member's grace
+  window, so they lost that time through no fault of their own. The
+  deadline is extended by the outage overlap and `settle_default` is
+  withheld while `now` is still before it.
+- `PAYMENT_MISSED` (status `settled`): the crank had a clean view across
+  the (possibly extended) window and the member still didn't pay.
+
+The classification reads the **persisted** `crankState.lastOutage` window
+(recorded on recovery), not the live `rpcDownSince` — which the pre-settle
+health check clears, so the old `rpcDownSince ≤ deadline` rule could never
+fire in production. Liveness holds: the extension is bounded by the outage
+duration, so a genuine defaulter is always settled on a later healthy tick.
+Residual: `lastOutage` is in-process state, so a crank restart inside the
+extension window loses the deferral (single-instance poller — acceptable;
+the lease keeps one instance authoritative).
 
 ## Multi-replica (Postgres lease)
 
@@ -114,7 +128,8 @@ Covers the four pure surfaces:
 
 - `classifyError.spec.ts` — INFRA/LOGIC/UNKNOWN bucket boundaries.
 - `healthServer.spec.ts` — starting/ok/degraded transitions, 503 mapping.
-- `settleDefaults.spec.ts` — eligibility + INFRA_FAILURE classification.
+- `settleDefaults.spec.ts` — eligibility, outage-overlap grace extension,
+  and INFRA defer-vs-settle classification (ECO-V52).
 - `pollingLoop.spec.ts` — lease gating, RPC skip, per-pool isolation.
 
 The actual `settle_default` CPI is integration-level — covered in the
