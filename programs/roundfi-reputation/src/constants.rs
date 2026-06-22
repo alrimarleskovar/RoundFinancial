@@ -324,4 +324,44 @@ mod floor_guards {
             CEILING_SECS,
         );
     }
+
+    /// **ECO-V52 — L4 Elite asymmetry mitigation (pillar 1: identity).**
+    /// The Elite tier (3% stake = ~33× leverage) carries the widest unbacked
+    /// default tail of any tier: a defaulter draws ~100% of the carta and
+    /// loses only the 3% stake. The on-chain mitigation
+    /// (docs/security/l4-elite-asymmetry.md) rests on two pillars; this is
+    /// the first. L4 is NEVER granted to an unverified wallet — even with the
+    /// configurable gate off — because the hard Proof-of-Personhood floor
+    /// covers the top tier. That holds iff `IDENTITY_HARD_FLOOR_LEVEL` is at
+    /// or below the max level: a value ABOVE `LEVEL_MAX` would silently
+    /// disable the floor (no level can exceed it), re-opening the cheap
+    /// unverified path to Elite.
+    #[test]
+    fn identity_hard_floor_covers_elite_tier() {
+        assert!(
+            IDENTITY_HARD_FLOOR_LEVEL <= LEVEL_MAX,
+            "IDENTITY_HARD_FLOOR_LEVEL = {} above LEVEL_MAX {} — the Elite tier would \
+             escape the mandatory identity floor (ECO-V52 L4 asymmetry mitigation)",
+            IDENTITY_HARD_FLOOR_LEVEL, LEVEL_MAX,
+        );
+    }
+
+    /// **ECO-V52 — L4 Elite asymmetry mitigation (pillar 2: time).** The
+    /// second pillar bounding the Elite default tail is the wall-clock cost
+    /// of REACHING L4: `LEVEL_4_MIN_CYCLES` pools completed end-to-end, each
+    /// ≥ 30 days apart (`MIN_POOL_COMPLETE_COOLDOWN_SECS`), so Elite takes
+    /// ≥ ~4 years of honest history (8 × ~6-month pools) to earn. That sunk
+    /// cost is what makes burning the tier on one deliberate default
+    /// economically irrational. Floor it at 8 so a future "lower it for the
+    /// demo" shortcut (the SEV-002 family) fails CI instead of quietly
+    /// collapsing the wall.
+    #[test]
+    fn level_4_min_cycles_above_floor() {
+        const FLOOR: u32 = 8;
+        assert!(
+            LEVEL_4_MIN_CYCLES >= FLOOR,
+            "LEVEL_4_MIN_CYCLES = {} below the Elite anti-abuse floor {} (ECO-V52)",
+            LEVEL_4_MIN_CYCLES, FLOOR,
+        );
+    }
 }
