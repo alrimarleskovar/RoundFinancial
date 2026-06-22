@@ -261,14 +261,16 @@ mod tests {
     fn resolve_level_cycles_gate_sev047() {
         // SEV-047: score alone is no longer sufficient. The cycles_completed
         // floor gates promotion regardless of how high the (farmable) score is.
+        // L2 floor = 2 (ECO-V52, raised from 1); L3 = 3; L4 = 8.
         let r = |score: u64, cycles: u32| {
-            ReputationProfile::resolve_level(score, 500, 2_000, 5_000, cycles, 1, 3, 8)
+            ReputationProfile::resolve_level(score, 500, 2_000, 5_000, cycles, 2, 3, 8)
         };
 
-        // L2 score met (500) but 0 cycles → stays L1 (the farming defense).
+        // L2 score met (500) but < 2 cycles → stays L1 (the farming defense).
         assert_eq!(r(500, 0), 1);
-        // L2 score + exactly 1 cycle → L2 unlocks.
-        assert_eq!(r(500, 1), 2);
+        assert_eq!(r(500, 1), 1);
+        // L2 score + exactly 2 cycles → L2 unlocks (ECO-V52 floor).
+        assert_eq!(r(500, 2), 2);
 
         // L3 score met (2000) but only 2 cycles → capped at L2.
         assert_eq!(r(2_000, 2), 2);

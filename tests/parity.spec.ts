@@ -61,6 +61,25 @@ function readRustConstants(path: string): string {
   return readFileSync(path, "utf-8");
 }
 
+// Shared by the reachability guards below (ECO-001 netSolvency, ECO-V52
+// behavioral): recursively collect every first-party `.rs` under programs/,
+// skipping build artifacts + fuzz corpora.
+const PROGRAMS_DIR = resolve(process.cwd(), "programs");
+
+function rustFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "target" || entry.name === "fuzz") continue;
+      out.push(...rustFiles(full));
+    } else if (entry.name.endsWith(".rs")) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 // Matches: `pub const SEED_FOO: &[u8] = b"foo";` (with optional spaces).
 const SEED_RE = /pub\s+const\s+(SEED_[A-Z_]+)\s*:\s*&\[\s*u8\s*\]\s*=\s*b"([^"]+)"\s*;/g;
 
@@ -358,23 +377,7 @@ describe("Rust ↔ TS constants parity", () => {
 // argument so a future change can't silently wire the broken metric into
 // on-chain logic and quietly invalidate the downgrade.
 describe("ECO-001 reachability — netSolvency must not leak into programs/", () => {
-  const PROGRAMS_DIR = resolve(process.cwd(), "programs");
   const NET_SOLVENCY_RE = /net[_]?[Ss]olvency/;
-
-  function rustFiles(dir: string): string[] {
-    const out: string[] = [];
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        // Skip build artifacts and fuzz corpora — only first-party src.
-        if (entry.name === "target" || entry.name === "fuzz") continue;
-        out.push(...rustFiles(full));
-      } else if (entry.name.endsWith(".rs")) {
-        out.push(full);
-      }
-    }
-    return out;
-  }
 
   it("no on-chain Rust source references netSolvency / net_solvency", () => {
     const offenders: string[] = [];
@@ -392,5 +395,72 @@ describe("ECO-001 reachability — netSolvency must not leak into programs/", ()
       `netSolvency is a display-only L1 metric (ECO-001 reachability argument). ` +
         `Any on-chain reference breaks the Critical→Medium downgrade rationale.\n${offenders.join("\n")}`,
     ).to.deep.equal([]);
+  });
+});
+
+// ─── ECO-V52 behavioral reachability guard ───────────────────────────────
+// The on-chain `BehavioralPayload`
+// (programs/roundfi-reputation/src/state/behavioral_payload.rs) is a
+// WRITE-ONLY breadcrumb: the three core handlers (contribute / claim_payout
+// / settle_default) build it with `BehavioralPayload::new(...).encode()` and
+// store it on the attestation, but — per the documented "Authority Boundary"
+// — the deployed program NEVER reads it back to gate a decision. The
+// authoritative behavioral scoring (Reliability / Punctuality / Commitment /
+// BadFaith + the final EventClassification) is derived OFF-CHAIN in the
+// indexer (services/indexer/src/behavioralClassification.ts), so it is
+// display-only and cannot move funds. That is the ECO-V52 residual's
+// reachability argument: the scoring has zero on-chain call-sites, so the
+// "migrate it on-chain without Clock-anchored timestamps" risk is latent
+// only.
+//
+// `BehavioralPayload::decode` is the read-back entry point — it exists and
+// is exercised ONLY inside behavioral_payload.rs (definition + unit tests).
+// If it ever surfaces in an instruction/handler, the program has begun
+// reading behavioral data back to gate something, which silently breaks the
+// Authority Boundary AND re-opens the Clock-anchoring risk (a handler that
+// trusts `paid_ts`/`delta_seconds` from arbitrary stored payloads). This
+// guard pins the boundary the same validator-free way ECO-001 pins
+// netSolvency (the `test:parity` lane).
+describe("ECO-V52 reachability — BehavioralPayload must stay write-only on-chain", () => {
+  // The module that DEFINES + unit-tests decode is its one legitimate home.
+  const DEFINITION_SUFFIX = join("state", "behavioral_payload.rs");
+  const DECODE_RE = /BehavioralPayload\s*::\s*decode\b/;
+
+  it("no on-chain handler calls BehavioralPayload::decode (Authority Boundary)", () => {
+    const offenders: string[] = [];
+    for (const file of rustFiles(PROGRAMS_DIR)) {
+      if (file.endsWith(DEFINITION_SUFFIX)) continue; // decode lives + is tested here
+      readFileSync(file, "utf-8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (DECODE_RE.test(line)) {
+            offenders.push(`${file}:${i + 1}: ${line.trim()}`);
+          }
+        });
+    }
+    expect(
+      offenders,
+      `BehavioralPayload is a WRITE-ONLY on-chain breadcrumb (ECO-V52 / the ` +
+        `Authority Boundary in behavioral_payload.rs). The deployed program must ` +
+        `never decode it back to gate a decision — the authoritative scoring is ` +
+        `off-chain in the indexer, and an on-chain read re-opens the ` +
+        `Clock-anchored-timestamp risk. Move the read off-chain, or open an ADR ` +
+        `that Clock-anchors the timestamps first.\n${offenders.join("\n")}`,
+    ).to.deep.equal([]);
+  });
+
+  it("decode still exists in the definition module (guard target is live)", () => {
+    // Canary for THIS guard: if `decode` is renamed/removed, `DECODE_RE`
+    // would match nothing and pass vacuously. Assert the watched symbol is
+    // still present where it belongs, so a rename forces updating the guard.
+    const def = readFileSync(
+      join(PROGRAMS_DIR, "roundfi-reputation", "src", DEFINITION_SUFFIX),
+      "utf-8",
+    );
+    expect(
+      DECODE_RE.test(def),
+      "BehavioralPayload::decode no longer found in behavioral_payload.rs — " +
+        "the reachability guard above is now vacuous; update DECODE_RE.",
+    ).to.equal(true);
   });
 });

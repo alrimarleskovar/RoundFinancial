@@ -126,13 +126,22 @@ pub const LEVEL_4_THRESHOLD: u64 = 5_000;
 /// `cycles_completed` is now a count of **pools completed end-to-end**,
 /// not a count of payouts received. The floors below are intentionally
 /// small because each unit is now a ~6-month commitment:
-///   - L2 requires >= 1 completed pool (proves one full ROSCA round
-///     including post-payout obligations).
+///   - L2 requires >= 2 completed pools. **ECO-V52: raised from 1.** L2 is
+///     the first real leverage jump (50% → 25% stake = 4×), and a single
+///     completed pool was farmable on the devnet / Canary path where the
+///     configurable identity gate is off (`required_min_level = 0`) and L2
+///     therefore needs no verified identity. Two full ROSCA rounds —
+///     ≥ 30 days apart by `MIN_POOL_COMPLETE_COOLDOWN_SECS`, ≥ ~1 year of
+///     honest history in practice — is a proportionate floor for the first
+///     leverage upgrade. Legitimate members still hit it naturally; the
+///     deeper large-`credit_amount` regime (where the stake discount scales
+///     linearly) is an owner-level decision tracked separately (R1 in
+///     `docs/security/reputation-farming-roi.md`).
 ///   - L3 requires >= 3 completed pools (≥ ~18 months of honest history).
 ///   - L4 requires >= 8 completed pools (Elite — ≥ ~4 years of honest
 ///     history; the strongest wall-clock floor).
 /// Legitimate members hit these naturally; only sybil-farmers are blocked.
-pub const LEVEL_2_MIN_CYCLES: u32 = 1;
+pub const LEVEL_2_MIN_CYCLES: u32 = 2;
 pub const LEVEL_3_MIN_CYCLES: u32 = 3;
 pub const LEVEL_4_MIN_CYCLES: u32 = 8;
 
@@ -276,6 +285,23 @@ mod floor_guards {
         assert!(LEVEL_4_MIN_CYCLES > LEVEL_3_MIN_CYCLES);
     }
 
+    /// L2 cycles floor — anti-farming minimum (ECO-V52). L2 is the first
+    /// leverage jump (4× / 25% stake) and was farmable at the prior value
+    /// of 1 on the gate-off devnet path (one self-dealt pool, no identity).
+    /// Floor it at 2 so a future "1 for testing" shortcut fails CI — same
+    /// regression family as the `GRACE_PERIOD_SECS = 60` devnet leak
+    /// (SEV-002). Pinning catches a deliberate flip; this floor catches a
+    /// silent drift below the anti-farming minimum.
+    #[test]
+    fn level_2_min_cycles_above_floor() {
+        const FLOOR: u32 = 2;
+        assert!(
+            LEVEL_2_MIN_CYCLES >= FLOOR,
+            "LEVEL_2_MIN_CYCLES = {} below anti-farming floor {} (ECO-V52)",
+            LEVEL_2_MIN_CYCLES, FLOOR,
+        );
+    }
+
     /// Max attestation horizon (Wave 9). Must be at least 2× the
     /// bridge's documented 90-day default TTL so a refresh-delayed but
     /// honest attestation never gets falsely rejected, and must be
@@ -296,6 +322,46 @@ mod floor_guards {
             "MAX_PASSPORT_HORIZON_SECS = {} above 1y ceiling {} — defeats the cap",
             MAX_PASSPORT_HORIZON_SECS,
             CEILING_SECS,
+        );
+    }
+
+    /// **ECO-V52 — L4 Elite asymmetry mitigation (pillar 1: identity).**
+    /// The Elite tier (3% stake = ~33× leverage) carries the widest unbacked
+    /// default tail of any tier: a defaulter draws ~100% of the carta and
+    /// loses only the 3% stake. The on-chain mitigation
+    /// (docs/security/l4-elite-asymmetry.md) rests on two pillars; this is
+    /// the first. L4 is NEVER granted to an unverified wallet — even with the
+    /// configurable gate off — because the hard Proof-of-Personhood floor
+    /// covers the top tier. That holds iff `IDENTITY_HARD_FLOOR_LEVEL` is at
+    /// or below the max level: a value ABOVE `LEVEL_MAX` would silently
+    /// disable the floor (no level can exceed it), re-opening the cheap
+    /// unverified path to Elite.
+    #[test]
+    fn identity_hard_floor_covers_elite_tier() {
+        assert!(
+            IDENTITY_HARD_FLOOR_LEVEL <= LEVEL_MAX,
+            "IDENTITY_HARD_FLOOR_LEVEL = {} above LEVEL_MAX {} — the Elite tier would \
+             escape the mandatory identity floor (ECO-V52 L4 asymmetry mitigation)",
+            IDENTITY_HARD_FLOOR_LEVEL, LEVEL_MAX,
+        );
+    }
+
+    /// **ECO-V52 — L4 Elite asymmetry mitigation (pillar 2: time).** The
+    /// second pillar bounding the Elite default tail is the wall-clock cost
+    /// of REACHING L4: `LEVEL_4_MIN_CYCLES` pools completed end-to-end, each
+    /// ≥ 30 days apart (`MIN_POOL_COMPLETE_COOLDOWN_SECS`), so Elite takes
+    /// ≥ ~4 years of honest history (8 × ~6-month pools) to earn. That sunk
+    /// cost is what makes burning the tier on one deliberate default
+    /// economically irrational. Floor it at 8 so a future "lower it for the
+    /// demo" shortcut (the SEV-002 family) fails CI instead of quietly
+    /// collapsing the wall.
+    #[test]
+    fn level_4_min_cycles_above_floor() {
+        const FLOOR: u32 = 8;
+        assert!(
+            LEVEL_4_MIN_CYCLES >= FLOOR,
+            "LEVEL_4_MIN_CYCLES = {} below the Elite anti-abuse floor {} (ECO-V52)",
+            LEVEL_4_MIN_CYCLES, FLOOR,
         );
     }
 }

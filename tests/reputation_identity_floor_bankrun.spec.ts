@@ -76,6 +76,14 @@ async function tick(env: BankrunEnvCompat): Promise<void> {
   await setBankrunUnixTs(env.context, CLOCK);
 }
 
+// Warp past the 30-day POOL_COMPLETE cooldown (MIN_POOL_COMPLETE_COOLDOWN_SECS
+// = 2_592_000) so a subject's 2nd PoolComplete is accepted. ECO-V52 raised
+// LEVEL_2_MIN_CYCLES 1 → 2, so an L2 driver now needs two completed pools.
+async function tickCycleCooldown(env: BankrunEnvCompat): Promise<void> {
+  CLOCK += 2_592_000n + COOLDOWN_STEP;
+  await setBankrunUnixTs(env.context, CLOCK);
+}
+
 /** Give `addr` a system-owned, well-funded wallet (pays the IdentityRecord
  *  rent on link; receives it back on unlink). */
 function fundWallet(env: BankrunEnvCompat, addr: PublicKey): void {
@@ -167,9 +175,10 @@ async function unlinkIdentity(env: BankrunEnvCompat, subject: Keypair): Promise<
 /**
  * Drive `seed` to L2 with a linked, VERIFIED Human Passport identity under an
  * enabled gate (requiredMinLevel = 2). Mirrors the proven score recipe from
- * `reputation_gate_bankrun.spec.ts` (1 PoolComplete +25 + 95 Payments +475 =
- * score 500, cycles 1, all unverified/halved), then links + promotes. Returns
- * the subject keypair, asserted at L2.
+ * `reputation_gate_bankrun.spec.ts` (ECO-V52: 2 PoolComplete +25 each + 90
+ * Payments +5 each = score 500, cycles 2, all unverified/halved — the attests
+ * land before the identity link), then links + promotes. Returns the subject
+ * keypair, asserted at L2.
  */
 async function driveToL2Verified(env: BankrunEnvCompat, seed: string): Promise<Keypair> {
   const subject = keypairFromSeed(seed);
@@ -182,7 +191,13 @@ async function driveToL2Verified(env: BankrunEnvCompat, seed: string): Promise<K
     schemaId: SCHEMA.PoolComplete,
     nonce: 0x0e00_0000n,
   });
-  for (let i = 0; i < 95; i++) {
+  await tickCycleCooldown(env);
+  await adminAttest(env, {
+    subject: subject.publicKey,
+    schemaId: SCHEMA.PoolComplete,
+    nonce: 0x0e00_0001n,
+  });
+  for (let i = 0; i < 90; i++) {
     await tick(env);
     await adminAttest(env, {
       subject: subject.publicKey,

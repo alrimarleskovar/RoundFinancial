@@ -41,15 +41,27 @@ const LEVEL_2_THRESHOLD = 500n;
 const LEVEL_MIN = 1;
 const LEVEL_2 = 2;
 
-// Admin-direct cooldown is 60s; warp a hair past it before each attest.
-// Base ts is well past the 6-day CycleComplete cooldown floor
-// (MIN_CYCLE_COOLDOWN_SECS = 518_400) so each subject's first
-// CycleComplete (last_cycle_complete_at = 0) clears trivially.
+// Admin-direct cooldown is 60s; warp a hair past it before each
+// score-changing attest. Base ts is well past the 30-day POOL_COMPLETE
+// cooldown floor (MIN_POOL_COMPLETE_COOLDOWN_SECS = 2_592_000) so each
+// subject's first PoolComplete (last_cycle_complete_at = 0) clears trivially.
 const COOLDOWN_STEP = 61n;
+// MIN_POOL_COMPLETE_COOLDOWN_SECS (30 days) — per-subject floor between two
+// POOL_COMPLETE attests. ECO-V52 raised LEVEL_2_MIN_CYCLES 1 → 2, so an
+// L2-qualifier needs a 2nd completed pool that must clear this cooldown.
+const POOL_COMPLETE_COOLDOWN_SECS = 2_592_000n;
 let CLOCK = 1_900_000_000n; // ~2030
 
 async function tick(env: BankrunEnvCompat): Promise<void> {
   CLOCK += COOLDOWN_STEP;
+  await setBankrunUnixTs(env.context, CLOCK);
+}
+
+// Warp past the 30-day POOL_COMPLETE cooldown so a subject's 2nd
+// PoolComplete is accepted (admin-direct is hard-rejected inside the
+// cooldown — attest.rs).
+async function tickCycleCooldown(env: BankrunEnvCompat): Promise<void> {
+  CLOCK += POOL_COMPLETE_COOLDOWN_SECS + COOLDOWN_STEP;
   await setBankrunUnixTs(env.context, CLOCK);
 }
 
@@ -143,18 +155,24 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     expect(info).to.not.equal(null);
   });
 
-  it("accumulate score to threshold 500 (+1 cycle) and promote → level 2", async function () {
+  it("accumulate score to threshold 500 (+2 cycles) and promote → level 2", async function () {
     // Prior state: 1 Payment from the test above (score=5, cycles=0).
-    // SEV-047 needs score >= 500 AND cycles_completed >= 1.
-    //   prior 1 Payment (5) + CycleComplete (25) + N Payments (5·N) = 500
-    //   ⇒ N = 94.
-    const PAYMENTS = 94;
+    // ECO-V52: L2 needs score >= 500 AND cycles_completed >= 2.
+    //   prior 1 Payment (5) + 2 PoolComplete (2·25) + N Payments (5·N) = 500
+    //   ⇒ N = 89. The 2nd PoolComplete clears the 30-day cooldown.
+    const PAYMENTS = 89;
 
     await tick(env);
     await adminAttest(env, {
       subject: subjectPubkey,
       schemaId: SCHEMA.CycleComplete,
       nonce: 0x0200_00ffn,
+    });
+    await tickCycleCooldown(env);
+    await adminAttest(env, {
+      subject: subjectPubkey,
+      schemaId: SCHEMA.CycleComplete,
+      nonce: 0x0200_00fen,
     });
 
     for (let i = 0; i < PAYMENTS; i++) {
@@ -169,7 +187,7 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     const beforePromote = await snapshotProfile(env, subjectPubkey);
     expect(beforePromote.score).to.equal(LEVEL_2_THRESHOLD);
     expect(beforePromote.onTimePayments).to.equal(PAYMENTS + 1);
-    expect(beforePromote.cyclesCompleted).to.be.at.least(1);
+    expect(beforePromote.cyclesCompleted).to.be.at.least(2);
     expect(beforePromote.level).to.equal(LEVEL_MIN);
 
     await promoteLevel(env, { subject: subjectPubkey });
@@ -231,15 +249,22 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     const gated = keypairFromSeed("replife/gate/sev047");
     await initProfile(env, gated.publicKey);
 
-    // Drive to L2-qualifying state WITHOUT identity:
-    //   1 CycleComplete (+25) + 95 Payments (+475) = score 500, cycles 1.
+    // Drive to L2-qualifying state WITHOUT identity. ECO-V52: L2 needs 2
+    // completed pools — 2 PoolComplete (+25 each) + 90 Payments (+5 each)
+    // = score 500, cycles 2. The 2nd PoolComplete clears the 30-day cooldown.
     await tick(env);
     await adminAttest(env, {
       subject: gated.publicKey,
       schemaId: SCHEMA.CycleComplete,
       nonce: 0x0470_0000n,
     });
-    for (let i = 0; i < 95; i++) {
+    await tickCycleCooldown(env);
+    await adminAttest(env, {
+      subject: gated.publicKey,
+      schemaId: SCHEMA.CycleComplete,
+      nonce: 0x0470_0001n,
+    });
+    for (let i = 0; i < 90; i++) {
       await tick(env);
       await adminAttest(env, {
         subject: gated.publicKey,
@@ -249,7 +274,7 @@ describe("reputation — promote_level (bankrun, clock-warp)", function () {
     }
     const pre = await snapshotProfile(env, gated.publicKey);
     expect(pre.score).to.equal(LEVEL_2_THRESHOLD);
-    expect(pre.cyclesCompleted).to.be.at.least(1);
+    expect(pre.cyclesCompleted).to.be.at.least(2);
     expect(pre.level).to.equal(LEVEL_MIN);
 
     await setIdentityGate(env, { requiredMinLevel: 2 });
