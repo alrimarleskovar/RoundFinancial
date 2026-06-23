@@ -19,7 +19,7 @@ Read in this order — entry points first, then technical foundation, then comme
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | [`02-technical-whitepaper.pdf`](./02-technical-whitepaper.pdf)               | Protocol whitepaper — source of truth for protocol mechanics                             |
 | [`03-architecture-spec.pdf`](./03-architecture-spec.pdf)                     | Program topology, account model, instruction surface, PDA conventions, reputation design |
-| [`04-behavioral-reputation-score.pdf`](./04-behavioral-reputation-score.pdf) | Reputation ladder (50/30/10), score generation mechanism, attestation schemas            |
+| [`04-behavioral-reputation-score.pdf`](./04-behavioral-reputation-score.pdf) | Reputation ladder (four-tier 50/25/10/3), score generation, Pass-3 schemas               |
 | [`05-stress-lab-economic-model.pdf`](./05-stress-lab-economic-model.pdf)     | L1 actuarial simulator, Triple Shield invariants, solvency proofs                        |
 | [`11-devnet-status-and-proof.pdf`](./11-devnet-status-and-proof.pdf)         | Devnet deployment status + Solscan receipts + Triple Shield enforcement evidence         |
 

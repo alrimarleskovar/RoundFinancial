@@ -50,15 +50,15 @@ The commercial docs (`06-market-and-gtm`, `07-business-model-b2b-oracle`,
 `08-competitive-analysis`) and the `00` index are **out of scope** here — they
 draw on other sources and are not regenerated from the spec.
 
-| Source (`.md`)                      | → PDF (`docs/en/`)                   | Derives from (MASTER-SPEC) | Status     |
-| ----------------------------------- | ------------------------------------ | -------------------------- | ---------- |
-| `01-roundfi-overview.md`            | `01-roundfi-overview.pdf`            | §1–3, §11                  | ⬜ pending |
-| `02-technical-whitepaper.md`        | `02-technical-whitepaper.pdf`        | §3–4, §8                   | ⬜ pending |
-| `03-architecture-spec.md`           | `03-architecture-spec.pdf`           | §4, §11                    | ⬜ pending |
-| `04-behavioral-reputation-score.md` | `04-behavioral-reputation-score.pdf` | §5–6, §9                   | ✅ done    |
-| `05-stress-lab-economic-model.md`   | `05-stress-lab-economic-model.pdf`   | §4.3–4.5, §8               | ⬜ pending |
-| `09-risk-and-compliance.md`         | `09-risk-and-compliance.pdf`         | §9–10, §13                 | ⬜ pending |
-| `10-user-guide.md`                  | `10-user-guide.pdf`                  | §4, §5 (no internals)      | ⬜ pending |
-| `11-devnet-status-and-proof.md`     | `11-devnet-status-and-proof.pdf`     | §11                        | ⬜ pending |
+| Source (`.md`)                      | → PDF (`docs/en/`)                   | Derives from (MASTER-SPEC) | Status  |
+| ----------------------------------- | ------------------------------------ | -------------------------- | ------- |
+| `01-roundfi-overview.md`            | `01-roundfi-overview.pdf`            | §1–3, §11                  | ✅ done |
+| `02-technical-whitepaper.md`        | `02-technical-whitepaper.pdf`        | §3–4, §8                   | ✅ done |
+| `03-architecture-spec.md`           | `03-architecture-spec.pdf`           | §4, §11                    | ✅ done |
+| `04-behavioral-reputation-score.md` | `04-behavioral-reputation-score.pdf` | §5–6, §9                   | ✅ done |
+| `05-stress-lab-economic-model.md`   | `05-stress-lab-economic-model.pdf`   | §4.3–4.5, §8               | ✅ done |
+| `09-risk-and-compliance.md`         | `09-risk-and-compliance.pdf`         | §9–10, §13                 | ✅ done |
+| `10-user-guide.md`                  | `10-user-guide.pdf`                  | §4, §5 (no internals)      | ✅ done |
+| `11-devnet-status-and-proof.md`     | `11-devnet-status-and-proof.pdf`     | §11                        | ✅ done |
 
 As each `.md` lands, flip its row to ✅ and commit the rendered PDF alongside it.
