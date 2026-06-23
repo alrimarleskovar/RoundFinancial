@@ -1,0 +1,185 @@
+/* RoundFi derived-doc print stylesheet.
+   Used by scripts/docs/build-pdfs.sh via pandoc's HTML-based PDF engines
+   (weasyprint / wkhtmltopdf). Edit the markdown in docs/spec/derived/ and
+   re-run the pipeline — never hand-edit the generated PDF. */
+
+@page {
+  size: A4;
+  margin: 2.2cm 2cm 2cm 2cm;
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size: 9pt;
+    color: #8b949e;
+  }
+  @bottom-left {
+    content: "RoundFi · derived from MASTER-SPEC";
+    font-size: 8pt;
+    color: #b0b6bd;
+  }
+}
+
+:root {
+  --brand: #1f6feb;
+  --ink: #1a1f24;
+  --muted: #57606a;
+  --rule: #e1e4e8;
+  --surface: #f6f8fa;
+}
+
+html {
+  font-size: 10.8pt;
+}
+body {
+  font-family: "Helvetica Neue", "Segoe UI", Arial, system-ui, sans-serif;
+  color: var(--ink);
+  line-height: 1.5;
+  hyphens: auto;
+}
+
+/* Title block (from the markdown YAML front-matter) */
+h1.title {
+  font-size: 27pt;
+  color: var(--brand);
+  margin: 0 0 0.1em;
+  line-height: 1.1;
+}
+p.subtitle {
+  font-size: 13pt;
+  color: var(--muted);
+  margin: 0.2em 0 0.6em;
+  font-weight: 400;
+}
+p.author,
+p.date {
+  color: var(--muted);
+  font-size: 10pt;
+  margin: 0;
+}
+
+/* Headings */
+h1 {
+  font-size: 17pt;
+  color: var(--brand);
+  border-bottom: 2px solid var(--rule);
+  padding-bottom: 0.18em;
+  margin-top: 1.5em;
+  break-after: avoid;
+}
+h2 {
+  font-size: 13.5pt;
+  color: var(--ink);
+  margin-top: 1.25em;
+  break-after: avoid;
+}
+h3 {
+  font-size: 11.5pt;
+  color: var(--ink);
+  margin-top: 1em;
+  break-after: avoid;
+}
+
+p {
+  margin: 0.5em 0;
+}
+a {
+  color: var(--brand);
+  text-decoration: none;
+}
+strong {
+  color: var(--ink);
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 9.3pt;
+  break-inside: avoid;
+}
+th,
+td {
+  border: 1px solid var(--rule);
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: var(--surface);
+  font-weight: 600;
+}
+tbody tr:nth-child(even) {
+  background: #fbfcfd;
+}
+
+/* Code */
+code {
+  font-family: "SF Mono", "JetBrains Mono", "Consolas", monospace;
+  font-size: 9.2pt;
+  background: var(--surface);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+pre {
+  background: var(--surface);
+  padding: 10px 12px;
+  border-radius: 5px;
+  overflow-x: auto;
+  break-inside: avoid;
+  font-size: 9pt;
+}
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Block quotes (used for the "derived document" banner) */
+blockquote {
+  border-left: 3px solid var(--brand);
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  color: var(--muted);
+  background: var(--surface);
+  break-inside: avoid;
+}
+blockquote p {
+  margin: 0.3em 0;
+}
+
+/* Table of contents (pandoc --toc) */
+nav#TOC {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.6em 1.2em 0.8em;
+  margin: 1.5em 0;
+  background: #fafbfc;
+  break-inside: avoid;
+}
+nav#TOC::before {
+  content: "Contents";
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+nav#TOC ul {
+  list-style: none;
+  padding-left: 1em;
+  margin: 0.3em 0;
+}
+nav#TOC > ul {
+  padding-left: 0;
+}
+nav#TOC a {
+  color: var(--ink);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 1.5em 0;
+}
+em {
+  color: var(--muted);
+}

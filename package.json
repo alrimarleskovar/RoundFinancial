@@ -21,6 +21,7 @@
     "lint": "prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p .",
+    "docs:build-pdfs": "bash scripts/docs/build-pdfs.sh",
     "devnet:airdrop": "tsx scripts/devnet/airdrop.ts",
     "devnet:deploy": "tsx scripts/devnet/deploy.ts",
     "devnet:export-pk": "tsx scripts/devnet/export-pk.ts",
