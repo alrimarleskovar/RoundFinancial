@@ -146,6 +146,13 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
     authority: Keypair,
     filler: Keypair,
   ): Promise<{ pool: PoolHandle; sH: MemberHandle; fH: MemberHandle }> {
+    // Fresh blockhash per pool. The litesvm clock is anchored (doesn't advance
+    // on its own), so two pools that mint the SAME idempotent shortfall to the
+    // shared `subject` (by symmetry the balance after each pool is identical)
+    // would re-issue a byte-identical `mintTo` tx and trip AlreadyProcessed
+    // (tx err 6). Expiring here gives each pool's txs a distinct recent
+    // blockhash, isolating them — the anchored clock (cooldown) is untouched.
+    env.svm.expireBlockhash();
     // litesvm-native airdrops (no tx → no blockhash) so the harness never
     // needs a payer→member SOL transfer; joinPool's `ensureFunded` then
     // short-circuits. (A bare System transfer to a fresh account proved flaky
