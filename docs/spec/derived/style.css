@@ -124,7 +124,8 @@ pre {
   background: var(--surface);
   padding: 10px 12px;
   border-radius: 5px;
-  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   break-inside: avoid;
   font-size: 9pt;
 }
