@@ -491,6 +491,17 @@ export interface RawAttestation {
  * the emit sites (`nonce = (cycle << 32) | slot_index`).
  */
 export function decodeAttestationRaw(address: PublicKey, data: Buffer): RawAttestation {
+  // Guard a truncated / mis-typed account: every field below reads a FIXED
+  // offset (up to `verifiedAtAttest` @ 188), so a short buffer would throw an
+  // opaque `RangeError`. Fail loud + specific instead. Callers memcmp-filter by
+  // discriminator, so this only fires on a genuinely malformed account (e.g.
+  // mid-realloc). Robustness — INFO-score-1.
+  if (data.length < ATTESTATION_LEN) {
+    throw new Error(
+      `decodeAttestationRaw: account ${address.toBase58()} is ${data.length} bytes, ` +
+        `expected >= ${ATTESTATION_LEN} (not a complete Attestation)`,
+    );
+  }
   const nonce = data.readBigUInt64LE(74);
   const payloadRaw = Buffer.from(
     data.subarray(ATTESTATION_PAYLOAD_OFFSET, ATTESTATION_PAYLOAD_OFFSET + ATTESTATION_PAYLOAD_LEN),

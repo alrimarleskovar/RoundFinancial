@@ -119,7 +119,24 @@ export async function backfillAttestations(
 
   let touched = 0;
   for (const { pubkey, account } of accounts) {
-    const raw: RawAttestation = decodeAttestationRaw(pubkey, account.data as Buffer);
+    // Per-account try/catch: a single malformed/truncated account must not
+    // abort the whole backfill batch — log + skip it, the rest reconcile.
+    // Robustness — INFO-score-1 (exploitability ~nil; memcmp pre-filters by
+    // discriminator, so this only trips on a genuinely corrupt account).
+    let raw: RawAttestation;
+    try {
+      raw = decodeAttestationRaw(pubkey, account.data as Buffer);
+    } catch (e) {
+      logger.warn(
+        {
+          event_type: "backfill_attestation_decode_failed",
+          pda: pubkey.toBase58(),
+          error: String(e),
+        },
+        "skipping undecodable attestation account",
+      );
+      continue;
+    }
     const fields = attestationToRowFields(raw);
 
     // Resolve the optional Member FK: pool by issuer PDA, then member by
