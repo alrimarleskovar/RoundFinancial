@@ -35,6 +35,18 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# verify-from-repo rebuilds inside the same reproducible-build image, so it
+# needs the same --base-image override as verify-build.sh: older solana-verify
+# CLIs don't carry the pinned tag in their known-image list and bail with "No
+# compatible Docker image found". Derive it from the Cargo.toml metadata.cli
+# pin (single source of truth). See verify-build.sh / docs/verified-build.md.
+SOLANA_VER="$(sed -n '/^\[workspace\.metadata\.cli\]/,/^\[/ s/^solana[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' Cargo.toml)"
+if [[ -z "$SOLANA_VER" ]]; then
+  echo "✗ Could not read [workspace.metadata.cli] solana = \"x.y.z\" from Cargo.toml"
+  exit 1
+fi
+BASE_IMAGE="solanafoundation/solana-verifiable-build:${SOLANA_VER}"
+
 # Pin the commit hash so the attestation references an exact code state
 COMMIT_HASH="$(git rev-parse HEAD)"
 echo "▶ Verifying commit $COMMIT_HASH against $REPO_URL"
@@ -45,6 +57,7 @@ for prog in "${!PROGRAMS[@]}"; do
   pid="${PROGRAMS[$prog]}"
   echo "─── $prog ($pid) ────────────────────────────────"
   solana-verify -u "$RPC_URL" verify-from-repo \
+    --base-image "$BASE_IMAGE" \
     --program-id "$pid" \
     --library-name "$prog" \
     --commit-hash "$COMMIT_HASH" \

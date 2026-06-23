@@ -26,6 +26,22 @@ repository = "https://github.com/alrimarleskovar/RoundFinancial"
 # `bans.allow-wildcard-paths`.
 publish = false
 
+# Reproducible-build image selector for `solana-verify` (Solscan/OtterSec
+# verified-build flow). `solana-verify` picks its docker base image from,
+# in order: (1) this key, (2) the `solana-program` version in Cargo.lock,
+# (3) a default. Our deps pin `solana-program 3.0.0`, so WITHOUT this key
+# the resolver fell back to the `solana-verifiable-build:3.0.0` image whose
+# platform-tools ship Cargo 1.84 — too old for the `edition2024` crates the
+# anchor-1.0 / solana-3.0 tree pulls (cpufeatures 0.3.0, base64ct 1.8.3, …),
+# so `solana-verify build` failed (see docs/verified-build.md, #487/#492).
+# Pinning the image to 3.1.14 selects platform-tools v1.52 / rustc 1.89 —
+# the SAME toolchain our `anchor build` + `solana program deploy` use, so the
+# verify build (a) compiles edition2024 with no dep pins and (b) reproduces
+# the exact bytecode that is live on-chain, which is the whole point of the
+# attestation. Bump in lockstep with the deploy toolchain (`solana --version`).
+[workspace.metadata.cli]
+solana = "3.1.14"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
