@@ -236,13 +236,36 @@ impl ProtocolConfig {
         + 32                     // approved_yield_adapter
         + 1                      // approved_yield_adapter_locked
         + 1                      // commit_reveal_required (#232)
+        + 2                      // lp_share_bps (Adevar SEV-003) — declared BEFORE pending_authority → post-disc 303
         + 32                     // pending_authority (#3.6 Squads ceremony)
         + 8                      // pending_authority_eta
-        + 2                      // lp_share_bps (Adevar SEV-003)
         + 2                      // pending_fee_bps_yield (SEV-024 follow-up)
         + 8                      // pending_fee_bps_yield_eta
         + 1                      // reputation_program_locked (partner review MEDIUM #2, end-of-struct)
         + 17;                    // forward-compat padding (was 18 pre-MEDIUM #2)
+
+    /// Post-discriminator byte offset of `lp_share_bps` within the Borsh-
+    /// serialized account body (absolute offset in the account = `8 + this`).
+    /// Consumed by `migrate_protocol_config`, which grows an older on-chain
+    /// layout and then surgically splices `DEFAULT_LP_SHARE_BPS` into this one
+    /// field (it cannot deserialize the smaller legacy account into the current
+    /// struct, so it writes the single non-zero-default field by raw offset).
+    ///
+    /// SEV-052: this is a **serialized (Borsh)** offset. Do NOT compute it with
+    /// `core::mem::offset_of!` — that yields the in-memory `repr(Rust)` offset
+    /// (fields reordered + alignment-padded), a different number that would
+    /// splice into the wrong field. The value is confronted against the real
+    /// Borsh layout by `lp_share_bps_offset_matches_borsh` below, so any field
+    /// added / removed / resized ahead of `lp_share_bps` fails CI loudly instead
+    /// of silently corrupting a neighbour on the next devnet migration.
+    ///
+    /// This is **303**, not 343: `lp_share_bps` is declared *before*
+    /// `pending_authority` + `_eta` (struct order), so it serializes ahead of
+    /// them. The raw `8 + 343` splice this const replaces was mis-derived from
+    /// the wrong field order (the `SIZE` comment below once listed them in the
+    /// other order) and pointed into `pending_authority_eta` — exactly the
+    /// latent corruption the test below now prevents.
+    pub const LP_SHARE_BPS_POST_DISC_OFFSET: usize = 303;
 }
 
 #[cfg(test)]
@@ -264,6 +287,38 @@ mod tests {
             ProtocolConfig::SIZE,
             381,
             "ProtocolConfig::SIZE changed — update OFFSETS_POST_DISC + EXPECTED_DATA_SIZE in scripts/mainnet/mainnet-hardening-check.ts (SEV-042 coupling)",
+        );
+    }
+
+    /// SEV-052: confront `LP_SHARE_BPS_POST_DISC_OFFSET` against the actual
+    /// Borsh serialization. `migrate_protocol_config` writes `lp_share_bps` at
+    /// `8 + LP_SHARE_BPS_POST_DISC_OFFSET` by a raw byte-splice; if any field
+    /// before it is added / removed / resized, this host unit test catches the
+    /// drift here instead of letting the stale offset corrupt a neighbouring
+    /// field on the next live devnet migration. (An in-memory `offset_of!`
+    /// would NOT catch this — it is a different number; see the const's doc.)
+    #[test]
+    fn lp_share_bps_offset_matches_borsh() {
+        let mut cfg = ProtocolConfig::default();
+        let sentinel: u16 = 0xA5C3; // distinct from every zero/default field
+        cfg.lp_share_bps = sentinel;
+        // Serialize exactly as the account is written on chain — 8-byte
+        // discriminator + Borsh body — so this confronts the same absolute
+        // offset `migrate_protocol_config` splices into (`data[8 + off ..]`).
+        let mut buf: Vec<u8> = Vec::new();
+        cfg.try_serialize(&mut buf).expect("serialize ProtocolConfig");
+        // try_serialize writes the 8-byte discriminator + Borsh body — the same
+        // shape as the on-chain account `data` — so the field lands at the exact
+        // absolute offset migrate_protocol_config splices into (`data[8 + off]`).
+        let off = 8 + ProtocolConfig::LP_SHARE_BPS_POST_DISC_OFFSET;
+        assert_eq!(
+            &buf[off..off + 2],
+            &sentinel.to_le_bytes(),
+            "lp_share_bps is not at absolute offset {off} (8 + {}) in the serialized \
+             account — its declaration-order position changed. Update \
+             LP_SHARE_BPS_POST_DISC_OFFSET AND the splice in \
+             migrate_protocol_config.rs together (SEV-052).",
+            ProtocolConfig::LP_SHARE_BPS_POST_DISC_OFFSET,
         );
     }
 }
