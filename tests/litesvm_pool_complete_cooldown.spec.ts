@@ -30,6 +30,9 @@
  *     reward is skipped (no `cycles_completed` bump; attestation neutralized).
  *   • a FRESH co-member of pool B still earns ITS POOL_COMPLETE — the skip
  *     is specific to the cooled-down subject, not a blanket disable.
+ *   • pool C — a THIRD completion inside the same window also neutralizes;
+ *     `cycles_completed` stays at 1, proving the skip holds for N pools, not 2
+ *     (the canary edge: a member juggling 3+ short overlapping pools).
  *
  * Harness setup mirrors the proven `litesvm_parity` pattern: anchor the
  * (non-advancing) litesvm clock to a real epoch ONCE up front — so the
@@ -143,6 +146,13 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
     authority: Keypair,
     filler: Keypair,
   ): Promise<{ pool: PoolHandle; sH: MemberHandle; fH: MemberHandle }> {
+    // Fresh blockhash per pool. The litesvm clock is anchored (doesn't advance
+    // on its own), so two pools that mint the SAME idempotent shortfall to the
+    // shared `subject` (by symmetry the balance after each pool is identical)
+    // would re-issue a byte-identical `mintTo` tx and trip AlreadyProcessed
+    // (tx err 6). Expiring here gives each pool's txs a distinct recent
+    // blockhash, isolating them — the anchored clock (cooldown) is untouched.
+    env.svm.expireBlockhash();
     // litesvm-native airdrops (no tx → no blockhash) so the harness never
     // needs a payer→member SOL transfer; joinPool's `ensureFunded` then
     // short-circuits. (A bare System transfer to a fresh account proved flaky
@@ -179,7 +189,7 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
     return { pool, sH, fH };
   }
 
-  it("final installment settles inside the cooldown; reward skipped, payment kept", async function () {
+  it("final installments settle inside the cooldown across 3 overlapping pools; cycles_completed never advances past the first", async function () {
     if (!available) {
       this.skip();
       return;
@@ -290,6 +300,55 @@ describe("SEV-A2 — final-installment liveness under POOL_COMPLETE cooldown (li
 
       // Pool still finalizes cleanly (slot 1 claims).
       await claimPayout(env, { pool: b.pool, member: fillerB, cycle: 1 });
+
+      // ── Pool C — a THIRD overlapping pool, still inside the same window ──
+      // The team's canary-edge concern: a member juggling 3+ short pools. The
+      // 2-pool case proves the mechanism; this proves it doesn't leak as N
+      // grows — `cycles_completed` must stay at 1 (only pool A credited), no
+      // matter how many further completions land inside the cooldown.
+      const c = await setupPoolThroughCycle0(
+        keypairFromSeed("sev-a2-cooldown-authC"),
+        keypairFromSeed("sev-a2-cooldown-fillerC"),
+      );
+      const beforeC = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
+      expect(
+        beforeC.cyclesCompleted,
+        "still exactly one credited completion after pool B",
+      ).to.equal(1);
+
+      // subject's final installment in pool C — settles, completion neutralized.
+      await contribute(env, { pool: c.pool, member: c.sH, cycle: 1, isFinalInstallment: true });
+
+      const sMemberC = (await fetchMember(env, c.sH.member)) as unknown as {
+        contributionsPaid: number;
+      };
+      expect(sMemberC.contributionsPaid, "pool C final installment recorded (liveness)").to.equal(
+        2,
+      );
+
+      const afterC = (await fetchProfile(env, subject.publicKey)) as unknown as ProfileLike;
+      expect(afterC.cyclesCompleted, "third overlapping completion does NOT credit").to.equal(1);
+      expect(
+        bn(afterC.lastCycleCompleteAt),
+        "cooldown anchor STILL not advanced by the 3rd",
+      ).to.equal(bn(beforeC.lastCycleCompleteAt));
+
+      const cPda = attestationFor(
+        env,
+        c.pool.pool,
+        subject.publicKey,
+        ATTESTATION_SCHEMA.PoolComplete,
+        attestationNonce(1, c.sH.slotIndex),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cAtt = (await (env.programs.reputation.account as any).attestation.fetch(cPda)) as {
+        neutralized: boolean;
+      };
+      expect(cAtt.neutralized, "pool C completion is also neutralized").to.equal(true);
+
+      // Pool C finalizes cleanly too (fresh co-member earns + claims).
+      await contribute(env, { pool: c.pool, member: c.fH, cycle: 1, isFinalInstallment: true });
+      await claimPayout(env, { pool: c.pool, member: c.fH, cycle: 1 });
     } catch (e) {
       // Surface the on-chain program logs litesvm attached to the error so a
       // remaining failure is diagnosable in one run rather than opaque ("6").
