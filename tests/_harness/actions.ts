@@ -307,12 +307,15 @@ export interface ClosePoolVaultsOpts {
   pool: PoolHandle;
   treasuryUsdc: PublicKey;
   authority?: Keypair; // defaults to pool.authority
-  rentRecipient?: PublicKey; // defaults to the authority's wallet
+  rentRecipient?: PublicKey; // defaults to pool.authority (SEV-051: the rent payer)
 }
 
 export async function closePoolVaults(env: Env, opts: ClosePoolVaultsOpts): Promise<string> {
   const authority = opts.authority ?? opts.pool.authority;
-  const rentRecipient = opts.rentRecipient ?? authority.publicKey;
+  // SEV-051: the program pins rent_recipient == pool.authority, so default to
+  // the pool authority's wallet (not whoever signs) — the admin-signer path
+  // must still return the freed rent to the creator who paid it.
+  const rentRecipient = opts.rentRecipient ?? opts.pool.authority.publicKey;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (env.programs.core.methods as any)
     .closePoolVaults()
