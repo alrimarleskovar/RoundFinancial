@@ -94,12 +94,13 @@ const DEFAULT_CORE_PROGRAM_ID = "8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw";
 //   approved_yield_adapter:          Pubkey  32 bytes  @ 269
 //   approved_yield_adapter_locked:   bool     1 byte   @ 301
 //   commit_reveal_required:          bool     1 byte   @ 302
-//   pending_authority:               Pubkey  32 bytes  @ 303
-//   pending_authority_eta:           i64      8 bytes  @ 335
-//   lp_share_bps:                    u16      2 bytes  @ 343
+//   lp_share_bps:                    u16      2 bytes  @ 303
+//   pending_authority:               Pubkey  32 bytes  @ 305
+//   pending_authority_eta:           i64      8 bytes  @ 337
 //   pending_fee_bps_yield:           u16      2 bytes  @ 345
 //   pending_fee_bps_yield_eta:       i64      8 bytes  @ 347
-//   forward-compat padding:                  18 bytes  @ 355
+//   reputation_program_locked:       bool     1 byte   @ 355
+//   forward-compat padding:                  17 bytes  @ 356
 //   ────────────────────────────────────────────────────
 //   Total post-discriminator size:           373 bytes
 const OFFSETS_POST_DISC = {

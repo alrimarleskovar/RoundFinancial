@@ -41,7 +41,14 @@ pub struct ClosePoolVaults<'info> {
     pub config: Box<Account<'info, ProtocolConfig>>,
 
     /// Receives the rent freed by closing the 4 vault ATAs + the Pool PDA.
-    /// CHECK: lamport recipient only.
+    /// SEV-051: pinned to `pool.authority` — the wallet that PAID that rent (the
+    /// Pool PDA at `create_pool`; the 4 vault ATAs at `init_pool_vaults`, where
+    /// `payer = authority = pool.authority`). The pin is the
+    /// `rent_recipient == pool.authority` constraint on `pool` below. Without it
+    /// the OR-authority gate would let `config.authority` run the ceremony and
+    /// redirect the creator's rent to any address — unilateral confiscation,
+    /// even from behind the Squads multisig.
+    /// CHECK: lamport recipient only; key pinned by the `pool` constraint below.
     #[account(mut)]
     pub rent_recipient: UncheckedAccount<'info>,
 
@@ -57,6 +64,11 @@ pub struct ClosePoolVaults<'info> {
         constraint = pool.members_joined == 0 @ RoundfiError::MembersStillOpen,
         constraint = (authority.key() == pool.authority || authority.key() == config.authority)
             @ RoundfiError::Unauthorized,
+        // SEV-051: the freed rent must return to the wallet that paid it. The
+        // OR-authority gate above lets `config.authority` run the ceremony for
+        // an abandoned pool, but it must NOT let the admin pocket the creator's
+        // rent — pin the recipient to `pool.authority`.
+        constraint = rent_recipient.key() == pool.authority @ RoundfiError::Unauthorized,
     )]
     pub pool: Box<Account<'info, Pool>>,
 

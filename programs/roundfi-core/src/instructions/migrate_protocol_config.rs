@@ -38,7 +38,10 @@
 //!   6. `lp_share_bps` is the ONLY new field where zero is a bad default
 //!      (it would route nothing of the LP-share waterfall to LPs).
 //!      Writes `DEFAULT_LP_SHARE_BPS` directly to its offset
-//!      (`@ 351 absolute` = post-disc offset 343).
+//!      (`ProtocolConfig::LP_SHARE_BPS_POST_DISC_OFFSET` = post-disc 303,
+//!      absolute 311). SEV-052: the original literal here was 343 (absolute
+//!      351), mis-derived from the wrong field order — it pointed into
+//!      `pending_authority_eta`. Now pinned by a Borsh unit test in `config.rs`.
 //!
 //! ## Scope
 //!
@@ -158,15 +161,21 @@ pub fn handler(ctx: Context<MigrateProtocolConfig>) -> Result<()> {
 
     // ─── Step 5: write the one field that needs a non-zero default ──────
     //
-    // `lp_share_bps` (post-disc offset 343 = absolute 351) is a u16; zero
-    // would mean "no LP share" and break the Yield Cascade waterfall.
-    // Everything else in the new tail is correctly zero by default
-    // (pending_treasury / pending_authority = Pubkey::default() = sentinel
-    // "no proposal"; the etas = 0; TVL caps = 0 = disabled; pending fee
-    // bps = 0 = no pending change; padding = 0).
+    // `lp_share_bps` is a u16; zero would mean "no LP share" and break the
+    // Yield Cascade waterfall. Everything else in the new tail is correctly
+    // zero by default (pending_treasury / pending_authority = Pubkey::default()
+    // = sentinel "no proposal"; the etas = 0; TVL caps = 0 = disabled; pending
+    // fee bps = 0 = no pending change; padding = 0).
     {
         let mut data = config_info.try_borrow_mut_data()?;
-        let off = 8 + 343; // disc + post-disc offset
+        // SEV-052: offset pinned + Borsh-confronted in state/config.rs
+        // (`LP_SHARE_BPS_POST_DISC_OFFSET` = 303). This CORRECTS the prior raw
+        // `8 + 343`, which pointed into `pending_authority_eta` (lp_share_bps is
+        // declared before pending_authority, so it serializes at post-disc 303,
+        // not 343): the old splice left lp_share_bps = 0 and wrote
+        // DEFAULT_LP_SHARE_BPS over part of pending_authority_eta. The unit test
+        // now fails CI on any future field shift instead of corrupting silently.
+        let off = 8 + ProtocolConfig::LP_SHARE_BPS_POST_DISC_OFFSET;
         let bytes = DEFAULT_LP_SHARE_BPS.to_le_bytes();
         data[off..off + 2].copy_from_slice(&bytes);
     }
