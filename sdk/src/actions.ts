@@ -36,6 +36,8 @@ import {
   attestationNonce,
   attestationPda,
   escrowVaultAuthorityPda,
+  identityGatePda,
+  identityPda,
   memberPda,
   poolPda,
   positionAuthorityPda,
@@ -684,6 +686,63 @@ export async function settleDefault(
     signature,
     context: { pool: args.pool, member, cycle: args.cycle, attestation },
   };
+}
+
+// ─── refreshIdentity ─────────────────────────────────────────────────
+
+export interface RefreshIdentityArgs {
+  /** Subject wallet whose IdentityRecord is re-read. Does NOT sign. */
+  subject: PublicKey;
+  /**
+   * The passport-attestation account currently linked in the subject's
+   * IdentityRecord (`gateway_token`). The handler requires the passed account
+   * to equal the linked one, so read it off the record first.
+   */
+  gatewayToken: PublicKey;
+  /** Who pays + signs (permissionless caller). Defaults to the provider wallet. */
+  caller?: Keypair;
+}
+
+export interface RefreshIdentityContext {
+  subject: PublicKey;
+  identity: PublicKey;
+  profile: PublicKey;
+}
+
+/**
+ * Permissionless re-read of a subject's Human Passport attestation. Flips a
+ * lapsed `IdentityRecord` out of `Verified` (→ Expired / Revoked) and re-applies
+ * the identity floor to the stored `ReputationProfile.level` (SEV-E), so a later
+ * `join_pool` can't consume a stale identity-backed tier. `profile` is always
+ * passed (the crank only refreshes wallets that have a profile).
+ */
+export async function refreshIdentity(
+  client: RoundFiClient,
+  args: RefreshIdentityArgs,
+): Promise<ActionResult<RefreshIdentityContext>> {
+  const [config] = reputationConfigPda(client.ids.reputation);
+  const [identity] = identityPda(client.ids.reputation, args.subject);
+  const [identityGate] = identityGatePda(client.ids.reputation);
+  const [profile] = reputationProfilePda(client.ids.reputation, args.subject);
+
+  client.debug("action.refreshIdentity.start", { subject: args.subject.toBase58() });
+
+  const builder = m(client.programs.reputation)
+    .refreshIdentity()
+    .accounts({
+      subject: args.subject,
+      config,
+      identity,
+      identityGate,
+      profile,
+      gatewayToken: args.gatewayToken,
+      caller: (args.caller?.publicKey ?? client.provider.publicKey)!,
+    });
+
+  const signature = await (args.caller ? builder.signers([args.caller]).rpc() : builder.rpc());
+
+  client.debug("action.refreshIdentity.ok", { signature });
+  return { signature, context: { subject: args.subject, identity, profile } };
 }
 
 // ─── closePool ───────────────────────────────────────────────────────
