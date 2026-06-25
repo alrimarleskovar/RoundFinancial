@@ -64,6 +64,11 @@ interface ScenarioResult {
   // vault ATAs AND the Pool PDA are gone afterward.
   treasuryDrained: bigint;
   vaultsAndPoolClosed: boolean;
+  // SEV-051: close_pool_vaults pins rent_recipient to pool.authority. True iff
+  // an attempt with a foreign recipient reverted — proves the constraint bites.
+  // (Anchor reverts loud, but nothing FAILS if someone deletes the constraint;
+  // this pin is the regression net.)
+  rentRecipientRejected: boolean;
 }
 
 // Substrings that mean "litesvm build artifacts are absent" — the only case
@@ -221,6 +226,19 @@ async function driveParityScenario(opts: {
   // SEV-039 final step: drain the 4 vaults to treasury + close them + the Pool
   // PDA. Treasury starts empty (no yield CPI ran → no protocol fee), so the
   // delta it receives must equal the conservation `vaultTotal` above.
+  // SEV-051 regression pin: rent_recipient is constrained to pool.authority.
+  // Attempt the ceremony with a FOREIGN recipient first and confirm it reverts.
+  // Anchor validates the account constraint BEFORE the handler runs, so this
+  // mutates nothing — the authorized ceremony right below still succeeds. Any
+  // key != pool.authority works; treasuryUsdc is already in scope and is an ATA
+  // (never a wallet), so it can't collide with pool.authority.
+  let rentRecipientRejected = false;
+  try {
+    await closePoolVaults(env, { pool, treasuryUsdc, authority, rentRecipient: treasuryUsdc });
+  } catch {
+    rentRecipientRejected = true;
+  }
+
   const treasuryBefore = await balanceOf(env, treasuryUsdc);
   await closePoolVaults(env, { pool, treasuryUsdc, authority });
   const treasuryDrained = (await balanceOf(env, treasuryUsdc)) - treasuryBefore;
@@ -274,6 +292,7 @@ async function driveParityScenario(opts: {
     membersRemaining,
     treasuryDrained,
     vaultsAndPoolClosed,
+    rentRecipientRejected,
   };
 }
 
@@ -386,6 +405,13 @@ for (const scenario of SCENARIOS) {
       expect(
         result.vaultsAndPoolClosed,
         "a vault ATA or the Pool PDA is still allocated after close_pool_vaults",
+      ).to.equal(true);
+    });
+
+    it("close_pool_vaults rejects a rent_recipient != pool.authority (SEV-051)", function () {
+      expect(
+        result.rentRecipientRejected,
+        "close_pool_vaults accepted a foreign rent_recipient — the SEV-051 constraint is missing or broken",
       ).to.equal(true);
     });
   });
