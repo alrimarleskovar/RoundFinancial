@@ -12,7 +12,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { NftPosition, Tone } from "@/data/carteira";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import { sendEscapeValveList } from "@/lib/escape-valve-list";
-import { useI18n, useT } from "@/lib/i18n";
+import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
@@ -98,7 +98,11 @@ export function SellShareModal({
           pool: DEVNET_POOLS[position.devnetPool].pda,
           sellerWallet: adapter.publicKey,
           slotIndex: position.slotIndex,
-          priceUsdc: Math.round(askPrice * 1e6),
+          // A2-F1: position.value (and askPrice) are BRL; the on-chain
+          // escape_valve_list price is USDC base units. Convert BRL→USDC via
+          // USDC_RATE before scaling to 1e6 — otherwise the slot lists at ~5.5×
+          // the intended price (e.g. R$1,890 → 1,890 USDC ≈ R$10,395).
+          priceUsdc: Math.round((askPrice / USDC_RATE) * 1e6),
         });
         setTxSig(sig);
         // Mirror the mock bookkeeping so the listings UI advances.
