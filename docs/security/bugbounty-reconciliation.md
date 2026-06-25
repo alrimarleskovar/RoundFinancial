@@ -54,6 +54,17 @@ Validado em CI por `anchor · build` (SBF) + `bankrun · security_kamino_cpi`. *
 - **R1** (preferido): cap graduado de exposição por nível — neutraliza o regime §5.1 que é o único onde o farm paga;
 - **R3**: forçar `required_min_level ≥ 3` no `set_identity_gate` — toggle operacional, sem código.
 
+> **Atualização 2026-06-25 — encerrado no eixo de segurança/engenharia.** O
+> exercício econômico que o relatório pedia está **entregue**: além deste
+> modelo (Wave 4), a extensão ao tier **L4 Elite (3%)** está em
+> `docs/security/l4-elite-asymmetry.md` (ECO-V52, veredito _Low /
+> design-intentional_, sem caminho de fund-drain), e o **Stress Lab** já
+> modela o tier Elite (`sdk/src/stressLab.ts`, preset `eliteTripleDefault`,
+> ECO-V52-1 — entrou via #506/#507). O resíduo único é **R1** (cap graduado
+> de stake), que muda as economias de `join_pool` e é por isso uma **decisão
+> de produto/whitepaper-owner**, fora do escopo de engenharia/auditoria.
+> **Status: LEAD-1 fechado-segurança; R1 pendente-produto.**
+
 ### 2.3 INFO-3 (Passport bridge) — intersecta LEAD-1 mais do que o relatório nota
 
 O relatório enxerga a interseção mas para na observação. Concretizando o impacto:
@@ -72,7 +83,7 @@ O modelo da Wave 4 **depende** de R3 (identity gate) como chokepoint sybil para 
 
 | ID     | Tipo                     | Severidade                               | Status reconciliado                                                                                                                                              |
 | ------ | ------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LEAD-1 | Reputation farming       | **Low (default) / Medium (high-credit)** | **Modelado** em `docs/security/reputation-farming-roi.md` (Wave 4). Mitigação concreta: R1 cap graduado + R3 identity gate. Sobe pra Medium-High se INFO-3 cair. |
+| LEAD-1 | Reputation farming       | **Low (default) / Medium (high-credit)** | **Modelado** em `docs/security/reputation-farming-roi.md` (Wave 4) + extensão Elite em `l4-elite-asymmetry.md` (ECO-V52). Mitigação concreta: R1 cap graduado + R3 identity gate. Sobe pra Medium-High se INFO-3 cair. **Fechado-segurança (2026-06-25); resíduo R1 = produto.** |
 | LEAD-2 | SIWS multi-instância     | —                                        | Fechado (#422).                                                                                                                                                  |
 | LEAD-3 | Kamino unchecked         | —                                        | **Fechado** exceto verificação operacional de `KAMINO_LEND_PROGRAM_ID`. **Wave 3 (#423)** adicionou floor off-chain + teto on-chain + pós-condição redeposit.    |
 | DID-1  | Rate-limit auth          | Info/Med-                                | Fechado (#420).                                                                                                                                                  |
