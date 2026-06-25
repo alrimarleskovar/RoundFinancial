@@ -12,6 +12,8 @@
  * **What this catches:**
  *   - Operator forgot to set commit_reveal_required = true (#232 MEV)
  *   - TVL caps left at 0 (= disabled, no canary safety envelope)
+ *   - guarantee_fund_bps fat-fingered (init cap is 50_000 = 5× yield; GF-1
+ *     config footgun — mainnet should be ~15_000 = 150% per whitepaper)
  *   - approved_yield_adapter not pinned to the canonical mainnet
  *     Kamino adapter program (or pinned wrong; SEV-040/SEV-041 class)
  *   - usdc_mint not pinned to canonical mainnet USDC (SEV-044)
@@ -108,6 +110,7 @@ const OFFSETS_POST_DISC = {
   treasury: 32,
   usdcMint: 64,
   metaplexCore: 96,
+  guaranteeFundBps: 200,
   paused: 202,
   treasuryLocked: 204,
   maxPoolTvlUsdc: 245,
@@ -381,6 +384,26 @@ async function main() {
       : `${expectedMaxProtocol} base units ($${Number(expectedMaxProtocol) / 1_000_000})`,
     actual: `${maxProtocolTvl} base units ($${Number(maxProtocolTvl) / 1_000_000})`,
     severity: "BLOCKER",
+  });
+
+  // ─── BLOCKER 10.5: guarantee_fund_bps must be sane (GF-1, team follow-up) ──
+  // initialize_protocol caps this at 50_000 bps = 5× accrued protocol yield
+  // (waterfall multiplies total_fee_accrued * gf_bps / 10_000), so a
+  // fat-fingered value silently over-sizes the Guarantee Fund earmark — a
+  // config footgun, not an exploit. Whitepaper default is 15_000 (150%).
+  // Mainnet: pin to EXPECTED_GUARANTEE_FUND_BPS (default 15_000). Devnet: only
+  // flag clearly-absurd values so rehearsal configs stay flexible.
+  const guaranteeFundBps = data.readUInt16LE(OFFSETS_POST_DISC.guaranteeFundBps);
+  const expectedGfBps = Number(process.env.EXPECTED_GUARANTEE_FUND_BPS ?? 15000);
+  const GF_ABSURD_CEILING = 20000; // > 200% of yield is a config mistake, not a policy
+  checks.push({
+    name: "guarantee_fund_bps",
+    ok: isDevnet ? guaranteeFundBps <= GF_ABSURD_CEILING : guaranteeFundBps === expectedGfBps,
+    expected: isDevnet
+      ? `<= ${GF_ABSURD_CEILING} (flag absurd config)`
+      : `${expectedGfBps} (whitepaper 150%; override via EXPECTED_GUARANTEE_FUND_BPS)`,
+    actual: String(guaranteeFundBps),
+    severity: isDevnet ? "WARNING" : "BLOCKER",
   });
 
   // ─── BLOCKER 11: commit_reveal_required must be TRUE on mainnet (#232 MEV) ──
