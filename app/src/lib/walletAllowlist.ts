@@ -83,15 +83,18 @@ export function decideWalletAllowlist(
 
 /**
  * Whether the adapter may auto-reconnect on page load for this network.
- * Mirrors the connect() policy: anything that isn't a hard `block`
- * (allowed on any net, or warn-but-allow on devnet/localnet) may
- * auto-reconnect. On mainnet a non-allowlisted wallet returns `block`,
- * so autoConnect is refused — closing the bypass where a previously
- * approved unknown wallet would silently reconnect against real funds.
+ *
+ * On **mainnet, autoConnect is OFF for every wallet** (checklist §2.5 —
+ * the user must explicitly connect each session; a silent reconnect on a
+ * shared machine against real funds is the risk). On devnet/localnet any
+ * non-`block` wallet auto-reconnects (warn-but-allow) to keep the test
+ * loop smooth. Combined with the post-connect `WalletAllowlistGuard`, a
+ * non-allowlisted wallet can never establish a mainnet session silently.
  *
  * Wired into `<WalletProvider autoConnect={…}>` (ClientProviders).
  */
 export function shouldAutoConnect(walletName: string, network: NetworkId): boolean {
+  if (network === "mainnet-beta") return false;
   return decideWalletAllowlist(walletName, network).kind !== "block";
 }
 

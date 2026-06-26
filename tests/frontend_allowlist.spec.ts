@@ -173,21 +173,24 @@ describe("frontend — decideWalletAllowlist (wallet-by-cluster gates)", () => {
   });
 });
 
-describe("frontend — shouldAutoConnect (gate autoConnect by allowlist)", () => {
-  it("allows an allowlisted wallet to auto-reconnect on every network", () => {
+describe("frontend — shouldAutoConnect (autoConnect gate: allowlist + mainnet-off)", () => {
+  it("auto-reconnects an allowlisted wallet on devnet/localnet", () => {
     expect(shouldAutoConnect("Phantom", "devnet")).to.equal(true);
-    expect(shouldAutoConnect("Phantom", "mainnet-beta")).to.equal(true);
-    expect(shouldAutoConnect("Ledger", "mainnet-beta")).to.equal(true);
+    expect(shouldAutoConnect("Ledger", "localnet")).to.equal(true);
   });
 
-  it("REFUSES auto-reconnect of an unknown wallet on mainnet (closes the bypass)", () => {
-    // Issue #249 W1 — autoConnect must not silently reconnect a
-    // previously approved unknown wallet against real funds.
+  it("is OFF on mainnet for EVERY wallet — explicit connect each session (§2.5)", () => {
+    // Even an allowlisted wallet must be reconnected by hand on mainnet;
+    // a silent reconnect on a shared machine is the risk autoConnect:false
+    // closes. Non-allowlisted wallets are additionally caught by the
+    // post-connect WalletAllowlistGuard.
+    expect(shouldAutoConnect("Phantom", "mainnet-beta")).to.equal(false);
+    expect(shouldAutoConnect("Ledger", "mainnet-beta")).to.equal(false);
     expect(shouldAutoConnect("ScamWallet", "mainnet-beta")).to.equal(false);
   });
 
   it("still auto-reconnects an unknown wallet on devnet/localnet (warn-but-allow)", () => {
-    // Preserves today's test-wallet UX — only mainnet hard-blocks.
+    // Preserves today's test-wallet UX — only mainnet is hard-off.
     expect(shouldAutoConnect("ScamWallet", "devnet")).to.equal(true);
     expect(shouldAutoConnect("ScamWallet", "localnet")).to.equal(true);
   });
