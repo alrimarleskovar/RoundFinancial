@@ -115,11 +115,12 @@ export function SettleDefaultCrankModal({
     if (onChainMembers.status !== "ok") return [];
     if (onChainPool.status !== "ok" || !onChainPool.pool || settleCycle == null) return [];
     const nextCycleAt = onChainPool.pool.nextCycleAt;
-    // Grace deadline for the missed cycle = pool.next_cycle_at - cycle_duration + GRACE_PERIOD
-    // (because next_cycle_at was advanced when the cycle rolled).
-    const cycleDuration = onChainPool.pool.cycleDurationSec;
-    const missedCycleEndsAt = nextCycleAt - cycleDuration;
-    const graceDeadline = missedCycleEndsAt + GRACE_PERIOD_SECS;
+    // Grace deadline = pool.next_cycle_at + GRACE_PERIOD_SECS — mirror the
+    // on-chain rule EXACTLY (settle_default.rs:167-172). The earlier
+    // `- cycle_duration` term made the crank look eligible a full cycle
+    // duration early, so the operator signed a settle the program then
+    // reverted with GracePeriodNotElapsed (wasted signature + fee).
+    const graceDeadline = nextCycleAt + GRACE_PERIOD_SECS;
 
     return onChainMembers.members
       .filter((m) => m.contributionsPaid <= settleCycle)

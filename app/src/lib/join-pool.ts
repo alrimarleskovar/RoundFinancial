@@ -56,6 +56,7 @@ import {
 } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
+import { simulateOrThrow } from "./simulateTx";
 
 // sha256("global:join_pool")[:8] — precomputed so the bundle needs no hash
 // dep.  $ node -e 'console.log(require("crypto").createHash("sha256")
@@ -208,6 +209,10 @@ export async function sendJoinPool(args: SendJoinPoolArgs): Promise<string> {
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = args.memberWallet;
+
+  // Dry-run before the wallet signs — never sign a tx that will fail
+  // on-chain (frontend-security checklist §2.2).
+  await simulateOrThrow(args.connection, tx);
 
   // The NFT asset keypair co-signs (it's a fresh account the program inits via
   // the mpl-core CPI); the wallet signs as fee payer + member_wallet.

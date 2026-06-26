@@ -967,7 +967,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.balance": "SALDO DISPONÍVEL",
     "modal.send.toLabel": "PARA (ENDEREÇO)",
     "modal.send.toPlaceholder": "Cole o pubkey Solana (base58, 32–44 chars)",
-    "modal.send.invalidAddress": "Endereço Solana inválido.",
+    "modal.send.invalidAddress": "Endereço inválido ou não permitido.",
     "modal.send.amountLabel": "VALOR",
     "modal.send.max": "MAX",
     "modal.send.invalidAmount": "Valor deve ser maior que zero.",
@@ -982,6 +982,9 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.confirm": "Enviar (demo)",
     "modal.send.successTitle": "Transferência simulada",
     "modal.send.successHeadline": "USDC enviado (demo)",
+    "modal.send.titleReal": "Enviar SOL",
+    "modal.send.successTitleReal": "Transferência enviada",
+    "modal.send.successHeadlineReal": "SOL enviado",
     "modal.send.successBody":
       "Em produção, {amount} teriam sido transferidos para {to} via SPL Token CPI.",
     "modal.send.close": "Fechar",
@@ -1230,6 +1233,8 @@ export const DICT: Record<Lang, Dict> = {
     "intent.title": "Confirmar intenção",
     "intent.networkDevnet": "DEVNET",
     "intent.networkMainnet": "MAINNET — FUNDOS REAIS",
+    "wallet.allowlist.blocked":
+      '"{name}" não está na lista de carteiras aprovadas para a mainnet. Desconectada por segurança.',
     "intent.bodySend":
       "Você vai pagar {amount} USDC ao executar {action} no pool '{pool}'. Confirme no prompt da carteira.",
     "intent.bodyReceive":
@@ -2645,7 +2650,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.balance": "AVAILABLE BALANCE",
     "modal.send.toLabel": "TO (ADDRESS)",
     "modal.send.toPlaceholder": "Paste a Solana pubkey (base58, 32–44 chars)",
-    "modal.send.invalidAddress": "Invalid Solana address.",
+    "modal.send.invalidAddress": "Invalid or disallowed address.",
     "modal.send.amountLabel": "AMOUNT",
     "modal.send.max": "MAX",
     "modal.send.invalidAmount": "Amount must be greater than zero.",
@@ -2659,6 +2664,9 @@ export const DICT: Record<Lang, Dict> = {
     "modal.send.confirm": "Send (demo)",
     "modal.send.successTitle": "Simulated transfer",
     "modal.send.successHeadline": "USDC sent (demo)",
+    "modal.send.titleReal": "Send SOL",
+    "modal.send.successTitleReal": "Transfer sent",
+    "modal.send.successHeadlineReal": "SOL sent",
     "modal.send.successBody":
       "In production, {amount} would have been transferred to {to} via SPL Token CPI.",
     "modal.send.close": "Close",
@@ -2902,6 +2910,8 @@ export const DICT: Record<Lang, Dict> = {
     "intent.title": "Confirm intent",
     "intent.networkDevnet": "DEVNET",
     "intent.networkMainnet": "MAINNET — REAL FUNDS",
+    "wallet.allowlist.blocked":
+      '"{name}" is not on the approved wallet list for mainnet. Disconnected for your safety.',
     "intent.bodySend":
       "You will pay {amount} USDC to execute {action} on pool '{pool}'. Confirm at the wallet prompt.",
     "intent.bodyReceive":

@@ -103,6 +103,14 @@ jobs:
         # cluster gates). Sub-second; runs on every PR.
         run: pnpm test:frontend-allowlist
 
+      - name: Simulate-before-sign reason distillation (5 tests)
+        # frontend-security checklist §2.2: every fund-movement path
+        # dry-runs the tx (connection.simulateTransaction) before the
+        # wallet signs, so a doomed tx never gets a signature. This pins
+        # the pure summarizeSimError() that turns a failed simulation into
+        # the one-line reason the modals show. Sub-second.
+        run: pnpm test:tx-simulation
+
       - name: Indexer structured-logger JSON shape (10 tests)
         # observability/README.md #2 (Pass-14): pins the JSON shape
         # emitted by services/indexer/src/log.ts. The PagerDuty runbook
