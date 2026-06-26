@@ -372,13 +372,29 @@ jobs:
         run: cargo generate-lockfile
 
       - name: cargo deny check (required, advisories pinned in deny.toml)
-        run: cargo deny check --hide-inclusion-graph
         # Required after Adevar SEV-011. The deny.toml `[advisories]`
         # section enumerates the same RUSTSEC-IDs as the cargo-audit
         # lane above (defense-in-depth — same source-of-truth list,
         # both lanes catch new IDs that bypass either's filters).
         # The `[licenses]` + `[bans]` sections enforce the supply-chain
         # policy independent of advisories.
+        #
+        # Retry wrapper: the `advisories` sub-check git-fetches the RustSec
+        # advisory-db, which is intermittently flaky on CI runners (transient
+        # fetch errors unrelated to our deps — bans/licenses/sources are
+        # network-free and always pass). 3 attempts with backoff make that
+        # flaky red X deterministic; a real flagged advisory still fails all 3.
+        run: |
+          n=0
+          until cargo deny check --hide-inclusion-graph; do
+            n=$((n + 1))
+            if [ "$n" -ge 3 ]; then
+              echo "::error::cargo-deny failed after 3 attempts"
+              exit 1
+            fi
+            echo "cargo-deny attempt $n failed (likely advisory-db fetch) — retrying in $((n * 15))s"
+            sleep "$((n * 15))"
+          done
 
   # ─── 4. Anchor lane (required) ───────────────────────────────────────
   # `anchor build` against Agave 3.0.0 + Anchor 1.0.2 (#319 migration).
