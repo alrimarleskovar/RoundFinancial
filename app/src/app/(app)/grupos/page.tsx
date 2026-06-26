@@ -41,6 +41,7 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
+import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 
 const TONE_HEX: Record<string, string> = {
   g: "#14F195",
@@ -305,7 +306,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
 
 export default function GruposPage() {
   const { t, fmtMoneyThreshold } = useI18n();
-  const { user, demoGroup } = useSession();
+  const { user, demoGroup, demoActive } = useSession();
 
   const [sort, setSort] = useState<Sort>("relevant");
   const [level, setLevel] = useState<LevelFilter>("all");
@@ -317,17 +318,56 @@ export default function GruposPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [newCycleOpen, setNewCycleOpen] = useState(false);
 
-  // Catalog = ACTIVE ∪ DISCOVER (∪ any Demo Studio preset), same as /grupos.
+  // The connected wallet's REAL on-chain memberships across the devnet pools
+  // (empty for a fresh wallet). In real mode these are the ONLY "joined"
+  // groups; the static ACTIVE_GROUPS fixtures (e.g. "Renovação MEI") are
+  // demo-only, so a fresh wallet no longer shows them as participating.
+  const realPositions = useMyDevnetPositions();
+  const joinedOnChainGroups = useMemo<ActiveGroup[]>(() => {
+    // Demo mode renders the ACTIVE_GROUPS fixtures, so skip their pools to
+    // avoid dups; real mode surfaces every genuine on-chain cota.
+    const skip = new Set(demoActive ? ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean) : []);
+    const seen = new Set<string>();
+    const out: ActiveGroup[] = [];
+    for (const pos of realPositions) {
+      if (!pos.devnetPool || skip.has(pos.devnetPool) || seen.has(pos.devnetPool)) continue;
+      const d = DISCOVER_GROUPS.find((g) => g.devnetPool === pos.devnetPool);
+      if (!d) continue;
+      seen.add(pos.devnetPool);
+      out.push({
+        id: `onchain-${d.id}`,
+        name: d.name,
+        emoji: d.emoji,
+        tone: d.tone,
+        prize: d.prize,
+        month: pos.month,
+        total: d.months,
+        status: "paying",
+        nextDue: 7,
+        progress: d.months > 0 ? pos.month / d.months : 0,
+        members: d.total,
+        draw: "",
+        installment: d.installment,
+        level: d.level,
+        devnetPool: d.devnetPool,
+      });
+    }
+    return out;
+  }, [realPositions, demoActive]);
+
+  // Catalog: MY groups (demo fixtures only in demo mode; otherwise my real
+  // on-chain cotas) ∪ the joinable DISCOVER catalog (minus anything I've
+  // already joined, so it doesn't appear twice) ∪ any Demo Studio preset.
   const enriched: CatalogGroup[] = useMemo(() => {
-    const base: CatalogGroup[] = [
-      ...ACTIVE_GROUPS.map(fromActive),
-      ...DISCOVER_GROUPS.map(fromDiscover),
-    ];
+    const mine: ActiveGroup[] = [...(demoActive ? ACTIVE_GROUPS : []), ...joinedOnChainGroups];
+    const joinedPools = new Set(mine.map((g) => g.devnetPool).filter(Boolean));
+    const discover = DISCOVER_GROUPS.filter((g) => !g.devnetPool || !joinedPools.has(g.devnetPool));
+    const base: CatalogGroup[] = [...mine.map(fromActive), ...discover.map(fromDiscover)];
     if (demoGroup && !base.some((g) => g.id === demoGroup.id)) {
       return [fromActive(demoGroup), ...base];
     }
     return base;
-  }, [demoGroup]);
+  }, [demoActive, joinedOnChainGroups, demoGroup]);
 
   const compatibleCount = enriched.filter((g) => g.level <= user.level).length;
 
