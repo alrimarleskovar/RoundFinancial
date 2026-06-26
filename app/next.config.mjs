@@ -1,6 +1,59 @@
+// Security headers (frontend-security checklist §2.3).
+//
+// HSTS, framing, MIME-sniffing, referrer + permissions are ENFORCED —
+// they can't break app functionality. The Content-Security-Policy ships
+// in **Report-Only** first: a wallet dApp's `connect-src` surface (public
+// RPCs, keyed Helius/Triton, the explorer, the indexer, wallet bridges,
+// price feeds) is wide and partly env-driven, so a wrong *enforced* CSP
+// would silently brick a fund-movement path on mainnet. Report-Only
+// collects violation reports from real traffic; the flip to enforced CSP
+// is a deliberate follow-up once the report stream is clean.
+//
+// connect-src mirrors rpcAllowlist.ts (api.{devnet,mainnet-beta}.solana.com
+// + *.helius-rpc.com + *.rpcpool.com) plus the Solana explorer + ws.
+const RPC_CONNECT_SRC = [
+  "https://api.devnet.solana.com",
+  "https://api.mainnet-beta.solana.com",
+  "https://*.helius-rpc.com",
+  "https://*.rpcpool.com",
+  "https://explorer.solana.com",
+  "wss://api.devnet.solana.com",
+  "wss://api.mainnet-beta.solana.com",
+];
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  // Next.js injects inline bootstrap scripts; some Solana/wallet libs use
+  // wasm/eval. 'unsafe-inline'/'unsafe-eval' are the pragmatic floor for a
+  // dApp — tightening to nonces is tracked with the enforce flip.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${RPC_CONNECT_SRC.join(" ")}`,
+  "frame-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Apply the security headers to every route (pages + API + assets).
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
   // @roundfi/sdk, @roundfi/orchestrator, and @roundfi/indexer ship as
   // TypeScript source (workspace linked), so Next.js needs to transpile
   // them. The admin console imports @roundfi/indexer/{db,admin} (ADR 0009).
