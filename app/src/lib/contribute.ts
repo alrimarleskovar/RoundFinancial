@@ -43,6 +43,7 @@ import {
 } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
+import { simulateOrThrow } from "./simulateTx";
 
 // sha256("global:contribute")[:8] — precomputed so the browser bundle
 // doesn't need a hash dep. Verified against init-protocol.ts's
@@ -159,6 +160,10 @@ export async function sendContribute(args: SendContributeArgs): Promise<string> 
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = args.memberWallet;
+
+  // Dry-run before the wallet signs — never sign a tx that will fail
+  // on-chain (frontend-security checklist §2.2).
+  await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
   await args.connection.confirmTransaction(

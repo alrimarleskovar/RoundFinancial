@@ -17,10 +17,14 @@ export function useRedirectOnDisconnect(target: string = "/") {
   const wasConnected = useRef(false);
 
   useEffect(() => {
-    const isConnected = wallet.status === "connected";
-    if (wasConnected.current && !isConnected) {
+    // A1-F7: redirect only on an explicit, clean disconnect — NOT on a
+    // transient "error" status (set whenever `lastError` is present while
+    // disconnected, e.g. a re-auth that throws after a prior connect). Gating
+    // on `!isConnected` would eject the user from a protected route on any
+    // connect error; match "disconnected" exactly.
+    if (wasConnected.current && wallet.status === "disconnected") {
       router.push(target);
     }
-    wasConnected.current = isConnected;
+    wasConnected.current = wallet.status === "connected";
   }, [wallet.status, router, target]);
 }

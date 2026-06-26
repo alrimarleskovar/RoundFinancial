@@ -59,6 +59,7 @@
     "devnet:verify-onchain": "bash scripts/devnet/verify-onchain.sh",
     "test:parity": "pnpm exec mocha -t 60000 'tests/parity.spec.ts'",
     "test:frontend-allowlist": "pnpm exec mocha -t 60000 'tests/frontend_allowlist.spec.ts'",
+    "test:tx-simulation": "pnpm exec mocha -t 60000 'tests/tx_simulation.spec.ts'",
     "test:indexer-log": "pnpm exec mocha -t 60000 'tests/indexer_log.spec.ts'",
     "test:indexer-webhook-auth": "pnpm exec mocha -t 60000 'services/indexer/test/webhook-auth.spec.ts'",
     "test:rpc-quorum": "pnpm exec mocha -t 60000 'tests/rpc_quorum.spec.ts'",
