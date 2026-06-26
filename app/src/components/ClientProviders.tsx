@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
@@ -13,19 +13,35 @@ import { NetworkContextProvider, useNetwork } from "@/lib/network";
 import { SessionProvider } from "@/lib/session";
 import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
+import { shouldAutoConnect } from "@/lib/walletAllowlist";
 import { NetworkBanner } from "@/components/ui/NetworkBanner";
 import { PhishingBanner } from "@/components/ui/PhishingBanner";
+import { WalletAllowlistGuard } from "@/components/WalletAllowlistGuard";
 
 function InnerProviders({ children }: { children: ReactNode }) {
-  const { endpoint } = useNetwork();
+  const { endpoint, id: networkId } = useNetwork();
   // Standard-wallet discovery picks up Phantom / Solflare / Backpack
   // automatically when they're installed as browser extensions — no
   // adapter registration needed here.
   const wallets = useMemo<Adapter[]>(() => [], []);
+  // autoConnect is gated through the wallet allowlist (checklist §2.5):
+  // a previously approved wallet only auto-reconnects if it isn't a hard
+  // `block` for the active network. On mainnet that refuses silent
+  // reconnects of non-allowlisted wallets; on devnet/localnet it always
+  // resolves true (warn-but-allow), preserving today's test-wallet UX.
+  const autoConnect = useCallback(
+    async (adapter: Adapter) => shouldAutoConnect(adapter.name, networkId),
+    [networkId],
+  );
   return (
     <ConnectionProvider endpoint={endpoint} config={{ commitment: "confirmed" }}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
+      <WalletProvider wallets={wallets} autoConnect={autoConnect}>
+        <WalletModalProvider>
+          {/* Post-connect enforcement — catches modal-selected /
+              auto-reconnected wallets that bypass connect()'s gate. */}
+          <WalletAllowlistGuard />
+          {children}
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
