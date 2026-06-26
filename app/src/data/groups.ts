@@ -178,22 +178,24 @@ export const DISCOVER_GROUPS: DiscoverGroup[] = [
     level: 1,
     devnetPool: "pool4",
   },
-  // Live devnet "fast pool" (pool6) — 5 slots / 5 cycles (3 teammates + 2
-  // operator test wallets), 30 USDC credit, 15 USDC installment → 165 /
-  // 82.5 BRL at 5.5, with a 2-day cycle so the full on-time → late →
-  // default arc is testable in ~10 days. Lv1 so fresh Phantom wallets can
-  // join; real join_pool fires via JoinGroupModal while it's Forming.
+  // Live devnet "fast pool" (pool7) — 5 slots / 5 cycles (3 teammates + 2
+  // operator test wallets), TINY economics (2 USDC credit, 1 USDC installment
+  // → 11 / 5.5 BRL at 5.5) so the ~33-USDC faucet can fund all 5 members for
+  // the whole lifecycle (each needs only ~6 USDC; the Lv1 stake is 1 USDC).
+  // 2-day cycle so the full on-time → late → default arc is testable in ~10
+  // days. Lv1 so fresh Phantom wallets can join; real join_pool fires via
+  // JoinGroupModal while it's Forming.
   {
     id: "d6",
     name: "Pool Rápida · Devnet 2d",
     emoji: "⚡",
     tone: "a",
-    prize: 165,
+    prize: 11,
     months: 5,
-    installment: 82.5,
+    installment: 5.5,
     filled: 0,
     total: 5,
     level: 1,
-    devnetPool: "pool6",
+    devnetPool: "pool7",
   },
 ];

@@ -13,10 +13,18 @@ import { DEVNET_POOLS } from "@/lib/devnet";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { sendJoinPool } from "@/lib/join-pool";
+import { useReputation } from "@/lib/useReputation";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
+import { useUsdcBalance } from "@/lib/useUsdcBalance";
 import { shortAddr, useWallet } from "@/lib/wallet";
+
+// On-chain stake ladder (bps of credit) by reputation level — mirrors
+// `stake_bps_for_level` in programs/roundfi-core/src/constants.rs. Used only
+// to PRE-CHECK the member's USDC before join_pool so they see a clean
+// "insufficient USDC" message instead of the raw `InsufficientStake` revert.
+const STAKE_BPS_BY_LEVEL: Record<number, number> = { 1: 5000, 2: 2500, 3: 1000, 4: 300 };
 
 // Confirmation modal for joining a ROSCA group. Three states:
 //   - locked: group's level is above the user's tier — show the
@@ -87,9 +95,9 @@ export function JoinGroupModal({
   // on a real connected wallet (not an admin-lab demo persona), must never
   // mock-join. When the pool can't actually be joined we say WHY and disable
   // the CTA instead of fabricating membership. Critical for the team test:
-  // once the fast pool (pool6) fills, a late joiner would otherwise
-  // mock-"join" a full pool and see a fake success. `mockMode` keeps
-  // fixtures + demo personas untouched.
+  // once the fast pool fills, a late joiner would otherwise mock-"join" a
+  // full pool and see a fake success. `mockMode` keeps fixtures + demo
+  // personas untouched.
   const mockMode = !seedKey || demoActive;
   const joinGate: "loading" | "noWallet" | "alreadyMember" | "closed" | "unavailable" | null =
     mockMode
@@ -106,6 +114,34 @@ export function JoinGroupModal({
                 ? "alreadyMember"
                 : "closed";
 
+  // ─── USDC pre-check ──────────────────────────────────────────────────
+  // join_pool transfers a reputation-tiered stake (credit × stake_bps) from
+  // the member's USDC ATA and reverts InsufficientStake if the balance is
+  // short (join_pool.rs:200). We compute the same required stake from the
+  // live pool credit + the wallet's on-chain level and surface a clean
+  // "use the faucet" message BEFORE signing — instead of the raw program log
+  // a tester saw. Only meaningful once the pool is otherwise joinable.
+  const usdc = useUsdcBalance();
+  const rep = useReputation();
+  const level = rep.status === "ok" ? rep.level : 1;
+  const requiredStakeUsdc =
+    onChainReady && onChainPool.pool
+      ? (Number(onChainPool.pool.creditAmount) / 1e6) *
+        ((STAKE_BPS_BY_LEVEL[level] ?? 5000) / 10000)
+      : 0;
+  const usdcShort =
+    onChainReady && usdc.status === "ok" && (usdc.uiAmount ?? 0) < requiredStakeUsdc;
+  // Effective block: the pool-state gate, or — when the pool IS joinable —
+  // an insufficient-USDC stop.
+  const effectiveGate:
+    | "loading"
+    | "noWallet"
+    | "alreadyMember"
+    | "closed"
+    | "unavailable"
+    | "insufficientUsdc"
+    | null = joinGate ?? (usdcShort ? "insufficientUsdc" : null);
+
   const reset = () => {
     setSubmitting(false);
     setDone(false);
@@ -120,10 +156,11 @@ export function JoinGroupModal({
     // race-condition state could try to flip to confirm. Hard-block
     // joinGroup() against the same rule the chain enforces.
     if (group.level > user.level) return;
-    // `joinGate` ⇒ real devnet pool that can't be joined right now (full,
-    // already-member, unreachable…). The CTA is disabled in that state;
-    // this guard makes the no-op explicit so we never reach the mock path.
-    if (joinGate) return;
+    // `effectiveGate` ⇒ real devnet pool that can't be joined right now (full,
+    // already-member, unreachable, or insufficient USDC for the stake). The
+    // CTA is disabled in that state; this guard makes the no-op explicit so we
+    // never reach the mock path.
+    if (effectiveGate) return;
     setSubmitting(true);
     setChainError(null);
 
@@ -473,9 +510,9 @@ export function JoinGroupModal({
           ) : null}
 
           {/* Real-pool gate — explains why joining isn't available right now
-              (pool full / already a member / unreachable) instead of
-              silently firing the mock join. */}
-          {joinGate ? (
+              (pool full / already a member / unreachable / not enough USDC for
+              the stake) instead of silently firing the mock join. */}
+          {effectiveGate ? (
             <div
               style={{
                 marginBottom: 14,
@@ -492,7 +529,9 @@ export function JoinGroupModal({
                 {t("modal.join.gate.label")}
               </MonoLabel>
               <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
-                {t(`modal.join.gate.${joinGate}`)}
+                {t(`modal.join.gate.${effectiveGate}`, {
+                  n: requiredStakeUsdc.toFixed(requiredStakeUsdc < 10 ? 1 : 0),
+                })}
               </span>
             </div>
           ) : null}
@@ -505,11 +544,11 @@ export function JoinGroupModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting || !!joinGate}
+              disabled={submitting || !!effectiveGate}
               style={{
                 ...primaryBtn(tokens),
-                opacity: submitting || joinGate ? 0.45 : 1,
-                cursor: submitting || joinGate ? "default" : "pointer",
+                opacity: submitting || effectiveGate ? 0.45 : 1,
+                cursor: submitting || effectiveGate ? "default" : "pointer",
               }}
             >
               {submitting ? t("modal.processing") : t("modal.join.cta")}
