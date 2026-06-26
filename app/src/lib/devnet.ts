@@ -49,6 +49,19 @@ export const DEVNET_POOLS = {
     seedId: 4n,
     pda: new PublicKey("5pEMW2yR13cLZQLUUW8jEs5MdgJtP8PsWoYS4YqKd2gu"),
   },
+  // pool6 — the "fast pool" for the team test: 5 slots / 5 cycles (3
+  // teammates + 2 of the operator's own test wallets), with a 2-day cycle
+  // (CYCLE_DURATION_SEC=172800) instead of pool4's 30-day, so the
+  // on-time → late → default arc plays out in ~10 days. Seeded under the
+  // DEPLOYER authority (64XM…Cffm) with POOL_SEED_ID=6 → this is its
+  // deterministic on-chain PDA. Pairs with the `devnet-canary` core build
+  // (grace 7d→1d) so a missed installment defaults ~3 days out, not ~9.
+  // (A 3-slot pool5 was seeded first, then resized to 5 here before any
+  // card shipped — pool5's account is left orphaned on devnet.)
+  pool6: {
+    seedId: 6n,
+    pda: new PublicKey("4kvz19uMeLGUrMP3w79aSuKSQriPPy3K6dJsSKNGKqpW"),
+  },
 } as const;
 
 export type DevnetPoolKey = keyof typeof DEVNET_POOLS;
