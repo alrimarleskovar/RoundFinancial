@@ -26,6 +26,7 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-tok
 import { protocolConfigPda } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
+import { simulateOrThrow } from "./simulateTx";
 
 // sha256("global:deposit_idle_to_yield")[:8] = de6af157e6a4128f
 const DEPOSIT_IDLE_DISCRIMINATOR = Buffer.from([0xde, 0x6a, 0xf1, 0x57, 0xe6, 0xa4, 0x12, 0x8f]);
@@ -128,6 +129,10 @@ export async function sendDepositIdleToYield(args: SendDepositIdleToYieldArgs): 
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = args.caller;
+
+  // Dry-run before the wallet signs — never sign a tx that will fail
+  // on-chain (frontend-security checklist §2.2).
+  await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
   await args.connection.confirmTransaction(

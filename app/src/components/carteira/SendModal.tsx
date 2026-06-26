@@ -9,10 +9,12 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
+import { DEVNET_USDC_MINT } from "@/lib/devnet";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
+import { simulateOrThrow } from "@/lib/simulateTx";
 
 // Send modal — address + amount form, demo confirmation. Real
 // signing happens via the Phantom adapter post-M3 (the on-chain
@@ -21,8 +23,30 @@ import { shortAddr, useWallet } from "@/lib/wallet";
 
 type Phase = "form" | "success";
 
-// Solana base58 pubkeys are 32–44 chars.
-const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+// Validate the SOL recipient beyond a base58 shape (T10): a well-formed but
+// wrong/typo'd address sends SOL to an unrecoverable destination. Require an
+// on-curve pubkey (rejects PDAs / program addresses with no signer), block
+// self-sends, and deny the System Program + USDC mint — all common paste
+// mistakes that would burn funds.
+function validateRecipient(
+  raw: string,
+  self: PublicKey | null,
+): { ok: boolean; reason: "empty" | "invalid" | "offcurve" | "self" | "denied" | "ok" } {
+  const addr = raw.trim();
+  if (addr.length === 0) return { ok: false, reason: "empty" };
+  let pk: PublicKey;
+  try {
+    pk = new PublicKey(addr);
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+  if (!PublicKey.isOnCurve(pk.toBytes())) return { ok: false, reason: "offcurve" };
+  if (self && pk.equals(self)) return { ok: false, reason: "self" };
+  if (pk.equals(SystemProgram.programId) || pk.equals(DEVNET_USDC_MINT)) {
+    return { ok: false, reason: "denied" };
+  }
+  return { ok: true, reason: "ok" };
+}
 
 export function SendModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tokens } = useTheme();
@@ -56,7 +80,8 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   const numericAmount = Number(amount) || 0;
   const availBalance = onChainReady ? (wallet.balanceSol ?? 0) : user.balance;
-  const validAddress = SOLANA_ADDRESS_RE.test(address.trim());
+  const recipientCheck = validateRecipient(address, adapter.publicKey ?? null);
+  const validAddress = recipientCheck.ok;
   const validAmount = numericAmount > 0 && numericAmount <= availBalance;
   const canSubmit = validAddress && validAmount;
 
@@ -76,6 +101,10 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
           await connection.getLatestBlockhash("confirmed");
         tx.recentBlockhash = blockhash;
         tx.feePayer = fromPubkey;
+        // Dry-run before the wallet signs — never sign a tx that will
+        // fail on-chain (frontend-security checklist §2.2). The catch
+        // below already surfaces the simulation error's message + logs.
+        await simulateOrThrow(connection, tx);
         const sig = await adapter.sendTransaction(tx, connection);
         await connection.confirmTransaction(
           { signature: sig, blockhash, lastValidBlockHeight },
@@ -112,9 +141,14 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title={phase === "form" ? t("modal.send.title") : t("modal.send.successTitle")}
+      onClose={submitting ? () => {} : onClose}
+      title={
+        phase === "form"
+          ? t(onChainReady ? "modal.send.titleReal" : "modal.send.title")
+          : t(onChainReady ? "modal.send.successTitleReal" : "modal.send.successTitle")
+      }
       subtitle={phase === "form" ? t("modal.send.subtitle") : undefined}
+      closeable={!submitting}
       width={460}
     >
       {phase === "form" ? (
@@ -310,7 +344,12 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
               justifyContent: "flex-end",
             }}
           >
-            <button type="button" onClick={onClose} style={ghostBtn(tokens)}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              style={{ ...ghostBtn(tokens), opacity: submitting ? 0.5 : 1 }}
+            >
               {t("modal.cancel")}
             </button>
             <button
@@ -331,7 +370,7 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
         </>
       ) : (
         <ModalSuccess
-          title={t("modal.send.successHeadline")}
+          title={t(onChainReady ? "modal.send.successHeadlineReal" : "modal.send.successHeadline")}
           body={
             txSig ? (
               <>
