@@ -27,6 +27,7 @@ import { cardHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { tierForScore } from "@/lib/passport";
 import { useSession } from "@/lib/session";
+import { useReputation } from "@/lib/useReputation";
 
 const MONO = "[font-family:var(--font-geist-mono),var(--font-jetbrains-mono),monospace]";
 
@@ -584,31 +585,39 @@ function NextLevelPanel() {
 
 function TrajectorySummary() {
   const { t } = useI18n();
+  const { demoActive } = useSession();
+  const rep = useReputation();
+  // Real wallet → counts from the on-chain ReputationProfile (0 for a fresh
+  // wallet); demo → the fixture totals for the pitch.
+  const installments = demoActive ? SAS_TOTAL_INSTALLMENTS : rep.onTimePayments + rep.latePayments;
+  const cycles = demoActive ? SAS_TOTAL_CYCLES : rep.cyclesCompleted;
+  const attestations = demoActive ? SAS_BONDS.length : 0;
+  const defaultsCount = demoActive ? 0 : rep.defaults;
   const summary = [
     {
       icon: "calendar",
-      value: `${SAS_TOTAL_INSTALLMENTS}`,
+      value: `${installments}`,
       label: t("rep.summary.installments"),
       sub: t("rep.summary.installmentsSub"),
       color: C.green,
     },
     {
       icon: "check",
-      value: `${SAS_TOTAL_CYCLES}`,
+      value: `${cycles}`,
       label: t("rep.summary.cycles"),
       sub: t("rep.summary.cyclesSub"),
       color: C.teal,
     },
     {
       icon: "trophy",
-      value: `${SAS_BONDS.length}`,
+      value: `${attestations}`,
       label: t("rep.summary.attestations"),
       sub: t("rep.summary.attestationsSub"),
       color: C.purple,
     },
     {
       icon: "shield",
-      value: "0",
+      value: `${defaultsCount}`,
       label: t("rep.summary.defaults"),
       sub: t("rep.summary.defaultsSub"),
       color: C.amber,
@@ -693,16 +702,18 @@ function Timeline() {
 
 function Attestations() {
   const { t } = useI18n();
+  const { demoActive } = useSession();
+  // Attestation history is demo-only; there's no on-chain per-wallet
+  // attestation list source wired yet, so a fresh wallet shows none.
+  const bonds = demoActive ? SAS_BONDS : [];
   return (
     <Card className="flex h-full flex-col p-5 md:p-6">
       <div className="flex items-center justify-between gap-3">
         <MonoTitle>{t("rep.attest.title")}</MonoTitle>
-        <span className="text-xs text-white/45">
-          {t("score.bondAttest", { n: SAS_BONDS.length })}
-        </span>
+        <span className="text-xs text-white/45">{t("score.bondAttest", { n: bonds.length })}</span>
       </div>
       <div className="mt-5 flex flex-1 flex-col gap-3">
-        {SAS_BONDS.map((b) => {
+        {bonds.map((b) => {
           const color = toneColor(b.tone);
           return (
             <div

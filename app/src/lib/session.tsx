@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { USER as USER_INITIAL, type User, type NftPosition, type Tone } from "@/data/carteira";
+import { type User, type NftPosition, type Tone } from "@/data/carteira";
 import type { ActiveGroup } from "@/data/groups";
 import type { CatalogGroup } from "@/lib/groups";
 
@@ -85,6 +85,11 @@ export interface SessionState {
    *  (/mercado) both write here, and SellPositionsList + PositionsList
    *  both read it. Persists across navigations within a session. */
   listings: ActiveListing[];
+  /** True while a Demo Studio persona is loaded (admin lab → live session).
+   *  In that mode the static fixtures render for the pitch; otherwise the
+   *  dashboard is bound to the connected wallet's real on-chain state and
+   *  the demo fixtures are suppressed. */
+  demoActive: boolean;
 }
 
 /** Mirrors `ActiveListing` in components/mercado/ListingDetailsModal.
@@ -130,7 +135,7 @@ const LEVEL_TABLE: ReadonlyArray<{
   { min: 950, level: 4, label: "Elite", next: 999, colat: 3, lev: 33 },
 ];
 
-function computeLevel(score: number): {
+export function computeLevel(score: number): {
   level: 1 | 2 | 3 | 4;
   label: string;
   next: number;
@@ -197,7 +202,8 @@ type Action =
       /** Per-installment amount to use when synthesizing payment events.
        *  Required if `monthsPaid > 0`. */
       installment?: number;
-    };
+    }
+  | { type: "SET_WALLET_USER"; patch: Partial<User> | null };
 
 // ── Helpers ────────────────────────────────────────────────
 function makeTxid(): string {
@@ -212,49 +218,30 @@ function makeId(): string {
   return `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
-const INITIAL_EVENTS: SessionEvent[] = [
-  {
-    id: "e0a",
-    kind: "payment",
-    ts: Date.now() - 18 * 60 * 60 * 1000,
-    txid: "tx_4xR9…k9Fn",
-    op: "payment.send",
-    amountBrl: -892.4,
-    target: "escrow.usdc",
-  },
-  {
-    id: "e0b",
-    kind: "yield",
-    ts: Date.now() - 60 * 60 * 60 * 1000,
-    txid: "tx_8mP2…aQ7L",
-    op: "yield.claim",
-    amountBrl: +52.3,
-    target: "kamino.vault",
-  },
-  {
-    id: "e0c",
-    kind: "sale",
-    ts: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    txid: "tx_2vK7…hN4T",
-    op: "secondary.market",
-    amountBrl: +1890,
-    target: "@petrus",
-  },
-  {
-    id: "e0d",
-    kind: "attestation",
-    ts: Date.now() - 6 * 24 * 60 * 60 * 1000,
-    txid: "tx_6wB3…pX1Z",
-    op: "sas.attestation",
-    amountBrl: 0,
-    target: "passport.id",
-    attestPts: 18,
-  },
-];
+// A fresh / disconnected session shows a fully ZEROED profile — no
+// fabricated persona (this was the "Maria Luísa" USER fixture seed).
+// SessionWalletBridge overlays the connected wallet's REAL on-chain data
+// (score / level / balance) on top of this; the Demo Studio path
+// (loadFromDemo) is what re-populates a rich persona for investor pitches.
+const ZERO_USER: User = {
+  name: "",
+  handle: "",
+  avatar: "",
+  level: 1,
+  levelLabel: "Iniciante",
+  score: 0,
+  scoreDelta: 0,
+  nextLevel: 500,
+  walletShort: "",
+  colateralPct: 50, // L1 default (LEVEL_TABLE[0])
+  leverageX: 2,
+  balance: 0,
+  yield: 0,
+};
 
 const INITIAL_STATE: SessionState = {
-  user: { ...USER_INITIAL },
-  events: INITIAL_EVENTS,
+  user: { ...ZERO_USER },
+  events: [],
   purchasedOfferIds: [],
   acquiredPositions: [],
   joinedGroupNames: [],
@@ -262,6 +249,7 @@ const INITIAL_STATE: SessionState = {
   claimedGroups: [],
   demoGroup: null,
   listings: [],
+  demoActive: false,
 };
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -469,6 +457,10 @@ function reducer(state: SessionState, action: Action): SessionState {
       };
     }
     case "YIELD_TICK": {
+      // Ambient mock yield — demo mode only. On a real wallet the balance
+      // mirrors on-chain USDC (SessionWalletBridge), so a fake ticker must
+      // not drift it upward.
+      if (!state.demoActive) return state;
       const ev: SessionEvent = {
         id: makeId(),
         kind: "yield",
@@ -599,6 +591,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         purchasedOfferIds: [],
         acquiredPositions: [],
         listings: [],
+        demoActive: true,
       };
     }
     case "HARVEST_YIELD": {
@@ -626,6 +619,13 @@ function reducer(state: SessionState, action: Action): SessionState {
         events: [ev, ...state.events],
       };
     }
+    case "SET_WALLET_USER": {
+      // Real on-chain wallet data overlay from SessionWalletBridge. Ignored
+      // while a Demo Studio persona is loaded so the pitch isn't clobbered.
+      if (state.demoActive) return state;
+      if (action.patch === null) return { ...state, user: { ...ZERO_USER } };
+      return { ...state, user: { ...state.user, ...action.patch } };
+    }
     default:
       return state;
   }
@@ -642,6 +642,12 @@ interface SessionContextValue {
   claimedGroups: string[];
   demoGroup: ActiveGroup | null;
   listings: ActiveListing[];
+  /** True while a Demo Studio persona is active (pitch mode). Pages read
+   *  this to decide whether to show static MY-STATE fixtures or empty/real. */
+  demoActive: boolean;
+  /** Overlay real on-chain wallet data onto the session user (or null to
+   *  reset to the zero profile on disconnect). Used by SessionWalletBridge. */
+  setWalletUser: (patch: Partial<User> | null) => void;
   payInstallment: (group: ActiveGroup) => void;
   claimPayoutMock: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
@@ -815,6 +821,10 @@ export function SessionProvider({
       }),
     [],
   );
+  const setWalletUser = useCallback(
+    (patch: Partial<User> | null) => dispatch({ type: "SET_WALLET_USER", patch }),
+    [],
+  );
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -827,6 +837,8 @@ export function SessionProvider({
       claimedGroups: state.claimedGroups,
       demoGroup: state.demoGroup,
       listings: state.listings,
+      demoActive: state.demoActive,
+      setWalletUser,
       payInstallment,
       claimPayoutMock,
       joinGroup,
@@ -840,6 +852,7 @@ export function SessionProvider({
     }),
     [
       state,
+      setWalletUser,
       payInstallment,
       claimPayoutMock,
       joinGroup,

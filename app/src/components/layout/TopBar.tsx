@@ -28,7 +28,15 @@ export function TopBar() {
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 10,
+        // z-50 (not 10): the wallet chip's dropdown is positioned inside
+        // this sticky bar's stacking context, so its own z-index can't
+        // escape this root layer. At z-10 the home ActionHero card's
+        // filter/backdrop-filter layers (own stacking contexts in the
+        // later-painted content tree) overlapped the dropdown under page
+        // zoom. Lifting the whole bar to 50 keeps the dropdown above page
+        // content; full-screen modals still win (they portal to <body> at
+        // z-70), so no modal regression.
+        zIndex: 50,
         background: isDark ? "rgba(6,9,15,0.85)" : "rgba(245,241,234,0.85)",
         backdropFilter: "blur(12px)",
         borderBottom: `1px solid ${tokens.border}`,

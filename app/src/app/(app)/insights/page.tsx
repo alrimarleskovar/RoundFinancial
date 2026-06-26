@@ -446,6 +446,11 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
 
 function FactorsPanel() {
   const { t } = useI18n();
+  const { demoActive } = useSession();
+  // Behavior signals are computed from real payment history (indexer-only).
+  // Until that's wired, a real wallet shows no fabricated factor scores; demo
+  // keeps the fixture breakdown for the pitch.
+  const factors = demoActive ? FACTORS : [];
   return (
     <Card className="p-4 md:p-5">
       <div className="flex items-center gap-2">
@@ -453,7 +458,7 @@ function FactorsPanel() {
         <Icons.info size={14} stroke="#14F195" sw={1.8} />
       </div>
       <div className="mt-5 grid gap-3">
-        {FACTORS.map((factor) => (
+        {factors.map((factor) => (
           <FactorRow key={factor.key} factor={factor} />
         ))}
       </div>
@@ -463,8 +468,11 @@ function FactorsPanel() {
 
 function ScoreChart() {
   const { lang, t } = useI18n();
+  const { demoActive } = useSession();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
-  const points = useMemo(() => curveForRange(range), [range]);
+  // No real per-wallet score-history source yet → a real wallet shows an empty
+  // plot (flat baseline) instead of the fixture's fabricated climbing curve.
+  const points = useMemo(() => (demoActive ? curveForRange(range) : []), [range, demoActive]);
   const months = monthsForRange(range, lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN);
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
   const area = `0,220 ${line} 600,220`;
