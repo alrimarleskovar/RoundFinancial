@@ -84,7 +84,18 @@ export function resolveRpcAllowlist(network: NetworkId): {
 
   const heliusDevnet = process.env.NEXT_PUBLIC_HELIUS_DEVNET;
   if (network === "devnet" && heliusDevnet) {
-    baseline.push(`https://devnet.helius-rpc.com/?api-key=${heliusDevnet}`);
+    // Promote Helius to the **primary** devnet endpoint (index 0) rather
+    // than a trailing secondary. `useNetwork().endpoint` feeds index 0
+    // into the wallet-adapter `ConnectionProvider`, so this is also the
+    // connection every read hook (usePool / usePoolMembers / useReputation)
+    // talks to. The public devnet RPC aggressively rate-limits the
+    // unindexed `getProgramAccounts` scans those hooks run (member roster,
+    // "my positions"), which surfaced as on-chain rows flickering in/out
+    // during the team test. A dedicated Helius devnet key has the headroom
+    // to serve them steadily. The public RPC stays in the list as a
+    // secondary quorum/fallback member (still allowlisted, still classifies
+    // as devnet). Devnet-only — mainnet posture is unchanged (SEV-045).
+    baseline.unshift(`https://devnet.helius-rpc.com/?api-key=${heliusDevnet}`);
   }
   const tritonDevnet = process.env.NEXT_PUBLIC_TRITON_DEVNET;
   if (network === "devnet" && tritonDevnet) {

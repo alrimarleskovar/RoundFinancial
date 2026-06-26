@@ -1076,6 +1076,13 @@ export const DICT: Record<Lang, Dict> = {
       "Wallet conectada (slot {slot} · {addr}) é membro do Pool {seedId}. Confirmar dispara contribute(cycle={cycle}) no devnet.",
     "modal.pay.blocked.cycleComplete": "CICLO COMPLETO",
     "modal.pay.blocked.insufficientBalance": "SALDO INSUFICIENTE",
+    "modal.pay.gate.label": "AGUARDANDO POOL",
+    "modal.pay.gate.loading": "Verificando o estado da pool on-chain…",
+    "modal.pay.gate.forming":
+      "Pool em formação — {filled}/{target} vagas preenchidas. O pagamento on-chain abre quando a pool ativar (todas as vagas ocupadas).",
+    "modal.pay.gate.notMember": "Esta carteira não é membro desta pool no devnet.",
+    "modal.pay.gate.unavailable":
+      "Estado on-chain indisponível no momento. Tente novamente em instantes.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -2758,6 +2765,13 @@ export const DICT: Record<Lang, Dict> = {
       "Connected wallet (slot {slot} · {addr}) is a member of Pool {seedId}. Confirm dispatches contribute(cycle={cycle}) on devnet.",
     "modal.pay.blocked.cycleComplete": "CYCLE COMPLETE",
     "modal.pay.blocked.insufficientBalance": "INSUFFICIENT BALANCE",
+    "modal.pay.gate.label": "POOL NOT READY",
+    "modal.pay.gate.loading": "Checking the pool's on-chain state…",
+    "modal.pay.gate.forming":
+      "Pool is still forming — {filled}/{target} seats filled. On-chain payment opens once the pool activates (all seats filled).",
+    "modal.pay.gate.notMember": "This wallet is not a member of this devnet pool.",
+    "modal.pay.gate.unavailable":
+      "On-chain state is unavailable right now. Please try again shortly.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
