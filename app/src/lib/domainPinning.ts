@@ -22,7 +22,9 @@
  * an explicit entry must be added per-subdomain.
  */
 export const CANONICAL_DOMAINS: ReadonlySet<string> = new Set([
-  // Production
+  // Production (roundfi.vercel.app is the current primary; the older
+  // roundfinancial.vercel.app project is kept canonical during the move).
+  "roundfi.vercel.app",
   "roundfinancial.vercel.app",
   // Localhost flavors (dev mode)
   "localhost",
@@ -31,11 +33,11 @@ export const CANONICAL_DOMAINS: ReadonlySet<string> = new Set([
 
 /**
  * Vercel preview deployments use a predictable pattern:
- * `roundfinancial-git-<branch>-alrimarleskovars-projects.vercel.app`.
- * Allowed in non-mainnet contexts so the team can verify PRs against
- * preview URLs without the warning firing.
+ * `roundfi-git-<branch>-alrimarleskovars-projects.vercel.app` (and the older
+ * `roundfinancial-…` project). Allowed in non-mainnet contexts so the team
+ * can verify PRs against preview URLs without the warning firing.
  */
-const VERCEL_PREVIEW_PATTERN = /^roundfinancial-[a-z0-9-]+\.vercel\.app$/i;
+const VERCEL_PREVIEW_PATTERN = /^roundfi(?:nancial)?-[a-z0-9-]+\.vercel\.app$/i;
 
 export type DomainStatus =
   | { kind: "canonical" }
