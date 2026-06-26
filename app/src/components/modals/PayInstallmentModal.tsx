@@ -15,7 +15,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendContribute } from "@/lib/contribute";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
-import { useI18n, useT } from "@/lib/i18n";
+import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
@@ -96,6 +96,17 @@ export function PayInstallmentModal({
   // error) so the front-end fixture balance is irrelevant there.
   const insufficient = !onChainReady && user.balance < group.installment;
   const blocked = cycleDone || insufficient;
+
+  // A2-F2: when on-chain, drive the 40px hero + Triple-Shield breakdown from the
+  // pinned chain installment (as the IntentPanel already does) rather than the
+  // static fixture — otherwise the headline can disagree with what the program
+  // actually debits if the fixture and the deployed pool drift. fmtMoney takes
+  // BRL, so convert the USDC base-units installment via USDC_RATE (same pattern
+  // as ClaimPayoutModal).
+  const installmentBrl =
+    onChainReady && onChainPool.pool
+      ? (Number(onChainPool.pool.installmentAmount) / 1e6) * USDC_RATE
+      : group.installment;
 
   const reset = () => {
     setSubmitting(false);
@@ -290,7 +301,7 @@ export function PayInstallmentModal({
                 marginTop: 6,
               }}
             >
-              {fmtMoney(group.installment)}
+              {fmtMoney(installmentBrl)}
             </div>
           </div>
 
@@ -354,7 +365,7 @@ export function PayInstallmentModal({
                       marginTop: 2,
                     }}
                   >
-                    {fmtMoney((group.installment * s.pct) / 100, {
+                    {fmtMoney((installmentBrl * s.pct) / 100, {
                       noCents: true,
                     })}
                   </div>
