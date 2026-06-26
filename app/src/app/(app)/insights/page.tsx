@@ -220,13 +220,16 @@ function ScoreHero() {
                 stroke="rgba(255,255,255,0.06)"
                 strokeWidth="9"
               />
-              {/* ~79% gradient arc, rounded caps, gap at the bottom */}
+              {/* Gradient arc filled to the score's progress within its tier
+                  (pathLength=100 normalizes the ~270° arc so dasharray ∝ pct). */}
               <path
                 d="M24.65 95.35 A50 50 0 1 1 85 103.3"
                 fill="none"
                 stroke="url(#rfiRing)"
                 strokeWidth="9"
                 strokeLinecap="round"
+                pathLength={100}
+                strokeDasharray={`${pct} ${100 - pct}`}
               />
             </svg>
             {/* shield + check, centered */}
