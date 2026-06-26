@@ -1256,9 +1256,9 @@ export const DICT: Record<Lang, Dict> = {
     "intent.action.deposit_idle_to_yield": "depositar float no adapter",
     "intent.action.settle_default": "resolver default (cranker)",
     "phishing.previewBanner":
-      "Deploy de preview detectado ({host}). URL canônica: roundfinancial.vercel.app",
+      "Deploy de preview detectado ({host}). URL canônica: roundfi.vercel.app",
     "phishing.unknownBanner":
-      "⚠ ATENÇÃO: domínio desconhecido ({host}). Verifique se você está em roundfinancial.vercel.app antes de assinar qualquer transação.",
+      "⚠ ATENÇÃO: domínio desconhecido ({host}). Verifique se você está em roundfi.vercel.app antes de assinar qualquer transação.",
     // Network identity banner (item 4.6 of MAINNET_READINESS)
     "network.banner.localnet": "LOCALNET · validador local ({url})",
     "network.banner.devnet":
@@ -2933,9 +2933,9 @@ export const DICT: Record<Lang, Dict> = {
     "intent.action.deposit_idle_to_yield": "deposit float to adapter",
     "intent.action.settle_default": "settle default (cranker)",
     "phishing.previewBanner":
-      "Preview deployment detected ({host}). Canonical URL: roundfinancial.vercel.app",
+      "Preview deployment detected ({host}). Canonical URL: roundfi.vercel.app",
     "phishing.unknownBanner":
-      "⚠ WARNING: unknown domain ({host}). Verify you are on roundfinancial.vercel.app before signing any transaction.",
+      "⚠ WARNING: unknown domain ({host}). Verify you are on roundfi.vercel.app before signing any transaction.",
     // Network identity banner (item 4.6 of MAINNET_READINESS)
     "network.banner.localnet": "LOCALNET · local validator ({url})",
     "network.banner.devnet":
