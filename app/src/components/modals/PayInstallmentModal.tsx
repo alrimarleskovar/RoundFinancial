@@ -48,7 +48,7 @@ export function PayInstallmentModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { payInstallment, user, monthsPaidByGroup } = useSession();
+  const { payInstallment, user, monthsPaidByGroup, demoActive } = useSession();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
   const wallet = useWallet();
@@ -85,6 +85,27 @@ export function PayInstallmentModal({
     !!memberRecord &&
     !memberRecord.defaulted;
 
+  // ─── Real-pool guard (anti-mock) ─────────────────────────────────────
+  // A group carrying a `devnetPool` pointer, on a real connected wallet
+  // (NOT an admin-lab demo persona), must never fall through to the mock
+  // 1500ms "payment". During the team test a Forming pool (1/3 members)
+  // did exactly that — the modal reported success with no wallet signature
+  // ever requested. When the real pool isn't contributable yet we surface
+  // WHY and disable the CTA. `mockMode` (pure fixtures + demo personas)
+  // keeps the original pitch flow untouched.
+  const mockMode = !seedKey || demoActive;
+  const chainGate: "loading" | "forming" | "notMember" | "unavailable" | null = mockMode
+    ? null
+    : onChainReady
+      ? null
+      : onChainPool.status === "loading"
+        ? "loading"
+        : onChainPool.status === "ok" && onChainPool.pool?.status !== "active"
+          ? "forming"
+          : onChainPool.status === "ok" && onChainPool.pool?.status === "active" && !memberRecord
+            ? "notMember"
+            : "unavailable";
+
   // `group` is the static fixture; live progress comes from session.
   // effectiveMonth is the month the user is *about to pay for*. When
   // it equals group.total the cycle is fully funded — no more parcelas.
@@ -94,7 +115,7 @@ export function PayInstallmentModal({
   // Block on insufficient balance only in mock mode — on-chain mode
   // checks the real USDC ATA inside the program (InsufficientStake
   // error) so the front-end fixture balance is irrelevant there.
-  const insufficient = !onChainReady && user.balance < group.installment;
+  const insufficient = mockMode && user.balance < group.installment;
   const blocked = cycleDone || insufficient;
 
   // A2-F2: when on-chain, drive the 40px hero + Triple-Shield breakdown from the
@@ -117,7 +138,10 @@ export function PayInstallmentModal({
   };
 
   const handleConfirm = async () => {
-    if (blocked) return;
+    // `chainGate` ⇒ real devnet pool that can't be contributed to yet
+    // (Forming, wallet-not-member, …). The CTA is disabled in that state;
+    // this guard makes the no-op explicit so we never reach the mock path.
+    if (blocked || chainGate) return;
     setSubmitting(true);
     setChainError(null);
 
@@ -175,7 +199,9 @@ export function PayInstallmentModal({
       return;
     }
 
-    // Mock fallback — preserves the original demo flow exactly.
+    // Mock fallback — only reachable in `mockMode` (pure fixtures + demo
+    // personas); the `chainGate` guard above stops real devnet pools from
+    // ever landing here. Preserves the original pitch flow exactly.
     setTimeout(() => {
       payInstallment(group);
       setSubmitting(false);
@@ -463,6 +489,34 @@ export function PayInstallmentModal({
             </div>
           )}
 
+          {/* Real-pool gate — explains why an on-chain payment isn't
+              available right now (pool still Forming / wallet not a member /
+              state unreachable) instead of silently firing the mock. */}
+          {chainGate ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.amber}14`,
+                border: `1px solid ${tokens.amber}33`,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.amber}>
+                {t("modal.pay.gate.label")}
+              </MonoLabel>
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                {t(`modal.pay.gate.${chainGate}`, {
+                  filled: onChainPool.pool?.membersJoined ?? 0,
+                  target: onChainPool.pool?.membersTarget ?? group.total,
+                })}
+              </span>
+            </div>
+          ) : null}
+
           {/* Pre-sign intent panel (#249 W3) — gated on on-chain mode.
               Renders authoritative tx summary inside our UI so the user
               has a reference to cross-check Phantom's prompt against
@@ -488,11 +542,11 @@ export function PayInstallmentModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting || blocked}
+              disabled={submitting || blocked || !!chainGate}
               style={{
                 ...primaryBtn(tokens),
-                opacity: submitting || blocked ? 0.45 : 1,
-                cursor: submitting || blocked ? "default" : "pointer",
+                opacity: submitting || blocked || chainGate ? 0.45 : 1,
+                cursor: submitting || blocked || chainGate ? "default" : "pointer",
               }}
             >
               {submitting ? t("modal.processing") : t("modal.pay.cta")}

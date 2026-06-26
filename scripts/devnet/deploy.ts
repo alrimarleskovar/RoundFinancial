@@ -99,6 +99,23 @@ function upgradeInPlace(cluster: ClusterConfig) {
   // programs instead of upgrading the live ones).
   run("anchor build --no-idl --ignore-keys");
 
+  // Optional Pre-Ceremony Beta grace override. `DEVNET_CANARY=1` rebuilds
+  // ONLY roundfi_core with the `devnet-canary` cargo feature, lowering
+  // GRACE_PERIOD_SECS from 7 days → 1 day (constants.rs, cfg-gated) so the
+  // late-payment / default scenarios are reachable inside a short devnet
+  // test window. The other three programs keep their normal build (none of
+  // them define the feature). DEVNET-ONLY: main() already refuses
+  // mainnet-beta, and the feature is cfg-gated so it can never compile into
+  // a mainnet artifact. Never set this for a production deploy.
+  const canary = process.env.DEVNET_CANARY;
+  if (canary && canary !== "0" && cluster.name !== "mainnet-beta") {
+    console.log(
+      "\n⚠ DEVNET_CANARY set — rebuilding roundfi_core with " +
+        "`--features devnet-canary` (GRACE_PERIOD_SECS → 1 day). Devnet only.\n",
+    );
+    run("anchor build --no-idl --ignore-keys -p roundfi_core -- --features devnet-canary");
+  }
+
   const ids = readCanonicalIds(cluster);
   const authority = authorityKeypairPath();
 
