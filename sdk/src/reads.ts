@@ -24,6 +24,7 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { POOL_STATUS, STAKE_BPS_BY_LEVEL } from "./constants.js";
 import {
   escrowVaultAuthorityPda,
+  identityPda,
   memberPda,
   protocolConfigPda,
   solidarityVaultAuthorityPda,
@@ -366,6 +367,65 @@ export async function listPoolMembers(
   return accounts.map((entry: any) =>
     normalizeMember(entry.publicKey as PublicKey, entry.account as Record<string, unknown>),
   );
+}
+
+// ─── Reputation: identity-floor crank reads (SEV-E) ──────────────────
+
+export interface EliteProfileView {
+  address: PublicKey;
+  wallet: PublicKey;
+  level: number;
+}
+
+/**
+ * Every L4 "Elite" ReputationProfile. The Elite tier carries the smallest
+ * stake (3%), so it is the only tier where a stale identity-backed level is
+ * worth cranking. Filtered client-side — the L4 set is tiny.
+ */
+export async function listEliteProfiles(client: RoundFiClient): Promise<EliteProfileView[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accounts = await (client.programs.reputation.account as any).reputationProfile.all();
+  return (
+    accounts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((entry: any) => ({
+        address: entry.publicKey as PublicKey,
+        wallet: entry.account.wallet as PublicKey,
+        level: Number(entry.account.level),
+      }))
+      .filter((p: EliteProfileView) => p.level === 4)
+  );
+}
+
+export interface IdentityRecordView {
+  address: PublicKey;
+  wallet: PublicKey;
+  /** IdentityStatus: 0 Unverified, 1 Verified, 2 Expired, 3 Revoked. */
+  status: number;
+  verifiedAt: bigint;
+  /** 0 = never expires; else unix seconds of expiry. */
+  expiresAt: bigint;
+  /** Passport-attestation account linked in the record (the refresh input). */
+  gatewayToken: PublicKey;
+}
+
+/** Fetch a wallet's IdentityRecord, or null if it was never linked. */
+export async function fetchIdentityRecord(
+  client: RoundFiClient,
+  wallet: PublicKey,
+): Promise<IdentityRecordView | null> {
+  const [address] = identityPda(client.ids.reputation, wallet);
+  const acct = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (client.programs.reputation.account as any).identityRecord.fetchNullable(address);
+  if (!acct) return null;
+  return {
+    address,
+    wallet: acct.wallet as PublicKey,
+    status: Number(acct.status),
+    verifiedAt: bn(acct.verifiedAt),
+    expiresAt: bn(acct.expiresAt),
+    gatewayToken: acct.gatewayToken as PublicKey,
+  };
 }
 
 /** All four pool vault ATAs — handy for balance reads or UI display. */

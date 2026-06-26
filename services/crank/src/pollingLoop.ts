@@ -30,6 +30,7 @@ import { fetchActivePools } from "./fetchActivePools.js";
 import { type LeaseClient, noopLease } from "./lease.js";
 import { logger } from "./logger.js";
 import { checkRpcHealth } from "./rpcHealth.js";
+import { refreshStaleElites } from "./refreshIdentities.js";
 import { checkAndSettleDefaults } from "./settleDefaults.js";
 
 export interface PollingLoopOptions {
@@ -48,6 +49,11 @@ export interface PollingLoopHandle {
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+// SEV-E identity-refresh sweep throttle (module state across ticks). The sweep
+// enumerates every L4 profile, so it runs on a slow cadence (identity expiry is
+// wall-clock / days), not on every settle tick.
+let lastRefreshSweepMs = 0;
 
 export function startPollingLoop(opts: PollingLoopOptions): PollingLoopHandle {
   const intervalMs = opts.intervalMs ?? Number(process.env.POLL_INTERVAL_MS ?? 60_000);
@@ -128,6 +134,34 @@ export async function runOneTick(opts: PollingLoopOptions): Promise<void> {
             error: msg,
           },
           `Pool processing failed (${errorKind}) — continuing`,
+        );
+      }
+    }
+
+    // SEV-E: periodically refresh stale L4 "Elite" identities so a passport
+    // that lapsed by wall-clock can't keep the discounted tier into the next
+    // join. Throttled + isolated — a refresh error never fails the settle tick.
+    const refreshIntervalMs = Number(process.env.REFRESH_IDENTITY_INTERVAL_MS ?? 600_000);
+    if (tickStart - lastRefreshSweepMs >= refreshIntervalMs) {
+      lastRefreshSweepMs = tickStart;
+      try {
+        const refreshed = await refreshStaleElites(opts.client);
+        const failed = refreshed.filter((r) => r.status === "failed").length;
+        if (refreshed.length > 0) {
+          logger.info(
+            { event_type: "refresh.sweep", acted: refreshed.length, failed },
+            `Elite identity sweep: refreshed ${refreshed.length - failed}, ${failed} failed`,
+          );
+        }
+      } catch (err) {
+        const errorKind = classifyError(err);
+        logger.error(
+          {
+            event_type: "refresh.sweep_failed",
+            errorKind,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          `Elite identity refresh sweep failed (${errorKind}) — continuing`,
         );
       }
     }
