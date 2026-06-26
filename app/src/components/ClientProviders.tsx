@@ -15,6 +15,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
 import { NetworkBanner } from "@/components/ui/NetworkBanner";
 import { PhishingBanner } from "@/components/ui/PhishingBanner";
+import { WalletSessionGuard } from "@/components/WalletSessionGuard";
 
 function InnerProviders({ children }: { children: ReactNode }) {
   const { endpoint } = useNetwork();
@@ -25,7 +26,12 @@ function InnerProviders({ children }: { children: ReactNode }) {
   return (
     <ConnectionProvider endpoint={endpoint} config={{ commitment: "confirmed" }}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        <WalletModalProvider>
+          {/* Session-lifecycle guard — network-switch / idle / tab-close
+              disconnect (frontend-security checklist §2.1 / §2.5). */}
+          <WalletSessionGuard />
+          {children}
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
