@@ -281,6 +281,8 @@ function PassportHero() {
               stroke="url(#repRing)"
               strokeWidth="9"
               strokeLinecap="round"
+              pathLength={100}
+              strokeDasharray={`${pct} ${100 - pct}`}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
