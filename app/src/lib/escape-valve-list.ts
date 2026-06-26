@@ -35,6 +35,7 @@ import {
 import { listingPda, memberPda, protocolConfigPda } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS } from "./devnet";
+import { simulateOrThrow } from "./simulateTx";
 
 // sha256("global:escape_valve_list")[:8] = 3c15934956dc4fc3
 const ESCAPE_VALVE_LIST_DISCRIMINATOR = Buffer.from([
@@ -100,6 +101,10 @@ export async function sendEscapeValveList(args: SendEscapeValveListArgs): Promis
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = args.sellerWallet;
+
+  // Dry-run before the wallet signs — never sign a tx that will fail
+  // on-chain (frontend-security checklist §2.2).
+  await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
   await args.connection.confirmTransaction(

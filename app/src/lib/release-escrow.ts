@@ -27,6 +27,7 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-tok
 import { escrowVaultAuthorityPda, memberPda, protocolConfigPda } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
+import { simulateOrThrow } from "./simulateTx";
 
 // sha256("global:release_escrow")[:8] — precomputed via:
 //   node -e 'console.log(require("crypto").createHash("sha256")
@@ -118,6 +119,10 @@ export async function sendReleaseEscrow(args: SendReleaseEscrowArgs): Promise<st
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = args.memberWallet;
+
+  // Dry-run before the wallet signs — never sign a tx that will fail
+  // on-chain (frontend-security checklist §2.2).
+  await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
   await args.connection.confirmTransaction(

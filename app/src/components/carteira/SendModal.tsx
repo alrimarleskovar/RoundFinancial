@@ -13,6 +13,7 @@ import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
+import { simulateOrThrow } from "@/lib/simulateTx";
 
 // Send modal — address + amount form, demo confirmation. Real
 // signing happens via the Phantom adapter post-M3 (the on-chain
@@ -76,6 +77,10 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
           await connection.getLatestBlockhash("confirmed");
         tx.recentBlockhash = blockhash;
         tx.feePayer = fromPubkey;
+        // Dry-run before the wallet signs — never sign a tx that will
+        // fail on-chain (frontend-security checklist §2.2). The catch
+        // below already surfaces the simulation error's message + logs.
+        await simulateOrThrow(connection, tx);
         const sig = await adapter.sendTransaction(tx, connection);
         await connection.confirmTransaction(
           { signature: sig, blockhash, lastValidBlockHeight },
