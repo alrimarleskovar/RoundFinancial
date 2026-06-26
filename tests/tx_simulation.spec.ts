@@ -43,6 +43,28 @@ describe("frontend — summarizeSimError (pre-sign simulation reason)", () => {
   it("returns a generic reason when nothing is available", () => {
     expect(summarizeSimError(null, [])).to.equal("Transaction would fail on-chain");
   });
+
+  it("skips the Anchor 'Instruction:' breadcrumb and surfaces the runtime failure", () => {
+    // Non-Anchor revert (mpl-core CPI / CU exhaustion): the only "Program log:"
+    // line is the handler-entry breadcrumb; the real reason is the runtime line,
+    // which is NOT prefixed "Program log:".
+    const logs = [
+      "Program log: Instruction: JoinPool",
+      "Program CoREcdk1nbBDnYU3iZkjbPNQNyUVMVjTLeUfJSf1 acE invoke [1]",
+      "Program 11111111111111111111111111111111 failed: custom program error: 0x1771",
+    ];
+    const out = summarizeSimError({ InstructionError: [0, { Custom: 6001 }] }, logs);
+    expect(out).to.not.contain("Instruction: JoinPool");
+    expect(out).to.contain("custom program error: 0x1771");
+  });
+
+  it("falls through to the structured err when the only program log is the breadcrumb", () => {
+    const out = summarizeSimError({ InstructionError: [0, "ProgramFailedToComplete"] }, [
+      "Program log: Instruction: JoinPool",
+    ]);
+    expect(out).to.not.contain("Instruction: JoinPool");
+    expect(out).to.contain("ProgramFailedToComplete");
+  });
 });
 
 describe("frontend — TransactionSimulationError", () => {

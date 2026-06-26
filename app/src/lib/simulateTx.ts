@@ -41,9 +41,15 @@ export class TransactionSimulationError extends Error {
  *
  * Preference order:
  *   1. Anchor's "Error Message: <reason>." log line (the friendliest).
- *   2. The last `Program log:` line (next-best on-chain hint).
- *   3. The structured `err` (e.g. `{ InstructionError: [0, { Custom: 6001 }] }`).
- *   4. A generic fallback.
+ *   2. The last meaningful `Program log:` line — but NOT Anchor's
+ *      "Instruction: <Name>" entry breadcrumb, which every #[program]
+ *      handler emits and which names what was attempted, not why it failed.
+ *   3. The runtime's own failure line ("Program <id> failed: custom program
+ *      error: 0x..", "...failed to complete", a compute-budget overrun) —
+ *      these carry the reason for non-Anchor reverts (mpl-core CPIs, CU
+ *      exhaustion) where no friendly Anchor message is logged.
+ *   4. The structured `err` (e.g. `{ InstructionError: [0, { Custom: 6001 }] }`).
+ *   5. A generic fallback.
  */
 export function summarizeSimError(err: unknown, logs: readonly string[]): string {
   const anchorMsg = logs.find((l) => /Error Message:/i.test(l));
@@ -51,11 +57,21 @@ export function summarizeSimError(err: unknown, logs: readonly string[]): string
     const m = anchorMsg.match(/Error Message:\s*(.+?)\.?\s*$/i);
     if (m && m[1]) return m[1].trim();
   }
-  const lastProgramLog = [...logs].reverse().find((l) => /^Program log:/i.test(l));
-  if (lastProgramLog) {
-    const stripped = lastProgramLog.replace(/^Program log:\s*/i, "").trim();
+  // Skip the "Program log: Instruction: <Name>" breadcrumb — it's the
+  // handler-entry marker Anchor emits, never the failure reason.
+  const programLog = [...logs]
+    .reverse()
+    .find((l) => /^Program log:/i.test(l) && !/^Program log:\s*Instruction:\s/i.test(l));
+  if (programLog) {
+    const stripped = programLog.replace(/^Program log:\s*/i, "").trim();
     if (stripped) return stripped;
   }
+  // The runtime's failure line is NOT prefixed "Program log:" — it's the
+  // best hint for non-Anchor reverts (mpl-core CPIs, CU exhaustion).
+  const runtimeFail = [...logs]
+    .reverse()
+    .find((l) => /failed: |failed to complete|exceeded /i.test(l));
+  if (runtimeFail) return runtimeFail.trim();
   if (err != null) return `Transaction would fail on-chain: ${JSON.stringify(err)}`;
   return "Transaction would fail on-chain";
 }
