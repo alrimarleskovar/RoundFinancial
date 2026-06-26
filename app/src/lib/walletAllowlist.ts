@@ -71,15 +71,39 @@ export function decideWalletAllowlist(
   if (ALLOWED_WALLET_NAMES.has(walletName)) {
     return { kind: "allowed" };
   }
-  // Note: mainnet support is tracked under MAINNET_READINESS.md §5
-  // (front-end mainnet readiness). When NetworkId gains "mainnet-beta"
-  // the policy below becomes load-bearing; today (devnet only) it's
-  // a guard rail for the next milestone.
-  const isMainnet = (network as string) === "mainnet-beta";
+  // `NetworkId` now includes "mainnet-beta" (SEV-045), so this branch is
+  // load-bearing — on mainnet a non-allowlisted wallet is blocked
+  // outright; on devnet/localnet it's a soft warning.
+  const isMainnet = network === "mainnet-beta";
   if (isMainnet) {
     return { kind: "block", reason: "unknown_wallet_on_mainnet" };
   }
   return { kind: "warn", reason: "unknown_wallet" };
+}
+
+/**
+ * Whether the adapter may auto-reconnect on page load for this network.
+ * Mirrors the connect() policy: anything that isn't a hard `block`
+ * (allowed on any net, or warn-but-allow on devnet/localnet) may
+ * auto-reconnect. On mainnet a non-allowlisted wallet returns `block`,
+ * so autoConnect is refused — closing the bypass where a previously
+ * approved unknown wallet would silently reconnect against real funds.
+ *
+ * Wired into `<WalletProvider autoConnect={…}>` (ClientProviders).
+ */
+export function shouldAutoConnect(walletName: string, network: NetworkId): boolean {
+  return decideWalletAllowlist(walletName, network).kind !== "block";
+}
+
+/**
+ * Whether an already-connected wallet must be force-disconnected. True
+ * only for the hard `block` case (mainnet + non-allowlisted). Used by the
+ * post-connect `WalletAllowlistGuard` to catch wallets that slipped in
+ * via the wallet modal or autoConnect without passing through connect()'s
+ * gate. On devnet/localnet this is always `false` (inert).
+ */
+export function isBlockedWallet(walletName: string, network: NetworkId): boolean {
+  return decideWalletAllowlist(walletName, network).kind === "block";
 }
 
 /**

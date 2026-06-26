@@ -1230,6 +1230,8 @@ export const DICT: Record<Lang, Dict> = {
     "intent.title": "Confirmar intenção",
     "intent.networkDevnet": "DEVNET",
     "intent.networkMainnet": "MAINNET — FUNDOS REAIS",
+    "wallet.allowlist.blocked":
+      '"{name}" não está na lista de carteiras aprovadas para a mainnet. Desconectada por segurança.',
     "intent.bodySend":
       "Você vai pagar {amount} USDC ao executar {action} no pool '{pool}'. Confirme no prompt da carteira.",
     "intent.bodyReceive":
@@ -2902,6 +2904,8 @@ export const DICT: Record<Lang, Dict> = {
     "intent.title": "Confirm intent",
     "intent.networkDevnet": "DEVNET",
     "intent.networkMainnet": "MAINNET — REAL FUNDS",
+    "wallet.allowlist.blocked":
+      '"{name}" is not on the approved wallet list for mainnet. Disconnected for your safety.',
     "intent.bodySend":
       "You will pay {amount} USDC to execute {action} on pool '{pool}'. Confirm at the wallet prompt.",
     "intent.bodyReceive":

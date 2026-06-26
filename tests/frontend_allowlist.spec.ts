@@ -28,7 +28,11 @@ import { expect } from "chai";
 
 import { classifyEndpoint } from "../app/src/lib/networkClassify";
 import { isAllowlistedEndpoint, resolveRpcAllowlist } from "../app/src/lib/rpcAllowlist";
-import { decideWalletAllowlist } from "../app/src/lib/walletAllowlist";
+import {
+  decideWalletAllowlist,
+  isBlockedWallet,
+  shouldAutoConnect,
+} from "../app/src/lib/walletAllowlist";
 
 describe("frontend — classifyEndpoint (NetworkBanner source-of-truth)", () => {
   it("classifies the canonical Solana mainnet RPC as mainnet", () => {
@@ -166,5 +170,42 @@ describe("frontend — decideWalletAllowlist (wallet-by-cluster gates)", () => {
     // A spoofed wallet named "phantom" should NOT pass through.
     const decision = decideWalletAllowlist("phantom", "mainnet-beta");
     expect(decision.kind).to.equal("block");
+  });
+});
+
+describe("frontend — shouldAutoConnect (gate autoConnect by allowlist)", () => {
+  it("allows an allowlisted wallet to auto-reconnect on every network", () => {
+    expect(shouldAutoConnect("Phantom", "devnet")).to.equal(true);
+    expect(shouldAutoConnect("Phantom", "mainnet-beta")).to.equal(true);
+    expect(shouldAutoConnect("Ledger", "mainnet-beta")).to.equal(true);
+  });
+
+  it("REFUSES auto-reconnect of an unknown wallet on mainnet (closes the bypass)", () => {
+    // Issue #249 W1 — autoConnect must not silently reconnect a
+    // previously approved unknown wallet against real funds.
+    expect(shouldAutoConnect("ScamWallet", "mainnet-beta")).to.equal(false);
+  });
+
+  it("still auto-reconnects an unknown wallet on devnet/localnet (warn-but-allow)", () => {
+    // Preserves today's test-wallet UX — only mainnet hard-blocks.
+    expect(shouldAutoConnect("ScamWallet", "devnet")).to.equal(true);
+    expect(shouldAutoConnect("ScamWallet", "localnet")).to.equal(true);
+  });
+});
+
+describe("frontend — isBlockedWallet (post-connect guard predicate)", () => {
+  it("flags an unknown wallet on mainnet for force-disconnect", () => {
+    expect(isBlockedWallet("ScamWallet", "mainnet-beta")).to.equal(true);
+  });
+
+  it("does NOT flag allowlisted wallets on mainnet", () => {
+    expect(isBlockedWallet("Phantom", "mainnet-beta")).to.equal(false);
+    expect(isBlockedWallet("Ledger", "mainnet-beta")).to.equal(false);
+  });
+
+  it("is inert on devnet/localnet — never force-disconnects a test wallet", () => {
+    expect(isBlockedWallet("ScamWallet", "devnet")).to.equal(false);
+    expect(isBlockedWallet("ScamWallet", "localnet")).to.equal(false);
+    expect(isBlockedWallet("Phantom", "devnet")).to.equal(false);
   });
 });
