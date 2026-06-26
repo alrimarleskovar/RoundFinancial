@@ -12,7 +12,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { NftPosition, Tone } from "@/data/carteira";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import { sendEscapeValveList } from "@/lib/escape-valve-list";
-import { useI18n, useT } from "@/lib/i18n";
+import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
@@ -71,6 +71,14 @@ export function SellShareModal({
     wallet.status === "connected" &&
     !!adapter.publicKey;
 
+  // `position.value` is unit-polymorphic: whole USDC for real on-chain slots
+  // (useMyDevnetPositions), BRL for the mock fixtures. fmtMoney expects BRL, so
+  // scale the on-chain (USDC) values up by USDC_RATE for the face/ask preview;
+  // the mock values are already BRL. Keeps what the seller sees consistent with
+  // the USDC actually signed below.
+  const faceBrl = onChainReady ? position.value * USDC_RATE : position.value;
+  const askBrl = onChainReady ? askPrice * USDC_RATE : askPrice;
+
   const reset = () => {
     setSubmitting(false);
     setDone(false);
@@ -98,6 +106,12 @@ export function SellShareModal({
           pool: DEVNET_POOLS[position.devnetPool].pda,
           sellerWallet: adapter.publicKey,
           slotIndex: position.slotIndex,
+          // The real escape_valve_list path only fires for on-chain slots
+          // (devnetPool + slotIndex), whose `value` is whole USDC
+          // (useMyDevnetPositions: creditAmount / 1e6) — so askPrice is already
+          // whole USDC; scale straight to 1e6 base units. Do NOT divide by
+          // USDC_RATE here: the BRL unit only applies to the mock fixtures,
+          // which never reach this branch (they lack devnetPool/slotIndex).
           priceUsdc: Math.round(askPrice * 1e6),
         });
         setTxSig(sig);
@@ -320,7 +334,7 @@ export function SellShareModal({
                   marginTop: 4,
                 }}
               >
-                {fmtMoney(position.value, { noCents: true })}
+                {fmtMoney(faceBrl, { noCents: true })}
               </div>
             </div>
             <div>
@@ -337,7 +351,7 @@ export function SellShareModal({
                   letterSpacing: "-0.02em",
                 }}
               >
-                {fmtMoney(askPrice, { noCents: true })}
+                {fmtMoney(askBrl, { noCents: true })}
               </div>
             </div>
             <div style={{ gridColumn: "1 / -1", marginTop: 4 }}>
