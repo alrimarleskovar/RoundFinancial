@@ -49,13 +49,15 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
-  const { events } = useSession();
+  const { events, demoActive } = useSession();
 
   // Live events (newest first via reducer) prepended to static rows.
   // Skip attestation events — they're 0-amount metadata pings, not
-  // "transactions" the user moves money with.
+  // "transactions" the user moves money with. The static TX_LIST fixture is
+  // demo-only, so a fresh wallet falls through to the NoTransactionsYet empty
+  // state instead of showing a fabricated ledger.
   const liveTx = events.filter((e) => e.kind !== "attestation").map(eventToTx);
-  const merged = [...liveTx, ...TX_LIST];
+  const merged = [...liveTx, ...(demoActive ? TX_LIST : [])];
   const rows = limit ? merged.slice(0, limit) : merged;
   return (
     <div

@@ -582,8 +582,15 @@ function HowItWorks({
 
 export default function MercadoPage() {
   const { t, fmtMoney, lang } = useI18n();
-  const { buyShare, sellShare, cancelListing, listings, acquiredPositions, purchasedOfferIds } =
-    useSession();
+  const {
+    buyShare,
+    sellShare,
+    cancelListing,
+    listings,
+    acquiredPositions,
+    purchasedOfferIds,
+    demoActive,
+  } = useSession();
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [category, setCategory] = useState("Todas");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
@@ -604,11 +611,16 @@ export default function MercadoPage() {
     ).sort((a, b) => b.disc - a.disc);
   }, [category]);
 
-  // Sell side = real holdings minus anything already listed this session.
+  // Sell side = holdings minus anything already listed this session. Demo
+  // shows the fixture cotas as sellable; a real wallet only its genuine
+  // holdings acquired this session (real on-chain cotas are sold from
+  // /carteira). A fresh wallet has nothing to sell here.
   const available = useMemo(() => {
     const listed = new Set(listings.map((l) => l.position.id));
-    return [...NFT_POSITIONS, ...acquiredPositions].filter((p) => !listed.has(p.id));
-  }, [listings, acquiredPositions]);
+    return [...(demoActive ? NFT_POSITIONS : []), ...acquiredPositions].filter(
+      (p) => !listed.has(p.id),
+    );
+  }, [listings, acquiredPositions, demoActive]);
 
   const avgEconomy =
     MARKET_OFFERS.reduce((sum, offer) => sum + (offer.face - offer.price), 0) /

@@ -45,8 +45,6 @@ export interface WalletView {
   explorerAddr: (addr: string) => string;
 }
 
-const AIRDROP_DEFAULT = LAMPORTS_PER_SOL; // 1 SOL
-
 function explorerCluster(id: "devnet" | "localnet" | "mainnet-beta"): string {
   // Solana Explorer cluster query values:
   //   ?cluster=mainnet-beta (default if omitted)
@@ -168,38 +166,53 @@ export function useWallet(): WalletView {
     return { ok: true };
   }, [adapter]);
 
-  const airdrop = useCallback(
-    async (lamports: number = AIRDROP_DEFAULT) => {
-      const pk = pkRef.current;
-      if (!pk) return { ok: false as const, reason: "not_connected" };
-      setAirdropping(true);
-      setLastError(null);
-      try {
-        const sig = await connection.requestAirdrop(new PublicKey(pk), lamports);
-        await connection.confirmTransaction(sig, "confirmed");
-        setLastTxSig(sig);
+  // Airdrop SOL via the server-side faucet route (/api/faucet) instead of
+  // connection.requestAirdrop(): the public devnet RPC rate-limits the
+  // native airdrop method hard (429 on the first try), so we transfer from
+  // a team-funded keypair server-side. Same return shape + the server's
+  // reasons are mapped onto the UI's existing vocabulary so PhantomFaucet
+  // renders the right banner / fallback links.
+  const airdrop = useCallback(async () => {
+    const pk = pkRef.current;
+    if (!pk) return { ok: false as const, reason: "not_connected" };
+    setAirdropping(true);
+    setLastError(null);
+    try {
+      const res = await fetch("/api/faucet", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address: pk }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        signature?: string;
+        reason?: string;
+      };
+      if (res.ok && data.ok && data.signature) {
+        setLastTxSig(data.signature);
         setAirdropping(false);
         refresh();
-        return { ok: true as const, signature: sig };
-      } catch (err: unknown) {
-        // Surface the raw error to DevTools so users can copy the
-        // exact reason (devnet airdrops fail for a dozen reasons —
-        // the categorized banner can't cover them all).
-        // eslint-disable-next-line no-console
-        console.error("[RoundFi] airdrop failed:", err);
-        const msg = (err as Error)?.message ?? String(err);
-        const reason = /429|rate.?limit|too many/i.test(msg)
-          ? "rate_limited"
-          : /airdrop.*limit|faucet.*has.*run.*dry/i.test(msg)
-            ? "airdrop_limit"
-            : msg;
-        setLastError(reason);
-        setAirdropping(false);
-        return { ok: false as const, reason };
+        return { ok: true as const, signature: data.signature };
       }
-    },
-    [connection, refresh],
-  );
+      // Map server reasons onto the categorized banners PhantomFaucet
+      // already renders (rate_limited → "try a hosted faucet", etc.).
+      const reason =
+        data.reason === "cooldown"
+          ? "rate_limited"
+          : data.reason === "faucet_drained" || data.reason === "faucet_unconfigured"
+            ? "airdrop_limit"
+            : (data.reason ?? "airdrop_failed");
+      setLastError(reason);
+      setAirdropping(false);
+      return { ok: false as const, reason };
+    } catch (err: unknown) {
+      // eslint-disable-next-line no-console
+      console.error("[RoundFi] faucet request failed:", err);
+      setLastError("airdrop_failed");
+      setAirdropping(false);
+      return { ok: false as const, reason: "airdrop_failed" };
+    }
+  }, [refresh]);
 
   // Message signer — present only when the selected wallet implements
   // MessageSignerWalletAdapter (Phantom/Solflare/Backpack do). Wrapped so

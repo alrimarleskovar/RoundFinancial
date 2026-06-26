@@ -27,15 +27,20 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney, lang } = useI18n();
-  const { user } = useSession();
+  const { user, demoActive } = useSession();
   const isMobile = useIsMobile();
 
-  const composition = [
-    { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%", flex: 5.2 },
-    { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%", flex: 2.8 },
-    { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%", flex: 1.4 },
-    { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%", flex: 0.6 },
-  ];
+  // Demo-only composition breakdown — there's no real per-slice source for a
+  // wallet on devnet, so a real wallet shows just the (real) USDC total above
+  // the bar and no fabricated slices.
+  const composition = demoActive
+    ? [
+        { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%", flex: 5.2 },
+        { c: tokens.teal, l: t("wallet.yieldVault"), brl: 2360, pct: "28%", flex: 2.8 },
+        { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%", flex: 1.4 },
+        { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%", flex: 0.6 },
+      ]
+    : [];
 
   // Total balance expressed in devnet USDC (the on-chain unit), shown right
   // at the composition bar regardless of the BRL/USDC display toggle.
@@ -110,20 +115,22 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                 <CountUp value={user.balance} format={(n) => fmtMoney(n)} />
               </span>
             </div>
-            <div
-              style={{
-                marginTop: 14,
-                display: "flex",
-                gap: 16,
-                fontSize: 12,
-                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-              }}
-            >
-              <span style={{ color: tokens.green }}>
-                {fmtMoney(248.12, { signed: true })} · 24h
-              </span>
-              <span style={{ color: tokens.text2 }}>{t("home.kpi.delta.balance")}</span>
-            </div>
+            {demoActive && (
+              <div
+                style={{
+                  marginTop: 14,
+                  display: "flex",
+                  gap: 16,
+                  fontSize: 12,
+                  fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                }}
+              >
+                <span style={{ color: tokens.green }}>
+                  {fmtMoney(248.12, { signed: true })} · 24h
+                </span>
+                <span style={{ color: tokens.text2 }}>{t("home.kpi.delta.balance")}</span>
+              </div>
+            )}
 
             {/* composition bar — grouped with the 24h delta at the card's lower edge */}
             <div style={{ marginTop: 14 }}>

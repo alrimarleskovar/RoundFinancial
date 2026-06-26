@@ -305,6 +305,32 @@ function Greeting({
   );
 }
 
+// Shown in place of the pay-installment hero when the connected wallet has no
+// active cycle (a fresh wallet in real mode). No fabricated installment — just
+// the onboarding CTA into /grupos.
+function NoCycleHero() {
+  const { t } = useI18n();
+  return (
+    <section className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[#071018] p-7 shadow-[0_0_45px_rgba(20,241,149,0.08)]">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[80px]" />
+      <div className="relative z-10 flex flex-col items-center gap-4 py-8 text-center">
+        <Glyph name="ticket" color="#14F195" size={34} sw={1.6} />
+        <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+          {t("home.cycles.empty.title")}
+        </h2>
+        <p className="max-w-md text-sm text-gray-400">{t("homeV2.greeting.sub")}</p>
+        <Link
+          href="/grupos"
+          className="mt-1 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-6 py-3.5 text-sm font-black text-[#04130D] shadow-[0_8px_28px_rgba(20,241,149,0.25)] transition hover:-translate-y-0.5"
+        >
+          {t("home.cycles.empty.cta")}
+          <Glyph name="chevronRight" color="#04130D" size={18} sw={2.4} />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function HeroFact({ icon, title, value }: { icon: string; title: string; value: string }) {
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.035] p-4">
@@ -725,31 +751,29 @@ function AchievementCard({
 
 export default function HomePage() {
   const { t, fmtMoney } = useI18n();
-  const { user, monthsPaidByGroup, claimedGroups } = useSession();
+  const { user, monthsPaidByGroup, claimedGroups, demoActive } = useSession();
   const theme = "dark";
   const [liveBalance, setLiveBalance] = useState(user.balance + user.yield);
   const [expanded, setExpanded] = useState<ExpandKey>(null);
 
+  // Keep the hero balance synced to the real (bridge-updated) wallet balance.
+  // The subtle "live" drift is demo-mode eye-candy only — a real wallet must
+  // reflect the on-chain USDC balance, not creep upward from a fake ticker.
   useEffect(() => {
+    setLiveBalance(user.balance + user.yield);
+  }, [user.balance, user.yield]);
+  useEffect(() => {
+    if (!demoActive) return;
     const interval = setInterval(() => {
       setLiveBalance((prev) => prev + Math.random() * 0.005);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
-
-  const receivable = useMemo(
-    () =>
-      ACTIVE_GROUPS.filter((g) => g.status !== "drawn" && !claimedGroups.includes(g.name)).reduce(
-        (sum, g) => sum + g.prize,
-        0,
-      ),
-    [claimedGroups],
-  );
+  }, [demoActive]);
 
   // Real on-chain memberships — the connected wallet's live cotas across the
   // devnet pools. Surface any that isn't already a static active card so a real
   // join_pool() shows up here as a live cycle (read from chain, not the session
-  // mock). Empty for the disconnected demo user.
+  // mock). Empty for a fresh wallet.
   const realPositions = useMyDevnetPositions();
   const joinedOnChainGroups = useMemo<ActiveGroup[]>(() => {
     const activePools = new Set(ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean));
@@ -780,12 +804,28 @@ export default function HomePage() {
     }
     return out;
   }, [realPositions]);
-  const cycleGroups = [...ACTIVE_GROUPS, ...joinedOnChainGroups];
+  // Demo mode shows the fixture catalog of cycles for the pitch; a real wallet
+  // shows ONLY its genuine on-chain cotas (empty for a fresh wallet).
+  const cycleGroups = useMemo(
+    () => (demoActive ? [...ACTIVE_GROUPS, ...joinedOnChainGroups] : joinedOnChainGroups),
+    [demoActive, joinedOnChainGroups],
+  );
 
-  const firstName = user.name.split(" ")[0];
-  const firstGroup = ACTIVE_GROUPS[0];
+  // "Próximas conquistas" receivable + the next-installment hero both derive
+  // from the REAL cycle set, so a fresh wallet shows R$ 0 / no due installment
+  // instead of the fixture's R$ 13.600 / R$ 892,40.
+  const receivable = useMemo(
+    () =>
+      cycleGroups
+        .filter((g) => g.status !== "drawn" && !claimedGroups.includes(g.name))
+        .reduce((sum, g) => sum + g.prize, 0),
+    [cycleGroups, claimedGroups],
+  );
+
+  const firstName = user.name.trim().split(" ")[0] || user.walletShort;
+  const firstGroup = cycleGroups[0];
   const daysUntil = firstGroup ? firstGroup.nextDue : 5;
-  const installment = firstGroup ? fmtMoney(firstGroup.installment) : fmtMoney(892);
+  const installment = firstGroup ? fmtMoney(firstGroup.installment) : fmtMoney(0);
   // Real due date for the "Vencimento" fact (DD / Mon / YYYY); the calendar
   // shows the countdown (daysUntil) per the print.
   const dueDate = new Date(Date.now() + daysUntil * 86_400_000);
@@ -798,14 +838,18 @@ export default function HomePage() {
     <div className="mx-auto flex w-full max-w-6xl animate-in flex-col gap-6 p-4 font-sans fade-in duration-700 md:p-8">
       <Greeting firstName={firstName} payGroup={firstGroup} />
 
-      <ActionHero
-        nextDue={nextDue}
-        installment={installment}
-        daysUntil={daysUntil}
-        dueDay={dd}
-        dueMon={monCap.toUpperCase()}
-        payGroup={firstGroup}
-      />
+      {firstGroup ? (
+        <ActionHero
+          nextDue={nextDue}
+          installment={installment}
+          daysUntil={daysUntil}
+          dueDay={dd}
+          dueMon={monCap.toUpperCase()}
+          payGroup={firstGroup}
+        />
+      ) : (
+        <NoCycleHero />
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ExpandableMetricCard

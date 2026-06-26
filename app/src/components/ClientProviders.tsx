@@ -18,6 +18,7 @@ import { NetworkBanner } from "@/components/ui/NetworkBanner";
 import { PhishingBanner } from "@/components/ui/PhishingBanner";
 import { WalletAllowlistGuard } from "@/components/WalletAllowlistGuard";
 import { WalletSessionGuard } from "@/components/WalletSessionGuard";
+import { SessionWalletBridge } from "@/components/SessionWalletBridge";
 
 function InnerProviders({ children }: { children: ReactNode }) {
   const { endpoint, id: networkId } = useNetwork();
@@ -44,6 +45,11 @@ function InnerProviders({ children }: { children: ReactNode }) {
               mainnet idle / tab-close. */}
           <WalletAllowlistGuard />
           <WalletSessionGuard />
+          {/* Bind the session profile to the connected wallet's REAL on-chain
+              data (reputation score/level + USDC balance) so the dashboard
+              shows the actual wallet, not the demo persona (#bug3). No-ops in
+              Demo Studio pitch mode. */}
+          <SessionWalletBridge />
           {children}
         </WalletModalProvider>
       </WalletProvider>

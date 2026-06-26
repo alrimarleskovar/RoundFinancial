@@ -425,6 +425,16 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
               {/rate.?limit/i.test(airdropResult.reason)
                 ? t("wallet.chip.airdropRate")
                 : t("wallet.chip.airdropFailed")}
+              {/* Actionable fallback: a prefilled hosted-faucet link, not a
+                  dead string — the team/testers can still get SOL in one hop. */}
+              <a
+                href={`https://faucet.solana.com/?address=${addr}&cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: tokens.amber, textDecoration: "underline", fontWeight: 700 }}
+              >
+                {t("wallet.faucet.hostedCTA")} ↗
+              </a>
             </>
           )}
         </div>

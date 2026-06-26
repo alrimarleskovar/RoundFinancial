@@ -24,14 +24,21 @@ export function PositionsList({ limit }: { limit?: number }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
-  const { acquiredPositions, listings } = useSession();
+  const { acquiredPositions, listings, demoActive } = useSession();
   // The connected wallet's REAL on-chain cotas across every devnet pool —
   // drives the real escape_valve_list path in SellShareModal. Empty unless a
-  // connected wallet is a live member (so the demo is unchanged otherwise).
+  // connected wallet is a live member.
   const realPositions = useMyDevnetPositions();
   const [selling, setSelling] = useState<NftPosition | null>(null);
 
-  const allPositions = [...realPositions, ...NFT_POSITIONS, ...acquiredPositions];
+  // Real wallet → only genuine cotas (real on-chain + ones acquired this
+  // session). The NFT_POSITIONS fixture is demo-only so a fresh wallet shows
+  // no fabricated holdings.
+  const allPositions = [
+    ...realPositions,
+    ...(demoActive ? NFT_POSITIONS : []),
+    ...acquiredPositions,
+  ];
   const rows: NftPosition[] = limit ? allPositions.slice(0, limit) : allPositions;
   const listedIds = new Set(listings.map((l) => l.position.id));
   const toneColor = (tone: Tone): string => {
