@@ -9,14 +9,17 @@
 // Config (server-only env — set in Vercel, NOT NEXT_PUBLIC):
 //   DEVNET_FAUCET_SECRET — the funded devnet keypair, as a base64-encoded
 //     JSON byte array OR a raw JSON byte array string ("[12,34,...]").
+//   DEVNET_FAUCET_SOL  (optional) — SOL per request (default 1).
+//   DEVNET_FAUCET_USDC (optional) — USDC per request (default 100). Lower it
+//     while devnet USDC is scarce (Circle faucet only); raise it for canary.
 //   SOLANA_RPC_URL (optional) — devnet RPC; defaults to the public devnet.
 // The keypair holds devnet SOL + USDC; refill from faucet.solana.com /
 // faucet.circle.com. Use a DEDICATED low-value keypair — NEVER the program
 // upgrade authority (this key lives in a serverless env var).
 //
 // Per request (tops up only what the recipient is missing):
-//   - 1 SOL    if the recipient has < 2 SOL
-//   - 100 USDC if the recipient has < 100 USDC (creates their ATA if needed)
+//   - SOL drip (default 1)    if the recipient is low on SOL
+//   - USDC drip (default 100) if the recipient is low on USDC (ATA created)
 //   - refuses "already_funded" if both are already above threshold
 // Partial funding is fine (SOL still given if the faucet is out of USDC).
 //
@@ -47,13 +50,22 @@ import { DEVNET_USDC_MINT } from "@/lib/devnet";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SOL_DRIP = LAMPORTS_PER_SOL; // 1 SOL per request
-const SOL_ALREADY_FUNDED = 2 * LAMPORTS_PER_SOL; // give SOL only if recipient < 2 SOL
-const FAUCET_SOL_RESERVE = LAMPORTS_PER_SOL / 20; // keep ~0.05 SOL for fees + ATA rent
+// Drip amounts are env-tunable (whole units) so the operator can match the
+// faucet's stock without a code change — small while devnet USDC is scarce,
+// larger for the canary.
+function envNum(name: string, fallback: number): number {
+  const v = process.env[name];
+  const n = v ? Number(v) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 const USDC_DECIMALS = 6;
-const USDC_DRIP = 100n * 10n ** BigInt(USDC_DECIMALS); // 100 USDC per request
-const USDC_ALREADY_FUNDED = USDC_DRIP; // give USDC only if recipient < 100 USDC
+const SOL_DRIP = Math.round(envNum("DEVNET_FAUCET_SOL", 1) * LAMPORTS_PER_SOL);
+const SOL_ALREADY_FUNDED = Math.max(2 * LAMPORTS_PER_SOL, SOL_DRIP * 2); // give SOL only if recipient below this
+const FAUCET_SOL_RESERVE = LAMPORTS_PER_SOL / 20; // keep ~0.05 SOL for fees + ATA rent
+
+const USDC_DRIP = BigInt(Math.round(envNum("DEVNET_FAUCET_USDC", 100) * 10 ** USDC_DECIMALS));
+const USDC_ALREADY_FUNDED = USDC_DRIP; // give USDC only if recipient below one drip
 
 const COOLDOWN_MS = 30_000;
 
