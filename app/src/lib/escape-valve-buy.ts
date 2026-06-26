@@ -55,6 +55,7 @@ import { listingPda, memberPda, positionAuthorityPda, protocolConfigPda } from "
 // as `parity.spec.ts` documents at the import block.
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
+import { simulateOrThrow } from "./simulateTx";
 
 // sha256("global:escape_valve_buy")[:8] — precomputed.
 //   $ node -e 'console.log(require("crypto").createHash("sha256")
@@ -227,6 +228,10 @@ export async function sendEscapeValveBuy(args: SendEscapeValveBuyArgs): Promise<
   const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = args.buyerWallet;
+
+  // Dry-run before the wallet signs — never sign a tx that will fail
+  // on-chain (frontend-security checklist §2.2).
+  await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
   await args.connection.confirmTransaction(
