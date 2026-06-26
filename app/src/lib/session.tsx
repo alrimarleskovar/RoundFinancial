@@ -648,6 +648,19 @@ interface SessionContextValue {
   /** Overlay real on-chain wallet data onto the session user (or null to
    *  reset to the zero profile on disconnect). Used by SessionWalletBridge. */
   setWalletUser: (patch: Partial<User> | null) => void;
+  /** Record a REAL on-chain action (join / contribute / …) as a ledger event
+   *  carrying the ACTUAL tx signature. Used by the modals after a signed
+   *  devnet tx confirms, so /carteira + the Activity feed reflect it WITHOUT
+   *  the mock reducer's balance/score mutations or its `balance < amount`
+   *  guard — on a real wallet those values are owned by the on-chain bridge,
+   *  not the session. */
+  recordTx: (e: {
+    kind: SessionEventKind;
+    amountBrl: number;
+    target: string;
+    txid: string;
+    op?: string;
+  }) => void;
   payInstallment: (group: ActiveGroup) => void;
   claimPayoutMock: (group: ActiveGroup) => void;
   joinGroup: (group: CatalogGroup) => void;
@@ -825,6 +838,22 @@ export function SessionProvider({
     (patch: Partial<User> | null) => dispatch({ type: "SET_WALLET_USER", patch }),
     [],
   );
+  const recordTx = useCallback(
+    (e: { kind: SessionEventKind; amountBrl: number; target: string; txid: string; op?: string }) =>
+      dispatch({
+        type: "PUSH_EVENT",
+        event: {
+          id: makeId(),
+          kind: e.kind,
+          ts: Date.now(),
+          txid: e.txid,
+          op: e.op ?? `${e.kind}.onchain`,
+          amountBrl: e.amountBrl,
+          target: e.target,
+        },
+      }),
+    [],
+  );
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -839,6 +868,7 @@ export function SessionProvider({
       listings: state.listings,
       demoActive: state.demoActive,
       setWalletUser,
+      recordTx,
       payInstallment,
       claimPayoutMock,
       joinGroup,
@@ -853,6 +883,7 @@ export function SessionProvider({
     [
       state,
       setWalletUser,
+      recordTx,
       payInstallment,
       claimPayoutMock,
       joinGroup,

@@ -58,6 +58,12 @@ export interface NftPosition {
    *  path in SellShareModal; absent on the mock fixtures. */
   devnetPool?: DevnetPoolKey;
   slotIndex?: number;
+  /** Days until this member's NEXT installment is due, derived from the
+   *  on-chain pool clock (nextCycleAt + whether the current cycle is already
+   *  paid). Set only for real on-chain positions; drives the /home hero
+   *  countdown so the date advances after a payment instead of sitting on a
+   *  hardcoded offset. Absent on mock fixtures. */
+  nextDueDays?: number;
 }
 
 export const NFT_POSITIONS: NftPosition[] = [

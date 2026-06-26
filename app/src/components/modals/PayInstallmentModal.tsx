@@ -48,7 +48,7 @@ export function PayInstallmentModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { payInstallment, user, monthsPaidByGroup, demoActive } = useSession();
+  const { payInstallment, recordTx, user, monthsPaidByGroup, demoActive } = useSession();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
   const wallet = useWallet();
@@ -167,9 +167,23 @@ export function PayInstallmentModal({
           schemaId,
         });
         setTxSig(sig);
-        // Mirror the mock-mode session bookkeeping so any UI piece
-        // reading session state advances immediately.
-        payInstallment(group);
+        // Record the REAL contribute as a ledger event carrying the actual
+        // signature, so /carteira + the Activity feed reflect it. On a real
+        // wallet we do NOT run the mock PAY_INSTALLMENT reducer: its
+        // balance/score mutations + `balance < amount` guard fight the
+        // on-chain bridge (which owns those) and could silently drop the row.
+        // The cycle dial advances from the eager on-chain re-fetch below.
+        // Demo personas keep the mock advance for the pitch.
+        if (demoActive) {
+          payInstallment(group);
+        } else {
+          recordTx({
+            kind: "payment",
+            amountBrl: -installmentBrl,
+            target: group.name,
+            txid: sig,
+          });
+        }
         // Eager on-chain re-fetch — both the modal's own copy and the
         // parent's (via onSuccess). Without this the FeaturedGroup dial
         // stays stale for up to 30s after a successful pay.
