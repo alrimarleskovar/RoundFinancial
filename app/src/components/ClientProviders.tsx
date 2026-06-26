@@ -17,6 +17,7 @@ import { shouldAutoConnect } from "@/lib/walletAllowlist";
 import { NetworkBanner } from "@/components/ui/NetworkBanner";
 import { PhishingBanner } from "@/components/ui/PhishingBanner";
 import { WalletAllowlistGuard } from "@/components/WalletAllowlistGuard";
+import { WalletSessionGuard } from "@/components/WalletSessionGuard";
 
 function InnerProviders({ children }: { children: ReactNode }) {
   const { endpoint, id: networkId } = useNetwork();
@@ -37,9 +38,12 @@ function InnerProviders({ children }: { children: ReactNode }) {
     <ConnectionProvider endpoint={endpoint} config={{ commitment: "confirmed" }}>
       <WalletProvider wallets={wallets} autoConnect={autoConnect}>
         <WalletModalProvider>
-          {/* Post-connect enforcement — catches modal-selected /
-              auto-reconnected wallets that bypass connect()'s gate. */}
+          {/* Post-connect allowlist enforcement (#520) + session-lifecycle
+              guard (#523): force-disconnect a modal/auto-reconnected
+              non-allowlisted wallet, and disconnect on network-switch /
+              mainnet idle / tab-close. */}
           <WalletAllowlistGuard />
+          <WalletSessionGuard />
           {children}
         </WalletModalProvider>
       </WalletProvider>

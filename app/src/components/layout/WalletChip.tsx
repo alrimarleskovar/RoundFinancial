@@ -170,6 +170,32 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
         >
           {shortAddr(addr, 4, 4)}
         </span>
+        {/* Inline network badge (checklist §2.1) — the active cluster sits
+            right next to the address so the user can't mistake which
+            network they're signing on. Mainnet is loud red; devnet/localnet
+            muted. (NetworkBanner also flags this at page top; this is the
+            at-a-glance, chip-level cue.) */}
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 800,
+            padding: "1px 5px",
+            borderRadius: 5,
+            letterSpacing: "0.06em",
+            background: wallet.network === "mainnet-beta" ? `${tokens.red}1A` : `${tokens.muted}1A`,
+            color: wallet.network === "mainnet-beta" ? tokens.red : tokens.muted,
+            border:
+              wallet.network === "mainnet-beta"
+                ? `1px solid ${tokens.red}55`
+                : `1px solid ${tokens.muted}33`,
+          }}
+        >
+          {wallet.network === "mainnet-beta"
+            ? "MAINNET"
+            : wallet.network === "devnet"
+              ? "DEVNET"
+              : "LOCAL"}
+        </span>
         {/* Wallet allowlist badges (issue #249 workstream 1).
             Hardware = "🔒 HW" pill (green, confidence signal).
             Unknown wallet on devnet = "⚠ ?" pill (amber, soft warning).
