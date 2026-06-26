@@ -144,22 +144,18 @@ jobs:
             exit 1
           fi
 
-      - name: anchor build (--no-idl)
-        run: anchor build --no-idl
-
-      - name: anchor keys sync (verify declare_id! matches keypair)
-        run: anchor keys sync
-        # If this changes any file, the deploy proceeds with the
-        # SYNCED IDs. The committed code drifts from the deployed
-        # binary — operator must follow up with a PR to commit the
-        # synced declare_id! values. Logged in deploy-summary step.
-
-      - name: anchor build (post-sync, --no-idl)
-        # Re-build after keys sync so declare_id!() values match the
-        # keypair file pubkeys exactly.
-        run: anchor build --no-idl
-
-      - name: anchor deploy (devnet)
+      # Build + deploy are handled together by scripts/devnet/deploy.ts:
+      #   devnet  → in-place UPGRADE at the canonical program addresses
+      #             (declare_id! values) via `solana program deploy
+      #             --program-id <addr> --upgrade-authority <deployer>`, after
+      #             `anchor build --no-idl --ignore-keys`. NO `anchor keys sync`.
+      #   localnet → first-run fresh deploy.
+      # The old standalone `anchor build` → `anchor keys sync` → rebuild steps
+      # were removed: the bare `anchor build` hit Anchor 1.0's keypair check
+      # (declare_id! 8LVr… vs a freshly-generated keypair) and FAILED before
+      # keys sync could run; and keys sync is wrong for an in-place upgrade
+      # (it would repoint declare_id! and deploy NEW programs). See deploy.ts.
+      - name: anchor build + deploy (devnet, in-place upgrade)
         # SOLANA_CLUSTER is read by scripts/devnet/deploy.ts via
         # loadCluster(); pass it explicitly so the wrapper script
         # behaves the same locally and in CI.
