@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { clusterApiUrl } from "@solana/web3.js";
+import { resolveRpcAllowlist } from "./rpcAllowlist";
 
 // SEV-045: `NetworkId` lives in `./networkTypes` (pure .ts, no JSX)
 // so the workspace-root tsc + Mocha tests can import the type without
@@ -24,25 +24,30 @@ export interface NetworkOption {
   notes: string;
 }
 
+// Endpoints come from `resolveRpcAllowlist().primary` — the single source
+// of truth in rpcAllowlist.ts — so the RPC allowlist is load-bearing for
+// the actual ConnectionProvider endpoint, not just a future guard-rail
+// (frontend-security checklist §2.2). The primary is always the canonical
+// public RPC; keyed Helius/Triton stay read-only quorum members.
 export const NETWORK_OPTIONS: Record<NetworkId, NetworkOption> = {
   localnet: {
     id: "localnet",
     label: "Localnet",
-    endpoint: "http://127.0.0.1:8899",
+    endpoint: resolveRpcAllowlist("localnet").primary,
     canAirdrop: true,
     notes: "Requires `solana-test-validator` running locally with the three programs deployed.",
   },
   devnet: {
     id: "devnet",
     label: "Devnet",
-    endpoint: clusterApiUrl("devnet"),
+    endpoint: resolveRpcAllowlist("devnet").primary,
     canAirdrop: true,
     notes: "Devnet airdrops are rate-limited; real mode here is best-effort.",
   },
   "mainnet-beta": {
     id: "mainnet-beta",
     label: "Mainnet",
-    endpoint: clusterApiUrl("mainnet-beta"),
+    endpoint: resolveRpcAllowlist("mainnet-beta").primary,
     canAirdrop: false,
     notes:
       "REAL FUNDS. Every signed transaction moves real USDC. Triple-check before confirming any action.",

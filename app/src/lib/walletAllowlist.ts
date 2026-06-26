@@ -71,15 +71,42 @@ export function decideWalletAllowlist(
   if (ALLOWED_WALLET_NAMES.has(walletName)) {
     return { kind: "allowed" };
   }
-  // Note: mainnet support is tracked under MAINNET_READINESS.md §5
-  // (front-end mainnet readiness). When NetworkId gains "mainnet-beta"
-  // the policy below becomes load-bearing; today (devnet only) it's
-  // a guard rail for the next milestone.
-  const isMainnet = (network as string) === "mainnet-beta";
+  // `NetworkId` now includes "mainnet-beta" (SEV-045), so this branch is
+  // load-bearing — on mainnet a non-allowlisted wallet is blocked
+  // outright; on devnet/localnet it's a soft warning.
+  const isMainnet = network === "mainnet-beta";
   if (isMainnet) {
     return { kind: "block", reason: "unknown_wallet_on_mainnet" };
   }
   return { kind: "warn", reason: "unknown_wallet" };
+}
+
+/**
+ * Whether the adapter may auto-reconnect on page load for this network.
+ *
+ * On **mainnet, autoConnect is OFF for every wallet** (checklist §2.5 —
+ * the user must explicitly connect each session; a silent reconnect on a
+ * shared machine against real funds is the risk). On devnet/localnet any
+ * non-`block` wallet auto-reconnects (warn-but-allow) to keep the test
+ * loop smooth. Combined with the post-connect `WalletAllowlistGuard`, a
+ * non-allowlisted wallet can never establish a mainnet session silently.
+ *
+ * Wired into `<WalletProvider autoConnect={…}>` (ClientProviders).
+ */
+export function shouldAutoConnect(walletName: string, network: NetworkId): boolean {
+  if (network === "mainnet-beta") return false;
+  return decideWalletAllowlist(walletName, network).kind !== "block";
+}
+
+/**
+ * Whether an already-connected wallet must be force-disconnected. True
+ * only for the hard `block` case (mainnet + non-allowlisted). Used by the
+ * post-connect `WalletAllowlistGuard` to catch wallets that slipped in
+ * via the wallet modal or autoConnect without passing through connect()'s
+ * gate. On devnet/localnet this is always `false` (inert).
+ */
+export function isBlockedWallet(walletName: string, network: NetworkId): boolean {
+  return decideWalletAllowlist(walletName, network).kind === "block";
 }
 
 /**
