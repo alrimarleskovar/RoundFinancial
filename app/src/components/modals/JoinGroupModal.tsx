@@ -39,7 +39,7 @@ export function JoinGroupModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { joinGroup, user } = useSession();
+  const { joinGroup, user, demoActive } = useSession();
   const router = useRouter();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
@@ -82,6 +82,30 @@ export function JoinGroupModal({
     !alreadyMember &&
     freeSlot !== null;
 
+  // ─── Real-pool guard (anti-mock) ─────────────────────────────────────
+  // Mirror of PayInstallmentModal: a group pointing at a real `devnetPool`,
+  // on a real connected wallet (not an admin-lab demo persona), must never
+  // mock-join. When the pool can't actually be joined we say WHY and disable
+  // the CTA instead of fabricating membership. Critical for the team test:
+  // once the fast pool (pool6) fills, a late joiner would otherwise
+  // mock-"join" a full pool and see a fake success. `mockMode` keeps
+  // fixtures + demo personas untouched.
+  const mockMode = !seedKey || demoActive;
+  const joinGate: "loading" | "noWallet" | "alreadyMember" | "closed" | "unavailable" | null =
+    mockMode
+      ? null
+      : onChainReady
+        ? null
+        : onChainPool.status === "loading"
+          ? "loading"
+          : onChainPool.status === "fallback"
+            ? "unavailable"
+            : !connectedWallet
+              ? "noWallet"
+              : alreadyMember
+                ? "alreadyMember"
+                : "closed";
+
   const reset = () => {
     setSubmitting(false);
     setDone(false);
@@ -96,6 +120,10 @@ export function JoinGroupModal({
     // race-condition state could try to flip to confirm. Hard-block
     // joinGroup() against the same rule the chain enforces.
     if (group.level > user.level) return;
+    // `joinGate` ⇒ real devnet pool that can't be joined right now (full,
+    // already-member, unreachable…). The CTA is disabled in that state;
+    // this guard makes the no-op explicit so we never reach the mock path.
+    if (joinGate) return;
     setSubmitting(true);
     setChainError(null);
 
@@ -133,7 +161,9 @@ export function JoinGroupModal({
       return;
     }
 
-    // Mock fallback — preserves the original demo flow exactly.
+    // Mock fallback — only reachable in `mockMode` (pure fixtures + demo
+    // personas); the `joinGate` guard above stops real devnet pools from
+    // landing here. Preserves the original demo flow exactly.
     setTimeout(() => {
       joinGroup(group);
       setSubmitting(false);
@@ -433,6 +463,31 @@ export function JoinGroupModal({
             </div>
           ) : null}
 
+          {/* Real-pool gate — explains why joining isn't available right now
+              (pool full / already a member / unreachable) instead of
+              silently firing the mock join. */}
+          {joinGate ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.amber}14`,
+                border: `1px solid ${tokens.amber}33`,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={tokens.amber}>
+                {t("modal.join.gate.label")}
+              </MonoLabel>
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                {t(`modal.join.gate.${joinGate}`)}
+              </span>
+            </div>
+          ) : null}
+
           {/* Footer */}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button type="button" onClick={reset} style={ghostBtn(tokens)}>
@@ -441,11 +496,11 @@ export function JoinGroupModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting}
+              disabled={submitting || !!joinGate}
               style={{
                 ...primaryBtn(tokens),
-                opacity: submitting ? 0.7 : 1,
-                cursor: submitting ? "default" : "pointer",
+                opacity: submitting || joinGate ? 0.45 : 1,
+                cursor: submitting || joinGate ? "default" : "pointer",
               }}
             >
               {submitting ? t("modal.processing") : t("modal.join.cta")}
