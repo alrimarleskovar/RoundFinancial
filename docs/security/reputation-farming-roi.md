@@ -26,6 +26,11 @@
 >   the 4× tier now requires two completed pools, closing the residual where
 >   a single self-dealt pool reached L2 on the gate-off devnet path with no
 >   identity. Floor-guarded (`level_2_min_cycles_above_floor`).
+> - **§1 L2 stake corrected.** §1's table showed `3 000 (30%)` from the
+>   pre-ECO-V52 draft; the real value is **2 500 bps (25%, exactly 4×)** —
+>   `constants.rs:150`, parity-pinned in `economic_parity.spec.ts:931`
+>   ("ECO-V52: was 30"). The headline L1→L3 prize (4 000) is unaffected (it
+>   never depended on L2).
 > - **R1 still open — owner decision.** The structural fix for the only
 >   regime where the farm clears (large-`credit_amount` pools, §5.1) is the
 >   graduated / absolute **stake-discount cap (R1, §7)**. It changes
@@ -46,7 +51,7 @@ must lock changes (`join_pool.rs:177` → `stake_bps_for_level`).
 | Level | `stake_bps` | Stake on the default 10 000 USDC pool |
 | ----: | ----------: | ------------------------------------: |
 |    L1 | 5 000 (50%) |                            5 000 USDC |
-|    L2 | 3 000 (30%) |                            3 000 USDC |
+|    L2 | 2 500 (25%) |                            2 500 USDC |
 |    L3 | 1 000 (10%) |                            1 000 USDC |
 
 Source: `sdk/src/constants.ts STAKE_BPS_BY_LEVEL`; pool defaults
