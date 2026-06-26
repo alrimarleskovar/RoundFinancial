@@ -94,8 +94,8 @@ export function useMyDevnetPositions(): NftPosition[] {
   const members3 = usePoolMembers("pool3", REFRESH_MS);
   const pool4 = usePool("pool4", REFRESH_MS);
   const members4 = usePoolMembers("pool4", REFRESH_MS);
-  const pool6 = usePool("pool6", REFRESH_MS);
-  const members6 = usePoolMembers("pool6", REFRESH_MS);
+  const pool7 = usePool("pool7", REFRESH_MS);
+  const members7 = usePoolMembers("pool7", REFRESH_MS);
 
   return useMemo(
     () =>
@@ -104,9 +104,10 @@ export function useMyDevnetPositions(): NftPosition[] {
         { key: "pool2", pool: pool2, members: members2 },
         { key: "pool3", pool: pool3, members: members3 },
         { key: "pool4", pool: pool4, members: members4 },
-        // pool6 = the live "fast pool" team test (5 slots, 2-day cycle) —
-        // surfaces each joined member's cota in /carteira + /home + /grupos.
-        { key: "pool6", pool: pool6, members: members6 },
+        // pool7 = the live "fast pool" team test (5 slots, 2-day cycle, tiny
+        // economics) — surfaces each joined member's cota in /carteira +
+        // /home + /grupos.
+        { key: "pool7", pool: pool7, members: members7 },
       ]),
     [
       publicKey,
@@ -118,8 +119,8 @@ export function useMyDevnetPositions(): NftPosition[] {
       members3,
       pool4,
       members4,
-      pool6,
-      members6,
+      pool7,
+      members7,
     ],
   );
 }

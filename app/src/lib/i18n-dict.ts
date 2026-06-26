@@ -1041,6 +1041,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.gate.noWallet": "Conecte sua carteira para entrar nesta pool do devnet.",
     "modal.join.gate.alreadyMember": "Você já é membro desta pool.",
     "modal.join.gate.closed": "Pool cheia ou já ativa — entradas encerradas.",
+    "modal.join.gate.insufficientUsdc":
+      "Saldo USDC insuficiente — você precisa de ~{n} USDC de stake pra entrar. Use o faucet (botão da carteira) e tente de novo.",
     "modal.join.success.title": "Bem-vindo ao grupo",
     "modal.join.success.body": "Sua cota foi mintada como NFT. O escrow começa no próximo ciclo.",
     "modal.join.success.cta": "Ver no painel",
@@ -2736,6 +2738,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.gate.noWallet": "Connect your wallet to join this devnet pool.",
     "modal.join.gate.alreadyMember": "You are already a member of this pool.",
     "modal.join.gate.closed": "Pool is full or already active — joining is closed.",
+    "modal.join.gate.insufficientUsdc":
+      "Not enough USDC — you need ~{n} USDC of stake to join. Use the faucet (wallet button) and try again.",
     "modal.join.success.title": "Welcome to the group",
     "modal.join.success.body": "Your share was minted as an NFT. Escrow starts next cycle.",
     "modal.join.success.cta": "Go to dashboard",
