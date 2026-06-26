@@ -19,6 +19,16 @@ const RPC_CONNECT_SRC = [
   "https://explorer.solana.com",
   "wss://api.devnet.solana.com",
   "wss://api.mainnet-beta.solana.com",
+  // web3.js opens a subscription WebSocket whose URL it DERIVES from the
+  // active RPC by swapping the scheme (https->wss, http->ws, port +1) —
+  // confirmTransaction() uses it on every fund-movement path. CSP source
+  // expressions are scheme-specific, so the keyed RPCs and localnet need
+  // their wss/ws forms listed too; otherwise these legitimate sockets are
+  // flagged in the Report-Only stream (and would be blocked on enforce).
+  "wss://*.helius-rpc.com",
+  "wss://*.rpcpool.com",
+  "http://127.0.0.1:8899",
+  "ws://127.0.0.1:8900",
 ];
 
 const contentSecurityPolicy = [
