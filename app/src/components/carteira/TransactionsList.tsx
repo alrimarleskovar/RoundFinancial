@@ -5,8 +5,17 @@ import { Icons } from "@/components/brand/icons";
 import { NoTransactionsYet } from "@/components/carteira/NoTransactionsYet";
 import { TX_LIST, type Transaction } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
+import { useMyDevnetTxHistory } from "@/lib/useMyDevnetTxHistory";
 import { useSession, type SessionEvent } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { shortAddr, useWallet } from "@/lib/wallet";
+
+// A real Solana signature (recorded by recordTx after a signed devnet tx)
+// vs. a synthesized mock id ("tx_aB3…k9Fn"). Real sigs get shortened + linked
+// to the explorer; mock ids render as-is.
+function isRealSig(addr: string): boolean {
+  return !addr.startsWith("tx_") && !addr.includes("…") && addr.length > 40;
+}
 
 // Recent transactions list. Preview mode (`limit` set) shows "recent"
 // heading + "See all →" hint that routes back to the parent's
@@ -50,14 +59,21 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
   const { events, demoActive } = useSession();
+  const { explorerTx } = useWallet();
+  // Durable on-chain history (read via getSignaturesForAddress on each Member
+  // PDA) — survives a full page reload, unlike the session ledger.
+  const history = useMyDevnetTxHistory();
 
-  // Live events (newest first via reducer) prepended to static rows.
-  // Skip attestation events — they're 0-amount metadata pings, not
-  // "transactions" the user moves money with. The static TX_LIST fixture is
-  // demo-only, so a fresh wallet falls through to the NoTransactionsYet empty
-  // state instead of showing a fabricated ledger.
+  // Live session events (newest first via reducer) sit on top: they show an
+  // action the instant it confirms, before the RPC history catches up. Skip
+  // attestation pings — 0-amount metadata, not money moves.
   const liveTx = events.filter((e) => e.kind !== "attestation").map(eventToTx);
-  const merged = [...liveTx, ...(demoActive ? TX_LIST : [])];
+  // Durable rows minus anything the session already shows (dedup by the real
+  // signature), then the demo fixture (demo mode only). A fresh wallet with no
+  // session events + no on-chain history falls through to NoTransactionsYet.
+  const liveSigs = new Set(events.map((e) => e.txid));
+  const chainTx = history.txs.filter((tx) => !liveSigs.has(tx.addr));
+  const merged = [...liveTx, ...chainTx, ...(demoActive ? TX_LIST : [])];
   const rows = limit ? merged.slice(0, limit) : merged;
   return (
     <div
@@ -134,7 +150,18 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
                   fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
-                {tx.addr}
+                {isRealSig(tx.addr) ? (
+                  <a
+                    href={explorerTx(tx.addr)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: tokens.teal, textDecoration: "none" }}
+                  >
+                    {shortAddr(tx.addr, 6, 6)} ↗
+                  </a>
+                ) : (
+                  tx.addr
+                )}
               </div>
             </div>
             <span

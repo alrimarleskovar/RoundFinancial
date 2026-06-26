@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 
+import type { RawMemberView, RawPoolView } from "@roundfi/sdk";
+
 import type { NftPosition } from "@/data/carteira";
 import type { DevnetPoolKey } from "@/lib/devnet";
 import {
@@ -30,6 +32,25 @@ interface PoolEntry {
   members: UsePoolMembersResult;
 }
 
+// Days until this member's NEXT installment is due, from the on-chain pool
+// clock. The pivot is whether the member already paid the CURRENT cycle
+// (contributionsPaid > currentCycle): if so, their next obligation is the
+// NEXT cycle (≈ nextCycleAt + one cycle duration); otherwise it's this
+// cycle's deadline (nextCycleAt). That's what makes the /home countdown
+// advance the moment a payment lands — paying flips the member past the
+// current cycle and the due date jumps forward a full cycle. A Forming /
+// not-yet-active pool has no live deadline, so we fall back to the cycle
+// cadence (its length in days) as a neutral placeholder.
+function nextDueDaysFor(p: RawPoolView, m: RawMemberView): number {
+  const cycleDays = Math.max(1, Math.round(Number(p.cycleDurationSec) / 86_400));
+  if (p.status !== "active" || p.nextCycleAt <= 0n) return cycleDays;
+  const paidThisCycle = m.contributionsPaid > p.currentCycle;
+  const dueTsSec = paidThisCycle
+    ? Number(p.nextCycleAt) + Number(p.cycleDurationSec)
+    : Number(p.nextCycleAt);
+  return Math.max(0, Math.ceil((dueTsSec * 1000 - Date.now()) / 86_400_000));
+}
+
 function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] {
   if (!wallet) return [];
   const out: NftPosition[] = [];
@@ -50,6 +71,7 @@ function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] 
         yieldPct: 0,
         devnetPool: key,
         slotIndex: m.slotIndex,
+        nextDueDays: nextDueDaysFor(p, m),
       });
     }
   }
@@ -58,18 +80,22 @@ function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] 
 
 export function useMyDevnetPositions(): NftPosition[] {
   const { publicKey } = useAdapterWallet();
+  // 15s (vs the 30s default) so the /home hero countdown + cycle dial reflect
+  // a fresh join/contribute within seconds rather than half a minute — the
+  // keyed Helius RPC (primary on devnet) has the headroom for it.
+  const REFRESH_MS = 15_000;
   // Hooks must be called unconditionally + in a stable order, so each devnet
   // pool is wired explicitly (the set is small + fixed in lib/devnet.ts).
-  const pool1 = usePool("pool1");
-  const members1 = usePoolMembers("pool1");
-  const pool2 = usePool("pool2");
-  const members2 = usePoolMembers("pool2");
-  const pool3 = usePool("pool3");
-  const members3 = usePoolMembers("pool3");
-  const pool4 = usePool("pool4");
-  const members4 = usePoolMembers("pool4");
-  const pool6 = usePool("pool6");
-  const members6 = usePoolMembers("pool6");
+  const pool1 = usePool("pool1", REFRESH_MS);
+  const members1 = usePoolMembers("pool1", REFRESH_MS);
+  const pool2 = usePool("pool2", REFRESH_MS);
+  const members2 = usePoolMembers("pool2", REFRESH_MS);
+  const pool3 = usePool("pool3", REFRESH_MS);
+  const members3 = usePoolMembers("pool3", REFRESH_MS);
+  const pool4 = usePool("pool4", REFRESH_MS);
+  const members4 = usePoolMembers("pool4", REFRESH_MS);
+  const pool6 = usePool("pool6", REFRESH_MS);
+  const members6 = usePoolMembers("pool6", REFRESH_MS);
 
   return useMemo(
     () =>

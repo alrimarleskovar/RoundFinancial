@@ -39,7 +39,7 @@ export function JoinGroupModal({
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { joinGroup, user, demoActive } = useSession();
+  const { joinGroup, recordTx, user, demoActive } = useSession();
   const router = useRouter();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
@@ -137,8 +137,17 @@ export function JoinGroupModal({
           slotIndex: freeSlot,
         });
         setTxSig(sig);
-        // Mirror the mock bookkeeping so any session-reading UI advances.
-        joinGroup(group);
+        // Record the REAL join as a ledger event with the actual signature so
+        // /carteira + the Activity feed reflect it. On a real wallet we skip
+        // the mock JOIN_GROUP reducer (it debits a fictional fee from a
+        // session balance the on-chain bridge owns); the membership itself
+        // surfaces from useMyDevnetPositions on the next poll. Demo personas
+        // keep the mock flow for the pitch.
+        if (demoActive) {
+          joinGroup(group);
+        } else {
+          recordTx({ kind: "join", amountBrl: 0, target: group.name, txid: sig });
+        }
         void onChainPool.refresh();
         void onChainMembers.refresh();
         setSubmitting(false);

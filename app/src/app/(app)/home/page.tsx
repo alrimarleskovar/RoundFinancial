@@ -793,7 +793,10 @@ export default function HomePage() {
         month: pos.month,
         total: d.months,
         status: "paying",
-        nextDue: 7,
+        // Real on-chain due date (advances a full cycle the moment this
+        // member pays) — not a hardcoded offset that sat frozen on the
+        // first installment's date.
+        nextDue: pos.nextDueDays ?? 7,
         progress: d.months > 0 ? pos.month / d.months : 0,
         members: d.total,
         draw: "",
@@ -823,7 +826,16 @@ export default function HomePage() {
   );
 
   const firstName = user.name.trim().split(" ")[0] || user.walletShort;
-  const firstGroup = cycleGroups[0];
+  // The hero pins the MOST URGENT cycle — the one whose next installment is
+  // due soonest. Because a payment pushes that group's due date a full cycle
+  // forward (useMyDevnetPositions), the hero then rotates to the next group
+  // the user actually needs to pay, instead of staying stuck on the first
+  // one they joined.
+  const firstGroup = useMemo(
+    () =>
+      cycleGroups.length ? [...cycleGroups].sort((a, b) => a.nextDue - b.nextDue)[0] : undefined,
+    [cycleGroups],
+  );
   const daysUntil = firstGroup ? firstGroup.nextDue : 5;
   const installment = firstGroup ? fmtMoney(firstGroup.installment) : fmtMoney(0);
   // Real due date for the "Vencimento" fact (DD / Mon / YYYY); the calendar
