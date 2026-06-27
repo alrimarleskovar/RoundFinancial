@@ -185,6 +185,14 @@ jobs:
         # backend is operator-run), sub-second.
         run: pnpm test:email-optin
 
+      - name: Email send templates + adapter (notifications PR3a)
+        # Pins the 3 notification templates (due-date / pool-started / new-group)
+        # rendering PT+EN with HTML-escaped on-chain text, and the env-driven
+        # send adapter (noop by default — nothing leaves the box without
+        # RESEND_API_KEY; resend selected only when the key is set). Pure (no DB
+        # / no network — the resend adapter isn't invoked), sub-second.
+        run: pnpm test:email-send
+
       - name: Harvest slippage floor (7 tests)
         # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
         # computes a LIVE min_realized_usdc floor from the expected surplus
