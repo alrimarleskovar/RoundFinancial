@@ -4,7 +4,7 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
-import type { WalletView } from "@/lib/wallet";
+import { faucetDripMessage, type WalletView } from "@/lib/wallet";
 
 // Devnet SOL faucet + Circle USDC faucet link, rendered inside the
 // expanded Phantom card when the wallet is connected. Port of the
@@ -17,18 +17,11 @@ export function PhantomFaucet({ wallet, tc }: { wallet: WalletView; tc: string }
   const err = wallet.lastError;
   const sig = wallet.lastTxSig;
   const rateLimited = err === "rate_limited" || err === "airdrop_limit";
-  // Spell out what the last drip actually moved. The faucet tops up only
-  // what's missing, so a wallet that already had SOL gets USDC-only — without
-  // this, that read as "wrong faucet / broken" to testers.
-  const drip = wallet.lastDrip;
-  const sentMsg =
-    drip && drip.sol > 0 && drip.usdc > 0
-      ? t("wallet.faucet.sentBoth", { sol: drip.sol, usdc: drip.usdc })
-      : drip && drip.usdc > 0
-        ? t("wallet.faucet.sentUsdcOnly", { usdc: drip.usdc })
-        : drip && drip.sol > 0
-          ? t("wallet.faucet.sentSolOnly", { sol: drip.sol })
-          : t("wallet.faucet.ok");
+  // Spell out what the last drip actually moved (and flag when the faucet was
+  // too low to send a needed asset). The faucet tops up only what's missing,
+  // so a wallet that already had SOL gets USDC-only — without this, that read
+  // as "wrong faucet / broken" to testers.
+  const sentMsg = faucetDripMessage(wallet.lastDrip, t);
 
   return (
     <div

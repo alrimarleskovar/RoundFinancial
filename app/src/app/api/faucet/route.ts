@@ -229,6 +229,12 @@ export async function POST(req: Request): Promise<NextResponse> {
       signature,
       sol: sentSol / LAMPORTS_PER_SOL,
       usdc: Number(sentUsdc) / 10 ** USDC_DECIMALS,
+      // The recipient NEEDED this asset but the faucet couldn't afford to
+      // send it (low on SOL / USDC), so it shipped only the other one. The UI
+      // must NOT then claim "you already had enough" — it has to point the
+      // tester at the hosted faucet for the missing asset instead.
+      solShort: needSol && sentSol === 0,
+      usdcShort: needUsdc && sentUsdc === 0n,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

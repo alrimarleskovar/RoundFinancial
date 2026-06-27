@@ -1311,6 +1311,10 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.faucet.sentBoth": "Enviado: {sol} SOL + {usdc} USDC",
     "wallet.faucet.sentUsdcOnly": "Enviado: {usdc} USDC · você já tinha SOL suficiente",
     "wallet.faucet.sentSolOnly": "Enviado: {sol} SOL · você já tinha USDC suficiente",
+    "wallet.faucet.sentUsdcSolLow":
+      "Enviado: {usdc} USDC · faucet sem SOL agora — pegue SOL no faucet Solana hospedado abaixo",
+    "wallet.faucet.sentSolUsdcLow":
+      "Enviado: {sol} SOL · faucet sem USDC agora — use o faucet Circle abaixo",
     "wallet.faucet.viewTx": "Ver tx no Explorer →",
     "wallet.faucet.rate":
       "Limite diário de airdrop atingido (devnet libera ~2 SOL por carteira a cada 24h). Use uma das fontes alternativas abaixo:",
@@ -3024,6 +3028,10 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.faucet.sentBoth": "Sent: {sol} SOL + {usdc} USDC",
     "wallet.faucet.sentUsdcOnly": "Sent: {usdc} USDC · you already had enough SOL",
     "wallet.faucet.sentSolOnly": "Sent: {sol} SOL · you already had enough USDC",
+    "wallet.faucet.sentUsdcSolLow":
+      "Sent: {usdc} USDC · faucet is out of SOL — grab SOL from the hosted Solana faucet below",
+    "wallet.faucet.sentSolUsdcLow":
+      "Sent: {sol} SOL · faucet is out of USDC — use the Circle faucet below",
     "wallet.faucet.viewTx": "View tx on Explorer →",
     "wallet.faucet.rate":
       "Daily airdrop limit hit (devnet allows ~2 SOL per wallet every 24h). Try one of the alternative faucets below:",

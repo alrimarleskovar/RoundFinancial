@@ -7,7 +7,7 @@ import { Icons } from "@/components/brand/icons";
 import { MenuItem } from "@/components/layout/MenuItem";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
-import { shortAddr, type WalletView } from "@/lib/wallet";
+import { faucetDripMessage, shortAddr, type WalletView } from "@/lib/wallet";
 
 // Wallet chip: disconnected = gradient "Connect Phantom" button,
 // connected = icon + short address + dropdown (copy / airdrop /
@@ -41,18 +41,10 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
     setMounted(true);
   }, []);
 
-  // What the last drip moved — same breakdown PhantomFaucet shows, so the
-  // chip's airdrop pill reads "1 SOL + 6 USDC" / "6 USDC (already had SOL)"
-  // instead of a generic "sent" (a USDC-only top-up looked like a wrong faucet).
-  const drip = wallet.lastDrip;
-  const sentMsg =
-    drip && drip.sol > 0 && drip.usdc > 0
-      ? t("wallet.faucet.sentBoth", { sol: drip.sol, usdc: drip.usdc })
-      : drip && drip.usdc > 0
-        ? t("wallet.faucet.sentUsdcOnly", { usdc: drip.usdc })
-        : drip && drip.sol > 0
-          ? t("wallet.faucet.sentSolOnly", { sol: drip.sol })
-          : t("wallet.chip.airdropOk");
+  // Same drip summary PhantomFaucet shows (shared helper), so the chip's
+  // airdrop pill reads "1 SOL + 6 USDC" / "6 USDC (already had SOL)" / "6 USDC
+  // — faucet out of SOL" instead of a generic "sent".
+  const sentMsg = faucetDripMessage(wallet.lastDrip, t, "wallet.chip.airdropOk");
 
   // When the hook reports completion (success or error) AFTER we've
   // pinged it from this chip, capture the outcome and auto-clear
