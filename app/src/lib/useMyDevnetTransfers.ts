@@ -80,6 +80,42 @@ function solCounterparty(tx: ParsedTransactionWithMeta, incoming: boolean): stri
   return (incoming ? info.source : info.destination) ?? null;
 }
 
+// Fetch parsed txs in small chunks, and if a CHUNK's batch call fails, fall
+// back to one `getParsedTransaction` per signature. A single 25-signature
+// `getParsedTransactions` call is heavy and some RPC tiers rate-limit or reject
+// it outright — which previously blanked the whole transfer history silently
+// (only the sender's optimistic session row survived, so an INCOMING transfer
+// on a second wallet showed nothing). Per-signature recovery + per-chunk
+// isolation means one heavy/unsupported call can't wipe the list.
+async function fetchParsedChunked(
+  connection: ReturnType<typeof useConnection>["connection"],
+  sigs: string[],
+  chunkSize: number,
+): Promise<Array<ParsedTransactionWithMeta | null>> {
+  const out: Array<ParsedTransactionWithMeta | null> = [];
+  for (let i = 0; i < sigs.length; i += chunkSize) {
+    const chunk = sigs.slice(i, i + chunkSize);
+    try {
+      const res = await connection.getParsedTransactions(chunk, {
+        maxSupportedTransactionVersion: 0,
+      });
+      out.push(...res);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[RoundFi] getParsedTransactions batch failed; retrying per-signature", err);
+      const singles = await Promise.all(
+        chunk.map((s) =>
+          connection
+            .getParsedTransaction(s, { maxSupportedTransactionVersion: 0 })
+            .catch(() => null),
+        ),
+      );
+      out.push(...singles);
+    }
+  }
+  return out;
+}
+
 export interface UseTransfersResult {
   status: "loading" | "ok" | "fallback";
   txs: Transaction[];
@@ -107,9 +143,10 @@ export function useMyDevnetTransfers(refreshMs = 20_000): UseTransfersResult {
         if (!cancelled.current) setState({ status: "ok", txs: [] });
         return;
       }
-      const parsed = await connection.getParsedTransactions(
+      const parsed = await fetchParsedChunked(
+        connection,
         sigInfos.map((s) => s.signature),
-        { maxSupportedTransactionVersion: 0 },
+        8,
       );
       if (cancelled.current) return;
 
@@ -153,11 +190,26 @@ export function useMyDevnetTransfers(refreshMs = 20_000): UseTransfersResult {
         });
       });
 
+      // Diagnostic: we found signatures but extracted no transfer rows. This
+      // is the fingerprint of the "incoming transfer doesn't show" report —
+      // either the RPC indexed the signature but the parse missed the delta, or
+      // the wallet legitimately has only program txs. Logged (not thrown) so a
+      // tester can confirm the cause from the browser console.
+      if (sigInfos.length > 0 && txs.length === 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[RoundFi] transfers: scanned ${sigInfos.length} signature(s), 0 SOL/USDC transfer rows`,
+        );
+      }
       if (!cancelled.current) setState({ status: "ok", txs });
-    } catch {
+    } catch (err) {
       // RPC hiccup / rate-limit — keep whatever we had, mark fallback. No
       // throw: this ledger is a read-only convenience layered on the others.
+      // Logged so a silent RPC failure (the suspected cause of missing incoming
+      // transfers) is visible in the console instead of vanishing.
       if (cancelled.current) return;
+      // eslint-disable-next-line no-console
+      console.warn("[RoundFi] transfer history scan failed", err);
       setState((prev) => ({ status: "fallback", txs: prev.txs }));
     }
   }, [connection, publicKey]);
