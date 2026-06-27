@@ -6,6 +6,7 @@ import { NoTransactionsYet } from "@/components/carteira/NoTransactionsYet";
 import { TX_LIST, type Transaction } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
 import { useMyDevnetTxHistory } from "@/lib/useMyDevnetTxHistory";
+import { useMyDevnetTransfers } from "@/lib/useMyDevnetTransfers";
 import { useSession, type SessionEvent } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
@@ -35,10 +36,15 @@ function eventToTx(ev: SessionEvent): Transaction {
     join: `Entrada · ${ev.target}`,
     attestation: `SAS · ${ev.target}`,
   };
+  // A plain wallet transfer (Send modal) rides the `payment` kind but is a
+  // send, not a Parcela — relabel + carry the SOL/USDC denomination through.
+  const label = ev.op === "wallet.send" ? `Envio · ${ev.target}` : (labelMap[ev.kind] ?? ev.op);
   return {
-    label: labelMap[ev.kind] ?? ev.op,
+    label,
     addr: ev.txid,
     amount: ev.amountBrl,
+    denom: ev.denom,
+    ts: ev.ts,
     date: dateStr,
   };
 }
@@ -63,17 +69,31 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
   // Durable on-chain history (read via getSignaturesForAddress on each Member
   // PDA) — survives a full page reload, unlike the session ledger.
   const history = useMyDevnetTxHistory();
+  // Plain wallet-to-wallet SOL/USDC transfers (Send modal + incoming receipts),
+  // also durable. The Member-PDA scan above can't see these — they never touch
+  // a Member account — so this fills the gap and shows transfers the session
+  // never witnessed (e.g. funds arriving on a second wallet).
+  const transfers = useMyDevnetTransfers();
 
   // Live session events (newest first via reducer) sit on top: they show an
   // action the instant it confirms, before the RPC history catches up. Skip
   // attestation pings — 0-amount metadata, not money moves.
   const liveTx = events.filter((e) => e.kind !== "attestation").map(eventToTx);
-  // Durable rows minus anything the session already shows (dedup by the real
-  // signature), then the demo fixture (demo mode only). A fresh wallet with no
-  // session events + no on-chain history falls through to NoTransactionsYet.
+  // Durable rows minus anything already shown by the session (dedup by the real
+  // signature). join/contribute signatures touch the wallet too, so the
+  // transfer scan is also deduped against the Member-PDA history — that scan
+  // owns the labelled "Entrada / Parcela" rows.
   const liveSigs = new Set(events.map((e) => e.txid));
   const chainTx = history.txs.filter((tx) => !liveSigs.has(tx.addr));
-  const merged = [...liveTx, ...chainTx, ...(demoActive ? TX_LIST : [])];
+  const chainSigs = new Set(history.txs.map((tx) => tx.addr));
+  const transferTx = transfers.txs.filter(
+    (tx) => !liveSigs.has(tx.addr) && !chainSigs.has(tx.addr),
+  );
+  // Real rows sorted newest-first by block time so the three sources interleave
+  // chronologically; the demo fixture (no ts) trails in real demo mode only. A
+  // fresh wallet with nothing on-chain falls through to NoTransactionsYet.
+  const realTx = [...liveTx, ...chainTx, ...transferTx].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+  const merged = [...realTx, ...(demoActive ? TX_LIST : [])];
   const rows = limit ? merged.slice(0, limit) : merged;
   return (
     <div
@@ -172,7 +192,9 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
                 color: tx.amount > 0 ? tokens.green : tokens.text,
               }}
             >
-              {fmtMoney(tx.amount, { noCents: true, signed: true })}
+              {tx.denom
+                ? `${tx.amount > 0 ? "+" : ""}${Number(tx.amount.toFixed(4))} ${tx.denom}`
+                : fmtMoney(tx.amount, { noCents: true, signed: true })}
             </span>
             <span
               style={{

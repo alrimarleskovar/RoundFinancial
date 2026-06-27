@@ -45,9 +45,12 @@ export interface SessionEvent {
   ts: number; // unix ms
   txid: string; // synthesized e.g. "tx_4xR9…k9Fn"
   op: string; // "payment.send" / "yield.claim" / "secondary.market"
-  amountBrl: number; // 0 for non-money events
+  amountBrl: number; // 0 for non-money events — token amount when `denom` set
   target: string; // "escrow.usdc" / "kamino.vault" / "@petrus" / "passport.id"
   attestPts?: number; // only present for kind === "attestation"
+  /** When set, `amountBrl` is denominated in this token (e.g. "SOL"), not BRL.
+   *  Lets a real wallet transfer render as "0.5 SOL" instead of "R$ 0,50". */
+  denom?: string;
 }
 
 export interface SessionState {
@@ -660,6 +663,7 @@ interface SessionContextValue {
     target: string;
     txid: string;
     op?: string;
+    denom?: string;
   }) => void;
   payInstallment: (group: ActiveGroup) => void;
   claimPayoutMock: (group: ActiveGroup) => void;
@@ -743,11 +747,19 @@ export function SessionProvider({
       return;
     }
 
+    // A plain wallet transfer reuses the `payment` kind (same ledger shape)
+    // but isn't a "Parcela" — label it honestly as an outbound send.
+    const isSend = latest.kind === "payment" && latest.op === "wallet.send";
     const messages: Record<string, { title: string; sub?: string }> = {
-      payment: {
-        title: "Pagamento confirmado",
-        sub: latest.target ? `Parcela · ${latest.target}` : undefined,
-      },
+      payment: isSend
+        ? {
+            title: "Envio confirmado",
+            sub: latest.target ? `Para ${latest.target}` : undefined,
+          }
+        : {
+            title: "Pagamento confirmado",
+            sub: latest.target ? `Parcela · ${latest.target}` : undefined,
+          },
       join: {
         title: "Entrada confirmada",
         sub: latest.target ? `Você entrou em ${latest.target}` : undefined,
@@ -839,7 +851,14 @@ export function SessionProvider({
     [],
   );
   const recordTx = useCallback(
-    (e: { kind: SessionEventKind; amountBrl: number; target: string; txid: string; op?: string }) =>
+    (e: {
+      kind: SessionEventKind;
+      amountBrl: number;
+      target: string;
+      txid: string;
+      op?: string;
+      denom?: string;
+    }) =>
       dispatch({
         type: "PUSH_EVENT",
         event: {
@@ -850,6 +869,7 @@ export function SessionProvider({
           op: e.op ?? `${e.kind}.onchain`,
           amountBrl: e.amountBrl,
           target: e.target,
+          denom: e.denom,
         },
       }),
     [],
