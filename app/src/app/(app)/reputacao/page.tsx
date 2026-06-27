@@ -21,13 +21,14 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
-import type { Tone } from "@/data/carteira";
+import type { NftPosition, Tone } from "@/data/carteira";
 import { LEVELS, SAS_BONDS, SAS_TOTAL_CYCLES, SAS_TOTAL_INSTALLMENTS } from "@/data/score";
 import { cardHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { tierForScore } from "@/lib/passport";
 import { useSession } from "@/lib/session";
 import { useReputation } from "@/lib/useReputation";
+import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 
 const MONO = "[font-family:var(--font-geist-mono),var(--font-jetbrains-mono),monospace]";
 
@@ -585,7 +586,7 @@ function NextLevelPanel() {
   );
 }
 
-function TrajectorySummary() {
+function TrajectorySummary({ positions }: { positions: NftPosition[] }) {
   const { t } = useI18n();
   const { demoActive } = useSession();
   const rep = useReputation();
@@ -593,7 +594,9 @@ function TrajectorySummary() {
   // wallet); demo → the fixture totals for the pitch.
   const installments = demoActive ? SAS_TOTAL_INSTALLMENTS : rep.onTimePayments + rep.latePayments;
   const cycles = demoActive ? SAS_TOTAL_CYCLES : rep.cyclesCompleted;
-  const attestations = demoActive ? SAS_BONDS.length : 0;
+  // Attestations = the wallet's live on-chain cotas (one SAS bond per pool
+  // membership). 0 collapses to the honest empty-state in the panel below.
+  const attestations = demoActive ? SAS_BONDS.length : positions.length;
   const defaultsCount = demoActive ? 0 : rep.defaults;
   const summary = [
     {
@@ -702,12 +705,38 @@ function Timeline() {
   );
 }
 
-function Attestations() {
+type AttestRow = {
+  id: string;
+  cycle: string;
+  tone: Tone;
+  installments: number;
+  status: "active" | "completed";
+  date: string;
+};
+
+function Attestations({ positions }: { positions: NftPosition[] }) {
   const { t } = useI18n();
   const { demoActive } = useSession();
-  // Attestation history is demo-only; there's no on-chain per-wallet
-  // attestation list source wired yet, so a fresh wallet shows none.
-  const bonds = demoActive ? SAS_BONDS : [];
+  // Demo → the pitch fixtures. Real wallet → one SAS bond per live on-chain
+  // cota (the same memberships /carteira + /home read). A fresh wallet with no
+  // cotas falls through to the honest empty-state below instead of a blank card.
+  const bonds: AttestRow[] = demoActive
+    ? SAS_BONDS.map((b) => ({
+        id: b.id,
+        cycle: b.cycle,
+        tone: b.tone,
+        installments: b.installments,
+        status: b.status,
+        date: b.date,
+      }))
+    : positions.map((p) => ({
+        id: p.id,
+        cycle: p.group,
+        tone: p.tone,
+        installments: p.month,
+        status: "active" as const,
+        date: p.exp,
+      }));
   return (
     <Card className="flex h-full flex-col p-5 md:p-6">
       <div className="flex items-center justify-between gap-3">
@@ -715,6 +744,11 @@ function Attestations() {
         <span className="text-xs text-white/45">{t("score.bondAttest", { n: bonds.length })}</span>
       </div>
       <div className="mt-5 flex flex-1 flex-col gap-3">
+        {bonds.length === 0 && (
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-8 text-center text-[13px] leading-relaxed text-white/45">
+            {t("rep.attest.empty")}
+          </div>
+        )}
         {bonds.map((b) => {
           const color = toneColor(b.tone);
           return (
@@ -788,6 +822,10 @@ function OnChainFooter() {
 
 export default function ReputacaoPage() {
   const { t } = useI18n();
+  // The wallet's real on-chain cotas — surfaced as SAS attestations and counted
+  // in the trajectory summary. Read once here and passed down so both panels
+  // share a single poll. Empty for a fresh wallet (honest empty-state).
+  const positions = useMyDevnetPositions();
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
       <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -822,11 +860,11 @@ export default function ReputacaoPage() {
           <NextLevelPanel />
         </div>
 
-        <TrajectorySummary />
+        <TrajectorySummary positions={positions} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Timeline />
-          <Attestations />
+          <Attestations positions={positions} />
         </div>
 
         <OnChainFooter />

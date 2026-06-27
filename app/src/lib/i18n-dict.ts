@@ -257,6 +257,8 @@ export const DICT: Record<Lang, Dict> = {
     "rep.timeline.4.d": "Participação paralela permitida",
     "rep.attest.title": "Atestados emitidos",
     "rep.attest.installments": "{n} parcelas",
+    "rep.attest.empty":
+      "Nenhum atestado ainda. Cada cota on-chain que você mantém vira um atestado SAS aqui assim que você entra numa pool.",
     "rep.role.borrower": "Tomador",
     "rep.viewAllAttest": "Ver todos os atestados",
     "rep.footer.title": "100% on-chain e auditável",
@@ -1989,6 +1991,8 @@ export const DICT: Record<Lang, Dict> = {
     "rep.timeline.4.d": "Parallel participation allowed",
     "rep.attest.title": "Attestations issued",
     "rep.attest.installments": "{n} installments",
+    "rep.attest.empty":
+      "No attestations yet. Each on-chain share you hold becomes a SAS attestation here as soon as you join a pool.",
     "rep.role.borrower": "Borrower",
     "rep.viewAllAttest": "View all attestations",
     "rep.footer.title": "100% on-chain and auditable",
