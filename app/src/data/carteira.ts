@@ -105,8 +105,17 @@ export const NFT_POSITIONS: NftPosition[] = [
 export interface Transaction {
   label: string;
   addr: string;
-  amount: number; // BRL; negative = outflow
+  amount: number; // BRL; negative = outflow — UNLESS `denom` is set
   date: string;
+  /** When set, `amount` is denominated in this token (e.g. "SOL", "USDC"),
+   *  NOT BRL. The list renders it as a raw token amount with the symbol
+   *  instead of routing through fmtMoney (which assumes R$/USDC pricing).
+   *  Used for plain wallet-to-wallet SOL/USDC transfers. */
+  denom?: string;
+  /** Unix ms of the on-chain block (or session event). Lets the list sort a
+   *  mixed feed (session ledger + Member-PDA history + plain transfers)
+   *  chronologically. Absent on static demo fixtures. */
+  ts?: number;
 }
 
 export const TX_LIST: Transaction[] = [

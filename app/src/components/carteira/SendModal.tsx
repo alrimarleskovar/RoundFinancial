@@ -52,7 +52,7 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
   const { tokens } = useTheme();
   const t = useT();
   const { fmtMoney } = useI18n();
-  const { user, sendPayment } = useSession();
+  const { user, sendPayment, recordTx } = useSession();
   const [phase, setPhase] = useState<Phase>("form");
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState("");
@@ -111,6 +111,19 @@ export function SendModal({ open, onClose }: { open: boolean; onClose: () => voi
           "confirmed",
         );
         setTxSig(sig);
+        // Drop an instant row into the session ledger so the send shows up in
+        // /carteira's Transações the moment it confirms — same path join/pay
+        // use. `denom: "SOL"` renders it as "0.5 SOL" (not R$). The durable
+        // wallet-transfer scan (useMyDevnetTransfers) picks the same signature
+        // up after a reload and is deduped against this row by txid.
+        recordTx({
+          kind: "payment",
+          amountBrl: -numericAmount,
+          target: shortAddr(address.trim(), 4, 4),
+          txid: sig,
+          op: "wallet.send",
+          denom: "SOL",
+        });
         void wallet.refresh();
         setSubmitting(false);
         setPhase("success");

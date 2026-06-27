@@ -104,6 +104,7 @@ export function useMyDevnetTxHistory(refreshMs = 30_000): UseTxHistoryResult {
             label: e.isJoin ? `Entrada · ${name}` : `Parcela · ${name}`,
             addr: e.sig,
             amount: e.isJoin ? 0 : -(meta?.installment ?? 0),
+            ts: e.blockTime ? e.blockTime * 1000 : 0,
             date: e.blockTime ? relative(e.blockTime * 1000) : "—",
           };
         });
