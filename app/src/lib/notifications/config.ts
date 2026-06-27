@@ -42,11 +42,16 @@ export function getNotifyDomain(): string {
 
 // ─── Email validation ────────────────────────────────────────────────────
 
-/** RFC-5321 caps the address at 254 chars; we also require one @ and a dot
- *  in the domain. Deliberately conservative — the wallet signature proves
- *  ownership of the KEY, not the inbox (inbox-confirmation is a later PR), so
- *  this is a format gate, not a deliverability guarantee. */
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** RFC-5321 caps the address at 254 chars. Deliberately conservative — the
+ *  wallet signature proves ownership of the KEY, not the inbox (inbox-
+ *  confirmation is a later PR), so this is a format gate, not a deliverability
+ *  guarantee. The charset is restricted to the common email subset
+ *  ([A-Za-z0-9._%+-] local, [A-Za-z0-9.-] domain + a real TLD): it excludes
+ *  `| < > " ' ( ) , ;` and whitespace so the value is (a) safe to persist for
+ *  the future send-side (no stored-injection seed) and (b) never carries the
+ *  `|` that could confuse a delimited encoding. This rejects some exotic-but-
+ *  valid RFC addresses (quoted local parts); acceptable for an opt-in form. */
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 export const MAX_EMAIL_LEN = 254;
 
 /** Canonical form: trimmed + lowercased. The signed message embeds THIS, so

@@ -84,6 +84,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     !isEmailAction(action) ||
     typeof nonce !== "string" ||
     typeof issuedAt !== "number" ||
+    !Number.isFinite(issuedAt) ||
     typeof challengeToken !== "string" ||
     typeof signature !== "string"
   ) {

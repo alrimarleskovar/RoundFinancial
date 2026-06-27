@@ -243,7 +243,97 @@ describe("email opt-in — validation", () => {
     expect(isValidEmail(`${"x".repeat(260)}@example.com`)).to.equal(false);
   });
 
+  it("rejects delimiter / injection characters (safe to persist + encode)", () => {
+    expect(isValidEmail("a@b.co|unsubscribe")).to.equal(false); // pipe → delimiter
+    expect(isValidEmail("a@b.co<script>")).to.equal(false);
+    expect(isValidEmail('"a"@b.co')).to.equal(false);
+    expect(isValidEmail("a(comment)@b.co")).to.equal(false);
+    expect(isValidEmail("a,b@c.co")).to.equal(false);
+    expect(isValidEmail("a;b@c.co")).to.equal(false);
+  });
+
   it("normalizes casing + surrounding whitespace", () => {
     expect(normalizeEmail("  Alice@Example.COM  ")).to.equal("alice@example.com");
+  });
+});
+
+describe("email opt-in — HMAC canonicalization + hardening", () => {
+  it("a crafted email can't re-split the tuple to a colliding HMAC", () => {
+    // Under a `|`-joined HMAC, an email ending in the delimiter could shift the
+    // field boundaries so a token issued for one (email, action) validated for
+    // another. JSON encoding makes the tuples serialize distinctly, so a token
+    // issued for "a@b.co" never validates for a delimiter-laden lookalike.
+    const pubkey = Keypair.generate().publicKey.toBase58();
+    const c = issueEmailChallenge({
+      secret: SECRET,
+      domain: DOMAIN,
+      pubkey,
+      email: "a@b.co",
+      action: "subscribe",
+      now: 1000,
+    });
+    const v = verifyEmailChallengeShape({
+      secret: SECRET,
+      domain: DOMAIN,
+      pubkey,
+      email: 'a@b.co","unsubscribe', // the JSON-injection attempt
+      action: "subscribe",
+      nonce: c.nonce,
+      issuedAt: c.issuedAt,
+      challengeToken: c.challengeToken,
+      now: 1000,
+    });
+    expect(v.ok).to.equal(false);
+    if (!v.ok) expect(v.reason).to.equal("bad_token");
+  });
+
+  it("rejects a nonce that isn't the issued hex shape", () => {
+    const pubkey = Keypair.generate().publicKey.toBase58();
+    const c = issueEmailChallenge({
+      secret: SECRET,
+      domain: DOMAIN,
+      pubkey,
+      email: EMAIL,
+      action: "subscribe",
+      now: 1000,
+    });
+    const v = verifyEmailChallengeShape({
+      secret: SECRET,
+      domain: DOMAIN,
+      pubkey,
+      email: EMAIL,
+      action: "subscribe",
+      nonce: "not|a|hex|nonce",
+      issuedAt: c.issuedAt,
+      challengeToken: c.challengeToken,
+      now: 1000,
+    });
+    expect(v.ok).to.equal(false);
+    if (!v.ok) expect(v.reason).to.equal("bad_token");
+  });
+
+  it("rejects a non-finite issuedAt (NaN can't slip the TTL window)", () => {
+    const pubkey = Keypair.generate().publicKey.toBase58();
+    const c = issueEmailChallenge({
+      secret: SECRET,
+      domain: DOMAIN,
+      pubkey,
+      email: EMAIL,
+      action: "subscribe",
+      now: 1000,
+    });
+    const v = verifyEmailChallengeShape({
+      secret: SECRET,
+      domain: DOMAIN,
+      pubkey,
+      email: EMAIL,
+      action: "subscribe",
+      nonce: c.nonce,
+      issuedAt: Number.NaN,
+      challengeToken: c.challengeToken,
+      now: 1000,
+    });
+    expect(v.ok).to.equal(false);
+    if (!v.ok) expect(v.reason).to.equal("expired");
   });
 });

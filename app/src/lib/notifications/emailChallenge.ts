@@ -61,6 +61,10 @@ export function buildEmailMessage(parts: EmailMessageParts): string {
   ].join("\n");
 }
 
+/** Nonce shape `issueEmailChallenge` produces: 16 random bytes as hex. Pinned
+ *  so `verify` rejects anything else up front (defense-in-depth). */
+export const EMAIL_NONCE_RE = /^[0-9a-f]{32}$/;
+
 function emailHmac(
   secret: string,
   domain: string,
@@ -70,8 +74,17 @@ function emailHmac(
   nonce: string,
   issuedAt: number,
 ): string {
+  // CANONICAL input — JSON-encode the tuple instead of `|`-joining it. `email`
+  // is attacker-controlled free text; a `|`-delimited concat let two different
+  // (email, action, nonce) tuples re-split to the same byte string (a real
+  // collision, contained today only by the ed25519 gate). JSON delimits every
+  // field with quotes and escapes any internal quote/backslash, so distinct
+  // tuples can never serialize identically — the token binds the tuple on its
+  // own, not on the signature. (Admin's HMAC stays collision-free because all
+  // its fields are pipe-free base58/hex/number; this one carries free text, so
+  // it must encode unambiguously.)
   return createHmac("sha256", secret)
-    .update(`${domain}|${pubkey}|${email}|${action}|${nonce}|${issuedAt}`)
+    .update(JSON.stringify([domain, pubkey, email, action, nonce, issuedAt]))
     .digest("hex");
 }
 
@@ -148,8 +161,21 @@ export function verifyEmailChallengeShape(args: {
   now?: number;
 }): EmailChallengeVerdict {
   const now = args.now ?? Date.now();
-  if (now - args.issuedAt > EMAIL_CHALLENGE_TTL_MS || args.issuedAt > now) {
+  // Reject a non-finite issuedAt up front: `NaN > now` and `now - NaN > TTL`
+  // are both false, so without this a NaN slips through the time window and
+  // leans entirely on the HMAC to catch it. Fail it here instead.
+  if (
+    !Number.isFinite(args.issuedAt) ||
+    now - args.issuedAt > EMAIL_CHALLENGE_TTL_MS ||
+    args.issuedAt > now
+  ) {
     return { ok: false, reason: "expired" };
+  }
+  // Nonce must be the exact shape we issue. The HMAC already binds it, but
+  // pinning the charset rejects malformed input before the constant-time
+  // compare and documents the contract.
+  if (!EMAIL_NONCE_RE.test(args.nonce)) {
+    return { ok: false, reason: "bad_token" };
   }
   const expected = emailHmac(
     args.secret,
