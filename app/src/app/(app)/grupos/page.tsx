@@ -24,6 +24,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
+import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
+
 import { Icons } from "@/components/brand/icons";
 import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
 import { NewCycleModal } from "@/components/grupos/NewCycleModal";
@@ -38,11 +40,11 @@ import {
   type Category,
   type CatalogGroup,
 } from "@/lib/groups";
-import { useI18n } from "@/lib/i18n";
+import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
 import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
-import { usePool } from "@/lib/usePool";
+import { usePool, usePoolMembers } from "@/lib/usePool";
 
 const TONE_HEX: Record<string, string> = {
   g: "#14F195",
@@ -142,8 +144,9 @@ function FilterRow({ label, children }: { label: string; children: React.ReactNo
 // live session so the eligibility badge, level gate and points-gap CTA are real.
 function GroupCard({ group }: { group: CatalogGroup }) {
   const { t, fmtMoney } = useI18n();
-  const { user, joinedGroupNames, claimedGroups } = useSession();
+  const { user, joinedGroupNames, claimedGroups, demoActive } = useSession();
   const { explorerAddr } = useWallet();
+  const adapter = useAdapterWallet();
   const [joinOpen, setJoinOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [claimOpen, setClaimOpen] = useState(false);
@@ -155,6 +158,12 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // "Formando · faltam 4" chip instead of a stale fixture count.
   const live = usePool(group.devnetPool ?? "pool1");
   const lp = group.devnetPool && live.status === "ok" && live.pool ? live.pool : null;
+  // Live roster for devnet-linked cards — used to detect "it's your turn to
+  // receive" (the connected wallet holds the slot whose index === current_cycle).
+  // Membership is read from CHAIN here, not the session `isJoined` flag, because a
+  // pool joined in a previous session won't be in `joinedGroupNames`.
+  const membersRes = usePoolMembers(group.devnetPool ?? "pool1", 30_000, !!group.devnetPool);
+  const connectedWallet = adapter.publicKey;
   const filled = lp ? lp.membersJoined : group.filled;
   const total = lp ? lp.membersTarget : group.total;
   const forming = lp ? lp.status === "forming" : false;
@@ -167,8 +176,28 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // Same gap the JoinGroupModal locked card shows: score → next tier.
   const pointsNeeded = Math.max(0, user.nextLevel - user.score);
   // Demo claim (mock mode): the user holds the contemplated slot and hasn't
-  // claimed yet this session. The on-chain claim path lives in FeaturedGroup.
+  // claimed yet this session.
   const claimReadyDemo = isJoined && !!group.contemplated && !claimedGroups.includes(group.name);
+  // Real on-chain claim surfacing — the MISSING HALF of the cycle. The cycle only
+  // advances when the slot whose index === current_cycle claims its payout, so if
+  // the app never offers that member a claim, the pool stalls forever and everyone
+  // hits the "already contributed" wall. Detect the connected wallet's member
+  // record and, when it's their turn, show a real "Receber" that fires
+  // claim_payout(cycle) in chain mode (passing memberRecord/pool/seedKey).
+  const myMember = useMemo(() => {
+    if (!group.devnetPool || !connectedWallet || membersRes.status !== "ok") return null;
+    return membersRes.members.find((m) => m.wallet.equals(connectedWallet)) ?? null;
+  }, [group.devnetPool, connectedWallet, membersRes]);
+  const claimReadyChain =
+    !demoActive &&
+    !!lp &&
+    lp.status === "active" &&
+    !!myMember &&
+    !myMember.defaulted &&
+    !myMember.paidOut &&
+    myMember.slotIndex === lp.currentCycle;
+  const claimPrizeBrl =
+    claimReadyChain && lp ? (Number(lp.creditAmount) / 1e6) * USDC_RATE : group.prize;
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/[0.08] bg-[#0C111A]/95 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
@@ -281,7 +310,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
           />
         </div>
 
-        {claimReadyDemo ? (
+        {claimReadyChain || claimReadyDemo ? (
           <button
             type="button"
             onClick={() => setClaimOpen(true)}
@@ -289,7 +318,8 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-4 py-3 text-sm font-black text-white shadow-[0_10px_30px_rgba(153,69,255,0.25)] transition hover:scale-[1.01]"
           >
             <Icons.ticket size={14} stroke="currentColor" sw={2} />{" "}
-            {t("home.featured.claimReceive")} {fmtMoney(group.prize, { noCents: true })}
+            {t("home.featured.claimReceive")}{" "}
+            {fmtMoney(claimReadyChain ? claimPrizeBrl : group.prize, { noCents: true })}
           </button>
         ) : locked ? (
           <button
@@ -323,11 +353,14 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         <JoinGroupModal group={group} open={joinOpen} onClose={() => setJoinOpen(false)} />
       )}
       <GroupDetailsModal group={group} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
-      {claimReadyDemo && (
+      {(claimReadyChain || claimReadyDemo) && (
         <ClaimPayoutModal
           group={catalogGroupToActiveGroup(group)}
           open={claimOpen}
           onClose={() => setClaimOpen(false)}
+          {...(claimReadyChain && lp && myMember && group.devnetPool
+            ? { memberRecord: myMember, pool: lp, seedKey: group.devnetPool }
+            : {})}
         />
       )}
     </article>
