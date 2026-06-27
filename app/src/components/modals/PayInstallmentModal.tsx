@@ -59,15 +59,13 @@ export function PayInstallmentModal({
   const [chainError, setChainError] = useState<string | null>(null);
 
   // ─── On-chain mode detection ─────────────────────────────────────────
-  // We attempt a real contribute() tx only when ALL of these hold:
-  //   - the fixture has a devnetPool pointer,
-  //   - usePool returns the pool live (active + cycle metadata),
-  //   - the connected wallet is one of the materialized members,
-  //   - and the user hasn't paid this cycle yet (member.contributions_paid
-  //     < pool.current_cycle + 1 → falls out of the program's WrongCycle
-  //     guard naturally).
-  // Otherwise the modal falls back to the original mock 1500ms timeout
-  // so localhost/demo flows are unchanged.
+  // `onChainReady` means: real devnet pool, active, connected wallet is a
+  // (non-defaulted) member — i.e. a real contribute() COULD fire. Whether one
+  // is actually DUE this instant is a separate check (cycle alignment, below)
+  // that gates the CTA — a member who already paid the current cycle is
+  // onChainReady but must not contribute again.
+  // Otherwise the modal falls back to the original mock 1500ms timeout so
+  // localhost/demo flows are unchanged.
   const seedKey = group.devnetPool;
   const onChainPool = usePool(seedKey ?? "pool1");
   const onChainMembers = usePoolMembers(seedKey ?? "pool1");
@@ -85,6 +83,28 @@ export function PayInstallmentModal({
     !!memberRecord &&
     !memberRecord.defaulted;
 
+  // ─── Cycle alignment: already-paid / your-turn-to-claim / behind ─────
+  // contribute(cycle) requires member.contributions_paid == pool.current_cycle,
+  // and this modal sends cycle = pool.current_cycle. So once the member has
+  // ALREADY paid the current cycle (contributions_paid > current_cycle) there
+  // is simply no installment due — the program reverts AlreadyContributed —
+  // until the slot whose index == current_cycle CLAIMS the payout and the
+  // cycle rolls over. The team hit exactly this ("paguei a 2ª parcela" →
+  // TX FAILED 0x1779); detect it and surface a clean state instead of firing
+  // a doomed tx.
+  const memberCycle = memberRecord?.contributionsPaid ?? null;
+  const poolCycle = onChainPool.status === "ok" ? (onChainPool.pool?.currentCycle ?? null) : null;
+  const aheadOfCycle = memberCycle !== null && poolCycle !== null && memberCycle > poolCycle;
+  const behindCycle = memberCycle !== null && poolCycle !== null && memberCycle < poolCycle;
+  // When paid-ahead, the cycle only rolls when slot==current_cycle claims. If
+  // that slot is the connected wallet, it's THEIR turn to receive — point them
+  // at claim, not "waiting".
+  const myTurnToClaim = aheadOfCycle && memberRecord?.slotIndex === poolCycle;
+  const claimer = useMemo(() => {
+    if (poolCycle === null || onChainMembers.status !== "ok") return null;
+    return onChainMembers.members.find((m) => m.slotIndex === poolCycle) ?? null;
+  }, [poolCycle, onChainMembers]);
+
   // ─── Real-pool guard (anti-mock) ─────────────────────────────────────
   // A group carrying a `devnetPool` pointer, on a real connected wallet
   // (NOT an admin-lab demo persona), must never fall through to the mock
@@ -94,10 +114,24 @@ export function PayInstallmentModal({
   // WHY and disable the CTA. `mockMode` (pure fixtures + demo personas)
   // keeps the original pitch flow untouched.
   const mockMode = !seedKey || demoActive;
-  const chainGate: "loading" | "forming" | "notMember" | "unavailable" | null = mockMode
+  const chainGate:
+    | "loading"
+    | "forming"
+    | "notMember"
+    | "unavailable"
+    | "alreadyPaid"
+    | "claimTurn"
+    | "behind"
+    | null = mockMode
     ? null
     : onChainReady
-      ? null
+      ? myTurnToClaim
+        ? "claimTurn"
+        : aheadOfCycle
+          ? "alreadyPaid"
+          : behindCycle
+            ? "behind"
+            : null
       : onChainPool.status === "loading"
         ? "loading"
         : onChainPool.status === "ok" && onChainPool.pool?.status !== "active"
@@ -105,6 +139,18 @@ export function PayInstallmentModal({
           : onChainPool.status === "ok" && onChainPool.pool?.status === "active" && !memberRecord
             ? "notMember"
             : "unavailable";
+
+  // Positive gates (em dia / sua vez) read green; waiting/behind read amber.
+  const gatePositive = chainGate === "alreadyPaid" || chainGate === "claimTurn";
+  const gateAccent = gatePositive ? tokens.green : tokens.amber;
+  const gateLabelKey =
+    chainGate === "alreadyPaid"
+      ? "modal.pay.gate.label.upToDate"
+      : chainGate === "claimTurn"
+        ? "modal.pay.gate.label.yourTurn"
+        : chainGate === "behind"
+          ? "modal.pay.gate.label.behind"
+          : "modal.pay.gate.label";
 
   // `group` is the static fixture; live progress comes from session.
   // effectiveMonth is the month the user is *about to pay for*. When
@@ -414,8 +460,10 @@ export function PayInstallmentModal({
             })}
           </div>
 
-          {/* On-chain mode banner — only when wallet matches a pool member */}
-          {onChainReady && memberRecord && onChainPool.pool ? (
+          {/* On-chain mode banner — only when wallet matches a pool member AND
+              a contribution is actually due (not gated by already-paid / claim
+              turn / behind), so it never implies a payment the CTA won't fire. */}
+          {onChainReady && !chainGate && memberRecord && onChainPool.pool ? (
             <div
               style={{
                 marginBottom: 14,
@@ -512,20 +560,22 @@ export function PayInstallmentModal({
                 marginBottom: 14,
                 padding: "10px 12px",
                 borderRadius: 10,
-                background: `${tokens.amber}14`,
-                border: `1px solid ${tokens.amber}33`,
+                background: `${gateAccent}14`,
+                border: `1px solid ${gateAccent}33`,
                 display: "flex",
                 gap: 10,
                 alignItems: "flex-start",
               }}
             >
-              <MonoLabel size={9} color={tokens.amber}>
-                {t("modal.pay.gate.label")}
+              <MonoLabel size={9} color={gateAccent}>
+                {t(gateLabelKey)}
               </MonoLabel>
               <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
                 {t(`modal.pay.gate.${chainGate}`, {
                   filled: onChainPool.pool?.membersJoined ?? 0,
                   target: onChainPool.pool?.membersTarget ?? group.total,
+                  slot: poolCycle ?? 0,
+                  claimer: claimer ? shortAddr(claimer.wallet.toBase58()) : "—",
                 })}
               </span>
             </div>
@@ -536,7 +586,7 @@ export function PayInstallmentModal({
               has a reference to cross-check Phantom's prompt against
               (phishing-resistance). Hidden in mock mode since no real
               tx fires. */}
-          {onChainReady && !blocked && (
+          {onChainReady && !blocked && !chainGate && (
             <IntentPanel
               action="contribute"
               amountUsdc={Number(onChainPool.pool!.installmentAmount) / 1e6}
