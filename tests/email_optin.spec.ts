@@ -202,17 +202,17 @@ describe("email opt-in — signature over the issued message", () => {
 describe("email opt-in — in-memory store", () => {
   beforeEach(() => __resetEmailStoreForTest());
 
-  it("subscribe binds an opted-in email; get returns it", async () => {
+  it("subscribe binds an opted-in email + lang; get returns it", async () => {
     const store = getEmailStore();
-    await store.subscribe("walletA", EMAIL, "tok1");
-    expect(await store.get("walletA")).to.deep.equal({ email: EMAIL, optedIn: true });
+    await store.subscribe("walletA", EMAIL, "tok1", "pt");
+    expect(await store.get("walletA")).to.deep.equal({ email: EMAIL, optedIn: true, lang: "pt" });
   });
 
   it("unsubscribe flips opted-in to false and returns true", async () => {
     const store = getEmailStore();
-    await store.subscribe("walletA", EMAIL, "tok1");
+    await store.subscribe("walletA", EMAIL, "tok1", "en");
     expect(await store.unsubscribe("walletA", "tok2")).to.equal(true);
-    expect(await store.get("walletA")).to.deep.equal({ email: EMAIL, optedIn: false });
+    expect(await store.get("walletA")).to.deep.equal({ email: EMAIL, optedIn: false, lang: "en" });
   });
 
   it("unsubscribe of an unknown wallet returns false", async () => {
@@ -220,12 +220,16 @@ describe("email opt-in — in-memory store", () => {
     expect(await store.unsubscribe("nobody", "tok")).to.equal(false);
   });
 
-  it("re-subscribe is an idempotent upsert (latest email wins, opted back in)", async () => {
+  it("re-subscribe is an idempotent upsert (latest email + lang win, opted back in)", async () => {
     const store = getEmailStore();
-    await store.subscribe("walletA", EMAIL, "tok1");
+    await store.subscribe("walletA", EMAIL, "tok1", "pt");
     await store.unsubscribe("walletA", "tok2");
-    await store.subscribe("walletA", "bob@example.com", "tok3");
-    expect(await store.get("walletA")).to.deep.equal({ email: "bob@example.com", optedIn: true });
+    await store.subscribe("walletA", "bob@example.com", "tok3", "en");
+    expect(await store.get("walletA")).to.deep.equal({
+      email: "bob@example.com",
+      optedIn: true,
+      lang: "en",
+    });
   });
 });
 

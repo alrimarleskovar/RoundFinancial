@@ -20,11 +20,13 @@
 export interface EmailSubscriptionRecord {
   email: string;
   optedIn: boolean;
+  /** Preferred email language ("pt" | "en"). */
+  lang: string;
 }
 
 export interface EmailSubscriptionStore {
   /** Bind (or re-bind) an email to a wallet, opted-in. Idempotent upsert. */
-  subscribe(wallet: string, email: string, token: string): Promise<void>;
+  subscribe(wallet: string, email: string, token: string, lang: string): Promise<void>;
   /** Mark a wallet opted-out (row kept for audit). Returns false if the wallet
    *  had no subscription to begin with. */
   unsubscribe(wallet: string, token: string): Promise<boolean>;
@@ -38,12 +40,13 @@ interface MemRow {
   email: string;
   optedIn: boolean;
   lastToken: string;
+  lang: string;
 }
 const rows = new Map<string, MemRow>();
 
 const inMemoryStore: EmailSubscriptionStore = {
-  async subscribe(wallet, email, token) {
-    rows.set(wallet, { email, optedIn: true, lastToken: token });
+  async subscribe(wallet, email, token, lang) {
+    rows.set(wallet, { email, optedIn: true, lastToken: token, lang });
   },
   async unsubscribe(wallet, token) {
     const row = rows.get(wallet);
@@ -53,20 +56,20 @@ const inMemoryStore: EmailSubscriptionStore = {
   },
   async get(wallet) {
     const row = rows.get(wallet);
-    return row ? { email: row.email, optedIn: row.optedIn } : null;
+    return row ? { email: row.email, optedIn: row.optedIn, lang: row.lang } : null;
   },
 };
 
 // ─── Postgres backend (opt-in) ───────────────────────────────────────────
 
 const postgresStore: EmailSubscriptionStore = {
-  async subscribe(wallet, email, token) {
+  async subscribe(wallet, email, token, lang) {
     const { getPrisma } = await import("@roundfi/indexer/db");
     const prisma = getPrisma();
     await prisma.emailSubscription.upsert({
       where: { wallet },
-      create: { wallet, email, optedIn: true, lastToken: token },
-      update: { email, optedIn: true, lastToken: token },
+      create: { wallet, email, optedIn: true, lastToken: token, lang },
+      update: { email, optedIn: true, lastToken: token, lang },
     });
   },
   async unsubscribe(wallet, token) {
@@ -84,7 +87,7 @@ const postgresStore: EmailSubscriptionStore = {
     const prisma = getPrisma();
     const row = await prisma.emailSubscription.findUnique({
       where: { wallet },
-      select: { email: true, optedIn: true },
+      select: { email: true, optedIn: true, lang: true },
     });
     return row ?? null;
   },

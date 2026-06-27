@@ -69,7 +69,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  const { pubkey, email, action, nonce, issuedAt, challengeToken, signature } = body as {
+  const { pubkey, email, action, nonce, issuedAt, challengeToken, signature, lang } = body as {
     pubkey?: unknown;
     email?: unknown;
     action?: unknown;
@@ -77,6 +77,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     issuedAt?: unknown;
     challengeToken?: unknown;
     signature?: unknown;
+    lang?: unknown;
   };
   if (
     typeof pubkey !== "string" ||
@@ -94,6 +95,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid_email" }, { status: 400 });
   }
   const normEmail = normalizeEmail(email);
+  // Delivery-language preference — only pt/en supported, default pt. Optional
+  // and NOT bound by the signature (a non-sensitive preference, not identity).
+  const prefLang = lang === "en" ? "en" : "pt";
 
   // 1. Challenge SHAPE — HMAC over (domain, pubkey, email, action, nonce,
   //    issuedAt) + TTL. Single-use is enforced at step 3 (post-signature) so a
@@ -137,8 +141,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   // 4. Apply the effect.
   const store = getEmailStore();
   if (action === "subscribe") {
-    await store.subscribe(pubkey, normEmail, challengeToken);
-    return NextResponse.json({ ok: true, action, optedIn: true });
+    await store.subscribe(pubkey, normEmail, challengeToken, prefLang);
+    return NextResponse.json({ ok: true, action, optedIn: true, lang: prefLang });
   }
   const existed = await store.unsubscribe(pubkey, challengeToken);
   return NextResponse.json({ ok: true, action, optedIn: false, existed });
