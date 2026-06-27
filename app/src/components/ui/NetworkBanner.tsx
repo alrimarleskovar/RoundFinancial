@@ -46,6 +46,16 @@ export function NetworkBanner() {
   const { connection } = useConnection();
   const url = connection.rpcEndpoint;
   const cluster = classifyEndpoint(url);
+  // Display just the host (e.g. "devnet.helius-rpc.com"). The full endpoint
+  // carries a "?api-key=…" query that's noise in the chrome and shouldn't be
+  // paraded across the banner. Classification still runs on the full `url`.
+  const displayUrl = (() => {
+    try {
+      return new URL(url).host;
+    } catch {
+      return url.split("?")[0] ?? url;
+    }
+  })();
 
   // SEV-045: mainnet was previously hidden ("training to ignore"
   // argument). Flipped — banner now ALWAYS renders, mainnet variant
@@ -115,7 +125,7 @@ export function NetworkBanner() {
         size={cluster === "unknown" || cluster === "mainnet" ? 14 : 12}
         stroke={palette.iconStroke}
       />
-      <span>{t(palette.labelKey, { url })}</span>
+      <span>{t(palette.labelKey, { url: displayUrl })}</span>
     </div>
   );
 }
