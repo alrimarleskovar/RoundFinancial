@@ -41,6 +41,19 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
     setMounted(true);
   }, []);
 
+  // What the last drip moved — same breakdown PhantomFaucet shows, so the
+  // chip's airdrop pill reads "1 SOL + 6 USDC" / "6 USDC (already had SOL)"
+  // instead of a generic "sent" (a USDC-only top-up looked like a wrong faucet).
+  const drip = wallet.lastDrip;
+  const sentMsg =
+    drip && drip.sol > 0 && drip.usdc > 0
+      ? t("wallet.faucet.sentBoth", { sol: drip.sol, usdc: drip.usdc })
+      : drip && drip.usdc > 0
+        ? t("wallet.faucet.sentUsdcOnly", { usdc: drip.usdc })
+        : drip && drip.sol > 0
+          ? t("wallet.faucet.sentSolOnly", { sol: drip.sol })
+          : t("wallet.chip.airdropOk");
+
   // When the hook reports completion (success or error) AFTER we've
   // pinged it from this chip, capture the outcome and auto-clear
   // after 4 seconds.
@@ -405,7 +418,7 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
           ) : airdropResult.kind === "ok" ? (
             <>
               <Icons.check size={12} stroke={tokens.green} sw={2.4} />
-              {t("wallet.chip.airdropOk")}
+              {sentMsg}
               <a
                 href={wallet.explorerTx(airdropResult.sig)}
                 target="_blank"

@@ -17,6 +17,18 @@ export function PhantomFaucet({ wallet, tc }: { wallet: WalletView; tc: string }
   const err = wallet.lastError;
   const sig = wallet.lastTxSig;
   const rateLimited = err === "rate_limited" || err === "airdrop_limit";
+  // Spell out what the last drip actually moved. The faucet tops up only
+  // what's missing, so a wallet that already had SOL gets USDC-only — without
+  // this, that read as "wrong faucet / broken" to testers.
+  const drip = wallet.lastDrip;
+  const sentMsg =
+    drip && drip.sol > 0 && drip.usdc > 0
+      ? t("wallet.faucet.sentBoth", { sol: drip.sol, usdc: drip.usdc })
+      : drip && drip.usdc > 0
+        ? t("wallet.faucet.sentUsdcOnly", { usdc: drip.usdc })
+        : drip && drip.sol > 0
+          ? t("wallet.faucet.sentSolOnly", { sol: drip.sol })
+          : t("wallet.faucet.ok");
 
   return (
     <div
@@ -136,7 +148,7 @@ export function PhantomFaucet({ wallet, tc }: { wallet: WalletView; tc: string }
           }}
         >
           <Icons.check size={12} stroke={tokens.green} sw={2} />
-          <span>{t("wallet.faucet.ok")}</span>
+          <span>{sentMsg}</span>
           <a
             href={wallet.explorerTx(sig)}
             target="_blank"

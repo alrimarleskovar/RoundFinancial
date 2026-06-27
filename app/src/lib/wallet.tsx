@@ -22,6 +22,12 @@ export interface WalletView {
   network: "devnet" | "localnet" | "mainnet-beta";
   lastError: string | null;
   lastTxSig: string | null;
+  /** Amounts moved by the last successful faucet drip (whole units). The
+   *  faucet tops up ONLY what's missing, so a wallet that already holds SOL
+   *  gets `{ sol: 0, usdc: 6 }` — the UI shows exactly what was sent so a
+   *  USDC-only top-up doesn't read as "broken / wrong faucet". null until the
+   *  first successful drip. */
+  lastDrip: { sol: number; usdc: number } | null;
   airdropping: boolean;
   isInstalled: boolean;
   walletLabel: string | null;
@@ -63,6 +69,7 @@ export function useWallet(): WalletView {
   const [balance, setBalance] = useState<number | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastTxSig, setLastTxSig] = useState<string | null>(null);
+  const [lastDrip, setLastDrip] = useState<{ sol: number; usdc: number } | null>(null);
   const [airdropping, setAirdropping] = useState(false);
 
   const status: WalletStatus = adapter.connecting
@@ -187,9 +194,15 @@ export function useWallet(): WalletView {
         ok?: boolean;
         signature?: string;
         reason?: string;
+        sol?: number;
+        usdc?: number;
       };
       if (res.ok && data.ok && data.signature) {
         setLastTxSig(data.signature);
+        // Record what actually moved so PhantomFaucet can show "1 SOL + 6 USDC"
+        // vs "6 USDC (you already had SOL)" — the faucet only tops up what's
+        // missing, and a silent USDC-only drip looked like a broken faucet.
+        setLastDrip({ sol: data.sol ?? 0, usdc: data.usdc ?? 0 });
         setAirdropping(false);
         refresh();
         return { ok: true as const, signature: data.signature };
@@ -249,6 +262,7 @@ export function useWallet(): WalletView {
       network: net.id,
       lastError,
       lastTxSig,
+      lastDrip,
       airdropping,
       isInstalled,
       walletLabel,
@@ -269,6 +283,7 @@ export function useWallet(): WalletView {
       net.id,
       lastError,
       lastTxSig,
+      lastDrip,
       airdropping,
       isInstalled,
       walletLabel,
