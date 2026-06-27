@@ -10,8 +10,9 @@ import { useT } from "@/lib/i18n";
 // SideNav is gone. Same routes / icons / labels as the old sidebar
 // (Icons.* + the shared nav.* dict keys), rendered as loose pills with a
 // green active state. Used by the TopBar (every dashboard route) and the
-// /home-v2 header so the two stay identical. Labels show from xl up;
-// narrower viewports fall back to icon-only.
+// /home-v2 header so the two stay identical. Labels show from 2xl up (the
+// full labelled bar needs ~1450px before it crowds the logo/controls);
+// narrower viewports fall back to icon-only, and below that the row scrolls.
 
 const ITEMS = [
   { id: "home", href: "/home", icon: Icons.home, labelKey: "nav.home", matchPrefix: "/home" },
@@ -56,21 +57,27 @@ export function SessionNav({ className = "" }: { className?: string }) {
   const pathname = usePathname();
   const t = useT();
   return (
-    <nav className={`flex items-center justify-center gap-2 xl:gap-6 min-w-0 ${className}`}>
+    <nav
+      // Scrollable strip: when the labelled/icon row is wider than the space
+      // between the logo and the controls (mobile, or heavy zoom), it scrolls
+      // horizontally instead of overlapping its neighbours. Centered once it
+      // fits (lg+); scrollbar hidden for clean chrome.
+      className={`flex min-w-0 items-center justify-start gap-1 overflow-x-auto sm:gap-2 lg:justify-center 2xl:gap-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
+    >
       {ITEMS.map((item) => {
         const active = pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
         return (
           <Link
             key={item.id}
             href={item.href}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-2.5 py-2 transition-all sm:px-3 ${
               active
                 ? "bg-[#14F195] text-black shadow-[0_0_20px_rgba(20,241,149,0.3)]"
                 : "text-gray-400 hover:bg-white/10 hover:text-white"
             }`}
           >
             <item.icon size={16} sw={active ? 2 : 1.7} />
-            <span className="hidden text-xs font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] xl:inline">
+            <span className="hidden text-xs font-bold uppercase tracking-[0.12em] [font-family:var(--font-jetbrains-mono)] 2xl:inline">
               {t(item.labelKey)}
             </span>
           </Link>
