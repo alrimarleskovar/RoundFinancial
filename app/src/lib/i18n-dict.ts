@@ -1048,7 +1048,11 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.gate.alreadyMember": "Você já é membro desta pool.",
     "modal.join.gate.closed": "Pool cheia ou já ativa — entradas encerradas.",
     "modal.join.gate.insufficientUsdc":
-      "Saldo USDC insuficiente — você precisa de ~{n} USDC de stake pra entrar. Use o faucet (botão da carteira) e tente de novo.",
+      "Saldo USDC insuficiente — você precisa de ~{n} USDC de stake pra entrar. Clique em Receber (faucet) no card da carteira: ele cria sua conta de token USDC e te dá saldo. Depois tente de novo.",
+    "modal.join.gate.checkingUsdc":
+      "Conferindo seu saldo USDC nesta carteira… Se você ainda não recebeu USDC, clique em Receber (faucet) primeiro — isso cria sua conta de token USDC.",
+    "modal.join.err.noUsdc":
+      "Esta carteira ainda não tem USDC (nem a conta de token). O stake da pool é pago em USDC, então primeiro clique em Receber (faucet) no card da carteira — ele cria sua conta de token e te dá saldo — e tente entrar de novo.",
     "modal.join.success.title": "Bem-vindo ao grupo",
     "modal.join.success.body": "Sua cota foi mintada como NFT. O escrow começa no próximo ciclo.",
     "modal.join.success.cta": "Ver no painel",
@@ -1151,6 +1155,13 @@ export const DICT: Record<Lang, Dict> = {
     "groups.details.months": "{m} meses",
     "groups.details.fill": "Preenchimento",
     "groups.details.fillLabel": "Capacidade",
+    "groups.details.forming.title": "Pool em formação",
+    "groups.details.forming.line": "{f}/{t} membros entraram · faltam {r} para iniciar",
+    "groups.details.forming.prep":
+      "Assim que a pool fechar, o ciclo 1 começa e sua 1ª parcela vence em ~{d} dias. Prepare seu USDC para pagar no dia certo.",
+    "groups.details.active.title": "Pool ativa",
+    "groups.details.active.line": "Ciclo {c} de {t} em andamento",
+    "groups.details.active.next": "Sua próxima parcela vence em ~{d} dias.",
     "groups.details.activity": "Atividade no seu ledger",
     "groups.details.activityEmpty":
       "Ainda não há eventos atrelados a este grupo neste session. Pague uma parcela ou negocie cotas para ver registros aqui.",
@@ -1182,6 +1193,8 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.joined": "Participando",
     "groupsV2.card.months": "{n} meses",
     "groupsV2.card.spots": "{m}m • {f}/{t} cotas",
+    "groupsV2.card.forming": "Formando {f}/{t} · faltam {r}",
+    "groupsV2.card.active": "Ativa",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
     "groupsV2.footer.note":
       "Sua reputação e nível de acesso determinam os grupos disponíveis para você.",
@@ -2750,7 +2763,11 @@ export const DICT: Record<Lang, Dict> = {
     "modal.join.gate.alreadyMember": "You are already a member of this pool.",
     "modal.join.gate.closed": "Pool is full or already active — joining is closed.",
     "modal.join.gate.insufficientUsdc":
-      "Not enough USDC — you need ~{n} USDC of stake to join. Use the faucet (wallet button) and try again.",
+      "Not enough USDC — you need ~{n} USDC of stake to join. Click Receive (faucet) on the wallet card: it creates your USDC token account and funds it. Then try again.",
+    "modal.join.gate.checkingUsdc":
+      "Checking your USDC balance on this wallet… If you haven't received USDC yet, click Receive (faucet) first — it creates your USDC token account.",
+    "modal.join.err.noUsdc":
+      "This wallet has no USDC yet (not even the token account). The pool stake is paid in USDC, so first click Receive (faucet) on the wallet card — it creates your token account and funds it — then try joining again.",
     "modal.join.success.title": "Welcome to the group",
     "modal.join.success.body": "Your share was minted as an NFT. Escrow starts next cycle.",
     "modal.join.success.cta": "Go to dashboard",
@@ -2852,6 +2869,13 @@ export const DICT: Record<Lang, Dict> = {
     "groups.details.months": "{m} months",
     "groups.details.fill": "Filled",
     "groups.details.fillLabel": "Capacity",
+    "groups.details.forming.title": "Pool forming",
+    "groups.details.forming.line": "{f}/{t} members joined · {r} more to start",
+    "groups.details.forming.prep":
+      "Once the pool fills, cycle 1 begins and your first installment is due in ~{d} days. Get your USDC ready so you pay on time.",
+    "groups.details.active.title": "Pool active",
+    "groups.details.active.line": "Cycle {c} of {t} in progress",
+    "groups.details.active.next": "Your next installment is due in ~{d} days.",
     "groups.details.activity": "Your ledger activity",
     "groups.details.activityEmpty":
       "No events tied to this group yet in this session. Pay an installment or trade shares to see records here.",
@@ -2883,6 +2907,8 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.joined": "Joined",
     "groupsV2.card.months": "{n} months",
     "groupsV2.card.spots": "{m}m • {f}/{t} shares",
+    "groupsV2.card.forming": "Forming {f}/{t} · {r} to go",
+    "groupsV2.card.active": "Active",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
     "groupsV2.footer.note":
       "Your reputation and access level determine which groups are available to you.",

@@ -129,10 +129,21 @@ export function JoinGroupModal({
       ? (Number(onChainPool.pool.creditAmount) / 1e6) *
         ((STAKE_BPS_BY_LEVEL[level] ?? 5000) / 10000)
       : 0;
+  // The stake is pulled from the member's USDC ATA. A wallet that never held
+  // USDC has NO token account, so join_pool can't load it and the dry-run
+  // reverts with a cryptic `AccountNotFound` (a fresh teammate hit exactly
+  // this). So we must POSITIVELY confirm the wallet holds the stake before
+  // enabling the CTA — never sign on a balance we couldn't read:
+  //   • usdc ok & enough  → enabled
+  //   • usdc ok & short/0 → insufficientUsdc (this also covers the missing-ATA
+  //                         case, since a wallet with no ATA reads as 0)
+  //   • usdc loading/blip → checkingUsdc (disabled until the read resolves —
+  //                         closes the race that let the fresh wallet sign)
   const usdcShort =
     onChainReady && usdc.status === "ok" && (usdc.uiAmount ?? 0) < requiredStakeUsdc;
+  const usdcChecking = onChainReady && usdc.status !== "ok";
   // Effective block: the pool-state gate, or — when the pool IS joinable —
-  // an insufficient-USDC stop.
+  // an insufficient-USDC / balance-not-yet-confirmed stop.
   const effectiveGate:
     | "loading"
     | "noWallet"
@@ -140,7 +151,20 @@ export function JoinGroupModal({
     | "closed"
     | "unavailable"
     | "insufficientUsdc"
-    | null = joinGate ?? (usdcShort ? "insufficientUsdc" : null);
+    | "checkingUsdc"
+    | null = joinGate ?? (usdcShort ? "insufficientUsdc" : usdcChecking ? "checkingUsdc" : null);
+
+  // Live fill for devnet pools — the static catalog `filled` is a fixture
+  // (often 0). Show the real members_joined / target so the joiner sees how
+  // full the pool actually is (e.g. "1/5 cotas") instead of a stale 0.
+  const liveFilled =
+    seedKey && onChainPool.status === "ok" && onChainPool.pool
+      ? onChainPool.pool.membersJoined
+      : (group?.filled ?? 0);
+  const liveTotal =
+    seedKey && onChainPool.status === "ok" && onChainPool.pool
+      ? onChainPool.pool.membersTarget
+      : (group?.total ?? 0);
 
   const reset = () => {
     setSubmitting(false);
@@ -199,9 +223,18 @@ export function JoinGroupModal({
         if (Array.isArray(e.logs) && e.logs.length > 0) parts.push("logs:\n" + e.logs.join("\n"));
         if (e.cause) parts.push("cause: " + String(e.cause));
         if (parts.length === 0) parts.push(String(err));
+        const blob = parts.join("\n");
+        // Translate the one failure a fresh tester actually hits into plain
+        // language. `AccountNotFound` ⇒ the wallet has no USDC token account
+        // (never received USDC); `InsufficientStake`/0x1770 ⇒ it has the ATA
+        // but not enough USDC for the stake. Both resolve with one faucet
+        // click (the faucet creates the ATA + funds it). Anything else keeps
+        // the raw diagnostic blob.
+        const looksLikeNoUsdc =
+          /AccountNotFound|could not find account|InsufficientStake|0x1770/i.test(blob);
         // eslint-disable-next-line no-console
         console.error("[RoundFi] join_pool failed:", err);
-        setChainError(parts.join("\n"));
+        setChainError(looksLikeNoUsdc ? t("modal.join.err.noUsdc") : blob);
         setSubmitting(false);
       }
       return;
@@ -434,7 +467,7 @@ export function JoinGroupModal({
                   fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
-                Lv.{group.level} · {group.filled}/{group.total} cotas
+                Lv.{group.level} · {liveFilled}/{liveTotal} cotas
               </div>
             </div>
           </div>
