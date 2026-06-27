@@ -507,6 +507,39 @@ model AdminRateLimitHit {
   @@map("admin_rate_limit_hits")
 }
 
+// ─── Email notifications opt-in (devnet-first, env-flagged) ──────────────
+//
+// One row per wallet that registered an email for protocol notifications
+// (due-date reminders, new pools, score changes). The binding is proven by
+// a SIWS signature over a message naming both the wallet AND the email
+// (see app/src/lib/notifications/emailChallenge.ts) — the row is only
+// written AFTER that ed25519 check passes, so the wallet owner is the only
+// party who can bind/clear an address for their key.
+//
+// `optedIn` is a flag (not a delete) so an unsubscribe is auditable and a
+// re-subscribe is a single upsert. The whole feature is dark unless
+// EMAIL_NOTIFICATIONS_ENABLED=true, and the durable Postgres store is only
+// selected by EMAIL_SUBSCRIPTION_STORE=postgres (in-memory otherwise — the
+// prisma-free `js` CI lane never touches this table). The send side (a
+// leased indexer cron behind a swappable adapter) lands in a later PR; this
+// model + the opt-in endpoints are the cadastro foundation only.
+model EmailSubscription {
+  id String @id @default(cuid())
+  /// Solana wallet pubkey (base58) that proved ownership via SIWS.
+  wallet String @unique
+  /// Destination email for notifications (format-validated at opt-in).
+  email String
+  /// Opt-in state — false after an explicit unsubscribe (row kept for audit).
+  optedIn Boolean @default(true)
+  /// Last challenge token consumed for this binding — replay audit trail.
+  lastToken String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("email_subscriptions")
+}
+
 // ─── Reconciler leader election (Wave 9.2) ───────────────────────────────
 //
 // Single-row "lease" table that gates the reconciler daemon's periodic

@@ -175,6 +175,16 @@ jobs:
         # this lane). Sub-second.
         run: pnpm test:admin-shared-store
 
+      - name: Email opt-in challenge + store (notifications)
+        # Pins the wallet-bound email-notification opt-in (devnet-first,
+        # EMAIL_NOTIFICATIONS_ENABLED-gated): the challenge HMAC binds
+        # (domain, pubkey, email, action) so a token can't be replayed for a
+        # different email/action, a real ed25519 signature over the issued
+        # message verifies, and the in-memory store applies subscribe/
+        # unsubscribe idempotently. Pure (no Next / no DB — the Postgres
+        # backend is operator-run), sub-second.
+        run: pnpm test:email-optin
+
       - name: Harvest slippage floor (7 tests)
         # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
         # computes a LIVE min_realized_usdc floor from the expected surplus
