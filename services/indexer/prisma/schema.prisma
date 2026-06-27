@@ -529,6 +529,9 @@ model EmailSubscription {
   wallet String @unique
   /// Destination email for notifications (format-validated at opt-in).
   email String
+  /// Preferred language for the emails ("pt" | "en"). A delivery preference,
+  /// NOT part of the signed challenge (not security-sensitive), defaulted PT.
+  lang String @default("pt")
   /// Opt-in state — false after an explicit unsubscribe (row kept for audit).
   optedIn Boolean @default(true)
   /// Last challenge token consumed for this binding — replay audit trail.

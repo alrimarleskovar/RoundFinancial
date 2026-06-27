@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { ConnectionCard, type ConnSpec } from "@/components/carteira/ConnectionCard";
+import { EmailAlertsCard } from "@/components/carteira/EmailAlertsCard";
 import { useConnections, type ConnId } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
@@ -170,6 +171,9 @@ export function WalletConnections() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Email-alerts opt-in (dark unless NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED) */}
+        <EmailAlertsCard />
+
         <div
           style={{
             ...glass,
