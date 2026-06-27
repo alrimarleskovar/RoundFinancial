@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
@@ -25,7 +25,6 @@ function isTab(v: string | null): v is Tab {
 function CarteiraContent() {
   const { tokens } = useTheme();
   const { t } = useI18n();
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const wallet = useWallet();
@@ -33,13 +32,25 @@ function CarteiraContent() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
 
-  const raw = params.get("tab");
-  const tab: Tab = isTab(raw) ? raw : "overview";
+  // Tab state is LOCAL (source of truth), seeded once from the URL — NOT
+  // re-derived from useSearchParams every render and pushed through
+  // router.replace. On the statically-prerendered production page, Next 16
+  // silently DROPS a query-only router.replace when the page hydrated with a
+  // non-default ?tab= already in the URL (a deep-link or refresh on
+  // ?tab=connections — exactly where the email-alerts card lives). That froze
+  // the tab at its initial value: clicks fired but the URL/state never updated.
+  // Driving the tab locally + mirroring the URL via history.replaceState fixes
+  // the deep-link/refresh case and keeps the page static.
+  const initialRaw = params.get("tab");
+  const [tab, setTabState] = useState<Tab>(() => (isTab(initialRaw) ? initialRaw : "overview"));
 
   const setTab = (next: Tab) => {
-    const p = new URLSearchParams(params.toString());
-    p.set("tab", next);
-    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+    setTabState(next);
+    // Mirror to the URL for shareability + refresh-survival, WITHOUT the App
+    // Router (whose query-only replace is the broken path on this static page).
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `${pathname}?tab=${next}`);
+    }
   };
 
   // Connections badge: 1 (Phantom real) + N mocks marked 'connected'.
