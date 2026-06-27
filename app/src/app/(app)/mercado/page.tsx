@@ -605,11 +605,16 @@ export default function MercadoPage() {
   const scrollToHow = () =>
     document.getElementById("mv2-how")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
+  // Buy side: demo shows the pitch fixtures; a real (non-demo) wallet sees NO
+  // fictitious listings — a tester reported the fixtures reading as real cotas
+  // for sale. Real on-chain listings are a follow-up (then this becomes the
+  // live source); until then real mode is an honest empty market.
   const offers = useMemo(() => {
+    if (!demoActive) return [];
     return MARKET_OFFERS.filter(
       (offer) => category === "Todas" || categoryFor(offer.group) === category,
     ).sort((a, b) => b.disc - a.disc);
-  }, [category]);
+  }, [category, demoActive]);
 
   // Sell side = holdings minus anything already listed this session. Demo
   // shows the fixture cotas as sellable; a real wallet only its genuine
@@ -622,11 +627,15 @@ export default function MercadoPage() {
     );
   }, [listings, acquiredPositions, demoActive]);
 
-  const avgEconomy =
-    MARKET_OFFERS.reduce((sum, offer) => sum + (offer.face - offer.price), 0) /
-    MARKET_OFFERS.length;
-  const avgApy =
-    MARKET_OFFERS.reduce((sum, offer) => sum + apyFor(offer), 0) / MARKET_OFFERS.length;
+  // KPIs reflect what's actually for sale: the fixtures in demo, nothing (yet)
+  // for a real wallet — so the header never advertises a market that isn't there.
+  const statOffers = demoActive ? MARKET_OFFERS : [];
+  const avgEconomy = statOffers.length
+    ? statOffers.reduce((sum, offer) => sum + (offer.face - offer.price), 0) / statOffers.length
+    : 0;
+  const avgApy = statOffers.length
+    ? statOffers.reduce((sum, offer) => sum + apyFor(offer), 0) / statOffers.length
+    : 0;
 
   const myFaceTotal = available.reduce((sum, p) => sum + p.value, 0);
   const myResaleTotal = available.reduce(
@@ -794,13 +803,13 @@ export default function MercadoPage() {
             <MiniStat
               label={t("marketV2.kpi.disc.label")}
               value={t("marketV2.kpi.disc.value", {
-                n: Math.round(Math.max(...MARKET_OFFERS.map((o) => o.disc))),
+                n: statOffers.length ? Math.round(Math.max(...statOffers.map((o) => o.disc))) : 0,
               })}
               helper={t("marketV2.kpi.disc.helper")}
             />
             <MiniStat
               label={t("marketV2.kpi.available.label")}
-              value={`${MARKET_OFFERS.length * 4 + 3}`}
+              value={`${demoActive ? MARKET_OFFERS.length * 4 + 3 : offers.length}`}
               helper={t("marketV2.kpi.available.helper")}
               tone="cyan"
             />
@@ -852,28 +861,41 @@ export default function MercadoPage() {
               </div>
 
               <div className="flex flex-col gap-2">
-                {offers.map((offer) => (
-                  <OfferRow
-                    key={offer.id}
-                    offer={offer}
-                    onBuy={setBuying}
-                    purchased={purchasedSet.has(offer.id)}
-                  />
-                ))}
+                {offers.length === 0 ? (
+                  <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5 py-12 text-center text-sm leading-relaxed text-slate-400">
+                    {t("marketV2.empty")}
+                  </div>
+                ) : (
+                  offers.map((offer) => (
+                    <OfferRow
+                      key={offer.id}
+                      offer={offer}
+                      onBuy={setBuying}
+                      purchased={purchasedSet.has(offer.id)}
+                    />
+                  ))
+                )}
               </div>
 
-              <button
-                type="button"
-                onClick={scrollToHow}
-                className="mx-auto mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-sm font-bold text-slate-300 transition hover:border-white/[0.18] hover:text-white"
-              >
-                {t("marketV2.cta.seeMore")}
-                <Icons.arrow size={14} stroke="currentColor" sw={2.4} style={{ rotate: "90deg" }} />
-              </button>
+              {offers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={scrollToHow}
+                  className="mx-auto mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-3 text-sm font-bold text-slate-300 transition hover:border-white/[0.18] hover:text-white"
+                >
+                  {t("marketV2.cta.seeMore")}
+                  <Icons.arrow
+                    size={14}
+                    stroke="currentColor"
+                    sw={2.4}
+                    style={{ rotate: "90deg" }}
+                  />
+                </button>
+              )}
             </div>
 
             <div className="flex flex-col gap-5">
-              <FeaturedOfferCard onBuy={setBuying} />
+              {demoActive && <FeaturedOfferCard onBuy={setBuying} />}
               <WhyCard titleKey="marketV2.whyBuy.title" itemKeys={WHY_BUY} />
             </div>
           </section>

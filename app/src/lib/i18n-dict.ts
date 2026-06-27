@@ -432,6 +432,8 @@ export const DICT: Record<Lang, Dict> = {
     "marketV2.cta.list": "Listar agora",
     "marketV2.cta.seeAll": "Ver todas as cotas",
     "marketV2.cta.seeMore": "Ver mais oportunidades",
+    "marketV2.empty":
+      "Nenhuma cota à venda no momento. Quando alguém listar uma cota on-chain, ela aparece aqui.",
     "marketV2.featBuy.badge": "Oportunidade em destaque",
     "marketV2.featBuy.subtitle": "Desconto elevado e alta demanda por essa cota.",
     "marketV2.feat.original": "Valor original",
@@ -2162,6 +2164,8 @@ export const DICT: Record<Lang, Dict> = {
     "marketV2.cta.list": "List now",
     "marketV2.cta.seeAll": "See all shares",
     "marketV2.cta.seeMore": "See more opportunities",
+    "marketV2.empty":
+      "No shares listed for sale right now. When someone lists a cota on-chain, it shows up here.",
     "marketV2.featBuy.badge": "Featured opportunity",
     "marketV2.featBuy.subtitle": "High discount and strong demand for this share.",
     "marketV2.feat.original": "Original value",
