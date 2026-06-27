@@ -1303,18 +1303,26 @@ export const DICT: Record<Lang, Dict> = {
       "⚠ RPC DESCONHECIDO ({url}) — não é possível verificar o cluster. Confirme manualmente antes de assinar.",
     // faucet
     "wallet.faucet.title": "Faucet · Devnet",
-    "wallet.faucet.sub": "Peça SOL de teste pra executar transações em devnet.",
-    "wallet.faucet.btn": "Solicitar 1 SOL",
+    "wallet.faucet.sub":
+      "Receba SOL (taxas) + USDC (stake) de teste num clique — o faucet completa só o que falta na carteira.",
+    "wallet.faucet.btn": "Receber SOL + USDC",
     "wallet.faucet.busy": "Solicitando airdrop…",
     "wallet.faucet.ok": "Airdrop confirmado",
+    "wallet.faucet.sentBoth": "Enviado: {sol} SOL + {usdc} USDC",
+    "wallet.faucet.sentUsdcOnly": "Enviado: {usdc} USDC · você já tinha SOL suficiente",
+    "wallet.faucet.sentSolOnly": "Enviado: {sol} SOL · você já tinha USDC suficiente",
+    "wallet.faucet.sentUsdcSolLow":
+      "Enviado: {usdc} USDC · faucet sem SOL agora — pegue SOL no faucet Solana hospedado abaixo",
+    "wallet.faucet.sentSolUsdcLow":
+      "Enviado: {sol} SOL · faucet sem USDC agora — use o faucet Circle abaixo",
     "wallet.faucet.viewTx": "Ver tx no Explorer →",
     "wallet.faucet.rate":
       "Limite diário de airdrop atingido (devnet libera ~2 SOL por carteira a cada 24h). Use uma das fontes alternativas abaixo:",
     "wallet.faucet.hostedCTA": "Abrir faucet Solana",
     "wallet.faucet.failed": "Airdrop falhou: {msg}",
-    "wallet.faucet.usdcTitle": "Precisa de USDC devnet?",
+    "wallet.faucet.usdcTitle": "Faucet do app sem USDC?",
     "wallet.faucet.usdcSub":
-      "USDC devnet não é distribuído pelo RPC. Use o faucet oficial da Circle.",
+      "O botão acima já envia USDC junto com o SOL. Se o faucet do app ficar sem USDC, use o faucet oficial da Circle como reserva.",
     "wallet.faucet.usdcCTA": "Abrir faucet Circle",
     // connections
     "conn.badge": "◆ Integrações ativas",
@@ -3012,18 +3020,26 @@ export const DICT: Record<Lang, Dict> = {
     "network.banner.unknown":
       "⚠ UNKNOWN RPC ({url}) — cluster cannot be verified. Confirm manually before signing.",
     "wallet.faucet.title": "Faucet · Devnet",
-    "wallet.faucet.sub": "Get test SOL to run transactions on devnet.",
-    "wallet.faucet.btn": "Request 1 SOL",
+    "wallet.faucet.sub":
+      "Get test SOL (fees) + USDC (stake) in one click — the faucet tops up only what's missing from your wallet.",
+    "wallet.faucet.btn": "Get SOL + USDC",
     "wallet.faucet.busy": "Requesting airdrop…",
     "wallet.faucet.ok": "Airdrop confirmed",
+    "wallet.faucet.sentBoth": "Sent: {sol} SOL + {usdc} USDC",
+    "wallet.faucet.sentUsdcOnly": "Sent: {usdc} USDC · you already had enough SOL",
+    "wallet.faucet.sentSolOnly": "Sent: {sol} SOL · you already had enough USDC",
+    "wallet.faucet.sentUsdcSolLow":
+      "Sent: {usdc} USDC · faucet is out of SOL — grab SOL from the hosted Solana faucet below",
+    "wallet.faucet.sentSolUsdcLow":
+      "Sent: {sol} SOL · faucet is out of USDC — use the Circle faucet below",
     "wallet.faucet.viewTx": "View tx on Explorer →",
     "wallet.faucet.rate":
       "Daily airdrop limit hit (devnet allows ~2 SOL per wallet every 24h). Try one of the alternative faucets below:",
     "wallet.faucet.hostedCTA": "Open Solana faucet",
     "wallet.faucet.failed": "Airdrop failed: {msg}",
-    "wallet.faucet.usdcTitle": "Need devnet USDC?",
+    "wallet.faucet.usdcTitle": "App faucet out of USDC?",
     "wallet.faucet.usdcSub":
-      "Devnet USDC is not distributed by the RPC. Use Circle’s official faucet.",
+      "The button above already sends USDC alongside SOL. If the app faucet runs out of USDC, use Circle’s official faucet as a backup.",
     "wallet.faucet.usdcCTA": "Open Circle faucet",
     "conn.badge": "◆ Active integrations",
     "conn.count": "{c} of {t} connected",

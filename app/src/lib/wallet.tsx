@@ -14,6 +14,43 @@ import { decideWalletAllowlist, isHardwareWallet } from "@/lib/walletAllowlist";
 
 export type WalletStatus = "disconnected" | "connecting" | "connected" | "error";
 
+/** What a single faucet drip moved, plus whether an asset the recipient
+ *  NEEDED was skipped because the faucet keypair couldn't afford it. */
+export interface FaucetDrip {
+  sol: number;
+  usdc: number;
+  /** true ⇒ recipient was below the SOL threshold but the faucet was too low
+   *  on SOL to drip it, so only USDC went out. The UI must point at the hosted
+   *  SOL faucet — NOT claim "you already had SOL". */
+  solShort: boolean;
+  /** true ⇒ recipient needed USDC but the faucet was out of USDC. */
+  usdcShort: boolean;
+}
+
+/**
+ * Human-readable summary of a faucet drip for the success banner — shared by
+ * PhantomFaucet + WalletChip so they never drift. `t` is the i18n translator;
+ * `fallbackKey` is shown when there's no drip data yet (surfaces differ).
+ */
+export function faucetDripMessage(
+  drip: FaucetDrip | null,
+  t: (key: string, params?: Record<string, string | number>) => string,
+  fallbackKey = "wallet.faucet.ok",
+): string {
+  if (!drip) return t(fallbackKey);
+  if (drip.sol > 0 && drip.usdc > 0)
+    return t("wallet.faucet.sentBoth", { sol: drip.sol, usdc: drip.usdc });
+  if (drip.usdc > 0)
+    return drip.solShort
+      ? t("wallet.faucet.sentUsdcSolLow", { usdc: drip.usdc })
+      : t("wallet.faucet.sentUsdcOnly", { usdc: drip.usdc });
+  if (drip.sol > 0)
+    return drip.usdcShort
+      ? t("wallet.faucet.sentSolUsdcLow", { sol: drip.sol })
+      : t("wallet.faucet.sentSolOnly", { sol: drip.sol });
+  return t(fallbackKey);
+}
+
 export interface WalletView {
   status: WalletStatus;
   publicKey: string | null;
@@ -22,6 +59,12 @@ export interface WalletView {
   network: "devnet" | "localnet" | "mainnet-beta";
   lastError: string | null;
   lastTxSig: string | null;
+  /** Amounts moved by the last successful faucet drip (whole units). The
+   *  faucet tops up ONLY what's missing, so a wallet that already holds SOL
+   *  gets `{ sol: 0, usdc: 6 }` — the UI shows exactly what was sent so a
+   *  USDC-only top-up doesn't read as "broken / wrong faucet". null until the
+   *  first successful drip. */
+  lastDrip: FaucetDrip | null;
   airdropping: boolean;
   isInstalled: boolean;
   walletLabel: string | null;
@@ -63,6 +106,7 @@ export function useWallet(): WalletView {
   const [balance, setBalance] = useState<number | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastTxSig, setLastTxSig] = useState<string | null>(null);
+  const [lastDrip, setLastDrip] = useState<FaucetDrip | null>(null);
   const [airdropping, setAirdropping] = useState(false);
 
   const status: WalletStatus = adapter.connecting
@@ -187,9 +231,23 @@ export function useWallet(): WalletView {
         ok?: boolean;
         signature?: string;
         reason?: string;
+        sol?: number;
+        usdc?: number;
+        solShort?: boolean;
+        usdcShort?: boolean;
       };
       if (res.ok && data.ok && data.signature) {
         setLastTxSig(data.signature);
+        // Record what actually moved AND what was skipped because the faucet
+        // was low, so the UI shows "1 SOL + 6 USDC" / "6 USDC (already had
+        // SOL)" / "6 USDC — faucet out of SOL, use the hosted faucet" — never
+        // a silent USDC-only drip that reads as a broken faucet.
+        setLastDrip({
+          sol: data.sol ?? 0,
+          usdc: data.usdc ?? 0,
+          solShort: !!data.solShort,
+          usdcShort: !!data.usdcShort,
+        });
         setAirdropping(false);
         refresh();
         return { ok: true as const, signature: data.signature };
@@ -249,6 +307,7 @@ export function useWallet(): WalletView {
       network: net.id,
       lastError,
       lastTxSig,
+      lastDrip,
       airdropping,
       isInstalled,
       walletLabel,
@@ -269,6 +328,7 @@ export function useWallet(): WalletView {
       net.id,
       lastError,
       lastTxSig,
+      lastDrip,
       airdropping,
       isInstalled,
       walletLabel,
