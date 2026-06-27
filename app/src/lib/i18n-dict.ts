@@ -1105,6 +1105,15 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.gate.notMember": "Esta carteira não é membro desta pool no devnet.",
     "modal.pay.gate.unavailable":
       "Estado on-chain indisponível no momento. Tente novamente em instantes.",
+    "modal.pay.gate.label.upToDate": "EM DIA",
+    "modal.pay.gate.label.yourTurn": "SUA VEZ",
+    "modal.pay.gate.label.behind": "ATRASADO",
+    "modal.pay.gate.alreadyPaid":
+      "Você já pagou a parcela deste ciclo — está em dia ✓. A próxima só abre quando o membro da vez (slot {slot} · {claimer}) sacar o crédito e o ciclo virar.",
+    "modal.pay.gate.claimTurn":
+      "Você já pagou e agora é a SUA vez de receber 🎉. Saque o crédito deste ciclo pelo seu grupo — isso avança o ciclo e libera a próxima parcela pra todos.",
+    "modal.pay.gate.behind":
+      "Você está atrasado: a pool já avançou de ciclo e ficou uma parcela sua pra trás. Não dá pra pagar fora de ordem — fale com o grupo pra regularizar.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -2850,6 +2859,15 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.gate.notMember": "This wallet is not a member of this devnet pool.",
     "modal.pay.gate.unavailable":
       "On-chain state is unavailable right now. Please try again shortly.",
+    "modal.pay.gate.label.upToDate": "UP TO DATE",
+    "modal.pay.gate.label.yourTurn": "YOUR TURN",
+    "modal.pay.gate.label.behind": "BEHIND",
+    "modal.pay.gate.alreadyPaid":
+      "You've already paid this cycle's installment — you're up to date ✓. The next one only opens once it's that slot's turn (slot {slot} · {claimer}) to claim the payout and the cycle rolls over.",
+    "modal.pay.gate.claimTurn":
+      "You've paid and now it's YOUR turn to receive 🎉. Claim this cycle's payout from your group — that advances the cycle and opens the next installment for everyone.",
+    "modal.pay.gate.behind":
+      "You're behind: the pool advanced a cycle and one of your installments was left behind. You can't pay out of order — reach out to the group to sort it out.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
