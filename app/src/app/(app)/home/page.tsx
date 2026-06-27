@@ -411,8 +411,30 @@ function ExpandableMetricCard({
   );
 }
 
-function ProtectedDetails({ liveBalance }: { liveBalance: number }) {
+function ProtectedDetails({
+  liveBalance,
+  demoActive,
+}: {
+  liveBalance: number;
+  demoActive: boolean;
+}) {
   const { t, fmtMoney } = useI18n();
+  // Real wallet: no fabricated yield curve / accrued figure. The protocol's
+  // yield isn't credited to the member view yet (the bridge reports 0), so we
+  // say so honestly and show the real, live wallet balance — not a demo story.
+  if (!demoActive) {
+    return (
+      <div className="space-y-3 border-t border-white/10 pt-4">
+        <div className="flex justify-between text-xs">
+          <span className="text-gray-500">{t("homeV2.protected.realYieldLabel")}</span>
+          <span className="font-bold text-gray-400">—</span>
+        </div>
+        <p className="text-[11px] leading-relaxed text-gray-500">
+          {t("homeV2.protected.realNote", { v: fmtMoney(liveBalance) })}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4 border-t border-white/10 pt-4">
       <div className="h-16 rounded-xl bg-[linear-gradient(180deg,rgba(20,241,149,0.28),rgba(20,241,149,0.02))] p-3">
@@ -443,8 +465,33 @@ function ProtectedDetails({ liveBalance }: { liveBalance: number }) {
   );
 }
 
-function CycleValueDetails() {
+function CycleValueDetails({
+  demoActive,
+  activeCount,
+}: {
+  demoActive: boolean;
+  activeCount: number;
+}) {
   const { t } = useI18n();
+  // Real wallet: the 62/23/15 split is a demo fixture. Show the real count of
+  // active on-chain cotas + a jump into /grupos instead.
+  if (!demoActive) {
+    return (
+      <div className="space-y-3 border-t border-white/10 pt-4">
+        <p className="text-xs text-gray-400">
+          {activeCount > 0
+            ? t("homeV2.cycles.realCount", { n: activeCount })
+            : t("homeV2.cycles.realEmpty")}
+        </p>
+        <Link
+          href="/grupos"
+          className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
+        >
+          {t("homeV2.seeDetails")} <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
+        </Link>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4 border-t border-white/10 pt-4">
       <div className="flex items-center gap-4">
@@ -871,10 +918,10 @@ export default function HomePage() {
           tone="#14F195"
           title={t("homeV2.metric.balance")}
           value={fmtMoney(liveBalance)}
-          subtitle={t("homeV2.metric.balanceSub")}
+          subtitle={demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubReal")}
           icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
         >
-          <ProtectedDetails liveBalance={liveBalance} />
+          <ProtectedDetails liveBalance={liveBalance} demoActive={demoActive} />
         </ExpandableMetricCard>
 
         <ExpandableMetricCard
@@ -887,7 +934,7 @@ export default function HomePage() {
           subtitle={t("homeV2.metric.cyclesSub")}
           icon={<Glyph name="pie" color="currentColor" size={17} sw={1.9} />}
         >
-          <CycleValueDetails />
+          <CycleValueDetails demoActive={demoActive} activeCount={cycleGroups.length} />
         </ExpandableMetricCard>
 
         <ExpandableMetricCard
