@@ -543,6 +543,28 @@ model EmailSubscription {
   @@map("email_subscriptions")
 }
 
+// Dedup guard for the notification cron (PR3). One row per notification already
+// delivered, keyed by (wallet, kind, dedupeKey). The cron INSERTs before
+// sending; a unique-constraint violation (P2002) IS the "already sent, skip"
+// signal — atomic, no read-modify-write race, multi-instance safe (mirrors the
+// AdminChallenge consume-once pattern). dedupeKey makes the unit precise:
+// "<pool>:cycle<N>" for a due reminder, "<pool>" for pool-started, "<pool>" for
+// a new-group rec — so the same tick firing every few minutes can't re-send.
+model EmailSentLog {
+  id String @id @default(cuid())
+  /// Recipient wallet (the subscription key).
+  wallet String
+  /// Notification kind: "due" | "pool_started" | "new_group".
+  kind String
+  /// Unique-within-(wallet,kind) idempotency key for the specific notification.
+  dedupeKey String
+  sentAt DateTime @default(now())
+
+  @@unique([wallet, kind, dedupeKey])
+  @@index([wallet])
+  @@map("email_sent_log")
+}
+
 // ─── Reconciler leader election (Wave 9.2) ───────────────────────────────
 //
 // Single-row "lease" table that gates the reconciler daemon's periodic
