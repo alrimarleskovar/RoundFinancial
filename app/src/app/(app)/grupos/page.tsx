@@ -42,6 +42,7 @@ import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
 import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
+import { usePool } from "@/lib/usePool";
 
 const TONE_HEX: Record<string, string> = {
   g: "#14F195",
@@ -148,7 +149,16 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const [claimOpen, setClaimOpen] = useState(false);
 
   const tone = TONE_HEX[group.tone] ?? "#14F195";
-  const pct = Math.min(100, Math.round((group.filled / group.total) * 100));
+  // Live on-chain fill for devnet-linked cards (members_joined / target +
+  // Forming status). Fixtures keep their static numbers; the "pool1" arg is
+  // inert when there's no devnetPool. This is what shows a real "1/5" + a
+  // "Formando · faltam 4" chip instead of a stale fixture count.
+  const live = usePool(group.devnetPool ?? "pool1");
+  const lp = group.devnetPool && live.status === "ok" && live.pool ? live.pool : null;
+  const filled = lp ? lp.membersJoined : group.filled;
+  const total = lp ? lp.membersTarget : group.total;
+  const forming = lp ? lp.status === "forming" : false;
+  const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
   const devnetMeta = group.devnetPool ? DEVNET_POOLS[group.devnetPool] : null;
   // Joined = static fixture flag OR runtime session membership (JOIN_GROUP).
   const isJoined = group.joined || joinedGroupNames.includes(group.name);
@@ -206,21 +216,41 @@ function GroupCard({ group }: { group: CatalogGroup }) {
       <p className="mb-3 text-sm leading-relaxed text-gray-400">{t(descKeyFor(group.name))}</p>
 
       <div className="text-sm text-gray-500">
-        {t("groupsV2.card.spots", { m: group.months, f: group.filled, t: group.total })}
+        {t("groupsV2.card.spots", { m: group.months, f: filled, t: total })}
       </div>
 
-      {/* devnet pools surface their on-chain address */}
+      {/* devnet pools surface their on-chain address + live fill status */}
       {devnetMeta && (
-        <a
-          href={explorerAddr(devnetMeta.pda.toBase58())}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title={`Pool deployed on Solana devnet: ${devnetMeta.pda.toBase58()}`}
-          className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md border border-[#14F195]/40 bg-[#14F195]/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#14F195] transition hover:bg-[#14F195]/20"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-[#14F195]" /> on-chain · devnet
-        </a>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <a
+            href={explorerAddr(devnetMeta.pda.toBase58())}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title={`Pool deployed on Solana devnet: ${devnetMeta.pda.toBase58()}`}
+            className="inline-flex w-fit items-center gap-1.5 rounded-md border border-[#14F195]/40 bg-[#14F195]/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#14F195] transition hover:bg-[#14F195]/20"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[#14F195]" /> on-chain · devnet
+          </a>
+          {lp && (
+            <span
+              className="inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em]"
+              style={
+                forming
+                  ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
+                  : { borderColor: "#14F19566", background: "#14F1951a", color: "#14F195" }
+              }
+            >
+              {forming
+                ? t("groupsV2.card.forming", {
+                    f: filled,
+                    t: total,
+                    r: Math.max(0, total - filled),
+                  })
+                : t("groupsV2.card.active")}
+            </span>
+          )}
+        </div>
       )}
 
       {/* footer — pinned to the bottom so it aligns across cards */}
@@ -361,7 +391,14 @@ export default function GruposPage() {
   const enriched: CatalogGroup[] = useMemo(() => {
     const mine: ActiveGroup[] = [...(demoActive ? ACTIVE_GROUPS : []), ...joinedOnChainGroups];
     const joinedPools = new Set(mine.map((g) => g.devnetPool).filter(Boolean));
-    const discover = DISCOVER_GROUPS.filter((g) => !g.devnetPool || !joinedPools.has(g.devnetPool));
+    const discover = DISCOVER_GROUPS
+      // Real mode → only genuine on-chain pools are joinable. The static
+      // fixtures (PME, Intercâmbio, Veteranos VIP, Moto Delivery) are demo-only
+      // pitch cards; a real tester clicking them fell into a fake mock "join".
+      // Hide them unless the Demo Studio is active, so friends only ever join
+      // pools that actually exist on devnet (pool4, pool7).
+      .filter((g) => demoActive || !!g.devnetPool)
+      .filter((g) => !g.devnetPool || !joinedPools.has(g.devnetPool));
     const base: CatalogGroup[] = [...mine.map(fromActive), ...discover.map(fromDiscover)];
     if (demoGroup && !base.some((g) => g.id === demoGroup.id)) {
       return [fromActive(demoGroup), ...base];

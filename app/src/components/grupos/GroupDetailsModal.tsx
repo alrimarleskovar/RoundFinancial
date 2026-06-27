@@ -6,6 +6,7 @@ import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
+import { usePool } from "@/lib/usePool";
 
 // "Ver detalhes" panel for groups the user has already joined
 // (either via the regular Join flow or a /mercado purchase). Shows
@@ -29,8 +30,28 @@ export function GroupDetailsModal({
   const { fmtMoney } = useI18n();
   const t = useT();
   const { events } = useSession();
+  // Live on-chain state for devnet-linked groups — members joined, Forming vs
+  // Active status, and the cycle clock. The hook must run before the early
+  // return; the "pool1" arg is inert when the group isn't devnet-linked.
+  const live = usePool(group?.devnetPool ?? "pool1");
 
   if (!group) return null;
+
+  const liveOn = !!group.devnetPool && live.status === "ok" && !!live.pool;
+  const pool = liveOn ? live.pool : null;
+  // Devnet cards show REAL members_joined/target; fixtures keep their static
+  // fill. This is what lets the first joiner watch the pool fill toward start
+  // instead of staring at a stale "0/5" (or a bogus "5/5").
+  const filled = pool ? pool.membersJoined : group.filled;
+  const total = pool ? pool.membersTarget : group.total;
+  const forming = pool ? pool.status === "forming" : false;
+  const active = pool ? pool.status === "active" : false;
+  const remaining = Math.max(0, total - filled);
+  const cycleDays = pool ? Math.max(1, Math.round(Number(pool.cycleDurationSec) / 86_400)) : 0;
+  const nextDueDays =
+    pool && active && pool.nextCycleAt > 0n
+      ? Math.max(0, Math.ceil((Number(pool.nextCycleAt) * 1000 - Date.now()) / 86_400_000))
+      : null;
 
   const tc = ((): string => {
     switch (group.tone) {
@@ -47,7 +68,7 @@ export function GroupDetailsModal({
     }
   })();
 
-  const fillPct = (group.filled / group.total) * 100;
+  const fillPct = total > 0 ? (filled / total) * 100 : 0;
   const groupEvents = events.filter(
     (e) =>
       e.target.toLowerCase().includes(group.name.toLowerCase()) ||
@@ -62,8 +83,8 @@ export function GroupDetailsModal({
       title={group.name}
       subtitle={t("groups.details.subtitle", {
         m: group.months,
-        f: group.filled,
-        total: group.total,
+        f: filled,
+        total,
       })}
       width={560}
     >
@@ -161,12 +182,52 @@ export function GroupDetailsModal({
           value={t("groups.details.months", { m: group.months })}
           color={tokens.text2}
         />
-        <Stat
-          label={t("groups.details.fill")}
-          value={`${group.filled}/${group.total}`}
-          color={tokens.text2}
-        />
+        <Stat label={t("groups.details.fill")} value={`${filled}/${total}`} color={tokens.text2} />
       </div>
+
+      {/* On-chain status — Forming progress (how full, how many to start, when
+          the first installment lands) or the Active cycle clock. Devnet pools
+          only; the whole point is letting the joiner PREPARE instead of being
+          surprised by a payment they didn't expect. */}
+      {pool && (forming || active) ? (
+        <div
+          style={{
+            marginTop: 14,
+            padding: 14,
+            borderRadius: 12,
+            background: forming ? `${tokens.amber}12` : `${tokens.green}12`,
+            border: `1px solid ${forming ? tokens.amber : tokens.green}33`,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 999,
+                background: forming ? tokens.amber : tokens.green,
+                boxShadow: `0 0 8px ${forming ? tokens.amber : tokens.green}`,
+              }}
+            />
+            <MonoLabel size={9} color={forming ? tokens.amber : tokens.green}>
+              {forming ? t("groups.details.forming.title") : t("groups.details.active.title")}
+            </MonoLabel>
+          </div>
+          <div style={{ fontSize: 12, color: tokens.text, fontWeight: 600 }}>
+            {forming
+              ? t("groups.details.forming.line", { f: filled, t: total, r: remaining })
+              : t("groups.details.active.line", { c: pool.currentCycle + 1, t: total })}
+          </div>
+          <div style={{ fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+            {forming
+              ? t("groups.details.forming.prep", { d: cycleDays })
+              : t("groups.details.active.next", { d: nextDueDays ?? cycleDays })}
+          </div>
+        </div>
+      ) : null}
 
       {/* Fill bar */}
       <div style={{ marginTop: 14 }}>
