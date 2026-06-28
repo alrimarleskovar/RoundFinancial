@@ -6,6 +6,7 @@ import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
+import { useMyDevnetTxHistory } from "@/lib/useMyDevnetTxHistory";
 import { usePool } from "@/lib/usePool";
 
 // "Ver detalhes" panel for groups the user has already joined
@@ -34,6 +35,10 @@ export function GroupDetailsModal({
   // Active status, and the cycle clock. The hook must run before the early
   // return; the "pool1" arg is inert when the group isn't devnet-linked.
   const live = usePool(group?.devnetPool ?? "pool1");
+  // Durable on-chain ledger for THIS pool (Member-PDA scan), so the activity
+  // list survives a reload and shows real payments — not just this session's
+  // optimistic events.
+  const history = useMyDevnetTxHistory();
 
   if (!group) return null;
 
@@ -75,6 +80,18 @@ export function GroupDetailsModal({
       (group.name.toLowerCase().includes("·") &&
         e.target.toLowerCase().includes(group.name.split("·")[0]!.trim().toLowerCase())),
   );
+
+  // Unified ledger: durable on-chain rows for this pool first (the source of
+  // truth), then session events the chain scan hasn't caught yet (deduped by
+  // signature), newest-first.
+  const realLedger = (
+    group.devnetPool ? history.txs.filter((tx) => tx.seedKey === group.devnetPool) : []
+  ).map((tx) => ({ id: tx.addr, label: tx.label, amountBrl: tx.amount, ts: tx.ts ?? 0 }));
+  const realSigs = new Set(realLedger.map((r) => r.id));
+  const sessionLedger = groupEvents
+    .filter((e) => !realSigs.has(e.txid))
+    .map((e) => ({ id: e.id, label: kindLabel(e.kind, t), amountBrl: e.amountBrl, ts: e.ts ?? 0 }));
+  const ledgerRows = [...realLedger, ...sessionLedger].sort((a, b) => b.ts - a.ts).slice(0, 6);
 
   return (
     <Modal
@@ -282,7 +299,7 @@ export function GroupDetailsModal({
         <MonoLabel size={9} color={tokens.muted}>
           {t("groups.details.activity")}
         </MonoLabel>
-        {groupEvents.length === 0 ? (
+        {ledgerRows.length === 0 ? (
           <div
             style={{
               marginTop: 10,
@@ -302,9 +319,9 @@ export function GroupDetailsModal({
               gap: 8,
             }}
           >
-            {groupEvents.slice(0, 5).map((e) => (
+            {ledgerRows.map((row) => (
               <div
-                key={e.id}
+                key={row.id}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -314,16 +331,16 @@ export function GroupDetailsModal({
                   lineHeight: 1.4,
                 }}
               >
-                <span>{kindLabel(e.kind, t)}</span>
+                <span>{row.label}</span>
                 <span
                   style={{
                     fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                    color: e.amountBrl >= 0 ? tokens.green : tokens.text,
+                    color: row.amountBrl >= 0 ? tokens.green : tokens.text,
                     fontWeight: 600,
                   }}
                 >
-                  {e.amountBrl >= 0 ? "+" : ""}
-                  {fmtMoney(e.amountBrl, { noCents: true, signed: true })}
+                  {row.amountBrl >= 0 ? "+" : ""}
+                  {fmtMoney(row.amountBrl, { noCents: true, signed: true })}
                 </span>
               </div>
             ))}

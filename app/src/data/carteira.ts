@@ -121,6 +121,9 @@ export interface Transaction {
    *  mixed feed (session ledger + Member-PDA history + plain transfers)
    *  chronologically. Absent on static demo fixtures. */
   ts?: number;
+  /** Devnet pool this row belongs to, set on Member-PDA history rows so a
+   *  consumer (e.g. GroupDetailsModal) can filter the feed to a single pool. */
+  seedKey?: DevnetPoolKey;
 }
 
 export const TX_LIST: Transaction[] = [

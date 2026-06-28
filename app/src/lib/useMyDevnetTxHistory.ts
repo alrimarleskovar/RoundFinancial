@@ -106,6 +106,7 @@ export function useMyDevnetTxHistory(refreshMs = 30_000): UseTxHistoryResult {
             amount: e.isJoin ? 0 : -(meta?.installment ?? 0),
             ts: e.blockTime ? e.blockTime * 1000 : 0,
             date: e.blockTime ? relative(e.blockTime * 1000) : "—",
+            seedKey: e.key,
           };
         });
       setState({ status: "ok", txs });
