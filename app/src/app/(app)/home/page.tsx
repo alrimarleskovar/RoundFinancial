@@ -414,14 +414,18 @@ function ExpandableMetricCard({
 function ProtectedDetails({
   liveBalance,
   demoActive,
+  lockedUsdc,
 }: {
   liveBalance: number;
   demoActive: boolean;
+  lockedUsdc: number;
 }) {
   const { t, fmtMoney } = useI18n();
   // Real wallet: no fabricated yield curve / accrued figure. The protocol's
   // yield isn't credited to the member view yet (the bridge reports 0), so we
   // say so honestly and show the real, live wallet balance — not a demo story.
+  // Plus the real collateral locked across the wallet's pools (committed, not
+  // spendable) so "protegido" reflects the full on-chain commitment.
   if (!demoActive) {
     return (
       <div className="space-y-3 border-t border-white/10 pt-4">
@@ -429,6 +433,18 @@ function ProtectedDetails({
           <span className="text-gray-500">{t("homeV2.protected.realYieldLabel")}</span>
           <span className="font-bold text-gray-400">—</span>
         </div>
+        {lockedUsdc > 0 && (
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-500">{t("homeV2.protected.locked")}</span>
+            <span className="font-bold text-[#9945FF]">
+              {lockedUsdc.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              USDC
+            </span>
+          </div>
+        )}
         <p className="text-[11px] leading-relaxed text-gray-500">
           {t("homeV2.protected.realNote", { v: fmtMoney(liveBalance) })}
         </p>
@@ -829,6 +845,13 @@ export default function HomePage() {
   // join_pool() shows up here as a live cycle (read from chain, not the session
   // mock). Empty for a fresh wallet.
   const realPositions = useMyDevnetPositions();
+  // Total collateral (stake + escrow) locked across the wallet's live cotas —
+  // committed to the protocol, not in the wallet. Surfaced in the "Saldo
+  // protegido" tile so it reflects the full on-chain commitment.
+  const lockedUsdc = useMemo(
+    () => realPositions.reduce((s, p) => s + (p.locked ?? 0), 0),
+    [realPositions],
+  );
   const joinedOnChainGroups = useMemo<ActiveGroup[]>(() => {
     const activePools = new Set(ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean));
     const seen = new Set<string>();
@@ -970,7 +993,11 @@ export default function HomePage() {
           subtitle={demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubReal")}
           icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
         >
-          <ProtectedDetails liveBalance={liveBalance} demoActive={demoActive} />
+          <ProtectedDetails
+            liveBalance={liveBalance}
+            demoActive={demoActive}
+            lockedUsdc={lockedUsdc}
+          />
         </ExpandableMetricCard>
 
         <ExpandableMetricCard

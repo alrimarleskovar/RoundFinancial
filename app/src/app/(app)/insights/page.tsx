@@ -718,11 +718,17 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
     const tEnd = history[history.length - 1]!.t;
     const tSpan = tEnd - t0 || 1;
     const ySpan = yMax - yMin || 1;
-    const xOf = (tt: number) => ((tt - t0) / tSpan) * 600;
-    const yOf = (s: number) => (1 - (s - yMin) / ySpan) * 220;
+    // Inset the plot so the curve + end dot clear the rounded box edges — and
+    // so the dot lands exactly on the line tip instead of being clamped ~8px
+    // inward of a full-bleed right edge (the "bolinha deslocada").
+    const PAD_X = 18;
+    const PAD_Y = 16;
+    const xOf = (tt: number) => PAD_X + ((tt - t0) / tSpan) * (600 - 2 * PAD_X);
+    const yOf = (s: number) => PAD_Y + (1 - (s - yMin) / ySpan) * (220 - 2 * PAD_Y);
     const coords = history.map((p) => [xOf(p.t), yOf(p.score)] as const);
     const line = coords.map(([x, y]) => `${x},${y}`).join(" ");
     const last = coords[coords.length - 1]!;
+    const first = coords[0]!;
     // Tier thresholds that fall inside the visible window get a guide line.
     const guides = PASSPORT_TIERS.filter((tt) => tt.min > yMin && tt.min < yMax).map((tt) => ({
       level: tt.level,
@@ -730,7 +736,7 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
       topPct: (yOf(tt.min) / 220) * 100,
       name: t(TIER_KEYS[tt.level]),
     }));
-    return { t0, tEnd, line, area: `0,220 ${line} 600,220`, last, guides };
+    return { t0, tEnd, line, area: `${first[0]},220 ${line} ${last[0]},220`, last, guides };
   }, [hasCurve, history, yMin, yMax, t]);
 
   return (
