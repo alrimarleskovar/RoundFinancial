@@ -747,19 +747,21 @@ export function SessionProvider({
       return;
     }
 
-    // A plain wallet transfer reuses the `payment` kind (same ledger shape)
-    // but isn't a "Parcela" — label it honestly as an outbound send.
+    // The `payment` kind is reused for three flows distinguished by `op`: a plain
+    // wallet transfer (wallet.send, outbound), a claim_payout receipt (pool.claim,
+    // inbound credit) and an installment payment (default).
     const isSend = latest.kind === "payment" && latest.op === "wallet.send";
-    const messages: Record<string, { title: string; sub?: string }> = {
-      payment: isSend
-        ? {
-            title: "Envio confirmado",
-            sub: latest.target ? `Para ${latest.target}` : undefined,
-          }
+    const isClaim = latest.kind === "payment" && latest.op === "pool.claim";
+    const paymentMsg = isSend
+      ? { title: "Envio confirmado", sub: latest.target ? `Para ${latest.target}` : undefined }
+      : isClaim
+        ? { title: "Crédito recebido", sub: latest.target ? `De ${latest.target}` : undefined }
         : {
             title: "Pagamento confirmado",
             sub: latest.target ? `Parcela · ${latest.target}` : undefined,
-          },
+          };
+    const messages: Record<string, { title: string; sub?: string }> = {
+      payment: paymentMsg,
       join: {
         title: "Entrada confirmada",
         sub: latest.target ? `Você entrou em ${latest.target}` : undefined,

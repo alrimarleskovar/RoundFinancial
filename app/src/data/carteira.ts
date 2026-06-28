@@ -64,6 +64,11 @@ export interface NftPosition {
    *  countdown so the date advances after a payment instead of sitting on a
    *  hardcoded offset. Absent on mock fixtures. */
   nextDueDays?: number;
+  /** True when this on-chain member already received their payout (`paid_out`).
+   *  They remain active (must keep paying remaining installments) so the cota
+   *  still shows, but the secondary-market Sell action is hidden — a cota whose
+   *  payout was already taken can't be listed. Absent on mock fixtures. */
+  paidOut?: boolean;
 }
 
 export const NFT_POSITIONS: NftPosition[] = [

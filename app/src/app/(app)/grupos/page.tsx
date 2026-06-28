@@ -164,13 +164,22 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // pool joined in a previous session won't be in `joinedGroupNames`.
   const membersRes = usePoolMembers(group.devnetPool ?? "pool1", 30_000, !!group.devnetPool);
   const connectedWallet = adapter.publicKey;
+  // The connected wallet's live Member record for this pool (read from chain).
+  const myMember = useMemo(() => {
+    if (!group.devnetPool || !connectedWallet || membersRes.status !== "ok") return null;
+    return membersRes.members.find((m) => m.wallet.equals(connectedWallet)) ?? null;
+  }, [group.devnetPool, connectedWallet, membersRes]);
   const filled = lp ? lp.membersJoined : group.filled;
   const total = lp ? lp.membersTarget : group.total;
   const forming = lp ? lp.status === "forming" : false;
   const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
   const devnetMeta = group.devnetPool ? DEVNET_POOLS[group.devnetPool] : null;
-  // Joined = static fixture flag OR runtime session membership (JOIN_GROUP).
-  const isJoined = group.joined || joinedGroupNames.includes(group.name);
+  // Joined = static fixture flag OR runtime session membership (JOIN_GROUP) OR a
+  // real on-chain Member record. The on-chain check matters because a pool joined
+  // in a PAST session isn't in joinedGroupNames — without it the card wrongly
+  // offers "Entrar" to someone who is already a member (e.g. right after they
+  // claimed, when claimReadyChain has gone false).
+  const isJoined = group.joined || joinedGroupNames.includes(group.name) || !!myMember;
   // Level gate mirrors roundfi-core::join_pool — block before paying gas.
   const locked = !isJoined && group.level > user.level;
   // Same gap the JoinGroupModal locked card shows: score → next tier.
@@ -178,16 +187,10 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // Demo claim (mock mode): the user holds the contemplated slot and hasn't
   // claimed yet this session.
   const claimReadyDemo = isJoined && !!group.contemplated && !claimedGroups.includes(group.name);
-  // Real on-chain claim surfacing — the MISSING HALF of the cycle. The cycle only
-  // advances when the slot whose index === current_cycle claims its payout, so if
-  // the app never offers that member a claim, the pool stalls forever and everyone
-  // hits the "already contributed" wall. Detect the connected wallet's member
-  // record and, when it's their turn, show a real "Receber" that fires
-  // claim_payout(cycle) in chain mode (passing memberRecord/pool/seedKey).
-  const myMember = useMemo(() => {
-    if (!group.devnetPool || !connectedWallet || membersRes.status !== "ok") return null;
-    return membersRes.members.find((m) => m.wallet.equals(connectedWallet)) ?? null;
-  }, [group.devnetPool, connectedWallet, membersRes]);
+  // Real on-chain claim surfacing — the MISSING HALF of the cycle: the cycle only
+  // advances when the slot whose index === current_cycle claims its payout. When
+  // the connected wallet (myMember, above) holds that slot, show a real "Receber"
+  // that fires claim_payout(cycle) in chain mode (memberRecord/pool/seedKey).
   const claimReadyChain =
     !demoActive &&
     !!lp &&

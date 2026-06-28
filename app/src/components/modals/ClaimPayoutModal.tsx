@@ -54,7 +54,7 @@ export function ClaimPayoutModal({
   const adapter = useAdapterWallet();
   const chainWallet = useWallet();
   const { explorerTx } = chainWallet;
-  const { claimPayoutMock } = useSession();
+  const { claimPayoutMock, recordTx } = useSession();
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [txSig, setTxSig] = useState<string | null>(null);
@@ -158,6 +158,16 @@ export function ClaimPayoutModal({
           slotIndex: memberRecord.slotIndex,
         });
         setTxSig(sig);
+        // Record the real claim in the session ledger so /carteira + the Activity
+        // feed reflect it — a positive inflow (you RECEIVED the credit). Mirrors
+        // the contribute/send recordTx path; op "pool.claim" drives the label.
+        recordTx({
+          kind: "payment",
+          amountBrl: creditBrl,
+          target: group.name,
+          txid: sig,
+          op: "pool.claim",
+        });
         setSubmitting(false);
         setDone(true);
       } catch (err) {

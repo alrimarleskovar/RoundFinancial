@@ -36,9 +36,15 @@ function eventToTx(ev: SessionEvent): Transaction {
     join: `Entrada · ${ev.target}`,
     attestation: `SAS · ${ev.target}`,
   };
-  // A plain wallet transfer (Send modal) rides the `payment` kind but is a
-  // send, not a Parcela — relabel + carry the SOL/USDC denomination through.
-  const label = ev.op === "wallet.send" ? `Envio · ${ev.target}` : (labelMap[ev.kind] ?? ev.op);
+  // The `payment` kind is reused for sends (wallet.send) and claim receipts
+  // (pool.claim); relabel both honestly. Sends also carry the SOL/USDC
+  // denomination through; a claim is a positive inflow (credit received).
+  const label =
+    ev.op === "wallet.send"
+      ? `Envio · ${ev.target}`
+      : ev.op === "pool.claim"
+        ? `Recebido · ${ev.target}`
+        : (labelMap[ev.kind] ?? ev.op);
   return {
     label,
     addr: ev.txid,
