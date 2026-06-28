@@ -14,12 +14,11 @@ import { liftHover } from "@/lib/hoverLift";
 import {
   DEFAULT_RANGE,
   FACTORS,
+  RANGE_MONTHS,
   RECOMMENDATIONS,
-  SCORE_MONTHS_EN,
-  SCORE_MONTHS_PT,
   SCORE_RANGES,
   curveForRange,
-  monthsForRange,
+  scoreMonths,
   type BehaviorFactor,
   type ScoreRange,
 } from "@/data/insights";
@@ -551,9 +550,13 @@ function FactorsPanel() {
         <Icons.info size={14} stroke="#14F195" sw={1.8} />
       </div>
       <div className="mt-5 grid gap-3">
-        {factors.map((factor) => (
-          <FactorRow key={factor.key} factor={factor} />
-        ))}
+        {factors.length > 0 ? (
+          factors.map((factor) => <FactorRow key={factor.key} factor={factor} />)
+        ) : (
+          <p className="px-1 text-sm leading-relaxed text-gray-400">
+            {t("insightsv2.factors.empty")}
+          </p>
+        )}
       </div>
     </Card>
   );
@@ -563,10 +566,15 @@ function ScoreChart() {
   const { lang, t } = useI18n();
   const { demoActive } = useSession();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
-  // No real per-wallet score-history source yet → a real wallet shows an empty
-  // plot (flat baseline) instead of the fixture's fabricated climbing curve.
+  // No real per-wallet score-history source yet → a real wallet has no curve
+  // (demo keeps the fixture's climbing curve for the pitch). `hasCurve` drives
+  // an honest empty-state instead of a flat baseline under a month axis that
+  // would imply data exists.
   const points = useMemo(() => (demoActive ? curveForRange(range) : []), [range, demoActive]);
-  const months = monthsForRange(range, lang === "pt" ? SCORE_MONTHS_PT : SCORE_MONTHS_EN);
+  const hasCurve = points.length > 0;
+  // Month labels derived from today's date, so "1M" always ends on the current
+  // month instead of the old hardcoded "…Abr" that drifted out of date.
+  const months = scoreMonths(RANGE_MONTHS[range], lang);
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
   const area = `0,220 ${line} 600,220`;
   const lastPoint = points[points.length - 1];
@@ -601,37 +609,47 @@ function ScoreChart() {
         {/* plot area — full-bleed so the fill + line reach every edge of the
             box; the end dot shares this same coordinate space */}
         <div className="absolute inset-0">
-          <svg
-            viewBox="0 0 600 220"
-            preserveAspectRatio="none"
-            className="absolute inset-0 h-full w-full"
-          >
-            <defs>
-              <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#14F195" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#14F195" stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            <polygon points={area} fill="url(#scoreFill)" />
-            <polyline
-              points={line}
-              fill="none"
-              stroke="#14F195"
-              strokeWidth="3"
-              vectorEffect="non-scaling-stroke"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {lastPoint && (
-            <div
-              className="absolute z-20 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
-              style={{
-                left: `clamp(8px, ${dotLeft}%, calc(100% - 8px))`,
-                top: `clamp(8px, ${dotTop}%, calc(100% - 8px))`,
-                boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
-              }}
-            />
+          {hasCurve ? (
+            <>
+              <svg
+                viewBox="0 0 600 220"
+                preserveAspectRatio="none"
+                className="absolute inset-0 h-full w-full"
+              >
+                <defs>
+                  <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#14F195" stopOpacity="0.45" />
+                    <stop offset="100%" stopColor="#14F195" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+                <polygon points={area} fill="url(#scoreFill)" />
+                <polyline
+                  points={line}
+                  fill="none"
+                  stroke="#14F195"
+                  strokeWidth="3"
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {lastPoint && (
+                <div
+                  className="absolute z-20 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
+                  style={{
+                    left: `clamp(8px, ${dotLeft}%, calc(100% - 8px))`,
+                    top: `clamp(8px, ${dotTop}%, calc(100% - 8px))`,
+                    boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
+                  }}
+                />
+              )}
+            </>
+          ) : (
+            <div className="absolute inset-0 z-10 flex items-center justify-center px-10 text-center">
+              <p className="max-w-sm text-sm leading-relaxed text-gray-400">
+                {t("insightsv2.chart.empty")}
+              </p>
+            </div>
           )}
         </div>
 
@@ -652,12 +670,15 @@ function ScoreChart() {
           {t("insightsv2.tier.lv2")}
         </span>
 
-        {/* month axis — aligned to the full-bleed curve */}
-        <div className="absolute inset-x-2 bottom-3 flex justify-between text-xs text-gray-500">
-          {months.map((m) => (
-            <span key={m}>{m}</span>
-          ))}
-        </div>
+        {/* month axis — aligned to the full-bleed curve. Hidden without a curve
+            so an empty real-mode plot doesn't show months implying data. */}
+        {hasCurve && (
+          <div className="absolute inset-x-2 bottom-3 flex justify-between text-xs text-gray-500">
+            {months.map((m) => (
+              <span key={m}>{m}</span>
+            ))}
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -52,9 +52,54 @@ export const SCORE_CURVE: ReadonlyArray<readonly [number, number]> = [
   [600, 50],
 ];
 
-// Last 7 month labels for the x-axis of the chart (most recent last).
-export const SCORE_MONTHS_PT = ["Out", "Nov", "Dez", "Jan", "Fev", "Mar", "Abr"];
-export const SCORE_MONTHS_EN = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"];
+// 12-month abbreviations (index = JS Date.getMonth(), 0–11) used to build the
+// chart's x-axis relative to TODAY so the labels never go stale.
+const MONTH_ABBR_PT = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+const MONTH_ABBR_EN = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+// The synthetic demo curve spans this many months; the x-axis caps here too.
+const CURVE_MONTH_SPAN = 7;
+
+/**
+ * The last `n` month labels ending at the CURRENT month (most recent last) —
+ * e.g. evaluated in June: ["…", "Mai", "Jun"]. Derived from today's date so a
+ * "1M" view always lands on the current month instead of a label hardcoded
+ * months ago that silently drifts out of date. `n` is clamped to [1, 12].
+ */
+export function scoreMonths(n: number, lang: "pt" | "en"): string[] {
+  const names = lang === "pt" ? MONTH_ABBR_PT : MONTH_ABBR_EN;
+  const count = Math.max(1, Math.min(12, n));
+  const cur = new Date().getMonth();
+  const out: string[] = [];
+  for (let i = count - 1; i >= 0; i--) out.push(names[(((cur - i) % 12) + 12) % 12]!);
+  return out;
+}
 
 // Time-range pill on the chart header.
 export type ScoreRange = "1M" | "3M" | "6M" | "12M";
@@ -78,7 +123,7 @@ export const RANGE_MONTHS: Record<ScoreRange, number> = {
  */
 export function curveForRange(range: ScoreRange): ReadonlyArray<readonly [number, number]> {
   const months = RANGE_MONTHS[range];
-  const totalMonths = SCORE_MONTHS_PT.length;
+  const totalMonths = CURVE_MONTH_SPAN;
   const fraction = months / totalMonths;
   const totalPoints = SCORE_CURVE.length;
   const sliceCount = Math.max(2, Math.ceil(totalPoints * fraction));
@@ -89,16 +134,4 @@ export function curveForRange(range: ScoreRange): ReadonlyArray<readonly [number
   const lastX = slice[slice.length - 1]![0];
   const span = lastX - firstX || 1;
   return slice.map(([x, y]) => [((x - firstX) / span) * 600, y] as const);
-}
-
-/**
- * Month labels to render under the chart for a given range. Always
- * returns labels aligned to the right edge (most recent month last).
- */
-export function monthsForRange(
-  range: ScoreRange,
-  months: ReadonlyArray<string>,
-): ReadonlyArray<string> {
-  const count = Math.min(RANGE_MONTHS[range], months.length);
-  return months.slice(months.length - count);
 }
