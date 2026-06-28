@@ -131,6 +131,7 @@ export const DICT: Record<Lang, Dict> = {
     "homeV2.cycles.closed": "Encerrados",
     "homeV2.metric.balanceSubReal": "Saldo USDC da carteira",
     "homeV2.protected.realYieldLabel": "Rendimento on-chain",
+    "homeV2.protected.locked": "Colateral bloqueado",
     "homeV2.protected.realNote":
       "Sem rendimento creditado ainda. Reflete sua carteira USDC em tempo real: {v}.",
     "homeV2.cycles.realCount": "{n} cota(s) ativa(s) on-chain.",
@@ -1917,6 +1918,7 @@ export const DICT: Record<Lang, Dict> = {
     "homeV2.cycles.closed": "Closed",
     "homeV2.metric.balanceSubReal": "Wallet USDC balance",
     "homeV2.protected.realYieldLabel": "On-chain yield",
+    "homeV2.protected.locked": "Locked collateral",
     "homeV2.protected.realNote": "No yield credited yet. Reflects your live wallet USDC: {v}.",
     "homeV2.cycles.realCount": "{n} active on-chain quota(s).",
     "homeV2.cycles.realEmpty": "No active quotas yet.",
