@@ -95,7 +95,7 @@ jobs:
         target: ${{ fromJSON(needs.list-targets.outputs.targets) }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
