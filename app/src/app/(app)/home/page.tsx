@@ -772,11 +772,13 @@ function AchievementCard({
   title,
   subtitle,
   progress,
+  pct = 0,
 }: {
   icon: string;
   title: string;
   subtitle: string;
   progress: string;
+  pct?: number;
 }) {
   return (
     <div
@@ -789,7 +791,12 @@ function AchievementCard({
       <h4 className="font-bold text-white">{title}</h4>
       <p className="mt-1 text-sm text-gray-400">{subtitle}</p>
       <div className="mt-5 flex items-center gap-3">
-        <div className="h-2 flex-1 rounded-full bg-white/[0.08]" />
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+          <div
+            className="h-full rounded-full bg-[#14F195]"
+            style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+          />
+        </div>
         <span className="font-mono text-xs text-gray-400">{progress}</span>
       </div>
     </div>
@@ -860,6 +867,48 @@ export default function HomePage() {
     () => (demoActive ? [...ACTIVE_GROUPS, ...joinedOnChainGroups] : joinedOnChainGroups),
     [demoActive, joinedOnChainGroups],
   );
+
+  // "Próximas conquistas": real, achievable next steps derived from the
+  // wallet's on-chain cotas — complete the closest pool (+50), pay the
+  // soonest-due installment on time (+10, only if a different pool), join
+  // another group (+10). Demo keeps the fixture cards (rendered inline below).
+  const realAchievements = useMemo(() => {
+    const name = (p: NftPosition) =>
+      [...ACTIVE_GROUPS, ...DISCOVER_GROUPS].find((g) => g.devnetPool === p.devnetPool)?.name ??
+      p.group;
+    const pct = (p: NftPosition) => (p.total > 0 ? Math.round((p.month / p.total) * 100) : 0);
+    const payable = realPositions.filter((p) => p.month < p.total);
+    const out: { icon: string; title: string; points: number; progress: string; pct: number }[] =
+      [];
+    const closest = [...payable].sort((a, b) => b.month / b.total - a.month / a.total)[0];
+    if (closest) {
+      out.push({
+        icon: "trophy",
+        title: t("homeV2.achiev.real.complete", { pool: name(closest) }),
+        points: 50,
+        progress: `${closest.month}/${closest.total}`,
+        pct: pct(closest),
+      });
+    }
+    const due = [...payable].sort((a, b) => (a.nextDueDays ?? 999) - (b.nextDueDays ?? 999))[0];
+    if (due && due.id !== closest?.id) {
+      out.push({
+        icon: "star",
+        title: t("homeV2.achiev.real.pay", { pool: name(due) }),
+        points: 10,
+        progress: `${due.month}/${due.total}`,
+        pct: pct(due),
+      });
+    }
+    out.push({
+      icon: "people",
+      title: t("homeV2.achiev.real.join"),
+      points: 10,
+      progress: realPositions.length ? String(realPositions.length) : "0/1",
+      pct: 0,
+    });
+    return out;
+  }, [realPositions, t]);
 
   // "Próximas conquistas" receivable + the next-installment hero both derive
   // from the REAL cycle set, so a fresh wallet shows R$ 0 / no due installment
@@ -999,24 +1048,39 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          <AchievementCard
-            icon="star"
-            title={t("homeV2.achiev.1.t")}
-            subtitle={t("homeV2.achiev.earn", { n: 18 })}
-            progress="0/2"
-          />
-          <AchievementCard
-            icon="people"
-            title={t("homeV2.achiev.2.t")}
-            subtitle={t("homeV2.achiev.earn", { n: 24 })}
-            progress="0/1"
-          />
-          <AchievementCard
-            icon="trophy"
-            title={t("homeV2.achiev.3.t")}
-            subtitle={t("homeV2.achiev.earn", { n: 42 })}
-            progress="0/1"
-          />
+          {demoActive ? (
+            <>
+              <AchievementCard
+                icon="star"
+                title={t("homeV2.achiev.1.t")}
+                subtitle={t("homeV2.achiev.earn", { n: 18 })}
+                progress="0/2"
+              />
+              <AchievementCard
+                icon="people"
+                title={t("homeV2.achiev.2.t")}
+                subtitle={t("homeV2.achiev.earn", { n: 24 })}
+                progress="0/1"
+              />
+              <AchievementCard
+                icon="trophy"
+                title={t("homeV2.achiev.3.t")}
+                subtitle={t("homeV2.achiev.earn", { n: 42 })}
+                progress="0/1"
+              />
+            </>
+          ) : (
+            realAchievements.map((a) => (
+              <AchievementCard
+                key={a.title}
+                icon={a.icon}
+                title={a.title}
+                subtitle={t("homeV2.achiev.earn", { n: a.points })}
+                progress={a.progress}
+                pct={a.pct}
+              />
+            ))
+          )}
         </div>
       </section>
 
