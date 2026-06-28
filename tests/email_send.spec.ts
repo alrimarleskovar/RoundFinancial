@@ -19,6 +19,7 @@ import {
   getEmailAdapter,
   noopEmailAdapter,
   resendEmailAdapter,
+  smtpEmailAdapter,
 } from "../services/indexer/src/email/adapter.js";
 
 const COMMON = {
@@ -115,23 +116,34 @@ describe("email templates — new group for level", () => {
 });
 
 describe("email adapter — env-driven selection (safe by default)", () => {
-  let saved: string | undefined;
+  let savedKey: string | undefined;
+  let savedHost: string | undefined;
   beforeEach(() => {
-    saved = process.env.RESEND_API_KEY;
+    savedKey = process.env.RESEND_API_KEY;
+    savedHost = process.env.SMTP_HOST;
   });
   afterEach(() => {
-    if (saved === undefined) delete process.env.RESEND_API_KEY;
-    else process.env.RESEND_API_KEY = saved;
+    if (savedKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = savedKey;
+    if (savedHost === undefined) delete process.env.SMTP_HOST;
+    else process.env.SMTP_HOST = savedHost;
   });
 
-  it("defaults to noop when RESEND_API_KEY is unset", () => {
+  it("defaults to noop when neither RESEND_API_KEY nor SMTP_HOST is set", () => {
     delete process.env.RESEND_API_KEY;
+    delete process.env.SMTP_HOST;
     expect(getEmailAdapter().name).to.equal("noop");
   });
 
   it("selects resend when RESEND_API_KEY is set", () => {
     process.env.RESEND_API_KEY = "re_test_key";
     expect(getEmailAdapter().name).to.equal("resend");
+  });
+
+  it("selects smtp when SMTP_HOST is set (and no RESEND_API_KEY)", () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.SMTP_HOST = "smtp.gmail.com";
+    expect(getEmailAdapter().name).to.equal("smtp");
   });
 
   it("noop send returns ok without sending", async () => {
@@ -143,5 +155,17 @@ describe("email adapter — env-driven selection (safe by default)", () => {
   it("resend adapter is constructable (not invoked here)", () => {
     const a = resendEmailAdapter("re_x", "RoundFi <a@b.co>");
     expect(a.name).to.equal("resend");
+  });
+
+  it("smtp adapter is constructable (not invoked here)", () => {
+    const a = smtpEmailAdapter({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      user: "x@gmail.com",
+      pass: "app-pass",
+      from: "x@gmail.com",
+    });
+    expect(a.name).to.equal("smtp");
   });
 });

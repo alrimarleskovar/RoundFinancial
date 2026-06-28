@@ -193,6 +193,12 @@ jobs:
         # / no network — the resend adapter isn't invoked), sub-second.
         run: pnpm test:email-send
 
+      - name: Email notifier formatters (notifications PR3b)
+        # Pins the pure on-chain→display helpers the notify.ts cron uses
+        # (formatBrl / formatDate / shortWallet / daysUntil / level → label +
+        # collateral %). Pure (no DB / no RPC / no network), sub-second.
+        run: pnpm test:email-notify
+
       - name: Harvest slippage floor (7 tests)
         # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
         # computes a LIVE min_realized_usdc floor from the expected surplus

@@ -1,0 +1,455 @@
+/**
+ * Email notification sender (PR3b). Scans opted-in subscriptions + on-chain
+ * pool state and sends due-date / pool-started / new-group emails, deduped via
+ * `EmailSentLog`. Dark unless EMAIL_NOTIFICATIONS_ENABLED=true.
+ *
+ * Runs STANDALONE on an operator machine (Option 1 / Gmail SMTP) — NOT inside
+ * the Fastify server or the reconciler daemon. It reads subscriptions from the
+ * shared Postgres and pool state straight from chain (the indexer needn't be
+ * deployed), so it works anywhere with network + the env below.
+ *
+ * Full pass (one shot + exit):
+ *   EMAIL_NOTIFICATIONS_ENABLED=true \
+ *   DATABASE_URL=postgres://...                 # the shared opt-in DB (Neon/…) \
+ *   SOLANA_RPC_URL=https://api.devnet.solana.com \
+ *   ROUNDFI_CORE_PROGRAM_ID=8LVrgxKw... \
+ *   ROUNDFI_REPUTATION_PROGRAM_ID=Hpo174...     # optional; level → new-group \
+ *   SMTP_HOST=smtp.gmail.com SMTP_PORT=465 \
+ *   SMTP_USER=roundfinance.sol@gmail.com SMTP_PASS=<app-password> \
+ *   pnpm --filter @roundfi/indexer notify:once
+ *
+ * Daemon (loops every NOTIFY_INTERVAL_MS, default 5 min):
+ *   ...same env...  pnpm --filter @roundfi/indexer notify
+ *
+ * Quick delivery test (NO Postgres / NO on-chain — just proves the Gmail path):
+ *   EMAIL_NOTIFICATIONS_ENABLED=true NOTIFY_TEST_TO=you@email.com \
+ *   SMTP_HOST=smtp.gmail.com SMTP_PORT=465 \
+ *   SMTP_USER=roundfinance.sol@gmail.com SMTP_PASS=<app-password> \
+ *   pnpm --filter @roundfi/indexer notify:once
+ */
+
+import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  decodeMemberRaw,
+  decodePoolRaw,
+  fetchReputationProfileRaw,
+  type RawMemberView,
+  type RawPoolView,
+} from "@roundfi/sdk";
+
+import { getPrisma } from "../db.js";
+import { createLogger } from "../log.js";
+import { accountDiscriminatorBase58 } from "../discriminator.js";
+import { getEmailAdapter, type EmailAdapter, type EmailMessage } from "./adapter.js";
+import { dueDateEmail, newGroupEmail, poolStartedEmail, type EmailLang } from "./templates.js";
+import {
+  collateralPctForLevel,
+  daysUntil,
+  formatBrl,
+  formatDate,
+  levelLabel,
+  shortWallet,
+} from "./select.js";
+
+// ─── Config ────────────────────────────────────────────────────────────────
+const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
+const REPUTATION_PROGRAM = process.env.ROUNDFI_REPUTATION_PROGRAM_ID;
+const BASE_URL = process.env.NOTIFY_BASE_URL ?? "https://roundfi.vercel.app";
+const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? `${BASE_URL}/prototype/assets/roundfi-logo.jpeg`;
+const DUE_WINDOW_SECS = Number(process.env.NOTIFY_DUE_WINDOW_HOURS ?? "48") * 3600;
+const INTERVAL_MS = Number(process.env.NOTIFY_INTERVAL_MS ?? "300000");
+
+const unsubUrl = `${BASE_URL}/carteira?tab=connections`;
+const payUrl = `${BASE_URL}/grupos`;
+const groupUrl = `${BASE_URL}/grupos`;
+
+const logger = createLogger({ service: "notify" });
+
+const POOL_DISC = accountDiscriminatorBase58("Pool");
+const MEMBER_DISC = accountDiscriminatorBase58("Member");
+
+function emailNotificationsEnabled(): boolean {
+  return process.env.EMAIL_NOTIFICATIONS_ENABLED === "true";
+}
+
+// Pools carry no on-chain name; an operator can map pda → friendly name via the
+// NOTIFY_POOL_LABELS env (JSON: {"<pda>":"Pool Rápida"}), else "Pool #<seedId>".
+function poolLabel(pda: string, seedId: bigint): string {
+  try {
+    const map = JSON.parse(process.env.NOTIFY_POOL_LABELS ?? "{}") as Record<string, string>;
+    if (typeof map[pda] === "string") return map[pda]!;
+  } catch {
+    /* malformed map → fall through to the default */
+  }
+  return `Pool #${seedId.toString()}`;
+}
+
+type Prisma = ReturnType<typeof getPrisma>;
+
+interface Counters {
+  due: number;
+  poolStarted: number;
+  newGroup: number;
+  skipped: number;
+  errors: number;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2002"
+  );
+}
+
+/** Claim-then-send. INSERT the dedup row FIRST (atomic, race-safe); a P2002
+ *  unique violation means another tick/instance already sent it → skip. On a
+ *  send failure DELETE the claim so a later tick retries (lease, not tombstone). */
+async function sendDeduped(
+  prisma: Prisma,
+  adapter: EmailAdapter,
+  key: { wallet: string; kind: string; dedupeKey: string },
+  msg: EmailMessage,
+): Promise<"sent" | "skipped" | "error"> {
+  try {
+    await prisma.emailSentLog.create({ data: key });
+  } catch (err) {
+    if (isUniqueViolation(err)) return "skipped";
+    throw err;
+  }
+  const res = await adapter.send(msg);
+  if (!res.ok) {
+    await prisma.emailSentLog.deleteMany({ where: key }).catch(() => {});
+    logger.warn({ event_type: "notify_send_failed", ...key, error: res.error }, "send failed");
+    return "error";
+  }
+  logger.info({ event_type: "notify_sent", ...key, to: msg.to, id: res.id }, "email sent");
+  return "sent";
+}
+
+async function readLevel(connection: Connection, wallet: string): Promise<number> {
+  if (!REPUTATION_PROGRAM) return 1;
+  try {
+    const profile = await fetchReputationProfileRaw(
+      connection,
+      new PublicKey(REPUTATION_PROGRAM),
+      new PublicKey(wallet),
+    );
+    return profile?.level ?? 1;
+  } catch {
+    return 1;
+  }
+}
+
+interface PoolBundle {
+  pda: PublicKey;
+  pool: RawPoolView;
+  members: RawMemberView[];
+}
+
+// Enumerate every Pool + Member via the Anchor account discriminator (memcmp at
+// offset 0) — survives struct-layout edits, unlike a dataSize filter (mirrors
+// backfill.ts).
+async function fetchAllPools(connection: Connection, programId: PublicKey): Promise<PoolBundle[]> {
+  const [poolAccts, memberAccts] = await Promise.all([
+    connection.getProgramAccounts(programId, {
+      commitment: "confirmed",
+      filters: [{ memcmp: { offset: 0, bytes: POOL_DISC } }],
+    }),
+    connection.getProgramAccounts(programId, {
+      commitment: "confirmed",
+      filters: [{ memcmp: { offset: 0, bytes: MEMBER_DISC } }],
+    }),
+  ]);
+  const members = memberAccts.map(({ pubkey, account }) =>
+    decodeMemberRaw(pubkey, account.data as Buffer),
+  );
+  return poolAccts.map(({ pubkey, account }) => ({
+    pda: pubkey,
+    pool: decodePoolRaw(pubkey, account.data as Buffer),
+    members: members.filter((m) => m.pool.equals(pubkey)),
+  }));
+}
+
+type Sub = { wallet: string; email: string; lang: string };
+
+function langOf(s: Sub): EmailLang {
+  return s.lang === "en" ? "en" : "pt";
+}
+
+/** One scan over (subscriptions × pools). Idempotent — EmailSentLog dedup makes
+ *  re-running send nothing new. */
+export async function notifyOnce(
+  prisma: Prisma,
+  connection: Connection,
+  adapter: EmailAdapter,
+  nowSec: number,
+): Promise<Counters> {
+  const counters: Counters = { due: 0, poolStarted: 0, newGroup: 0, skipped: 0, errors: 0 };
+  const subs = (await prisma.emailSubscription.findMany({
+    where: { optedIn: true },
+    select: { wallet: true, email: true, lang: true },
+  })) as Sub[];
+  if (subs.length === 0) {
+    logger.info({ event_type: "notify_no_subs" }, "no opted-in subscriptions — nothing to do");
+    return counters;
+  }
+  const byWallet = new Map(subs.map((s) => [s.wallet, s]));
+  const pools = await fetchAllPools(connection, new PublicKey(CORE_PROGRAM!));
+
+  const tally = (r: "sent" | "skipped" | "error", kind: "due" | "poolStarted" | "newGroup") => {
+    if (r === "skipped") counters.skipped += 1;
+    else if (r === "error") counters.errors += 1;
+    else counters[kind] += 1;
+  };
+
+  for (const { pda, pool, members } of pools) {
+    const pdaStr = pda.toBase58();
+    const name = poolLabel(pdaStr, pool.seedId);
+
+    if (pool.status === "active") {
+      for (const m of members) {
+        const sub = byWallet.get(m.wallet.toBase58());
+        if (!sub) continue;
+        const lang = langOf(sub);
+        const common = {
+          email: sub.email,
+          walletShort: shortWallet(sub.wallet),
+          logoUrl: LOGO_URL,
+          unsubUrl,
+        };
+
+        // POOL STARTED — fires once per (member, pool) the first scan after the
+        // pool goes Active.
+        {
+          const { subject, html } = poolStartedEmail(
+            {
+              ...common,
+              groupName: name,
+              membersTarget: pool.membersTarget,
+              firstDueDate: formatDate(pool.nextCycleAt, lang),
+              installmentBrl: formatBrl(pool.installmentAmount),
+              groupUrl,
+            },
+            lang,
+          );
+          tally(
+            await sendDeduped(
+              prisma,
+              adapter,
+              { wallet: sub.wallet, kind: "pool_started", dedupeKey: pdaStr },
+              { to: sub.email, subject, html },
+            ),
+            "poolStarted",
+          );
+        }
+
+        // DUE REMINDER — member owes the CURRENT cycle and it's within the
+        // window (and not already past — that's a late/default case, not a
+        // "vence em X dias" reminder).
+        const owes = !m.defaulted && m.contributionsPaid === pool.currentCycle;
+        const secsLeft = Number(pool.nextCycleAt) - nowSec;
+        const days = daysUntil(nowSec, Number(pool.nextCycleAt));
+        if (owes && days !== null && secsLeft <= DUE_WINDOW_SECS) {
+          const { subject, html } = dueDateEmail(
+            {
+              ...common,
+              groupName: name,
+              installmentBrl: formatBrl(pool.installmentAmount),
+              dueDate: formatDate(pool.nextCycleAt, lang),
+              days,
+              payUrl,
+            },
+            lang,
+          );
+          tally(
+            await sendDeduped(
+              prisma,
+              adapter,
+              { wallet: sub.wallet, kind: "due", dedupeKey: `${pdaStr}:cycle${pool.currentCycle}` },
+              { to: sub.email, subject, html },
+            ),
+            "due",
+          );
+        }
+      }
+    }
+
+    // NEW GROUP — a Forming pool with open slots → opted-in wallets NOT already
+    // members. Pools aren't level-tagged on-chain, so the "for your level"
+    // framing comes from the recipient's own collateral tier.
+    if (pool.status === "forming" && pool.membersJoined < pool.membersTarget) {
+      const memberSet = new Set(members.map((m) => m.wallet.toBase58()));
+      for (const sub of subs) {
+        if (memberSet.has(sub.wallet)) continue;
+        const lang = langOf(sub);
+        const level = await readLevel(connection, sub.wallet);
+        const { subject, html } = newGroupEmail(
+          {
+            email: sub.email,
+            walletShort: shortWallet(sub.wallet),
+            logoUrl: LOGO_URL,
+            unsubUrl,
+            groupName: name,
+            levelLabel: levelLabel(level),
+            slotsFilled: pool.membersJoined,
+            slotsTotal: pool.membersTarget,
+            collateralPct: collateralPctForLevel(level),
+            groupUrl,
+          },
+          lang,
+        );
+        tally(
+          await sendDeduped(
+            prisma,
+            adapter,
+            { wallet: sub.wallet, kind: "new_group", dedupeKey: pdaStr },
+            { to: sub.email, subject, html },
+          ),
+          "newGroup",
+        );
+      }
+    }
+  }
+  return counters;
+}
+
+// ─── Quick delivery test ─────────────────────────────────────────────────────
+// Sends ONE sample of each template to NOTIFY_TEST_TO and exits — proves the
+// SMTP/Gmail path end-to-end with zero Postgres / on-chain dependency.
+function msgOf(rendered: { subject: string; html: string }, to: string): EmailMessage {
+  return { to, subject: rendered.subject, html: rendered.html };
+}
+
+async function runTestMode(adapter: EmailAdapter, to: string, nowSec: number): Promise<void> {
+  const common = { email: to, walletShort: "81u3…bchNy", logoUrl: LOGO_URL, unsubUrl };
+  const dueDate = formatDate(nowSec + 2 * 86_400, "pt");
+  const samples: EmailMessage[] = [
+    msgOf(
+      dueDateEmail(
+        {
+          ...common,
+          groupName: "Pool Rápida · Devnet",
+          installmentBrl: "R$ 82,50",
+          dueDate,
+          days: 2,
+          payUrl,
+        },
+        "pt",
+      ),
+      to,
+    ),
+    msgOf(
+      poolStartedEmail(
+        {
+          ...common,
+          groupName: "Pool Rápida · Devnet",
+          membersTarget: 5,
+          firstDueDate: dueDate,
+          installmentBrl: "R$ 82,50",
+          groupUrl,
+        },
+        "pt",
+      ),
+      to,
+    ),
+    msgOf(
+      newGroupEmail(
+        {
+          ...common,
+          groupName: "Renovação MEI · Devnet",
+          levelLabel: "Comprovado",
+          slotsFilled: 3,
+          slotsTotal: 5,
+          collateralPct: 25,
+          groupUrl,
+        },
+        "pt",
+      ),
+      to,
+    ),
+  ];
+  for (const m of samples) {
+    const r = await adapter.send(m);
+    logger.info(
+      {
+        event_type: "notify_test_send",
+        to,
+        subject: m.subject,
+        ok: r.ok,
+        id: r.id,
+        error: r.error,
+      },
+      r.ok ? "test email sent" : "test email FAILED",
+    );
+  }
+}
+
+async function main(): Promise<void> {
+  if (!emailNotificationsEnabled()) {
+    logger.warn(
+      { event_type: "startup" },
+      "EMAIL_NOTIFICATIONS_ENABLED!=true — exiting (feature dark by default)",
+    );
+    return;
+  }
+  const adapter = getEmailAdapter();
+  logger.info({ event_type: "startup", adapter: adapter.name, rpc: RPC }, "notify starting");
+  if (adapter.name === "noop") {
+    logger.warn(
+      { event_type: "startup" },
+      "adapter is noop — set SMTP_HOST/SMTP_USER/SMTP_PASS (or RESEND_API_KEY) to actually send",
+    );
+  }
+
+  const testTo = process.env.NOTIFY_TEST_TO;
+  if (testTo) {
+    await runTestMode(adapter, testTo, Math.floor(Date.now() / 1000));
+    return;
+  }
+
+  if (!CORE_PROGRAM) {
+    logger.error(
+      { event_type: "startup" },
+      "ROUNDFI_CORE_PROGRAM_ID is required (or set NOTIFY_TEST_TO for a delivery test)",
+    );
+    process.exit(1);
+  }
+  const prisma = getPrisma();
+  const connection = new Connection(RPC, "confirmed");
+
+  const runTick = async (): Promise<Counters | null> => {
+    try {
+      const r = await notifyOnce(prisma, connection, adapter, Math.floor(Date.now() / 1000));
+      logger.info({ event_type: "notify_tick", ...r }, "notify tick complete");
+      return r;
+    } catch (err) {
+      logger.error({ event_type: "notify_tick", error: err }, "notify tick failed");
+      return null;
+    }
+  };
+
+  if (process.argv.includes("--once")) {
+    const r = await runTick();
+    console.log(JSON.stringify(r, null, 2));
+    await prisma.$disconnect();
+    return;
+  }
+
+  logger.info({ event_type: "daemon_start", intervalMs: INTERVAL_MS }, "notify daemon starting");
+  void runTick();
+  const timer = setInterval(() => void runTick(), INTERVAL_MS);
+  const shutdown = async () => {
+    clearInterval(timer);
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => void shutdown());
+  process.on("SIGINT", () => void shutdown());
+}
+
+if (process.argv[1]?.endsWith("notify.ts") || process.argv[1]?.endsWith("notify.js")) {
+  void main();
+}

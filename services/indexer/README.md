@@ -116,6 +116,39 @@ curl http://localhost:8787/healthz
 curl http://localhost:8787/metrics
 ```
 
+## Email notifier (`notify.ts` — PR3b)
+
+Standalone sender for the email notifications. Reads opted-in subscriptions from
+Postgres + pool state straight from chain (the indexer needn't be deployed) and
+sends the due-date / pool-started / new-group emails, deduped via `EmailSentLog`.
+**Dark by default** — nothing sends unless `EMAIL_NOTIFICATIONS_ENABLED=true`
+AND a send backend (`SMTP_HOST` for Gmail, or `RESEND_API_KEY`) is set. See
+[`.env.example`](./.env.example) for the full env.
+
+```bash
+# 1) Quick delivery test — proves the Gmail path with NO Postgres / NO on-chain.
+EMAIL_NOTIFICATIONS_ENABLED=true NOTIFY_TEST_TO=you@email.com \
+  SMTP_HOST=smtp.gmail.com SMTP_PORT=465 \
+  SMTP_USER=roundfinance.sol@gmail.com SMTP_PASS=<app-password> \
+  pnpm --filter @roundfi/indexer notify:once
+
+# 2) Full pass (reads subscriptions + on-chain pools, sends what's due, dedupes).
+EMAIL_NOTIFICATIONS_ENABLED=true \
+  DATABASE_URL=postgres://... SOLANA_RPC_URL=https://api.devnet.solana.com \
+  ROUNDFI_CORE_PROGRAM_ID=8LVrgxKw... \
+  SMTP_HOST=smtp.gmail.com SMTP_USER=...@gmail.com SMTP_PASS=<app-password> \
+  pnpm --filter @roundfi/indexer notify:once
+
+# 3) Daemon — same env, loops every NOTIFY_INTERVAL_MS (default 5 min).
+pnpm --filter @roundfi/indexer notify
+```
+
+The dedup is claim-then-send: a row is INSERTed into `email_sent_log`
+(`@@unique([wallet, kind, dedupeKey])`) before sending, so re-running never
+double-sends; a failed send releases the claim so the next pass retries.
+`SMTP_PASS` is a **secret** (a Gmail App Password) — keep it out of the repo,
+out of `NEXT_PUBLIC_*`, and out of any shared log.
+
 ## Production wiring (Phase 3)
 
 In production this service runs behind a reverse proxy with the
