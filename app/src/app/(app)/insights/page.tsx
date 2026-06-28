@@ -18,13 +18,19 @@ import {
   RECOMMENDATIONS,
   SCORE_RANGES,
   curveForRange,
+  formatDayMon,
   scoreMonths,
+  scoreScale,
   type BehaviorFactor,
+  type FactorStatus,
+  type RealFactor,
+  type ScorePoint,
   type ScoreRange,
 } from "@/data/insights";
 import { useI18n } from "@/lib/i18n";
 import { PASSPORT_TIERS, TIER_KEYS, tierForScore } from "@/lib/passport";
 import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
+import { useScoreInsights, type ScoreInsights } from "@/lib/useScoreInsights";
 import { useSession } from "@/lib/session";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS } from "@/data/groups";
 import type { NftPosition, Tone } from "@/data/carteira";
@@ -441,13 +447,15 @@ function RecommendationCards() {
   );
 }
 
-function FactorRow({ factor }: { factor: BehaviorFactor }) {
+function FactorRow({ factor, statusKey }: { factor: BehaviorFactor; statusKey?: FactorStatus }) {
   const { t } = useI18n();
   const meta = FACTOR_META[factor.key];
   const color = TONE_HEX[factor.tone];
   const [open, setOpen] = useState(false);
   const label = t(`insights.factor.${factor.key}.label`);
-  const status = t(`insightsv2.status.${meta.statusKey}`);
+  // Real factors carry a status derived from their live value; demo fixtures
+  // fall back to the per-factor static status.
+  const status = t(`insightsv2.status.${statusKey ?? meta.statusKey}`);
   return (
     <div
       className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-all duration-200"
@@ -536,13 +544,13 @@ function FactorRow({ factor }: { factor: BehaviorFactor }) {
   );
 }
 
-function FactorsPanel() {
+function FactorsPanel({ insights }: { insights: ScoreInsights }) {
   const { t } = useI18n();
   const { demoActive } = useSession();
-  // Behavior signals are computed from real payment history (indexer-only).
-  // Until that's wired, a real wallet shows no fabricated factor scores; demo
-  // keeps the fixture breakdown for the pitch.
-  const factors = demoActive ? FACTORS : [];
+  // Demo keeps the fixture breakdown for the pitch; a real wallet gets factors
+  // computed from its on-chain reputation counters (empty until it has signal).
+  const factors = demoActive ? FACTORS : insights.factors;
+  const loading = !demoActive && insights.status === "loading";
   return (
     <Card className="p-4 md:p-5">
       <div className="flex items-center gap-2">
@@ -551,7 +559,15 @@ function FactorsPanel() {
       </div>
       <div className="mt-5 grid gap-3">
         {factors.length > 0 ? (
-          factors.map((factor) => <FactorRow key={factor.key} factor={factor} />)
+          factors.map((factor) => (
+            <FactorRow
+              key={factor.key}
+              factor={factor}
+              statusKey={demoActive ? undefined : (factor as RealFactor).statusKey}
+            />
+          ))
+        ) : loading ? (
+          <p className="px-1 text-sm leading-relaxed text-gray-400">{t("insightsv2.loading")}</p>
         ) : (
           <p className="px-1 text-sm leading-relaxed text-gray-400">
             {t("insightsv2.factors.empty")}
@@ -562,15 +578,12 @@ function FactorsPanel() {
   );
 }
 
-function ScoreChart() {
+// Demo (pitch) chart: the synthetic climbing curve + fixed tier guides. Only
+// rendered in demo mode, so the curve is always present.
+function DemoScoreChart() {
   const { lang, t } = useI18n();
-  const { demoActive } = useSession();
   const [range, setRange] = useState<ScoreRange>(DEFAULT_RANGE);
-  // No real per-wallet score-history source yet → a real wallet has no curve
-  // (demo keeps the fixture's climbing curve for the pitch). `hasCurve` drives
-  // an honest empty-state instead of a flat baseline under a month axis that
-  // would imply data exists.
-  const points = useMemo(() => (demoActive ? curveForRange(range) : []), [range, demoActive]);
+  const points = curveForRange(range);
   const hasCurve = points.length > 0;
   // Month labels derived from today's date, so "1M" always ends on the current
   // month instead of the old hardcoded "…Abr" that drifted out of date.
@@ -684,8 +697,136 @@ function ScoreChart() {
   );
 }
 
+// Real chart: the wallet's actual score trajectory, reconstructed from on-chain
+// payment timestamps and anchored to its true current score. Auto-scales to the
+// curve so even a small low-score climb is visible; tier guides appear only
+// where a threshold lands in view, and the next-tier goal is a caption.
+function RealScoreChart({ insights }: { insights: ScoreInsights }) {
+  const { lang, t } = useI18n();
+  const { history, currentScore, status } = insights;
+  const hasCurve = history.length >= 2;
+
+  const nextTier = PASSPORT_TIERS.find((tt) => tt.min > currentScore);
+  const { yMin, yMax } = useMemo(
+    () => (hasCurve ? scoreScale(history) : { yMin: 0, yMax: 1 }),
+    [history, hasCurve],
+  );
+
+  const geom = useMemo(() => {
+    if (!hasCurve) return null;
+    const t0 = history[0]!.t;
+    const tEnd = history[history.length - 1]!.t;
+    const tSpan = tEnd - t0 || 1;
+    const ySpan = yMax - yMin || 1;
+    const xOf = (tt: number) => ((tt - t0) / tSpan) * 600;
+    const yOf = (s: number) => (1 - (s - yMin) / ySpan) * 220;
+    const coords = history.map((p) => [xOf(p.t), yOf(p.score)] as const);
+    const line = coords.map(([x, y]) => `${x},${y}`).join(" ");
+    const last = coords[coords.length - 1]!;
+    // Tier thresholds that fall inside the visible window get a guide line.
+    const guides = PASSPORT_TIERS.filter((tt) => tt.min > yMin && tt.min < yMax).map((tt) => ({
+      level: tt.level,
+      min: tt.min,
+      topPct: (yOf(tt.min) / 220) * 100,
+      name: t(TIER_KEYS[tt.level]),
+    }));
+    return { t0, tEnd, line, area: `0,220 ${line} 600,220`, last, guides };
+  }, [hasCurve, history, yMin, yMax, t]);
+
+  return (
+    <Card className="p-5 md:p-7">
+      <div className="flex items-center justify-between gap-4">
+        <MonoTitle>{t("insightsv2.chart.title")}</MonoTitle>
+        {hasCurve && (
+          <span className={`text-xs text-gray-400 ${MONO}`}>
+            {nextTier
+              ? t("insightsv2.chart.toNext", {
+                  n: nextTier.min - currentScore,
+                  tier: t(TIER_KEYS[nextTier.level]),
+                })
+              : t("insightsv2.chart.max")}
+          </span>
+        )}
+      </div>
+      <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
+        {hasCurve && geom ? (
+          <>
+            {geom.guides.map((g) => (
+              <div
+                key={g.level}
+                className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[#14F195]/35"
+                style={{ top: `${g.topPct}%` }}
+              />
+            ))}
+            <div className="absolute inset-0">
+              <svg
+                viewBox="0 0 600 220"
+                preserveAspectRatio="none"
+                className="absolute inset-0 h-full w-full"
+              >
+                <defs>
+                  <linearGradient id="scoreFillReal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#14F195" stopOpacity="0.45" />
+                    <stop offset="100%" stopColor="#14F195" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+                <polygon points={geom.area} fill="url(#scoreFillReal)" />
+                <polyline
+                  points={geom.line}
+                  fill="none"
+                  stroke="#14F195"
+                  strokeWidth="3"
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div
+                className="absolute z-20 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
+                style={{
+                  left: `clamp(8px, ${(geom.last[0] / 600) * 100}%, calc(100% - 8px))`,
+                  top: `clamp(8px, ${(geom.last[1] / 220) * 100}%, calc(100% - 8px))`,
+                  boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
+                }}
+              />
+            </div>
+            {geom.guides.map((g) => (
+              <span
+                key={g.level}
+                className={`absolute left-5 z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
+                style={{ top: `${g.topPct}%` }}
+              >
+                {g.name} • {g.min}
+              </span>
+            ))}
+            <div className="absolute inset-x-4 bottom-3 flex justify-between text-xs text-gray-500">
+              <span>{formatDayMon(geom.t0, lang)}</span>
+              <span>{formatDayMon(geom.tEnd, lang)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 z-10 flex items-center justify-center px-10 text-center">
+            <p className="max-w-sm text-sm leading-relaxed text-gray-400">
+              {status === "loading" ? t("insightsv2.loading") : t("insightsv2.chart.empty")}
+            </p>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// Demo → the pitch fixture chart; real wallet → its actual on-chain trajectory.
+function ScoreChart({ insights }: { insights: ScoreInsights }) {
+  const { demoActive } = useSession();
+  return demoActive ? <DemoScoreChart /> : <RealScoreChart insights={insights} />;
+}
+
 export default function InsightsPage() {
   const { t } = useI18n();
+  // Real on-chain factors + score curve, read once and shared by both panels
+  // (demo mode ignores it and renders the fixtures).
+  const insights = useScoreInsights();
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
       <header className="flex items-end justify-between gap-6">
@@ -701,8 +842,8 @@ export default function InsightsPage() {
       <main className="flex flex-col gap-6">
         <ScoreHero />
         <RecommendationCards />
-        <FactorsPanel />
-        <ScoreChart />
+        <FactorsPanel insights={insights} />
+        <ScoreChart insights={insights} />
       </main>
     </div>
   );

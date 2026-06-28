@@ -584,6 +584,9 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.chart.title": "Evolução do seu score",
     "insightsv2.chart.empty":
       "Sua curva de score aparece aqui conforme você acumula pagamentos. Ainda não há histórico suficiente para traçá-la.",
+    "insightsv2.chart.toNext": "Faltam {n} pts para {tier}",
+    "insightsv2.chart.max": "Nível máximo atingido",
+    "insightsv2.loading": "carregando…",
     "insightsv2.tier.lv4": "Nv.4 Elite • 950",
     "insightsv2.tier.lv3": "Nv.3 Veterano • 750",
     "insightsv2.tier.lv2": "Nv.2 Comprovado • 500",
@@ -2353,6 +2356,9 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.chart.title": "Your score over time",
     "insightsv2.chart.empty":
       "Your score curve appears here as you make payments. There isn't enough history to plot it yet.",
+    "insightsv2.chart.toNext": "{n} pts to {tier}",
+    "insightsv2.chart.max": "Top level reached",
+    "insightsv2.loading": "loading…",
     "insightsv2.tier.lv4": "Lv.4 Elite • 950",
     "insightsv2.tier.lv3": "Lv.3 Veteran • 750",
     "insightsv2.tier.lv2": "Lv.2 Proven • 500",
