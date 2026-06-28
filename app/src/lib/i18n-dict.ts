@@ -1191,6 +1191,8 @@ export const DICT: Record<Lang, Dict> = {
       "Assim que a pool fechar, o ciclo 1 começa e sua 1ª parcela vence em ~{d} dias. Prepare seu USDC para pagar no dia certo.",
     "groups.details.active.title": "Pool ativa",
     "groups.details.active.line": "Ciclo {c} de {t} em andamento",
+    "groups.details.completed.title": "Pool finalizada",
+    "groups.details.completed.line": "Todos os {t} ciclos foram concluídos",
     "groups.details.active.next": "Sua próxima parcela vence em ~{d} dias.",
     "groups.details.activity": "Atividade no seu ledger",
     "groups.details.activityEmpty":
@@ -1225,6 +1227,7 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.spots": "{m}m • {f}/{t} cotas",
     "groupsV2.card.forming": "Formando {f}/{t} · faltam {r}",
     "groupsV2.card.active": "Ativa",
+    "groupsV2.card.completed": "Finalizada",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
     "groupsV2.footer.note":
       "Sua reputação e nível de acesso determinam os grupos disponíveis para você.",
@@ -2963,6 +2966,8 @@ export const DICT: Record<Lang, Dict> = {
       "Once the pool fills, cycle 1 begins and your first installment is due in ~{d} days. Get your USDC ready so you pay on time.",
     "groups.details.active.title": "Pool active",
     "groups.details.active.line": "Cycle {c} of {t} in progress",
+    "groups.details.completed.title": "Pool completed",
+    "groups.details.completed.line": "All {t} cycles completed",
     "groups.details.active.next": "Your next installment is due in ~{d} days.",
     "groups.details.activity": "Your ledger activity",
     "groups.details.activityEmpty":
@@ -2997,6 +3002,7 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.spots": "{m}m • {f}/{t} shares",
     "groupsV2.card.forming": "Forming {f}/{t} · {r} to go",
     "groupsV2.card.active": "Active",
+    "groupsV2.card.completed": "Completed",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
     "groupsV2.footer.note":
       "Your reputation and access level determine which groups are available to you.",

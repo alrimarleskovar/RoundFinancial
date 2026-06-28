@@ -172,6 +172,9 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const filled = lp ? lp.membersJoined : group.filled;
   const total = lp ? lp.membersTarget : group.total;
   const forming = lp ? lp.status === "forming" : false;
+  // Every cycle drawn + claimed → the pool is finished on-chain
+  // (claim_payout sets PoolStatus::Completed on the last cycle).
+  const completed = lp ? lp.status === "completed" : false;
   const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
   const devnetMeta = group.devnetPool ? DEVNET_POOLS[group.devnetPool] : null;
   // Joined = static fixture flag OR runtime session membership (JOIN_GROUP) OR a
@@ -268,18 +271,22 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             <span
               className="inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em]"
               style={
-                forming
-                  ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
-                  : { borderColor: "#14F19566", background: "#14F1951a", color: "#14F195" }
+                completed
+                  ? { borderColor: "#00C8FF66", background: "#00C8FF1a", color: "#00C8FF" }
+                  : forming
+                    ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
+                    : { borderColor: "#14F19566", background: "#14F1951a", color: "#14F195" }
               }
             >
-              {forming
-                ? t("groupsV2.card.forming", {
-                    f: filled,
-                    t: total,
-                    r: Math.max(0, total - filled),
-                  })
-                : t("groupsV2.card.active")}
+              {completed
+                ? t("groupsV2.card.completed")
+                : forming
+                  ? t("groupsV2.card.forming", {
+                      f: filled,
+                      t: total,
+                      r: Math.max(0, total - filled),
+                    })
+                  : t("groupsV2.card.active")}
             </span>
           )}
         </div>
