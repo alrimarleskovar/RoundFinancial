@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
@@ -13,6 +14,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendClaimPayout } from "@/lib/claim-payout";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
+import { usePoolMembers } from "@/lib/usePool";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
@@ -70,6 +72,59 @@ export function ClaimPayoutModal({
   const slotIndexDisplay = chainMode ? memberRecord!.slotIndex : "—";
   const cycleDisplay = chainMode ? pool!.currentCycle : group.month;
   const cyclesTotalDisplay = chainMode ? pool!.cyclesTotal : group.total;
+
+  // ─── Funding readiness ───────────────────────────────────────────────
+  // The recipient shouldn't have to ask anyone "did everyone pay yet?". Read the
+  // pool's USDC float live and compare it to the credit — the exact gate
+  // claim_payout enforces: spendable = vault − guarantee_fund − lp_distribution
+  // ≥ credit_amount. Also surface how many members already paid this cycle so the
+  // state is self-explanatory. (Membership read from chain, 15s cadence.)
+  const membersRes = usePoolMembers(seedKey ?? "pool1", 15_000, chainMode && !!seedKey);
+  const paidThisCycle = useMemo(() => {
+    if (!chainMode || !pool || membersRes.status !== "ok") return null;
+    return membersRes.members.filter((m) => m.contributionsPaid > pool.currentCycle).length;
+  }, [chainMode, pool, membersRes]);
+  const [vaultUsdc, setVaultUsdc] = useState<number | null>(null);
+  useEffect(() => {
+    if (!chainMode || !pool || !seedKey || !open) return;
+    // Capture narrowed values before the async closure (closures don't narrow).
+    const usdcMint = pool.usdcMint;
+    const poolPda = DEVNET_POOLS[seedKey].pda;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const vaultAta = getAssociatedTokenAddressSync(usdcMint, poolPda, true);
+        const bal = await connection.getTokenAccountBalance(vaultAta);
+        if (!cancelled) setVaultUsdc(Number(bal.value.amount) / 1e6);
+      } catch {
+        if (!cancelled) setVaultUsdc(null); // unknown — never block on a failed read
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Re-read when a payment lands (paidThisCycle ticks up) so the status goes
+    // live without reopening the modal.
+  }, [chainMode, pool, seedKey, open, connection, paidThisCycle]);
+  // spendable mirrors claim_payout.rs exactly: vault − (guarantee_fund + lp_distribution).
+  const spendableUsdc =
+    chainMode && pool && vaultUsdc !== null
+      ? vaultUsdc -
+        Number(pool.guaranteeFundBalance) / 1e6 -
+        Number(pool.lpDistributionBalance) / 1e6
+      : null;
+  // Underfunded is a HARD on-chain fail (WaterfallUnderflow), so we can safely
+  // gate the CTA on it. "Funded" only clears the float check — the cycle-0
+  // seed-draw invariant is still enforced on-chain, so we don't over-promise it.
+  const fundingKnown = spendableUsdc !== null;
+  const underfunded = spendableUsdc !== null && spendableUsdc < creditUsdc;
+  const shortfallUsdc = spendableUsdc !== null ? Math.max(0, creditUsdc - spendableUsdc) : 0;
+  const fundingAccent = !fundingKnown ? tokens.muted : underfunded ? tokens.amber : tokens.green;
+  const fundingLabel = !fundingKnown
+    ? "VERIFICANDO"
+    : underfunded
+      ? "AGUARDANDO"
+      : "PRONTO PRA SACAR";
 
   // ─── Payment progress + Triple Shield collateral ─────────────────────
   // Surfaces the contract-social side of receiving the credit upfront:
@@ -137,6 +192,9 @@ export function ClaimPayoutModal({
   };
 
   const handleConfirm = async () => {
+    // Underfunded is a hard on-chain fail (spendable < credit) — the CTA is
+    // disabled in that state; guard here so we never fire a doomed claim.
+    if (underfunded) return;
     setSubmitting(true);
     setChainError(null);
 
@@ -327,6 +385,37 @@ export function ClaimPayoutModal({
               {creditUsdc.toFixed(2)} USDC do `pool_usdc_vault` → sua ATA
             </div>
           </div>
+
+          {/* Funding readiness — answers "can I claim now?" without asking anyone:
+              the live pool float vs the credit + how many paid this cycle. */}
+          {chainMode && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${fundingAccent}14`,
+                border: `1px solid ${fundingAccent}33`,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <MonoLabel size={9} color={fundingAccent}>
+                {fundingLabel}
+              </MonoLabel>
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                {!fundingKnown
+                  ? "Checando os fundos do pool…"
+                  : underfunded
+                    ? `Aguardando o pool fundear o saque — faltam ~${Math.ceil(shortfallUsdc)} USDC. Libera quando os outros membros pagarem este ciclo.`
+                    : "Pool fundeado — você já pode sacar."}
+                {paidThisCycle !== null && pool
+                  ? ` ${paidThisCycle}/${pool.membersTarget} pagaram este ciclo.`
+                  : ""}
+              </span>
+            </div>
+          )}
 
           {/* Payment progress — protocol rule: credit is anticipated.
               Member receives credit_amount IN FULL regardless of how
@@ -579,15 +668,19 @@ export function ClaimPayoutModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting}
+              disabled={submitting || underfunded}
               style={{
                 ...primaryBtn(tokens),
                 background: `linear-gradient(135deg, ${tokens.purple}, ${tokens.teal})`,
-                opacity: submitting ? 0.45 : 1,
-                cursor: submitting ? "default" : "pointer",
+                opacity: submitting || underfunded ? 0.45 : 1,
+                cursor: submitting || underfunded ? "default" : "pointer",
               }}
             >
-              {submitting ? "Processando…" : "Confirmar recebimento"}
+              {submitting
+                ? "Processando…"
+                : underfunded
+                  ? "Aguardando fundos"
+                  : "Confirmar recebimento"}
             </button>
           </div>
         </>
