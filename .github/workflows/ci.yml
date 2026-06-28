@@ -199,6 +199,13 @@ jobs:
         # collateral %). Pure (no DB / no RPC / no network), sub-second.
         run: pnpm test:email-notify
 
+      - name: Real /insights helpers (factors + score curve)
+        # Pins the pure on-chain→display math for /insights' real mode:
+        # computeRealFactors (from reputation counters), reconstructScoreHistory
+        # (anchored to current score), scoreScale, factorStatusKey, formatDayMon.
+        # Pure (no React / RPC / network), sub-second.
+        run: pnpm test:insights-real
+
       - name: Harvest slippage floor (7 tests)
         # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
         # computes a LIVE min_realized_usdc floor from the expected surplus
