@@ -19,6 +19,7 @@ import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
+import { useUsdcBalance } from "@/lib/useUsdcBalance";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Pay-installment modal. Shows the active group + installment amount
@@ -51,6 +52,7 @@ export function PayInstallmentModal({
   const { payInstallment, recordTx, user, monthsPaidByGroup, demoActive } = useSession();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
+  const usdc = useUsdcBalance();
   const wallet = useWallet();
   const { explorerTx } = wallet;
   const [submitting, setSubmitting] = useState(false);
@@ -158,22 +160,32 @@ export function PayInstallmentModal({
   const paidExtra = monthsPaidByGroup[group.name] ?? 0;
   const effectiveMonth = Math.min(group.total, group.month + paidExtra);
   const cycleDone = effectiveMonth >= group.total;
-  // Block on insufficient balance only in mock mode — on-chain mode
-  // checks the real USDC ATA inside the program (InsufficientStake
-  // error) so the front-end fixture balance is irrelevant there.
+  // The on-chain installment in USDC (base units → USDC) — drives the BRL hero
+  // AND the live balance gate below.
+  const installmentUsdc =
+    onChainReady && onChainPool.pool ? Number(onChainPool.pool.installmentAmount) / 1e6 : null;
+  // Block on insufficient balance. Mock mode uses the session balance. On-chain
+  // mode pre-checks the REAL USDC ATA: contribute.rs:146 reverts with the
+  // (misleadingly-named) InsufficientStake error when member_usdc < installment —
+  // its message says "Stake below required amount for this reputation level",
+  // which confused the team. Surface a clear "use the faucet" gate instead. Only
+  // when a payment is actually due (no chainGate) and the balance read succeeded.
   const insufficient = mockMode && user.balance < group.installment;
-  const blocked = cycleDone || insufficient;
+  const insufficientChain =
+    onChainReady &&
+    !chainGate &&
+    installmentUsdc !== null &&
+    usdc.status === "ok" &&
+    usdc.uiAmount !== null &&
+    usdc.uiAmount < installmentUsdc;
+  const blocked = cycleDone || insufficient || insufficientChain;
 
   // A2-F2: when on-chain, drive the 40px hero + Triple-Shield breakdown from the
   // pinned chain installment (as the IntentPanel already does) rather than the
   // static fixture — otherwise the headline can disagree with what the program
   // actually debits if the fixture and the deployed pool drift. fmtMoney takes
-  // BRL, so convert the USDC base-units installment via USDC_RATE (same pattern
-  // as ClaimPayoutModal).
-  const installmentBrl =
-    onChainReady && onChainPool.pool
-      ? (Number(onChainPool.pool.installmentAmount) / 1e6) * USDC_RATE
-      : group.installment;
+  // BRL, so convert the USDC base-units installment via USDC_RATE.
+  const installmentBrl = installmentUsdc !== null ? installmentUsdc * USDC_RATE : group.installment;
 
   const reset = () => {
     setSubmitting(false);
@@ -546,7 +558,9 @@ export function PayInstallmentModal({
               >
                 {cycleDone
                   ? `Você já pagou todas as ${group.total} parcelas deste ciclo.`
-                  : `Saldo atual ${fmtMoney(user.balance, { noCents: true })} — adicione fundos pela tela de Carteira.`}
+                  : insufficientChain
+                    ? `Saldo USDC insuficiente: você tem ${(usdc.uiAmount ?? 0).toFixed(2)} USDC e a parcela é ${(installmentUsdc ?? 0).toFixed(2)} USDC. Pegue USDC no faucet ("Solicitar SOL + USDC" na tela de Carteira) e tente de novo.`
+                    : `Saldo atual ${fmtMoney(user.balance, { noCents: true })} — adicione fundos pela tela de Carteira.`}
               </span>
             </div>
           )}
