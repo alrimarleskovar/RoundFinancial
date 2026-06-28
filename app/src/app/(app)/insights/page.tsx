@@ -25,8 +25,10 @@ import {
 } from "@/data/insights";
 import { useI18n } from "@/lib/i18n";
 import { PASSPORT_TIERS, TIER_KEYS, tierForScore } from "@/lib/passport";
+import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 import { useSession } from "@/lib/session";
-import type { Tone } from "@/data/carteira";
+import { ACTIVE_GROUPS, DISCOVER_GROUPS } from "@/data/groups";
+import type { NftPosition, Tone } from "@/data/carteira";
 
 const TONE_HEX: Record<Tone, string> = {
   g: "#14F195",
@@ -298,55 +300,143 @@ function ScoreHero() {
   );
 }
 
+interface RecCard {
+  key: string;
+  pts: number;
+  icon: string;
+  color: string;
+  label: string;
+  cta: string;
+  href: string;
+}
+
+// Friendly pool name for a devnet position (the on-chain view only carries the
+// seed id) — falls back to the position's generic label.
+function poolName(p: NftPosition): string {
+  return (
+    [...ACTIVE_GROUPS, ...DISCOVER_GROUPS].find((g) => g.devnetPool === p.devnetPool)?.name ??
+    p.group
+  );
+}
+
 function RecommendationCards() {
   const { t } = useI18n();
+  const { demoActive } = useSession();
+  // Real, achievable next-steps for a real wallet, derived from its on-chain
+  // cotas — the ONLY actions that actually move the score: pay on time
+  // (+10 SCORE_PAYMENT), complete a pool (+50 SCORE_POOL_COMPLETE), and join
+  // more pools. Demo keeps the fixture cards for the pitch; the Factors panel +
+  // Score chart already gate to empty for a real wallet the same way, so the
+  // recommendations were the last fixture leak here.
+  const positions = useMyDevnetPositions();
+  const realCards = useMemo<RecCard[]>(() => {
+    const out: RecCard[] = [];
+    // Pools with installments still to pay (contributionsPaid < cycles ≈ target).
+    const payable = positions.filter((p) => p.month < p.total);
+    // 1. Pay on time — the pool whose next installment is due soonest.
+    const due = [...payable].sort((a, b) => (a.nextDueDays ?? 999) - (b.nextDueDays ?? 999))[0];
+    if (due) {
+      out.push({
+        key: "real-pay",
+        pts: 10,
+        icon: "calendar",
+        color: TONE_HEX.g,
+        label: t("insightsv2.next.real.pay", { pool: poolName(due) }),
+        cta: t("insightsv2.next.real.pay.cta"),
+        href: "/",
+      });
+    }
+    // 2. Complete a pool — the one closest to done (biggest paid fraction).
+    const toComplete = [...payable].sort((a, b) => b.month / b.total - a.month / a.total)[0];
+    if (toComplete) {
+      out.push({
+        key: "real-complete",
+        pts: 50,
+        icon: "trophy",
+        color: TONE_HEX.p,
+        label: t("insightsv2.next.real.complete", {
+          pool: poolName(toComplete),
+          n: toComplete.total - toComplete.month,
+        }),
+        cta: t("insightsv2.next.real.complete.cta"),
+        href: "/",
+      });
+    }
+    // 3. Join another real group — /grupos lists the actually-available pools.
+    out.push({
+      key: "real-join",
+      pts: 10,
+      icon: "people",
+      color: TONE_HEX.t,
+      label: positions.length
+        ? t("insightsv2.next.real.join")
+        : t("insightsv2.next.real.joinFirst"),
+      cta: t("insightsv2.next.real.join.cta"),
+      href: "/grupos",
+    });
+    return out;
+  }, [positions, t]);
+
+  const cards: RecCard[] = demoActive
+    ? RECOMMENDATIONS.map((rec) => ({
+        key: rec.key,
+        pts: rec.pts,
+        icon: REC_META[rec.key].icon,
+        color: TONE_HEX[rec.tone],
+        label: t(`insightsv2.next.${rec.key}.label`),
+        cta: t(`insightsv2.next.${rec.key}.cta`),
+        href: REC_META[rec.key].href,
+      }))
+    : realCards;
+
+  if (cards.length === 0) return null;
+
   return (
     <Card className="p-4 md:p-5">
       <MonoTitle>{t("insightsv2.next.title")}</MonoTitle>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        {RECOMMENDATIONS.map((rec) => {
-          const meta = REC_META[rec.key];
-          const color = TONE_HEX[rec.tone];
-          return (
-            <Link
-              key={rec.key}
-              href={meta.href}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25"
-            >
+        {cards.map((card) => (
+          <Link
+            key={card.key}
+            href={card.href}
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25"
+          >
+            <div
+              className="absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-20 blur-3xl"
+              style={{ backgroundColor: card.color }}
+            />
+            {/* icon + points share the top row (per the print) */}
+            <div className="relative flex items-center gap-3">
               <div
-                className="absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-20 blur-3xl"
-                style={{ backgroundColor: color }}
-              />
-              {/* icon + points share the top row (per the print) */}
-              <div className="relative flex items-center gap-3">
-                <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${color}1f`, border: `1px solid ${color}33` }}
-                >
-                  <Glyph name={meta.icon} color={color} size={22} sw={1.9} />
-                </div>
-                <div className={`text-3xl font-black tracking-[-0.05em] ${MONO}`} style={{ color }}>
-                  {t("insightsv2.pts", { n: rec.pts })}
-                </div>
-              </div>
-              {/* min-height keeps the CTAs aligned across the three cards */}
-              <div className="relative mt-4 min-h-[44px] text-base font-semibold leading-snug text-white">
-                {t(`insightsv2.next.${rec.key}.label`)}
-              </div>
-              <div
-                className="relative mt-5 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-black text-[#06110D]"
-                style={{
-                  background: `linear-gradient(135deg, ${color}, ${rec.tone === "g" ? "#00C8FF" : color})`,
-                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${card.color}1f`, border: `1px solid ${card.color}33` }}
               >
-                {t(`insightsv2.next.${rec.key}.cta`)}
-                <span className="transition-transform group-hover:translate-x-1">
-                  <Icons.arrow size={16} stroke="#06110D" sw={2.4} />
-                </span>
+                <Glyph name={card.icon} color={card.color} size={22} sw={1.9} />
               </div>
-            </Link>
-          );
-        })}
+              <div
+                className={`text-3xl font-black tracking-[-0.05em] ${MONO}`}
+                style={{ color: card.color }}
+              >
+                {t("insightsv2.pts", { n: card.pts })}
+              </div>
+            </div>
+            {/* min-height keeps the CTAs aligned across the three cards */}
+            <div className="relative mt-4 min-h-[44px] text-base font-semibold leading-snug text-white">
+              {card.label}
+            </div>
+            <div
+              className="relative mt-5 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-black text-[#06110D]"
+              style={{
+                background: `linear-gradient(135deg, ${card.color}, ${card.color === TONE_HEX.g ? "#00C8FF" : card.color})`,
+              }}
+            >
+              {card.cta}
+              <span className="transition-transform group-hover:translate-x-1">
+                <Icons.arrow size={16} stroke="#06110D" sw={2.4} />
+              </span>
+            </div>
+          </Link>
+        ))}
       </div>
     </Card>
   );
