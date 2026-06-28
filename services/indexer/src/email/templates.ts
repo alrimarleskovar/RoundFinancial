@@ -102,7 +102,11 @@ function layout(opts: {
 <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
   <div style="background:${C.card};border:1px solid ${C.border};border-radius:18px;padding:26px;">
     <div style="margin-bottom:20px;">
-      <img src="${esc(opts.c.logoUrl)}" width="120" height="34" alt="RoundFi" style="display:block;border:0;outline:none;" />
+      ${
+        opts.c.logoUrl
+          ? `<img src="${esc(opts.c.logoUrl)}" width="120" height="34" alt="RoundFi" style="display:block;border:0;outline:none;" />`
+          : `<span style="font-size:22px;font-weight:800;color:${C.text};letter-spacing:-0.02em;"><span style="color:${C.green};">◆</span> RoundFi</span>`
+      }
     </div>
     <div style="font-size:11px;letter-spacing:0.12em;color:${C.green};font-family:monospace;margin-bottom:10px;">${esc(opts.badge)}</div>
     <div style="font-size:24px;font-weight:800;color:${C.text};letter-spacing:-0.02em;line-height:1.25;">${opts.title}</div>

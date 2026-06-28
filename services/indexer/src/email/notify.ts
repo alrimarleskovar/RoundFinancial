@@ -56,7 +56,10 @@ const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
 const REPUTATION_PROGRAM = process.env.ROUNDFI_REPUTATION_PROGRAM_ID;
 const BASE_URL = process.env.NOTIFY_BASE_URL ?? "https://roundfi.vercel.app";
-const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? `${BASE_URL}/prototype/assets/roundfi-logo.jpeg`;
+// Default = no image → the templates render a clean text wordmark. The
+// prototype JPEG had a boxed, non-transparent background that looked broken in
+// inboxes; set NOTIFY_LOGO_URL to a hosted TRANSPARENT PNG to use a real logo.
+const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? "";
 const DUE_WINDOW_SECS = Number(process.env.NOTIFY_DUE_WINDOW_HOURS ?? "48") * 3600;
 const INTERVAL_MS = Number(process.env.NOTIFY_INTERVAL_MS ?? "300000");
 
