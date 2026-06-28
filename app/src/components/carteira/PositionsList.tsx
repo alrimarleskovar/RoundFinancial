@@ -190,6 +190,25 @@ export function PositionsList({ limit }: { limit?: number }) {
                   >
                     ◆ Listado
                   </span>
+                ) : n.paidOut ? (
+                  <span
+                    title="Você já recebeu o crédito desta cota — continue pagando as parcelas restantes."
+                    style={{
+                      padding: "5px 11px",
+                      borderRadius: 999,
+                      background: `${tokens.purple}1F`,
+                      border: `1px solid ${tokens.purple}55`,
+                      color: tokens.purple,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ◆ Recebido
+                  </span>
                 ) : (
                   <button
                     type="button"

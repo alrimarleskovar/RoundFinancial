@@ -57,8 +57,18 @@ function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] 
   for (const { key, pool, members } of entries) {
     if (pool.status !== "ok" || !pool.pool || members.status !== "ok") continue;
     const p = pool.pool;
+    // A finished pool has no live cota to surface for anyone.
+    if (p.status === "completed" || p.status === "closed" || p.status === "liquidated") continue;
     for (const m of members.members) {
-      if (!m.wallet.equals(wallet) || m.defaulted || m.paidOut) continue;
+      // NB: paid-out members are deliberately NOT excluded. In pay-after-
+      // receiving a member who already received their credit is STILL active
+      // and MUST keep paying the remaining installments — dropping them here
+      // made the whole pool vanish from /home + /carteira + /grupos the instant
+      // they claimed, so the drawn member couldn't see or pay it and would
+      // default. Only `defaulted` (out, collateral already seized) drops a
+      // member; `paidOut` is carried through as a flag so the sell list can
+      // disable selling a cota whose payout was already taken.
+      if (!m.wallet.equals(wallet) || m.defaulted) continue;
       out.push({
         id: `onchain-${key}-${m.slotIndex}`,
         num: String(m.slotIndex).padStart(2, "0"),
@@ -72,6 +82,7 @@ function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] 
         devnetPool: key,
         slotIndex: m.slotIndex,
         nextDueDays: nextDueDaysFor(p, m),
+        paidOut: m.paidOut,
       });
     }
   }
