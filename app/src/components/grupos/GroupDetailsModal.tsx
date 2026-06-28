@@ -51,6 +51,9 @@ export function GroupDetailsModal({
   const total = pool ? pool.membersTarget : group.total;
   const forming = pool ? pool.status === "forming" : false;
   const active = pool ? pool.status === "active" : false;
+  // All cycles drawn + claimed → pool finished on-chain (claim_payout sets
+  // PoolStatus::Completed on the last cycle).
+  const completed = pool ? pool.status === "completed" : false;
   const remaining = Math.max(0, total - filled);
   const cycleDays = pool ? Math.max(1, Math.round(Number(pool.cycleDurationSec) / 86_400)) : 0;
   const nextDueDays =
@@ -242,6 +245,40 @@ export function GroupDetailsModal({
             {forming
               ? t("groups.details.forming.prep", { d: cycleDays })
               : t("groups.details.active.next", { d: nextDueDays ?? cycleDays })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Finished pool — every cycle drawn + claimed. */}
+      {pool && completed ? (
+        <div
+          style={{
+            marginTop: 14,
+            padding: 14,
+            borderRadius: 12,
+            background: `${tokens.teal}12`,
+            border: `1px solid ${tokens.teal}33`,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 999,
+                background: tokens.teal,
+                boxShadow: `0 0 8px ${tokens.teal}`,
+              }}
+            />
+            <MonoLabel size={9} color={tokens.teal}>
+              {t("groups.details.completed.title")}
+            </MonoLabel>
+          </div>
+          <div style={{ fontSize: 12, color: tokens.text, fontWeight: 600 }}>
+            {t("groups.details.completed.line", { t: total })}
           </div>
         </div>
       ) : null}
