@@ -550,6 +550,8 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.pts": "+{n} pts",
     "insightsv2.factors.title": "Fatores que compõem seu score",
     "insightsv2.factors.improve": "Como melhorar: ",
+    "insightsv2.factors.empty":
+      "Os fatores comportamentais (pontualidade, antecipação, consistência…) aparecem aqui assim que houver histórico de pagamentos suficiente para calculá-los on-chain.",
     "insightsv2.factor.punctuality.desc": "Pagamentos em dia",
     "insightsv2.factor.punctuality.long":
       "Mede a proporção de parcelas quitadas até a data de vencimento. É o sinal de maior peso no seu score SAS.",
@@ -580,6 +582,8 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.status.developing": "A desenvolver",
     "insightsv2.status.improve": "Pode melhorar",
     "insightsv2.chart.title": "Evolução do seu score",
+    "insightsv2.chart.empty":
+      "Sua curva de score aparece aqui conforme você acumula pagamentos. Ainda não há histórico suficiente para traçá-la.",
     "insightsv2.tier.lv4": "Nv.4 Elite • 950",
     "insightsv2.tier.lv3": "Nv.3 Veterano • 750",
     "insightsv2.tier.lv2": "Nv.2 Comprovado • 500",
@@ -1260,6 +1264,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.tx.seeAll": "Ver tudo →",
     "wallet.tx.empty.title": "Carteira ainda zerada",
     "wallet.tx.empty.sub": "Movimentos de USDC, parcelas e yield aparecem aqui em tempo real.",
+    "wallet.tx.loading": "carregando transações on-chain…",
+    "wallet.tx.loadingMore": "carregando histórico on-chain…",
     "wallet.sell": "Vender",
     "wallet.expires": "expira {d}",
     // wallet menus / errors
@@ -2315,6 +2321,8 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.pts": "+{n} pts",
     "insightsv2.factors.title": "Signals behind your score",
     "insightsv2.factors.improve": "How to improve: ",
+    "insightsv2.factors.empty":
+      "Behavioral factors (punctuality, anticipation, consistency…) show up here once there's enough on-chain payment history to compute them.",
     "insightsv2.factor.punctuality.desc": "On-time payments",
     "insightsv2.factor.punctuality.long":
       "Measures the share of installments paid by their due date. It's the heaviest signal in your SAS score.",
@@ -2343,6 +2351,8 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.status.developing": "Developing",
     "insightsv2.status.improve": "Could improve",
     "insightsv2.chart.title": "Your score over time",
+    "insightsv2.chart.empty":
+      "Your score curve appears here as you make payments. There isn't enough history to plot it yet.",
     "insightsv2.tier.lv4": "Lv.4 Elite • 950",
     "insightsv2.tier.lv3": "Lv.3 Veteran • 750",
     "insightsv2.tier.lv2": "Lv.2 Proven • 500",
@@ -3017,6 +3027,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.tx.all": "◆ All transactions",
     "wallet.tx.empty.title": "Wallet's still empty",
     "wallet.tx.empty.sub": "USDC moves, installments and yield show up here in real time.",
+    "wallet.tx.loading": "loading on-chain transactions…",
+    "wallet.tx.loadingMore": "loading on-chain history…",
     "wallet.tx.seeAll": "See all →",
     "wallet.sell": "Sell",
     "wallet.expires": "expires {d}",
