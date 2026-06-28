@@ -66,6 +66,50 @@ function formatRelative(ts: number): string {
   return `${days}d atrás`;
 }
 
+// A muted spinner row. Used in two spots: as the empty-state while the chain
+// scans are still in flight (so we never flash "no transactions" before the
+// Member-PDA history resolves), and as a footer while the slower transfer scan
+// is still decoding txs (so the list doesn't look complete then silently grow).
+function TxLoadingRow({
+  label,
+  color,
+  muted,
+  border,
+}: {
+  label: string;
+  color: string;
+  muted: string;
+  border?: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "12px 0",
+        color: muted,
+        fontSize: 11,
+        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+        borderTop: border ? `1px solid ${border}` : "none",
+      }}
+    >
+      <span
+        style={{
+          width: 11,
+          height: 11,
+          borderRadius: "50%",
+          border: `2px solid ${muted}`,
+          borderTopColor: color,
+          animation: "rfi-spin 0.7s linear infinite",
+          display: "inline-block",
+        }}
+      />
+      {label}
+    </div>
+  );
+}
+
 export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll?: () => void }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -101,6 +145,11 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
   const realTx = [...liveTx, ...chainTx, ...transferTx].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
   const merged = [...realTx, ...(demoActive ? TX_LIST : [])];
   const rows = limit ? merged.slice(0, limit) : merged;
+  // Either chain scan still in its first round: the Member-PDA history (fast)
+  // or the wallet transfer scan (slow — decodes each tx). Drives the spinner
+  // so a wallet WITH activity never flashes the empty-state, and a half-loaded
+  // list shows it's still filling rather than looking final.
+  const loadingChain = history.status === "loading" || transfers.status === "loading";
   return (
     <div
       style={{
@@ -139,7 +188,12 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
         )}
       </div>
       <div style={{ marginTop: 12 }}>
-        {rows.length === 0 && <NoTransactionsYet />}
+        {rows.length === 0 &&
+          (loadingChain ? (
+            <TxLoadingRow label={t("wallet.tx.loading")} color={tokens.teal} muted={tokens.muted} />
+          ) : (
+            <NoTransactionsYet />
+          ))}
         {rows.map((tx, i) => (
           <div
             key={i}
@@ -213,6 +267,14 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
             </span>
           </div>
         ))}
+        {rows.length > 0 && loadingChain && (
+          <TxLoadingRow
+            label={t("wallet.tx.loadingMore")}
+            color={tokens.teal}
+            muted={tokens.muted}
+            border={tokens.border}
+          />
+        )}
       </div>
     </div>
   );

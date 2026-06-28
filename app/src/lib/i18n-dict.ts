@@ -1260,6 +1260,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.tx.seeAll": "Ver tudo →",
     "wallet.tx.empty.title": "Carteira ainda zerada",
     "wallet.tx.empty.sub": "Movimentos de USDC, parcelas e yield aparecem aqui em tempo real.",
+    "wallet.tx.loading": "carregando transações on-chain…",
+    "wallet.tx.loadingMore": "carregando histórico on-chain…",
     "wallet.sell": "Vender",
     "wallet.expires": "expira {d}",
     // wallet menus / errors
@@ -3017,6 +3019,8 @@ export const DICT: Record<Lang, Dict> = {
     "wallet.tx.all": "◆ All transactions",
     "wallet.tx.empty.title": "Wallet's still empty",
     "wallet.tx.empty.sub": "USDC moves, installments and yield show up here in real time.",
+    "wallet.tx.loading": "loading on-chain transactions…",
+    "wallet.tx.loadingMore": "loading on-chain history…",
     "wallet.tx.seeAll": "See all →",
     "wallet.sell": "Sell",
     "wallet.expires": "expires {d}",
