@@ -111,7 +111,7 @@ jobs:
       # Download the previous scheduled-run's merged corpus, if any.
       # `continue-on-error` because the first run won't have one.
       - name: Download previous merged corpus
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v21
         continue-on-error: true
         with:
           workflow: fuzz-scheduled.yml
