@@ -230,6 +230,11 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             <Icons.lock size={12} stroke="currentColor" sw={2} />{" "}
             {t("groupsV2.card.requires", { lv: group.level })}
           </span>
+        ) : completed && isJoined ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00C8FF]/25 bg-[#00C8FF]/10 px-3 py-1 text-[11px] font-bold text-[#00C8FF]">
+            <Icons.check size={13} stroke="currentColor" sw={2.6} />{" "}
+            {t("groupsV2.card.participated")}
+          </span>
         ) : isJoined ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-3 py-1 text-[11px] font-bold text-[#14F195]">
             <Icons.check size={13} stroke="currentColor" sw={2.6} /> {t("groupsV2.card.joined")}
