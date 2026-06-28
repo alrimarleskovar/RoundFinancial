@@ -98,7 +98,11 @@ export interface UsePoolMembersResult {
  * Returns an empty list on RPC failure or when the pool has no members
  * yet (status="fallback") so callers can render a graceful empty state.
  */
-export function usePoolMembers(seedKey: DevnetPoolKey, refreshMs = 30_000): UsePoolMembersResult {
+export function usePoolMembers(
+  seedKey: DevnetPoolKey,
+  refreshMs = 30_000,
+  enabled = true,
+): UsePoolMembersResult {
   const { connection } = useConnection();
   const [state, setState] = useState<{
     status: UsePoolMembersStatus;
@@ -112,6 +116,7 @@ export function usePoolMembers(seedKey: DevnetPoolKey, refreshMs = 30_000): UseP
   const cancelledRef = useRef(false);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     const target = DEVNET_POOLS[seedKey];
     try {
       const list = await fetchPoolMembers(connection, DEVNET_PROGRAM_IDS.core, target.pda);
@@ -122,9 +127,12 @@ export function usePoolMembers(seedKey: DevnetPoolKey, refreshMs = 30_000): UseP
       const message = err instanceof Error ? err.message : String(err);
       setState({ status: "fallback", members: [], error: message });
     }
-  }, [connection, seedKey]);
+  }, [connection, seedKey, enabled]);
 
   useEffect(() => {
+    // Skip entirely when disabled (e.g. non-devnet cards) so we don't pay for a
+    // getProgramAccounts roster scan per poll on pools the caller never reads.
+    if (!enabled) return;
     cancelledRef.current = false;
     void load();
     const id = window.setInterval(load, refreshMs);
@@ -132,7 +140,7 @@ export function usePoolMembers(seedKey: DevnetPoolKey, refreshMs = 30_000): UseP
       cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, [load, refreshMs]);
+  }, [load, refreshMs, enabled]);
 
   return { ...state, refresh: load };
 }
