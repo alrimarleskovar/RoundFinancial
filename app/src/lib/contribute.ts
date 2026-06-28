@@ -61,7 +61,16 @@ export interface BuildContributeIxArgs {
   memberWallet: PublicKey;
   /** Cycle to pay, must equal pool.current_cycle (program enforces). */
   cycle: number;
-  /** Optional override; defaults to ATTESTATION_SCHEMA.Payment (1). */
+  /** Pool's total cycles. Needed to detect the FINAL installment, which the
+   *  program attests as POOL_COMPLETE (schema 4) instead of PAYMENT — and the
+   *  attestation PDA seeds include schema_id, so the client must match or the
+   *  reputation CPI's `init` reverts with ConstraintSeeds. */
+  cyclesTotal?: number;
+  /** Pool's current-cycle deadline (unix secs). on-time → PAYMENT, late →
+   *  LATE — also part of the attestation PDA seeds. */
+  nextCycleAt?: number | bigint;
+  /** Optional explicit override; when omitted, derived from cycle/cyclesTotal/
+   *  nextCycleAt to match the program (see `deriveContributeSchema`). */
   schemaId?: number;
   /** Optional slot index for the attestation nonce. Defaults to 0
    *  because nonce only needs uniqueness within a cycle, and the
@@ -75,6 +84,37 @@ export interface BuildContributeIxArgs {
   /** Optional USDC mint override — pairs with `programIds` for tests
    *  that use a freshly-minted local USDC. Defaults to `DEVNET_USDC_MINT`. */
   usdcMint?: PublicKey;
+}
+
+/**
+ * The attestation schema the program will use for this contribute, so the
+ * client derives the SAME attestation PDA (its seeds include schema_id).
+ *
+ * Mirrors `programs/roundfi-core/src/instructions/contribute.rs` exactly:
+ *   - FINAL installment (member.contributions_paid == cycles_total, i.e. the
+ *     cycle being paid is the last one, `cycle == cyclesTotal - 1`) →
+ *     POOL_COMPLETE (schema 4). This is the bug that blocked the last payment
+ *     of every pool: the client used PAYMENT here, so the attestation PDA
+ *     mismatched and the reputation CPI reverted with ConstraintSeeds (2006).
+ *   - otherwise on-time (now ≤ nextCycleAt) → PAYMENT, late → LATE.
+ *
+ * Back-compat: with cyclesTotal/nextCycleAt omitted it falls back to PAYMENT,
+ * preserving the encoder's prior behaviour for callers that don't pass them.
+ */
+export function deriveContributeSchema(
+  cycle: number,
+  cyclesTotal?: number,
+  nextCycleAt?: number | bigint,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): number {
+  if (cyclesTotal !== undefined && cycle === cyclesTotal - 1) {
+    return ATTESTATION_SCHEMA.PoolComplete;
+  }
+  if (nextCycleAt !== undefined) {
+    const onTime = BigInt(nowSec) <= BigInt(nextCycleAt);
+    return onTime ? ATTESTATION_SCHEMA.Payment : ATTESTATION_SCHEMA.Late;
+  }
+  return ATTESTATION_SCHEMA.Payment;
 }
 
 /**
@@ -97,7 +137,8 @@ export function buildContributeIx(args: BuildContributeIxArgs): TransactionInstr
   const [repConfig] = reputationConfigPda(reputation);
   const [repProfile] = reputationProfilePda(reputation, args.memberWallet);
 
-  const schemaId = args.schemaId ?? ATTESTATION_SCHEMA.Payment;
+  const schemaId =
+    args.schemaId ?? deriveContributeSchema(args.cycle, args.cyclesTotal, args.nextCycleAt);
   const slotIndex = args.slotIndex ?? 0;
   const nonce = attestationNonce(args.cycle, slotIndex);
   // The reputation program is its own "no identity linked" sentinel —
