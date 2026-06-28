@@ -12,6 +12,7 @@ import {
   computeRealFactors,
   factorStatusKey,
   formatDayMon,
+  niceScoreTicks,
   reconstructScoreHistory,
   scoreScale,
   type RepCounters,
@@ -127,6 +128,33 @@ describe("insights — scoreScale (fits the curve, with padding)", () => {
     ]);
     expect(s.yMin).to.equal(0);
     expect(s.yMax).to.equal(50);
+  });
+});
+
+describe("insights — niceScoreTicks (Y-axis gridline values)", () => {
+  it("returns round 10-step values for a typical low-score window", () => {
+    // The padded window for a sub-tier wallet (e.g. score ~35) — the case that
+    // used to render a blank Y-axis because no tier guide fell inside it.
+    expect(niceScoreTicks(0, 55)).to.deep.equal([10, 20, 30, 40, 50]);
+    expect(niceScoreTicks(5, 55)).to.deep.equal([10, 20, 30, 40, 50]);
+  });
+
+  it("keeps ticks strictly inside the window (never on the padded edges)", () => {
+    const ticks = niceScoreTicks(0, 50);
+    expect(ticks).to.deep.equal([10, 20, 30, 40]); // 0 and 50 excluded
+    ticks.forEach((v) => {
+      expect(v).to.be.greaterThan(0);
+      expect(v).to.be.lessThan(50);
+    });
+  });
+
+  it("scales the step up for a wide window", () => {
+    expect(niceScoreTicks(90, 150)).to.deep.equal([100, 110, 120, 130, 140]);
+  });
+
+  it("returns [] for a degenerate or inverted span", () => {
+    expect(niceScoreTicks(10, 10)).to.deep.equal([]);
+    expect(niceScoreTicks(50, 40)).to.deep.equal([]);
   });
 });
 
