@@ -130,6 +130,31 @@ pub mod roundfi_reputation {
         instructions::unlink_identity::handler(ctx)
     }
 
+    // ─── DEVNET-ONLY identity shim ──────────────────────────────────────
+    // Gated behind `devnet-identity-shim`; absent from mainnet artifacts.
+    // Lets the devnet team exercise the REAL `link_passport_identity` flow
+    // (whose attestation authority is frozen to a non-functional Civic
+    // placeholder on devnet). See instructions/devnet_identity_shim.rs.
+
+    /// DEVNET-ONLY (admin): repoint the frozen `passport_attestation_authority`
+    /// to this program so shim-issued attestation PDAs validate.
+    #[cfg(feature = "devnet-identity-shim")]
+    pub fn devnet_seed_passport_authority(ctx: Context<DevnetSeedPassportAuthority>) -> Result<()> {
+        instructions::devnet_identity_shim::seed_authority(ctx)
+    }
+
+    /// DEVNET-ONLY (self-service): mint the caller's 83-byte attestation PDA
+    /// in the Civic-v1 layout, so a following `link_passport_identity` (same
+    /// tx) writes a real Verified `IdentityRecord`. `ttl_seconds` ∈
+    /// (0, MAX_PASSPORT_HORIZON_SECS].
+    #[cfg(feature = "devnet-identity-shim")]
+    pub fn devnet_issue_attestation(
+        ctx: Context<DevnetIssueAttestation>,
+        ttl_seconds: i64,
+    ) -> Result<()> {
+        instructions::devnet_identity_shim::issue_attestation(ctx, ttl_seconds)
+    }
+
     /// Public read-only view (Step 4f). Returns a `ProfileSnapshot`
     /// via both an anchor event and `set_return_data`, so off-chain
     /// consumers (B2B score API, indexers) and on-chain composers

@@ -1,14 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
-import { ConnectionCard, type ConnSpec } from "@/components/carteira/ConnectionCard";
+import {
+  ConnectionCard,
+  type ConnMeta,
+  type ConnSpec,
+  type PassportRealHandlers,
+} from "@/components/carteira/ConnectionCard";
 import { EmailAlertsCard } from "@/components/carteira/EmailAlertsCard";
-import { useConnections, type ConnId } from "@/lib/connections";
+import { useConnections, type ConnId, type ConnRuntime } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
+import { sendVerifyPassport } from "@/lib/link-passport";
+import { useNetwork } from "@/lib/network";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { useIdentity } from "@/lib/useIdentity";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
@@ -34,6 +43,88 @@ export function WalletConnections() {
     })} SOL`;
   const phantomAddrShort = wallet.publicKey ? shortAddr(wallet.publicKey, 6, 6) : "—";
   const phantomBalance = wallet.balanceSol != null ? solFmt(wallet.balanceSol) : "—";
+
+  // ─── Human Passport: REAL on-chain identity (devnet) ───────────────────
+  const identity = useIdentity();
+  const { connection } = useConnection();
+  const adapter = useAdapterWallet();
+  const network = useNetwork();
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // The real flow runs on devnet/localnet — the program's devnet-identity-shim
+  // is compiled out of mainnet, so on mainnet-beta keep the legacy static card.
+  const passportRealMode = network.id !== "mainnet-beta";
+
+  const fmtDate = useCallback(
+    (unixSec: number) =>
+      new Date(unixSec * 1000).toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    [lang],
+  );
+
+  const doVerifyPassport = useCallback(async () => {
+    setVerifyError(null);
+    if (!adapter.publicKey || !adapter.sendTransaction) {
+      setVerifyError("conn.passport.errConnect");
+      return;
+    }
+    setVerifying(true);
+    try {
+      await sendVerifyPassport({
+        connection,
+        sendTransaction: adapter.sendTransaction,
+        wallet: adapter.publicKey,
+      });
+      await identity.refresh();
+    } catch {
+      setVerifyError("conn.passport.errGeneric");
+    } finally {
+      setVerifying(false);
+    }
+  }, [adapter.publicKey, adapter.sendTransaction, connection, identity]);
+
+  const passportVerified = passportRealMode && identity.verified;
+  const passportRuntime: ConnRuntime = passportRealMode
+    ? {
+        status: passportVerified ? "connected" : "disconnected",
+        since: passportVerified && identity.verifiedAt ? fmtDate(identity.verifiedAt) : undefined,
+      }
+    : conns.state.passport;
+  const shortGw = identity.gatewayToken
+    ? `${identity.gatewayToken.slice(0, 4)}…${identity.gatewayToken.slice(-4)}`
+    : "—";
+  const passportMeta: ConnMeta[] = passportVerified
+    ? [
+        {
+          l: t("conn.passport.attestation"),
+          v: shortGw,
+          mono: true,
+          link: identity.gatewayToken
+            ? `https://solscan.io/account/${identity.gatewayToken}?cluster=devnet`
+            : null,
+        },
+        { l: t("conn.passport.tier"), v: t("conn.passport.tierReal") },
+        {
+          l: t("conn.passport.exp"),
+          v: identity.expiresAt ? fmtDate(identity.expiresAt) : t("conn.passport.never"),
+        },
+      ]
+    : [
+        { l: t("conn.passport.status"), v: t("conn.passport.notVerified") },
+        { l: t("conn.phantom.net"), v: t("conn.phantom.devnet") },
+      ];
+  const passportReal: PassportRealHandlers = {
+    busy: verifying,
+    error: verifyError ? t(verifyError) : null,
+    onVerify: () => void doVerifyPassport(),
+    ctaLabel: t("conn.passport.verifyCta"),
+    busyLabel: t("conn.passport.verifying"),
+    verifiedNote: t("conn.passport.verifiedNote"),
+  };
 
   const spec: ConnSpec[] = useMemo(
     () => [
@@ -117,11 +208,15 @@ export function WalletConnections() {
     [t, fmtMoney, phantomAddrShort, phantomBalance, wallet],
   );
 
-  // Connected count: Phantom is real, others come from ConnectionsProvider.
+  // Connected count: Phantom + passport (real on devnet) are live, the other
+  // mocks come from ConnectionsProvider.
   const connectedCount =
     (wallet.status === "connected" ? 1 : 0) +
-    (Object.keys(conns.state) as ConnId[]).filter((k) => conns.state[k].status === "connected")
-      .length;
+    (Object.keys(conns.state) as ConnId[]).filter((k) =>
+      k === "passport" && passportRealMode
+        ? passportVerified
+        : conns.state[k].status === "connected",
+    ).length;
 
   return (
     <div
@@ -153,18 +248,24 @@ export function WalletConnections() {
         </div>
 
         {spec.map((c) => {
-          const runtime =
-            c.id === "phantom" ? { status: "disconnected" as const } : conns.state[c.id as ConnId];
+          const isPassportReal = c.id === "passport" && passportRealMode;
+          const card = isPassportReal ? { ...c, meta: passportMeta } : c;
+          const runtime = isPassportReal
+            ? passportRuntime
+            : c.id === "phantom"
+              ? { status: "disconnected" as const }
+              : conns.state[c.id as ConnId];
           return (
             <ConnectionCard
               key={c.id}
-              c={c}
+              c={card}
               runtime={runtime}
               wallet={c.id === "phantom" ? wallet : null}
               open={expanded === c.id}
               onToggle={() => setExpanded(expanded === c.id ? null : c.id)}
               onMockConnect={conns.connect}
               onMockDisconnect={conns.disconnect}
+              real={isPassportReal ? passportReal : null}
             />
           );
         })}
