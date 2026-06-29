@@ -116,6 +116,25 @@ function upgradeInPlace(cluster: ClusterConfig) {
     run("anchor build --no-idl --ignore-keys -p roundfi_core -- --features devnet-canary");
   }
 
+  // Optional DEVNET-ONLY Human Passport shim. `DEVNET_IDENTITY_SHIM=1`
+  // rebuilds ONLY roundfi_reputation with the `devnet-identity-shim` cargo
+  // feature, adding `devnet_seed_passport_authority` + `devnet_issue_attestation`
+  // so the team can exercise the REAL `link_passport_identity` flow on devnet
+  // (where the frozen attestation authority points at a non-functional Civic
+  // placeholder). DEVNET-ONLY: main() refuses mainnet-beta and the feature is
+  // cfg-gated so it can never compile into a mainnet artifact. After upgrading,
+  // run `scripts/devnet/seed-passport-shim.ts` once. Never set for production.
+  const identityShim = process.env.DEVNET_IDENTITY_SHIM;
+  if (identityShim && identityShim !== "0" && cluster.name !== "mainnet-beta") {
+    console.log(
+      "\n⚠ DEVNET_IDENTITY_SHIM set — rebuilding roundfi_reputation with " +
+        "`--features devnet-identity-shim` (devnet Human Passport test path). Devnet only.\n",
+    );
+    run(
+      "anchor build --no-idl --ignore-keys -p roundfi_reputation -- --features devnet-identity-shim",
+    );
+  }
+
   const ids = readCanonicalIds(cluster);
   const authority = authorityKeypairPath();
 

@@ -251,6 +251,32 @@ export function scoreScale(points: ReadonlyArray<ScorePoint>): ScoreScale {
   return { yMin: Math.max(0, lo - pad), yMax: hi + pad };
 }
 
+/**
+ * "Nice" round score values to label the chart's Y-axis across a [yMin, yMax]
+ * window. Picks a 1/2/5×10^k step so the gridlines land on human numbers
+ * (…20, 30, 40) instead of the padded scale's raw bounds. Ticks fall STRICTLY
+ * inside the window (the padded top/bottom edges aren't labelled, so a tick
+ * never collides with the plot border); returns [] for a degenerate span. This
+ * is what gives the real chart a meaningful vertical axis even when the wallet's
+ * score is far below the nearest tier guide (which would otherwise be off-screen
+ * and leave the Y-axis blank).
+ */
+export function niceScoreTicks(yMin: number, yMax: number, maxTicks = 6): number[] {
+  const span = yMax - yMin;
+  if (!(span > 0) || maxTicks < 1) return [];
+  const rawStep = span / maxTicks;
+  const mag = 10 ** Math.floor(Math.log10(rawStep));
+  const norm = rawStep / mag;
+  const unit = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+  const step = unit * mag;
+  const out: number[] = [];
+  for (let v = Math.ceil((yMin + 1e-9) / step) * step; v < yMax - 1e-9; v += step) {
+    const r = Math.round(v);
+    if (r > yMin && r < yMax && out[out.length - 1] !== r) out.push(r);
+  }
+  return out;
+}
+
 /** "26 jun" / "Jun 26" — a short day+month label for the real chart's axis. */
 export function formatDayMon(ms: number, lang: "pt" | "en"): string {
   const d = new Date(ms);

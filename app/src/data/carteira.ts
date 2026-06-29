@@ -69,6 +69,11 @@ export interface NftPosition {
    *  still shows, but the secondary-market Sell action is hidden — a cota whose
    *  payout was already taken can't be listed. Absent on mock fixtures. */
   paidOut?: boolean;
+  /** USDC locked in the pool for this cota — collateral stake + accumulated
+   *  escrow (member.stake_deposited + member.escrow_balance). Committed to the
+   *  protocol, NOT in the wallet balance; summed for the "colateral bloqueado"
+   *  views. Set only on real on-chain positions. */
+  locked?: number;
 }
 
 export const NFT_POSITIONS: NftPosition[] = [
@@ -121,6 +126,9 @@ export interface Transaction {
    *  mixed feed (session ledger + Member-PDA history + plain transfers)
    *  chronologically. Absent on static demo fixtures. */
   ts?: number;
+  /** Devnet pool this row belongs to, set on Member-PDA history rows so a
+   *  consumer (e.g. GroupDetailsModal) can filter the feed to a single pool. */
+  seedKey?: DevnetPoolKey;
 }
 
 export const TX_LIST: Transaction[] = [

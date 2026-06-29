@@ -12,6 +12,8 @@ import { useSession } from "@/lib/session";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { useIsMobile } from "@/lib/useIsMobile";
+import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
+import { useUsdcBalance } from "@/lib/useUsdcBalance";
 
 // Visão geral — balance hero + composition bar + Kamino vault card
 // + preview rows. The "Sacar" CTA opens WithdrawYieldModal; the
@@ -30,9 +32,32 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const { user, demoActive } = useSession();
   const isMobile = useIsMobile();
 
-  // Demo-only composition breakdown — there's no real per-slice source for a
-  // wallet on devnet, so a real wallet shows just the (real) USDC total above
-  // the bar and no fabricated slices.
+  // Real composition = the wallet's free USDC + the collateral it locked across
+  // its on-chain cotas (stake + escrow). Demo keeps the fixture breakdown for
+  // the pitch. A real wallet used to show an EMPTY bar (no fabricated slices) —
+  // which read as broken; now it shows the genuine free-vs-locked split.
+  const usdc = useUsdcBalance();
+  const positions = useMyDevnetPositions();
+  const lockedUsdc = positions.reduce((s, p) => s + (p.locked ?? 0), 0);
+  const freeUsdc = Math.max(
+    0,
+    usdc.status === "ok" && usdc.uiAmount !== null ? usdc.uiAmount : user.balance / USDC_RATE,
+  );
+  const realComposition = (() => {
+    const total = freeUsdc + lockedUsdc;
+    if (total <= 0) return [] as { c: string; l: string; brl: number; pct: string; flex: number }[];
+    const slices = [
+      { c: tokens.green, l: t("wallet.free"), u: freeUsdc },
+      ...(lockedUsdc > 0 ? [{ c: tokens.purple, l: t("wallet.collateral"), u: lockedUsdc }] : []),
+    ];
+    return slices.map((s) => ({
+      c: s.c,
+      l: s.l,
+      brl: s.u * USDC_RATE,
+      pct: `${Math.round((s.u / total) * 100)}%`,
+      flex: Math.max(0.0001, s.u),
+    }));
+  })();
   const composition = demoActive
     ? [
         { c: tokens.green, l: t("wallet.quota"), brl: 4380, pct: "52%", flex: 5.2 },
@@ -40,11 +65,13 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
         { c: tokens.purple, l: t("wallet.collateral"), brl: 1180, pct: "14%", flex: 1.4 },
         { c: tokens.amber, l: t("wallet.free"), brl: 500, pct: "6%", flex: 0.6 },
       ]
-    : [];
+    : realComposition;
 
-  // Total balance expressed in devnet USDC (the on-chain unit), shown right
-  // at the composition bar regardless of the BRL/USDC display toggle.
-  const usdcTotal = (user.balance / USDC_RATE).toLocaleString(lang === "pt" ? "pt-BR" : "en-US", {
+  // Total shown right at the composition bar (devnet USDC, regardless of the
+  // BRL/USDC toggle). Real mode = free + locked (the slices' sum, the wallet's
+  // full protocol commitment); demo = the session balance.
+  const usdcTotalNum = demoActive ? user.balance / USDC_RATE : freeUsdc + lockedUsdc;
+  const usdcTotal = usdcTotalNum.toLocaleString(lang === "pt" ? "pt-BR" : "en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -132,114 +159,117 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               </div>
             )}
 
-            {/* composition bar — grouped with the 24h delta at the card's lower edge */}
-            <div style={{ marginTop: 14 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  gap: 8,
-                }}
-              >
-                <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
-                {/* Total in devnet USDC, anchored right at the bar. */}
-                <span
+            {/* composition bar — grouped with the 24h delta at the card's lower edge.
+                Hidden when there's nothing to break down (e.g. a 0-balance wallet). */}
+            {composition.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div
                   style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: tokens.text2,
-                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    display: "flex",
+                    alignItems: "baseline",
+                    justifyContent: "space-between",
+                    gap: 8,
                   }}
                 >
-                  {usdcTotal} USDC
-                </span>
-              </div>
-              <div
-                style={{
-                  marginTop: 10,
-                  display: "flex",
-                  height: 10,
-                  borderRadius: 6,
-                  overflow: "hidden",
-                }}
-              >
-                {composition.map((x, i) => (
-                  <div
-                    key={x.l}
-                    onMouseEnter={() => setHoveredSlice(i)}
-                    onMouseLeave={() => setHoveredSlice(null)}
+                  <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
+                  {/* Total in devnet USDC, anchored right at the bar. */}
+                  <span
                     style={{
-                      flex: x.flex,
-                      background: x.c,
-                      opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.25,
-                      transition: "opacity 180ms ease",
-                      cursor: "pointer",
-                    }}
-                  />
-                ))}
-              </div>
-              <div
-                style={{
-                  marginTop: 12,
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
-                  gap: 8,
-                }}
-              >
-                {composition.map((x, i) => (
-                  <div
-                    key={x.l}
-                    onMouseEnter={() => setHoveredSlice(i)}
-                    onMouseLeave={() => setHoveredSlice(null)}
-                    style={{
-                      opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.4,
-                      transition: "opacity 180ms ease",
-                      cursor: "default",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: tokens.text2,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span
+                    {usdcTotal} USDC
+                  </span>
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    height: 10,
+                    borderRadius: 6,
+                    overflow: "hidden",
+                  }}
+                >
+                  {composition.map((x, i) => (
+                    <div
+                      key={x.l}
+                      onMouseEnter={() => setHoveredSlice(i)}
+                      onMouseLeave={() => setHoveredSlice(null)}
+                      style={{
+                        flex: x.flex,
+                        background: x.c,
+                        opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.25,
+                        transition: "opacity 180ms ease",
+                        cursor: "pointer",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
+                    gap: 8,
+                  }}
+                >
+                  {composition.map((x, i) => (
+                    <div
+                      key={x.l}
+                      onMouseEnter={() => setHoveredSlice(i)}
+                      onMouseLeave={() => setHoveredSlice(null)}
+                      style={{
+                        opacity: hoveredSlice === null || hoveredSlice === i ? 1 : 0.4,
+                        transition: "opacity 180ms ease",
+                        cursor: "default",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 2,
+                            background: x.c,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: tokens.muted,
+                            fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                          }}
+                        >
+                          {x.pct}
+                        </span>
+                      </div>
+                      <div
                         style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 2,
-                          background: x.c,
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 10,
-                          color: tokens.muted,
-                          fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                          fontSize: 11,
+                          color: tokens.text2,
+                          marginTop: 3,
                         }}
                       >
-                        {x.pct}
-                      </span>
+                        {x.l}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: tokens.text,
+                          marginTop: 2,
+                        }}
+                      >
+                        {fmtMoney(x.brl, { noCents: true })}
+                      </div>
                     </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: tokens.text2,
-                        marginTop: 3,
-                      }}
-                    >
-                      {x.l}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: tokens.text,
-                        marginTop: 2,
-                      }}
-                    >
-                      {fmtMoney(x.brl, { noCents: true })}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

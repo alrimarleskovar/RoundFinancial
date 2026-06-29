@@ -414,14 +414,18 @@ function ExpandableMetricCard({
 function ProtectedDetails({
   liveBalance,
   demoActive,
+  lockedUsdc,
 }: {
   liveBalance: number;
   demoActive: boolean;
+  lockedUsdc: number;
 }) {
   const { t, fmtMoney } = useI18n();
   // Real wallet: no fabricated yield curve / accrued figure. The protocol's
   // yield isn't credited to the member view yet (the bridge reports 0), so we
   // say so honestly and show the real, live wallet balance — not a demo story.
+  // Plus the real collateral locked across the wallet's pools (committed, not
+  // spendable) so "protegido" reflects the full on-chain commitment.
   if (!demoActive) {
     return (
       <div className="space-y-3 border-t border-white/10 pt-4">
@@ -429,6 +433,18 @@ function ProtectedDetails({
           <span className="text-gray-500">{t("homeV2.protected.realYieldLabel")}</span>
           <span className="font-bold text-gray-400">—</span>
         </div>
+        {lockedUsdc > 0 && (
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-500">{t("homeV2.protected.locked")}</span>
+            <span className="font-bold text-[#9945FF]">
+              {lockedUsdc.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              USDC
+            </span>
+          </div>
+        )}
         <p className="text-[11px] leading-relaxed text-gray-500">
           {t("homeV2.protected.realNote", { v: fmtMoney(liveBalance) })}
         </p>
@@ -772,11 +788,13 @@ function AchievementCard({
   title,
   subtitle,
   progress,
+  pct = 0,
 }: {
   icon: string;
   title: string;
   subtitle: string;
   progress: string;
+  pct?: number;
 }) {
   return (
     <div
@@ -789,7 +807,12 @@ function AchievementCard({
       <h4 className="font-bold text-white">{title}</h4>
       <p className="mt-1 text-sm text-gray-400">{subtitle}</p>
       <div className="mt-5 flex items-center gap-3">
-        <div className="h-2 flex-1 rounded-full bg-white/[0.08]" />
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+          <div
+            className="h-full rounded-full bg-[#14F195]"
+            style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+          />
+        </div>
         <span className="font-mono text-xs text-gray-400">{progress}</span>
       </div>
     </div>
@@ -822,6 +845,13 @@ export default function HomePage() {
   // join_pool() shows up here as a live cycle (read from chain, not the session
   // mock). Empty for a fresh wallet.
   const realPositions = useMyDevnetPositions();
+  // Total collateral (stake + escrow) locked across the wallet's live cotas —
+  // committed to the protocol, not in the wallet. Surfaced in the "Saldo
+  // protegido" tile so it reflects the full on-chain commitment.
+  const lockedUsdc = useMemo(
+    () => realPositions.reduce((s, p) => s + (p.locked ?? 0), 0),
+    [realPositions],
+  );
   const joinedOnChainGroups = useMemo<ActiveGroup[]>(() => {
     const activePools = new Set(ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean));
     const seen = new Set<string>();
@@ -860,6 +890,48 @@ export default function HomePage() {
     () => (demoActive ? [...ACTIVE_GROUPS, ...joinedOnChainGroups] : joinedOnChainGroups),
     [demoActive, joinedOnChainGroups],
   );
+
+  // "Próximas conquistas": real, achievable next steps derived from the
+  // wallet's on-chain cotas — complete the closest pool (+50), pay the
+  // soonest-due installment on time (+10, only if a different pool), join
+  // another group (+10). Demo keeps the fixture cards (rendered inline below).
+  const realAchievements = useMemo(() => {
+    const name = (p: NftPosition) =>
+      [...ACTIVE_GROUPS, ...DISCOVER_GROUPS].find((g) => g.devnetPool === p.devnetPool)?.name ??
+      p.group;
+    const pct = (p: NftPosition) => (p.total > 0 ? Math.round((p.month / p.total) * 100) : 0);
+    const payable = realPositions.filter((p) => p.month < p.total);
+    const out: { icon: string; title: string; points: number; progress: string; pct: number }[] =
+      [];
+    const closest = [...payable].sort((a, b) => b.month / b.total - a.month / a.total)[0];
+    if (closest) {
+      out.push({
+        icon: "trophy",
+        title: t("homeV2.achiev.real.complete", { pool: name(closest) }),
+        points: 50,
+        progress: `${closest.month}/${closest.total}`,
+        pct: pct(closest),
+      });
+    }
+    const due = [...payable].sort((a, b) => (a.nextDueDays ?? 999) - (b.nextDueDays ?? 999))[0];
+    if (due && due.id !== closest?.id) {
+      out.push({
+        icon: "star",
+        title: t("homeV2.achiev.real.pay", { pool: name(due) }),
+        points: 10,
+        progress: `${due.month}/${due.total}`,
+        pct: pct(due),
+      });
+    }
+    out.push({
+      icon: "people",
+      title: t("homeV2.achiev.real.join"),
+      points: 10,
+      progress: realPositions.length ? String(realPositions.length) : "0/1",
+      pct: 0,
+    });
+    return out;
+  }, [realPositions, t]);
 
   // "Próximas conquistas" receivable + the next-installment hero both derive
   // from the REAL cycle set, so a fresh wallet shows R$ 0 / no due installment
@@ -921,7 +993,11 @@ export default function HomePage() {
           subtitle={demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubReal")}
           icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
         >
-          <ProtectedDetails liveBalance={liveBalance} demoActive={demoActive} />
+          <ProtectedDetails
+            liveBalance={liveBalance}
+            demoActive={demoActive}
+            lockedUsdc={lockedUsdc}
+          />
         </ExpandableMetricCard>
 
         <ExpandableMetricCard
@@ -999,24 +1075,39 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          <AchievementCard
-            icon="star"
-            title={t("homeV2.achiev.1.t")}
-            subtitle={t("homeV2.achiev.earn", { n: 18 })}
-            progress="0/2"
-          />
-          <AchievementCard
-            icon="people"
-            title={t("homeV2.achiev.2.t")}
-            subtitle={t("homeV2.achiev.earn", { n: 24 })}
-            progress="0/1"
-          />
-          <AchievementCard
-            icon="trophy"
-            title={t("homeV2.achiev.3.t")}
-            subtitle={t("homeV2.achiev.earn", { n: 42 })}
-            progress="0/1"
-          />
+          {demoActive ? (
+            <>
+              <AchievementCard
+                icon="star"
+                title={t("homeV2.achiev.1.t")}
+                subtitle={t("homeV2.achiev.earn", { n: 18 })}
+                progress="0/2"
+              />
+              <AchievementCard
+                icon="people"
+                title={t("homeV2.achiev.2.t")}
+                subtitle={t("homeV2.achiev.earn", { n: 24 })}
+                progress="0/1"
+              />
+              <AchievementCard
+                icon="trophy"
+                title={t("homeV2.achiev.3.t")}
+                subtitle={t("homeV2.achiev.earn", { n: 42 })}
+                progress="0/1"
+              />
+            </>
+          ) : (
+            realAchievements.map((a) => (
+              <AchievementCard
+                key={a.title}
+                icon={a.icon}
+                title={a.title}
+                subtitle={t("homeV2.achiev.earn", { n: a.points })}
+                progress={a.progress}
+                pct={a.pct}
+              />
+            ))
+          )}
         </div>
       </section>
 
