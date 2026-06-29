@@ -41,7 +41,12 @@ import { getPrisma } from "../db.js";
 import { createLogger } from "../log.js";
 import { accountDiscriminatorBase58 } from "../discriminator.js";
 import { getEmailAdapter, type EmailAdapter, type EmailMessage } from "./adapter.js";
-import { dueDateEmail, newGroupEmail, poolStartedEmail, type EmailLang } from "./templates.js";
+import {
+  dueDateEmail,
+  newGroupsDigestEmail,
+  poolStartedEmail,
+  type EmailLang,
+} from "./templates.js";
 import {
   collateralPctForLevel,
   daysUntil,
@@ -56,10 +61,13 @@ const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
 const REPUTATION_PROGRAM = process.env.ROUNDFI_REPUTATION_PROGRAM_ID;
 const BASE_URL = process.env.NOTIFY_BASE_URL ?? "https://roundfi.vercel.app";
-// Default = no image → the templates render a clean text wordmark. The
-// prototype JPEG had a boxed, non-transparent background that looked broken in
-// inboxes; set NOTIFY_LOGO_URL to a hosted TRANSPARENT PNG to use a real logo.
-const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? "";
+// Default = the hosted brand lockup — a CLEAN transparent PNG of the real
+// RoundFi mark + wordmark, served from the app's public dir. The <img> carries
+// alt="RoundFi", so a client that blocks remote images still shows the name.
+// Set NOTIFY_LOGO_URL="" to force the inline text wordmark instead. (The old
+// prototype JPEG was boxed/non-transparent and looked broken; the new asset is
+// the app's gradient logomark rasterized at the template's 120×34 aspect.)
+const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? `${BASE_URL}/email-logo.png`;
 const DUE_WINDOW_SECS = Number(process.env.NOTIFY_DUE_WINDOW_HOURS ?? "48") * 3600;
 const INTERVAL_MS = Number(process.env.NOTIFY_INTERVAL_MS ?? "300000");
 
@@ -182,6 +190,105 @@ function langOf(s: Sub): EmailLang {
   return s.lang === "en" ? "en" : "pt";
 }
 
+// Marker row recording that a wallet's new-group baseline has been taken.
+const NEW_GROUP_SEED_KIND = "new_group_seed";
+
+// One open Forming pool a subscriber isn't a member of — a candidate for the
+// "new group for your level" digest.
+type NewGroupCand = { pdaStr: string; name: string; slotsFilled: number; slotsTotal: number };
+
+// First time we evaluate new-group for a wallet, record every currently-open
+// group as "already known" WITHOUT emailing (+ a seed marker), so a fresh
+// subscriber isn't flooded with the pre-existing backlog. Only groups that open
+// AFTER this baseline will alert. Idempotent: a P2002 on an existing row is fine.
+async function seedNewGroupBaseline(
+  prisma: Prisma,
+  wallet: string,
+  candidates: NewGroupCand[],
+): Promise<void> {
+  for (const c of candidates) {
+    await prisma.emailSentLog
+      .create({ data: { wallet, kind: "new_group", dedupeKey: c.pdaStr } })
+      .catch(() => {});
+  }
+  await prisma.emailSentLog
+    .create({ data: { wallet, kind: NEW_GROUP_SEED_KIND, dedupeKey: "baseline" } })
+    .catch(() => {});
+}
+
+// Send ONE digest listing the genuinely-new groups (vs one email per pool).
+// Claims each group's dedup row first (race-safe — a P2002 means another tick
+// already took it); only the rows we win get listed. On send failure the claims
+// are released so a later tick retries.
+async function sendNewGroupDigest(
+  prisma: Prisma,
+  adapter: EmailAdapter,
+  sub: Sub,
+  level: number,
+  fresh: NewGroupCand[],
+): Promise<"sent" | "skipped" | "error"> {
+  const claimed: NewGroupCand[] = [];
+  for (const c of fresh) {
+    try {
+      await prisma.emailSentLog.create({
+        data: { wallet: sub.wallet, kind: "new_group", dedupeKey: c.pdaStr },
+      });
+      claimed.push(c);
+    } catch (err) {
+      if (isUniqueViolation(err)) continue;
+      throw err;
+    }
+  }
+  if (claimed.length === 0) return "skipped";
+  const { subject, html } = newGroupsDigestEmail(
+    {
+      email: sub.email,
+      walletShort: shortWallet(sub.wallet),
+      logoUrl: LOGO_URL,
+      unsubUrl,
+      levelLabel: levelLabel(level),
+      groups: claimed.map((c) => ({
+        groupName: c.name,
+        slotsFilled: c.slotsFilled,
+        slotsTotal: c.slotsTotal,
+        collateralPct: collateralPctForLevel(level),
+      })),
+      groupUrl,
+    },
+    langOf(sub),
+  );
+  const res = await adapter.send({ to: sub.email, subject, html });
+  if (!res.ok) {
+    for (const c of claimed) {
+      await prisma.emailSentLog
+        .deleteMany({ where: { wallet: sub.wallet, kind: "new_group", dedupeKey: c.pdaStr } })
+        .catch(() => {});
+    }
+    logger.warn(
+      {
+        event_type: "notify_send_failed",
+        wallet: sub.wallet,
+        kind: "new_group_digest",
+        error: res.error,
+      },
+      "digest send failed",
+    );
+    return "error";
+  }
+  logger.info(
+    {
+      event_type: "notify_sent",
+      wallet: sub.wallet,
+      kind: "new_group_digest",
+      count: claimed.length,
+      to: sub.email,
+      id: res.id,
+    },
+    "digest sent",
+  );
+  return "sent";
+}
+
 /** One scan over (subscriptions × pools). Idempotent — EmailSentLog dedup makes
  *  re-running send nothing new. */
 export async function notifyOnce(
@@ -207,6 +314,10 @@ export async function notifyOnce(
     else if (r === "error") counters.errors += 1;
     else counters[kind] += 1;
   };
+
+  // New-group alerts are accumulated per subscriber across ALL pools, then sent
+  // as ONE digest after the loop (instead of one email per Forming pool).
+  const newGroupCandidates = new Map<string, NewGroupCand[]>();
 
   for (const { pda, pool, members } of pools) {
     const pdaStr = pda.toBase58();
@@ -282,39 +393,52 @@ export async function notifyOnce(
 
     // NEW GROUP — a Forming pool with open slots → opted-in wallets NOT already
     // members. Pools aren't level-tagged on-chain, so the "for your level"
-    // framing comes from the recipient's own collateral tier.
+    // framing comes from the recipient's own collateral tier. Collected per
+    // subscriber here; sent as ONE digest after the loop (see below).
     if (pool.status === "forming" && pool.membersJoined < pool.membersTarget) {
       const memberSet = new Set(members.map((m) => m.wallet.toBase58()));
       for (const sub of subs) {
         if (memberSet.has(sub.wallet)) continue;
-        const lang = langOf(sub);
-        const level = await readLevel(connection, sub.wallet);
-        const { subject, html } = newGroupEmail(
-          {
-            email: sub.email,
-            walletShort: shortWallet(sub.wallet),
-            logoUrl: LOGO_URL,
-            unsubUrl,
-            groupName: name,
-            levelLabel: levelLabel(level),
-            slotsFilled: pool.membersJoined,
-            slotsTotal: pool.membersTarget,
-            collateralPct: collateralPctForLevel(level),
-            groupUrl,
-          },
-          lang,
-        );
-        tally(
-          await sendDeduped(
-            prisma,
-            adapter,
-            { wallet: sub.wallet, kind: "new_group", dedupeKey: pdaStr },
-            { to: sub.email, subject, html },
-          ),
-          "newGroup",
-        );
+        const list = newGroupCandidates.get(sub.wallet) ?? [];
+        list.push({
+          pdaStr,
+          name,
+          slotsFilled: pool.membersJoined,
+          slotsTotal: pool.membersTarget,
+        });
+        newGroupCandidates.set(sub.wallet, list);
       }
     }
+  }
+
+  // NEW-GROUP DIGEST — once per subscriber, after every pool is scanned.
+  //   • First scan for a wallet → baseline the existing open groups SILENTLY (no
+  //     email) so a fresh subscriber isn't flooded with the backlog.
+  //   • Established wallet → email ONE digest of the groups it hasn't seen yet.
+  for (const [wallet, candidates] of newGroupCandidates) {
+    const sub = byWallet.get(wallet);
+    if (!sub) continue;
+    const seeded = await prisma.emailSentLog.findFirst({
+      where: { wallet, kind: NEW_GROUP_SEED_KIND },
+      select: { id: true },
+    });
+    if (!seeded) {
+      await seedNewGroupBaseline(prisma, wallet, candidates);
+      counters.skipped += candidates.length;
+      continue;
+    }
+    const logged = await prisma.emailSentLog.findMany({
+      where: { wallet, kind: "new_group", dedupeKey: { in: candidates.map((c) => c.pdaStr) } },
+      select: { dedupeKey: true },
+    });
+    const loggedSet = new Set(logged.map((l) => l.dedupeKey));
+    const fresh = candidates.filter((c) => !loggedSet.has(c.pdaStr));
+    if (fresh.length === 0) continue;
+    const level = await readLevel(connection, wallet);
+    const r = await sendNewGroupDigest(prisma, adapter, sub, level, fresh);
+    if (r === "sent") counters.newGroup += 1;
+    else if (r === "skipped") counters.skipped += 1;
+    else counters.errors += 1;
   }
   return counters;
 }
@@ -359,14 +483,24 @@ async function runTestMode(adapter: EmailAdapter, to: string, nowSec: number): P
       to,
     ),
     msgOf(
-      newGroupEmail(
+      newGroupsDigestEmail(
         {
           ...common,
-          groupName: "Renovação MEI · Devnet",
           levelLabel: "Comprovado",
-          slotsFilled: 3,
-          slotsTotal: 5,
-          collateralPct: 25,
+          groups: [
+            {
+              groupName: "Renovação MEI · Devnet",
+              slotsFilled: 3,
+              slotsTotal: 5,
+              collateralPct: 25,
+            },
+            {
+              groupName: "Capital de Giro · Devnet",
+              slotsFilled: 1,
+              slotsTotal: 5,
+              collateralPct: 25,
+            },
+          ],
           groupUrl,
         },
         "pt",

@@ -15,13 +15,17 @@
  * signing secret — it only relays the wallet's signature.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useWallet } from "@/lib/wallet";
 
 export type EmailOptInState = "idle" | "subscribed" | "unsubscribed";
 export type EmailLang = "pt" | "en";
 type EmailAction = "subscribe" | "unsubscribe";
+
+// Same build-time flag the card gates on — when dark, skip the status fetch
+// entirely (the card renders null anyway, so a request would be wasted).
+const HYDRATE_ENABLED = process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === "true";
 
 function toBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -37,6 +41,12 @@ export interface EmailSubscriptionHook {
   state: EmailOptInState;
   /** Whether the connected wallet can sign messages (opt-in requires it). */
   canSign: boolean;
+  /** Server-confirmed bound email (after a reload-hydrate or a fresh subscribe),
+   *  so the subscribed view survives a refresh without the user re-typing. null
+   *  when unknown / not subscribed. */
+  subscribedEmail: string | null;
+  /** True while the initial server status check (rehydrate) is in flight. */
+  hydrating: boolean;
   subscribe: (email: string, lang: EmailLang) => Promise<void>;
   unsubscribe: (email: string) => Promise<void>;
   reset: () => void;
@@ -47,6 +57,8 @@ export function useEmailSubscription(): EmailSubscriptionHook {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<EmailOptInState>("idle");
+  const [subscribedEmail, setSubscribedEmail] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(HYDRATE_ENABLED);
 
   const run = useCallback(
     async (action: EmailAction, email: string, lang: EmailLang) => {
@@ -99,7 +111,13 @@ export function useEmailSubscription(): EmailSubscriptionHook {
           setError(b.error ?? "confirm_failed");
           return;
         }
-        setState(action === "subscribe" ? "subscribed" : "unsubscribed");
+        if (action === "subscribe") {
+          setSubscribedEmail(email);
+          setState("subscribed");
+        } else {
+          setSubscribedEmail(null);
+          setState("unsubscribed");
+        }
       } catch (err) {
         // User rejected the signature, or the wallet threw.
         setError(err instanceof Error ? err.message : "sign_failed");
@@ -110,16 +128,51 @@ export function useEmailSubscription(): EmailSubscriptionHook {
     [wallet],
   );
 
+  // Rehydrate from the server on mount / wallet change — the binding is durable
+  // in Postgres + wallet-bound, so a reload should show "subscribed" instead of
+  // the empty form. A fresh subscribe/unsubscribe sets state directly (above),
+  // so this only drives the initial paint (and a wallet switch).
+  useEffect(() => {
+    if (!HYDRATE_ENABLED || !wallet.publicKey) {
+      setHydrating(false);
+      setState("idle");
+      setSubscribedEmail(null);
+      return;
+    }
+    let cancelled = false;
+    setHydrating(true);
+    const pubkey = wallet.publicKey;
+    fetch(`/api/notifications/email/status?pubkey=${pubkey}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { optedIn?: boolean; email?: string } | null) => {
+        if (cancelled || !d?.optedIn || typeof d.email !== "string") return;
+        setSubscribedEmail(d.email);
+        setState("subscribed");
+      })
+      .catch(() => {
+        /* network/store hiccup → leave the form; (re)subscribe is idempotent */
+      })
+      .finally(() => {
+        if (!cancelled) setHydrating(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet.publicKey]);
+
   return {
     busy,
     error,
     state,
     canSign: wallet.signMessage != null,
+    subscribedEmail,
+    hydrating,
     subscribe: (email, lang) => run("subscribe", email, lang),
     unsubscribe: (email) => run("unsubscribe", email, "pt"),
     reset: () => {
       setState("idle");
       setError(null);
+      setSubscribedEmail(null);
     },
   };
 }

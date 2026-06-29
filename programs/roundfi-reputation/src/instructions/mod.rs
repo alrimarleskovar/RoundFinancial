@@ -1,6 +1,10 @@
 pub mod attest;
 pub mod cancel_new_reputation_authority;
 pub mod commit_new_reputation_authority;
+// DEVNET-ONLY shim — compiled out of mainnet via the `devnet-identity-shim`
+// Cargo feature (see the module + Cargo.toml for the security rationale).
+#[cfg(feature = "devnet-identity-shim")]
+pub mod devnet_identity_shim;
 pub mod get_profile;
 pub mod init_profile;
 pub mod initialize_reputation;
@@ -25,6 +29,8 @@ mod reexports {
     pub use super::attest::*;
     pub use super::cancel_new_reputation_authority::*;
     pub use super::commit_new_reputation_authority::*;
+    #[cfg(feature = "devnet-identity-shim")]
+    pub use super::devnet_identity_shim::*;
     pub use super::get_profile::*;
     pub use super::init_profile::*;
     pub use super::initialize_reputation::*;

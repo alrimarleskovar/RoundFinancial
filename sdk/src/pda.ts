@@ -23,6 +23,8 @@ export const SEED = {
   identity: Buffer.from("identity"),
   identityGate: Buffer.from("identity-gate"),
   yieldState: Buffer.from("yield-state"),
+  // DEVNET-ONLY Human Passport shim attestation (devnet-identity-shim feature).
+  devnetPassport: Buffer.from("devnet-passport"),
 } as const;
 
 function u64le(n: bigint | number): Buffer {
@@ -129,6 +131,22 @@ export function identityPda(reputationProgram: PublicKey, wallet: PublicKey): [P
 /** SEV-047 `IdentityGateConfig` singleton PDA — `[b"identity-gate"]`. */
 export function identityGatePda(reputationProgram: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([SEED.identityGate], reputationProgram);
+}
+
+/**
+ * DEVNET-ONLY Human Passport shim attestation PDA — `[b"devnet-passport", subject]`.
+ * Written by the `devnet_issue_attestation` instruction (gated behind the
+ * `devnet-identity-shim` program feature) and consumed as the `gateway_token`
+ * by the real `link_passport_identity`. Does not exist on mainnet.
+ */
+export function devnetPassportPda(
+  reputationProgram: PublicKey,
+  subject: PublicKey,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED.devnetPassport, subject.toBuffer()],
+    reputationProgram,
+  );
 }
 
 export function attestationPda(
