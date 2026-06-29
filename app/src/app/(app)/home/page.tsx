@@ -414,39 +414,27 @@ function ExpandableMetricCard({
 function ProtectedDetails({
   liveBalance,
   demoActive,
-  lockedUsdc,
 }: {
   liveBalance: number;
   demoActive: boolean;
-  lockedUsdc: number;
 }) {
   const { t, fmtMoney } = useI18n();
-  // Real wallet: no fabricated yield curve / accrued figure. The protocol's
-  // yield isn't credited to the member view yet (the bridge reports 0), so we
-  // say so honestly and show the real, live wallet balance — not a demo story.
-  // Plus the real collateral locked across the wallet's pools (committed, not
-  // spendable) so "protegido" reflects the full on-chain commitment.
+  // Real wallet: the card's hero is now the LOCKED collateral + escrow (what's
+  // genuinely "protected" on-chain). The expanded panel surfaces the free
+  // wallet balance + the (not-yet-credited) yield, honestly.
   if (!demoActive) {
     return (
       <div className="space-y-3 border-t border-white/10 pt-4">
         <div className="flex justify-between text-xs">
+          <span className="text-gray-500">{t("homeV2.protected.walletLabel")}</span>
+          <span className="font-bold text-gray-300">{fmtMoney(liveBalance)}</span>
+        </div>
+        <div className="flex justify-between text-xs">
           <span className="text-gray-500">{t("homeV2.protected.realYieldLabel")}</span>
           <span className="font-bold text-gray-400">—</span>
         </div>
-        {lockedUsdc > 0 && (
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">{t("homeV2.protected.locked")}</span>
-            <span className="font-bold text-[#9945FF]">
-              {lockedUsdc.toLocaleString("pt-BR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}{" "}
-              USDC
-            </span>
-          </div>
-        )}
         <p className="text-[11px] leading-relaxed text-gray-500">
-          {t("homeV2.protected.realNote", { v: fmtMoney(liveBalance) })}
+          {t("homeV2.protected.lockedNote")}
         </p>
       </div>
     );
@@ -989,15 +977,13 @@ export default function HomePage() {
           onToggle={setExpanded}
           tone="#14F195"
           title={t("homeV2.metric.balance")}
-          value={fmtMoney(liveBalance)}
-          subtitle={demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubReal")}
+          value={demoActive ? fmtMoney(liveBalance) : fmtMoney(lockedUsdc)}
+          subtitle={
+            demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubLocked")
+          }
           icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
         >
-          <ProtectedDetails
-            liveBalance={liveBalance}
-            demoActive={demoActive}
-            lockedUsdc={lockedUsdc}
-          />
+          <ProtectedDetails liveBalance={liveBalance} demoActive={demoActive} />
         </ExpandableMetricCard>
 
         <ExpandableMetricCard

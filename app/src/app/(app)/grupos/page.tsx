@@ -177,6 +177,17 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const completed = lp ? lp.status === "completed" : false;
   const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
   const devnetMeta = group.devnetPool ? DEVNET_POOLS[group.devnetPool] : null;
+  // Duration label that respects the REAL on-chain cycle length. `group.months`
+  // is actually the cycle count; the prior label assumed 1 cycle = 1 month, so
+  // "Pool Rápida · Devnet 2d" (2-day cycle, 5 cycles ≈ 10 days) wrongly showed
+  // "5 meses". Use the live pool's `cycleDurationSec` when available; fixtures
+  // (no live pool) keep the monthly assumption.
+  const cycleDays = lp ? Math.max(1, Math.round(Number(lp.cycleDurationSec) / 86_400)) : 30;
+  const isMonthlyCycle = cycleDays >= 28;
+  const durLabel = isMonthlyCycle
+    ? t("groupsV2.card.months", { n: group.months })
+    : t("groupsV2.card.days", { n: group.months * cycleDays });
+  const durShort = isMonthlyCycle ? `${group.months}m` : `${group.months * cycleDays}d`;
   // Joined = static fixture flag OR runtime session membership (JOIN_GROUP) OR a
   // real on-chain Member record. The on-chain check matters because a pool joined
   // in a PAST session isn't in joinedGroupNames — without it the card wrongly
@@ -249,14 +260,14 @@ function GroupCard({ group }: { group: CatalogGroup }) {
       <div className="mb-2 flex items-end gap-2">
         <h3 className="text-2xl font-black tracking-[-0.04em] text-white">{group.name}</h3>
         <span className="mb-1 text-sm font-black" style={{ color: tone }}>
-          {t("groupsV2.card.months", { n: group.months })}
+          {durLabel}
         </span>
       </div>
 
       <p className="mb-3 text-sm leading-relaxed text-gray-400">{t(descKeyFor(group.name))}</p>
 
       <div className="text-sm text-gray-500">
-        {t("groupsV2.card.spots", { m: group.months, f: filled, t: total })}
+        {t("groupsV2.card.spots", { dur: durShort, f: filled, t: total })}
       </div>
 
       {/* devnet pools surface their on-chain address + live fill status */}
