@@ -56,6 +56,22 @@ export interface NewGroupData extends Common {
   groupUrl: string;
 }
 
+/** One group row inside a "new groups for your level" digest. */
+export interface NewGroupItem {
+  groupName: string;
+  slotsFilled: number;
+  slotsTotal: number;
+  collateralPct: number;
+}
+
+export interface NewGroupsDigestData extends Common {
+  levelLabel: string;
+  /** ≥1 newly-opened groups, batched into a single email so a subscriber gets
+   *  ONE message instead of one-per-pool. */
+  groups: NewGroupItem[];
+  groupUrl: string;
+}
+
 const C = {
   bg: "#04070c",
   card: "#0d1320",
@@ -194,6 +210,67 @@ export function newGroupEmail(d: NewGroupData, lang: EmailLang): RenderedEmail {
         field(pt ? "VAGAS" : "SPOTS", `${d.slotsFilled} / ${d.slotsTotal}`) +
         field(pt ? "COLATERAL" : "COLLATERAL", `${d.collateralPct}%`),
       ctaLabel: pt ? "Ver grupo" : "View group",
+      ctaUrl: d.groupUrl,
+      footerReason: pt
+        ? "Recomendações são baseadas no seu nível atual."
+        : "Recommendations are based on your current level.",
+    }),
+  };
+}
+
+/**
+ * Digest of newly-opened groups for the recipient's level — ONE email listing
+ * all of them (each row: name · vagas · colateral), instead of one email per
+ * pool. Reads naturally for a single group too. The notifier only ever passes
+ * GENUINELY-new groups here (it baselines the pre-existing backlog silently), so
+ * a fresh subscriber isn't flooded.
+ */
+export function newGroupsDigestEmail(d: NewGroupsDigestData, lang: EmailLang): RenderedEmail {
+  const pt = lang === "pt";
+  const n = d.groups.length;
+  const one = n === 1;
+  const first = d.groups[0]!;
+  const subject = pt
+    ? one
+      ? `Abriu um grupo do seu nível · ${first.groupName}`
+      : `Abriram ${n} grupos do seu nível`
+    : one
+      ? `A group for your level just opened · ${first.groupName}`
+      : `${n} groups for your level just opened`;
+  const fields = d.groups
+    .map((g) =>
+      field(
+        g.groupName,
+        pt
+          ? `${g.slotsFilled}/${g.slotsTotal} vagas · ${g.collateralPct}% colateral`
+          : `${g.slotsFilled}/${g.slotsTotal} spots · ${g.collateralPct}% collateral`,
+      ),
+    )
+    .join("");
+  return {
+    subject,
+    html: layout({
+      c: d,
+      lang,
+      badge: pt
+        ? one
+          ? "◆ NOVO GRUPO PRO SEU NÍVEL"
+          : "◆ NOVOS GRUPOS PRO SEU NÍVEL"
+        : one
+          ? "◆ NEW GROUP FOR YOUR LEVEL"
+          : "◆ NEW GROUPS FOR YOUR LEVEL",
+      title: pt
+        ? one
+          ? "Abriu um grupo do seu nível"
+          : `Abriram ${n} grupos do seu nível`
+        : one
+          ? "A group for your level just opened"
+          : `${n} groups for your level just opened`,
+      body: pt
+        ? `Como você está no nível <b style="color:${C.green};">${esc(d.levelLabel)}</b>, ${one ? "liberou um grupo novo" : "liberaram grupos novos"} com colateral menor. Tem vaga — entre se quiser.`
+        : `Since you're at <b style="color:${C.green};">${esc(d.levelLabel)}</b> level, ${one ? "a new group" : "new groups"} with lower collateral opened up. Spots are open — join if you like.`,
+      fields,
+      ctaLabel: pt ? (one ? "Ver grupo" : "Ver grupos") : one ? "View group" : "View groups",
       ctaUrl: d.groupUrl,
       footerReason: pt
         ? "Recomendações são baseadas no seu nível atual."

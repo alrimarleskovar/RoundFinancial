@@ -11,9 +11,11 @@ import {
   dueDateEmail,
   poolStartedEmail,
   newGroupEmail,
+  newGroupsDigestEmail,
   type DueDateData,
   type PoolStartedData,
   type NewGroupData,
+  type NewGroupsDigestData,
 } from "../services/indexer/src/email/templates.js";
 import {
   getEmailAdapter,
@@ -112,6 +114,55 @@ describe("email templates — new group for level", () => {
     const r = newGroupEmail(base, "en");
     expect(r.subject).to.contain("for your level just opened");
     expect(r.html).to.contain("View group");
+  });
+});
+
+describe("email templates — new groups digest (batched)", () => {
+  const base: NewGroupsDigestData = {
+    ...COMMON,
+    levelLabel: "Iniciante",
+    groups: [
+      { groupName: "Pool #5", slotsFilled: 2, slotsTotal: 5, collateralPct: 50 },
+      { groupName: "Pool #6", slotsFilled: 1, slotsTotal: 5, collateralPct: 50 },
+    ],
+    groupUrl: "https://roundfi.vercel.app/grupos",
+  };
+
+  it("PT pluralizes + lists every group with its spots/collateral", () => {
+    const r = newGroupsDigestEmail(base, "pt");
+    expect(r.subject).to.contain("Abriram 2 grupos");
+    expect(r.html).to.contain("Pool #5");
+    expect(r.html).to.contain("Pool #6");
+    expect(r.html).to.contain("2/5 vagas · 50% colateral");
+    expect(r.html).to.contain("Iniciante");
+    expect(r.html).to.contain("Ver grupos");
+  });
+
+  it("reads naturally for a SINGLE group (singular copy)", () => {
+    const r = newGroupsDigestEmail({ ...base, groups: [base.groups[0]!] }, "pt");
+    expect(r.subject).to.contain("Abriu um grupo do seu nível");
+    expect(r.subject).to.contain("Pool #5");
+    expect(r.html).to.contain("Ver grupo");
+    expect(r.html).to.not.contain("Ver grupos");
+  });
+
+  it("EN variant pluralizes + lists groups", () => {
+    const r = newGroupsDigestEmail(base, "en");
+    expect(r.subject).to.contain("2 groups for your level just opened");
+    expect(r.html).to.contain("2/5 spots · 50% collateral");
+    expect(r.html).to.contain("View groups");
+  });
+
+  it("HTML-escapes group names (no injection from on-chain text)", () => {
+    const r = newGroupsDigestEmail(
+      {
+        ...base,
+        groups: [{ groupName: 'X<script>"y"', slotsFilled: 0, slotsTotal: 5, collateralPct: 50 }],
+      },
+      "pt",
+    );
+    expect(r.html).to.not.contain("<script>");
+    expect(r.html).to.contain("X&lt;script&gt;");
   });
 });
 
