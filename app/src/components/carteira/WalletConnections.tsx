@@ -14,7 +14,7 @@ import {
 import { EmailAlertsCard } from "@/components/carteira/EmailAlertsCard";
 import { useConnections, type ConnId, type ConnRuntime } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
-import { sendVerifyPassport } from "@/lib/link-passport";
+import { sendUnlinkPassport, sendVerifyPassport } from "@/lib/link-passport";
 import { useNetwork } from "@/lib/network";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { useIdentity } from "@/lib/useIdentity";
@@ -87,6 +87,27 @@ export function WalletConnections() {
     }
   }, [adapter.publicKey, adapter.sendTransaction, connection, identity]);
 
+  const doUnlinkPassport = useCallback(async () => {
+    setVerifyError(null);
+    if (!adapter.publicKey || !adapter.sendTransaction) {
+      setVerifyError("conn.passport.errConnect");
+      return;
+    }
+    setVerifying(true);
+    try {
+      await sendUnlinkPassport({
+        connection,
+        sendTransaction: adapter.sendTransaction,
+        wallet: adapter.publicKey,
+      });
+      await identity.refresh();
+    } catch {
+      setVerifyError("conn.passport.errUnlink");
+    } finally {
+      setVerifying(false);
+    }
+  }, [adapter.publicKey, adapter.sendTransaction, connection, identity]);
+
   const passportVerified = passportRealMode && identity.verified;
   const passportRuntime: ConnRuntime = passportRealMode
     ? {
@@ -121,9 +142,12 @@ export function WalletConnections() {
     busy: verifying,
     error: verifyError ? t(verifyError) : null,
     onVerify: () => void doVerifyPassport(),
+    onUnlink: () => void doUnlinkPassport(),
     ctaLabel: t("conn.passport.verifyCta"),
     busyLabel: t("conn.passport.verifying"),
     verifiedNote: t("conn.passport.verifiedNote"),
+    unlinkLabel: t("conn.passport.unlinkCta"),
+    unlinkingLabel: t("conn.passport.unlinking"),
   };
 
   const spec: ConnSpec[] = useMemo(
@@ -249,7 +273,10 @@ export function WalletConnections() {
 
         {spec.map((c) => {
           const isPassportReal = c.id === "passport" && passportRealMode;
-          const card = isPassportReal ? { ...c, meta: passportMeta } : c;
+          // In real mode the passport card reads/writes real on-chain state
+          // (like Phantom), so mark it `live` — drop the "DEMO" badge that
+          // groups it with the mock connections.
+          const card = isPassportReal ? { ...c, meta: passportMeta, live: true } : c;
           const runtime = isPassportReal
             ? passportRuntime
             : c.id === "phantom"

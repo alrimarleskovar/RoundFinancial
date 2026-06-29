@@ -46,9 +46,13 @@ export interface PassportRealHandlers {
   error: string | null;
   /** Run the real verify (issue + link_passport_identity) flow. */
   onVerify: () => void;
+  /** Run the real unlink_identity flow (reverse path). */
+  onUnlink: () => void;
   ctaLabel: string;
   busyLabel: string;
   verifiedNote: string;
+  unlinkLabel: string;
+  unlinkingLabel: string;
 }
 
 interface Props {
@@ -458,23 +462,46 @@ export function ConnectionCard({
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             {isConnected ? (
               isReal ? (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 12px",
-                    borderRadius: 9,
-                    background: `${tokens.green}14`,
-                    border: `1px solid ${tokens.green}33`,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: tokens.green,
-                  }}
-                >
-                  <Icons.check size={13} stroke={tokens.green} sw={2.5} />
-                  {real!.verifiedNote}
-                </div>
+                <>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 12px",
+                      borderRadius: 9,
+                      background: `${tokens.green}14`,
+                      border: `1px solid ${tokens.green}33`,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: tokens.green,
+                    }}
+                  >
+                    <Icons.check size={13} stroke={tokens.green} sw={2.5} />
+                    {real!.verifiedNote}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e: MouseEvent) => {
+                      e.stopPropagation();
+                      real!.onUnlink();
+                    }}
+                    disabled={real!.busy}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 9,
+                      cursor: real!.busy ? "default" : "pointer",
+                      background: "transparent",
+                      border: `1px solid ${tokens.red}4D`,
+                      color: tokens.red,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      opacity: real!.busy ? 0.6 : 1,
+                    }}
+                  >
+                    {real!.busy ? real!.unlinkingLabel : real!.unlinkLabel}
+                  </button>
+                </>
               ) : (
                 <>
                   <button
@@ -585,8 +612,8 @@ export function ConnectionCard({
             </div>
           )}
 
-          {/* Real Human Passport verify error (inline). */}
-          {isReal && real!.error && !isConnected && !busy && (
+          {/* Real Human Passport verify/unlink error (inline). */}
+          {isReal && real!.error && !busy && (
             <div
               style={{
                 marginTop: 10,
