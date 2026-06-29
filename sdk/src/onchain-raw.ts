@@ -23,7 +23,7 @@ import {
   type BehavioralPayload,
   decodeBehavioralPayload,
 } from "./behavioralPayload.js";
-import { poolPda as derivePoolPda, reputationProfilePda } from "./pda.js";
+import { identityPda, poolPda as derivePoolPda, reputationProfilePda } from "./pda.js";
 
 // ─── Pool offsets (declaration-order Borsh, no padding) ────────────────
 //
@@ -439,6 +439,59 @@ export async function fetchReputationProfileRaw(
   const info = await connection.getAccountInfo(address, "confirmed");
   if (!info) return null;
   return decodeReputationProfileRaw(address, info.data as Buffer);
+}
+
+// ─── IdentityRecord (roundfi-reputation) ─────────────────────────────────
+//
+// IDL-free decode of the per-wallet identity/PoP snapshot. Source of truth:
+// programs/roundfi-reputation/src/state/identity.rs. Layout after the
+// 8-byte Anchor discriminator:
+//   off  8: wallet         Pubkey  (32)
+//   off 40: provider       u8      ( 1)  // 0=None 1=Sas 2=HumanPassport
+//   off 41: status         u8      ( 1)  // 0=Unverified 1=Verified 2=Expired 3=Revoked
+//   off 42: verified_at    i64     ( 8)
+//   off 50: expires_at     i64     ( 8)  // 0 ≡ never
+//   off 58: gateway_token  Pubkey  (32)
+//   off 90: bump           u8      ( 1)
+//   off 91: _padding       [u8;13] (13)  → size 8 + 96 = 104
+
+export interface RawIdentityRecord {
+  address: PublicKey;
+  wallet: PublicKey;
+  provider: number;
+  status: number;
+  verifiedAt: bigint;
+  /** 0 ≡ never expires; else unix seconds. */
+  expiresAt: bigint;
+  gatewayToken: PublicKey;
+}
+
+export function decodeIdentityRecordRaw(address: PublicKey, data: Buffer): RawIdentityRecord {
+  return {
+    address,
+    wallet: new PublicKey(data.subarray(8, 40)),
+    provider: data.readUInt8(40),
+    status: data.readUInt8(41),
+    verifiedAt: data.readBigInt64LE(42),
+    expiresAt: data.readBigInt64LE(50),
+    gatewayToken: new PublicKey(data.subarray(58, 90)),
+  };
+}
+
+/**
+ * Fetch a wallet's on-chain IdentityRecord (Human Passport / PoP). Returns
+ * null when the account does not exist — which the program treats as
+ * Unverified, so callers should render the not-verified state, not an error.
+ */
+export async function fetchIdentityRecordRaw(
+  connection: Connection,
+  reputationProgram: PublicKey,
+  wallet: PublicKey,
+): Promise<RawIdentityRecord | null> {
+  const [address] = identityPda(reputationProgram, wallet);
+  const info = await connection.getAccountInfo(address, "confirmed");
+  if (!info) return null;
+  return decodeIdentityRecordRaw(address, info.data as Buffer);
 }
 
 // ─── Attestation offsets (declaration-order Borsh, no padding) ─────────

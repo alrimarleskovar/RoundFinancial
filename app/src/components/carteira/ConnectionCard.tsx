@@ -37,14 +37,30 @@ export interface ConnSpec {
   featured?: boolean;
 }
 
+/** Real on-chain handlers injected for the Human Passport card (devnet). When
+ *  present, the card's connect button runs the REAL issue+link transaction
+ *  instead of the mock connect, and the connected/verified state is driven by
+ *  the on-chain IdentityRecord (passed via `runtime`). */
+export interface PassportRealHandlers {
+  busy: boolean;
+  error: string | null;
+  /** Run the real verify (issue + link_passport_identity) flow. */
+  onVerify: () => void;
+  ctaLabel: string;
+  busyLabel: string;
+  verifiedNote: string;
+}
+
 interface Props {
   c: ConnSpec;
-  runtime: ConnRuntime; // for mocks
+  runtime: ConnRuntime; // for mocks (and real-derived status for passport)
   wallet: WalletView | null; // non-null only for phantom
   open: boolean;
   onToggle: () => void;
   onMockConnect: (id: ConnId, since: string) => void;
   onMockDisconnect: (id: ConnId) => void;
+  /** Real on-chain handlers (Human Passport card only). */
+  real?: PassportRealHandlers | null;
 }
 
 export function ConnectionCard({
@@ -55,6 +71,7 @@ export function ConnectionCard({
   onToggle,
   onMockConnect,
   onMockDisconnect,
+  real,
 }: Props) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
@@ -77,6 +94,7 @@ export function ConnectionCard({
   })();
 
   const isPhantom = c.id === "phantom" && wallet != null;
+  const isReal = real != null && c.id !== "phantom"; // Human Passport real flow
   const status: ConnStatus | "connecting" = isPhantom
     ? wallet.status === "error"
       ? "disconnected"
@@ -89,10 +107,14 @@ export function ConnectionCard({
 
   const [mockConnecting, setMockConnecting] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
-  const busy = isPhantom ? !!isConnecting : mockConnecting;
+  const busy = isReal ? real!.busy : isPhantom ? !!isConnecting : mockConnecting;
 
   const doConnect = (e: MouseEvent) => {
     e.stopPropagation();
+    if (isReal) {
+      real!.onVerify();
+      return;
+    }
     if (isPhantom && wallet) {
       if (notInstalled) {
         window.open("https://phantom.app/", "_blank", "noopener,noreferrer");
@@ -283,10 +305,14 @@ export function ConnectionCard({
             }}
           >
             {busy
-              ? t("conn.connecting")
-              : notInstalled
-                ? t("conn.phantom.installCTA")
-                : t("conn.reconnect")}
+              ? isReal
+                ? real!.busyLabel
+                : t("conn.connecting")
+              : isReal
+                ? real!.ctaLabel
+                : notInstalled
+                  ? t("conn.phantom.installCTA")
+                  : t("conn.reconnect")}
           </button>
         )}
         <span
@@ -411,45 +437,83 @@ export function ConnectionCard({
 
           {isPhantom && wallet && isConnected && <PhantomFaucet wallet={wallet} tc={tc} />}
 
+          {/* Devnet honesty note for the real Human Passport flow. */}
+          {isReal && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: tokens.fillSoft,
+                border: `1px solid ${tokens.border}`,
+                fontSize: 10.5,
+                color: tokens.muted,
+                lineHeight: 1.45,
+              }}
+            >
+              {t("conn.passport.devnetNote")}
+            </div>
+          )}
+
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             {isConnected ? (
-              <>
-                <button
-                  type="button"
-                  onClick={(e: MouseEvent) => {
-                    e.stopPropagation();
-                    setManageOpen(true);
-                  }}
+              isReal ? (
+                <div
                   style={{
-                    padding: "8px 14px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 12px",
                     borderRadius: 9,
-                    cursor: "pointer",
-                    background: tokens.fillSoft,
-                    border: `1px solid ${tokens.border}`,
-                    color: tokens.text,
+                    background: `${tokens.green}14`,
+                    border: `1px solid ${tokens.green}33`,
                     fontSize: 11,
                     fontWeight: 600,
+                    color: tokens.green,
                   }}
                 >
-                  {t("conn.manage")}
-                </button>
-                <button
-                  type="button"
-                  onClick={doDisconnect}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 9,
-                    cursor: "pointer",
-                    background: "transparent",
-                    border: `1px solid ${tokens.red}4D`,
-                    color: tokens.red,
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t("conn.revoke")}
-                </button>
-              </>
+                  <Icons.check size={13} stroke={tokens.green} sw={2.5} />
+                  {real!.verifiedNote}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e: MouseEvent) => {
+                      e.stopPropagation();
+                      setManageOpen(true);
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      background: tokens.fillSoft,
+                      border: `1px solid ${tokens.border}`,
+                      color: tokens.text,
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t("conn.manage")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={doDisconnect}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      background: "transparent",
+                      border: `1px solid ${tokens.red}4D`,
+                      color: tokens.red,
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t("conn.revoke")}
+                  </button>
+                </>
+              )
             ) : (
               <button
                 type="button"
@@ -484,10 +548,14 @@ export function ConnectionCard({
                   />
                 )}
                 {busy
-                  ? t("conn.connecting")
-                  : notInstalled
-                    ? t("conn.phantom.installCTA")
-                    : t("conn.connect", { n: c.name })}
+                  ? isReal
+                    ? real!.busyLabel
+                    : t("conn.connecting")
+                  : isReal
+                    ? real!.ctaLabel
+                    : notInstalled
+                      ? t("conn.phantom.installCTA")
+                      : t("conn.connect", { n: c.name })}
               </button>
             )}
           </div>
@@ -514,6 +582,27 @@ export function ConnectionCard({
                 : wallet.lastError === "user_rejected"
                   ? t("conn.phantom.rejected")
                   : t("conn.phantom.failed", { msg: wallet.lastError })}
+            </div>
+          )}
+
+          {/* Real Human Passport verify error (inline). */}
+          {isReal && real!.error && !isConnected && !busy && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: `${tokens.red}1A`,
+                border: `1px solid ${tokens.red}4D`,
+                fontSize: 11,
+                color: tokens.red,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Icons.info size={12} stroke={tokens.red} />
+              {real!.error}
             </div>
           )}
         </div>
