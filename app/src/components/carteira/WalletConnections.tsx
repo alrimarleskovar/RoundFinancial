@@ -249,7 +249,10 @@ export function WalletConnections() {
 
         {spec.map((c) => {
           const isPassportReal = c.id === "passport" && passportRealMode;
-          const card = isPassportReal ? { ...c, meta: passportMeta } : c;
+          // In real mode the passport card reads/writes real on-chain state
+          // (like Phantom), so mark it `live` — drop the "DEMO" badge that
+          // groups it with the mock connections.
+          const card = isPassportReal ? { ...c, meta: passportMeta, live: true } : c;
           const runtime = isPassportReal
             ? passportRuntime
             : c.id === "phantom"
