@@ -28,6 +28,7 @@ import type { PrismaClient } from "@prisma/client";
 import { type RawAttestation, decodeAttestationRaw } from "@roundfi/sdk";
 
 import { deriveEventClassification } from "./behavioralClassification.js";
+import type { LogContext } from "./log.js";
 import { accountDiscriminatorBase58 } from "./discriminator.js";
 
 const ATTESTATION_DISCRIMINATOR = accountDiscriminatorBase58("Attestation");
@@ -85,11 +86,13 @@ export function attestationToRowFields(raw: RawAttestation): AttestationRowField
   };
 }
 
-/** Minimal logger shape (matches `createLogger` output) so this module
- *  doesn't depend on the concrete logger implementation. */
+/** Minimal logger shape — a structural subset of `./log.ts`'s `Logger`
+ *  (info/warn only) so this module accepts a real `createLogger()` output
+ *  without importing the factory at runtime. Pinned to `LogContext` (vs a
+ *  loose `unknown`) so the shim can't silently drift from `Logger` again. */
 interface MinimalLogger {
-  info: (obj: unknown, msg?: string) => void;
-  warn: (obj: unknown, msg?: string) => void;
+  info: (ctx: LogContext, msg: string) => void;
+  warn: (ctx: LogContext, msg: string) => void;
 }
 
 const NOOP_LOGGER: MinimalLogger = { info: () => {}, warn: () => {} };
