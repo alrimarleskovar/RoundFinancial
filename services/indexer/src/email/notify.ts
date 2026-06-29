@@ -483,14 +483,24 @@ async function runTestMode(adapter: EmailAdapter, to: string, nowSec: number): P
       to,
     ),
     msgOf(
-      newGroupEmail(
+      newGroupsDigestEmail(
         {
           ...common,
-          groupName: "Renovação MEI · Devnet",
           levelLabel: "Comprovado",
-          slotsFilled: 3,
-          slotsTotal: 5,
-          collateralPct: 25,
+          groups: [
+            {
+              groupName: "Renovação MEI · Devnet",
+              slotsFilled: 3,
+              slotsTotal: 5,
+              collateralPct: 25,
+            },
+            {
+              groupName: "Capital de Giro · Devnet",
+              slotsFilled: 1,
+              slotsTotal: 5,
+              collateralPct: 25,
+            },
+          ],
           groupUrl,
         },
         "pt",
