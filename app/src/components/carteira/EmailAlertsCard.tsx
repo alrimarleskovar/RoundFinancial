@@ -37,6 +37,9 @@ export function EmailAlertsCard() {
   const connected = wallet.status === "connected";
   const emailValid = EMAIL_RE.test(email.trim());
   const canSubmit = connected && sub.canSign && emailValid && !sub.busy;
+  // After a reload the input is empty but the binding persists — prefer the
+  // server-confirmed email for the subscribed view + the unsubscribe signature.
+  const shownEmail = sub.subscribedEmail ?? email.trim();
 
   const errMsg = (() => {
     switch (sub.error) {
@@ -88,11 +91,11 @@ export function EmailAlertsCard() {
               lineHeight: 1.5,
             }}
           >
-            {t("notify.email.subscribed", { email: email.trim() })}
+            {t("notify.email.subscribed", { email: shownEmail })}
           </div>
           <button
             type="button"
-            onClick={() => void sub.unsubscribe(email.trim())}
+            onClick={() => void sub.unsubscribe(shownEmail)}
             disabled={sub.busy}
             style={{
               marginTop: 10,
@@ -122,6 +125,10 @@ export function EmailAlertsCard() {
           }}
         >
           {t("notify.email.unsubscribed")}
+        </div>
+      ) : sub.hydrating ? (
+        <div style={{ marginTop: 14, fontSize: 12, color: tokens.text2 }}>
+          {t("notify.email.checking")}
         </div>
       ) : (
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>

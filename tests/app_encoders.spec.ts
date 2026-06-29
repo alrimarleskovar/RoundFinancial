@@ -67,7 +67,7 @@ import {
   solidarityVaultAuthorityPda,
 } from "@roundfi/sdk/pda";
 
-import { buildContributeIx } from "../app/src/lib/contribute";
+import { buildContributeIx, deriveContributeSchema } from "../app/src/lib/contribute";
 import { buildJoinPoolIx } from "../app/src/lib/join-pool";
 import { buildClaimPayoutIx } from "../app/src/lib/claim-payout";
 import { buildReleaseEscrowIx } from "../app/src/lib/release-escrow";
@@ -115,6 +115,42 @@ const REPUTATION = DEVNET_PROGRAM_IDS.reputation;
 const USDC = DEVNET_USDC_MINT;
 
 // ─── tests ───────────────────────────────────────────────────────────
+
+// Regression guard for the attestation-PDA schema mismatch that
+// ConstraintSeeds-rejected the LAST installment of every pool: contribute.rs
+// escalates the schema to POOL_COMPLETE on the final installment, but the
+// client used to hardcode PAYMENT, deriving a different attestation PDA.
+describe("deriveContributeSchema — mirrors contribute.rs", () => {
+  const FUTURE = 9_999_999_999; // deadline far in the future → on-time
+  const PAST = 1; // deadline in the past → late
+
+  it("escalates the FINAL installment (cycle == cyclesTotal-1) to POOL_COMPLETE", () => {
+    // 3-cycle pool, paying cycle 2 (the last) — even when on-time.
+    expect(deriveContributeSchema(2, 3, FUTURE)).to.equal(ATTESTATION_SCHEMA.PoolComplete);
+  });
+
+  it("uses PAYMENT for a non-final on-time installment", () => {
+    expect(deriveContributeSchema(1, 3, FUTURE)).to.equal(ATTESTATION_SCHEMA.Payment);
+  });
+
+  it("uses LATE for a non-final late installment", () => {
+    expect(deriveContributeSchema(1, 3, PAST)).to.equal(ATTESTATION_SCHEMA.Late);
+  });
+
+  it("final installment wins over lateness (POOL_COMPLETE, not LATE)", () => {
+    // Matches contribute.rs: is_final is checked before on_time.
+    expect(deriveContributeSchema(2, 3, PAST)).to.equal(ATTESTATION_SCHEMA.PoolComplete);
+  });
+
+  it("falls back to PAYMENT when cyclesTotal/nextCycleAt are omitted (back-compat)", () => {
+    expect(deriveContributeSchema(1)).to.equal(ATTESTATION_SCHEMA.Payment);
+  });
+
+  it("accepts bigint nextCycleAt (on-chain i64)", () => {
+    expect(deriveContributeSchema(0, 3, BigInt(FUTURE))).to.equal(ATTESTATION_SCHEMA.Payment);
+    expect(deriveContributeSchema(0, 3, BigInt(PAST))).to.equal(ATTESTATION_SCHEMA.Late);
+  });
+});
 
 describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
   describe("buildContributeIx", () => {

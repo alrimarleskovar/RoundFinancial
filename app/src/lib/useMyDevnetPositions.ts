@@ -83,6 +83,9 @@ function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] 
         slotIndex: m.slotIndex,
         nextDueDays: nextDueDaysFor(p, m),
         paidOut: m.paidOut,
+        // Collateral stake + accumulated escrow, both locked in the pool
+        // (not in the wallet) — surfaced as "colateral bloqueado".
+        locked: (Number(m.stakeDeposited) + Number(m.escrowBalance)) / 1e6,
       });
     }
   }

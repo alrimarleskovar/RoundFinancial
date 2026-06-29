@@ -5,8 +5,6 @@ import { useMemo, useState } from "react";
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 
-import { ATTESTATION_SCHEMA } from "@roundfi/sdk";
-
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
 import { IntentPanel } from "@/components/ui/IntentPanel";
@@ -205,24 +203,21 @@ export function PayInstallmentModal({
 
     if (onChainReady && memberRecord && onChainPool.pool && adapter.sendTransaction) {
       try {
-        // Schema selection mirrors contribute.rs:
-        //   on_time = clock.unix_timestamp <= pool.next_cycle_at
-        //   schema  = on_time ? SCHEMA_PAYMENT (1) : SCHEMA_LATE (2)
-        // The attestation PDA seeds include the schema id, so the
-        // off-chain derivation MUST match what the on-chain handler
-        // will write or the AccountAlreadyInitialized / seed-mismatch
-        // preflight rejects.
-        const nowSec = BigInt(Math.floor(Date.now() / 1000));
-        const onTime = nowSec <= onChainPool.pool.nextCycleAt;
-        const schemaId = onTime ? ATTESTATION_SCHEMA.Payment : ATTESTATION_SCHEMA.Late;
+        // The attestation PDA seeds include the schema id, so the off-chain
+        // derivation MUST match contribute.rs — and the FINAL installment
+        // escalates to POOL_COMPLETE (4), not PAYMENT/LATE. Pass cyclesTotal +
+        // nextCycleAt and let the encoder pick the schema; hardcoding PAYMENT
+        // here was the bug that ConstraintSeeds-rejected the last installment
+        // of every pool (cycle == cyclesTotal-1).
         const sig = await sendContribute({
           connection,
           sendTransaction: adapter.sendTransaction,
           pool: DEVNET_POOLS[seedKey!].pda,
           memberWallet: connectedWallet as PublicKey,
           cycle: onChainPool.pool.currentCycle,
+          cyclesTotal: onChainPool.pool.cyclesTotal,
+          nextCycleAt: onChainPool.pool.nextCycleAt,
           slotIndex: memberRecord.slotIndex,
-          schemaId,
         });
         setTxSig(sig);
         // Record the REAL contribute as a ledger event carrying the actual

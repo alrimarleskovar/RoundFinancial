@@ -1,3 +1,5 @@
+import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
+
 // Security headers (frontend-security checklist §2.3).
 //
 // HSTS, framing, MIME-sniffing, referrer + permissions are ENFORCED —
@@ -98,6 +100,17 @@ const nextConfig = {
         "pino-pretty": false,
         encoding: false,
       };
+    }
+    // Prisma's native query-engine (`libquery_engine-*.node`) is loaded at
+    // RUNTIME from the generated client, not via a static import — so Next.js
+    // output-file tracing misses it and the Vercel serverless bundle ships
+    // WITHOUT the engine. Any route that touches `@roundfi/indexer/db` (the
+    // email opt-in store, admin shared store) then 500s with
+    // `PrismaClientInitializationError: could not locate the Query Engine for
+    // runtime "rhel-openssl-3.0.x"`. This official Prisma plugin copies the
+    // engine next to the server bundle in a pnpm monorepo. Server build only.
+    if (isServer) {
+      config.plugins = [...config.plugins, new PrismaPlugin()];
     }
     return config;
   },

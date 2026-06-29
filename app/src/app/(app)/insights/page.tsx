@@ -19,6 +19,7 @@ import {
   SCORE_RANGES,
   curveForRange,
   formatDayMon,
+  niceScoreTicks,
   scoreMonths,
   scoreScale,
   type BehaviorFactor,
@@ -718,11 +719,17 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
     const tEnd = history[history.length - 1]!.t;
     const tSpan = tEnd - t0 || 1;
     const ySpan = yMax - yMin || 1;
-    const xOf = (tt: number) => ((tt - t0) / tSpan) * 600;
-    const yOf = (s: number) => (1 - (s - yMin) / ySpan) * 220;
+    // Inset the plot so the curve + end dot clear the rounded box edges — and
+    // so the dot lands exactly on the line tip instead of being clamped ~8px
+    // inward of a full-bleed right edge (the "bolinha deslocada").
+    const PAD_X = 18;
+    const PAD_Y = 16;
+    const xOf = (tt: number) => PAD_X + ((tt - t0) / tSpan) * (600 - 2 * PAD_X);
+    const yOf = (s: number) => PAD_Y + (1 - (s - yMin) / ySpan) * (220 - 2 * PAD_Y);
     const coords = history.map((p) => [xOf(p.t), yOf(p.score)] as const);
     const line = coords.map(([x, y]) => `${x},${y}`).join(" ");
     const last = coords[coords.length - 1]!;
+    const first = coords[0]!;
     // Tier thresholds that fall inside the visible window get a guide line.
     const guides = PASSPORT_TIERS.filter((tt) => tt.min > yMin && tt.min < yMax).map((tt) => ({
       level: tt.level,
@@ -730,7 +737,13 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
       topPct: (yOf(tt.min) / 220) * 100,
       name: t(TIER_KEYS[tt.level]),
     }));
-    return { t0, tEnd, line, area: `0,220 ${line} 600,220`, last, guides };
+    // Round score gridlines spanning the window — gives the Y-axis a real scale
+    // even when no tier guide is in view (a sub-tier wallet). Drop any tick that
+    // would land on a tier guide so the two labels don't stack.
+    const yTicks = niceScoreTicks(yMin, yMax)
+      .filter((v) => !guides.some((g) => Math.abs(g.min - v) < ySpan * 0.06))
+      .map((value) => ({ value, topPct: (yOf(value) / 220) * 100 }));
+    return { t0, tEnd, line, area: `${first[0]},220 ${line} ${last[0]},220`, last, guides, yTicks };
   }, [hasCurve, history, yMin, yMax, t]);
 
   return (
@@ -751,6 +764,15 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
       <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
         {hasCurve && geom ? (
           <>
+            {/* neutral score gridlines — drawn first, so tier guides + the curve
+                render on top of them */}
+            {geom.yTicks.map((tk) => (
+              <div
+                key={`grid-${tk.value}`}
+                className="pointer-events-none absolute inset-x-0 border-t border-white/[0.05]"
+                style={{ top: `${tk.topPct}%` }}
+              />
+            ))}
             {geom.guides.map((g) => (
               <div
                 key={g.level}
@@ -789,7 +811,29 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
                   boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
                 }}
               />
+              {/* current-score badge pinned just left of the end dot — ties the
+                  line's tip to the wallet's real on-chain score */}
+              <div
+                className={`absolute z-30 rounded-md border border-[#14F195]/30 bg-[#0A1F17] px-1.5 py-0.5 text-[11px] font-bold leading-none text-[#14F195] ${MONO}`}
+                style={{
+                  left: `clamp(8px, ${(geom.last[0] / 600) * 100}%, calc(100% - 8px))`,
+                  top: `clamp(8px, ${(geom.last[1] / 220) * 100}%, calc(100% - 8px))`,
+                  transform: "translate(calc(-100% - 10px), -50%)",
+                }}
+              >
+                {currentScore}
+              </div>
             </div>
+            {/* Y-axis score labels — neutral, the bg chip masks the gridline behind */}
+            {geom.yTicks.map((tk) => (
+              <span
+                key={`lbl-${tk.value}`}
+                className={`absolute left-5 z-10 -translate-y-1/2 bg-[#070B11] pr-2 text-[10px] leading-none text-gray-500 ${MONO}`}
+                style={{ top: `${tk.topPct}%` }}
+              >
+                {tk.value}
+              </span>
+            ))}
             {geom.guides.map((g) => (
               <span
                 key={g.level}
@@ -799,6 +843,12 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
                 {g.name} • {g.min}
               </span>
             ))}
+            {/* Y-axis title */}
+            <span
+              className={`absolute left-4 top-3 z-10 text-[9px] uppercase tracking-[0.2em] text-gray-600 ${MONO}`}
+            >
+              {t("insightsv2.chart.yAxis")}
+            </span>
             <div className="absolute inset-x-4 bottom-3 flex justify-between text-xs text-gray-500">
               <span>{formatDayMon(geom.t0, lang)}</span>
               <span>{formatDayMon(geom.tEnd, lang)}</span>
