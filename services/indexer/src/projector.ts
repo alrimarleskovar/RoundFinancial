@@ -358,9 +358,9 @@ export async function rebuildEvents(
 // ─── CLI entrypoint ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const { PrismaClient } = await import("@prisma/client");
+  const { makePrismaClient } = await import("./db.js");
   const { createLogger } = await import("./log.js");
-  const prisma = new PrismaClient();
+  const prisma = makePrismaClient();
   const logger = createLogger({ service: "projector" });
   try {
     const result = await rebuildEvents(prisma, logger);

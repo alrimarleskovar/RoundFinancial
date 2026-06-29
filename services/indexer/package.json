@@ -4,6 +4,9 @@
   "private": true,
   "description": "RoundFi indexer — Helius webhook subscriber + on-chain backfiller. Hydrates a Postgres event store from Pool / Member / Attestation accounts and contribute / claim_payout / settle_default txs. Phase 3 (B2B oracle) reads from this DB.",
   "license": "Apache-2.0",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  },
   "main": "./src/server.ts",
   "exports": {
     ".": "./src/server.ts",
@@ -29,7 +32,8 @@
     "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "@roundfi/sdk": "workspace:*",
     "@solana/web3.js": "^1.95.3",
     "fastify": "^5.9.0",
@@ -40,7 +44,7 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "@types/nodemailer": "^6.4.0",
-    "prisma": "^5.22.0",
+    "prisma": "^7.8.0",
     "tsx": "^4.19.2",
     "typescript": "^6.0.3"
   }

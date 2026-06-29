@@ -34,7 +34,7 @@
  */
 
 import { Connection, PublicKey } from "@solana/web3.js";
-import { PrismaClient } from "@prisma/client";
+import { makePrismaClient } from "./db.js";
 
 import { decodePoolRaw, decodeMemberRaw } from "@roundfi/sdk";
 
@@ -69,7 +69,7 @@ if (!CORE_PROGRAM) {
 async function main(): Promise<void> {
   const programId = new PublicKey(CORE_PROGRAM!);
   const connection = new Connection(RPC, "confirmed");
-  const prisma = new PrismaClient();
+  const prisma = makePrismaClient();
   const startedAt = Date.now();
 
   // Insert "running" row so an in-flight scrape can distinguish

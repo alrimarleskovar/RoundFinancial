@@ -18,7 +18,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Prisma 7: the datasource `url` is no longer accepted in the schema (P1012).
+  // Runtime connection is supplied by the pg driver adapter (see src/db.ts,
+  // `makePrismaClient`); `prisma migrate`/`db pull` read it from prisma.config.ts.
 }
 
 // ─── Pools ───────────────────────────────────────────────────────────

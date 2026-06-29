@@ -742,8 +742,8 @@ export function createReconcilerDaemon(
 
 async function main(): Promise<void> {
   // Lazy-imported to keep this module testable.
-  const { PrismaClient } = await import("@prisma/client");
-  const prisma = new PrismaClient();
+  const { makePrismaClient } = await import("./db.js");
+  const prisma = makePrismaClient();
 
   const config: ReconcilerConfig = {
     primaryRpcUrl: process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com",

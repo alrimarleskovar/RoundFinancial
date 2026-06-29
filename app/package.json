@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
+    "@prisma/adapter-pg": "^7.8.0",
     "@roundfi/indexer": "workspace:*",
     "@roundfi/orchestrator": "workspace:*",
     "@roundfi/sdk": "workspace:*",

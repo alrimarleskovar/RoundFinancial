@@ -23,9 +23,9 @@
  * is "show all four charts populated", not "match unit-test values".
  */
 
-import { PrismaClient } from "@prisma/client";
+import { makePrismaClient } from "./db.js";
 
-const prisma = new PrismaClient();
+const prisma = makePrismaClient();
 const CYCLE = 2_592_000n;
 
 type Topology = "all" | "clean" | "retention" | "predictor" | "progression" | "improvement";
