@@ -61,10 +61,13 @@ const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const CORE_PROGRAM = process.env.ROUNDFI_CORE_PROGRAM_ID;
 const REPUTATION_PROGRAM = process.env.ROUNDFI_REPUTATION_PROGRAM_ID;
 const BASE_URL = process.env.NOTIFY_BASE_URL ?? "https://roundfi.vercel.app";
-// Default = no image → the templates render a clean text wordmark. The
-// prototype JPEG had a boxed, non-transparent background that looked broken in
-// inboxes; set NOTIFY_LOGO_URL to a hosted TRANSPARENT PNG to use a real logo.
-const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? "";
+// Default = the hosted brand lockup — a CLEAN transparent PNG of the real
+// RoundFi mark + wordmark, served from the app's public dir. The <img> carries
+// alt="RoundFi", so a client that blocks remote images still shows the name.
+// Set NOTIFY_LOGO_URL="" to force the inline text wordmark instead. (The old
+// prototype JPEG was boxed/non-transparent and looked broken; the new asset is
+// the app's gradient logomark rasterized at the template's 120×34 aspect.)
+const LOGO_URL = process.env.NOTIFY_LOGO_URL ?? `${BASE_URL}/email-logo.png`;
 const DUE_WINDOW_SECS = Number(process.env.NOTIFY_DUE_WINDOW_HOURS ?? "48") * 3600;
 const INTERVAL_MS = Number(process.env.NOTIFY_INTERVAL_MS ?? "300000");
 
