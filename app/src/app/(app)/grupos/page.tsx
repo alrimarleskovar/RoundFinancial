@@ -509,19 +509,21 @@ export default function GruposPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-7 px-4 py-8 text-white animate-in fade-in duration-700 md:px-8">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 text-white animate-in fade-in duration-700 md:gap-7 md:px-8 md:py-8">
       {/* header */}
-      <section className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+      <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
         <div>
-          <div className="mb-3 flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.24em] text-[#14F195]">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#14F195] md:mb-3 md:text-[12px]">
             <span className="h-2 w-2 rounded-full bg-[#14F195] shadow-[0_0_12px_#14F195]" />{" "}
             {t("groupsV2.badge")}
           </div>
-          <h1 className="text-4xl font-black tracking-[-0.05em] [font-family:var(--font-syne),sans-serif] md:text-6xl">
+          <h1 className="text-3xl font-black tracking-[-0.05em] [font-family:var(--font-syne),sans-serif] md:text-6xl">
             {t("groups.title")}
           </h1>
-          <p className="mt-3 max-w-2xl text-base text-gray-400">{t("groupsV2.subtitle")}</p>
-          <div className="mt-5 flex flex-wrap gap-3">
+          <p className="mt-2 max-w-2xl text-sm text-gray-400 md:mt-3 md:text-base">
+            {t("groupsV2.subtitle")}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2 md:mt-5 md:gap-3">
             <span className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
               <Icons.people size={15} stroke="currentColor" />{" "}
               {t("groupsV2.stat.available", { n: enriched.length })}
@@ -536,22 +538,22 @@ export default function GruposPage() {
         <button
           type="button"
           onClick={() => setNewCycleOpen(true)}
-          className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-7 py-4 text-sm font-black text-[#03130D] shadow-[0_12px_36px_rgba(20,241,149,0.22)] transition hover:scale-[1.01]"
+          className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#14F195]/30 bg-[#14F195]/[0.08] px-4 py-2.5 text-[13px] font-bold text-[#14F195] transition hover:bg-[#14F195]/[0.14] md:self-auto md:rounded-2xl md:border-0 md:bg-gradient-to-r md:from-[#14F195] md:to-[#00C8FF] md:px-7 md:py-4 md:text-sm md:font-black md:text-[#03130D] md:shadow-[0_12px_36px_rgba(20,241,149,0.22)] md:hover:scale-[1.01]"
         >
-          <Icons.plus size={16} stroke="#03130D" sw={2.6} /> {t("groups.newCycle")}
+          <Icons.plus size={16} stroke="currentColor" sw={2.6} /> {t("groups.newCycle")}
         </button>
       </section>
 
       {/* filter bar */}
       <section className="rounded-[1.5rem] border border-white/[0.08] bg-[#0B1018]/90 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:overflow-visible">
+          <div className="flex shrink-0 gap-2 lg:flex-wrap lg:gap-3 lg:shrink">
             {SORTS.map(([key, glyph, labelKey]) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setSort(key)}
-                className={`rounded-xl border px-5 py-3 text-sm font-bold transition ${
+                className={`shrink-0 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-bold transition lg:px-5 lg:py-3 lg:text-sm ${
                   sort === key
                     ? "border-[#14F195]/50 bg-[#14F195]/10 text-[#14F195] shadow-[0_0_22px_rgba(20,241,149,0.12)]"
                     : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
@@ -564,7 +566,7 @@ export default function GruposPage() {
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
-            className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold transition ${
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-bold transition lg:px-5 lg:py-3 lg:text-sm ${
               showFilters || activeCount > 0
                 ? "border-[#14F195]/40 bg-[#14F195]/[0.08] text-[#14F195]"
                 : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
