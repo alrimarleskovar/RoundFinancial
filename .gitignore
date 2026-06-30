@@ -62,6 +62,10 @@ venv/
 # Generated SDK (regenerated from IDL)
 sdk/src/generated/
 
+# Prisma engine partial-download dirs — 32-hex temp dirs that regenerate on
+# pnpm/prisma activity and are never source. (Matches only 32-char names.)
+services/indexer/????????????????????????????????/
+
 # Playwright E2E artifacts
 app/test-results/
 app/playwright-report/

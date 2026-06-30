@@ -24,14 +24,15 @@ import { useConnection } from "@solana/wallet-adapter-react";
 import { fetchActivePoolListings, fetchPoolRaw } from "@roundfi/sdk/onchain-raw";
 
 import type { MarketOffer } from "@/data/market";
-import { ACTIVE_GROUPS, DISCOVER_GROUPS } from "@/data/groups";
+import { DISCOVER_GROUPS } from "@/data/groups";
 import { DEVNET_POOLS, DEVNET_PROGRAM_IDS, type DevnetPoolKey } from "@/lib/devnet";
 import { USDC_RATE } from "@/lib/i18n";
 
 // Pool display name by devnet pool key, from the same catalogs the cards use.
 const POOL_NAME: Partial<Record<DevnetPoolKey, string>> = (() => {
   const out: Partial<Record<DevnetPoolKey, string>> = {};
-  for (const g of ACTIVE_GROUPS) if (g.devnetPool && !out[g.devnetPool]) out[g.devnetPool] = g.name;
+  // Real catalog only — never the demo fixtures, so a real listing never shows
+  // a pitch name (pool3's "Renovação MEI"); unknown pools fall back to "Pool N".
   for (const d of DISCOVER_GROUPS)
     if (d.devnetPool && !out[d.devnetPool]) out[d.devnetPool] = d.name;
   return out;

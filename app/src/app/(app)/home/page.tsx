@@ -884,11 +884,17 @@ export default function HomePage() {
   // soonest-due installment on time (+10, only if a different pool), join
   // another group (+10). Demo keeps the fixture cards (rendered inline below).
   const realAchievements = useMemo(() => {
+    // Featured real pools only — the same demo-twin exclusion /grupos and the
+    // cycle cards (joinedOnChainGroups) already apply. A position whose pool is
+    // twinned by a demo fixture (pool3 ↔ the "Renovação MEI" pitch card) is
+    // dropped here too, so an achievement never inherits a pitch name the rest
+    // of real mode hides. Names resolve from the real catalog only.
+    const demoPools = new Set(ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean));
+    const eligible = realPositions.filter((p) => !p.devnetPool || !demoPools.has(p.devnetPool));
     const name = (p: NftPosition) =>
-      [...ACTIVE_GROUPS, ...DISCOVER_GROUPS].find((g) => g.devnetPool === p.devnetPool)?.name ??
-      p.group;
+      DISCOVER_GROUPS.find((g) => g.devnetPool === p.devnetPool)?.name ?? p.group;
     const pct = (p: NftPosition) => (p.total > 0 ? Math.round((p.month / p.total) * 100) : 0);
-    const payable = realPositions.filter((p) => p.month < p.total);
+    const payable = eligible.filter((p) => p.month < p.total);
     const out: { icon: string; title: string; points: number; progress: string; pct: number }[] =
       [];
     const closest = [...payable].sort((a, b) => b.month / b.total - a.month / a.total)[0];
@@ -915,7 +921,7 @@ export default function HomePage() {
       icon: "people",
       title: t("homeV2.achiev.real.join"),
       points: 10,
-      progress: realPositions.length ? String(realPositions.length) : "0/1",
+      progress: eligible.length ? String(eligible.length) : "0/1",
       pct: 0,
     });
     return out;

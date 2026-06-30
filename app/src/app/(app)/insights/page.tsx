@@ -321,10 +321,9 @@ interface RecCard {
 // Friendly pool name for a devnet position (the on-chain view only carries the
 // seed id) — falls back to the position's generic label.
 function poolName(p: NftPosition): string {
-  return (
-    [...ACTIVE_GROUPS, ...DISCOVER_GROUPS].find((g) => g.devnetPool === p.devnetPool)?.name ??
-    p.group
-  );
+  // Real catalog only — never the demo fixtures, so a real pool3 cota does not
+  // borrow the "Renovação MEI" pitch name; falls back to the on-chain label.
+  return DISCOVER_GROUPS.find((g) => g.devnetPool === p.devnetPool)?.name ?? p.group;
 }
 
 function RecommendationCards() {
@@ -339,8 +338,12 @@ function RecommendationCards() {
   const positions = useMyDevnetPositions();
   const realCards = useMemo<RecCard[]>(() => {
     const out: RecCard[] = [];
+    // Featured real pools only — drop demo-twinned pools (pool3 ↔ "Renovação
+    // MEI") so recommendations match what /grupos surfaces, never a pitch name.
+    const demoPools = new Set(ACTIVE_GROUPS.map((g) => g.devnetPool).filter(Boolean));
+    const eligible = positions.filter((p) => !p.devnetPool || !demoPools.has(p.devnetPool));
     // Pools with installments still to pay (contributionsPaid < cycles ≈ target).
-    const payable = positions.filter((p) => p.month < p.total);
+    const payable = eligible.filter((p) => p.month < p.total);
     // 1. Pay on time — the pool whose next installment is due soonest.
     const due = [...payable].sort((a, b) => (a.nextDueDays ?? 999) - (b.nextDueDays ?? 999))[0];
     if (due) {
@@ -376,9 +379,7 @@ function RecommendationCards() {
       pts: 10,
       icon: "people",
       color: TONE_HEX.t,
-      label: positions.length
-        ? t("insightsv2.next.real.join")
-        : t("insightsv2.next.real.joinFirst"),
+      label: eligible.length ? t("insightsv2.next.real.join") : t("insightsv2.next.real.joinFirst"),
       cta: t("insightsv2.next.real.join.cta"),
       href: "/grupos",
     });
