@@ -36,6 +36,12 @@ export interface ConnSpec {
   perms: string[];
   live?: boolean;
   featured?: boolean;
+  /** Read-only integration (e.g. the automatic yield engine): no connect /
+   *  manage / revoke controls — it just reports on-chain state. */
+  readOnly?: boolean;
+  /** Optional honesty note rendered in the expanded body (e.g. "real figures,
+   *  mock adapter on devnet"). */
+  note?: string;
 }
 
 /** Real on-chain handlers injected for the Human Passport card (devnet). When
@@ -289,7 +295,7 @@ export function ConnectionCard({
           <div style={{ fontSize: 11, color: tokens.text2, marginTop: 3 }}>{c.tagline}</div>
         </div>
         <div style={{ gridArea: "ctl", justifySelf: isMobile ? "start" : "end" }}>
-          {isConnected ? (
+          {c.readOnly ? null : isConnected ? (
             <span
               style={{
                 fontSize: 10,
@@ -471,8 +477,27 @@ export function ConnectionCard({
             </div>
           )}
 
+          {/* Generic honesty note (e.g. the Kamino real-yield / mock-adapter
+              clarification) — any card can set `c.note`. */}
+          {c.note && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: tokens.fillSoft,
+                border: `1px solid ${tokens.border}`,
+                fontSize: 10.5,
+                color: tokens.muted,
+                lineHeight: 1.45,
+              }}
+            >
+              {c.note}
+            </div>
+          )}
+
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-            {isConnected ? (
+            {c.readOnly ? null : isConnected ? (
               isReal ? (
                 <>
                   <div
