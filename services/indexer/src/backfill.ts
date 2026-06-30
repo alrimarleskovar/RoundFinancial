@@ -33,6 +33,7 @@
  *   pnpm --filter @roundfi/indexer backfill
  */
 
+import "dotenv/config";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { makePrismaClient } from "./db.js";
 

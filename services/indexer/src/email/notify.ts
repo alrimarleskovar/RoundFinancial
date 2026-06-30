@@ -28,6 +28,7 @@
  *   pnpm --filter @roundfi/indexer notify:once
  */
 
+import "dotenv/config";
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
   decodeMemberRaw,

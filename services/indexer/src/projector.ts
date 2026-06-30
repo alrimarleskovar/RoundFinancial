@@ -24,6 +24,7 @@
  * this canonical surface (ADR 0005 / 0009).
  */
 
+import "dotenv/config";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { dueTs as computeDueTs, deltaSeconds, usedGrace } from "@roundfi/sdk";
 

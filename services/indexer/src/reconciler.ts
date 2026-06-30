@@ -53,6 +53,7 @@
  * + `docs/operations/indexer-reorg-recovery.md` for the on-call runbook.
  */
 
+import "dotenv/config";
 import type { PrismaClient } from "@prisma/client";
 import { Connection, PublicKey, type Commitment } from "@solana/web3.js";
 

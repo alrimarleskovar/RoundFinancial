@@ -23,6 +23,7 @@
  * is "show all four charts populated", not "match unit-test values".
  */
 
+import "dotenv/config";
 import { makePrismaClient } from "./db.js";
 
 const prisma = makePrismaClient();

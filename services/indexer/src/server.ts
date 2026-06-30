@@ -35,6 +35,7 @@
  * the bankrun harness loads at startup).
  */
 
+import "dotenv/config";
 import { timingSafeEqual } from "node:crypto";
 
 import Fastify, { type FastifyInstance } from "fastify";

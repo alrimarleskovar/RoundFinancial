@@ -19,6 +19,7 @@
  * for large histories.
  */
 
+import "dotenv/config";
 import { createHash } from "node:crypto";
 
 import { Connection, PublicKey, type ConfirmedSignatureInfo } from "@solana/web3.js";
