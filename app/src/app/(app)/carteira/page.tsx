@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, usePathname } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { PositionsList } from "@/components/carteira/PositionsList";
@@ -13,6 +13,7 @@ import { WalletOverview } from "@/components/carteira/WalletOverview";
 import { useConnections } from "@/lib/connections";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useWallet } from "@/lib/wallet";
 
 type Tab = "overview" | "positions" | "transactions" | "connections";
@@ -29,8 +30,16 @@ function CarteiraContent() {
   const params = useSearchParams();
   const wallet = useWallet();
   const conns = useConnections();
+  const isMobile = useIsMobile();
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+
+  // Phones: the tab strip scrolls horizontally (the four tabs don't fit at
+  // once), so center the active tab on mount — otherwise a deep-link/refresh on
+  // ?tab=connections lands with "Connections" clipped off the right edge.
+  const scrollActiveTabIntoView = useCallback((node: HTMLButtonElement | null) => {
+    node?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, []);
 
   // Tab state is LOCAL (source of truth), seeded once from the URL — NOT
   // re-derived from useSearchParams every render and pushed through
@@ -91,7 +100,7 @@ function CarteiraContent() {
   );
 
   return (
-    <div style={{ padding: 32 }}>
+    <div style={{ padding: isMobile ? 16 : 32 }}>
       <div
         style={{
           display: "flex",
@@ -153,13 +162,16 @@ function CarteiraContent() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — scroll horizontally on phones (the four labels don't fit at
+          once) instead of clipping the rightmost tab off the edge. */}
       <div
+        className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{
           marginTop: 24,
           display: "flex",
           gap: 2,
           borderBottom: `1px solid ${tokens.border}`,
+          overflowX: "auto",
         }}
       >
         {ALL_TABS.map((id) => {
@@ -174,8 +186,10 @@ function CarteiraContent() {
             <button
               key={id}
               type="button"
+              ref={active ? scrollActiveTabIntoView : undefined}
               onClick={() => setTab(id)}
               style={{
+                flexShrink: 0,
                 padding: "12px 18px",
                 background: "none",
                 border: "none",
@@ -188,6 +202,7 @@ function CarteiraContent() {
                 marginBottom: -1,
                 display: "flex",
                 alignItems: "center",
+                whiteSpace: "nowrap",
                 gap: 6,
               }}
             >

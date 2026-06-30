@@ -10,6 +10,7 @@ import { PhantomFaucet } from "@/components/carteira/PhantomFaucet";
 import { liftHover } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { useIsMobile } from "@/lib/useIsMobile";
 import type { ConnId, ConnRuntime, ConnStatus } from "@/lib/connections";
 import type { Tone } from "@/data/carteira";
 import type { WalletView } from "@/lib/wallet";
@@ -81,6 +82,7 @@ export function ConnectionCard({
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { lang } = useI18n();
+  const isMobile = useIsMobile();
 
   const tc = ((): string => {
     switch (c.tone) {
@@ -178,13 +180,19 @@ export function ConnectionCard({
           cursor: "pointer",
           textAlign: "left",
           display: "grid",
-          gridTemplateColumns: "48px 1fr auto auto",
-          gap: 14,
+          // Phones: the control (Reconnect / Verify / since / PENDING) drops to
+          // its own full-width row so a long CTA label can't overlap the
+          // name/tagline. Desktop keeps the single icon|text|control|chevron row.
+          gridTemplateColumns: isMobile ? "48px 1fr auto" : "48px 1fr auto auto",
+          gridTemplateAreas: isMobile ? '"ico txt chv" "ctl ctl ctl"' : '"ico txt ctl chv"',
+          columnGap: 14,
+          rowGap: isMobile ? 12 : 0,
           alignItems: "center",
         }}
       >
         <div
           style={{
+            gridArea: "ico",
             width: 48,
             height: 48,
             borderRadius: 12,
@@ -199,7 +207,7 @@ export function ConnectionCard({
         >
           <ConnectionGlyph kind={c.glyph} color={tc} size={22} />
         </div>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ gridArea: "txt", minWidth: 0 }}>
           <div
             style={{
               fontSize: 14,
@@ -207,6 +215,7 @@ export function ConnectionCard({
               color: tokens.text,
               display: "flex",
               alignItems: "center",
+              flexWrap: "wrap",
               gap: 8,
             }}
           >
@@ -279,48 +288,51 @@ export function ConnectionCard({
           </div>
           <div style={{ fontSize: 11, color: tokens.text2, marginTop: 3 }}>{c.tagline}</div>
         </div>
-        {isConnected ? (
-          <span
-            style={{
-              fontSize: 10,
-              color: tokens.muted,
-              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-            }}
-          >
-            {t("conn.since", { d: runtime.since ?? "—" })}
-          </span>
-        ) : isPending ? (
-          <RFIPill tone="a">{t("conn.pending")}</RFIPill>
-        ) : (
-          <button
-            type="button"
-            onClick={doConnect}
-            disabled={busy}
-            style={{
-              padding: "7px 13px",
-              borderRadius: 9,
-              cursor: busy ? "default" : "pointer",
-              border: "none",
-              background: `linear-gradient(135deg, ${tc}, ${tokens.teal})`,
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              opacity: busy ? 0.7 : 1,
-            }}
-          >
-            {busy
-              ? isReal
-                ? real!.busyLabel
-                : t("conn.connecting")
-              : isReal
-                ? real!.ctaLabel
-                : notInstalled
-                  ? t("conn.phantom.installCTA")
-                  : t("conn.reconnect")}
-          </button>
-        )}
+        <div style={{ gridArea: "ctl", justifySelf: isMobile ? "start" : "end" }}>
+          {isConnected ? (
+            <span
+              style={{
+                fontSize: 10,
+                color: tokens.muted,
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              }}
+            >
+              {t("conn.since", { d: runtime.since ?? "—" })}
+            </span>
+          ) : isPending ? (
+            <RFIPill tone="a">{t("conn.pending")}</RFIPill>
+          ) : (
+            <button
+              type="button"
+              onClick={doConnect}
+              disabled={busy}
+              style={{
+                padding: "7px 13px",
+                borderRadius: 9,
+                cursor: busy ? "default" : "pointer",
+                border: "none",
+                background: `linear-gradient(135deg, ${tc}, ${tokens.teal})`,
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 700,
+                opacity: busy ? 0.7 : 1,
+              }}
+            >
+              {busy
+                ? isReal
+                  ? real!.busyLabel
+                  : t("conn.connecting")
+                : isReal
+                  ? real!.ctaLabel
+                  : notInstalled
+                    ? t("conn.phantom.installCTA")
+                    : t("conn.reconnect")}
+            </button>
+          )}
+        </div>
         <span
           style={{
+            gridArea: "chv",
             color: tokens.muted,
             fontSize: 12,
             transform: open ? "rotate(90deg)" : "rotate(0)",
