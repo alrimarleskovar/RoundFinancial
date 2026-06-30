@@ -129,6 +129,9 @@ function offerToBuyTarget(offer: MarketOffer): BuyOfferTarget {
     month: offer.month,
     total: offer.total,
     tone: toneFor(offer.group),
+    // Forwarded for real on-chain listings → drives escape_valve_buy; undefined
+    // on demo fixtures (simulated buy).
+    onchain: offer.onchain,
   };
 }
 

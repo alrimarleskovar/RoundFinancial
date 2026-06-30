@@ -333,6 +333,14 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.successBody":
       "Em produção, sua wallet teria recebido o NFT da cota {group} por {price}. A reputação do vendedor permanece intacta.",
     "market.buyModal.close": "Fechar",
+    "market.buyModal.realBadge": "ON-CHAIN · DEVNET",
+    "market.buyModal.realBody":
+      "Você assina a transação na sua carteira; o USDC vai direto ao vendedor e a cota é transferida pra você on-chain. Simulamos antes de assinar.",
+    "market.buyModal.confirmReal": "Confirmar e assinar",
+    "market.buyModal.realSuccessTitle": "Compra confirmada",
+    "market.buyModal.realSuccessHeadline": "Cota adquirida on-chain",
+    "market.buyModal.realSuccessBody": "{group} agora é sua — a posição aparece na sua Carteira.",
+    "market.buyModal.errConnect": "Conecte sua carteira para comprar.",
     "market.howWorks.title": "◆ Como funciona",
     "market.howWorks.s1": "Tomador vende sua cota com desconto",
     "market.howWorks.s2": "Você recebe o NFT com rendimento fixado",
@@ -2146,6 +2154,15 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.successBody":
       "In production, your wallet would have received the {group} share NFT for {price}. The seller's reputation stays intact.",
     "market.buyModal.close": "Close",
+    "market.buyModal.realBadge": "ON-CHAIN · DEVNET",
+    "market.buyModal.realBody":
+      "You sign the transaction in your wallet; the USDC goes straight to the seller and the cota transfers to you on-chain. We simulate it before you sign.",
+    "market.buyModal.confirmReal": "Confirm & sign",
+    "market.buyModal.realSuccessTitle": "Purchase confirmed",
+    "market.buyModal.realSuccessHeadline": "Cota acquired on-chain",
+    "market.buyModal.realSuccessBody":
+      "{group} is now yours — the position shows up in your Wallet.",
+    "market.buyModal.errConnect": "Connect your wallet to buy.",
     "market.howWorks.title": "◆ How it works",
     "market.howWorks.s1": "Borrower sells their share at a discount",
     "market.howWorks.s2": "You receive the NFT with fixed yield",
