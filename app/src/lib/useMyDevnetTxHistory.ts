@@ -32,7 +32,7 @@ import type { ParsedTransactionWithMeta } from "@solana/web3.js";
 import { memberPda } from "@roundfi/sdk/pda";
 
 import type { Transaction } from "@/data/carteira";
-import { ACTIVE_GROUPS, DISCOVER_GROUPS } from "@/data/groups";
+import { DISCOVER_GROUPS } from "@/data/groups";
 import {
   DEVNET_POOLS,
   DEVNET_PROGRAM_IDS,
@@ -47,10 +47,9 @@ import {
 type PoolMeta = { name: string; installment: number; prize: number };
 const POOL_META: Partial<Record<DevnetPoolKey, PoolMeta>> = (() => {
   const out: Partial<Record<DevnetPoolKey, PoolMeta>> = {};
-  for (const g of ACTIVE_GROUPS) {
-    if (g.devnetPool && !out[g.devnetPool])
-      out[g.devnetPool] = { name: g.name, installment: g.installment, prize: g.prize };
-  }
+  // Real catalog only — a pool that exists solely as a demo fixture (pool3 ↔
+  // "Renovação MEI") must not stamp a pitch name + demo amounts on a real
+  // wallet's ledger rows; those fall back to "Pool N" + the on-chain delta.
   for (const d of DISCOVER_GROUPS) {
     if (d.devnetPool && !out[d.devnetPool])
       out[d.devnetPool] = { name: d.name, installment: d.installment, prize: d.prize };
