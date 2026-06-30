@@ -195,11 +195,13 @@ function ScoreHero() {
       {/* mirrored shine sweep on hover — same effect as the home SAS passport */}
       <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-tr from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
 
-      {/* info affordance, top-right */}
+      {/* info affordance, top-right. The button is a 44×44 touch target (icon
+          stays 18px, centered) so it clears the iOS/Material minimum on phones
+          — at right-2/top-2 the icon still lands in the same corner as before. */}
       <button
         type="button"
         aria-label={t("insightsv2.hero.aboutAria")}
-        className="absolute right-5 top-5 text-gray-500 transition-colors hover:text-gray-300"
+        className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300"
       >
         <Icons.info size={18} stroke="currentColor" sw={1.8} />
       </button>
