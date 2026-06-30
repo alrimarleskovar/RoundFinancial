@@ -310,7 +310,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
 
       {/* footer — pinned to the bottom so it aligns across cards */}
       <div className="mt-auto pt-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
               {t("home.meta.prize")}

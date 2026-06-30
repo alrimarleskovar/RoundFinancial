@@ -27,6 +27,7 @@ import {
 } from "@/lib/stressLab";
 import { useT } from "@/lib/i18n";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 const CYCLE_TICK_MS = 450;
 
@@ -41,6 +42,7 @@ export function StressLabClient() {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const t = useT();
+  const isMobile = useIsMobile();
 
   // ── Config state ─────────────────────────────────────────
   const [level, setLevel] = useState<GroupLevel>("Comprovado");
@@ -249,8 +251,8 @@ export function StressLabClient() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "320px 1fr",
-          gap: 20,
+          gridTemplateColumns: isMobile ? "1fr" : "320px 1fr",
+          gap: isMobile ? 14 : 20,
           alignItems: "flex-start",
         }}
       >
