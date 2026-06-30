@@ -14,7 +14,8 @@ import { useT } from "@/lib/i18n";
 // full labelled bar needs ~1450px before it crowds the logo/controls);
 // narrower viewports fall back to icon-only, and below that the row scrolls.
 
-const ITEMS = [
+// Exported so the mobile BottomTabBar renders the same six destinations.
+export const NAV_ITEMS = [
   { id: "home", href: "/home", icon: Icons.home, labelKey: "nav.home", matchPrefix: "/home" },
   {
     id: "groups",
@@ -64,7 +65,7 @@ export function SessionNav({ className = "" }: { className?: string }) {
       // fits (lg+); scrollbar hidden for clean chrome.
       className={`flex min-w-0 items-center justify-start gap-1 overflow-x-auto sm:gap-2 lg:justify-center 2xl:gap-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
     >
-      {ITEMS.map((item) => {
+      {NAV_ITEMS.map((item) => {
         const active = pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`);
         return (
           <Link

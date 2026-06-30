@@ -213,7 +213,7 @@ function OfferRow({
   const economy = offer.face - offer.price;
   const apy = apyFor(offer);
   return (
-    <div className="grid grid-cols-[1.6fr_0.55fr_0.75fr_0.8fr_0.65fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
+    <div className="grid min-w-[600px] grid-cols-[1.6fr_0.55fr_0.75fr_0.8fr_0.65fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
       <div className="flex min-w-0 items-center gap-3">
         <CatIcon group={offer.group} />
         <div className="min-w-0">
@@ -267,7 +267,7 @@ function SellRow({ pos, onSell }: { pos: NftPosition; onSell: (position: NftPosi
   const disc = suggestedDiscFor(pos);
   const sellPrice = Math.round(pos.value * (1 - disc / 100));
   return (
-    <div className="grid grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
+    <div className="grid min-w-[520px] grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
       <div className="flex min-w-0 items-center gap-3">
         <CatIcon group={pos.group} />
         <div className="min-w-0">
@@ -320,7 +320,7 @@ function ListingRow({
     <button
       type="button"
       onClick={() => onOpen(listing)}
-      className="grid grid-cols-[1.7fr_0.9fr_0.9fr_0.6fr] items-center gap-3 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.06] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#14F195]/50"
+      className="grid min-w-[460px] grid-cols-[1.7fr_0.9fr_0.9fr_0.6fr] items-center gap-3 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.06] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#14F195]/50"
     >
       <div className="flex min-w-0 items-center gap-3">
         <CatIcon group={p.group} />
@@ -728,7 +728,7 @@ export default function MercadoPage() {
                   {t("market.listings.count", { n: listings.length })}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 overflow-x-auto">
                 {listings.map((l) => (
                   <ListingRow key={l.id} listing={l} onOpen={setOpenListing} />
                 ))}
@@ -754,7 +754,7 @@ export default function MercadoPage() {
                     <span>{t("marketV2.col.resale")}</span>
                     <span>{t("marketV2.col.action")}</span>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 overflow-x-auto">
                     {available.map((pos) => (
                       <SellRow key={pos.id} pos={pos} onSell={setSelling} />
                     ))}
@@ -860,7 +860,7 @@ export default function MercadoPage() {
                 <span>{t("marketV2.col.available")}</span>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 overflow-x-auto">
                 {offers.length === 0 ? (
                   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5 py-12 text-center text-sm leading-relaxed text-slate-400">
                     {t("marketV2.empty")}
