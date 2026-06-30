@@ -6,6 +6,7 @@ import { RFILogoMark } from "@/components/brand/brand";
 import { NetworkBadge } from "@/components/layout/NetworkBadge";
 import { SegToggle } from "@/components/layout/SegToggle";
 import { SessionNav } from "@/components/layout/SessionNav";
+import { TopBarPrefsMenu } from "@/components/layout/TopBarPrefsMenu";
 import { WalletChip } from "@/components/layout/WalletChip";
 import { WalletErrorToast } from "@/components/layout/WalletErrorToast";
 import { useI18n } from "@/lib/i18n";
@@ -73,6 +74,7 @@ export function TopBar() {
           <NetworkBadge connected={connected} />
         </div>
 
+        <TopBarPrefsMenu connected={connected} />
         <WalletChip wallet={wallet} />
       </div>
 
