@@ -5,11 +5,13 @@ import { Icons } from "@/components/brand/icons";
 import { NoTransactionsYet } from "@/components/carteira/NoTransactionsYet";
 import { TX_LIST, type Transaction } from "@/data/carteira";
 import { useI18n } from "@/lib/i18n";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useMyDevnetTxHistory } from "@/lib/useMyDevnetTxHistory";
 import { useMyDevnetTransfers } from "@/lib/useMyDevnetTransfers";
 import { useSession, type SessionEvent } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { shortAddr, useWallet } from "@/lib/wallet";
+import { WALLET_MOBILE_TYPE as WMT } from "@/lib/walletType";
 
 // A real Solana signature (recorded by recordTx after a signed devnet tx)
 // vs. a synthesized mock id ("tx_aB3…k9Fn"). Real sigs get shortened + linked
@@ -114,6 +116,7 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
+  const isMobile = useIsMobile();
   const { events, demoActive } = useSession();
   const { explorerTx } = useWallet();
   // Durable on-chain history (read via getSignaturesForAddress on each Member
@@ -165,7 +168,11 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
           alignItems: "baseline",
         }}
       >
-        <MonoLabel color={tokens.green}>
+        <MonoLabel
+          color={tokens.green}
+          size={isMobile ? WMT.cardTitle : undefined}
+          style={isMobile ? { letterSpacing: "0.04em" } : undefined}
+        >
           {limit ? t("wallet.tx.recent") : t("wallet.tx.all")}
         </MonoLabel>
         {limit && onSeeAll && (
@@ -173,7 +180,7 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
             type="button"
             onClick={onSeeAll}
             style={{
-              fontSize: 11,
+              fontSize: isMobile ? WMT.description : 11,
               color: tokens.teal,
               cursor: "pointer",
               fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
@@ -221,10 +228,14 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
               {tx.amount > 0 ? <Icons.arrow size={12} sw={2} /> : <Icons.send size={12} sw={1.8} />}
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: tokens.text }}>{tx.label}</div>
+              <div
+                style={{ fontSize: isMobile ? WMT.body : 12, fontWeight: 600, color: tokens.text }}
+              >
+                {tx.label}
+              </div>
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: isMobile ? WMT.micro : 10,
                   color: tokens.muted,
                   marginTop: 2,
                   fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
@@ -247,7 +258,7 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
             <span
               style={{
                 fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                fontSize: 12,
+                fontSize: isMobile ? WMT.description : 12,
                 fontWeight: 600,
                 color: tx.amount > 0 ? tokens.green : tokens.text,
               }}
@@ -258,7 +269,7 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
             </span>
             <span
               style={{
-                fontSize: 10,
+                fontSize: isMobile ? WMT.micro : 10,
                 color: tokens.muted,
                 fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
