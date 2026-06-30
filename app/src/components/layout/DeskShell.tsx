@@ -2,9 +2,11 @@
 
 import type { ReactNode } from "react";
 
+import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { TopBar } from "@/components/layout/TopBar";
 import { TweaksPanel } from "@/components/layout/TweaksPanel";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useRedirectOnDisconnect } from "@/lib/useRedirectOnDisconnect";
 import { useTheme } from "@/lib/theme";
 
@@ -15,6 +17,7 @@ import { useTheme } from "@/lib/theme";
 
 export function DeskShell({ children }: { children: ReactNode }) {
   const { tokens } = useTheme();
+  const isMobile = useIsMobile();
   // Disconnecting the wallet from the chip dropdown sends the user back to
   // the public landing.
   useRedirectOnDisconnect("/");
@@ -30,10 +33,20 @@ export function DeskShell({ children }: { children: ReactNode }) {
       }}
     >
       <TopBar />
-      <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          position: "relative",
+          // Clear the fixed BottomTabBar (mobile only) so the last content
+          // isn't hidden behind it; + iOS home-indicator safe area.
+          paddingBottom: isMobile ? "calc(58px + env(safe-area-inset-bottom, 0px))" : undefined,
+        }}
+      >
         <PageTransition>{children}</PageTransition>
       </div>
       <TweaksPanel />
+      <BottomTabBar />
     </div>
   );
 }

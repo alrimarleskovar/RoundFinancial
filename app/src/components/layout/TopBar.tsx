@@ -51,7 +51,13 @@ export function TopBar() {
         </h1>
       </Link>
 
-      <SessionNav className="flex-1" />
+      {/* Desktop: horizontal session nav. Mobile (<lg): hidden — the
+          BottomTabBar (in DeskShell) takes over, freeing the cramped top row.
+          The spacer keeps the wallet chip + prefs menu right-aligned. */}
+      <div className="hidden flex-1 lg:flex">
+        <SessionNav className="w-full" />
+      </div>
+      <div className="flex-1 lg:hidden" aria-hidden />
 
       <div className="flex items-center gap-2.5 shrink-0">
         <div className="hidden lg:flex items-center gap-2.5">
