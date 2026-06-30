@@ -8,7 +8,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 // `passport` was previously `civic` (Civic Gateway-Token v1). Provider
 // migrated to Human Passport in #227; type + registry key follow.
-export type ConnId = "passport" | "kamino" | "solflare" | "pix";
+export type ConnId = "passport" | "kamino" | "pix";
 export type ConnStatus = "connected" | "disconnected" | "pending";
 
 export interface ConnRuntime {
@@ -21,7 +21,6 @@ export type ConnectionsState = Record<ConnId, ConnRuntime>;
 const DEFAULT_STATE: ConnectionsState = {
   passport: { status: "connected", since: "Mar 2026" },
   kamino: { status: "connected", since: "Jan 2026" },
-  solflare: { status: "disconnected" },
   pix: { status: "pending" },
 };
 
