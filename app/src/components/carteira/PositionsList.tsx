@@ -7,9 +7,11 @@ import { SellShareModal } from "@/components/modals/SellShareModal";
 import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
 import { liftHover } from "@/lib/hoverLift";
 import { useI18n } from "@/lib/i18n";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
+import { WALLET_MOBILE_TYPE as WMT } from "@/lib/walletType";
 
 // NFT positions list. When `limit` is set, renders a short preview
 // without the "Sell" action (used inside Visão geral); otherwise the
@@ -24,6 +26,7 @@ export function PositionsList({ limit }: { limit?: number }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
+  const isMobile = useIsMobile();
   const { acquiredPositions, listings, demoActive } = useSession();
   // The connected wallet's REAL on-chain cotas across every devnet pool —
   // drives the real escape_valve_list path in SellShareModal. Empty unless a
@@ -70,7 +73,13 @@ export function PositionsList({ limit }: { limit?: number }) {
           alignItems: "baseline",
         }}
       >
-        <MonoLabel color={tokens.green}>{t("wallet.positions")}</MonoLabel>
+        <MonoLabel
+          color={tokens.green}
+          size={isMobile ? WMT.cardTitle : undefined}
+          style={isMobile ? { letterSpacing: "0.04em" } : undefined}
+        >
+          {t("wallet.positions")}
+        </MonoLabel>
         <span
           style={{
             fontSize: 11,
@@ -137,10 +146,18 @@ export function PositionsList({ limit }: { limit?: number }) {
                 {n.num}
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: tokens.text }}>{n.group}</div>
                 <div
                   style={{
-                    fontSize: 10,
+                    fontSize: isMobile ? WMT.body : 13,
+                    fontWeight: 600,
+                    color: tokens.text,
+                  }}
+                >
+                  {n.group}
+                </div>
+                <div
+                  style={{
+                    fontSize: isMobile ? WMT.micro : 10,
                     color: tokens.muted,
                     marginTop: 2,
                     fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
@@ -162,7 +179,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                 </div>
                 <div
                   style={{
-                    fontSize: 10,
+                    fontSize: isMobile ? WMT.micro : 10,
                     color: tokens.green,
                     marginTop: 2,
                     fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
@@ -180,7 +197,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                       background: `${tokens.green}1F`,
                       border: `1px solid ${tokens.green}55`,
                       color: tokens.green,
-                      fontSize: 9,
+                      fontSize: isMobile ? WMT.micro : 9,
                       fontWeight: 700,
                       fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       letterSpacing: "0.08em",
@@ -199,7 +216,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                       background: `${tokens.purple}1F`,
                       border: `1px solid ${tokens.purple}55`,
                       color: tokens.purple,
-                      fontSize: 9,
+                      fontSize: isMobile ? WMT.micro : 9,
                       fontWeight: 700,
                       fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                       letterSpacing: "0.08em",
@@ -220,7 +237,7 @@ export function PositionsList({ limit }: { limit?: number }) {
                       background: "transparent",
                       border: `1px solid ${tokens.borderStr}`,
                       color: tokens.text,
-                      fontSize: 11,
+                      fontSize: isMobile ? WMT.button : 11,
                       fontWeight: 600,
                       fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                     }}

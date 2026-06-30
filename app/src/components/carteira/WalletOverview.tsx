@@ -14,6 +14,7 @@ import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 import { useUsdcBalance } from "@/lib/useUsdcBalance";
+import { WALLET_MOBILE_TYPE as WMT } from "@/lib/walletType";
 
 // Visão geral — balance hero + composition bar + Kamino vault card
 // + preview rows. The "Sacar" CTA opens WithdrawYieldModal; the
@@ -120,7 +121,12 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             }}
           />
           <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column" }}>
-            <MonoLabel>{t("wallet.total", { c: currency })}</MonoLabel>
+            <MonoLabel
+              size={isMobile ? WMT.cardTitle : undefined}
+              style={isMobile ? { letterSpacing: "0.04em" } : undefined}
+            >
+              {t("wallet.total", { c: currency })}
+            </MonoLabel>
             <div
               style={{
                 marginTop: "auto",
@@ -132,7 +138,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               <span
                 style={{
                   fontFamily: "var(--font-syne), Syne",
-                  fontSize: 64,
+                  fontSize: isMobile ? WMT.valorPrincipal : 64,
                   fontWeight: 800,
                   color: tokens.text,
                   letterSpacing: "-0.04em",
@@ -171,7 +177,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                     gap: 8,
                   }}
                 >
-                  <MonoLabel size={9}>{t("wallet.comp")}</MonoLabel>
+                  <MonoLabel size={isMobile ? WMT.micro : 9}>{t("wallet.comp")}</MonoLabel>
                   {/* Total in devnet USDC, anchored right at the bar. */}
                   <span
                     style={{
@@ -238,7 +244,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                         />
                         <span
                           style={{
-                            fontSize: 10,
+                            fontSize: isMobile ? WMT.micro : 10,
                             color: tokens.muted,
                             fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                           }}
@@ -248,7 +254,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                       </div>
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: isMobile ? WMT.label : 11,
                           color: tokens.text2,
                           marginTop: 3,
                         }}
@@ -257,7 +263,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                       </div>
                       <div
                         style={{
-                          fontSize: 13,
+                          fontSize: isMobile ? WMT.description : 13,
                           fontWeight: 600,
                           color: tokens.text,
                           marginTop: 2,
@@ -289,13 +295,19 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
           {...liftHover(tokens.teal)}
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <MonoLabel color={tokens.teal}>{t("wallet.kamino")}</MonoLabel>
+            <MonoLabel
+              color={tokens.teal}
+              size={isMobile ? WMT.cardTitle : undefined}
+              style={isMobile ? { letterSpacing: "0.04em" } : undefined}
+            >
+              {t("wallet.kamino")}
+            </MonoLabel>
             <RFIPill tone="t">APY 6,8%</RFIPill>
           </div>
           <div
             style={{
               fontFamily: "var(--font-syne), Syne",
-              fontSize: 36,
+              fontSize: isMobile ? WMT.valorSecundario : 36,
               fontWeight: 800,
               color: tokens.text,
               letterSpacing: "-0.03em",
@@ -351,7 +363,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               background: tokens.fillSoft,
               border: `1px solid ${tokens.borderStr}`,
               color: tokens.text,
-              fontSize: 12,
+              fontSize: isMobile ? WMT.button : 12,
               fontWeight: 600,
               cursor: "pointer",
               transition: "transform 180ms ease, border-color 180ms ease",

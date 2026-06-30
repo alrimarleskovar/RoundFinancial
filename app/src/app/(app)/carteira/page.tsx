@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { useWallet } from "@/lib/wallet";
+import { WALLET_MOBILE_TYPE as WMT } from "@/lib/walletType";
 
 type Tab = "overview" | "positions" | "transactions" | "connections";
 const ALL_TABS: Tab[] = ["overview", "positions", "transactions", "connections"];
@@ -76,12 +77,12 @@ function CarteiraContent() {
       background: tokens.fillSoft,
       border: `1px solid ${tokens.border}`,
       color: tokens.text,
-      fontSize: 12,
+      fontSize: isMobile ? WMT.button : 12,
       fontWeight: 600,
       fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
       transition: "transform 180ms ease, border-color 180ms ease",
     }),
-    [tokens],
+    [tokens, isMobile],
   );
   const btnPrimary = useMemo(
     () => ({
@@ -91,12 +92,12 @@ function CarteiraContent() {
       background: `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
       border: "none",
       color: "#fff",
-      fontSize: 12,
+      fontSize: isMobile ? WMT.button : 12,
       fontWeight: 700,
       fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
       transition: "transform 180ms ease, box-shadow 180ms ease",
     }),
-    [tokens],
+    [tokens, isMobile],
   );
 
   return (
@@ -115,7 +116,7 @@ function CarteiraContent() {
           <div
             style={{
               fontFamily: "var(--font-syne), Syne",
-              fontSize: 32,
+              fontSize: isMobile ? WMT.hero : 32,
               fontWeight: 800,
               color: tokens.text,
               letterSpacing: "-0.03em",
@@ -124,7 +125,9 @@ function CarteiraContent() {
           >
             {t("wallet.title")}
           </div>
-          <div style={{ fontSize: 13, color: tokens.text2, marginTop: 4 }}>
+          <div
+            style={{ fontSize: isMobile ? WMT.description : 13, color: tokens.text2, marginTop: 4 }}
+          >
             {t("conn.keys.body").split(".")[0]}.
           </div>
         </div>
@@ -195,7 +198,7 @@ function CarteiraContent() {
                 border: "none",
                 cursor: "pointer",
                 color: active ? tokens.text : tokens.text2,
-                fontSize: 13,
+                fontSize: isMobile ? WMT.tabs : 13,
                 fontWeight: active ? 600 : 500,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                 borderBottom: `2px solid ${active ? tokens.green : "transparent"}`,
@@ -210,7 +213,7 @@ function CarteiraContent() {
               {id === "connections" && (
                 <span
                   style={{
-                    fontSize: 9,
+                    fontSize: isMobile ? WMT.micro : 9,
                     padding: "2px 6px",
                     borderRadius: 999,
                     background: `${tokens.green}22`,
