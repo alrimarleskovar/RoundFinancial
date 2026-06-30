@@ -11,6 +11,7 @@ import {
   type ConnSpec,
   type PassportRealHandlers,
 } from "@/components/carteira/ConnectionCard";
+import { type GlyphKind } from "@/components/carteira/ConnectionGlyph";
 import { EmailAlertsCard } from "@/components/carteira/EmailAlertsCard";
 import { useConnections, type ConnId, type ConnRuntime } from "@/lib/connections";
 import { useI18n, useT } from "@/lib/i18n";
@@ -21,10 +22,24 @@ import { useIdentity } from "@/lib/useIdentity";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
-// Conexões tab content. Composes the 5 ConnectionCards (Phantom real
-// + 4 mocks) with the security explainer + roadmap panel on the side.
-// Port of WalletConnections + getConnectionsSpec from
+// Conexões tab content. Composes the connection cards — the connected wallet
+// (real; reflects whichever adapter is connected: Phantom/Solflare/Backpack/…)
+// + the real Human Passport + Kamino/Pix mocks — with the security explainer +
+// roadmap panel on the side. Port of WalletConnections from
 // prototype/components/desktop-more.jsx.
+
+/** Map the connected wallet's adapter name to a brand glyph; falls back to the
+ *  generic phantom glyph for wallets without a dedicated icon (Backpack, Glow…). */
+function glyphForWallet(label: string | null): GlyphKind {
+  switch (label?.toLowerCase()) {
+    case "solflare":
+      return "solflare";
+    case "phantom":
+      return "phantom";
+    default:
+      return "phantom";
+  }
+}
 
 export function WalletConnections() {
   const { tokens, palette } = useTheme();
@@ -154,12 +169,12 @@ export function WalletConnections() {
     () => [
       {
         id: "phantom",
-        name: "Phantom",
+        name: wallet.walletLabel ?? t("conn.wallet.name"),
         tone: "p",
         tagline: t("conn.phantom.tag"),
         live: true,
         featured: true,
-        glyph: "phantom",
+        glyph: glyphForWallet(wallet.walletLabel),
         meta: [
           {
             l: t("conn.phantom.addr"),
@@ -167,7 +182,13 @@ export function WalletConnections() {
             mono: true,
             link: wallet.publicKey ? wallet.explorerAddr(wallet.publicKey) : null,
           },
-          { l: t("conn.phantom.net"), v: t("conn.phantom.devnet") },
+          {
+            l: t("conn.phantom.net"),
+            v:
+              wallet.network === "mainnet-beta"
+                ? t("conn.phantom.mainnet")
+                : t("conn.phantom.devnet"),
+          },
           { l: t("conn.phantom.balance"), v: phantomBalance, mono: true },
         ],
         perms: [t("conn.phantom.p1"), t("conn.phantom.p2"), t("conn.phantom.p3")],
@@ -200,18 +221,6 @@ export function WalletConnections() {
           },
         ],
         perms: [t("conn.kamino.p1"), t("conn.kamino.p2"), t("conn.kamino.p3")],
-      },
-      {
-        id: "solflare",
-        name: "Solflare",
-        tone: "t",
-        tagline: t("conn.solflare.tag"),
-        glyph: "solflare",
-        meta: [
-          { l: t("conn.phantom.addr"), v: "—", mono: true },
-          { l: t("conn.phantom.net"), v: t("conn.phantom.mainnet") },
-        ],
-        perms: [t("conn.phantom.p1"), t("conn.phantom.p3")],
       },
       {
         id: "pix",
