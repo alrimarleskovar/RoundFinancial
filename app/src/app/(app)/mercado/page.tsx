@@ -26,6 +26,7 @@ import { NFT_POSITIONS, type NftPosition, type Tone } from "@/data/carteira";
 import { FEATURED_OFFER, MARKET_OFFERS, type MarketOffer } from "@/data/market";
 import { useI18n, useT } from "@/lib/i18n";
 import { useSession, type ActiveListing } from "@/lib/session";
+import { useDevnetListings } from "@/lib/useDevnetListings";
 
 // Category filter keys (internal) + their i18n label keys.
 const categories = ["Todas", "PME", "Casa", "Dev", "Pessoal", "Delivery"];
@@ -591,6 +592,9 @@ export default function MercadoPage() {
     purchasedOfferIds,
     demoActive,
   } = useSession();
+  // Real (non-demo) secondary market: live on-chain escape-valve listings,
+  // scanned only when NOT in demo so demo sessions skip the getProgramAccounts.
+  const liveListings = useDevnetListings(!demoActive);
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [category, setCategory] = useState("Todas");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
@@ -605,16 +609,16 @@ export default function MercadoPage() {
   const scrollToHow = () =>
     document.getElementById("mv2-how")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  // Buy side: demo shows the pitch fixtures; a real (non-demo) wallet sees NO
-  // fictitious listings — a tester reported the fixtures reading as real cotas
-  // for sale. Real on-chain listings are a follow-up (then this becomes the
-  // live source); until then real mode is an honest empty market.
+  // Buy side: demo shows the pitch fixtures; a real (non-demo) wallet sees the
+  // genuine on-chain escape-valve listings (useDevnetListings) — never the
+  // fixtures, which a tester once mistook for real cotas. An empty real market
+  // (no one has listed yet) falls through to the honest empty state below.
   const offers = useMemo(() => {
-    if (!demoActive) return [];
-    return MARKET_OFFERS.filter(
-      (offer) => category === "Todas" || categoryFor(offer.group) === category,
-    ).sort((a, b) => b.disc - a.disc);
-  }, [category, demoActive]);
+    const source = demoActive ? MARKET_OFFERS : liveListings.offers;
+    return source
+      .filter((offer) => category === "Todas" || categoryFor(offer.group) === category)
+      .sort((a, b) => b.disc - a.disc);
+  }, [category, demoActive, liveListings.offers]);
 
   // Sell side = holdings minus anything already listed this session. Demo
   // shows the fixture cotas as sellable; a real wallet only its genuine
@@ -627,9 +631,10 @@ export default function MercadoPage() {
     );
   }, [listings, acquiredPositions, demoActive]);
 
-  // KPIs reflect what's actually for sale: the fixtures in demo, nothing (yet)
-  // for a real wallet — so the header never advertises a market that isn't there.
-  const statOffers = demoActive ? MARKET_OFFERS : [];
+  // KPIs reflect what's actually for sale: the fixtures in demo, the real
+  // on-chain listings otherwise — so the header never advertises a market that
+  // isn't there.
+  const statOffers = demoActive ? MARKET_OFFERS : liveListings.offers;
   const avgEconomy = statOffers.length
     ? statOffers.reduce((sum, offer) => sum + (offer.face - offer.price), 0) / statOffers.length
     : 0;
