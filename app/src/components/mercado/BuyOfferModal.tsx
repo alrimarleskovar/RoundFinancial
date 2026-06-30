@@ -1,23 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
+import type { OnchainListingRef } from "@/data/market";
+import { DEVNET_POOLS } from "@/lib/devnet";
+import { sendEscapeValveBuy } from "@/lib/escape-valve-buy";
 import { hoverBtn } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
 // Buy-flow modal for the secondary market. Two states:
-//   1. confirm — offer summary + a "Confirmar compra (demo)" CTA.
-//      Clearly labelled as a demo/simulated action so the UI is
-//      honest pre-devnet.
+//   1. confirm — offer summary + a CTA.
 //   2. success — ModalSuccess with a green check + auto-close hint.
 //
-// Real on-chain wiring happens in M3 of the grant roadmap (the
-// `escape_valve_buy` Anchor instruction). Until then this modal
-// acknowledges the click without lying about what it does.
+// Two buy paths, chosen by `target.onchain`:
+//   - REAL on-chain listing (useDevnetListings): the CTA signs an
+//     `escape_valve_buy` via the wallet adapter — the buyer pays USDC straight
+//     to the seller and the cota transfers on-chain. Simulated before signing.
+//   - demo fixture: a simulated ~900ms acknowledgement, clearly badged DEMO so
+//     the UI never claims a real purchase happened.
 
 export interface BuyOfferTarget {
   /** Marketplace offer id — fed back to session.buyShare so the
@@ -42,6 +47,9 @@ export interface BuyOfferTarget {
   month?: number;
   total?: number;
   tone?: import("@/data/carteira").Tone;
+  /** Present for REAL on-chain listings — switches the CTA to escape_valve_buy
+   *  instead of the simulated demo path. Absent on fixtures. */
+  onchain?: OnchainListingRef;
 }
 
 type Phase = "confirm" | "success";
@@ -60,23 +68,72 @@ export function BuyOfferModal({
   const { tokens } = useTheme();
   const { fmtMoney } = useI18n();
   const t = useT();
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction } = useAdapterWallet();
   const [phase, setPhase] = useState<Phase>("confirm");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Reset to confirm phase whenever the modal opens for a new target.
+  // Reset to confirm phase + clear errors whenever the modal opens anew.
   useEffect(() => {
-    if (open) setPhase("confirm");
+    if (open) {
+      setPhase("confirm");
+      setError(null);
+    }
   }, [open, target?.group]);
 
   if (!target) return null;
 
+  const onchain = target.onchain;
   const savings = Math.max(0, target.face - target.price);
+
+  // Demo path: a simulated ~900ms acknowledgement (no chain write).
+  const runDemoBuy = () => {
+    setSubmitting(true);
+    setTimeout(() => {
+      onPurchased?.(target);
+      setSubmitting(false);
+      setPhase("success");
+    }, 900);
+  };
+
+  // Real path: sign + send escape_valve_buy. The helper dry-runs the tx
+  // on-chain first, so one that would fail never reaches the wallet.
+  const runRealBuy = async () => {
+    if (!onchain) return;
+    if (!publicKey || !sendTransaction) {
+      setError(t("market.buyModal.errConnect"));
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await sendEscapeValveBuy({
+        connection,
+        sendTransaction,
+        pool: DEVNET_POOLS[onchain.poolKey].pda,
+        buyerWallet: publicKey,
+        slotIndex: onchain.slotIndex,
+        expectedPriceUsdc: BigInt(onchain.priceUsdc),
+      });
+      onPurchased?.(target);
+      setPhase("success");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={phase === "confirm" ? t("market.buyModal.title") : t("market.buyModal.successTitle")}
+      title={
+        phase === "confirm"
+          ? t("market.buyModal.title")
+          : t(onchain ? "market.buyModal.realSuccessTitle" : "market.buyModal.successTitle")
+      }
       subtitle={phase === "confirm" ? t("market.buyModal.subtitle") : undefined}
       width={480}
     >
@@ -147,21 +204,21 @@ export function BuyOfferModal({
             </div>
           </div>
 
-          {/* Demo disclaimer */}
+          {/* Path disclaimer — real (on-chain, teal) vs demo (amber). */}
           <div
             style={{
               marginTop: 14,
               padding: "10px 12px",
               borderRadius: 10,
-              background: `${tokens.amber}14`,
-              border: `1px solid ${tokens.amber}33`,
+              background: `${onchain ? tokens.teal : tokens.amber}14`,
+              border: `1px solid ${onchain ? tokens.teal : tokens.amber}33`,
               display: "flex",
               gap: 8,
               alignItems: "flex-start",
             }}
           >
-            <MonoLabel size={9} color={tokens.amber}>
-              {t("market.buyModal.demoBadge")}
+            <MonoLabel size={9} color={onchain ? tokens.teal : tokens.amber}>
+              {t(onchain ? "market.buyModal.realBadge" : "market.buyModal.demoBadge")}
             </MonoLabel>
             <span
               style={{
@@ -170,9 +227,28 @@ export function BuyOfferModal({
                 lineHeight: 1.5,
               }}
             >
-              {t("market.buyModal.demoBody")}
+              {t(onchain ? "market.buyModal.realBody" : "market.buyModal.demoBody")}
             </span>
           </div>
+
+          {/* Buy error (real path — readable message from the helper / sim). */}
+          {error && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.red}14`,
+                border: `1px solid ${tokens.red}40`,
+                fontSize: 11,
+                color: tokens.red,
+                lineHeight: 1.5,
+                wordBreak: "break-word",
+              }}
+            >
+              {error}
+            </div>
+          )}
 
           {/* Action row */}
           <div
@@ -205,16 +281,7 @@ export function BuyOfferModal({
             <button
               type="button"
               disabled={submitting}
-              onClick={() => {
-                setSubmitting(true);
-                // Simulated tx-confirm latency. ~900ms reads as "real
-                // network call" without making demo flow drag.
-                setTimeout(() => {
-                  onPurchased?.(target);
-                  setSubmitting(false);
-                  setPhase("success");
-                }, 900);
-              }}
+              onClick={() => (onchain ? void runRealBuy() : runDemoBuy())}
               style={{
                 flex: 1.4,
                 padding: 11,
@@ -231,14 +298,18 @@ export function BuyOfferModal({
               }}
               {...hoverBtn()}
             >
-              {submitting ? t("modal.processing") : t("market.buyModal.confirm")}
+              {submitting
+                ? t("modal.processing")
+                : t(onchain ? "market.buyModal.confirmReal" : "market.buyModal.confirm")}
             </button>
           </div>
         </>
       ) : (
         <ModalSuccess
-          title={t("market.buyModal.successHeadline")}
-          body={t("market.buyModal.successBody", {
+          title={t(
+            onchain ? "market.buyModal.realSuccessHeadline" : "market.buyModal.successHeadline",
+          )}
+          body={t(onchain ? "market.buyModal.realSuccessBody" : "market.buyModal.successBody", {
             group: target.group,
             price: fmtMoney(target.price, { noCents: true }),
           })}

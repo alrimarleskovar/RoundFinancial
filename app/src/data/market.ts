@@ -2,6 +2,19 @@
 // resold below face value. Ported from
 // prototype/components/desktop-more.jsx (MARKET_OFFERS).
 
+import type { DevnetPoolKey } from "@/lib/devnet";
+
+/** Set when an offer is a REAL on-chain escape-valve listing (not a fixture):
+ *  the buy flow runs `escape_valve_buy` against this slot instead of the demo
+ *  path. The seller + NFT asset are resolved on-chain at buy time. */
+export interface OnchainListingRef {
+  poolKey: DevnetPoolKey;
+  slotIndex: number;
+  /** Listing price in USDC base units (u64), serialised as a decimal string
+   *  (bigint isn't safe to thread through React state / props). */
+  priceUsdc: string;
+}
+
 export interface MarketOffer {
   id: string;
   num: string; // share number, padded
@@ -11,6 +24,9 @@ export interface MarketOffer {
   face: number; // face value in BRL
   price: number; // ask price in BRL
   disc: number; // discount % (face → price)
+  /** Present only for real on-chain listings (useDevnetListings); absent on
+   *  the demo fixtures, which keep the simulated buy path. */
+  onchain?: OnchainListingRef;
 }
 
 export const MARKET_OFFERS: MarketOffer[] = [

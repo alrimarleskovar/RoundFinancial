@@ -86,6 +86,9 @@ export function useDevnetListings(enabled: boolean, refreshMs = 45_000): UseDevn
               face: Math.round(faceBrl),
               price: Math.round(priceBrl),
               disc: Number(disc.toFixed(1)),
+              // Carries what escape_valve_buy needs (the seller + NFT asset are
+              // resolved on-chain at buy time); marks the row as a real buy.
+              onchain: { poolKey: key, slotIndex: l.slotIndex, priceUsdc: l.priceUsdc.toString() },
             };
           });
         }),
