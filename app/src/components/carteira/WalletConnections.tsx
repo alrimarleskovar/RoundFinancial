@@ -14,12 +14,14 @@ import {
 import { type GlyphKind } from "@/components/carteira/ConnectionGlyph";
 import { EmailAlertsCard } from "@/components/carteira/EmailAlertsCard";
 import { useConnections, type ConnId, type ConnRuntime } from "@/lib/connections";
-import { useI18n, useT } from "@/lib/i18n";
+import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { sendUnlinkPassport, sendVerifyPassport } from "@/lib/link-passport";
 import { useNetwork } from "@/lib/network";
+import { useSession } from "@/lib/session";
 import { glassSurfaceStyle, useTheme } from "@/lib/theme";
 import { useIdentity } from "@/lib/useIdentity";
 import { useIsMobile } from "@/lib/useIsMobile";
+import { useMyDevnetYield } from "@/lib/useMyDevnetYield";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
 // Conexões tab content. Composes the connection cards — the connected wallet
@@ -49,6 +51,8 @@ export function WalletConnections() {
   const wallet = useWallet();
   const isMobile = useIsMobile();
   const conns = useConnections();
+  const { demoActive } = useSession();
+  const myYield = useMyDevnetYield();
   const [expanded, setExpanded] = useState<string | null>("phantom");
 
   const solFmt = (n: number) =>
@@ -164,6 +168,23 @@ export function WalletConnections() {
     unlinkLabel: t("conn.passport.unlinkCta"),
     unlinkingLabel: t("conn.passport.unlinking"),
   };
+
+  // ─── Kamino: REAL on-chain yield (mock adapter on devnet) ──────────────
+  // Out of demo, the Kamino card reflects the genuine aggregate yield across
+  // the wallet's pools (yieldPrincipalDeposited + yieldAccrued) instead of the
+  // static pitch numbers. Read-only — the deposit/harvest crank is automatic
+  // (keeper / orchestrator), not a per-wallet action.
+  const kaminoReal = !demoActive;
+  const kaminoRuntime: ConnRuntime = {
+    status: myYield.principalUsdc > 0 ? "connected" : "disconnected",
+  };
+  const kaminoMeta: ConnMeta[] = [
+    { l: t("conn.kamino.vault"), v: "roundfi/escrow-usdc-v2", mono: true },
+    { l: t("conn.kamino.alloc"), v: fmtMoney(myYield.principalUsdc * USDC_RATE) },
+    { l: t("conn.kamino.yield"), v: fmtMoney(myYield.accruedUsdc * USDC_RATE) },
+  ];
+  const kaminoNote =
+    network.id === "mainnet-beta" ? t("conn.kamino.noteMainnet") : t("conn.kamino.noteDevnet");
 
   const spec: ConnSpec[] = useMemo(
     () => [
@@ -282,15 +303,22 @@ export function WalletConnections() {
 
         {spec.map((c) => {
           const isPassportReal = c.id === "passport" && passportRealMode;
-          // In real mode the passport card reads/writes real on-chain state
-          // (like Phantom), so mark it `live` — drop the "DEMO" badge that
-          // groups it with the mock connections.
-          const card = isPassportReal ? { ...c, meta: passportMeta, live: true } : c;
+          const isKaminoReal = c.id === "kamino" && kaminoReal;
+          // In real mode the passport + Kamino cards read real on-chain state,
+          // so mark them `live` (drop the DEMO badge). Kamino is read-only — the
+          // yield engine is automatic — and carries a devnet/adapter honesty note.
+          const card = isPassportReal
+            ? { ...c, meta: passportMeta, live: true }
+            : isKaminoReal
+              ? { ...c, meta: kaminoMeta, live: true, readOnly: true, note: kaminoNote }
+              : c;
           const runtime = isPassportReal
             ? passportRuntime
-            : c.id === "phantom"
-              ? { status: "disconnected" as const }
-              : conns.state[c.id as ConnId];
+            : isKaminoReal
+              ? kaminoRuntime
+              : c.id === "phantom"
+                ? { status: "disconnected" as const }
+                : conns.state[c.id as ConnId];
           return (
             <ConnectionCard
               key={c.id}

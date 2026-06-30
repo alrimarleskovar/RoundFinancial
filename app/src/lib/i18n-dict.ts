@@ -1467,6 +1467,9 @@ export const DICT: Record<Lang, Dict> = {
     "conn.kamino.p1": "Depositar no vault",
     "conn.kamino.p2": "Sacar rendimento",
     "conn.kamino.p3": "Ler saldo",
+    "conn.kamino.noteDevnet":
+      "Números reais on-chain. Na devnet o yield roda num adapter mock (roundfi-yield-mock) — o Kamino de verdade entra na mainnet.",
+    "conn.kamino.noteMainnet": "Rendimento via Kamino on-chain (mainnet).",
     "conn.pix.provider": "Provedor",
     "conn.pix.notSet": "Não configurado",
     "conn.pix.req": "Requisitos",
@@ -3274,6 +3277,9 @@ export const DICT: Record<Lang, Dict> = {
     "conn.kamino.p1": "Deposit in vault",
     "conn.kamino.p2": "Withdraw yield",
     "conn.kamino.p3": "Read balance",
+    "conn.kamino.noteDevnet":
+      "Real on-chain figures. On devnet the yield runs through a mock adapter (roundfi-yield-mock) — real Kamino ships on mainnet.",
+    "conn.kamino.noteMainnet": "Yield via Kamino on-chain (mainnet).",
     "conn.pix.provider": "Provider",
     "conn.pix.notSet": "Not configured",
     "conn.pix.req": "Requirements",
