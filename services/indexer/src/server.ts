@@ -35,12 +35,14 @@
  * the bankrun harness loads at startup).
  */
 
+import "dotenv/config";
 import { timingSafeEqual } from "node:crypto";
 
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 
+import { makePrismaClient } from "./db.js";
 import { handleHeliusWebhook } from "./webhook.js";
 import { collectIndexerMetrics, PROMETHEUS_CONTENT_TYPE } from "./metrics.js";
 import { loadSubjectScore } from "./reputationScore.js";
@@ -260,7 +262,7 @@ function isProductionLikeEnv(): boolean {
 }
 
 async function main(): Promise<void> {
-  const prisma = new PrismaClient();
+  const prisma = makePrismaClient();
   const app = await buildServer(prisma);
 
   // Startup webhook-auth gate. Layered defense-in-depth over the

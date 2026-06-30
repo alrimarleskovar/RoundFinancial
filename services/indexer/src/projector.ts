@@ -24,6 +24,7 @@
  * this canonical surface (ADR 0005 / 0009).
  */
 
+import "dotenv/config";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { dueTs as computeDueTs, deltaSeconds, usedGrace } from "@roundfi/sdk";
 
@@ -358,9 +359,9 @@ export async function rebuildEvents(
 // ─── CLI entrypoint ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const { PrismaClient } = await import("@prisma/client");
+  const { makePrismaClient } = await import("./db.js");
   const { createLogger } = await import("./log.js");
-  const prisma = new PrismaClient();
+  const prisma = makePrismaClient();
   const logger = createLogger({ service: "projector" });
   try {
     const result = await rebuildEvents(prisma, logger);

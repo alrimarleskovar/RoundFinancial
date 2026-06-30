@@ -19,10 +19,11 @@
  * for large histories.
  */
 
+import "dotenv/config";
 import { createHash } from "node:crypto";
 
 import { Connection, PublicKey, type ConfirmedSignatureInfo } from "@solana/web3.js";
-import { PrismaClient } from "@prisma/client";
+import { makePrismaClient } from "./db.js";
 
 import { parseLogMessages } from "./decoder.js";
 import { bumpCursor, upsertEventsFromLogs } from "./ingest.js";
@@ -196,7 +197,7 @@ async function main(): Promise<void> {
   // forged signature would be caught — it has no canonical tx to
   // back it).
   const connection = connections[0]!;
-  const prisma = new PrismaClient();
+  const prisma = makePrismaClient();
   const startedAt = Date.now();
 
   let scanned = 0;
