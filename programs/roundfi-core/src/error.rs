@@ -182,6 +182,13 @@ pub enum RoundfiError {
     #[msg("Slot's contemplated member is not defaulted — use claim_payout, not skip_defaulted_payout")]
     SlotNotDefaulted,
 
+    // ─── SEV-051 — crank_payout grace gate ────────────────────────────
+    // The permissionless payout crank may only run AFTER the contemplated
+    // member's self-claim window (next_cycle_at + GRACE_PERIOD_SECS). Before
+    // that, only the member's own claim_payout can draw the payout.
+    #[msg("Payout self-claim grace window is still open — the member can still claim_payout")]
+    PayoutGraceActive,
+
     // ─── SEV-039 — close_member rent reclaim ──────────────────────────
     #[msg("Pool is not in Closed state — call close_pool first before close_member")]
     PoolNotClosed,
