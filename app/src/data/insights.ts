@@ -197,10 +197,19 @@ export function computeRealFactors(r: RepCounters): RealFactor[] {
   return out;
 }
 
+/** What moved the score at a given vertex (attached post-reconstruction). */
+export type ScoreEventKind = "join" | "payment";
+
 export interface ScorePoint {
   /** Unix ms of the event. */
   t: number;
   score: number;
+  /** Reason behind this vertex — the baseline join, or a payment step. */
+  kind?: ScoreEventKind;
+  /** Pool name behind the event, when it can be resolved from the ledger. */
+  poolName?: string;
+  /** Score change vs the previous vertex (0 for the baseline/join). */
+  delta?: number;
 }
 
 // On-chain SCORE_PAYMENT (programs/roundfi-reputation/src/constants.rs): each
@@ -229,6 +238,34 @@ export function reconstructScoreHistory(
   const pts: ScorePoint[] = [{ t: Math.min(startTimeMs || sorted[0]!, sorted[0]!), score: start }];
   sorted.forEach((t, i) => pts.push({ t, score: Math.round(start + step * (i + 1)) }));
   return pts;
+}
+
+/**
+ * Attach the REASON behind each reconstructed vertex so the chart can show WHY
+ * the score moved at every step (the raw curve is just points). `history[0]` is
+ * the baseline — the wallet's join, before any payment; `history[i>=1]` is the
+ * score right after the i-th payment (payments in the SAME chronological order
+ * `reconstructScoreHistory` stepped through, i.e. ascending time). `delta` is
+ * the change vs the previous vertex. Pure — it never touches the (time, score)
+ * math, only annotates — so the endpoint stays exactly the current score.
+ */
+export function annotateScoreHistory(
+  history: ReadonlyArray<ScorePoint>,
+  joinPool: string | null,
+  paymentPools: ReadonlyArray<string | null>,
+): ScorePoint[] {
+  return history.map((p, i) => {
+    if (i === 0) {
+      return { ...p, kind: "join", delta: 0, ...(joinPool ? { poolName: joinPool } : {}) };
+    }
+    const pool = paymentPools[i - 1] ?? null;
+    return {
+      ...p,
+      kind: "payment",
+      delta: p.score - history[i - 1]!.score,
+      ...(pool ? { poolName: pool } : {}),
+    };
+  });
 }
 
 export interface ScoreScale {
@@ -282,4 +319,14 @@ export function formatDayMon(ms: number, lang: "pt" | "en"): string {
   const d = new Date(ms);
   const mon = (lang === "pt" ? MONTH_ABBR_PT : MONTH_ABBR_EN)[d.getMonth()] ?? "";
   return lang === "pt" ? `${d.getDate()} ${mon}` : `${mon} ${d.getDate()}`;
+}
+
+/** "26 jun · 14:30" — day+month plus local clock, for the per-vertex tooltip.
+ *  Same-day devnet payments share a date label on the axis, so the tooltip adds
+ *  the time to disambiguate which payment a point is. */
+export function formatDayTime(ms: number, lang: "pt" | "en"): string {
+  const d = new Date(ms);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${formatDayMon(ms, lang)} · ${hh}:${mm}`;
 }

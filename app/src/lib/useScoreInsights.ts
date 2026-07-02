@@ -16,6 +16,7 @@
 import { useMemo } from "react";
 
 import {
+  annotateScoreHistory,
   computeRealFactors,
   reconstructScoreHistory,
   type RealFactor,
@@ -23,6 +24,16 @@ import {
 } from "@/data/insights";
 import { useReputation } from "@/lib/useReputation";
 import { useMyDevnetTxHistory } from "@/lib/useMyDevnetTxHistory";
+
+/** Pull the pool name out of a ledger label ("Parcela · Pool Rápida" → "Pool
+ *  Rápida"). Returns null when the row has no "· <name>" suffix (e.g. a pool
+ *  that only exists as a demo fixture falls back to "Pool N", still valid). */
+function poolNameFromLabel(label: string): string | null {
+  const i = label.indexOf("·");
+  if (i < 0) return null;
+  const name = label.slice(i + 1).trim();
+  return name.length > 0 ? name : null;
+}
 
 export interface ScoreInsights {
   status: "loading" | "ready";
@@ -45,13 +56,30 @@ export function useScoreInsights(): ScoreInsights {
 
     // Member-PDA history rows: a contribute carries a negative amount (the
     // installment), a join carries 0. Payment timestamps drive the curve; the
-    // earliest activity (usually the join) seeds the start point.
-    const payTimes = hist.txs
+    // earliest activity (usually the join) seeds the start point. We sort the
+    // contributes ascending here so their pool names line up 1:1 with the
+    // vertices `reconstructScoreHistory` produces (it steps through the times in
+    // ascending order), letting the chart label WHY the score moved at each step.
+    const contributes = hist.txs
       .filter((tx) => (tx.amount ?? 0) < 0 && (tx.ts ?? 0) > 0)
-      .map((tx) => tx.ts as number);
-    const allTimes = hist.txs.map((tx) => tx.ts ?? 0).filter((t) => t > 0);
-    const start = allTimes.length ? Math.min(...allTimes) : (payTimes[0] ?? 0);
-    const history = reconstructScoreHistory(rep.score, payTimes, start);
+      .slice()
+      .sort((a, b) => (a.ts as number) - (b.ts as number));
+    const payTimes = contributes.map((tx) => tx.ts as number);
+    const paymentPools = contributes.map((tx) => poolNameFromLabel(tx.label));
+
+    const withTs = hist.txs.filter((tx) => (tx.ts ?? 0) > 0);
+    const start = withTs.length
+      ? Math.min(...withTs.map((tx) => tx.ts as number))
+      : (payTimes[0] ?? 0);
+    // Baseline vertex = the earliest activity, normally the join_pool row.
+    const joinTx = withTs.slice().sort((a, b) => (a.ts as number) - (b.ts as number))[0];
+    const joinPool = joinTx ? poolNameFromLabel(joinTx.label) : null;
+
+    const history = annotateScoreHistory(
+      reconstructScoreHistory(rep.score, payTimes, start),
+      joinPool,
+      paymentPools,
+    );
 
     return {
       status: loading ? "loading" : "ready",
