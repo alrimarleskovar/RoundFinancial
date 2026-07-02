@@ -31,6 +31,36 @@ Specifically, `mpl-core 0.8.0` with the `anchor` feature, configured with two pl
 
 The position authority PDA (`[b"position", pool, slot_index]`) signs all plugin interactions.
 
+### Addendum (2026-07): asset address model — ephemeral keypair → PDA
+
+The asset account itself was originally a **fresh client-generated keypair**
+that co-signed `join_pool` (via the wallet adapter's `signers` option). That
+design was reviewed and accepted as SEV-017, but it broke joins on **mobile
+wallets** (MWA / in-app browsers drop the extra co-signer, failing with
+"Missing signature for public key(s)"). The asset is now the
+**`[b"position-asset", pool, slot_index]` PDA** — the program signs the
+`CreateV2` CPI via `invoke_signed`, so the member's wallet is the
+transaction's only signer. Within one Pool-PDA lifetime the address is
+unique: a slot is taken at most once (`Pool::mark_slot_taken` never clears
+bits) and the escape-valve flow transfers the existing asset rather than
+re-minting. Every downstream consumer reads the asset address from stored
+`Member.nft_asset` state, so positions minted under the old keypair model
+remain fully functional.
+
+Two consequences of the address becoming deterministic:
+
+- **Pre-funding griefing (mitigated in `join_pool`)** — anyone can compute
+  the PDA and send it 1 lamport; mpl-core's CreateV2 uses a raw system
+  `create_account`, which fails `AccountAlreadyInUse` on any pre-funded
+  target. `join_pool` therefore drains the PDA's lamports to the joining
+  wallet (system transfer signed with the asset seeds) before the CPI.
+- **`seed_id` reuse is now forbidden (ops constraint)** — after the SEV-039
+  close ceremony frees a Pool PDA, re-creating a pool with the same
+  `(authority, seed_id)` resurrects the same pool address, and the old
+  never-burned assets still occupy the derived slots, bricking every
+  previously-used slot's join. The lamport drain does not cover this case
+  (the old asset is mpl-core-owned with data). Always use fresh seed_ids.
+
 ## Consequences
 
 - ✅ Less custom code = less audit surface than rolling our own freeze logic

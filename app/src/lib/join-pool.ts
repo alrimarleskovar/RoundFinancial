@@ -7,9 +7,12 @@
  * position NFT through a Metaplex-Core CreateV2 CPI, locks the
  * reputation-tiered stake in escrow, and inits the Member PDA. Two
  * consequences for the client:
- *   1. `nft_asset` is a FRESH keypair that must co-sign the tx — passed via
- *      the wallet adapter's `signers` option (the wallet itself signs as
- *      fee payer + member_wallet).
+ *   1. `nft_asset` is a program-derived PDA (`[b"position-asset", pool,
+ *      slot_index]`) — the program signs its creation via invoke_signed, so
+ *      the ONLY tx signer is the wallet itself. (It used to be a fresh
+ *      ephemeral keypair co-signing via the adapter's `signers` option;
+ *      mobile wallets drop that option and joins failed with "Missing
+ *      signature for public key(s)".)
  *   2. The mpl-core mint CPI blows past the 200k-CU default, so the sender
  *      raises the compute-unit limit.
  *
@@ -34,7 +37,6 @@
 import {
   ComputeBudgetProgram,
   Connection,
-  Keypair,
   PublicKey,
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
@@ -50,6 +52,7 @@ import {
 import {
   escrowVaultAuthorityPda,
   memberPda,
+  positionAssetPda,
   positionAuthorityPda,
   protocolConfigPda,
   reputationProfilePda,
@@ -77,8 +80,6 @@ export interface BuildJoinPoolIxArgs {
   pool: PublicKey;
   /** Connected wallet — signs + pays. Becomes the new Member. */
   memberWallet: PublicKey;
-  /** Fresh keypair pubkey that becomes the position NFT asset (co-signer). */
-  nftAsset: PublicKey;
   /** Slot to occupy (0..members_target-1). Client picks the first free slot. */
   slotIndex: number;
   /** Reputation level assertion (1..=4) — MUST equal the on-chain profile
@@ -107,6 +108,9 @@ export function buildJoinPoolIx(args: BuildJoinPoolIxArgs): TransactionInstructi
   const [member] = memberPda(core, args.pool, args.memberWallet);
   const [escrowAuth] = escrowVaultAuthorityPda(core, args.pool);
   const [positionAuth] = positionAuthorityPda(core, args.pool, args.slotIndex);
+  // Position NFT asset PDA — derived, never co-signed: the program signs
+  // its CreateV2 creation via invoke_signed.
+  const [nftAsset] = positionAssetPda(core, args.pool, args.slotIndex);
   const [repProfile] = reputationProfilePda(reputation, args.memberWallet);
 
   const memberUsdc = getAssociatedTokenAddressSync(usdcMint, args.memberWallet);
@@ -137,7 +141,7 @@ export function buildJoinPoolIx(args: BuildJoinPoolIxArgs): TransactionInstructi
       { pubkey: escrowAuth, isSigner: false, isWritable: false },
       { pubkey: escrowVault, isSigner: false, isWritable: true },
       { pubkey: positionAuth, isSigner: false, isWritable: false },
-      { pubkey: args.nftAsset, isSigner: true, isWritable: true },
+      { pubkey: nftAsset, isSigner: false, isWritable: true },
       { pubkey: MPL_CORE_PROGRAM, isSigner: false, isWritable: false },
       { pubkey: reputation, isSigner: false, isWritable: false },
       { pubkey: repProfile, isSigner: false, isWritable: false },
@@ -151,13 +155,10 @@ export function buildJoinPoolIx(args: BuildJoinPoolIxArgs): TransactionInstructi
 
 export interface SendJoinPoolArgs {
   connection: Connection;
-  /** Wallet adapter callback — must support the `signers` option so the
-   *  fresh nft_asset keypair can co-sign alongside the wallet. */
-  sendTransaction: (
-    tx: Transaction,
-    connection: Connection,
-    options?: { signers?: Keypair[] },
-  ) => Promise<string>;
+  /** Wallet adapter callback. The wallet is the ONLY signer — the position
+   *  NFT asset is a program-signed PDA, so this works on mobile wallets
+   *  that don't honor the adapter's `signers` option. */
+  sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>;
   pool: PublicKey;
   memberWallet: PublicKey;
   /** Slot to occupy — caller resolves the first free slot from usePoolMembers. */
@@ -167,11 +168,11 @@ export interface SendJoinPoolArgs {
 }
 
 /**
- * Resolve the on-chain reputation level (absent profile ≡ level 1), mint a
- * fresh position-NFT keypair, build the join_pool ix, raise the CU limit for
- * the mpl-core mint CPI, dispatch via the wallet adapter (co-signing with the
- * NFT keypair), and return the confirmed signature (or throw — the caller
- * renders the program revert).
+ * Resolve the on-chain reputation level (absent profile ≡ level 1), build
+ * the join_pool ix (position-NFT asset is a derived PDA — no client
+ * co-signer), raise the CU limit for the mpl-core mint CPI, dispatch via
+ * the wallet adapter, and return the confirmed signature (or throw — the
+ * caller renders the program revert).
  */
 export async function sendJoinPool(args: SendJoinPoolArgs): Promise<string> {
   const reputation = DEVNET_PROGRAM_IDS.reputation;
@@ -187,7 +188,6 @@ export async function sendJoinPool(args: SendJoinPoolArgs): Promise<string> {
       ? 1
       : Math.min(4, Math.max(1, profileInfo.data[PROFILE_LEVEL_OFFSET]!));
 
-  const nftAsset = Keypair.generate();
   const metadataUri =
     args.metadataUri ??
     `https://roundfi.app/positions/${args.pool.toBase58()}/${args.slotIndex}.json`;
@@ -195,7 +195,6 @@ export async function sendJoinPool(args: SendJoinPoolArgs): Promise<string> {
   const ix = buildJoinPoolIx({
     pool: args.pool,
     memberWallet: args.memberWallet,
-    nftAsset: nftAsset.publicKey,
     slotIndex: args.slotIndex,
     reputationLevel,
     metadataUri,
@@ -214,9 +213,10 @@ export async function sendJoinPool(args: SendJoinPoolArgs): Promise<string> {
   // on-chain (frontend-security checklist §2.2).
   await simulateOrThrow(args.connection, tx);
 
-  // The NFT asset keypair co-signs (it's a fresh account the program inits via
-  // the mpl-core CPI); the wallet signs as fee payer + member_wallet.
-  const signature = await args.sendTransaction(tx, args.connection, { signers: [nftAsset] });
+  // The wallet is the ONLY signer (fee payer + member_wallet). The position
+  // NFT asset is a PDA the program signs for on-chain, so mobile wallets
+  // that ignore the adapter's `signers` option work too.
+  const signature = await args.sendTransaction(tx, args.connection);
   await args.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
     "confirmed",

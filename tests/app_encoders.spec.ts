@@ -61,6 +61,7 @@ import {
   escrowVaultAuthorityPda,
   listingPda,
   memberPda,
+  positionAssetPda,
   positionAuthorityPda,
   protocolConfigPda,
   reputationProfilePda,
@@ -580,7 +581,6 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
     const ix = buildJoinPoolIx({
       pool: POOL,
       memberWallet: MEMBER,
-      nftAsset: NFT_ASSET,
       slotIndex: 1,
       reputationLevel: 2,
       metadataUri: META_URI,
@@ -615,9 +615,13 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
       expect(key(ix, 0).isWritable).to.equal(true);
     });
 
-    it("places the fresh NFT asset as a co-signer at index 9", () => {
-      expect(key(ix, 9).pubkey.toBase58()).to.equal(NFT_ASSET.toBase58());
-      expect(key(ix, 9).isSigner).to.equal(true);
+    it("derives the position-asset PDA as a NON-signer at index 9", () => {
+      // The asset is program-derived and program-signed (invoke_signed) —
+      // no client co-signer, so mobile wallets that drop the adapter's
+      // `signers` option can join.
+      const [asset] = positionAssetPda(CORE, POOL, 1);
+      expect(key(ix, 9).pubkey.toBase58()).to.equal(asset.toBase58());
+      expect(key(ix, 9).isSigner).to.equal(false);
       expect(key(ix, 9).isWritable).to.equal(true);
     });
 
@@ -665,7 +669,6 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
         buildJoinPoolIx({
           pool: POOL,
           memberWallet: MEMBER,
-          nftAsset: NFT_ASSET,
           slotIndex: 0,
           reputationLevel: 1,
           metadataUri: META_URI,
@@ -721,7 +724,6 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
         buildJoinPoolIx({
           pool: POOL,
           memberWallet: MEMBER,
-          nftAsset: NFT_ASSET,
           slotIndex: 0,
           reputationLevel: 1,
           metadataUri: META_URI,

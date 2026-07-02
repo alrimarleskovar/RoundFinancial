@@ -3258,8 +3258,7 @@
         },
         {
           "name": "nft_asset",
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "metaplex_core"

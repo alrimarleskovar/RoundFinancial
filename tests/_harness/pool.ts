@@ -40,6 +40,7 @@ import {
   escrowVaultAuthorityPda,
   memberPda,
   poolPda,
+  positionAssetPda,
   positionAuthorityPda,
   reputationProfileFor,
   solidarityVaultAuthorityPda,
@@ -99,7 +100,7 @@ export interface JoinOpts {
 export interface MemberHandle {
   member: PublicKey; // member-record PDA
   wallet: Keypair; // the joining signer
-  nftAsset: Keypair; // fresh keypair that became the NFT asset
+  nftAsset: PublicKey; // position NFT asset PDA (program-signed at mint)
   slotIndex: number;
   reputationLevel: 1 | 2 | 3;
   stakeBps: number;
@@ -256,7 +257,10 @@ export async function joinPool(env: Env, pool: PoolHandle, opts: JoinOpts): Prom
 
   const [member] = memberPda(env.ids.core, pool.pool, opts.member.publicKey);
   const [positionAuthority] = positionAuthorityPda(env.ids.core, pool.pool, opts.slotIndex);
-  const nftAsset = Keypair.generate();
+  // Position NFT asset PDA — the program signs its CreateV2 creation via
+  // invoke_signed; no client co-signer (the old ephemeral-keypair design
+  // broke mobile wallets, which drop the extra `signers` option).
+  const [nftAsset] = positionAssetPda(env.ids.core, pool.pool, opts.slotIndex);
 
   const metadataUri = opts.metadataUri ?? `https://roundfi.test/position/${opts.slotIndex}`;
 
@@ -285,7 +289,7 @@ export async function joinPool(env: Env, pool: PoolHandle, opts: JoinOpts): Prom
       escrowVaultAuthority: pool.escrowVaultAuthority,
       escrowVault: pool.escrowVault,
       positionAuthority,
-      nftAsset: nftAsset.publicKey,
+      nftAsset,
       metaplexCore: METAPLEX_CORE_ID,
       reputationProgram: env.ids.reputation,
       reputationProfile,
@@ -295,7 +299,7 @@ export async function joinPool(env: Env, pool: PoolHandle, opts: JoinOpts): Prom
       rent: SYSVAR_RENT_PUBKEY,
     })
     .preInstructions([bumpCu])
-    .signers([opts.member, nftAsset])
+    .signers([opts.member])
     .rpc();
 
   return {

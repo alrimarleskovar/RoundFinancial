@@ -25,7 +25,14 @@ import { expect } from "chai";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { createUsdcMint, initializeProtocol, createPool, joinMembers } from "./_harness/index.js";
+import {
+  createUsdcMint,
+  initializeProtocol,
+  createPool,
+  joinMembers,
+  joinPool,
+  positionAssetPda,
+} from "./_harness/index.js";
 import { setupLitesvmEnv, type LitesvmEnv } from "./_harness/litesvm.js";
 
 const ARTIFACTS = [
@@ -77,9 +84,31 @@ describe("SEV-012 — mpl_core-path lifecycle on litesvm", function () {
     const pool = await createPool(e, { authority, usdcMint });
     expect(pool, "createPool should return a pool handle").to.exist;
 
-    // join_pool CPIs mpl_core to mint the member position NFT.
+    // join_pool CPIs mpl_core to mint the member position NFT. The asset
+    // is the program-derived [b"position-asset", pool, slot] PDA, signed
+    // via invoke_signed — this run against the REAL mpl_core.so is the
+    // proof that CreateV2 accepts a PDA asset with no client co-signer.
     const member = Keypair.generate();
     const handles = await joinMembers(e, pool, [{ member, reputationLevel: 1 }]);
     expect(handles.length, "one member joined").to.equal(1);
+
+    // Pre-funding griefing regression: the asset PDA is deterministic, so
+    // anyone can compute it and send it dust; mpl-core's raw system
+    // create_account fails AccountAlreadyInUse on any pre-funded target.
+    // join_pool must drain the PDA's lamports (invoke_signed system
+    // transfer) before the CreateV2 CPI — without the drain this join
+    // reverts and the slot is bricked forever.
+    const griefedSlot = 1;
+    const [griefedAsset] = positionAssetPda(e.ids.core, pool.pool, griefedSlot);
+    await e.connection.requestAirdrop(griefedAsset, 1); // the 1-lamport grief
+    const member2 = Keypair.generate();
+    const h2 = await joinPool(e, pool, {
+      member: member2,
+      slotIndex: griefedSlot,
+      reputationLevel: 1,
+    });
+    expect(h2.nftAsset.toBase58(), "griefed slot still mints at the derived PDA").to.equal(
+      griefedAsset.toBase58(),
+    );
   });
 });

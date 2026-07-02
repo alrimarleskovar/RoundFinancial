@@ -100,8 +100,20 @@ pub struct JoinPool<'info> {
     )]
     pub position_authority: UncheckedAccount<'info>,
 
-    /// CHECK: Fresh keypair that will become the position NFT asset; signer on this tx.
-    #[account(mut, signer)]
+    /// CHECK: Position NFT asset PDA — created by the mpl-core CreateV2 CPI,
+    /// which requires the asset to sign; the program signs via
+    /// `invoke_signed` with these seeds. Program-derived (instead of the
+    /// previous client-generated ephemeral keypair) so join_pool needs NO
+    /// client co-signer — mobile wallets (MWA / in-app browsers) drop the
+    /// `signers` option and were failing with "Missing signature for
+    /// public key(s)". Collision-free per pool: a slot is taken at most
+    /// once (`mark_slot_taken` never clears bits), and the prefix differs
+    /// from SEED_POSITION so it can't collide with position_authority.
+    #[account(
+        mut,
+        seeds = [SEED_POSITION_ASSET, pool.key().as_ref(), &[args.slot_index]],
+        bump,
+    )]
     pub nft_asset: UncheckedAccount<'info>,
 
     /// CHECK: Metaplex Core program — pinned to config.metaplex_core.
@@ -216,7 +228,51 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
     )?;
 
     // ─── Mint position NFT via Metaplex Core ────────────────────────────
+    // The asset is a program-derived PDA, so the program supplies its
+    // "signature" for the CreateV2 CPI via invoke_signed (mpl-core
+    // requires the asset account to sign creation; the privilege
+    // propagates through mpl-core's inner system-program CPI). Only the
+    // asset's seeds are needed: both plugins bind position_authority as
+    // `PluginAuthority::Address`, which is a stored reference, not a
+    // signature requirement.
     let position_authority_key = ctx.accounts.position_authority.key();
+    let pool_key = pool.key();
+    let slot_seed = [args.slot_index];
+    let asset_bump = [ctx.bumps.nft_asset];
+    let asset_signer_seeds: [&[u8]; 4] = [
+        SEED_POSITION_ASSET,
+        pool_key.as_ref(),
+        &slot_seed,
+        &asset_bump,
+    ];
+
+    // ─── Pre-funding griefing defense ────────────────────────────────────
+    // The asset address is now deterministic, so ANYONE can compute it and
+    // send it 1 lamport before the member joins. mpl-core's CreateV2
+    // creates the asset via a raw system `create_account`, which fails with
+    // AccountAlreadyInUse whenever the target holds >0 lamports — without
+    // this drain, one lamport bricks the slot forever, and a Forming pool
+    // that can't fill every slot never activates (freezing the escrowed
+    // stakes of members already in). The PDA is guaranteed system-owned
+    // with zero data here (only the system program can assign it away, and
+    // that needs the PDA's signature — i.e. this program's), so it can
+    // sign a system transfer of its own lamports via seeds. The griefer's
+    // dust goes to the joining wallet.
+    let pre_lamports = ctx.accounts.nft_asset.lamports();
+    if pre_lamports > 0 {
+        anchor_lang::system_program::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.system_program.key(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.nft_asset.to_account_info(),
+                    to:   ctx.accounts.member_wallet.to_account_info(),
+                },
+                &[&asset_signer_seeds],
+            ),
+            pre_lamports,
+        )?;
+    }
+
     CreateV2CpiBuilder::new(&ctx.accounts.metaplex_core.to_account_info())
         .asset(&ctx.accounts.nft_asset.to_account_info())
         .payer(&ctx.accounts.member_wallet.to_account_info())
@@ -248,7 +304,7 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
                 }),
             },
         ])
-        .invoke()?;
+        .invoke_signed(&[&asset_signer_seeds])?;
 
     // ─── Initialize Member ──────────────────────────────────────────────
     let clock = Clock::get()?;

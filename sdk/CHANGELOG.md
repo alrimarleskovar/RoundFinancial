@@ -12,8 +12,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Semver: [Sem
 
 ### Added
 
+- **`positionAssetPda`** — derives the position NFT asset PDA (`[b"position-asset", pool, slot_index]`, `src/pda.ts`). The asset is now program-derived and program-signed at mint (roundfi-core `join_pool` signs the mpl-core `CreateV2` CPI via `invoke_signed`), so join transactions have the member wallet as their ONLY signer.
 - **Optional independent installment** — `StressLabConfig.installmentUsdc` decouples the per-cycle installment from `credit / members` (ECO-002). Opt-in; omitted (default) collapses to the zero-sum `credit / members` value, so all 16 presets remain byte-identical.
 - **`FrameMetrics.overCollection`** — `(installment − credit / members) × installments paid`, surfacing structural over-collection when `installmentUsdc` is set (ECO-003). `0` for every current preset.
+
+### Changed
+
+- **BREAKING: `joinPool` action no longer accepts (or generates) an `nftAsset` keypair** — the asset is the derived `positionAssetPda` and is no longer a transaction co-signer. The previous ephemeral-keypair design broke joins on mobile wallets, which drop the wallet adapter's `signers` option. `JoinPoolContext.nftAsset` still reports the (now-derived) asset address.
 
 ---
 

@@ -16,6 +16,11 @@ export const SEED = {
   solidarity: Buffer.from("solidarity"),
   yield: Buffer.from("yield"),
   position: Buffer.from("position"),
+  // Position NFT asset PDA — program-derived so join_pool needs no client
+  // co-signer (mobile wallets drop the extra `signers` option). Distinct
+  // prefix from `position`: the same (pool, slot_index) inputs already
+  // derive the position_authority PDA.
+  positionAsset: Buffer.from("position-asset"),
   listing: Buffer.from("listing"),
   reputation: Buffer.from("reputation"),
   reputationConfig: Buffer.from("rep-config"),
@@ -97,6 +102,23 @@ export function positionAuthorityPda(
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [SEED.position, pool.toBuffer(), u8le(slotIndex)],
+    coreProgram,
+  );
+}
+
+/**
+ * Position NFT asset PDA — `[b"position-asset", pool, slot_index]`.
+ * The mpl-core asset minted at join_pool; the program signs its CreateV2
+ * creation via invoke_signed, so clients derive (never co-sign) it.
+ * Collision-free per pool: a slot is taken at most once.
+ */
+export function positionAssetPda(
+  coreProgram: PublicKey,
+  pool: PublicKey,
+  slotIndex: number,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED.positionAsset, pool.toBuffer(), u8le(slotIndex)],
     coreProgram,
   );
 }
