@@ -44,6 +44,7 @@ import { accountDiscriminatorBase58 } from "../discriminator.js";
 import { getEmailAdapter, type EmailAdapter, type EmailMessage } from "./adapter.js";
 import {
   dueDateEmail,
+  payoutTurnEmail,
   newGroupsDigestEmail,
   poolStartedEmail,
   type EmailLang,
@@ -101,6 +102,7 @@ type Prisma = ReturnType<typeof getPrisma>;
 
 interface Counters {
   due: number;
+  payoutTurn: number;
   poolStarted: number;
   newGroup: number;
   skipped: number;
@@ -298,7 +300,14 @@ export async function notifyOnce(
   adapter: EmailAdapter,
   nowSec: number,
 ): Promise<Counters> {
-  const counters: Counters = { due: 0, poolStarted: 0, newGroup: 0, skipped: 0, errors: 0 };
+  const counters: Counters = {
+    due: 0,
+    payoutTurn: 0,
+    poolStarted: 0,
+    newGroup: 0,
+    skipped: 0,
+    errors: 0,
+  };
   const subs = (await prisma.emailSubscription.findMany({
     where: { optedIn: true },
     select: { wallet: true, email: true, lang: true },
@@ -310,7 +319,10 @@ export async function notifyOnce(
   const byWallet = new Map(subs.map((s) => [s.wallet, s]));
   const pools = await fetchAllPools(connection, new PublicKey(CORE_PROGRAM!));
 
-  const tally = (r: "sent" | "skipped" | "error", kind: "due" | "poolStarted" | "newGroup") => {
+  const tally = (
+    r: "sent" | "skipped" | "error",
+    kind: "due" | "payoutTurn" | "poolStarted" | "newGroup",
+  ) => {
     if (r === "skipped") counters.skipped += 1;
     else if (r === "error") counters.errors += 1;
     else counters[kind] += 1;
@@ -387,6 +399,37 @@ export async function notifyOnce(
               { to: sub.email, subject, html },
             ),
             "due",
+          );
+        }
+
+        // YOUR TURN TO RECEIVE — this member is the contemplated slot for the
+        // CURRENT cycle and hasn't claimed yet. Nudge them to claim: it's what
+        // advances the cycle for EVERYONE, so a member who forgets (or is
+        // waiting to be told) stalls the whole group. Fires once per
+        // (member, cycle).
+        const isMyTurn = !m.defaulted && !m.paidOut && m.slotIndex === pool.currentCycle;
+        if (isMyTurn) {
+          const { subject, html } = payoutTurnEmail(
+            {
+              ...common,
+              groupName: name,
+              creditBrl: formatBrl(pool.creditAmount),
+              claimUrl: groupUrl,
+            },
+            lang,
+          );
+          tally(
+            await sendDeduped(
+              prisma,
+              adapter,
+              {
+                wallet: sub.wallet,
+                kind: "payout_turn",
+                dedupeKey: `${pdaStr}:claim:cycle${pool.currentCycle}`,
+              },
+              { to: sub.email, subject, html },
+            ),
+            "payoutTurn",
           );
         }
       }
