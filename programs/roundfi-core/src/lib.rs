@@ -100,6 +100,15 @@ pub mod roundfi_core {
         instructions::skip_defaulted_payout::handler(ctx, args)
     }
 
+    /// Permissionless payout for a LIVE (non-defaulted) contemplated member who
+    /// never claimed after the grace window — the liveness twin of
+    /// `claim_payout`. Delivers `credit_amount` to the member's OWN ATA (never
+    /// the caller's) and advances the cycle, so a lost/absent member can't lock
+    /// the pool for everyone else. See `instructions::crank_payout` (SEV-051).
+    pub fn crank_payout(ctx: Context<CrankPayout>, args: CrankPayoutArgs) -> Result<()> {
+        instructions::crank_payout::handler(ctx, args)
+    }
+
     pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
         instructions::escape_valve_list::handler(ctx, args)
     }

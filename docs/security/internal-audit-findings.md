@@ -1,11 +1,20 @@
 # Internal Pre-Audit — Findings Tracker
 
 > **Current count (canonical — this is the SSOT all other docs point to):**
-> **54 findings** · **52 🟢 closed** · 0 open ·
-> 2 🔵 design-intentional · **Critical/High 16 of 16 🟢 closed** (6 Critical +
-> 10 High). SEV-049 + SEV-050 (both High liveness locks, found by the litesvm
+> **55 findings** · **53 🟢 closed** · 0 open ·
+> 2 🔵 design-intentional · **Critical/High 17 of 17 🟢 closed** (6 Critical +
+> 11 High). SEV-049 + SEV-050 (both High liveness locks, found by the litesvm
 > L2 parity slice) are CLOSED: `skip_defaulted_payout` (pre-contemplation default
 > cycle advance) + dropping `close_pool`'s unsatisfiable defaulted-pool guard.
+> **SEV-051 (High — liveness)** CLOSED: a LIVE (non-defaulted) contemplated
+> member who never claims can't be settled (`settle_default` needs
+> `contributions_paid < current_cycle`, impossible at their own slot) nor skipped
+> (`skip_defaulted_payout` needs `member.defaulted`), so `claim_payout` — the only
+> cycle-advance requiring their signature — would lock the pool forever. Fix: the
+> permissionless `crank_payout` delivers `credit_amount` to the member's OWN ATA
+> and advances the cycle after the `next_cycle_at + GRACE` self-claim window
+> (`PayoutGraceActive` before it) — funds can only ever reach the member, so
+> making it permissionless adds no theft vector. Regression: `tests/edge_crank_payout.spec.ts`.
 > SEV-012 closed via the required `litesvm · mpl-core path` CI lane. SEV-047 (High) + SEV-048 (Medium) added by the 2026-05-24
 > external-audit pass (OtterSec-methodology). SEV-A2 (Medium) + SEV-E (Low) +
 > SEV-C2 (Low) added by the 2026-06 external-audit pass (pre-GA re-review) — all
