@@ -13,6 +13,24 @@ pub const SEED_SOLIDARITY: &[u8] = b"solidarity";
 pub const SEED_YIELD:      &[u8] = b"yield";
 pub const SEED_POSITION:   &[u8] = b"position";
 pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
+/// Position NFT asset PDA — `[b"position-asset", pool, slot_index]`. The
+/// asset was previously a client-generated ephemeral keypair co-signing
+/// join_pool; mobile wallets (MWA / in-app browsers) drop extra signers,
+/// so the asset is now program-derived and signs its own CreateV2 CPI via
+/// `invoke_signed`. Distinct prefix from SEED_POSITION: the same
+/// `(pool, slot_index)` inputs already derive the position_authority PDA.
+///
+/// Uniqueness: within one Pool-PDA lifetime a slot is taken at most once
+/// (`Pool::mark_slot_taken` never clears bits), so no live pool can mint
+/// the same asset address twice. OPS CONSTRAINT: after the SEV-039 close
+/// ceremony frees a Pool PDA, re-creating a pool with the SAME
+/// (authority, seed_id) resurrects the same pool address — and the old,
+/// never-burned position assets still occupy these PDAs, so every
+/// previously-used slot would fail CreateV2 (AccountAlreadyInUse).
+/// Never reuse a seed_id after closing a pool. (join_pool's lamport
+/// pre-drain does NOT cover this case: the old asset is mpl-core-owned
+/// with data, not a pre-funded empty account.)
+pub const SEED_POSITION_ASSET: &[u8] = b"position-asset";
 
 // ─── Step 4c: timing & defaults ─────────────────────────────────────────
 /// Grace window after `pool.next_cycle_at` before `settle_default` is

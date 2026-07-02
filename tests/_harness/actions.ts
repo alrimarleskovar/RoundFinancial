@@ -488,7 +488,7 @@ export async function escapeValveBuy(env: Env, opts: EscapeValveBuyOpts): Promis
       usdcMint: opts.pool.usdcMint,
       buyerUsdc: opts.buyerUsdc,
       sellerUsdc: opts.sellerUsdc,
-      nftAsset: opts.seller.nftAsset.publicKey,
+      nftAsset: opts.seller.nftAsset,
       positionAuthority,
       metaplexCore: METAPLEX_CORE_ID,
       tokenProgram: TOKEN_PROGRAM_ID,

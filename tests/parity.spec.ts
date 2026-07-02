@@ -159,6 +159,7 @@ describe("Rust ↔ TS constants parity", () => {
       SEED_SOLIDARITY: "solidarity",
       SEED_YIELD: "yield",
       SEED_POSITION: "position",
+      SEED_POSITION_ASSET: "positionAsset",
       SEED_LISTING: "listing",
     };
 

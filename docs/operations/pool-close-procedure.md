@@ -134,6 +134,16 @@ pub struct ClosePoolPda<'info> {
 
 Pool PDA rent: ~0.0035 SOL.
 
+> **⚠️ Never reuse a `seed_id` after this step.** The Pool PDA address is
+> `[b"pool", authority, seed_id]`, so re-running `create_pool` with the same
+> `(authority, seed_id)` resurrects the same pool address — and the position
+> NFT assets from the previous incarnation (never burned, PDAs at
+> `[b"position-asset", pool, slot]`) still occupy their derived addresses.
+> Every previously-used slot in the resurrected pool would fail `join_pool`
+> at the mpl-core CreateV2 CPI (`AccountAlreadyInUse`), and a Forming pool
+> that can't fill every slot never activates. Always allocate a fresh,
+> monotonically increasing `seed_id`.
+
 ## Total recoverable rent (per pool)
 
 | Account    | Rent (SOL) | Count    | Subtotal                |

@@ -26,8 +26,8 @@
  *     successful claim).
  *   • Reputation attestations (Payment × cycles*members, CycleComplete
  *     × cycles) actually get created.
- *   • NFT↔state link: member.nft_asset == the NFT keypair generated at
- *     join.
+ *   • NFT↔state link: member.nft_asset == the derived position-asset PDA
+ *     (`[b"position-asset", pool, slot]`) minted at join.
  *   • Global conservation: sum of every touched token account at end
  *     equals the total USDC minted at setup.
  *
@@ -243,7 +243,7 @@ describe("lifecycle — full happy path", function () {
     // Every member's NFT is linked to their state record.
     for (const h of handles) {
       const ms = await memberState(env, h.member);
-      expect(ms.nftAsset.toBase58()).to.equal(h.nftAsset.publicKey.toBase58());
+      expect(ms.nftAsset.toBase58()).to.equal(h.nftAsset.toBase58());
       expect(ms.slotIndex).to.equal(h.slotIndex);
       expect(bn(ms.stakeDeposited)).to.equal(STAKE_BASE);
       expect(ms.contributionsPaid).to.equal(0);

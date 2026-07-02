@@ -40,6 +40,7 @@ import {
   identityPda,
   memberPda,
   poolPda,
+  positionAssetPda,
   positionAuthorityPda,
   protocolConfigPda,
   reputationConfigPda,
@@ -294,21 +295,6 @@ export interface JoinPoolArgs {
   slotIndex: number;
   reputationLevel: 1 | 2 | 3;
   metadataUri?: string;
-  /**
-   * Fresh asset keypair for Metaplex Core. Generated if omitted.
-   *
-   * **IMPORTANT (Adevar Labs SEV-017):** this keypair MUST be freshly
-   * generated and discarded after the join_pool tx confirms. The
-   * on-chain `nft_asset` account is declared as `UncheckedAccount` with
-   * `signer = true` but does NOT validate that the address is freshly-
-   * minted. If the caller passes an existing wallet keypair as
-   * `nftAsset`, mpl-core's `CreateV2` CPI will fail at runtime
-   * (account already initialized) — so this isn't a fund-loss risk,
-   * but a malicious or careless caller could pass display-name-similar
-   * keypairs to create UX-confusing assets. SDK consumers: never
-   * reuse this slot for a long-lived signer.
-   */
-  nftAsset?: Keypair;
   /** Pre-existing USDC ATA for the member (must hold the stake). */
   memberUsdc?: PublicKey;
 }
@@ -342,7 +328,11 @@ export async function joinPool(
   await requireAccountPresent(client, args.pool, "Pool");
   await requireAccountMissing(client, member, "Member");
 
-  const nftAsset = args.nftAsset ?? Keypair.generate();
+  // Position NFT asset PDA — the program signs its CreateV2 creation via
+  // invoke_signed, so there is NO client co-signer. (Previously a fresh
+  // ephemeral keypair, SEV-017; the keypair design broke mobile wallets,
+  // which drop the extra `signers` option.)
+  const [nftAsset] = positionAssetPda(client.ids.core, args.pool, args.slotIndex);
   const memberUsdc =
     args.memberUsdc ?? getAssociatedTokenAddressSync(args.usdcMint, args.memberWallet.publicKey);
   const escrowVault = getAssociatedTokenAddressSync(args.usdcMint, escrowVaultAuthority, true);
@@ -381,7 +371,7 @@ export async function joinPool(
       escrowVaultAuthority,
       escrowVault,
       positionAuthority,
-      nftAsset: nftAsset.publicKey,
+      nftAsset,
       metaplexCore: METAPLEX_CORE_ID,
       reputationProgram: client.ids.reputation,
       reputationProfile,
@@ -391,7 +381,7 @@ export async function joinPool(
       rent: SYSVAR_RENT_PUBKEY,
     })
     .preInstructions([bumpCu])
-    .signers([args.memberWallet, nftAsset])
+    .signers([args.memberWallet])
     .rpc();
 
   client.debug("action.joinPool.ok", { signature, member: member.toBase58() });
@@ -400,7 +390,7 @@ export async function joinPool(
     context: {
       member,
       memberWallet: args.memberWallet.publicKey,
-      nftAsset: nftAsset.publicKey,
+      nftAsset,
       positionAuthority,
       slotIndex: args.slotIndex,
       reputationLevel: args.reputationLevel,

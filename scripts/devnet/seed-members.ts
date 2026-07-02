@@ -223,7 +223,12 @@ async function callJoinPool(
     reputationProgram,
   );
 
-  const nftAsset = Keypair.generate();
+  // Position NFT asset PDA — program-signed at mint (invoke_signed), so
+  // there is no client co-signer. Seed parity: constants.rs SEED_POSITION_ASSET.
+  const [nftAsset] = PublicKey.findProgramAddressSync(
+    [Buffer.from("position-asset"), pool.toBuffer(), Uint8Array.of(slotIndex)],
+    coreProgram,
+  );
   const metadataUri = `https://roundfinancial.vercel.app/position/${slotIndex}.json`;
 
   const data = Buffer.concat([
@@ -244,7 +249,7 @@ async function callJoinPool(
   //   7.  escrow_vault_authority     (PDA, read)
   //   8.  escrow_vault               (mut, TokenAccount)
   //   9.  position_authority         (PDA, read)
-  //  10.  nft_asset                  (signer, mut, fresh keypair)
+  //  10.  nft_asset                  (mut, position-asset PDA — program-signed)
   //  11.  metaplex_core              (read)
   //  12.  reputation_program         (read)
   //  13.  reputation_profile         (read, may be uninit)
@@ -264,7 +269,7 @@ async function callJoinPool(
       { pubkey: escrowAuthority, isSigner: false, isWritable: false },
       { pubkey: escrowVault, isSigner: false, isWritable: true },
       { pubkey: positionAuthority, isSigner: false, isWritable: false },
-      { pubkey: nftAsset.publicKey, isSigner: true, isWritable: true },
+      { pubkey: nftAsset, isSigner: false, isWritable: true },
       { pubkey: METAPLEX_CORE_ID, isSigner: false, isWritable: false },
       { pubkey: reputationProgram, isSigner: false, isWritable: false },
       { pubkey: reputationProfile, isSigner: false, isWritable: false },
@@ -280,7 +285,7 @@ async function callJoinPool(
   // the 200k default.
   const cu = ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 });
   const tx = new Transaction().add(cu, ix);
-  const signature = await connection.sendTransaction(tx, [member, nftAsset], {
+  const signature = await connection.sendTransaction(tx, [member], {
     preflightCommitment: "confirmed",
   });
   await connection.confirmTransaction(signature, "confirmed");
