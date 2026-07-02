@@ -10,16 +10,29 @@ import { expect } from "chai";
 
 import {
   annotateScoreHistory,
+  buildScoreTimeline,
   computeRealFactors,
   factorStatusKey,
   formatDayMon,
   formatDayTime,
   niceScoreTicks,
   reconstructScoreHistory,
+  scoreDeltaFor,
   scoreScale,
   type RepCounters,
+  type ScoreAttestation,
   type ScorePoint,
 } from "../app/src/data/insights.js";
+
+// Attestation schema ids (roundfi-reputation constants).
+const S = { payment: 1, late: 2, default: 3, cycle: 4, levelUp: 5 } as const;
+const att = (o: Partial<ScoreAttestation> & { schemaId: number }): ScoreAttestation => ({
+  issuedAtMs: 0,
+  verified: true,
+  neutralized: false,
+  revoked: false,
+  ...o,
+});
 
 const base: RepCounters = {
   exists: true,
@@ -227,5 +240,70 @@ describe("insights — annotateScoreHistory (why the score moved)", () => {
 
   it("returns [] for an empty history", () => {
     expect(annotateScoreHistory([], "X", [])).to.deep.equal([]);
+  });
+});
+
+describe("insights — scoreDeltaFor (exact on-chain per-attestation delta)", () => {
+  it("halves a positive payment / cycle when the subject wasn't verified", () => {
+    expect(scoreDeltaFor(att({ schemaId: S.payment, verified: true }))).to.equal(10);
+    expect(scoreDeltaFor(att({ schemaId: S.payment, verified: false }))).to.equal(5);
+    expect(scoreDeltaFor(att({ schemaId: S.cycle, verified: true }))).to.equal(50);
+    expect(scoreDeltaFor(att({ schemaId: S.cycle, verified: false }))).to.equal(25);
+  });
+
+  it("applies the full unweighted penalty for late / default", () => {
+    expect(scoreDeltaFor(att({ schemaId: S.late }))).to.equal(-100);
+    expect(scoreDeltaFor(att({ schemaId: S.default }))).to.equal(-500);
+  });
+
+  it("scores nothing for revoked, neutralized cycle, or informational schemas", () => {
+    expect(scoreDeltaFor(att({ schemaId: S.payment, revoked: true }))).to.equal(0);
+    expect(scoreDeltaFor(att({ schemaId: S.cycle, neutralized: true }))).to.equal(0);
+    expect(scoreDeltaFor(att({ schemaId: S.levelUp }))).to.equal(0); // SCHEMA_LEVEL_UP
+    expect(scoreDeltaFor(att({ schemaId: 99 }))).to.equal(0); // unknown/future
+  });
+});
+
+describe("insights — buildScoreTimeline (true attestation replay)", () => {
+  it("seeds a score-0 baseline then steps each event's exact delta in time order", () => {
+    const pts = buildScoreTimeline([
+      att({ schemaId: S.payment, issuedAtMs: 200, verified: false, poolName: "Pool A" }), // +5
+      att({ schemaId: S.payment, issuedAtMs: 100, verified: true, poolName: "Pool A" }), // +10 (earlier)
+      att({ schemaId: S.cycle, issuedAtMs: 300, verified: true }), // +50
+    ]);
+    expect(pts.map((p) => [p.score, p.kind, p.delta])).to.deep.equal([
+      [0, "join", 0],
+      [10, "payment", 10],
+      [15, "payment", 5],
+      [65, "cycle", 50],
+    ]);
+    expect(pts[pts.length - 1]!.score).to.equal(65); // endpoint = true on-chain score
+    expect(pts[1]!.poolName).to.equal("Pool A");
+  });
+
+  it("floors the score at 0 (mirrors saturating_sub) and shows the real drop", () => {
+    const pts = buildScoreTimeline([
+      att({ schemaId: S.payment, issuedAtMs: 1, verified: true }), // 0 → 10
+      att({ schemaId: S.default, issuedAtMs: 2 }), // 10 − 500 → floored 0
+    ]);
+    expect(pts.map((p) => p.score)).to.deep.equal([0, 10, 0]);
+    // The plotted change is the ACTUAL score movement (−10), not the raw −500.
+    expect(pts[2]!.delta).to.equal(-10);
+    expect(pts[2]!.kind).to.equal("default");
+  });
+
+  it("drops non-scoring events (revoked / neutralized / level-up) from the curve", () => {
+    const pts = buildScoreTimeline([
+      att({ schemaId: S.payment, issuedAtMs: 1, verified: true }),
+      att({ schemaId: S.payment, issuedAtMs: 2, revoked: true }),
+      att({ schemaId: S.cycle, issuedAtMs: 3, neutralized: true }),
+      att({ schemaId: S.levelUp, issuedAtMs: 4 }),
+    ]);
+    expect(pts.map((p) => p.score)).to.deep.equal([0, 10]); // only the real +10 survives
+  });
+
+  it("returns [] when there are no scoring events", () => {
+    expect(buildScoreTimeline([])).to.deep.equal([]);
+    expect(buildScoreTimeline([att({ schemaId: S.levelUp })])).to.deep.equal([]);
   });
 });

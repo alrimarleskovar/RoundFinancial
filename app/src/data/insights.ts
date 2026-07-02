@@ -197,8 +197,9 @@ export function computeRealFactors(r: RepCounters): RealFactor[] {
   return out;
 }
 
-/** What moved the score at a given vertex (attached post-reconstruction). */
-export type ScoreEventKind = "join" | "payment";
+/** What moved the score at a given vertex. `join` is the score-0 baseline;
+ *  the rest mirror the on-chain attestation schemas that carry a score delta. */
+export type ScoreEventKind = "join" | "payment" | "late" | "default" | "cycle";
 
 export interface ScorePoint {
   /** Unix ms of the event. */
@@ -266,6 +267,95 @@ export function annotateScoreHistory(
       ...(pool ? { poolName: pool } : {}),
     };
   });
+}
+
+// ─── True score timeline (on-chain attestation replay) ───────────────────────
+// The reconstruction above INFERS a curve from payment timestamps + the current
+// total (it spreads the score evenly, so it draws a straight line and can't
+// show a late-payment dip or a +5 unverified step). The replay below is the
+// HONEST version: it steps through the wallet's real Attestation records and
+// applies the SAME score delta the reputation program applied at each one, so
+// the shape — and the endpoint — match on-chain exactly.
+
+// Score deltas — mirror programs/roundfi-reputation/src/constants.rs. A payment
+// / pool-complete is HALVED when the subject wasn't identity-verified at attest
+// time (SCORE_PAYMENT*num_unverif/den ⇒ 10→5, 50→25); negatives aren't weighted.
+const SCORE = { payment: 10, poolComplete: 50, late: -100, default: -500 } as const;
+// Attestation schema ids — programs/roundfi-reputation/src/constants.rs.
+const SCHEMA = { payment: 1, late: 2, default: 3, poolComplete: 4 } as const;
+
+/** The minimal Attestation shape a score replay needs (from decodeAttestationRaw). */
+export interface ScoreAttestation {
+  schemaId: number;
+  /** Unix ms (the on-chain `issued_at`, seconds, ×1000 by the caller). */
+  issuedAtMs: number;
+  /** `verified_at_attest` — halves a positive payment / pool-complete delta. */
+  verified: boolean;
+  /** `neutralized` — a pool-complete recorded but not scored (SEV-A2) ⇒ 0. */
+  neutralized: boolean;
+  /** `revoked` — reversed on-chain, so it never contributes to the curve. */
+  revoked: boolean;
+  /** Pool name for the label, resolved from the issuer by the caller. */
+  poolName?: string | null;
+}
+
+/** Exact score delta the reputation program applied for one attestation.
+ *  Returns 0 for revoked / neutralized / non-scoring (level-up, unknown)
+ *  records — i.e. anything that didn't move the score. */
+export function scoreDeltaFor(a: ScoreAttestation): number {
+  if (a.revoked) return 0;
+  switch (a.schemaId) {
+    case SCHEMA.payment:
+      return a.verified ? SCORE.payment : Math.trunc(SCORE.payment / 2);
+    case SCHEMA.late:
+      return SCORE.late;
+    case SCHEMA.default:
+      return SCORE.default;
+    case SCHEMA.poolComplete:
+      if (a.neutralized) return 0;
+      return a.verified ? SCORE.poolComplete : Math.trunc(SCORE.poolComplete / 2);
+    default:
+      return 0; // SCHEMA_LEVEL_UP + any future informational schema
+  }
+}
+
+const KIND_FOR_SCHEMA: Record<number, ScoreEventKind> = {
+  [SCHEMA.payment]: "payment",
+  [SCHEMA.late]: "late",
+  [SCHEMA.default]: "default",
+  [SCHEMA.poolComplete]: "cycle",
+};
+
+/**
+ * Replay a wallet's attestations into the TRUE score-over-time curve. Steps
+ * through the score-moving records in `issued_at` order, applying each exact
+ * delta with the program's saturating-at-zero floor, so the endpoint equals
+ * the on-chain `profile.score` by construction (no interpolation, no anchor
+ * fudge). Seeds a score-0 baseline vertex at the first event so the climb from
+ * zero is visible. Returns [] when there are no scoring events (→ empty-state).
+ */
+export function buildScoreTimeline(atts: ReadonlyArray<ScoreAttestation>): ScorePoint[] {
+  const scoring = atts
+    .filter((a) => scoreDeltaFor(a) !== 0)
+    .slice()
+    .sort((a, b) => a.issuedAtMs - b.issuedAtMs);
+  if (scoring.length === 0) return [];
+  const pts: ScorePoint[] = [{ t: scoring[0]!.issuedAtMs, score: 0, kind: "join", delta: 0 }];
+  let score = 0;
+  for (const a of scoring) {
+    const raw = score + scoreDeltaFor(a);
+    const next = Math.max(0, raw); // apply_score_delta saturates at 0
+    const point: ScorePoint = {
+      t: a.issuedAtMs,
+      score: next,
+      kind: KIND_FOR_SCHEMA[a.schemaId] ?? "payment",
+      delta: next - score,
+    };
+    if (a.poolName) point.poolName = a.poolName;
+    pts.push(point);
+    score = next;
+  }
+  return pts;
 }
 
 export interface ScoreScale {

@@ -33,6 +33,7 @@ function buildAttestation(opts: {
   revoked: boolean;
   bump: number;
   verifiedAtAttest: boolean;
+  neutralized?: boolean;
 }): Buffer {
   const buf = Buffer.alloc(ATTESTATION_LEN);
   // [0..8] discriminator — left zero; the decoder ignores it.
@@ -45,6 +46,7 @@ function buildAttestation(opts: {
   buf.writeUInt8(opts.revoked ? 1 : 0, 186);
   buf.writeUInt8(opts.bump, 187);
   buf.writeUInt8(opts.verifiedAtAttest ? 1 : 0, 188);
+  buf.writeUInt8(opts.neutralized ? 1 : 0, 189);
   return buf;
 }
 
@@ -79,6 +81,7 @@ describe("decodeAttestationRaw", () => {
       revoked: false,
       bump: 254,
       verifiedAtAttest: true,
+      neutralized: true,
     });
 
     const a = decodeAttestationRaw(address, buf);
@@ -92,6 +95,7 @@ describe("decodeAttestationRaw", () => {
     expect(a.issuedAt).to.equal(1_699_999_400n);
     expect(a.revoked).to.equal(false);
     expect(a.verifiedAtAttest).to.equal(true);
+    expect(a.neutralized).to.equal(true);
 
     // Raw payload preserved byte-for-byte.
     expect(Buffer.compare(a.payloadRaw, payload)).to.equal(0);
