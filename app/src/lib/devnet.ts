@@ -65,3 +65,25 @@ export const DEVNET_POOLS = {
 } as const;
 
 export type DevnetPoolKey = keyof typeof DEVNET_POOLS;
+
+/**
+ * Grace window (seconds) after `pool.next_cycle_at` before the permissionless
+ * cranks (`settle_default`, `crank_payout`) become callable on-chain. Mirrors
+ * the Rust `GRACE_PERIOD_SECS` (roundfi-core/src/constants.rs):
+ *
+ *   - vanilla / mainnet build → 604_800 (7 days), the whitepaper value
+ *   - `devnet-canary` build   → 86_400 (24 hours), Genesis Canary phase only
+ *
+ * The deployed devnet is the vanilla build, so the UI counts down 7 days.
+ * Pinning the conservative (higher) value is the safe default: erring high
+ * only makes the operator wait a bit longer, whereas erring low makes them
+ * sign a tx the program then reverts (`PayoutGraceActive` /
+ * `SettleDefaultGracePeriodNotElapsed`) — wasting a signature + fee.
+ *
+ * History: `SettleDefaultCrankModal` previously hardcoded `60n` here — the
+ * leftover SEV-002 "DEVNET DEMO PATCH" value that was reverted on-chain back
+ * to 604_800. The stale front-end constant made the settle crank look eligible
+ * ~7 days early. Centralizing the value fixes that and keeps both cranks in
+ * lockstep with the chain.
+ */
+export const GRACE_PERIOD_SECS = 604_800n;
