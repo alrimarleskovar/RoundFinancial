@@ -9,13 +9,16 @@
 import { expect } from "chai";
 
 import {
+  annotateScoreHistory,
   computeRealFactors,
   factorStatusKey,
   formatDayMon,
+  formatDayTime,
   niceScoreTicks,
   reconstructScoreHistory,
   scoreScale,
   type RepCounters,
+  type ScorePoint,
 } from "../app/src/data/insights.js";
 
 const base: RepCounters = {
@@ -163,5 +166,66 @@ describe("insights — formatDayMon", () => {
     const ts = Date.UTC(2026, 5, 26, 12); // 26 Jun 2026, noon UTC
     expect(formatDayMon(ts, "pt")).to.equal("26 Jun");
     expect(formatDayMon(ts, "en")).to.equal("Jun 26");
+  });
+});
+
+describe("insights — formatDayTime", () => {
+  it("appends a zero-padded local clock to the day+month label", () => {
+    const ts = Date.UTC(2026, 5, 26, 12); // noon UTC
+    const out = formatDayTime(ts, "pt");
+    // The date half is TZ-stable at noon; the clock is local, so just assert
+    // the "<day mon> · HH:MM" shape rather than a fixed hour.
+    expect(out).to.match(/^26 Jun · \d{2}:\d{2}$/);
+  });
+});
+
+describe("insights — annotateScoreHistory (why the score moved)", () => {
+  const raw: ScorePoint[] = [
+    { t: 5, score: 0 },
+    { t: 10, score: 10 },
+    { t: 20, score: 20 },
+  ];
+
+  it("tags the baseline as the join and each later vertex as a payment step", () => {
+    const out = annotateScoreHistory(raw, "Pool Rápida", ["Pool Rápida", "Pool Rápida"]);
+    expect(out[0]).to.deep.equal({
+      t: 5,
+      score: 0,
+      kind: "join",
+      delta: 0,
+      poolName: "Pool Rápida",
+    });
+    expect(out[1]).to.deep.equal({
+      t: 10,
+      score: 10,
+      kind: "payment",
+      delta: 10,
+      poolName: "Pool Rápida",
+    });
+    expect(out[2]!.kind).to.equal("payment");
+    expect(out[2]!.delta).to.equal(10); // 20 - 10
+  });
+
+  it("computes delta against the previous vertex, not a fixed step", () => {
+    // A folded penalty makes the step non-uniform; delta must track the actual
+    // score change between consecutive vertices.
+    const uneven: ScorePoint[] = [
+      { t: 1, score: 0 },
+      { t: 2, score: 8 },
+      { t: 3, score: 20 },
+    ];
+    const out = annotateScoreHistory(uneven, null, [null, null]);
+    expect(out.map((p) => p.delta)).to.deep.equal([0, 8, 12]);
+  });
+
+  it("omits poolName cleanly when unknown (no undefined-valued key)", () => {
+    const out = annotateScoreHistory(raw, null, [null, null]);
+    expect(out[0]).to.deep.equal({ t: 5, score: 0, kind: "join", delta: 0 });
+    expect(out[0]).to.not.have.property("poolName");
+    expect(out[1]).to.not.have.property("poolName");
+  });
+
+  it("returns [] for an empty history", () => {
+    expect(annotateScoreHistory([], "X", [])).to.deep.equal([]);
   });
 });

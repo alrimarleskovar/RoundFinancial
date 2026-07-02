@@ -19,6 +19,7 @@ import {
   SCORE_RANGES,
   curveForRange,
   formatDayMon,
+  formatDayTime,
   niceScoreTicks,
   scoreMonths,
   scoreScale,
@@ -709,6 +710,8 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
   const { lang, t } = useI18n();
   const { history, currentScore, status } = insights;
   const hasCurve = history.length >= 2;
+  // Which vertex's tooltip is open (hover on desktop, tap on mobile).
+  const [active, setActive] = useState<number | null>(null);
 
   const nextTier = PASSPORT_TIERS.find((tt) => tt.min > currentScore);
   const { yMin, yMax } = useMemo(
@@ -718,21 +721,26 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
 
   const geom = useMemo(() => {
     if (!hasCurve) return null;
-    const t0 = history[0]!.t;
-    const tEnd = history[history.length - 1]!.t;
-    const tSpan = tEnd - t0 || 1;
+    const n = history.length;
     const ySpan = yMax - yMin || 1;
-    // Inset the plot so the curve + end dot clear the rounded box edges — and
-    // so the dot lands exactly on the line tip instead of being clamped ~8px
-    // inward of a full-bleed right edge (the "bolinha deslocada").
-    const PAD_X = 18;
-    const PAD_Y = 16;
-    const xOf = (tt: number) => PAD_X + ((tt - t0) / tSpan) * (600 - 2 * PAD_X);
+    // Inset the plot so the curve + end dot / labels clear the rounded box
+    // edges. X is spaced PER EVENT (not linear in time): on devnet every
+    // payment lands within days of the join, so a time axis piled them all at
+    // the right edge (the long flat line in the report). Even spacing gives
+    // each step its own room, turning the curve into a legible staircase; the
+    // real dates live under each vertex + in the tooltip.
+    const PAD_X = 26;
+    const PAD_Y = 20;
+    const xOf = (i: number) => PAD_X + (n === 1 ? 0.5 : i / (n - 1)) * (600 - 2 * PAD_X);
     const yOf = (s: number) => PAD_Y + (1 - (s - yMin) / ySpan) * (220 - 2 * PAD_Y);
-    const coords = history.map((p) => [xOf(p.t), yOf(p.score)] as const);
-    const line = coords.map(([x, y]) => `${x},${y}`).join(" ");
-    const last = coords[coords.length - 1]!;
+    const coords = history.map((p, i) => {
+      const x = xOf(i);
+      const y = yOf(p.score);
+      return { i, p, x, y, xPct: (x / 600) * 100, yPct: (y / 220) * 100 };
+    });
+    const line = coords.map((c) => `${c.x},${c.y}`).join(" ");
     const first = coords[0]!;
+    const last = coords[coords.length - 1]!;
     // Tier thresholds that fall inside the visible window get a guide line.
     const guides = PASSPORT_TIERS.filter((tt) => tt.min > yMin && tt.min < yMax).map((tt) => ({
       level: tt.level,
@@ -746,8 +754,30 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
     const yTicks = niceScoreTicks(yMin, yMax)
       .filter((v) => !guides.some((g) => Math.abs(g.min - v) < ySpan * 0.06))
       .map((value) => ({ value, topPct: (yOf(value) / 220) * 100 }));
-    return { t0, tEnd, line, area: `${first[0]},220 ${line} ${last[0]},220`, last, guides, yTicks };
+    // Thin the x-axis date labels + delta chips when there are many events so
+    // they don't overlap; always keep the first + last vertex labelled.
+    const labelEvery = n <= 7 ? 1 : Math.ceil(n / 6);
+    const showChips = n <= 24;
+    return {
+      coords,
+      line,
+      area: `${first.x},220 ${line} ${last.x},220`,
+      last,
+      guides,
+      yTicks,
+      labelEvery,
+      showChips,
+    };
   }, [hasCurve, history, yMin, yMax, t]);
+
+  const reasonFor = (p: ScorePoint) =>
+    p.kind === "join"
+      ? p.poolName
+        ? t("insightsv2.chart.ev.joinPool", { pool: p.poolName })
+        : t("insightsv2.chart.ev.join")
+      : p.poolName
+        ? t("insightsv2.chart.ev.paymentPool", { pool: p.poolName })
+        : t("insightsv2.chart.ev.payment");
 
   return (
     <Card className="p-5 md:p-7">
@@ -764,7 +794,10 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
           </span>
         )}
       </div>
-      <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
+      <div
+        className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]"
+        onMouseLeave={() => setActive(null)}
+      >
         {hasCurve && geom ? (
           <>
             {/* neutral score gridlines — drawn first, so tier guides + the curve
@@ -806,32 +839,125 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
                   strokeLinejoin="round"
                 />
               </svg>
-              <div
-                className="absolute z-20 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#14F195]"
-                style={{
-                  left: `clamp(8px, ${(geom.last[0] / 600) * 100}%, calc(100% - 8px))`,
-                  top: `clamp(8px, ${(geom.last[1] / 220) * 100}%, calc(100% - 8px))`,
-                  boxShadow: "0 0 16px 5px rgba(20,241,149,0.5)",
-                }}
-              />
+
+              {/* Per-vertex markers — one dot per real on-chain event. Hover
+                  (or tap on mobile) opens the tooltip explaining the step. */}
+              {geom.coords.map((c) => {
+                const isLast = c.i === geom.coords.length - 1;
+                const on = active === c.i;
+                return (
+                  <button
+                    key={`dot-${c.i}`}
+                    type="button"
+                    aria-label={reasonFor(c.p)}
+                    className="absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full outline-none"
+                    style={{
+                      left: `clamp(6px, ${c.xPct}%, calc(100% - 6px))`,
+                      top: `clamp(6px, ${c.yPct}%, calc(100% - 6px))`,
+                    }}
+                    onMouseEnter={() => setActive(c.i)}
+                    onFocus={() => setActive(c.i)}
+                    onClick={() => setActive((prev) => (prev === c.i ? null : c.i))}
+                  >
+                    <span
+                      className="block rounded-full bg-[#14F195] transition-all"
+                      style={{
+                        width: on || isLast ? 12 : 8,
+                        height: on || isLast ? 12 : 8,
+                        boxShadow:
+                          on || isLast
+                            ? "0 0 16px 5px rgba(20,241,149,0.5)"
+                            : "0 0 0 3px rgba(7,11,17,1)",
+                      }}
+                    />
+                  </button>
+                );
+              })}
+
+              {/* Always-visible "+N" delta chip above each step vertex — the
+                  user reads how much each payment moved the score without
+                  hovering. Skipped on the baseline (delta 0) and when crowded. */}
+              {geom.showChips &&
+                geom.coords.map((c) =>
+                  c.i > 0 && (c.p.delta ?? 0) > 0 ? (
+                    <div
+                      key={`chip-${c.i}`}
+                      className={`pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-full border border-[#14F195]/25 bg-[#0A1F17] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#14F195] ${MONO}`}
+                      style={{
+                        left: `clamp(14px, ${c.xPct}%, calc(100% - 14px))`,
+                        top: `calc(clamp(6px, ${c.yPct}%, calc(100% - 6px)) - 10px)`,
+                      }}
+                    >
+                      +{c.p.delta}
+                    </div>
+                  ) : null,
+                )}
+
               {/* current-score badge pinned just left of the end dot — ties the
                   line's tip to the wallet's real on-chain score */}
               <div
-                className={`absolute z-30 rounded-md border border-[#14F195]/30 bg-[#0A1F17] px-1.5 py-0.5 text-[11px] font-bold leading-none text-[#14F195] ${MONO}`}
+                className={`pointer-events-none absolute z-30 rounded-md border border-[#14F195]/30 bg-[#0A1F17] px-1.5 py-0.5 text-[11px] font-bold leading-none text-[#14F195] ${MONO}`}
                 style={{
-                  left: `clamp(8px, ${(geom.last[0] / 600) * 100}%, calc(100% - 8px))`,
-                  top: `clamp(8px, ${(geom.last[1] / 220) * 100}%, calc(100% - 8px))`,
-                  transform: "translate(calc(-100% - 10px), -50%)",
+                  left: `clamp(8px, ${geom.last.xPct}%, calc(100% - 8px))`,
+                  top: `clamp(8px, ${geom.last.yPct}%, calc(100% - 8px))`,
+                  transform: "translate(calc(-100% - 12px), -50%)",
                 }}
               >
                 {currentScore}
               </div>
+
+              {/* Tooltip for the active vertex — the WHY behind the step:
+                  reason, exact timestamp, and score before → after. */}
+              {active != null && geom.coords[active]
+                ? (() => {
+                    const c = geom.coords[active]!;
+                    const prev = active > 0 ? history[active - 1]! : null;
+                    const below = c.yPct < 34; // flip under the dot near the top edge
+                    return (
+                      <div
+                        className={`pointer-events-none absolute z-40 w-max max-w-[220px] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0A1017] px-3 py-2 shadow-xl ${MONO}`}
+                        style={{
+                          left: `clamp(96px, ${c.xPct}%, calc(100% - 96px))`,
+                          top: below
+                            ? `calc(clamp(6px, ${c.yPct}%, calc(100% - 6px)) + 16px)`
+                            : `calc(clamp(6px, ${c.yPct}%, calc(100% - 6px)) - 16px)`,
+                          transform: below ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+                        }}
+                      >
+                        <div className="text-[12px] font-bold leading-tight text-white">
+                          {reasonFor(c.p)}
+                        </div>
+                        <div className="mt-1 text-[10px] leading-none text-gray-400">
+                          {formatDayTime(c.p.t, lang)}
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] leading-none">
+                          {prev ? (
+                            <>
+                              <span className="text-gray-500">{prev.score}</span>
+                              <span className="text-gray-600">→</span>
+                              <span className="font-bold text-[#14F195]">{c.p.score}</span>
+                              {(c.p.delta ?? 0) > 0 && (
+                                <span className="ml-1 text-[#14F195]">+{c.p.delta}</span>
+                              )}
+                              <span className="ml-0.5 text-gray-500">pts</span>
+                            </>
+                          ) : (
+                            <span className="text-[#14F195]">
+                              {t("insightsv2.chart.ev.start", { score: c.p.score })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()
+                : null}
             </div>
+
             {/* Y-axis score labels — neutral, the bg chip masks the gridline behind */}
             {geom.yTicks.map((tk) => (
               <span
                 key={`lbl-${tk.value}`}
-                className={`absolute left-5 z-10 -translate-y-1/2 bg-[#070B11] pr-2 text-[10px] leading-none text-gray-500 ${MONO}`}
+                className={`pointer-events-none absolute left-5 z-10 -translate-y-1/2 bg-[#070B11] pr-2 text-[10px] leading-none text-gray-500 ${MONO}`}
                 style={{ top: `${tk.topPct}%` }}
               >
                 {tk.value}
@@ -840,7 +966,7 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
             {geom.guides.map((g) => (
               <span
                 key={g.level}
-                className={`absolute left-5 z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
+                className={`pointer-events-none absolute left-5 z-10 -translate-y-1/2 bg-[#070B11] pr-3 text-[11px] leading-none text-[#14F195] ${MONO}`}
                 style={{ top: `${g.topPct}%` }}
               >
                 {g.name} • {g.min}
@@ -848,14 +974,27 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
             ))}
             {/* Y-axis title */}
             <span
-              className={`absolute left-4 top-3 z-10 text-[9px] uppercase tracking-[0.2em] text-gray-600 ${MONO}`}
+              className={`pointer-events-none absolute left-4 top-3 z-10 text-[9px] uppercase tracking-[0.2em] text-gray-600 ${MONO}`}
             >
               {t("insightsv2.chart.yAxis")}
             </span>
-            <div className="absolute inset-x-4 bottom-3 flex justify-between text-xs text-gray-500">
-              <span>{formatDayMon(geom.t0, lang)}</span>
-              <span>{formatDayMon(geom.tEnd, lang)}</span>
-            </div>
+
+            {/* X-axis: a date tick under each event vertex (thinned when many)
+                — the "subdivisões do eixo x" so each step is anchored to a real
+                date instead of only the first/last endpoints. */}
+            {geom.coords.map((c) => {
+              const show =
+                c.i === 0 || c.i === geom.coords.length - 1 || c.i % geom.labelEvery === 0;
+              return show ? (
+                <span
+                  key={`x-${c.i}`}
+                  className={`pointer-events-none absolute bottom-2 z-10 -translate-x-1/2 text-[10px] leading-none text-gray-500 ${MONO}`}
+                  style={{ left: `clamp(18px, ${c.xPct}%, calc(100% - 18px))` }}
+                >
+                  {formatDayMon(c.p.t, lang)}
+                </span>
+              ) : null;
+            })}
           </>
         ) : (
           <div className="absolute inset-0 z-10 flex items-center justify-center px-10 text-center">
@@ -865,6 +1004,11 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
           </div>
         )}
       </div>
+      {hasCurve && (
+        <p className={`mt-3 text-center text-[11px] text-gray-500 ${MONO}`}>
+          {t("insightsv2.chart.hint")}
+        </p>
+      )}
     </Card>
   );
 }
