@@ -770,14 +770,27 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
     };
   }, [hasCurve, history, yMin, yMax, t]);
 
-  const reasonFor = (p: ScorePoint) =>
-    p.kind === "join"
-      ? p.poolName
+  // Map an event kind → its i18n base key; the tooltip appends the pool when
+  // known. Covers the full on-chain scoring set (payment / late / default /
+  // pool-complete) so a dip reads as clearly as a climb.
+  const KIND_KEY: Record<string, string> = {
+    join: "insightsv2.chart.ev.join",
+    payment: "insightsv2.chart.ev.payment",
+    late: "insightsv2.chart.ev.late",
+    default: "insightsv2.chart.ev.default",
+    cycle: "insightsv2.chart.ev.cycle",
+  };
+  const reasonFor = (p: ScorePoint) => {
+    const base = KIND_KEY[p.kind ?? "payment"] ?? "insightsv2.chart.ev.payment";
+    return p.poolName && p.kind !== "join"
+      ? `${t(base)} · ${p.poolName}`
+      : p.kind === "join" && p.poolName
         ? t("insightsv2.chart.ev.joinPool", { pool: p.poolName })
-        : t("insightsv2.chart.ev.join")
-      : p.poolName
-        ? t("insightsv2.chart.ev.paymentPool", { pool: p.poolName })
-        : t("insightsv2.chart.ev.payment");
+        : t(base);
+  };
+  // Signed, coloured delta label ("+10" green / "−100" red) — an increase reads
+  // green, a late/default penalty reads red.
+  const fmtDelta = (d: number) => (d > 0 ? `+${d}` : `${d}`);
 
   return (
     <Card className="p-5 md:p-7">
@@ -860,13 +873,16 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
                     onClick={() => setActive((prev) => (prev === c.i ? null : c.i))}
                   >
                     <span
-                      className="block rounded-full bg-[#14F195] transition-all"
+                      className="block rounded-full transition-all"
                       style={{
                         width: on || isLast ? 12 : 8,
                         height: on || isLast ? 12 : 8,
+                        // A penalty vertex (late / default → negative step) reads
+                        // red; a climb reads green.
+                        backgroundColor: (c.p.delta ?? 0) < 0 ? "#FF3B8D" : "#14F195",
                         boxShadow:
                           on || isLast
-                            ? "0 0 16px 5px rgba(20,241,149,0.5)"
+                            ? `0 0 16px 5px ${(c.p.delta ?? 0) < 0 ? "rgba(255,59,141,0.5)" : "rgba(20,241,149,0.5)"}`
                             : "0 0 0 3px rgba(7,11,17,1)",
                       }}
                     />
@@ -874,24 +890,31 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
                 );
               })}
 
-              {/* Always-visible "+N" delta chip above each step vertex — the
-                  user reads how much each payment moved the score without
-                  hovering. Skipped on the baseline (delta 0) and when crowded. */}
+              {/* Always-visible delta chip above each step vertex — the user
+                  reads how much each event moved the score without hovering.
+                  "+10" green for a climb, "−100" red for a late/default penalty.
+                  Skipped on the baseline (delta 0) and when crowded. */}
               {geom.showChips &&
-                geom.coords.map((c) =>
-                  c.i > 0 && (c.p.delta ?? 0) > 0 ? (
+                geom.coords.map((c) => {
+                  const d = c.p.delta ?? 0;
+                  if (c.i === 0 || d === 0) return null;
+                  const down = d < 0;
+                  return (
                     <div
                       key={`chip-${c.i}`}
-                      className={`pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-full border border-[#14F195]/25 bg-[#0A1F17] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#14F195] ${MONO}`}
+                      className={`pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-full border px-1.5 py-0.5 text-[10px] font-bold leading-none ${MONO}`}
                       style={{
-                        left: `clamp(14px, ${c.xPct}%, calc(100% - 14px))`,
+                        left: `clamp(16px, ${c.xPct}%, calc(100% - 16px))`,
                         top: `calc(clamp(6px, ${c.yPct}%, calc(100% - 6px)) - 10px)`,
+                        color: down ? "#FF3B8D" : "#14F195",
+                        borderColor: down ? "rgba(255,59,141,0.25)" : "rgba(20,241,149,0.25)",
+                        backgroundColor: down ? "#210A16" : "#0A1F17",
                       }}
                     >
-                      +{c.p.delta}
+                      {fmtDelta(d)}
                     </div>
-                  ) : null,
-                )}
+                  );
+                })}
 
               {/* current-score badge pinned just left of the end dot — ties the
                   line's tip to the wallet's real on-chain score */}
@@ -936,8 +959,13 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
                               <span className="text-gray-500">{prev.score}</span>
                               <span className="text-gray-600">→</span>
                               <span className="font-bold text-[#14F195]">{c.p.score}</span>
-                              {(c.p.delta ?? 0) > 0 && (
-                                <span className="ml-1 text-[#14F195]">+{c.p.delta}</span>
+                              {(c.p.delta ?? 0) !== 0 && (
+                                <span
+                                  className="ml-1 font-bold"
+                                  style={{ color: (c.p.delta ?? 0) < 0 ? "#FF3B8D" : "#14F195" }}
+                                >
+                                  {fmtDelta(c.p.delta ?? 0)}
+                                </span>
                               )}
                               <span className="ml-0.5 text-gray-500">pts</span>
                             </>

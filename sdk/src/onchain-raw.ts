@@ -508,7 +508,8 @@ export async function fetchIdentityRecordRaw(
 //   off 186: revoked            bool     ( 1)
 //   off 187: bump               u8       ( 1)
 //   off 188: verified_at_attest bool     ( 1)
-//   off 189: _padding           [u8; 13] (13)
+//   off 189: neutralized        bool     ( 1)  // SEV-A2 (pool-complete in cooldown)
+//   off 190: _padding           [u8; 12] (12)
 const ATTESTATION_PAYLOAD_OFFSET = 82;
 export const ATTESTATION_LEN = 202;
 
@@ -525,6 +526,12 @@ export interface RawAttestation {
   issuedAt: bigint;
   revoked: boolean;
   verifiedAtAttest: boolean;
+  /**
+   * SEV-A2 — set when a `SCHEMA_POOL_COMPLETE` attestation was recorded but
+   * its score bonus was NOT applied (issued inside the completion cooldown).
+   * A score replay MUST treat a neutralized pool-complete as a 0-point event.
+   */
+  neutralized: boolean;
   /** Raw 96-byte payload, exactly as stored on-chain. */
   payloadRaw: Buffer;
   /**
@@ -570,7 +577,35 @@ export function decodeAttestationRaw(address: PublicKey, data: Buffer): RawAttes
     issuedAt: data.readBigInt64LE(178),
     revoked: data.readUInt8(186) === 1,
     verifiedAtAttest: data.readUInt8(188) === 1,
+    neutralized: data.readUInt8(189) === 1,
     payloadRaw,
     payload: decodeBehavioralPayload(payloadRaw),
   };
+}
+
+/**
+ * Enumerate every Attestation whose `subject` is `wallet` — the wallet's full
+ * on-chain scoring history. Uses `getProgramAccounts` with a dataSize filter
+ * plus a memcmp on the subject field (offset 40). Sorted by `issuedAt`
+ * ascending so a score replay steps through events in the order the program
+ * applied them.
+ *
+ * Note: `getProgramAccounts` is unindexed on most public RPCs and can be
+ * slow / rate-limited — suitable for a low-frequency read (the /insights
+ * 30s-refresh curve), not a hot path.
+ */
+export async function fetchAttestationsForSubject(
+  connection: Connection,
+  reputationProgram: PublicKey,
+  wallet: PublicKey,
+): Promise<RawAttestation[]> {
+  const accounts = await connection.getProgramAccounts(reputationProgram, {
+    commitment: "confirmed",
+    filters: [{ dataSize: ATTESTATION_LEN }, { memcmp: { offset: 40, bytes: wallet.toBase58() } }],
+  });
+  const atts = accounts.map(({ pubkey, account }) =>
+    decodeAttestationRaw(pubkey, account.data as Buffer),
+  );
+  atts.sort((a, b) => Number(a.issuedAt - b.issuedAt));
+  return atts;
 }

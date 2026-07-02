@@ -24,6 +24,7 @@ import {
 } from "@/data/insights";
 import { useReputation } from "@/lib/useReputation";
 import { useMyDevnetTxHistory } from "@/lib/useMyDevnetTxHistory";
+import { useScoreTimeline } from "@/lib/useScoreTimeline";
 
 /** Pull the pool name out of a ledger label ("Parcela · Pool Rápida" → "Pool
  *  Rápida"). Returns null when the row has no "· <name>" suffix (e.g. a pool
@@ -49,9 +50,11 @@ export interface ScoreInsights {
 export function useScoreInsights(): ScoreInsights {
   const rep = useReputation();
   const hist = useMyDevnetTxHistory();
+  const timeline = useScoreTimeline();
 
   return useMemo(() => {
-    const loading = rep.status === "loading" || hist.status === "loading";
+    const loading =
+      rep.status === "loading" || hist.status === "loading" || timeline.status === "loading";
     const factors = computeRealFactors(rep);
 
     // Member-PDA history rows: a contribute carries a negative amount (the
@@ -75,11 +78,18 @@ export function useScoreInsights(): ScoreInsights {
     const joinTx = withTs.slice().sort((a, b) => (a.ts as number) - (b.ts as number))[0];
     const joinPool = joinTx ? poolNameFromLabel(joinTx.label) : null;
 
-    const history = annotateScoreHistory(
-      reconstructScoreHistory(rep.score, payTimes, start),
-      joinPool,
-      paymentPools,
-    );
+    // Prefer the TRUE attestation-replay curve (real per-event deltas, exact
+    // endpoint). Fall back to the payment-timestamp reconstruction only if the
+    // replay is unavailable (getProgramAccounts failed / not yet loaded) so the
+    // chart still shows an approximate climb instead of an empty box.
+    const history =
+      timeline.points.length >= 2
+        ? timeline.points
+        : annotateScoreHistory(
+            reconstructScoreHistory(rep.score, payTimes, start),
+            joinPool,
+            paymentPools,
+          );
 
     return {
       status: loading ? "loading" : "ready",
@@ -89,5 +99,5 @@ export function useScoreInsights(): ScoreInsights {
       factors,
       history,
     };
-  }, [rep, hist]);
+  }, [rep, hist, timeline]);
 }
