@@ -9,16 +9,18 @@ import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendSettleDefault } from "@/lib/settle-default";
-import { DEVNET_POOLS, type DevnetPoolKey } from "@/lib/devnet";
+import { DEVNET_POOLS, GRACE_PERIOD_SECS, type DevnetPoolKey } from "@/lib/devnet";
 import { useI18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
-// `GRACE_PERIOD_SECS` on the on-chain `constants.rs` is currently
-// 60s (devnet patch — see `programs/roundfi-core/src/constants.rs`).
-// Mainnet flips this to 604_800 (7d) before launch.
-const GRACE_PERIOD_SECS = 60n;
+// `GRACE_PERIOD_SECS` (the on-chain settle_default gate) is shared from
+// `@/lib/devnet` — the same constant the payout crank + pool radar read, so
+// they can't drift. This modal previously hardcoded the stale `60n` SEV-002
+// devnet-patch value, which was reverted on-chain to 604_800 (7d): the crank
+// looked eligible ~7 days early and the operator signed txs the program then
+// reverted with SettleDefaultGracePeriodNotElapsed.
 
 interface CandidateMember {
   slotIndex: number;
@@ -66,10 +68,13 @@ export function SettleDefaultCrankModal({
   open,
   onClose,
   onSuccess,
+  initialPool,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Pool to pre-select when opened (e.g. from the pool radar). */
+  initialPool?: DevnetPoolKey;
 }) {
   const { tokens } = useTheme();
   const t = useT();
@@ -79,7 +84,7 @@ export function SettleDefaultCrankModal({
   const adapter = useAdapterWallet();
   const { explorerTx } = useWallet();
 
-  const [selectedPool, setSelectedPool] = useState<DevnetPoolKey>("pool3");
+  const [selectedPool, setSelectedPool] = useState<DevnetPoolKey>(initialPool ?? "pool3");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -93,6 +98,14 @@ export function SettleDefaultCrankModal({
     const id = setInterval(() => setNow(BigInt(Math.floor(Date.now() / 1000))), 1000);
     return () => clearInterval(id);
   }, [open, done]);
+
+  // When opened pre-targeted at a specific pool (from the radar), jump to it.
+  useEffect(() => {
+    if (open && initialPool) {
+      setSelectedPool(initialPool);
+      setSelectedSlot(null);
+    }
+  }, [open, initialPool]);
 
   const onChainPool = usePool(selectedPool);
   const onChainMembers = usePoolMembers(selectedPool);
@@ -354,8 +367,9 @@ export function SettleDefaultCrankModal({
                   <span style={{ color: tokens.text }}>{settleCycle}</span>
                 </div>
                 <div>
-                  next_cycle_at: {onChainPool.pool.nextCycleAt.toString()} · GRACE_PERIOD_SECS:{" "}
-                  {GRACE_PERIOD_SECS.toString()}s
+                  {t("modal.settleDefault.graceWindow", {
+                    days: String(Number(GRACE_PERIOD_SECS) / 86_400),
+                  })}
                 </div>
                 <div>
                   installment: ${(Number(installmentMissed) / 1e6).toFixed(2)} · pool float: $

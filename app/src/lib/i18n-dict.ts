@@ -87,6 +87,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool4.label": "Pool 4 · 3 vagas · em formação · Entrar",
     "home.devnet.pool4.headline":
       "Pool aberto em formação na devnet — conecte a Phantom e entre numa vaga para exercer o join_pool real.",
+    "home.devnet.pool7.label": "Pool 7 · 5 vagas · pool rápido · Ativo",
+    "home.devnet.pool7.headline":
+      "Pool rápido de teste na devnet — economia enxuta (crédito 2 USDC) e ciclo de 2 dias para o time rodar o ciclo completo em poucos dias.",
     // levels
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Saldo Protegido",
@@ -1006,6 +1009,40 @@ export const DICT: Record<Lang, Dict> = {
     // modals — common
     "modal.cancel": "Cancelar",
     "modal.confirm": "Confirmar",
+    // modal — settle_default (cranker) — cobra o membro que não pagou
+    "modal.settleDefault.title": "Executar inadimplência",
+    "modal.settleDefault.subtitle":
+      "Aciona o Escudo Triplo contra um membro que não pagou a parcela depois do prazo de carência.",
+    "modal.settleDefault.pool": "Grupo",
+    "modal.settleDefault.loading": "Lendo estado on-chain…",
+    "modal.settleDefault.rpcUnavailable": "RPC indisponível — não foi possível ler o grupo.",
+    "modal.settleDefault.currentCycle": "ciclo atual",
+    "modal.settleDefault.settleCycle": "ciclo a cobrar",
+    "modal.settleDefault.graceWindow": "carência: {days} dias após o vencimento do ciclo",
+    "modal.settleDefault.noPreviousCycle":
+      "Este grupo ainda está no primeiro ciclo — não há ciclo anterior para cobrar.",
+    "modal.settleDefault.candidates": "Candidatos (não pagaram)",
+    "modal.settleDefault.noCandidates": "Ninguém inadimplente para cobrar neste grupo.",
+    "modal.settleDefault.eligible": "pronto para cobrar",
+    "modal.settleDefault.graceIn": "prazo em",
+    "modal.settleDefault.cascade": "Prévia do Escudo Triplo",
+    "modal.settleDefault.shield1": "Escudo 1",
+    "modal.settleDefault.shield2": "Escudo 2",
+    "modal.settleDefault.shield3": "Escudo 3",
+    "modal.settleDefault.shortfall": "descoberto",
+    "modal.settleDefault.cascadeNote":
+      "Estimativa — o rateio exato é calculado on-chain no momento da execução.",
+    "modal.settleDefault.error.noWallet": "Conecte uma carteira para cobrar.",
+    "modal.settleDefault.error.graceNotElapsed":
+      "A carência ainda não venceu — o membro ainda pode pagar atrasado.",
+    "modal.settleDefault.error.memberNotFound":
+      "Não foi possível localizar o membro selecionado on-chain.",
+    "modal.settleDefault.submitting": "Cobrando…",
+    "modal.settleDefault.crank": "Executar cobrança",
+    "modal.settleDefault.success.title": "Inadimplência resolvida",
+    "modal.settleDefault.success.body":
+      "O Escudo Triplo cobriu a parcela em falta com a garantia do inadimplente. O grupo pode continuar.",
+    "modal.settleDefault.success.cta": "Fechar",
     // modal — crank_payout (liveness, SEV-051)
     "modal.crankPayout.title": "Destravar ciclo",
     "modal.crankPayout.subtitle": "Pague o contemplado que não sacou — libera o ciclo pra todos.",
@@ -1029,6 +1066,43 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.success.body":
       "O crédito foi entregue na carteira do contemplado e o ciclo avançou. O grupo pode continuar.",
     "modal.crankPayout.success.cta": "Fechar",
+    // /admin/cranker — central de destravamento (operador)
+    "admin.cranker.title": "Central de destravamento",
+    "admin.cranker.intro":
+      "Quando um ciclo trava — porque o contemplado não sacou ou um membro não pagou — qualquer pessoa pode destravar. As duas ações abaixo são permissionless: o botão só deixa o processo mais fácil.",
+    "admin.cranker.who.title": "Quem pode executar?",
+    "admin.cranker.who.body":
+      "Qualquer carteira conectada — não precisa ser admin. Quem executa paga só a taxa de rede, e o dinheiro sempre vai para a carteira do membro certo, nunca para quem executa. Na prática é o operador que cuida, mas o grupo nunca fica refém de uma pessoa só.",
+    "admin.cranker.settle.title": "Cobrar inadimplente",
+    "admin.cranker.settle.body":
+      "Para quem NÃO pagou a parcela. Passado o prazo de carência, aciona o Escudo Triplo (solidariedade → cofre → garantia) para cobrir a parcela em falta com o colateral do inadimplente. Marca o default e reduz o score dele.",
+    "admin.cranker.payout.title": "Destravar contemplado",
+    "admin.cranker.payout.body":
+      "Para quem foi sorteado e NÃO sacou. Se o contemplado do ciclo some ou perde a carteira, o ciclo não avança e o grupo congela. Passado o prazo, entrega o crédito na carteira DELE (nunca na de quem executa) e avança o ciclo. Não penaliza ninguém.",
+    "admin.cranker.diff.title": "Qual a diferença entre as duas?",
+    "admin.cranker.diff.body":
+      "Cobrar é para quem deve ao grupo (não pagou a parcela). Destravar é para quem o grupo deve (foi sorteado mas não sacou). Uma cobra, a outra paga — as duas existem para o ciclo nunca ficar preso.",
+    "admin.cranker.openSettle": "Cobrar inadimplente",
+    "admin.cranker.openPayout": "Destravar contemplado",
+    // /admin/cranker — radar dos grupos (escaneia todos de uma vez)
+    "admin.cranker.radar.title": "Radar dos grupos",
+    "admin.cranker.radar.subtitle":
+      "Todos os grupos de uma vez — veja onde há ação pendente sem abrir um por um.",
+    "admin.cranker.radar.scanning": "Escaneando grupos…",
+    "admin.cranker.radar.onlyActionable": "Só grupos que precisam de ação",
+    "admin.cranker.radar.allClear": "Nenhum grupo precisa de ação agora.",
+    "admin.cranker.radar.status.forming": "Em formação",
+    "admin.cranker.radar.status.active": "Ativo",
+    "admin.cranker.radar.status.completed": "Concluído",
+    "admin.cranker.radar.rpcDown": "RPC indisponível",
+    "admin.cranker.radar.needsPayout": "Contemplado não sacou",
+    "admin.cranker.radar.needsSettle": "Inadimplente para cobrar",
+    "admin.cranker.radar.ready": "pronto",
+    "admin.cranker.radar.graceIn": "prazo em",
+    "admin.cranker.radar.nothing": "Em dia",
+    "admin.cranker.radar.cycle": "ciclo",
+    "admin.cranker.radar.act.payout": "Destravar",
+    "admin.cranker.radar.act.settle": "Cobrar",
     "modal.close": "Fechar",
     // receive (carteira)
     "modal.receive.title": "Receber USDC",
@@ -1946,6 +2020,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool4.label": "Pool 4 · 3 slots · forming · Join",
     "home.devnet.pool4.headline":
       "Open Forming pool on devnet — connect Phantom and take a slot to exercise the real join_pool path.",
+    "home.devnet.pool7.label": "Pool 7 · 5 slots · fast pool · Active",
+    "home.devnet.pool7.headline":
+      "Fast test pool on devnet — lean economics (2 USDC credit) and a 2-day cycle so the team can run the full lifecycle in a few days.",
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Protected Balance",
     "home.kpi.receivable": "Receivable",
@@ -2857,6 +2934,39 @@ export const DICT: Record<Lang, Dict> = {
     // modals — common
     "modal.cancel": "Cancel",
     "modal.confirm": "Confirm",
+    // modal — settle_default (cranker) — charges the member who didn't pay
+    "modal.settleDefault.title": "Settle default",
+    "modal.settleDefault.subtitle":
+      "Triggers the Triple Shield against a member who missed their installment after the grace period.",
+    "modal.settleDefault.pool": "Group",
+    "modal.settleDefault.loading": "Reading on-chain state…",
+    "modal.settleDefault.rpcUnavailable": "RPC unavailable — couldn't read the group.",
+    "modal.settleDefault.currentCycle": "current cycle",
+    "modal.settleDefault.settleCycle": "cycle to settle",
+    "modal.settleDefault.graceWindow": "grace: {days} days after the cycle is due",
+    "modal.settleDefault.noPreviousCycle":
+      "This group is still on its first cycle — there's no previous cycle to settle.",
+    "modal.settleDefault.candidates": "Candidates (didn't pay)",
+    "modal.settleDefault.noCandidates": "No delinquent member to settle in this group.",
+    "modal.settleDefault.eligible": "ready to settle",
+    "modal.settleDefault.graceIn": "grace in",
+    "modal.settleDefault.cascade": "Triple Shield preview",
+    "modal.settleDefault.shield1": "Shield 1",
+    "modal.settleDefault.shield2": "Shield 2",
+    "modal.settleDefault.shield3": "Shield 3",
+    "modal.settleDefault.shortfall": "shortfall",
+    "modal.settleDefault.cascadeNote":
+      "Estimate — the exact cascade is computed on-chain at execution time.",
+    "modal.settleDefault.error.noWallet": "Connect a wallet to settle.",
+    "modal.settleDefault.error.graceNotElapsed":
+      "The grace period hasn't elapsed yet — the member can still pay late.",
+    "modal.settleDefault.error.memberNotFound": "Couldn't locate the selected member on-chain.",
+    "modal.settleDefault.submitting": "Settling…",
+    "modal.settleDefault.crank": "Settle default",
+    "modal.settleDefault.success.title": "Default resolved",
+    "modal.settleDefault.success.body":
+      "The Triple Shield covered the missed installment from the delinquent member's collateral. The group can continue.",
+    "modal.settleDefault.success.cta": "Close",
     // modal — crank_payout (liveness, SEV-051)
     "modal.crankPayout.title": "Unstick cycle",
     "modal.crankPayout.subtitle":
@@ -2881,6 +2991,43 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.success.body":
       "The credit was delivered to the member's wallet and the cycle advanced. The group can continue.",
     "modal.crankPayout.success.cta": "Close",
+    // /admin/cranker — unstick center (operator)
+    "admin.cranker.title": "Unstick center",
+    "admin.cranker.intro":
+      "When a cycle gets stuck — because the contemplated member never claimed, or a member didn't pay — anyone can unstick it. Both actions below are permissionless: the button just makes the workflow easier.",
+    "admin.cranker.who.title": "Who can run this?",
+    "admin.cranker.who.body":
+      "Any connected wallet — no admin required. The caller pays only the network fee, and the money always goes to the correct member's wallet, never the caller's. In practice the operator handles it, but the group never depends on a single person.",
+    "admin.cranker.settle.title": "Settle a delinquent member",
+    "admin.cranker.settle.body":
+      "For someone who did NOT pay their installment. Once the grace period passes, it triggers the Triple Shield (solidarity → escrow → collateral) to cover the missed installment from the delinquent's collateral. Records the default and lowers their score.",
+    "admin.cranker.payout.title": "Unstick the contemplated member",
+    "admin.cranker.payout.body":
+      "For someone who was drawn and did NOT claim. If the cycle's contemplated member disappears or loses their wallet, the cycle can't advance and the group freezes. Once the grace passes, it delivers the credit to THEIR wallet (never the caller's) and advances the cycle. Penalizes no one.",
+    "admin.cranker.diff.title": "What's the difference?",
+    "admin.cranker.diff.body":
+      "Settle is for someone who owes the group (didn't pay). Unstick is for someone the group owes (was drawn but didn't claim). One charges, the other pays — both exist so the cycle never gets stuck.",
+    "admin.cranker.openSettle": "Settle a delinquent",
+    "admin.cranker.openPayout": "Unstick contemplated",
+    // /admin/cranker — pool radar (scans every pool at once)
+    "admin.cranker.radar.title": "Pool radar",
+    "admin.cranker.radar.subtitle":
+      "Every group at once — see where action is pending without opening them one by one.",
+    "admin.cranker.radar.scanning": "Scanning groups…",
+    "admin.cranker.radar.onlyActionable": "Only groups that need action",
+    "admin.cranker.radar.allClear": "No group needs action right now.",
+    "admin.cranker.radar.status.forming": "Forming",
+    "admin.cranker.radar.status.active": "Active",
+    "admin.cranker.radar.status.completed": "Completed",
+    "admin.cranker.radar.rpcDown": "RPC unavailable",
+    "admin.cranker.radar.needsPayout": "Contemplated didn't claim",
+    "admin.cranker.radar.needsSettle": "Delinquent to settle",
+    "admin.cranker.radar.ready": "ready",
+    "admin.cranker.radar.graceIn": "grace in",
+    "admin.cranker.radar.nothing": "All good",
+    "admin.cranker.radar.cycle": "cycle",
+    "admin.cranker.radar.act.payout": "Unstick",
+    "admin.cranker.radar.act.settle": "Settle",
     // receive (carteira)
     "modal.receive.title": "Receive USDC",
     "modal.receive.subtitle": "Share your Solana address to receive transfers.",

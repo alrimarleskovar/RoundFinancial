@@ -9,16 +9,15 @@ import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendCrankPayout } from "@/lib/crank-payout";
-import { DEVNET_POOLS, type DevnetPoolKey } from "@/lib/devnet";
+import { DEVNET_POOLS, GRACE_PERIOD_SECS, type DevnetPoolKey } from "@/lib/devnet";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
 import { shortAddr, useWallet } from "@/lib/wallet";
 
-// Mirrors the on-chain `crank_payout` gate: callable once
-// `now >= pool.next_cycle_at + GRACE_PERIOD_SECS`. The deployed devnet is a
-// vanilla build (7 days); a `devnet-canary` build lowers it to 24h.
-const GRACE_PERIOD_SECS = 604_800n;
+// `GRACE_PERIOD_SECS` (the on-chain `crank_payout` gate: callable once
+// `now >= pool.next_cycle_at + GRACE_PERIOD_SECS`) is shared from `@/lib/devnet`
+// so this modal, the settle modal, and the pool radar can't drift apart.
 
 /**
  * CrankPayoutModal — community-cranker UI for the permissionless
@@ -36,10 +35,13 @@ export function CrankPayoutModal({
   open,
   onClose,
   onSuccess,
+  initialPool,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Pool to pre-select when opened (e.g. from the pool radar). */
+  initialPool?: DevnetPoolKey;
 }) {
   const { tokens } = useTheme();
   const t = useT();
@@ -47,7 +49,7 @@ export function CrankPayoutModal({
   const adapter = useAdapterWallet();
   const { explorerTx } = useWallet();
 
-  const [selectedPool, setSelectedPool] = useState<DevnetPoolKey>("pool3");
+  const [selectedPool, setSelectedPool] = useState<DevnetPoolKey>(initialPool ?? "pool3");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [txSig, setTxSig] = useState<string | null>(null);
@@ -59,6 +61,11 @@ export function CrankPayoutModal({
     const id = setInterval(() => setNow(BigInt(Math.floor(Date.now() / 1000))), 1000);
     return () => clearInterval(id);
   }, [open, done]);
+
+  // When opened pre-targeted at a specific pool (from the radar), jump to it.
+  useEffect(() => {
+    if (open && initialPool) setSelectedPool(initialPool);
+  }, [open, initialPool]);
 
   const onChainPool = usePool(selectedPool);
   const onChainMembers = usePoolMembers(selectedPool);
