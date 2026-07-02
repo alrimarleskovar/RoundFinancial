@@ -1006,6 +1006,29 @@ export const DICT: Record<Lang, Dict> = {
     // modals — common
     "modal.cancel": "Cancelar",
     "modal.confirm": "Confirmar",
+    // modal — crank_payout (liveness, SEV-051)
+    "modal.crankPayout.title": "Destravar ciclo",
+    "modal.crankPayout.subtitle": "Pague o contemplado que não sacou — libera o ciclo pra todos.",
+    "modal.crankPayout.pool": "Grupo",
+    "modal.crankPayout.contemplated": "Contemplado do ciclo",
+    "modal.crankPayout.loading": "Lendo estado on-chain…",
+    "modal.crankPayout.nothingStuck": "Nenhum ciclo travado neste grupo.",
+    "modal.crankPayout.cycle": "Ciclo",
+    "modal.crankPayout.alreadyPaid": "já sacou",
+    "modal.crankPayout.defaulted": "inadimplente (use settle)",
+    "modal.crankPayout.eligible": "pronto pra destravar",
+    "modal.crankPayout.graceIn": "prazo em",
+    "modal.crankPayout.willDeliver":
+      "Entrega {amount} na carteira do contemplado e avança o ciclo.",
+    "modal.crankPayout.crank": "Destravar ciclo",
+    "modal.crankPayout.submitting": "Destravando…",
+    "modal.crankPayout.error.noWallet": "Conecte uma carteira para destravar.",
+    "modal.crankPayout.error.graceActive":
+      "O prazo de saque do contemplado ainda não venceu — ele ainda pode sacar sozinho.",
+    "modal.crankPayout.success.title": "Ciclo destravado 🎉",
+    "modal.crankPayout.success.body":
+      "O crédito foi entregue na carteira do contemplado e o ciclo avançou. O grupo pode continuar.",
+    "modal.crankPayout.success.cta": "Fechar",
     "modal.close": "Fechar",
     // receive (carteira)
     "modal.receive.title": "Receber USDC",
@@ -2834,6 +2857,30 @@ export const DICT: Record<Lang, Dict> = {
     // modals — common
     "modal.cancel": "Cancel",
     "modal.confirm": "Confirm",
+    // modal — crank_payout (liveness, SEV-051)
+    "modal.crankPayout.title": "Unstick cycle",
+    "modal.crankPayout.subtitle":
+      "Pay the contemplated member who never claimed — unlocks the cycle for everyone.",
+    "modal.crankPayout.pool": "Group",
+    "modal.crankPayout.contemplated": "Cycle's contemplated member",
+    "modal.crankPayout.loading": "Reading on-chain state…",
+    "modal.crankPayout.nothingStuck": "No stuck cycle in this group.",
+    "modal.crankPayout.cycle": "Cycle",
+    "modal.crankPayout.alreadyPaid": "already claimed",
+    "modal.crankPayout.defaulted": "defaulted (use settle)",
+    "modal.crankPayout.eligible": "ready to unstick",
+    "modal.crankPayout.graceIn": "grace in",
+    "modal.crankPayout.willDeliver":
+      "Delivers {amount} to the member's wallet and advances the cycle.",
+    "modal.crankPayout.crank": "Unstick cycle",
+    "modal.crankPayout.submitting": "Unsticking…",
+    "modal.crankPayout.error.noWallet": "Connect a wallet to unstick.",
+    "modal.crankPayout.error.graceActive":
+      "The member's self-claim window hasn't elapsed yet — they can still claim themselves.",
+    "modal.crankPayout.success.title": "Cycle unstuck 🎉",
+    "modal.crankPayout.success.body":
+      "The credit was delivered to the member's wallet and the cycle advanced. The group can continue.",
+    "modal.crankPayout.success.cta": "Close",
     // receive (carteira)
     "modal.receive.title": "Receive USDC",
     "modal.receive.subtitle": "Share your Solana address to receive transfers.",
