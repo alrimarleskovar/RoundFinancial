@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CrankPayoutModal } from "@/components/modals/CrankPayoutModal";
 import { SettleDefaultCrankModal } from "@/components/modals/SettleDefaultCrankModal";
 import { useTheme } from "@/lib/theme";
 
@@ -18,6 +19,7 @@ import { useTheme } from "@/lib/theme";
 export default function CrankerPage() {
   const { tokens } = useTheme();
   const [open, setOpen] = useState(false);
+  const [payoutOpen, setPayoutOpen] = useState(false);
 
   return (
     <main
@@ -80,27 +82,72 @@ export default function CrankerPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
+        {/* Liveness crank (SEV-051): unstick a pool whose LIVE contemplated
+            member never claimed. Delivers the payout to the member's OWN ATA +
+            advances the cycle — permissionless, can't steal. */}
+        <div
           style={{
-            padding: "14px 24px",
-            borderRadius: 12,
-            background: tokens.green,
-            color: tokens.bg,
-            border: "none",
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: 14,
-            fontFamily: "var(--font-syne), system-ui, sans-serif",
-            letterSpacing: 0.4,
-            textTransform: "uppercase",
+            padding: 20,
+            borderRadius: 16,
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+            marginBottom: 24,
           }}
         >
-          Open cranker
-        </button>
+          <div style={{ fontSize: 13, color: tokens.muted, lineHeight: 1.6 }}>
+            <p style={{ marginTop: 0 }}>
+              <strong style={{ color: tokens.text }}>crank_payout (liveness):</strong> if a live
+              (non-defaulted) contemplated member never claims, the cycle can&apos;t advance and the
+              pool freezes for everyone. This dispatches <code>crank_payout(cycle)</code> after the
+              member&apos;s self-claim grace — the credit goes to the member&apos;s OWN ATA (never
+              the caller&apos;s), so it can&apos;t steal, and the cycle advances.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            style={{
+              padding: "14px 24px",
+              borderRadius: 12,
+              background: tokens.green,
+              color: tokens.bg,
+              border: "none",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 14,
+              fontFamily: "var(--font-syne), system-ui, sans-serif",
+              letterSpacing: 0.4,
+              textTransform: "uppercase",
+            }}
+          >
+            Open settle cranker
+          </button>
+          <button
+            type="button"
+            onClick={() => setPayoutOpen(true)}
+            style={{
+              padding: "14px 24px",
+              borderRadius: 12,
+              background: "transparent",
+              color: tokens.green,
+              border: `1px solid ${tokens.green}`,
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 14,
+              fontFamily: "var(--font-syne), system-ui, sans-serif",
+              letterSpacing: 0.4,
+              textTransform: "uppercase",
+            }}
+          >
+            Open payout cranker
+          </button>
+        </div>
 
         <SettleDefaultCrankModal open={open} onClose={() => setOpen(false)} />
+        <CrankPayoutModal open={payoutOpen} onClose={() => setPayoutOpen(false)} />
       </div>
     </main>
   );

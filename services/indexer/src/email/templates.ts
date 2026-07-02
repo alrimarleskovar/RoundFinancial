@@ -39,6 +39,12 @@ export interface DueDateData extends Common {
   payUrl: string;
 }
 
+export interface PayoutTurnData extends Common {
+  groupName: string;
+  creditBrl: string;
+  claimUrl: string;
+}
+
 export interface PoolStartedData extends Common {
   groupName: string;
   membersTarget: number;
@@ -157,6 +163,34 @@ export function dueDateEmail(d: DueDateData, lang: EmailLang): RenderedEmail {
         field(pt ? "VENCIMENTO" : "DUE DATE", d.dueDate),
       ctaLabel: pt ? "Pagar parcela" : "Pay installment",
       ctaUrl: d.payUrl,
+      footerReason: pt
+        ? `Você recebe isto porque cadastrou ${d.email} para a carteira ${d.walletShort}.`
+        : `You get this because ${d.email} is registered for wallet ${d.walletShort}.`,
+    }),
+  };
+}
+
+export function payoutTurnEmail(d: PayoutTurnData, lang: EmailLang): RenderedEmail {
+  const pt = lang === "pt";
+  return {
+    subject: pt
+      ? `É a sua vez de receber 🎉 · ${d.groupName}`
+      : `It's your turn to receive 🎉 · ${d.groupName}`,
+    html: layout({
+      c: d,
+      lang,
+      badge: pt ? "◆ SUA VEZ DE RECEBER" : "◆ YOUR TURN TO RECEIVE",
+      title: pt
+        ? `É a <span style="color:${C.green};">sua vez</span> de receber 🎉`
+        : `It's <span style="color:${C.green};">your turn</span> to receive 🎉`,
+      body: pt
+        ? "Você foi contemplado neste ciclo! Saque o crédito do seu grupo — é isso que avança o ciclo e libera a próxima rodada pra todos. Enquanto você não sacar, o grupo fica esperando por você."
+        : "You're contemplated this cycle! Claim your group's credit — that's what advances the cycle and unlocks the next round for everyone. Until you claim, the group is waiting on you.",
+      fields:
+        field(pt ? "GRUPO" : "GROUP", d.groupName) +
+        field(pt ? "VALOR A RECEBER" : "PAYOUT", d.creditBrl),
+      ctaLabel: pt ? "Sacar meu crédito" : "Claim my credit",
+      ctaUrl: d.claimUrl,
       footerReason: pt
         ? `Você recebe isto porque cadastrou ${d.email} para a carteira ${d.walletShort}.`
         : `You get this because ${d.email} is registered for wallet ${d.walletShort}.`,
