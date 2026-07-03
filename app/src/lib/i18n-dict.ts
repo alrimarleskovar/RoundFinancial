@@ -1066,6 +1066,55 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.success.body":
       "O crédito foi entregue na carteira do contemplado e o ciclo avançou. O grupo pode continuar.",
     "modal.crankPayout.success.cta": "Fechar",
+    // modal — claim_payout (Receber pagamento) — linguagem humana, sem jargão
+    "modal.claimPayout.title": "Receber pagamento",
+    "modal.claimPayout.subtitle": "Você foi sorteado neste ciclo",
+    "modal.claimPayout.success.title": "Crédito recebido!",
+    "modal.claimPayout.success.body": "{amount} foi transferido para a sua carteira.",
+    "modal.claimPayout.success.bodyNoTx": "O crédito foi transferido para a sua carteira.",
+    "modal.claimPayout.success.txLabel": "transação on-chain",
+    "modal.claimPayout.group": "Grupo",
+    "modal.claimPayout.cycleLine": "ciclo {cycle}/{total}",
+    "modal.claimPayout.youReceive": "Você recebe",
+    "modal.claimPayout.fromVault": "{usdc} USDC do caixa do grupo para a sua carteira",
+    "modal.claimPayout.funding.checking": "Verificando",
+    "modal.claimPayout.funding.waiting": "Aguardando",
+    "modal.claimPayout.funding.ready": "Pronto pra sacar",
+    "modal.claimPayout.funding.checkingBody": "Conferindo o caixa do grupo…",
+    "modal.claimPayout.funding.waitingBody":
+      "Esperando o grupo juntar o valor do saque — faltam ~{n} USDC. Libera quando os outros membros pagarem este ciclo.",
+    "modal.claimPayout.funding.readyBody": "Caixa completo — você já pode sacar.",
+    "modal.claimPayout.funding.paidCount": "{paid}/{total} pagaram este ciclo.",
+    "modal.claimPayout.progress.label": "Progresso de pagamento",
+    "modal.claimPayout.progress.paidSoFar": "Pago até agora",
+    "modal.claimPayout.progress.installments": "{paid} / {total} parcelas",
+    "modal.claimPayout.progress.remaining": "Restam após o sorteio",
+    "modal.claimPayout.progress.remainingCount": "{n} parcelas",
+    "modal.claimPayout.progress.note":
+      "O crédito é antecipado: você recebe {amount} agora e continua pagando as parcelas que faltam até o grupo fechar. O valor é sempre o total combinado, não importa quantas parcelas você já tenha pago.",
+    "modal.claimPayout.shield.label": "Garantia bloqueada",
+    "modal.claimPayout.shield.stake": "Depósito (Nível {lv})",
+    "modal.claimPayout.shield.escrow": "Reserva acumulada",
+    "modal.claimPayout.shield.total": "Garantia total",
+    "modal.claimPayout.shield.note":
+      "Se você parar de pagar depois de receber, a sua garantia cobre as parcelas — primeiro o fundo do grupo, depois a sua reserva, depois o seu depósito. Você nunca deve mais do que deixou de garantia.",
+    "modal.claimPayout.onchain.label": "On-chain",
+    "modal.claimPayout.onchain.body":
+      "A sua carteira {wallet} foi a sorteada deste ciclo. Ao confirmar, o pagamento sai do grupo direto pra você, garantido pelo contrato — sem intermediário.",
+    "modal.claimPayout.demo.label": "Modo demo",
+    "modal.claimPayout.demo.body":
+      "Cenário de demonstração. Confirmar credita o prêmio no seu saldo da sessão. Com uma carteira conectada num grupo real, isso vira uma transação de verdade assinada pela sua carteira.",
+    "modal.claimPayout.whatHappens.label": "O que acontece",
+    "modal.claimPayout.whatHappens.transfer":
+      "{amount} sai do caixa do grupo e vai pra sua carteira",
+    "modal.claimPayout.whatHappens.advance": "O grupo passa para o próximo ciclo",
+    "modal.claimPayout.whatHappens.once": "Você não pode sacar de novo neste ciclo",
+    "modal.claimPayout.whatHappens.reputation":
+      "Este ciclo concluído entra na sua reputação e sobe o seu score",
+    "modal.claimPayout.error.label": "Falha na transação",
+    "modal.claimPayout.cta.processing": "Processando…",
+    "modal.claimPayout.cta.waitingFunds": "Aguardando fundos",
+    "modal.claimPayout.cta.confirm": "Confirmar recebimento",
     // /admin/cranker — central de destravamento (operador)
     "admin.cranker.title": "Central de destravamento",
     "admin.cranker.intro":
@@ -2995,6 +3044,55 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.success.body":
       "The credit was delivered to the member's wallet and the cycle advanced. The group can continue.",
     "modal.crankPayout.success.cta": "Close",
+    // modal — claim_payout (Receive payment) — plain language, no jargon
+    "modal.claimPayout.title": "Receive payment",
+    "modal.claimPayout.subtitle": "You were drawn this cycle",
+    "modal.claimPayout.success.title": "Credit received!",
+    "modal.claimPayout.success.body": "{amount} was transferred to your wallet.",
+    "modal.claimPayout.success.bodyNoTx": "The credit was transferred to your wallet.",
+    "modal.claimPayout.success.txLabel": "on-chain transaction",
+    "modal.claimPayout.group": "Group",
+    "modal.claimPayout.cycleLine": "cycle {cycle}/{total}",
+    "modal.claimPayout.youReceive": "You receive",
+    "modal.claimPayout.fromVault": "{usdc} USDC from the group's pool to your wallet",
+    "modal.claimPayout.funding.checking": "Checking",
+    "modal.claimPayout.funding.waiting": "Waiting",
+    "modal.claimPayout.funding.ready": "Ready to claim",
+    "modal.claimPayout.funding.checkingBody": "Checking the group's pool…",
+    "modal.claimPayout.funding.waitingBody":
+      "Waiting for the group to fund the payout — ~{n} USDC to go. It unlocks once the other members pay this cycle.",
+    "modal.claimPayout.funding.readyBody": "Fully funded — you can claim now.",
+    "modal.claimPayout.funding.paidCount": "{paid}/{total} paid this cycle.",
+    "modal.claimPayout.progress.label": "Payment progress",
+    "modal.claimPayout.progress.paidSoFar": "Paid so far",
+    "modal.claimPayout.progress.installments": "{paid} / {total} installments",
+    "modal.claimPayout.progress.remaining": "Remaining after the draw",
+    "modal.claimPayout.progress.remainingCount": "{n} installments",
+    "modal.claimPayout.progress.note":
+      "The credit is paid upfront: you receive {amount} now and keep paying the remaining installments until the group closes. The amount is always the full agreed total, no matter how many installments you've already paid.",
+    "modal.claimPayout.shield.label": "Locked guarantee",
+    "modal.claimPayout.shield.stake": "Deposit (Level {lv})",
+    "modal.claimPayout.shield.escrow": "Accrued reserve",
+    "modal.claimPayout.shield.total": "Total guarantee",
+    "modal.claimPayout.shield.note":
+      "If you stop paying after receiving, your guarantee covers the installments — first the group fund, then your reserve, then your deposit. You never owe more than you put up as guarantee.",
+    "modal.claimPayout.onchain.label": "On-chain",
+    "modal.claimPayout.onchain.body":
+      "Your wallet {wallet} was drawn this cycle. When you confirm, the payment goes from the group straight to you, secured by the contract — no middleman.",
+    "modal.claimPayout.demo.label": "Demo mode",
+    "modal.claimPayout.demo.body":
+      "Demo scenario. Confirming credits the prize to your session balance. With a wallet connected to a real group, this becomes a real transaction signed by your wallet.",
+    "modal.claimPayout.whatHappens.label": "What happens",
+    "modal.claimPayout.whatHappens.transfer":
+      "{amount} leaves the group's pool and goes to your wallet",
+    "modal.claimPayout.whatHappens.advance": "The group moves to the next cycle",
+    "modal.claimPayout.whatHappens.once": "You can't claim again this cycle",
+    "modal.claimPayout.whatHappens.reputation":
+      "This completed cycle is recorded in your reputation and raises your score",
+    "modal.claimPayout.error.label": "Transaction failed",
+    "modal.claimPayout.cta.processing": "Processing…",
+    "modal.claimPayout.cta.waitingFunds": "Waiting for funds",
+    "modal.claimPayout.cta.confirm": "Confirm receipt",
     // /admin/cranker — unstick center (operator)
     "admin.cranker.title": "Unstick center",
     "admin.cranker.intro":
@@ -3369,7 +3467,7 @@ export const DICT: Record<Lang, Dict> = {
     "intent.mainnetWarning":
       "This operation moves REAL FUNDS on mainnet. Verify every field before confirming.",
     "intent.action.contribute": "pay installment",
-    "intent.action.claim_payout": "claim payout (carta)",
+    "intent.action.claim_payout": "your credit payout",
     "intent.action.release_escrow": "release stake cashback",
     "intent.action.escape_valve_list": "list slot on marketplace",
     "intent.action.escape_valve_buy": "buy slot",

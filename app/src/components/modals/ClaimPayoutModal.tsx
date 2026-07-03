@@ -51,7 +51,7 @@ export function ClaimPayoutModal({
   seedKey,
 }: ClaimPayoutModalProps) {
   const { tokens } = useTheme();
-  const { fmtMoney } = useI18n();
+  const { t, fmtMoney } = useI18n();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
   const chainWallet = useWallet();
@@ -69,7 +69,6 @@ export function ClaimPayoutModal({
   // back to USDC for the breakdown line.
   const creditUsdc = chainMode ? Number(pool!.creditAmount) / 1e6 : group.prize / USDC_RATE;
   const creditBrl = chainMode ? creditUsdc * USDC_RATE : group.prize;
-  const slotIndexDisplay = chainMode ? memberRecord!.slotIndex : "—";
   const cycleDisplay = chainMode ? pool!.currentCycle : group.month;
   const cyclesTotalDisplay = chainMode ? pool!.cyclesTotal : group.total;
 
@@ -121,10 +120,10 @@ export function ClaimPayoutModal({
   const shortfallUsdc = spendableUsdc !== null ? Math.max(0, creditUsdc - spendableUsdc) : 0;
   const fundingAccent = !fundingKnown ? tokens.muted : underfunded ? tokens.amber : tokens.green;
   const fundingLabel = !fundingKnown
-    ? "VERIFICANDO"
+    ? t("modal.claimPayout.funding.checking")
     : underfunded
-      ? "AGUARDANDO"
-      : "PRONTO PRA SACAR";
+      ? t("modal.claimPayout.funding.waiting")
+      : t("modal.claimPayout.funding.ready");
 
   // ─── Payment progress + Triple Shield collateral ─────────────────────
   // Surfaces the contract-social side of receiving the credit upfront:
@@ -257,18 +256,20 @@ export function ClaimPayoutModal({
     <Modal
       open={open}
       onClose={submitting ? () => {} : reset}
-      title={done ? "" : "Receber pagamento"}
-      subtitle={done ? undefined : "Você foi sorteado neste ciclo"}
+      title={done ? "" : t("modal.claimPayout.title")}
+      subtitle={done ? undefined : t("modal.claimPayout.subtitle")}
       closeable={!submitting}
       width={480}
     >
       {done ? (
         <ModalSuccess
-          title="Crédito recebido!"
+          title={t("modal.claimPayout.success.title")}
           body={
             txSig ? (
               <>
-                {fmtMoney(creditBrl, { noCents: true })} foi transferido para sua wallet.
+                {t("modal.claimPayout.success.body", {
+                  amount: fmtMoney(creditBrl, { noCents: true }),
+                })}
                 <a
                   href={explorerTx(txSig)}
                   target="_blank"
@@ -288,16 +289,16 @@ export function ClaimPayoutModal({
                     textDecoration: "none",
                   }}
                 >
-                  on-chain tx · {shortAddr(txSig, 6, 6)}
+                  {t("modal.claimPayout.success.txLabel")} · {shortAddr(txSig, 6, 6)}
                 </a>
               </>
             ) : (
-              "O crédito foi transferido para sua wallet."
+              t("modal.claimPayout.success.bodyNoTx")
             )
           }
           cta={
             <button type="button" onClick={reset} style={primaryBtn(tokens)}>
-              Fechar
+              {t("modal.close")}
             </button>
           }
         />
@@ -332,7 +333,7 @@ export function ClaimPayoutModal({
               {group.emoji}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <MonoLabel size={9}>GRUPO</MonoLabel>
+              <MonoLabel size={9}>{t("modal.claimPayout.group")}</MonoLabel>
               <div style={{ fontSize: 14, fontWeight: 600, color: tokens.text }}>{group.name}</div>
               <div
                 style={{
@@ -342,7 +343,10 @@ export function ClaimPayoutModal({
                   fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
                 }}
               >
-                slot {slotIndexDisplay} · ciclo {cycleDisplay + 1}/{cyclesTotalDisplay}
+                {t("modal.claimPayout.cycleLine", {
+                  cycle: cycleDisplay + 1,
+                  total: cyclesTotalDisplay,
+                })}
               </div>
             </div>
           </div>
@@ -359,7 +363,7 @@ export function ClaimPayoutModal({
             }}
           >
             <MonoLabel size={9} color={tokens.purple}>
-              VOCÊ RECEBE
+              {t("modal.claimPayout.youReceive")}
             </MonoLabel>
             <div
               style={{
@@ -382,7 +386,7 @@ export function ClaimPayoutModal({
                 fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
               }}
             >
-              {creditUsdc.toFixed(2)} USDC do `pool_usdc_vault` → sua ATA
+              {t("modal.claimPayout.fromVault", { usdc: creditUsdc.toFixed(2) })}
             </div>
           </div>
 
@@ -406,12 +410,16 @@ export function ClaimPayoutModal({
               </MonoLabel>
               <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
                 {!fundingKnown
-                  ? "Checando os fundos do pool…"
+                  ? t("modal.claimPayout.funding.checkingBody")
                   : underfunded
-                    ? `Aguardando o pool fundear o saque — faltam ~${Math.ceil(shortfallUsdc)} USDC. Libera quando os outros membros pagarem este ciclo.`
-                    : "Pool fundeado — você já pode sacar."}
+                    ? t("modal.claimPayout.funding.waitingBody", { n: Math.ceil(shortfallUsdc) })
+                    : t("modal.claimPayout.funding.readyBody")}
                 {paidThisCycle !== null && pool
-                  ? ` ${paidThisCycle}/${pool.membersTarget} pagaram este ciclo.`
+                  ? " " +
+                    t("modal.claimPayout.funding.paidCount", {
+                      paid: paidThisCycle,
+                      total: pool.membersTarget,
+                    })
                   : ""}
               </span>
             </div>
@@ -423,7 +431,7 @@ export function ClaimPayoutModal({
               installments are paid post-claim, secured by the Triple
               Shield. */}
           <div style={{ marginBottom: 14 }}>
-            <MonoLabel size={9}>PROGRESSO DE PAGAMENTO</MonoLabel>
+            <MonoLabel size={9}>{t("modal.claimPayout.progress.label")}</MonoLabel>
             <div
               style={{
                 marginTop: 8,
@@ -440,10 +448,13 @@ export function ClaimPayoutModal({
             >
               <div>
                 <div style={{ color: tokens.muted, fontSize: 10, marginBottom: 2 }}>
-                  Pago até agora
+                  {t("modal.claimPayout.progress.paidSoFar")}
                 </div>
                 <div style={{ color: tokens.text, fontWeight: 600 }}>
-                  {installmentsPaid} / {installmentsTotal} parcelas
+                  {t("modal.claimPayout.progress.installments", {
+                    paid: installmentsPaid,
+                    total: installmentsTotal,
+                  })}
                 </div>
                 <div
                   style={{
@@ -458,10 +469,10 @@ export function ClaimPayoutModal({
               </div>
               <div>
                 <div style={{ color: tokens.muted, fontSize: 10, marginBottom: 2 }}>
-                  Restam pós-sorteio
+                  {t("modal.claimPayout.progress.remaining")}
                 </div>
                 <div style={{ color: tokens.amber, fontWeight: 600 }}>
-                  {installmentsRemaining} parcelas
+                  {t("modal.claimPayout.progress.remainingCount", { n: installmentsRemaining })}
                 </div>
                 <div
                   style={{
@@ -484,9 +495,9 @@ export function ClaimPayoutModal({
                 lineHeight: 1.5,
               }}
             >
-              Crédito é <strong>antecipado</strong> — você recebe os{" "}
-              {fmtMoney(creditBrl, { noCents: true })} agora e continua pagando as parcelas
-              restantes até o ciclo fechar. Independe de level (afeta só o stake de entrada).
+              {t("modal.claimPayout.progress.note", {
+                amount: fmtMoney(creditBrl, { noCents: true }),
+              })}
             </div>
           </div>
 
@@ -496,7 +507,7 @@ export function ClaimPayoutModal({
               settle_default seizes them). */}
           <div style={{ marginBottom: 14 }}>
             <MonoLabel size={9} color={tokens.green}>
-              TRIPLE SHIELD · GARANTIA BLOQUEADA
+              {t("modal.claimPayout.shield.label")}
             </MonoLabel>
             <div
               style={{
@@ -514,7 +525,7 @@ export function ClaimPayoutModal({
             >
               <div>
                 <div style={{ color: tokens.muted, fontSize: 9, marginBottom: 2 }}>
-                  Stake (Lv{userLevel})
+                  {t("modal.claimPayout.shield.stake", { lv: userLevel })}
                 </div>
                 <div style={{ color: tokens.text, fontWeight: 600 }}>
                   {fmtMoney(stakeInitialBrl, { noCents: true })}
@@ -522,7 +533,7 @@ export function ClaimPayoutModal({
               </div>
               <div>
                 <div style={{ color: tokens.muted, fontSize: 9, marginBottom: 2 }}>
-                  Escrow acumulado
+                  {t("modal.claimPayout.shield.escrow")}
                 </div>
                 <div style={{ color: tokens.text, fontWeight: 600 }}>
                   {fmtMoney(escrowDepositedBrl, { noCents: true })}
@@ -530,7 +541,7 @@ export function ClaimPayoutModal({
               </div>
               <div>
                 <div style={{ color: tokens.muted, fontSize: 9, marginBottom: 2 }}>
-                  Total colateral
+                  {t("modal.claimPayout.shield.total")}
                 </div>
                 <div style={{ color: tokens.green, fontWeight: 700 }}>
                   {fmtMoney(totalCollateralBrl, { noCents: true })}
@@ -545,9 +556,7 @@ export function ClaimPayoutModal({
                 lineHeight: 1.5,
               }}
             >
-              Se você parar de pagar pós-sorteio, <code>settle_default</code> aciona o waterfall:
-              solidarity → escrow → stake. Invariante D/C garante que o protocolo nunca paga mais do
-              que o colateral cobre.
+              {t("modal.claimPayout.shield.note")}
             </div>
           </div>
 
@@ -566,13 +575,12 @@ export function ClaimPayoutModal({
               }}
             >
               <MonoLabel size={9} color={tokens.purple}>
-                ON-CHAIN
+                {t("modal.claimPayout.onchain.label")}
               </MonoLabel>
               <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
-                Wallet {shortAddr(connectedWallet?.toBase58() ?? "")} (slot {slotIndexDisplay}) é o
-                slot contemplado do ciclo {cycleDisplay}. Confirmar dispara{" "}
-                <code style={{ color: tokens.purple }}>claim_payout(cycle={cycleDisplay})</code> no
-                devnet — Pool PDA assina a transferência USDC.
+                {t("modal.claimPayout.onchain.body", {
+                  wallet: shortAddr(connectedWallet?.toBase58() ?? ""),
+                })}
               </span>
             </div>
           ) : (
@@ -589,18 +597,16 @@ export function ClaimPayoutModal({
               }}
             >
               <MonoLabel size={9} color={tokens.purple}>
-                MODO DEMO
+                {t("modal.claimPayout.demo.label")}
               </MonoLabel>
               <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
-                Cenário do Demo Studio. Confirmar dispara o `claim_payout` mock — credita o prêmio
-                no saldo da sessão. A versão on-chain (com wallet conectada num pool deployed) envia
-                uma tx real assinada pelo Phantom.
+                {t("modal.claimPayout.demo.body")}
               </span>
             </div>
           )}
 
           {/* What happens (mini bullet list) */}
-          <MonoLabel size={9}>O QUE ACONTECE</MonoLabel>
+          <MonoLabel size={9}>{t("modal.claimPayout.whatHappens.label")}</MonoLabel>
           <ul
             style={{
               marginTop: 8,
@@ -612,16 +618,13 @@ export function ClaimPayoutModal({
             }}
           >
             <li>
-              {chainMode ? `${creditUsdc.toFixed(2)} USDC` : fmtMoney(creditBrl)} sai do pool float,
-              vai para a sua wallet
+              {t("modal.claimPayout.whatHappens.transfer", {
+                amount: chainMode ? `${creditUsdc.toFixed(2)} USDC` : fmtMoney(creditBrl),
+              })}
             </li>
-            <li>
-              <code>pool.current_cycle</code> avança {cycleDisplay} → {cycleDisplay + 1}
-            </li>
-            <li>
-              <code>member.paid_out</code> = true (não pode reclamar duas vezes)
-            </li>
-            <li>`SCHEMA_CYCLE_COMPLETE` attestation é gravada no seu reputation profile</li>
+            <li>{t("modal.claimPayout.whatHappens.advance")}</li>
+            <li>{t("modal.claimPayout.whatHappens.once")}</li>
+            <li>{t("modal.claimPayout.whatHappens.reputation")}</li>
           </ul>
 
           {chainError ? (
@@ -639,7 +642,7 @@ export function ClaimPayoutModal({
               }}
             >
               <MonoLabel size={9} color={tokens.red}>
-                TX FAILED
+                {t("modal.claimPayout.error.label")}
               </MonoLabel>
               <div style={{ marginTop: 4 }}>{chainError}</div>
             </div>
@@ -663,7 +666,7 @@ export function ClaimPayoutModal({
           {/* Footer */}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
             <button type="button" onClick={reset} style={ghostBtn(tokens)}>
-              Cancelar
+              {t("modal.cancel")}
             </button>
             <button
               type="button"
@@ -677,10 +680,10 @@ export function ClaimPayoutModal({
               }}
             >
               {submitting
-                ? "Processando…"
+                ? t("modal.claimPayout.cta.processing")
                 : underfunded
-                  ? "Aguardando fundos"
-                  : "Confirmar recebimento"}
+                  ? t("modal.claimPayout.cta.waitingFunds")
+                  : t("modal.claimPayout.cta.confirm")}
             </button>
           </div>
         </>
