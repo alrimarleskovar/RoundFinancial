@@ -155,6 +155,16 @@ Pre-mainnet policy draft:
 
 **Why ninth:** for would-be reporters once mainnet ships. Pre-mainnet uses SECURITY.md's interim policy.
 
+### Design drafts (not yet implemented)
+
+Pre-implementation security designs for **deferred** features — choreography +
+threat model written _before_ any code, so the eventual implementation (and its
+auditor) has a reviewed target. **Not** part of the shipped-surface reading order.
+
+| File                 | Feature                                                                                           | Status                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `social-recovery.md` | Social recovery of member positions ([ADR 0011](../adr/0011-social-recovery-member-positions.md)) | 🚧 Design draft — deferred past pre-canary |
+
 ## Companion docs in other directories
 
 These cross-reference the security docs and matter to the audit pre-engagement reading:
@@ -182,4 +192,4 @@ Update this README whenever a security doc is added, removed, or substantively r
 
 ---
 
-_Last updated: 2026-05-26. 12 security docs indexed (plus this README): audit-readiness, internal-audit-findings, constants-audit-2026-05, self-audit, adversarial-threat-model, mev-front-running, frontend-security-checklist, indexer-threat-model, passport-bridge-threat-model, economic-config-governance, immunefi-submission-package, bug-bounty._
+_Last updated: 2026-07-03. 12 audit docs + 1 design draft indexed (plus this README): audit-readiness, internal-audit-findings, constants-audit-2026-05, self-audit, adversarial-threat-model, mev-front-running, frontend-security-checklist, indexer-threat-model, passport-bridge-threat-model, economic-config-governance, immunefi-submission-package, bug-bounty; design drafts: social-recovery (deferred)._
