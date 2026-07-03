@@ -35,6 +35,10 @@ on:
         description: "Why this deploy? (for audit log)"
         type: string
         required: true
+      canary:
+        description: "Compile roundfi_core with the devnet-canary feature (GRACE_PERIOD_SECS → 1 day) so late-payment / stuck-cycle scenarios are reachable in a short test window. Devnet-only + cfg-gated (can never reach mainnet). Turn OFF for a mainnet-parity rehearsal at 7-day grace."
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-devnet
@@ -166,6 +170,13 @@ jobs:
         # SEV-046 follow-up notes there.
         env:
           SOLANA_CLUSTER: devnet
+          # Canary grace (1 day) by default on devnet — see the `canary`
+          # dispatch input above. Only an explicit `canary=false` opt-out maps
+          # to "0" (vanilla 7-day grace, for a mainnet-parity rehearsal); the
+          # dispatch default and tag-push both map to "1". deploy.ts rebuilds
+          # ONLY roundfi_core with `--features devnet-canary` when this is
+          # non-"0", and refuses mainnet regardless (cfg-gated + cluster guard).
+          DEVNET_CANARY: ${{ inputs.canary == 'false' && '0' || '1' }}
         run: pnpm exec tsx scripts/devnet/deploy.ts
 
       - name: Capture deploy summary
