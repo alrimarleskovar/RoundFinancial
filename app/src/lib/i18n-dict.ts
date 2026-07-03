@@ -1354,6 +1354,10 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.forming": "Formando {f}/{t} · faltam {r}",
     "groupsV2.card.active": "Ativa",
     "groupsV2.card.completed": "Finalizada",
+    "groupsV2.card.processing.badge": "Aguardando processamento",
+    "groupsV2.card.processing.title": "Esta pool precisa ser processada",
+    "groupsV2.card.processing.body": "O próximo ciclo está pronto para continuar.",
+    "groupsV2.card.processing.cta": "Processar ciclo",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
     "groupsV2.footer.note":
       "Sua reputação e nível de acesso determinam os grupos disponíveis para você.",
@@ -3276,6 +3280,10 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.forming": "Forming {f}/{t} · {r} to go",
     "groupsV2.card.active": "Active",
     "groupsV2.card.completed": "Completed",
+    "groupsV2.card.processing.badge": "Awaiting processing",
+    "groupsV2.card.processing.title": "This pool needs processing",
+    "groupsV2.card.processing.body": "The next cycle is ready to continue.",
+    "groupsV2.card.processing.cta": "Process cycle",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
     "groupsV2.footer.note":
       "Your reputation and access level determine which groups are available to you.",

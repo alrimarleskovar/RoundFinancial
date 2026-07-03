@@ -36,12 +36,16 @@ export function CrankPayoutModal({
   onClose,
   onSuccess,
   initialPool,
+  lockPool = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
   /** Pool to pre-select when opened (e.g. from the pool radar). */
   initialPool?: DevnetPoolKey;
+  /** Hide the pool selector and pin to `initialPool` — used from the member-
+   *  facing group card, where the pool is already the one being viewed. */
+  lockPool?: boolean;
 }) {
   const { tokens } = useTheme();
   const t = useT();
@@ -191,27 +195,30 @@ export function CrankPayoutModal({
         />
       ) : (
         <>
-          {/* Pool selector */}
-          <div style={{ marginBottom: 16 }}>
-            {sectionLabel(t("modal.crankPayout.pool"))}
-            <div style={{ display: "flex", gap: 8 }}>
-              {(Object.keys(DEVNET_POOLS) as DevnetPoolKey[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelectedPool(key)}
-                  style={{
-                    ...ghostBtn(tokens),
-                    flex: 1,
-                    borderColor: selectedPool === key ? tokens.green : tokens.border,
-                    background: selectedPool === key ? `${tokens.green}1A` : "transparent",
-                  }}
-                >
-                  {t(`home.devnet.${key}.label`).split("·")[0].trim()}
-                </button>
-              ))}
+          {/* Pool selector — hidden when the modal is pinned to one pool
+              (e.g. opened from the member-facing group card). */}
+          {!lockPool && (
+            <div style={{ marginBottom: 16 }}>
+              {sectionLabel(t("modal.crankPayout.pool"))}
+              <div style={{ display: "flex", gap: 8 }}>
+                {(Object.keys(DEVNET_POOLS) as DevnetPoolKey[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedPool(key)}
+                    style={{
+                      ...ghostBtn(tokens),
+                      flex: 1,
+                      borderColor: selectedPool === key ? tokens.green : tokens.border,
+                      background: selectedPool === key ? `${tokens.green}1A` : "transparent",
+                    }}
+                  >
+                    {t(`home.devnet.${key}.label`).split("·")[0].trim()}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Contemplated slot */}
           <div style={{ marginBottom: 16 }}>

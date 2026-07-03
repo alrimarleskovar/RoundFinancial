@@ -30,9 +30,10 @@ import { Icons } from "@/components/brand/icons";
 import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
 import { NewCycleModal } from "@/components/grupos/NewCycleModal";
 import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
+import { CrankPayoutModal } from "@/components/modals/CrankPayoutModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type ActiveGroup, type GroupLevel } from "@/data/groups";
-import { DEVNET_POOLS } from "@/lib/devnet";
+import { DEVNET_POOLS, GRACE_PERIOD_SECS } from "@/lib/devnet";
 import {
   CATEGORY_KEYS,
   fromActive,
@@ -150,6 +151,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const [joinOpen, setJoinOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [claimOpen, setClaimOpen] = useState(false);
+  const [processOpen, setProcessOpen] = useState(false);
 
   const tone = TONE_HEX[group.tone] ?? "#14F195";
   // Live on-chain fill for devnet-linked cards (members_joined / target +
@@ -215,6 +217,28 @@ function GroupCard({ group }: { group: CatalogGroup }) {
     myMember.slotIndex === lp.currentCycle;
   const claimPrizeBrl =
     claimReadyChain && lp ? (Number(lp.creditAmount) / 1e6) * USDC_RATE : group.prize;
+
+  // "Awaiting processing" (SEV-051 liveness) — the group is stuck: the
+  // contemplated member (slot === current_cycle) never claimed and their
+  // self-claim grace (next_cycle_at + GRACE_PERIOD_SECS) has elapsed, so the
+  // cycle can't advance for anyone. This surfaces the permissionless
+  // crank_payout as a plain "Processar ciclo" affordance — hiding the
+  // admin/cranker concept from the member. Not shown to the contemplated
+  // member themselves (they get the "Receber" claim button above instead).
+  const contemplatedMember = useMemo(() => {
+    if (!lp || lp.status !== "active" || membersRes.status !== "ok") return null;
+    if (lp.currentCycle >= lp.cyclesTotal) return null;
+    return membersRes.members.find((m) => m.slotIndex === lp.currentCycle) ?? null;
+  }, [lp, membersRes]);
+  const graceElapsed =
+    !!lp && Math.floor(Date.now() / 1000) >= Number(lp.nextCycleAt) + Number(GRACE_PERIOD_SECS);
+  const needsProcessing =
+    !demoActive &&
+    !!contemplatedMember &&
+    !contemplatedMember.paidOut &&
+    !contemplatedMember.defaulted &&
+    graceElapsed &&
+    !claimReadyChain;
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/[0.08] bg-[#0C111A]/95 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
@@ -287,22 +311,26 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             <span
               className="inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em]"
               style={
-                completed
-                  ? { borderColor: "#00C8FF66", background: "#00C8FF1a", color: "#00C8FF" }
-                  : forming
-                    ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
-                    : { borderColor: "#14F19566", background: "#14F1951a", color: "#14F195" }
+                needsProcessing
+                  ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
+                  : completed
+                    ? { borderColor: "#00C8FF66", background: "#00C8FF1a", color: "#00C8FF" }
+                    : forming
+                      ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
+                      : { borderColor: "#14F19566", background: "#14F1951a", color: "#14F195" }
               }
             >
-              {completed
-                ? t("groupsV2.card.completed")
-                : forming
-                  ? t("groupsV2.card.forming", {
-                      f: filled,
-                      t: total,
-                      r: Math.max(0, total - filled),
-                    })
-                  : t("groupsV2.card.active")}
+              {needsProcessing
+                ? t("groupsV2.card.processing.badge")
+                : completed
+                  ? t("groupsV2.card.completed")
+                  : forming
+                    ? t("groupsV2.card.forming", {
+                        f: filled,
+                        t: total,
+                        r: Math.max(0, total - filled),
+                      })
+                    : t("groupsV2.card.active")}
             </span>
           )}
         </div>
@@ -335,6 +363,27 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             style={{ width: `${pct}%`, background: tone, boxShadow: `0 0 18px ${tone}55` }}
           />
         </div>
+
+        {/* Liveness (SEV-051): the contemplated member never claimed and their
+            grace elapsed → the cycle is stuck. Surface the permissionless
+            crank_payout as a plain "Processar ciclo" affordance. */}
+        {needsProcessing && (
+          <div className="mb-3 rounded-xl border border-[#FFB547]/30 bg-[#FFB547]/10 p-3">
+            <p className="text-xs font-black text-[#FFB547]">
+              {t("groupsV2.card.processing.title")}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400">
+              {t("groupsV2.card.processing.body")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setProcessOpen(true)}
+              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#FFB547] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-[#1A1200] transition hover:brightness-110"
+            >
+              {t("groupsV2.card.processing.cta")}
+            </button>
+          </div>
+        )}
 
         {claimReadyChain || claimReadyDemo ? (
           <button
@@ -387,6 +436,22 @@ function GroupCard({ group }: { group: CatalogGroup }) {
           {...(claimReadyChain && lp && myMember && group.devnetPool
             ? { memberRecord: myMember, pool: lp, seedKey: group.devnetPool }
             : {})}
+        />
+      )}
+      {/* Mount only while open — the modal runs its own usePool/usePoolMembers,
+          so mounting it on `needsProcessing` alone would double-poll the chain
+          for every stuck card. `processOpen` stays true through the success
+          screen (cleared only by the user), so nothing flashes/unmounts. */}
+      {group.devnetPool && processOpen && (
+        <CrankPayoutModal
+          open={processOpen}
+          onClose={() => setProcessOpen(false)}
+          initialPool={group.devnetPool}
+          lockPool
+          onSuccess={() => {
+            void live.refresh();
+            void membersRes.refresh();
+          }}
         />
       )}
     </article>
