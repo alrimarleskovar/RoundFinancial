@@ -307,7 +307,7 @@ Residual surface for mitigation #4 (Jito): the cooldown shrinks the searcher win
 
 **Residual risk on mainnet:**
 
-- **List → cancel → list race.** A seller listing twice in adjacent slots (cancel-and-relist) creates a window for an aware buyer to commit to the lower historical price. Today: `escape_valve_list` doesn't have a cancel path — listings close only via `escape_valve_buy` success. So this risk is **not present** in the current implementation.
+- **List → cancel → list race.** A seller listing twice in adjacent slots (cancel-and-relist) creates a window for an aware buyer to commit to the lower historical price. Today an **Active** listing has no cancel path — it closes only via `escape_valve_buy` success — so the relist race is **not present**. (`cancel_pending_listing` (SEV-015) does exist, but it cancels only an unrevealed **Pending** commit-reveal listing, never an Active one, so it does not reopen this race.) Flip side, flagged in the audit-leads triage: because an Active listing also cannot be repriced or cancelled by its owner, a listing set too high is stuck until it sells — a bounded liveness tradeoff (locked rent + that slot's escape-valve unusable), not a fund risk.
 - **Future relist primitive (post-mainnet).** When `escape_valve_relist(new_price)` ships (planned), it must be a **single atomic instruction** that updates price in-place, not a close + re-init. Otherwise the same listing-race surface as #232.
 
 **Mitigation status:** 🟢 **Already-mitigated (current implementation).** No active mitigation needed. **Mainnet caveat:** the future `escape_valve_relist` must be atomic-update, not close-and-re-init. Track under #232 alongside the `escape_valve_buy` mitigation work.
