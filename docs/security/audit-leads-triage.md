@@ -1,7 +1,8 @@
 # Audit-Leads Triage — Caio's 10 Investigation Leads
 
-> **Status:** triage / decision-support. Maps each of the 10 internal
-> security-audit leads (Caio, 2026-07) to its current on-chain coverage,
+> **Status:** triage / decision-support. Maps each of the 11 internal
+> security-audit leads (Caio, 2026-07 — the original 10 plus LEAD-011,
+> Anchor structural fundamentals) to its current on-chain coverage,
 > a verdict, and recommended work. **No code changes are described here**
 > beyond the Phase-A doc corrections already landed alongside this file.
 > **Date:** 2026-07-05.
@@ -13,7 +14,7 @@
 
 ## Dominant theme
 
-**The on-chain code is sound across all 10 leads — no exploitable
+**The on-chain code is sound across all 11 leads — no exploitable
 vulnerability was found.** The consistent shortfall is _audit-facing
 evidence_: tests that **prove** what the code already does by
 construction, and docs whose numbers track the deployed constants. That
@@ -23,18 +24,19 @@ genuine **spec-vs-implementation question (LEAD-001)** and a few
 
 ## Summary table
 
-| LEAD | Surface                             | Caio's risk  | Verdict       | One-line                                                                                                                                         |
-| ---- | ----------------------------------- | ------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 001  | `settle_default` waterfall order    | Very High    | 🟡 PARTIAL ⚠️ | Implemented order is Solidarity→**member Escrow**→Stake, **not** →Guarantee Fund→. GF untouched on default by design. Spec wording to reconcile. |
-| 002  | `create_pool` param validation      | High         | 🟡 PARTIAL    | Div-by-zero structurally impossible, overflow guarded, cycle-0 closed (SEV-031/038). On-chain negative tests + `pool_is_viable` fuzz missing.    |
-| 003  | Yield-curve / distribution rounding | High         | 🟢 COVERED    | Conservation enforced at runtime **and** proptest **and** fuzz. Per-participant split is aggregate (M3).                                         |
-| 004  | Kamino adapter account pinning      | (High)       | 🟡 PARTIAL    | Program-id + reserve + prelude pinned; deep CPI test + mainnet reserve verify are mainnet-gated (out of pre-canary scope).                       |
-| 005  | `escape_valve_buy` race             | (flagged)    | 🟡 PARTIAL    | Buy/cancel/rebuy loop doesn't exist; race resolved. Commit-reveal + cancel untested; 2 dead enum states; Active-listing liveness gap.            |
-| 006  | Treasury lock state machine         | High         | 🟡 PARTIAL    | Rotations deadlock-free by construction. `pause` = indefinite freeze under absent/hostile authority. Coverage = 1 negative test.                 |
-| 007  | SEV-049/050/051 regression          | (durability) | 🟡 MIXED      | 051 COVERED (dedicated bankrun). 049/050 only via artifact-gated litesvm; liveness not directly asserted.                                        |
-| 008  | Reputation farming economics        | High         | 🟢/🟡         | `crank_payout` adds no farmable surface. Default-config farm uneconomical. Doc numbers were stale (fixed here); R1 structural cap open.          |
-| 009  | `crank_payout` (cranker)            | New          | 🟡 PARTIAL    | Every abuse case mitigated in code. Frozen/closed destination ATA is the one under-mitigated edge. Double-attest branch untested.                |
-| 010  | Recovery wallet (ADR-0011)          | New          | 🟡 DESIGN     | All 6 of Caio's questions answered at design level. 2 hardest deferred to the doc's §5 open questions. No code (deferred).                       |
+| LEAD | Surface                                                             | Caio's risk  | Verdict       | One-line                                                                                                                                                                                                 |
+| ---- | ------------------------------------------------------------------- | ------------ | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 001  | `settle_default` waterfall order                                    | Very High    | 🟡 PARTIAL ⚠️ | Implemented order is Solidarity→**member Escrow**→Stake, **not** →Guarantee Fund→. GF untouched on default by design. Spec wording to reconcile.                                                         |
+| 002  | `create_pool` param validation                                      | High         | 🟡 PARTIAL    | Div-by-zero structurally impossible, overflow guarded, cycle-0 closed (SEV-031/038). On-chain negative tests + `pool_is_viable` fuzz missing.                                                            |
+| 003  | Yield-curve / distribution rounding                                 | High         | 🟢 COVERED    | Conservation enforced at runtime **and** proptest **and** fuzz. Per-participant split is aggregate (M3).                                                                                                 |
+| 004  | Kamino adapter account pinning                                      | (High)       | 🟡 PARTIAL    | Program-id + reserve + prelude pinned; deep CPI test + mainnet reserve verify are mainnet-gated (out of pre-canary scope).                                                                               |
+| 005  | `escape_valve_buy` race                                             | (flagged)    | 🟡 PARTIAL    | Buy/cancel/rebuy loop doesn't exist; race resolved. Commit-reveal + cancel untested; 2 dead enum states; Active-listing liveness gap.                                                                    |
+| 006  | Treasury lock state machine                                         | High         | 🟡 PARTIAL    | Rotations deadlock-free by construction. `pause` = indefinite freeze under absent/hostile authority. Coverage = 1 negative test.                                                                         |
+| 007  | SEV-049/050/051 regression                                          | (durability) | 🟢 COVERED    | All three now have dedicated, non-artifact-gated bankrun regressions asserting liveness (051 shipped; 049/050 added in #595).                                                                            |
+| 008  | Reputation farming economics                                        | High         | 🟢/🟡         | `crank_payout` adds no farmable surface. Default-config farm uneconomical. Doc numbers were stale (fixed here); R1 structural cap open.                                                                  |
+| 009  | `crank_payout` (cranker)                                            | New          | 🟡 PARTIAL    | Every abuse case mitigated in code. Frozen/closed destination ATA is the one under-mitigated edge. Double-attest branch untested.                                                                        |
+| 010  | Recovery wallet (ADR-0011)                                          | New          | 🟡 DESIGN     | All 6 of Caio's questions answered at design level. 2 hardest deferred to the doc's §5 open questions. No code (deferred).                                                                               |
+| 011  | Anchor fundamentals (signer / owner / arbitrary-CPI / bump / close) | New (Caio)   | 🟢 SOLID      | 4/5 clean: every signer bound, every external owner typed, every CPI program-id pinned, every PDA bump canonical, every close Anchor-safe. 1 LOW: migrate_reputation_config lacks a discriminator check. |
 
 ---
 
@@ -118,9 +120,9 @@ The SEV-047 gate + 30-day cooldown make default-config farming uneconomical, but
 
 - Guards: `!defaulted` (`crank_payout.rs:69`), `!paid_out` (`:70`), `cycle==current_cycle` (`:131`), grace gate (`:141-148`), dest ATA pinned `token::authority=member_wallet` (`:91-96`, never caller), earmark survival (`:170-174`).
 - Nobody-executes: liveness by design (permissionless + economically forced; sole advance path for a live-unclaimed slot). Two-callers/replay: mitigated by `!paid_out` (account constraint) + `cycle==current_cycle` (backstop); B reverts `NotYourPayoutSlot`. Double-attest: attestation PDA `init` collision (`attest.rs:79-92`) → `ReputationCpiFailed`.
-- **🔴 the one real edge — frozen/closed destination ATA.** Missing ATA is recoverable (cranker prepends create-ATA; constraint is `token::authority`, not `associated_token::`). **Frozen** ATA (Circle freeze authority) → `token::transfer` fails `AccountFrozen` → crank reverts → **pool re-stuck on that slot with no fallback** (crank can't deliver, `skip_defaulted_payout` needs `defaulted`, member can't sign). Low probability, un-handled, undocumented.
+- **🔴 the one real edge — frozen/closed destination ATA.** Missing ATA is recoverable (cranker prepends create-ATA; constraint is `token::authority`, not `associated_token::`). **Frozen** ATA (Circle freeze authority) → `token::transfer` fails `AccountFrozen` → crank reverts → **pool re-stuck on that slot with no fallback** (crank can't deliver, `skip_defaulted_payout` needs `defaulted`, member can't sign). Low probability, un-handled. **Owner decision (2026-07): do NOT implement a frozen-ATA skip path now** — a prior liveness-skip change caused problems; this stays a documented residual, not an action item, until explicitly revisited.
 - **Test hole:** `edge_crank_payout.spec.ts` sets `reputationProgram = PublicKey.default`, so the reputation-CPI branch (incl. the double-attest guard) never runs for `crank_payout`.
-- **Recommended:** double-attest test with reputation live; two distinct callers (pin `NotYourPayoutSlot`); explicit replay; frozen dest ATA (+ decide a skip path for a frozen/closed contemplated ATA); missing ATA (+ create-ATA recovery).
+- **Recommended:** double-attest test with reputation live; two distinct callers (pin `NotYourPayoutSlot`); explicit replay; missing ATA (+ create-ATA recovery). **Frozen-ATA: no skip path — owner-deferred (see above). A test may still assert the clean revert, but no new instruction.**
 
 ### LEAD-010 — recovery wallet (ADR-0011) — 🟡 DESIGN (no code; deferred)
 
@@ -128,16 +130,29 @@ The SEV-047 gate + 30-day cooldown make default-config farming uneconomical, but
 - The 2 hardest carry documented open questions: Q4's stranded mid-window crank (§5.3) and Q5's anti-farming aggregation rule (§5.4, "highest-risk"). Biggest gate: §5.1 NFT ownership ("gates the whole design"). One item not in the docs: the cancel-vs-commit timelock-boundary race.
 - **Recommended:** no code (deferred past pre-canary per Caio; `crank_payout` is the interim answer). Close §5.1/§5.4 + the boundary-race note before any implementation.
 
+### LEAD-011 — Anchor structural fundamentals (Caio's cross-cutting checklist) — 🟢 SOLID
+
+Cross-cutting audit of the 5 Anchor hygiene properties across all 58 handlers in the 4 programs (added by Caio after the original 10). Method: 5 property-lens agents + inline completion of the CPI lens. Verdict: the fundamentals are solid — 4 of 5 clean, 1 minor confirmed LOW.
+
+- **Signer / authority (P1) — CLEAN.** Every privileged op binds its Signer to the authoritative field: admin → `config.authority` (`update_protocol_config.rs:62`, `pause.rs:33`, the propose/lock ix); self-service → `member.wallet` / `listing.seller` / profile-by-seed / `identity.wallet`; the permissionless cranks (`crank_payout`, `skip_defaulted_payout`, `settle_default`, the three `commit_new_*`, `deposit_idle_to_yield`, `harvest_yield`) are safe-by-design — funds reach only the rightful party or a pool-owned account, never the caller (`crank_payout.rs:65,78,91`; `settle_default.rs:47,68,77`). 0 authority-binding failures.
+- **External-account owner (P2) — CLEAN.** Every externally-supplied token account is a typed `Account<TokenAccount>` / `Mint` (Anchor auto-checks `owner == SPL-Token`) or carries a `token::authority` / `token::mint` / `owner =` constraint. Nothing is trusted by client-declared type.
+- **Arbitrary CPI (P3) — CLEAN** (verified inline; the lens agent hit the schema retry cap). Every CPI's `program_id` is pinned to an authoritative on-chain value **before** invoke: reputation → `expected_program_id: config.reputation_program` at every caller (`claim_payout.rs:245`, `contribute.rs:321`, `crank_payout.rs:263`, `settle_default.rs:364`), enforced by `require_keys_eq!` + `executable` (`cpi/reputation.rs:122-130`); yield → `pool.yield_adapter` (`deposit_idle_to_yield.rs:165`, `harvest_yield.rs:235`), enforced at `cpi/yield_adapter.rs:132`. A spoofed program-id → `Unauthorized`. `join_pool` holds a `reputation_program` account but does no CPI with it.
+- **PDA bump (P4) — CLEAN.** All 17 PDAs use canonical bumps (Anchor `bump` at init → stored → re-verified). **Zero `create_program_address` calls; zero client-supplied bumps** anywhere.
+- **Close + discriminator/typing (P5) — one LOW.** All 6 close sites are Anchor `close =` (zeroes the discriminator; no resurrection). **CONFIRMED LOW:** `migrate_reputation_config` resizes a raw account after checking `owner == crate::ID` + authority `data[8..40]` but **not** `data[0..8] == ReputationConfig::DISCRIMINATOR` — its sibling `migrate_protocol_config` **does** (`migrate_protocol_config.rs:114`). A reputation-program-owned account with a matching authority at `[8..40]` (e.g. a member's own `ReputationProfile`) passes the migrate checks → narrow type-confusion (mostly self-harm — the real config is a fixed-seed PDA read separately). **Fix:** add the 1-line discriminator `require!`, mirroring `migrate_protocol_config`; verified by the required `anchor · build` lane. Awaiting owner go-ahead (program change).
+
+**Hardening notes (not bugs — recorded):** `deposit_idle_to_yield` — a permissionless cranker can move idle float into yield and temporarily starve a `claim_payout` (LOW; the solvency guard reserves GF+LP but not the current cycle's `credit_amount`); `init_vault` is permissionless with a caller-supplied `mint` (INFO); the yield-kamino Deposit/Harvest forward 3 unpinned Kamino accounts (INFO, mainnet — validated by Kamino Lend itself).
+
 ---
 
 ## Recommended execution order (no-decision items first)
 
 - **Phase A — doc/comment corrections (DONE, in this change):** `reputation-farming-roi.md` 6d→30d + L4; `edge_tiny_lifecycle.spec.ts` stale close_pool guard comment; `mev-front-running.md §2.8` cancel-path precision; SEV-051→SEV-039 relabel in `litesvm_parity.spec.ts`.
 - **Phase B — LEAD-001 test hardening (Very High):** payable-XOR-settleable property test, grace-boundary exact-threshold, interleaving regression. (after D1)
-- **Phase C — LEAD-007 regression:** dedicated bankrun for SEV-049 + SEV-050, un-gated from litesvm.
-- **Phase D — LEAD-009 tests:** double-attest live, two callers, frozen/missing ATA. (frozen-ATA needs a decision)
+- **Phase C — LEAD-007 regression (DONE, #595):** dedicated bankrun for SEV-049 (`edge_skip_defaulted_payout.spec.ts`) + SEV-050 (`edge_close_defaulted_pool.spec.ts`), un-gated from litesvm; both green in the bankrun lane.
+- **Phase D — LEAD-009 tests:** double-attest live, two callers, missing ATA. (Frozen-ATA skip path is owner-deferred — do NOT implement.)
 - **Phase E — LEAD-002/005/006/008 test batteries** + the reputation re-attestation test.
 - **LEAD-010:** no code; close the §5 open questions when the feature is picked up.
+- **LEAD-011:** fundamentals clean; the sole action is the optional `migrate_reputation_config` discriminator-check parity fix (see the LEAD-011 detail) — awaiting owner go-ahead (program change).
 
 ## Cross-references
 
