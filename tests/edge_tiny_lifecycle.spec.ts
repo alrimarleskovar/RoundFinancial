@@ -275,9 +275,14 @@ describe("edge — tiny 3×3 full lifecycle reconciliation", function () {
   });
 
   it("close_pool succeeds (status=Closed, zero defaults)", async function () {
-    // close_pool requires `defaulted_members == 0 || escrow_balance == 0`.
-    // Here defaulted_members == 0, so close is allowed even though the
-    // non-stake escrow portion is still resident.
+    // NOTE (SEV-050): close_pool no longer carries the old
+    // `defaulted_members == 0 || escrow_balance == 0` guard — that guard was
+    // unsatisfiable for any pool that had taken a default (both clauses fail
+    // once escrow is resident and a member defaulted), which was itself the
+    // close-pool liveness bug SEV-050 removed. This test covers only the
+    // healthy zero-default close; the defaulted-pool close is exercised in
+    // the litesvm parity lane (a dedicated bankrun regression is tracked as
+    // the SEV-050 follow-up in the audit-leads triage).
     await closePool(env, { pool });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

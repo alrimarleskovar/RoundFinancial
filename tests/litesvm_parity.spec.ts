@@ -64,10 +64,12 @@ interface ScenarioResult {
   // vault ATAs AND the Pool PDA are gone afterward.
   treasuryDrained: bigint;
   vaultsAndPoolClosed: boolean;
-  // SEV-051: close_pool_vaults pins rent_recipient to pool.authority. True iff
+  // SEV-039: close_pool_vaults pins rent_recipient to pool.authority. True iff
   // an attempt with a foreign recipient reverted — proves the constraint bites.
   // (Anchor reverts loud, but nothing FAILS if someone deletes the constraint;
-  // this pin is the regression net.)
+  // this pin is the regression net.) NB: this is part of the SEV-039 rent-
+  // reclaim ceremony — NOT the crank_payout liveness fix, which is the
+  // canonical SEV-051 (earlier revisions mislabeled this pin SEV-051).
   rentRecipientRejected: boolean;
 }
 
@@ -226,7 +228,7 @@ async function driveParityScenario(opts: {
   // SEV-039 final step: drain the 4 vaults to treasury + close them + the Pool
   // PDA. Treasury starts empty (no yield CPI ran → no protocol fee), so the
   // delta it receives must equal the conservation `vaultTotal` above.
-  // SEV-051 regression pin: rent_recipient is constrained to pool.authority.
+  // SEV-039 regression pin: rent_recipient is constrained to pool.authority.
   // Attempt the ceremony with a FOREIGN recipient first and confirm it reverts.
   // Anchor validates the account constraint BEFORE the handler runs, so this
   // mutates nothing — the authorized ceremony right below still succeeds. Any
@@ -408,10 +410,10 @@ for (const scenario of SCENARIOS) {
       ).to.equal(true);
     });
 
-    it("close_pool_vaults rejects a rent_recipient != pool.authority (SEV-051)", function () {
+    it("close_pool_vaults rejects a rent_recipient != pool.authority (SEV-039)", function () {
       expect(
         result.rentRecipientRejected,
-        "close_pool_vaults accepted a foreign rent_recipient — the SEV-051 constraint is missing or broken",
+        "close_pool_vaults accepted a foreign rent_recipient — the SEV-039 constraint is missing or broken",
       ).to.equal(true);
     });
   });
