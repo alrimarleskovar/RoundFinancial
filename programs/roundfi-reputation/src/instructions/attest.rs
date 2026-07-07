@@ -163,6 +163,14 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // trail); SCHEMA_POOL_COMPLETE is the renamed-and-resemanticised
     // id=4 (now emitted by `contribute` at the last installment, not by
     // `claim_payout`).
+    //
+    // SEV-053 erratum: a new schema id touches THREE lists in this file —
+    // this whitelist, `is_score_changing`, and the apply `match` below. The
+    // id-7 (CLAIM_NEGLECT) wave updated the other two and missed this gate,
+    // so the deployed program rejected its own crank_payout CPI with
+    // InvalidSchema on devnet. The reputation_schema_whitelist bankrun spec
+    // now enumerates the SDK's ATTESTATION_SCHEMA map against this gate on
+    // every PR; keep all three lists in sync.
     let schema_ok = matches!(
         args.schema_id,
         SCHEMA_PAYMENT
@@ -171,6 +179,7 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
             | SCHEMA_POOL_COMPLETE
             | SCHEMA_LEVEL_UP
             | SCHEMA_PAYOUT_CLAIMED
+            | SCHEMA_CLAIM_NEGLECT
     );
     require!(schema_ok, ReputationError::InvalidSchema);
 
