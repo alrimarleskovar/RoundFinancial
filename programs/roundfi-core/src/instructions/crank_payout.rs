@@ -215,8 +215,13 @@ pub fn handler(ctx: Context<CrankPayout>, args: CrankPayoutArgs) -> Result<()> {
         msg!("roundfi-core: pool completed (cranked payout) after {} cycles", pool.cycles_total);
     } else {
         pool.current_cycle = next_cycle;
+        // SEV-053: a crank by definition lands past `next_cycle_at + GRACE`,
+        // i.e. the deadline is long frozen — anchor the next window on `now`
+        // so blocked members' catch-up contributions are ON TIME instead of
+        // cascading wrongful LATEs (see claim_payout for the full rationale).
         pool.next_cycle_at = pool
             .next_cycle_at
+            .max(clock.unix_timestamp)
             .checked_add(pool.cycle_duration)
             .ok_or(error!(RoundfiError::MathOverflow))?;
     }

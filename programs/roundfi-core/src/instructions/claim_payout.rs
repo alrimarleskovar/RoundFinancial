@@ -189,8 +189,16 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
         msg!("roundfi-core: pool completed after {} cycles", pool.cycles_total);
     } else {
         pool.current_cycle = next_cycle;
+        // SEV-053: anchor the next deadline on max(schedule, now). While a
+        // payout is unclaimed the other members structurally CANNOT pay ahead
+        // (`WrongCycle` / `AlreadyContributed`), so an advance landing after
+        // the frozen deadline must open a FULL window — anchoring on the stale
+        // schedule births the window already expired and every catch-up
+        // contribution mints a wrongful LATE (−100). On-time advances keep the
+        // scheduled cadence (`max` picks the schedule).
         pool.next_cycle_at = pool
             .next_cycle_at
+            .max(clock.unix_timestamp)
             .checked_add(pool.cycle_duration)
             .ok_or(error!(RoundfiError::MathOverflow))?;
     }
