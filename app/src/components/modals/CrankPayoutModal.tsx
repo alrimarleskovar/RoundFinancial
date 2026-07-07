@@ -51,7 +51,7 @@ export function CrankPayoutModal({
   const t = useT();
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
-  const { explorerTx } = useWallet();
+  const { explorerTx, explorerAddr } = useWallet();
 
   const [selectedPool, setSelectedPool] = useState<DevnetPoolKey>(initialPool ?? "pool3");
   const [submitting, setSubmitting] = useState(false);
@@ -97,6 +97,18 @@ export function CrankPayoutModal({
       eligibleNow: !m.defaulted && !m.paidOut && graceSecsRemaining <= 0,
     };
   }, [onChainPool, onChainMembers, now]);
+
+  // Which pool this modal is acting on. A pool has no on-chain name, so pin the
+  // identity with its seed id + account (Solscan) — that's what actually tells a
+  // user *which* group is stuck, rather than the contemplated wallet address.
+  const poolIdent = useMemo(() => {
+    const meta = DEVNET_POOLS[selectedPool];
+    return {
+      title: t(`home.devnet.${selectedPool}.label`).split("·")[0].trim(),
+      seedId: meta.seedId.toString(),
+      pda: meta.pda.toBase58(),
+    };
+  }, [selectedPool, t]);
 
   const reset = () => {
     setSubmitting(false);
@@ -220,6 +232,40 @@ export function CrankPayoutModal({
             </div>
           )}
 
+          {/* Which pool — pin the identity (name · #seedId · account ↗) so it's
+              unmistakable which real group this stuck cycle belongs to. */}
+          <div
+            style={{
+              marginBottom: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              fontFamily: mono,
+              fontSize: 11,
+              color: tokens.muted,
+            }}
+          >
+            <span style={{ color: tokens.text, fontWeight: 700 }}>{poolIdent.title}</span>
+            <span
+              style={{
+                border: `1px solid ${tokens.border}`,
+                borderRadius: 6,
+                padding: "1px 6px",
+              }}
+            >
+              #{poolIdent.seedId}
+            </span>
+            <a
+              href={explorerAddr(poolIdent.pda)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: tokens.muted, textDecoration: "none" }}
+            >
+              {shortAddr(poolIdent.pda)} ↗
+            </a>
+          </div>
+
           {/* Contemplated slot */}
           <div style={{ marginBottom: 16 }}>
             {sectionLabel(t("modal.crankPayout.contemplated"))}
@@ -257,7 +303,8 @@ export function CrankPayoutModal({
                   style={{ display: "flex", justifyContent: "space-between", color: tokens.text }}
                 >
                   <span>
-                    {t("modal.crankPayout.cycle")} {target.cycle} · {target.shortWallet}
+                    {t("modal.crankPayout.cycle")} {target.cycle} ·{" "}
+                    {t("modal.crankPayout.recipient")} {target.shortWallet}
                   </span>
                   <span style={{ color: target.eligibleNow ? tokens.green : tokens.muted }}>
                     {target.paidOut
