@@ -681,6 +681,18 @@ jobs:
         # gate spec above (roundfi-reputation has no mpl-core CPI).
         run: pnpm test:bankrun:identity-floor
 
+      - name: Run bankrun spec (schema whitelist parity — no mpl_core needed)
+        # SEV-053 erratum guard: every ATTESTATION_SCHEMA id declared in the
+        # SDK (pinned 1:1 to the Rust SCHEMA_* consts by test:parity) must
+        # clear attest.rs's upfront schema-validity whitelist. Caught live on
+        # devnet (2026-07-07): schema 7 (CLAIM_NEGLECT) landed in the apply
+        # match + is_score_changing but NOT in the whitelist, so every
+        # crank_payout reverted InvalidSchema at the second attest CPI.
+        # Enumerating the SDK map means the NEXT schema id goes red in this
+        # lane the moment any of the three attest.rs lists is forgotten.
+        # Plus a negative control: an undeclared id must still be rejected.
+        run: pnpm test:bankrun:schema-whitelist
+
   # ─── litesvm · mpl-core path (SEV-012 unblock) ───────────────────
   # The mpl_core-dependent path (join_pool / escape_valve_buy) that
   # bankrun CANNOT run: solana-bankrun's solana-program-test 1.18 only
