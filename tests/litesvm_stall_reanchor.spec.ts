@@ -1,6 +1,6 @@
 /**
- * edge — SEV-053 stall re-anchor: a late cycle advance opens a FULL window
- * (bankrun, real instruction path end-to-end).
+ * SEV-053 stall re-anchor: a late cycle advance opens a FULL window
+ * (litesvm, real instruction path end-to-end — mpl_core join included).
  *
  * Found live on the devnet canary (2026-07-07): the cycle-0 contemplated
  * member deliberately never claimed; after the pool was cranked, the catch-up
@@ -13,10 +13,13 @@
  * their duty may be penalized; the blocked group must NOT be.
  *
  * Fix under test: the three advance sites (`claim_payout`, `crank_payout`,
- * `skip_defaulted_payout`) now anchor on `max(next_cycle_at, now)`:
+ * `skip_defaulted_payout`) anchor on `max(next_cycle_at, now)`:
  *
  *   A. Stalled unstick (crank long past grace) → `next_cycle_at = now +
- *      cycle_duration` (re-anchored), NOT the stale `schedule + duration`.
+ *      cycle_duration` (re-anchored), NOT the stale `schedule + duration`;
+ *      and the crank mints the SCHEMA_CLAIM_NEGLECT (−100) penalty on the
+ *      non-claimer — which requires attest.rs's schema whitelist to accept
+ *      id 7 (the gap that reverted every crank on devnet, InvalidSchema).
  *   B. The fairness pin: a blocked member contributing right after the
  *      unstick is ON TIME (`SCHEMA_PAYMENT`, `on_time_count` increments).
  *      The attestation PDA carries schema_id in its seeds, so if the program
@@ -26,11 +29,25 @@
  *      scheduled cadence exactly (`max` picks the schedule) — no drift for
  *      healthy pools.
  *
- * Uses the compat harness's REAL path (createPool → joinMembers → contribute
- * → crank/claim), so the reputation CPI runs for real — no hand-seeded state.
+ * **Why litesvm and not bankrun.** This spec's first life was
+ * `tests/edge_stall_reanchor.spec.ts` under the bankrun compat harness — a
+ * file the CI never executed: `join_pool` needs mpl_core, and bankrun's
+ * solana-program-test 1.18 panics on the current SBFv2 mpl_core.so
+ * (SEV-012), so the bankrun lane pins mpl_core-free specs only and the
+ * `edge_*` glob runs nowhere. The gap let the schema-whitelist regression
+ * reach devnet with a "passing" test that had never run. litesvm loads
+ * SBFv2 fine and `test:litesvm` globs `tests/litesvm_*.spec.ts`, so THIS
+ * file executes in the `litesvm · mpl-core path` lane on every PR.
+ *
+ * Uses the harness's REAL path (createPool → joinMembers → contribute →
+ * crank/claim), so the reputation CPI runs for real — no hand-seeded state.
+ * Skips cleanly when build artifacts are absent (same guard as
+ * litesvm_join_pool.spec.ts).
  */
 
 import { expect } from "chai";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
@@ -58,11 +75,7 @@ import {
   type MemberHandle,
   type PoolHandle,
 } from "./_harness/index.js";
-import {
-  setBankrunUnixTs,
-  setupBankrunEnvCompat,
-  type BankrunEnvCompat,
-} from "./_harness/bankrun_compat.js";
+import { setLitesvmUnixTs, setupLitesvmEnv, type LitesvmEnv } from "./_harness/litesvm.js";
 
 const GRACE_PERIOD_SECS = 604_800n; // vanilla build (no devnet-canary feature)
 
@@ -80,14 +93,27 @@ const CREDIT_BASE = usdc(2_200n);
 // (schedule + duration stays in the past for TWO advances in a row).
 const STALL_PAST_GRACE = 2n * CYCLE + 100n;
 
-describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", function () {
-  this.timeout(60_000);
+// litesvm's clock does not advance on its own; anchor it to a real epoch
+// once up front (same pattern as litesvm_pool_complete_cooldown) so every
+// `before`-phase contribute lands on-time against `next_cycle_at`.
+const BASE_TS = 1_900_000_000n; // ~2030
 
-  let env: BankrunEnvCompat;
+const ARTIFACTS = [
+  "target/idl/roundfi_core.json",
+  "target/deploy/roundfi_core.so",
+  "target/deploy/roundfi_reputation.so",
+  "target/deploy/mpl_core.so",
+].map((p) => resolve(process.cwd(), p));
+
+describe("SEV-053 — stall re-anchor opens a full window (litesvm, mpl_core path)", function () {
+  this.timeout(120_000);
+
+  let env: LitesvmEnv;
+  let litesvmAvailable = true;
   let usdcMint: PublicKey;
 
   const authority = Keypair.generate();
-  const memberKps = memberKeypairs(MEMBERS_TARGET, "edge_stall_reanchor");
+  const memberKps = memberKeypairs(MEMBERS_TARGET, "litesvm_stall_reanchor");
 
   let pool: PoolHandle;
   let m0: MemberHandle; // slot 0 — the contemplated who never claims
@@ -98,7 +124,24 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
   let crankTime: bigint; // clock at the moment of the unstick
 
   before(async function () {
-    env = await setupBankrunEnvCompat();
+    for (const p of ARTIFACTS) {
+      if (!existsSync(p)) {
+        console.warn(
+          `\n[litesvm] SKIPPING — missing ${p} (run 'anchor build' + dump mpl_core.so).`,
+        );
+        litesvmAvailable = false;
+        return;
+      }
+    }
+    try {
+      env = await setupLitesvmEnv();
+    } catch (e) {
+      console.warn(`\n[litesvm] SKIPPING — setup failed: ${(e as Error)?.message ?? e}`);
+      litesvmAvailable = false;
+      return;
+    }
+
+    await setLitesvmUnixTs(env.svm, BASE_TS);
     usdcMint = await createUsdcMint(env);
     await initializeProtocol(env, { usdcMint });
     await initializeReputation(env, { coreProgram: env.ids.core });
@@ -181,8 +224,9 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
   }
 
   it("A. stalled unstick re-anchors: next_cycle_at = now + cycle_duration, not schedule + duration", async function () {
+    if (!litesvmAvailable) return this.skip();
     crankTime = deadline0 + GRACE_PERIOD_SECS + STALL_PAST_GRACE;
-    await setBankrunUnixTs(env.context, crankTime);
+    await setLitesvmUnixTs(env.svm, crankTime);
 
     // Pre-crank baseline: m0 has one unverified on-time payment (+5).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,6 +248,9 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
     // SEV-053 option B: the non-claimer's half of the fairness rule — being
     // cranked costs a flat SCORE_CLAIM_NEGLECT (−100, floor at 0) and mints
     // the CLAIM_NEGLECT attestation alongside the PAYOUT_CLAIMED breadcrumb.
+    // This leg is ALSO the whitelist regression guard: attest.rs's upfront
+    // schema-validity gate rejected id 7 with InvalidSchema on devnet, which
+    // reverted this exact crank.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const profPost = (await fetchProfile(env, m0.wallet.publicKey)) as any;
     const scorePost = BigInt(profPost.score.toString());
@@ -214,6 +261,7 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
   });
 
   it("B. fairness pin: a blocked member contributing right after the unstick is ON TIME", async function () {
+    if (!litesvmAvailable) return this.skip();
     // Under the pre-fix schedule anchor this contribution would be LATE
     // (now >> deadline0 + duration). The helper derives the attestation PDA
     // under SCHEMA_PAYMENT — a LATE classification on-chain would abort with
@@ -228,6 +276,7 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
   });
 
   it("C. control: an advance BEFORE the deadline keeps the scheduled cadence exactly", async function () {
+    if (!litesvmAvailable) return this.skip();
     // Remaining cycle-1 contributions land inside the re-anchored window.
     await contribute(env, { pool, member: m0, cycle: 1, schemaId: ATTESTATION_SCHEMA.Payment });
     await contribute(env, { pool, member: m2, cycle: 1, schemaId: ATTESTATION_SCHEMA.Payment });
@@ -239,7 +288,7 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
     // The cycle-1 contemplated self-claims WELL BEFORE the deadline — the
     // healthy path. max(schedule, now) must pick the schedule: no drift.
     const claimTime = deadline1 - 1_000n;
-    await setBankrunUnixTs(env.context, claimTime);
+    await setLitesvmUnixTs(env.svm, claimTime);
     await claimPayout(env, { pool, member: m1, cycle: 1 });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
