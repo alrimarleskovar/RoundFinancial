@@ -34,6 +34,13 @@ export type PoolRadarStatus = "forming" | "active" | "completed" | "liquidated" 
 
 export interface PoolRadarEntry {
   key: DevnetPoolKey;
+  /** Stable on-chain identity. A pool has NO on-chain name — its seed id and
+   *  (authority, seed_id) PDA are the only things that say *which* pool a row
+   *  is, so the radar surfaces them instead of leaning on the contemplated
+   *  member's wallet address. Both come from `DEVNET_POOLS[key]` with no RPC,
+   *  so they're set even on a failed scan. */
+  seedId: bigint;
+  pda: PublicKey;
   /** false when the RPC read / decode failed for this pool. */
   ok: boolean;
   status: PoolRadarStatus | null;
@@ -60,6 +67,8 @@ const POOL_KEYS = Object.keys(DEVNET_POOLS) as DevnetPoolKey[];
 function emptyEntry(key: DevnetPoolKey): PoolRadarEntry {
   return {
     key,
+    seedId: DEVNET_POOLS[key].seedId,
+    pda: DEVNET_POOLS[key].pda,
     ok: false,
     status: null,
     currentCycle: null,
@@ -93,6 +102,8 @@ async function scanPool(connection: Connection, key: DevnetPoolKey): Promise<Poo
 
     return {
       key,
+      seedId: target.seedId,
+      pda: target.pda,
       ok: true,
       status: pool.status,
       currentCycle: pool.currentCycle,

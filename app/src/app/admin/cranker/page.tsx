@@ -8,6 +8,7 @@ import { GRACE_PERIOD_SECS, type DevnetPoolKey } from "@/lib/devnet";
 import { useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { usePoolRadar, type PoolRadarEntry, type PoolRadarStatus } from "@/lib/usePoolRadar";
+import { shortAddr, useWallet } from "@/lib/wallet";
 
 // /admin/cranker — operator surface for the two permissionless liveness
 // cranks (settle_default + crank_payout). Both instructions are callable by
@@ -199,6 +200,7 @@ function PoolRadar({
   const { tokens } = useTheme();
   const t = useT();
   const { entries, loading } = usePoolRadar();
+  const { explorerAddr } = useWallet();
   const [onlyActionable, setOnlyActionable] = useState(false);
   const [now, setNow] = useState<bigint>(BigInt(Math.floor(Date.now() / 1000)));
 
@@ -347,12 +349,26 @@ function PoolRadar({
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
+                      flexWrap: "wrap",
                       color: tokens.text,
                       fontWeight: 600,
                       fontSize: 13,
                     }}
                   >
                     {poolName(e.key)}
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily: MONO,
+                        fontWeight: 400,
+                        color: tokens.muted,
+                        border: `1px solid ${tokens.border}`,
+                        borderRadius: 6,
+                        padding: "1px 6px",
+                      }}
+                    >
+                      #{e.seedId.toString()}
+                    </span>
                     <span
                       style={{
                         fontSize: 10,
@@ -367,6 +383,20 @@ function PoolRadar({
                     >
                       {statusLabel(e.status)}
                     </span>
+                    <a
+                      href={explorerAddr(e.pda.toBase58())}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 10,
+                        fontFamily: MONO,
+                        fontWeight: 400,
+                        color: tokens.muted,
+                        textDecoration: "none",
+                      }}
+                    >
+                      {shortAddr(e.pda.toBase58())} ↗
+                    </a>
                   </div>
                   <div
                     style={{ fontSize: 11, color: tokens.muted, fontFamily: MONO, marginTop: 4 }}
@@ -376,6 +406,13 @@ function PoolRadar({
                     ) : e.currentCycle != null && e.cyclesTotal != null ? (
                       <>
                         {t("admin.cranker.radar.cycle")} {e.currentCycle + 1}/{e.cyclesTotal}
+                        {e.creditAmount != null && (
+                          <>
+                            {" · "}
+                            {t("admin.cranker.radar.delivers")} $
+                            {(Number(e.creditAmount) / 1e6).toFixed(2)}
+                          </>
+                        )}
                         {" · "}
                         {r.needsPayout ? (
                           <>
