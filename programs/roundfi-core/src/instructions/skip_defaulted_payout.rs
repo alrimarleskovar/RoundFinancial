@@ -65,6 +65,7 @@ pub struct SkipDefaultedPayout<'info> {
 }
 
 pub fn handler(ctx: Context<SkipDefaultedPayout>, args: SkipDefaultedPayoutArgs) -> Result<()> {
+    let clock = Clock::get()?;
     let pool = &mut ctx.accounts.pool;
     let member = &ctx.accounts.member;
 
@@ -86,8 +87,13 @@ pub fn handler(ctx: Context<SkipDefaultedPayout>, args: SkipDefaultedPayoutArgs)
         );
     } else {
         pool.current_cycle = next_cycle;
+        // SEV-053: same re-anchor as claim_payout / crank_payout — a skip
+        // fires only after the settle path, i.e. well past the frozen
+        // deadline, so the next window must open from `now` or the group's
+        // catch-up contributions mint wrongful LATEs.
         pool.next_cycle_at = pool
             .next_cycle_at
+            .max(clock.unix_timestamp)
             .checked_add(pool.cycle_duration)
             .ok_or(error!(RoundfiError::MathOverflow))?;
     }
