@@ -344,6 +344,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.realSuccessHeadline": "Cota adquirida on-chain",
     "market.buyModal.realSuccessBody": "{group} agora é sua — a posição aparece na sua Carteira.",
     "market.buyModal.errConnect": "Conecte sua carteira para comprar.",
+    "market.buyModal.alreadyMember":
+      "Você já participa deste grupo. A compra de cota é para quem ainda não é membro — use uma carteira de fora.",
     "market.howWorks.title": "◆ Como funciona",
     "market.howWorks.s1": "Tomador vende sua cota com desconto",
     "market.howWorks.s2": "Você recebe o NFT com rendimento fixado",
@@ -2334,6 +2336,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.realSuccessBody":
       "{group} is now yours — the position shows up in your Wallet.",
     "market.buyModal.errConnect": "Connect your wallet to buy.",
+    "market.buyModal.alreadyMember":
+      "You already hold a seat in this group. Buying a share is for non-members — use an outside wallet.",
     "market.howWorks.title": "◆ How it works",
     "market.howWorks.s1": "Borrower sells their share at a discount",
     "market.howWorks.s2": "You receive the NFT with fixed yield",
