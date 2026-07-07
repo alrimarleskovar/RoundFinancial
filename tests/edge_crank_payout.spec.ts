@@ -196,6 +196,7 @@ describe("edge — crank_payout permissionless liveness (bankrun setClock)", fun
       reputationProfile: env.ids.reputation,
       identityRecord: env.ids.reputation,
       attestation: env.ids.reputation,
+      neglectAttestation: env.ids.reputation, // SEV-053; CPI skipped (rep unset)
       systemProgram: SystemProgram.programId,
     };
   }

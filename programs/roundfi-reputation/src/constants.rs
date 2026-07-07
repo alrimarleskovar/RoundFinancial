@@ -48,6 +48,17 @@ pub const SCHEMA_LEVEL_UP:       u16 = 5;
 /// score-neutral event (anti-farming cooldown still applies via the
 /// admin-attest path).
 pub const SCHEMA_PAYOUT_CLAIMED: u16 = 6;
+/// **SEV-053 option B.** Emitted by `crank_payout` alongside
+/// `SCHEMA_PAYOUT_CLAIMED` when the community has to deliver a payout the
+/// contemplated member never self-claimed: the member had the full cycle
+/// window PLUS the grace period to claim, and their inaction froze the
+/// whole group (the stall that also motivated the option-A re-anchor).
+/// Owner fairness rule (2026-07-07): the party who failed their duty may
+/// be penalized; the blocked group must not be — this is the first half.
+/// Score `SCORE_CLAIM_NEGLECT` (same magnitude as a late payment — both
+/// stall the group for one grace window); no profile counter is touched
+/// (no layout change; the attestation itself is the record).
+pub const SCHEMA_CLAIM_NEGLECT: u16 = 7;
 
 /// Pre-Pass-3 alias — kept only so external tooling that read the
 /// constant directly doesn't error during the canary cutover. New code
@@ -102,6 +113,10 @@ pub const SCORE_DEFAULT:        i64 = -500;
 /// **Pass-3** — `PAYOUT_CLAIMED` carries no score signal. Being drawn
 /// is not merit; keeping obligations after being drawn IS.
 pub const SCORE_PAYOUT_CLAIMED: i64 =   0;
+/// **SEV-053 option B** — failing to claim until the community must crank
+/// costs the same as paying late: both freeze the group for one grace
+/// window. Negative deltas are never identity-halved (matches LATE/DEFAULT).
+pub const SCORE_CLAIM_NEGLECT:  i64 = -100;
 
 /// Pre-Pass-3 alias — kept for external tooling during the cutover.
 #[deprecated(since = "0.5.0", note = "use SCORE_POOL_COMPLETE (Pass-3 rename)")]

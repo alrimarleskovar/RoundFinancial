@@ -248,7 +248,7 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
     // untouched.
     let is_score_changing = matches!(
         args.schema_id,
-        SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT
+        SCHEMA_PAYMENT | SCHEMA_LATE | SCHEMA_DEFAULT | SCHEMA_CLAIM_NEGLECT
     );
     if is_admin && is_score_changing {
         let elapsed = now.saturating_sub(profile.last_admin_attest_at);
@@ -357,6 +357,15 @@ pub fn handler(ctx: Context<Attest>, args: AttestArgs) -> Result<()> {
             // attestation is here so the indexer can show "drawn" status
             // and the on-chain history is complete.
             profile.total_participated = profile.total_participated.saturating_add(1);
+        }
+        SCHEMA_CLAIM_NEGLECT => {
+            // SEV-053 option B: the contemplated member let the whole group
+            // freeze past cycle + grace until the community cranked their
+            // payout. Same magnitude as a late payment; negative deltas are
+            // never identity-halved (matches LATE / DEFAULT). No counter —
+            // the attestation record itself is the audit trail, and the
+            // profile layout stays untouched (no migration).
+            profile.apply_score_delta(SCORE_CLAIM_NEGLECT);
         }
         SCHEMA_LEVEL_UP => {
             // Informational only; actual level is mutated by promote_level.

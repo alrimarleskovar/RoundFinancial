@@ -64,6 +64,9 @@ export const CLASS_DEFAULT = 4;
 export const CLASS_POOL_COMPLETE = 5;
 /** Pass-3 (NEW, v2 only). "Member received their carta this cycle." */
 export const CLASS_PAYOUT_CLAIMED = 6;
+/** SEV-053 option B (v2 only). "Payout had to be community-cranked —
+ *  the contemplated member never self-claimed within cycle + grace." */
+export const CLASS_CLAIM_NEGLECT = 7;
 
 /** Pre-Pass-3 alias — kept so callers that read the constant directly
  *  don't error. New code SHOULD use `CLASS_POOL_COMPLETE` and dispatch
@@ -81,6 +84,7 @@ export const KNOWN_CLASSES: ReadonlySet<number> = new Set([
   CLASS_DEFAULT,
   CLASS_POOL_COMPLETE, // byte 5 — alias of legacy CLASS_CYCLE_COMPLETE
   CLASS_PAYOUT_CLAIMED, // Pass-3 (v2 only)
+  CLASS_CLAIM_NEGLECT, // SEV-053 option B (v2 only)
 ]);
 
 /**
@@ -269,6 +273,8 @@ export function classificationLabel(
         : "pool_complete";
     case CLASS_PAYOUT_CLAIMED: // byte 6 (v2 only)
       return "payout_claimed";
+    case CLASS_CLAIM_NEGLECT: // byte 7 (v2 only, SEV-053 option B)
+      return "claim_neglect";
     default:
       return `unknown_${byte}`;
   }

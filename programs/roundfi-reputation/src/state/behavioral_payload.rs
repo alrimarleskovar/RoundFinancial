@@ -68,6 +68,10 @@ pub const CLASS_POOL_COMPLETE: u8 = 5;
 /// NEW (Pass-3, v2 only). Emitted by `claim_payout` to record the audit
 /// trail of a member receiving their carta this cycle. Score-neutral.
 pub const CLASS_PAYOUT_CLAIMED: u8 = 6;
+/// SEV-053 option B (v2 only). Emitted by `crank_payout` alongside the
+/// PAYOUT_CLAIMED breadcrumb when the community had to deliver a payout
+/// the contemplated member never self-claimed within cycle + grace.
+pub const CLASS_CLAIM_NEGLECT: u8 = 7;
 
 /// Pre-Pass-3 alias — kept so external decoders that read the constant
 /// directly don't error. New code MUST use `CLASS_POOL_COMPLETE` and be

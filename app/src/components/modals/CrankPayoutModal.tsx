@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 
 import { MonoLabel } from "@/components/brand/brand";
 import { ghostBtn, primaryBtn } from "@/components/modals/JoinGroupModal";
@@ -98,6 +99,55 @@ export function CrankPayoutModal({
     };
   }, [onChainPool, onChainMembers, now]);
 
+  // ─── Funding pre-check (SEV-053 UX follow-up) ────────────────────────
+  // crank_payout enforces spendable = vault − (guarantee_fund + lp_distribution)
+  // ≥ credit_amount and reverts WaterfallUnderflow otherwise. Read the float
+  // live (same pattern as ClaimPayoutModal) so an underfunded pool shows
+  // "waiting for group funds" instead of offering a crank that must fail.
+  const paidCount = useMemo(
+    () =>
+      onChainPool.status === "ok" && onChainPool.pool && onChainMembers.status === "ok"
+        ? onChainMembers.members.filter(
+            (m) => m.contributionsPaid > (onChainPool.pool?.currentCycle ?? 0),
+          ).length
+        : null,
+    [onChainPool, onChainMembers],
+  );
+  const [vaultUsdc, setVaultUsdc] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open || onChainPool.status !== "ok" || !onChainPool.pool) return;
+    const usdcMint = onChainPool.pool.usdcMint;
+    const poolPda = DEVNET_POOLS[selectedPool].pda;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const vaultAta = getAssociatedTokenAddressSync(usdcMint, poolPda, true);
+        const bal = await connection.getTokenAccountBalance(vaultAta);
+        if (!cancelled) setVaultUsdc(Number(bal.value.amount) / 1e6);
+      } catch {
+        if (!cancelled) setVaultUsdc(null); // unknown — never block on a failed read
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // paidCount re-arms the read when a payment lands, keeping the gate live.
+  }, [open, selectedPool, onChainPool, connection, paidCount]);
+  const spendableUsdc =
+    onChainPool.status === "ok" && onChainPool.pool && vaultUsdc !== null
+      ? vaultUsdc -
+        Number(onChainPool.pool.guaranteeFundBalance) / 1e6 -
+        Number(onChainPool.pool.lpDistributionBalance) / 1e6
+      : null;
+  const creditUsdc = target ? Number(target.creditAmount) / 1e6 : null;
+  // Underfunded is a HARD on-chain fail (WaterfallUnderflow) → safe to gate on.
+  // An unknown read (null) never blocks — simulateOrThrow still protects the wallet.
+  const underfunded = spendableUsdc !== null && creditUsdc !== null && spendableUsdc < creditUsdc;
+  const shortfallUsdc =
+    underfunded && creditUsdc !== null && spendableUsdc !== null
+      ? Math.ceil(creditUsdc - spendableUsdc)
+      : 0;
+
   // Which pool this modal is acting on. A pool has no on-chain name, so pin the
   // identity with its seed id + account (Solscan) — that's what actually tells a
   // user *which* group is stuck, rather than the contemplated wallet address.
@@ -126,6 +176,10 @@ export function CrankPayoutModal({
     }
     if (!target.eligibleNow) {
       setChainError(t("modal.crankPayout.error.graceActive"));
+      return;
+    }
+    if (underfunded) {
+      setChainError(t("modal.crankPayout.error.underfunded"));
       return;
     }
     setSubmitting(true);
@@ -306,13 +360,24 @@ export function CrankPayoutModal({
                     {t("modal.crankPayout.cycle")} {target.cycle} ·{" "}
                     {t("modal.crankPayout.recipient")} {target.shortWallet}
                   </span>
-                  <span style={{ color: target.eligibleNow ? tokens.green : tokens.muted }}>
+                  <span
+                    style={{
+                      color:
+                        target.eligibleNow && underfunded
+                          ? tokens.amber
+                          : target.eligibleNow
+                            ? tokens.green
+                            : tokens.muted,
+                    }}
+                  >
                     {target.paidOut
                       ? t("modal.crankPayout.alreadyPaid")
                       : target.defaulted
                         ? t("modal.crankPayout.defaulted")
                         : target.eligibleNow
-                          ? t("modal.crankPayout.eligible")
+                          ? underfunded
+                            ? t("modal.crankPayout.waitingFunds", { n: shortfallUsdc })
+                            : t("modal.crankPayout.eligible")
                           : `${t("modal.crankPayout.graceIn")} ${Math.max(0, target.graceSecsRemaining)}s`}
                   </span>
                 </div>
@@ -352,11 +417,11 @@ export function CrankPayoutModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting || !target || !target.eligibleNow}
+              disabled={submitting || !target || !target.eligibleNow || underfunded}
               style={{
                 ...primaryBtn(tokens),
                 flex: 1,
-                opacity: submitting || !target || !target.eligibleNow ? 0.5 : 1,
+                opacity: submitting || !target || !target.eligibleNow || underfunded ? 0.5 : 1,
               }}
             >
               {submitting ? t("modal.crankPayout.submitting") : t("modal.crankPayout.crank")}

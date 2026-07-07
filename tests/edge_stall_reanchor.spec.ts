@@ -46,6 +46,7 @@ import {
   createUsdcMint,
   fetchMember,
   fetchPool,
+  fetchProfile,
   fundUsdc,
   initializeProtocol,
   initializeReputation,
@@ -136,6 +137,18 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
     expect(p.currentCycle, "pool stuck at cycle 0 (contemplated never claimed)").to.equal(0);
   });
 
+  // Attestation PDA the SEV-053 option-B penalty lands in — same nonce as the
+  // PAYOUT_CLAIMED breadcrumb, distinct schema seed.
+  function neglectAttestationFor(target: MemberHandle, cycle: number) {
+    return attestationFor(
+      env,
+      pool.pool,
+      target.wallet.publicKey,
+      ATTESTATION_SCHEMA.ClaimNeglect,
+      attestationNonce(cycle, target.slotIndex),
+    );
+  }
+
   // Permissionless crank for the contemplated slot — mirrors the account
   // order of `CrankPayout<'info>`; the payer cranks, the member does NOT sign.
   function crank(target: MemberHandle, cycle: number) {
@@ -162,6 +175,7 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
       reputationProfile: reputationProfileFor(env, target.wallet.publicKey),
       identityRecord: env.ids.reputation, // None sentinel
       attestation,
+      neglectAttestation: neglectAttestationFor(target, cycle),
       systemProgram: SystemProgram.programId,
     });
   }
@@ -169,6 +183,11 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
   it("A. stalled unstick re-anchors: next_cycle_at = now + cycle_duration, not schedule + duration", async function () {
     crankTime = deadline0 + GRACE_PERIOD_SECS + STALL_PAST_GRACE;
     await setBankrunUnixTs(env.context, crankTime);
+
+    // Pre-crank baseline: m0 has one unverified on-time payment (+5).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const profPre = (await fetchProfile(env, m0.wallet.publicKey)) as any;
+    const scorePre = BigInt(profPre.score.toString());
 
     await crank(m0, 0).rpc();
 
@@ -181,6 +200,17 @@ describe("edge — SEV-053 stall re-anchor opens a full window (bankrun)", funct
     // The pre-fix behavior — the window that is born already expired.
     expect(nextCycleAt, "NOT the stale schedule anchor").to.not.equal(deadline0 + CYCLE);
     expect(nextCycleAt > crankTime, "the new window is genuinely open").to.equal(true);
+
+    // SEV-053 option B: the non-claimer's half of the fairness rule — being
+    // cranked costs a flat SCORE_CLAIM_NEGLECT (−100, floor at 0) and mints
+    // the CLAIM_NEGLECT attestation alongside the PAYOUT_CLAIMED breadcrumb.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const profPost = (await fetchProfile(env, m0.wallet.publicKey)) as any;
+    const scorePost = BigInt(profPost.score.toString());
+    const expected = scorePre - 100n > 0n ? scorePre - 100n : 0n;
+    expect(scorePost, "crank applies the flat −100 neglect penalty (floor 0)").to.equal(expected);
+    const neglectInfo = await env.connection.getAccountInfo(neglectAttestationFor(m0, 0));
+    expect(neglectInfo, "CLAIM_NEGLECT attestation minted").to.not.equal(null);
   });
 
   it("B. fairness pin: a blocked member contributing right after the unstick is ON TIME", async function () {

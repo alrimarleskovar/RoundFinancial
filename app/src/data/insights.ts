@@ -199,7 +199,7 @@ export function computeRealFactors(r: RepCounters): RealFactor[] {
 
 /** What moved the score at a given vertex. `join` is the score-0 baseline;
  *  the rest mirror the on-chain attestation schemas that carry a score delta. */
-export type ScoreEventKind = "join" | "payment" | "late" | "default" | "cycle";
+export type ScoreEventKind = "join" | "payment" | "late" | "default" | "cycle" | "neglect";
 
 export interface ScorePoint {
   /** Unix ms of the event. */
@@ -280,9 +280,9 @@ export function annotateScoreHistory(
 // Score deltas — mirror programs/roundfi-reputation/src/constants.rs. A payment
 // / pool-complete is HALVED when the subject wasn't identity-verified at attest
 // time (SCORE_PAYMENT*num_unverif/den ⇒ 10→5, 50→25); negatives aren't weighted.
-const SCORE = { payment: 10, poolComplete: 50, late: -100, default: -500 } as const;
+const SCORE = { payment: 10, poolComplete: 50, late: -100, default: -500, neglect: -100 } as const;
 // Attestation schema ids — programs/roundfi-reputation/src/constants.rs.
-const SCHEMA = { payment: 1, late: 2, default: 3, poolComplete: 4 } as const;
+const SCHEMA = { payment: 1, late: 2, default: 3, poolComplete: 4, neglect: 7 } as const;
 
 /** The minimal Attestation shape a score replay needs (from decodeAttestationRaw). */
 export interface ScoreAttestation {
@@ -314,6 +314,9 @@ export function scoreDeltaFor(a: ScoreAttestation): number {
     case SCHEMA.poolComplete:
       if (a.neutralized) return 0;
       return a.verified ? SCORE.poolComplete : Math.trunc(SCORE.poolComplete / 2);
+    case SCHEMA.neglect:
+      // SEV-053 option B — crank-delivered payout the member never claimed.
+      return SCORE.neglect;
     default:
       return 0; // SCHEMA_LEVEL_UP + any future informational schema
   }
@@ -324,6 +327,7 @@ const KIND_FOR_SCHEMA: Record<number, ScoreEventKind> = {
   [SCHEMA.late]: "late",
   [SCHEMA.default]: "default",
   [SCHEMA.poolComplete]: "cycle",
+  [SCHEMA.neglect]: "neglect",
 };
 
 /**
