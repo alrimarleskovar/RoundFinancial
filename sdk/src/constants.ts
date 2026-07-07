@@ -65,6 +65,10 @@ export const ATTESTATION_SCHEMA = {
   PoolComplete: 4,
   LevelUp: 5,
   PayoutClaimed: 6,
+  /** SEV-053 option B — crank_payout's second attestation: the flat
+   *  penalty (−100, one late payment) on the contemplated member who
+   *  never self-claimed within cycle + grace and froze the group. */
+  ClaimNeglect: 7,
   /** @deprecated Pass-3 rename — use `PoolComplete` (same id 4, new
    *  semantics) or `PayoutClaimed` (id 6) depending on the call site. */
   CycleComplete: 4,

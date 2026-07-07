@@ -103,6 +103,10 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
             // Pass-3: pure audit trail; only total_participated was bumped.
             profile.total_participated = profile.total_participated.saturating_sub(1);
         }
+        SCHEMA_CLAIM_NEGLECT => {
+            // SEV-053: reverse the flat penalty; no counters were touched.
+            profile.apply_score_delta(-SCORE_CLAIM_NEGLECT);
+        }
         SCHEMA_LEVEL_UP => {}
         _ => return Err(error!(ReputationError::InvalidSchema)),
     };

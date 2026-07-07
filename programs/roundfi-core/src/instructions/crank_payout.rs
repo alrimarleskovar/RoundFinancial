@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-use roundfi_reputation::constants::SCHEMA_PAYOUT_CLAIMED;
-use roundfi_reputation::state::{BehavioralPayload, CLASS_PAYOUT_CLAIMED, NO_TIMESTAMP};
+use roundfi_reputation::constants::{SCHEMA_CLAIM_NEGLECT, SCHEMA_PAYOUT_CLAIMED};
+use roundfi_reputation::state::{
+    BehavioralPayload, CLASS_CLAIM_NEGLECT, CLASS_PAYOUT_CLAIMED, NO_TIMESTAMP,
+};
 
 use crate::constants::*;
 use crate::cpi::reputation::{invoke_attest, AttestAccounts, AttestCall};
@@ -118,6 +120,11 @@ pub struct CrankPayout<'info> {
     /// CHECK: new attestation PDA; reputation::attest inits.
     #[account(mut)]
     pub attestation: UncheckedAccount<'info>,
+    /// CHECK: new attestation PDA (SCHEMA_CLAIM_NEGLECT, SEV-053 option B);
+    /// reputation::attest inits. Distinct from `attestation` — same nonce,
+    /// different schema_id in the seeds.
+    #[account(mut)]
+    pub neglect_attestation: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -282,6 +289,55 @@ pub fn handler(ctx: Context<CrankPayout>, args: CrankPayoutArgs) -> Result<()> {
             schema_id: SCHEMA_PAYOUT_CLAIMED,
             nonce,
             payload,
+            pool: pool_key,
+            pool_authority: authority_key,
+            pool_seed_id: pool.seed_id,
+        })?;
+
+        // ─── CLAIM_NEGLECT attestation (SEV-053 option B) ────────────────
+        // Being cranked is not neutral: the member had the full cycle window
+        // PLUS the grace period to self-claim, and their inaction froze the
+        // whole group. Owner fairness rule (2026-07-07): the party who failed
+        // their duty may be penalized; the blocked group must not be. The
+        // blocked group's half is the option-A re-anchor above; this is the
+        // non-claimer's half — a flat SCORE_CLAIM_NEGLECT (= one late
+        // payment) on the contemplated member. Same nonce, distinct schema →
+        // distinct attestation PDA.
+        let neglect_payload = BehavioralPayload::new(
+            CLASS_CLAIM_NEGLECT,
+            pool.members_target,
+            0,
+            0,
+            NO_TIMESTAMP,
+            0,
+        )
+        .encode();
+
+        let identity_slot_neglect = if ctx.accounts.identity_record.key()
+            == ctx.accounts.reputation_program.key()
+        {
+            None
+        } else {
+            Some(ctx.accounts.identity_record.to_account_info())
+        };
+
+        invoke_attest(AttestCall {
+            reputation_program: &ctx.accounts.reputation_program.to_account_info(),
+            expected_program_id: config.reputation_program,
+            accounts: AttestAccounts {
+                issuer: pool.to_account_info(),
+                subject: ctx.accounts.member_wallet.to_account_info(),
+                rep_config: ctx.accounts.reputation_config.to_account_info(),
+                profile: ctx.accounts.reputation_profile.to_account_info(),
+                identity: identity_slot_neglect,
+                attestation: ctx.accounts.neglect_attestation.to_account_info(),
+                payer: ctx.accounts.caller.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+            },
+            signer_seeds: signer_seeds_arr,
+            schema_id: SCHEMA_CLAIM_NEGLECT,
+            nonce,
+            payload: neglect_payload,
             pool: pool_key,
             pool_authority: authority_key,
             pool_seed_id: pool.seed_id,

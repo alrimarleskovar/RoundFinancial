@@ -295,6 +295,8 @@ describe("Rust ↔ TS constants parity", () => {
       expect(ATTESTATION_SCHEMA.CycleComplete).to.equal(ATTESTATION_SCHEMA.PoolComplete);
       expect(Number(rust.get("SCHEMA_PAYOUT_CLAIMED"))).to.equal(ATTESTATION_SCHEMA.PayoutClaimed);
       expect(Number(rust.get("SCHEMA_LEVEL_UP"))).to.equal(ATTESTATION_SCHEMA.LevelUp);
+      // SEV-053 option B — the crank-delivered non-claimer penalty schema.
+      expect(Number(rust.get("SCHEMA_CLAIM_NEGLECT"))).to.equal(ATTESTATION_SCHEMA.ClaimNeglect);
     });
   });
 

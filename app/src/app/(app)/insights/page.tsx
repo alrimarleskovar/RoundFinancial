@@ -779,6 +779,7 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
     late: "insightsv2.chart.ev.late",
     default: "insightsv2.chart.ev.default",
     cycle: "insightsv2.chart.ev.cycle",
+    neglect: "insightsv2.chart.ev.neglect",
   };
   const reasonFor = (p: ScorePoint) => {
     const base = KIND_KEY[p.kind ?? "payment"] ?? "insightsv2.chart.ev.payment";

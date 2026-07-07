@@ -617,6 +617,7 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.chart.ev.paymentPool": "Parcela paga · {pool}",
     "insightsv2.chart.ev.late": "Pagamento atrasado",
     "insightsv2.chart.ev.default": "Inadimplência",
+    "insightsv2.chart.ev.neglect": "Não sacou no prazo — destravado pela comunidade",
     "insightsv2.chart.ev.cycle": "Ciclo concluído",
     "insightsv2.chart.ev.start": "Score inicial: {score} pts",
     "insightsv2.loading": "carregando…",
@@ -1055,6 +1056,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.alreadyPaid": "já sacou",
     "modal.crankPayout.defaulted": "inadimplente (use settle)",
     "modal.crankPayout.eligible": "pronto pra destravar",
+    "modal.crankPayout.waitingFunds": "aguardando fundos do grupo — faltam ~{n} USDC",
     "modal.crankPayout.graceIn": "prazo em",
     "modal.crankPayout.willDeliver":
       "Entrega {amount} na carteira do contemplado e avança o ciclo.",
@@ -1063,6 +1065,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.error.noWallet": "Conecte uma carteira para destravar.",
     "modal.crankPayout.error.graceActive":
       "O prazo de saque do contemplado ainda não venceu — ele ainda pode sacar sozinho.",
+    "modal.crankPayout.error.underfunded":
+      "O caixa do grupo ainda não cobre o crédito — o destravamento libera quando os membros pagarem este ciclo.",
     "modal.crankPayout.success.title": "Ciclo destravado 🎉",
     "modal.crankPayout.success.body":
       "O crédito foi entregue na carteira do contemplado e o ciclo avançou. O grupo pode continuar.",
@@ -2597,6 +2601,7 @@ export const DICT: Record<Lang, Dict> = {
     "insightsv2.chart.ev.paymentPool": "Installment paid · {pool}",
     "insightsv2.chart.ev.late": "Late payment",
     "insightsv2.chart.ev.default": "Default",
+    "insightsv2.chart.ev.neglect": "Unclaimed payout — community unstuck it",
     "insightsv2.chart.ev.cycle": "Cycle completed",
     "insightsv2.chart.ev.start": "Starting score: {score} pts",
     "insightsv2.loading": "loading…",
@@ -3035,6 +3040,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.alreadyPaid": "already claimed",
     "modal.crankPayout.defaulted": "defaulted (use settle)",
     "modal.crankPayout.eligible": "ready to unstick",
+    "modal.crankPayout.waitingFunds": "waiting for group funds — ~{n} USDC to go",
     "modal.crankPayout.graceIn": "grace in",
     "modal.crankPayout.willDeliver":
       "Delivers {amount} to the member's wallet and advances the cycle.",
@@ -3043,6 +3049,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.error.noWallet": "Connect a wallet to unstick.",
     "modal.crankPayout.error.graceActive":
       "The member's self-claim window hasn't elapsed yet — they can still claim themselves.",
+    "modal.crankPayout.error.underfunded":
+      "The group's pool doesn't cover the credit yet — unsticking unlocks once members pay this cycle.",
     "modal.crankPayout.success.title": "Cycle unstuck 🎉",
     "modal.crankPayout.success.body":
       "The credit was delivered to the member's wallet and the cycle advanced. The group can continue.",

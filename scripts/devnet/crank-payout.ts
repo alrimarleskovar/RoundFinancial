@@ -47,6 +47,9 @@ const DEPLOYMENT_CONFIG_PATH = resolve(process.cwd(), "config/program-ids.devnet
 // SCHEMA_PAYOUT_CLAIMED (roundfi-reputation constants) — the same score-neutral
 // schema claim_payout emits, so crank_payout's attestation PDA derives identically.
 const SCHEMA_PAYOUT_CLAIMED = 6;
+// SCHEMA_CLAIM_NEGLECT (SEV-053 option B) — crank_payout's second attestation:
+// the flat penalty on the contemplated member who never self-claimed.
+const SCHEMA_CLAIM_NEGLECT = 7;
 
 function loadKeypair(path: string): Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(path, "utf-8"))));
@@ -220,6 +223,15 @@ async function main() {
     SCHEMA_PAYOUT_CLAIMED,
     nonce,
   );
+  // SEV-053 option B: crank_payout also mints a CLAIM_NEGLECT attestation
+  // (schema 7) on the contemplated member — same nonce, distinct schema seed.
+  const neglectAttestation = attestationPda(
+    reputationProgram,
+    pool,
+    memberWallet,
+    SCHEMA_CLAIM_NEGLECT,
+    nonce,
+  );
   const identityRecord = reputationProgram; // "None" sentinel
 
   const data = Buffer.concat([anchorIxDiscriminator("crank_payout"), Buffer.from([slot & 0xff])]);
@@ -229,7 +241,8 @@ async function main() {
   //   caller(S,mut), config, pool(mut), member(mut), member_wallet(read),
   //   usdc_mint, member_usdc(mut), pool_usdc_vault(mut), token_program,
   //   reputation_program, reputation_config(mut), reputation_profile(mut),
-  //   identity_record, attestation(mut), system_program
+  //   identity_record, attestation(mut), neglect_attestation(mut),
+  //   system_program
   const ix = new TransactionInstruction({
     programId: coreProgram,
     keys: [
@@ -247,6 +260,7 @@ async function main() {
       { pubkey: reputationProfile, isSigner: false, isWritable: true },
       { pubkey: identityRecord, isSigner: false, isWritable: false },
       { pubkey: attestation, isSigner: false, isWritable: true },
+      { pubkey: neglectAttestation, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data,

@@ -9,8 +9,9 @@
  * on-chain to `now >= next_cycle_at + GRACE_PERIOD_SECS` (the member keeps
  * first dibs to self-claim); calling early reverts with `PayoutGraceActive`.
  *
- * 15 accounts in the declaration order from `crank_payout.rs::CrankPayout`.
- * The caller signs + pays; the contemplated member does NOT sign.
+ * 16 accounts in the declaration order from `crank_payout.rs::CrankPayout`
+ * (15 + the SEV-053 `neglect_attestation` PDA). The caller signs + pays; the
+ * contemplated member does NOT sign.
  */
 
 import {
@@ -81,6 +82,15 @@ export function buildCrankPayoutIx(args: BuildCrankPayoutIxArgs): TransactionIns
     schemaId,
     nonce,
   );
+  // SEV-053 option B: crank_payout also mints a CLAIM_NEGLECT attestation
+  // (schema 7) on the contemplated member — same nonce, distinct schema seed.
+  const [neglectAttestation] = attestationPda(
+    reputation,
+    args.pool,
+    args.contemplatedMemberWallet,
+    ATTESTATION_SCHEMA.ClaimNeglect,
+    nonce,
+  );
 
   const memberUsdc = getAssociatedTokenAddressSync(usdcMint, args.contemplatedMemberWallet);
   const poolUsdcVault = getAssociatedTokenAddressSync(usdcMint, args.pool, true);
@@ -106,6 +116,7 @@ export function buildCrankPayoutIx(args: BuildCrankPayoutIxArgs): TransactionIns
       { pubkey: repProfile, isSigner: false, isWritable: true },
       { pubkey: identityRecord, isSigner: false, isWritable: false },
       { pubkey: attestation, isSigner: false, isWritable: true },
+      { pubkey: neglectAttestation, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
   });

@@ -300,6 +300,7 @@ pub struct YieldVaultState {
 - `+10` per `Payment` (on-time)
 - `+50` per `CycleComplete` (halved to `+25` if unverified)
 - `-100` per `Late`
+- `-100` per `ClaimNeglect` (SEV-053 option B — the contemplated member never self-claimed within cycle + grace and the payout had to be community-cranked; same magnitude as a late payment, never identity-halved, no profile counter)
 - `-500` per `Default`
 - Saturating, no underflow below 0.
 - Level thresholds: `L1 = 0`, `L2 = 500`, `L3 = 2_000`, `L4 = 5_000` (v5.2 Elite). Cycles floors: L2≥2, L3≥3, L4≥8 completed cycles (SEV-047 anti-farming; L2 raised 1→2 by ECO-V52). Permissionless `promote_level` advances a profile to the highest level whose threshold ≤ score AND whose cycles floor is met.
@@ -664,6 +665,7 @@ Pass-3 splits the two signals:
 - The `Attestation` PDA at `(issuer, subject, schema_id=4, nonce)` still derives the same address. The semantic of byte 5 in the payload was bumped in version (v1 → v2). Legacy v1 attestations on devnet keep their old meaning forever — `BehavioralPayload.version` is the version-dispatch key in `decodeBehavioralPayload` + the indexer's `deriveEventClassification`.
 - The deployed `ReputationProfile.last_cycle_complete_at` field retains its name on disk for Borsh-layout compatibility; its semantic is now "last time the subject completed a pool" (the cooldown anchor).
 - `PAYOUT_CLAIMED` lands on `total_participated` only; it's a pure audit-trail signal so the indexer can show "drawn this cycle" without polluting the commitment metric.
+- **SEV-053 option B (post-Pass-3 addition):** `SCHEMA_CLAIM_NEGLECT` (id 7, payload class byte 7, v2 only) is emitted by `crank_payout` alongside the `PAYOUT_CLAIMED` breadcrumb when the community has to deliver a payout the contemplated member never self-claimed. Score `−100` (one late payment — both stall the group for one grace window), never identity-halved, no profile counter (the attestation record is the audit trail; no layout change).
 
 **Out of scope (deliberate):** retroactive correction of `cycles_completed` on existing devnet profiles. Counters under the old semantics stay inflated; the new emit sites take over for events ingested after the redeploy. No migration ix.
 
