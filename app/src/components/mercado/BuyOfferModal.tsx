@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 
+import { memberPda } from "@roundfi/sdk/pda";
+
 import { MonoLabel } from "@/components/brand/brand";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { OnchainListingRef } from "@/data/market";
-import { DEVNET_POOLS } from "@/lib/devnet";
+import { DEVNET_POOLS, DEVNET_PROGRAM_IDS } from "@/lib/devnet";
 import { sendEscapeValveBuy } from "@/lib/escape-valve-buy";
 import { hoverBtn } from "@/lib/hoverLift";
 import { useI18n, useT } from "@/lib/i18n";
@@ -73,6 +75,17 @@ export function BuyOfferModal({
   const [phase, setPhase] = useState<Phase>("confirm");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null = unknown / not applicable (demo path or no wallet); true = the buyer
+  // already holds a Member PDA in this pool. escape_valve_buy inits a fresh
+  // Member seeded by (pool, buyer wallet); if the buyer is already a member
+  // that init collides and the System Program reverts AccountAlreadyInUse
+  // (custom program error 0x0) in simulation. Pre-check it so we can show a
+  // human message instead of leaking the raw code (mirrors the crank funding
+  // pre-check, #613).
+  const [alreadyMember, setAlreadyMember] = useState<boolean | null>(null);
+
+  const onchain = target?.onchain;
+  const poolKey = onchain?.poolKey;
 
   // Reset to confirm phase + clear errors whenever the modal opens anew.
   useEffect(() => {
@@ -82,9 +95,31 @@ export function BuyOfferModal({
     }
   }, [open, target?.group]);
 
+  // Existing-member pre-check (real on-chain path only).
+  useEffect(() => {
+    if (!open || !poolKey || !publicKey) {
+      setAlreadyMember(null);
+      return;
+    }
+    let cancelled = false;
+    const poolPda = DEVNET_POOLS[poolKey].pda;
+    const [member] = memberPda(DEVNET_PROGRAM_IDS.core, poolPda, publicKey);
+    connection
+      .getAccountInfo(member)
+      .then((info) => {
+        if (!cancelled) setAlreadyMember(info !== null);
+      })
+      .catch(() => {
+        // Fall back to the on-chain simulation guard if the lookup fails.
+        if (!cancelled) setAlreadyMember(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, poolKey, publicKey, connection]);
+
   if (!target) return null;
 
-  const onchain = target.onchain;
   const savings = Math.max(0, target.face - target.price);
 
   // Demo path: a simulated ~900ms acknowledgement (no chain write).
@@ -103,6 +138,10 @@ export function BuyOfferModal({
     if (!onchain) return;
     if (!publicKey || !sendTransaction) {
       setError(t("market.buyModal.errConnect"));
+      return;
+    }
+    if (alreadyMember) {
+      setError(t("market.buyModal.alreadyMember"));
       return;
     }
     setSubmitting(true);
@@ -231,6 +270,25 @@ export function BuyOfferModal({
             </span>
           </div>
 
+          {/* Already-a-member notice (real path) — pre-empts the raw
+              AccountAlreadyInUse (0x0) the new-Member init would throw. */}
+          {alreadyMember && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.amber}14`,
+                border: `1px solid ${tokens.amber}40`,
+                fontSize: 11,
+                color: tokens.amber,
+                lineHeight: 1.5,
+              }}
+            >
+              {t("market.buyModal.alreadyMember")}
+            </div>
+          )}
+
           {/* Buy error (real path — readable message from the helper / sim). */}
           {error && (
             <div
@@ -280,7 +338,7 @@ export function BuyOfferModal({
             </button>
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || alreadyMember === true}
               onClick={() => (onchain ? void runRealBuy() : runDemoBuy())}
               style={{
                 flex: 1.4,
@@ -291,8 +349,8 @@ export function BuyOfferModal({
                 border: "none",
                 fontWeight: 700,
                 fontSize: 12,
-                cursor: submitting ? "default" : "pointer",
-                opacity: submitting ? 0.7 : 1,
+                cursor: submitting || alreadyMember === true ? "default" : "pointer",
+                opacity: submitting || alreadyMember === true ? 0.6 : 1,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                 transition: "transform 140ms ease, filter 140ms ease",
               }}
