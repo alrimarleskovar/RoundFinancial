@@ -158,7 +158,16 @@ export function BuyOfferModal({
       onPurchased?.(target);
       setPhase("success");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const blob = e instanceof Error ? e.message : String(e);
+      // Same translation as the join guardrail (#535): `AccountNotFound` ⇒
+      // the buyer wallet has no USDC token account (fresh, never-fauceted
+      // wallet); `InsufficientStake`/0x1770 ⇒ the ATA exists but can't cover
+      // the price (escape_valve_buy reuses that error for its balance
+      // require). Both resolve with one faucet click — it creates the ATA
+      // and funds it. Anything else surfaces verbatim.
+      const looksLikeNoUsdc =
+        /AccountNotFound|could not find account|InsufficientStake|0x1770/i.test(blob);
+      setError(looksLikeNoUsdc ? t("market.buyModal.errNoUsdc") : blob);
     } finally {
       setSubmitting(false);
     }
