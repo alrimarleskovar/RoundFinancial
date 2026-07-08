@@ -346,6 +346,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.errConnect": "Conecte sua carteira para comprar.",
     "market.buyModal.alreadyMember":
       "Você já participa deste grupo. A compra de cota é para quem ainda não é membro — use uma carteira de fora.",
+    "market.buyModal.errNoUsdc":
+      "Esta carteira ainda não tem USDC suficiente (ou nem a conta de token). A compra é paga em USDC — clique em Receber (faucet) no card da carteira pra criar a conta e ganhar saldo, depois volte e confirme.",
     "market.howWorks.title": "◆ Como funciona",
     "market.howWorks.s1": "Tomador vende sua cota com desconto",
     "market.howWorks.s2": "Você recebe o NFT com rendimento fixado",
@@ -2338,6 +2340,8 @@ export const DICT: Record<Lang, Dict> = {
     "market.buyModal.errConnect": "Connect your wallet to buy.",
     "market.buyModal.alreadyMember":
       "You already hold a seat in this group. Buying a share is for non-members — use an outside wallet.",
+    "market.buyModal.errNoUsdc":
+      "This wallet doesn't have enough USDC yet (or no token account at all). The purchase is paid in USDC — click Receive (faucet) on the wallet card to create the account and get balance, then come back and confirm.",
     "market.howWorks.title": "◆ How it works",
     "market.howWorks.s1": "Borrower sells their share at a discount",
     "market.howWorks.s2": "You receive the NFT with fixed yield",
