@@ -36,6 +36,7 @@ import {
   ESCAPE_VALVE_STATUS,
   IDENTITY_PROVIDER,
   IDENTITY_STATUS,
+  ORDERING_POLICY,
 } from "@roundfi/sdk/constants";
 
 const CORE_CONSTANTS = resolve(process.cwd(), "programs/roundfi-core/src/constants.rs");
@@ -275,6 +276,15 @@ describe("Rust ↔ TS constants parity", () => {
       expect(rust.get("DEFAULT_CREDIT_AMOUNT")).to.equal(POOL_DEFAULTS.creditAmount);
       expect(Number(rust.get("DEFAULT_CYCLES_TOTAL"))).to.equal(POOL_DEFAULTS.cyclesTotal);
       expect(Number(rust.get("DEFAULT_CYCLE_DURATION"))).to.equal(POOL_DEFAULTS.cycleDurationSec);
+    });
+
+    it("ordering-policy ids match (ADR pool_v2)", () => {
+      const rust = extractInt(coreSrc);
+      expect(Number(rust.get("ORDERING_ARRIVAL_ORDER"))).to.equal(ORDERING_POLICY.ArrivalOrder);
+      // Declared-but-fail-closed on-chain (create_pool rejects it with
+      // OrderingPolicyUnsupported until the draw machinery ships); the id
+      // is still parity-pinned so SDK/UI plumbing can't drift meanwhile.
+      expect(Number(rust.get("ORDERING_SORTEIO"))).to.equal(ORDERING_POLICY.Sorteio);
     });
   });
 

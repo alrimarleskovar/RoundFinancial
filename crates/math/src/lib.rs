@@ -36,6 +36,7 @@ pub mod dc;
 pub mod error;
 pub mod escrow_vesting;
 pub mod seed_draw;
+pub mod slot_draw;
 pub mod waterfall;
 
 pub use bps::{apply_bps, split_installment};
@@ -50,4 +51,5 @@ pub use escrow_vesting::{
     releasable_delta,
 };
 pub use seed_draw::{pool_is_viable, retained_meets_seed_draw, seed_draw_floor};
+pub use slot_draw::{draw_slot_order, MAX_DRAW_MEMBERS};
 pub use waterfall::{guarantee_fund_cap, guarantee_fund_room, waterfall, Waterfall};

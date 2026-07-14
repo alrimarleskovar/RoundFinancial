@@ -74,6 +74,17 @@ export const ATTESTATION_SCHEMA = {
   CycleComplete: 4,
 } as const;
 
+/** Payout-ordering policy per pool — mirrors roundfi-core's
+ *  `ORDERING_*` constants (parity-tested). Stored in
+ *  `Pool.ordering_policy` (byte carved from padding; pre-existing pools
+ *  read 0 = ArrivalOrder). `Sorteio` is declared but FAIL-CLOSED on-chain
+ *  (`create_pool` rejects it with `OrderingPolicyUnsupported`) until the
+ *  draw machinery ships — ADR pool_v2. */
+export const ORDERING_POLICY = {
+  ArrivalOrder: 0,
+  Sorteio: 1,
+} as const;
+
 /** PoolStatus enum values — mirrors roundfi-core::PoolStatus. */
 export const POOL_STATUS = {
   Forming: 0,

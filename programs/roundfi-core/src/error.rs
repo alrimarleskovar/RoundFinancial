@@ -196,4 +196,12 @@ pub enum RoundfiError {
     // ─── SEV-039 — close_pool_vaults ordering guard ───────────────────
     #[msg("Pool still has open Member PDAs — close them all via close_member before close_pool_vaults")]
     MembersStillOpen,
+
+    // ─── ADR pool_v2 — ordering-policy fail-closed gate ───────────────
+    // `create_pool` accepts only ArrivalOrder until the sorteio draw
+    // machinery ships. Appended at the END of the enum: RoundfiError
+    // codes are positional (6000 + index), so inserting anywhere else
+    // would silently renumber every error after it.
+    #[msg("Ordering policy not yet supported — only ArrivalOrder (0) is active")]
+    OrderingPolicyUnsupported,
 }

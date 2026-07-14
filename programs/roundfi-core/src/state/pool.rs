@@ -74,6 +74,15 @@ pub struct Pool {
     /// hostile authority could inflate the global counter to DoS the
     /// `max_protocol_tvl_usdc` cap.
     pub vaults_initialized: bool,
+
+    // ─── Ordering policy (ADR pool_v2) ──────────────────────────────────
+    /// How payout order is assigned for this pool — see the
+    /// `ORDERING_*` constants. Carved from the struct padding (6 → 5,
+    /// SIZE unchanged), so pools created before this field exist read
+    /// their zeroed padding byte as `0 = ArrivalOrder` — exactly the
+    /// behavior they were created under. No migration needed (same
+    /// carve pattern as `vaults_initialized`, Adevar SEV-004).
+    pub ordering_policy: u8,
 }
 
 #[repr(u8)]
@@ -105,7 +114,8 @@ impl Pool {
         + 8                    // slots_bitmap (64 bits = 8 bytes)
         + 4                    // four bumps
         + 1                    // vaults_initialized (Adevar SEV-004)
-        + 6;                   // padding (was 7, consumed 1 for vaults_initialized)
+        + 1                    // ordering_policy (ADR pool_v2, carved from padding)
+        + 5;                   // padding (was 7 → 6 for vaults_initialized → 5 for ordering_policy)
 
     #[inline]
     pub fn is_slot_taken(&self, slot: u8) -> bool {
