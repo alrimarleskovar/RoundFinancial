@@ -169,6 +169,26 @@ pub const STAKE_BPS_LEVEL_2: u16 = 2_500; // 25%
 pub const STAKE_BPS_LEVEL_3: u16 = 1_000; // 10%
 pub const STAKE_BPS_LEVEL_4: u16 = 300; // 3% (Elite)
 
+// ─── Ordering policy — who receives in which cycle (ADR pool_v2) ────────
+// Per-pool policy deciding how payout order (`slot_index == cycle`) is
+// assigned. Stored in `Pool.ordering_policy` (1 byte carved from the
+// struct padding — old accounts read 0 = ArrivalOrder, today's behavior,
+// so no migration). SDK mirror: `ORDERING_POLICY` (parity-tested).
+//
+//   0 = ArrivalOrder — slot picked at join (first free slot; the current
+//       and only active behavior).
+//   1 = Sorteio — payout order drawn at pool fill via
+//       `roundfi_math::draw_slot_order` (bijection-guaranteed shuffle).
+//       FAIL-CLOSED for now: `create_pool` rejects it with
+//       `OrderingPolicyUnsupported` until the draw machinery (DrawResult
+//       PDA + finalize_draw + cycle→seat translation in claim/crank)
+//       lands. Defining the id first keeps SDK/parity/UI plumbing stable.
+//
+// Future ids reserved by the ADR (NOT implemented, NOT accepted):
+// reputation-ordered, lance/auction.
+pub const ORDERING_ARRIVAL_ORDER: u8 = 0;
+pub const ORDERING_SORTEIO:       u8 = 1;
+
 // ─── Bounds ─────────────────────────────────────────────────────────────
 pub const MAX_MEMBERS:        u8  = 64;   // safety ceiling; protocol default 24
 pub const MAX_BPS:            u16 = 10_000;

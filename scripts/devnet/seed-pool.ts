@@ -143,7 +143,8 @@ async function callCreatePool(
 
   // ix.data = [discriminator (8) | u64 seed_id | u8 members_target |
   //            u64 installment | u64 credit | u8 cycles_total |
-  //            i64 cycle_duration | u16 escrow_release_bps]
+  //            i64 cycle_duration | u16 escrow_release_bps |
+  //            u8 ordering_policy]
   const data = Buffer.concat([
     anchorIxDiscriminator("create_pool"),
     encodeU64LE(POOL_SEED_ID),
@@ -153,6 +154,9 @@ async function callCreatePool(
     encodeU8(CYCLES_TOTAL),
     encodeI64LE(CYCLE_DURATION),
     encodeU16LE(ESCROW_RELEASE_BPS),
+    // ordering_policy (ADR pool_v2): 0 = ArrivalOrder (today's behavior).
+    // Sorteio (1) is fail-closed on-chain until the draw machinery ships.
+    encodeU8(0),
   ]);
 
   // Account list — order matches `CreatePool` in

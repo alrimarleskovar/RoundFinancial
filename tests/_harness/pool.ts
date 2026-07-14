@@ -63,6 +63,9 @@ export interface CreatePoolOpts {
   cycleDurationSec?: number;
   escrowReleaseBps?: number;
   yieldAdapter?: PublicKey; // defaults to env.ids.yieldMock
+  /** ORDERING_POLICY id (ADR pool_v2). Defaults to 0 = ArrivalOrder —
+   *  today's behavior; Sorteio (1) is fail-closed on-chain for now. */
+  orderingPolicy?: number;
 }
 
 export interface PoolHandle {
@@ -164,6 +167,7 @@ export async function createPool(env: Env, opts: CreatePoolOpts): Promise<PoolHa
       cyclesTotal: cyclesTotal,
       cycleDuration: new BN(cycleDurationSec),
       escrowReleaseBps: escrowReleaseBps,
+      orderingPolicy: opts.orderingPolicy ?? 0,
     })
     .accounts({
       authority: authorityPk,
