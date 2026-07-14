@@ -5,6 +5,7 @@ pub mod cancel_pending_listing;
 pub mod claim_payout;
 pub mod close_member;
 pub mod crank_payout;
+pub mod finalize_draw;
 pub mod close_pool;
 pub mod close_pool_vaults;
 pub mod commit_new_authority;
@@ -49,6 +50,7 @@ mod reexports {
     pub use super::claim_payout::*;
     pub use super::close_member::*;
     pub use super::crank_payout::*;
+    pub use super::finalize_draw::*;
     pub use super::close_pool::*;
     pub use super::close_pool_vaults::*;
     pub use super::commit_new_authority::*;

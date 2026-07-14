@@ -24,6 +24,7 @@ import {
   attestationFor,
   attestationNonce,
   configPda,
+  drawResultFor,
   memberPda,
   positionAuthorityPda,
   reputationConfigFor,
@@ -105,6 +106,10 @@ export interface ClaimPayoutOpts {
   pool: PoolHandle;
   member: MemberHandle;
   cycle: number;
+  /** Sorteio pools (ADR pool_v2): the pool's DrawResult PDA, appended as
+   *  the first remaining account so the on-chain seat→cycle translation
+   *  can run. Omit for ArrivalOrder pools (call shape unchanged). */
+  drawResult?: PublicKey;
 }
 
 export async function claimPayout(env: Env, opts: ClaimPayoutOpts): Promise<string> {
@@ -139,8 +144,42 @@ export async function claimPayout(env: Env, opts: ClaimPayoutOpts): Promise<stri
       attestation,
       systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(
+      opts.drawResult ? [{ pubkey: opts.drawResult, isSigner: false, isWritable: false }] : [],
+    )
     .signers([opts.member.wallet])
     .rpc();
+}
+
+// ─── finalize_draw (sorteio ordering policy, ADR pool_v2) ──────────────
+
+export interface FinalizeDrawOpts {
+  pool: PoolHandle;
+  /** Defaults to env.payer — the call is permissionless. */
+  caller?: Keypair;
+}
+
+/** Mint the payout-order permutation for a full sorteio pool. Returns
+ *  the DrawResult PDA. Single-shot: a second call collides on init. */
+export async function finalizeDraw(env: Env, opts: FinalizeDrawOpts): Promise<PublicKey> {
+  const caller = opts.caller ?? env.payer;
+  const draw = drawResultFor(env, opts.pool.pool);
+  await (env.programs.core.methods as any)
+    .finalizeDraw()
+    .accounts({
+      caller: caller.publicKey,
+      pool: opts.pool.pool,
+      draw,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([caller])
+    .rpc();
+  return draw;
+}
+
+/** Fetch + decode a pool's DrawResult account. */
+export async function fetchDraw(env: Env, pool: PublicKey): Promise<Record<string, unknown>> {
+  return (env.programs.core.account as any).drawResult.fetch(drawResultFor(env, pool));
 }
 
 // ─── release_escrow ────────────────────────────────────────────────────

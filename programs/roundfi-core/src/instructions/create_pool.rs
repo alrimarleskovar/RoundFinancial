@@ -108,15 +108,14 @@ pub fn handler(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
     );
     require!(args.escrow_release_bps <= MAX_BPS, RoundfiError::InvalidBps);
 
-    // ─── Ordering policy (ADR pool_v2) — FAIL-CLOSED ────────────────────
-    // Only ArrivalOrder (today's behavior) is accepted until the sorteio
-    // draw machinery (DrawResult PDA + finalize_draw + cycle→seat
-    // translation in claim/crank) ships. Accepting ORDERING_SORTEIO before
-    // that would create a pool that silently behaves as arrival-order —
-    // worse than rejecting. The constant exists now so SDK/parity/UI
-    // plumbing is stable; the follow-up PR relaxes this single require.
+    // ─── Ordering policy (ADR pool_v2) ──────────────────────────────────
+    // ArrivalOrder (today's behavior) or Sorteio (payout order drawn at
+    // fill by `finalize_draw`; payouts unreachable until drawn —
+    // DrawRequired). Still a whitelist, NOT a `<=` range: future policy
+    // ids (reputação, lance) stay rejected until their machinery ships.
     require!(
-        args.ordering_policy == ORDERING_ARRIVAL_ORDER,
+        args.ordering_policy == ORDERING_ARRIVAL_ORDER
+            || args.ordering_policy == ORDERING_SORTEIO,
         RoundfiError::OrderingPolicyUnsupported,
     );
 

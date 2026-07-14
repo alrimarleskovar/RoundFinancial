@@ -109,6 +109,13 @@ pub mod roundfi_core {
         instructions::crank_payout::handler(ctx, args)
     }
 
+    /// Permissionless, single-shot payout-order draw for a full sorteio
+    /// pool (ADR pool_v2). Mints the DrawResult PDA and re-anchors the
+    /// cycle-0 window. See `instructions::finalize_draw`.
+    pub fn finalize_draw(ctx: Context<FinalizeDraw>) -> Result<()> {
+        instructions::finalize_draw::handler(ctx)
+    }
+
     pub fn escape_valve_list(ctx: Context<EscapeValveList>, args: EscapeValveListArgs) -> Result<()> {
         instructions::escape_valve_list::handler(ctx, args)
     }

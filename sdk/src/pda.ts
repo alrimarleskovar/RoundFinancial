@@ -22,6 +22,9 @@ export const SEED = {
   // derive the position_authority PDA.
   positionAsset: Buffer.from("position-asset"),
   listing: Buffer.from("listing"),
+  // Per-pool payout-order draw (sorteio policy, ADR pool_v2). Minted
+  // once by finalize_draw when a sorteio pool fills.
+  drawResult: Buffer.from("draw-result"),
   reputation: Buffer.from("reputation"),
   reputationConfig: Buffer.from("rep-config"),
   attestation: Buffer.from("attestation"),
@@ -121,6 +124,10 @@ export function positionAssetPda(
     [SEED.positionAsset, pool.toBuffer(), u8le(slotIndex)],
     coreProgram,
   );
+}
+
+export function drawResultPda(coreProgram: PublicKey, pool: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED.drawResult, pool.toBuffer()], coreProgram);
 }
 
 export function listingPda(

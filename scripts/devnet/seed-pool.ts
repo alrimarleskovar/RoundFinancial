@@ -154,8 +154,8 @@ async function callCreatePool(
     encodeU8(CYCLES_TOTAL),
     encodeI64LE(CYCLE_DURATION),
     encodeU16LE(ESCROW_RELEASE_BPS),
-    // ordering_policy (ADR pool_v2): 0 = ArrivalOrder (today's behavior).
-    // Sorteio (1) is fail-closed on-chain until the draw machinery ships.
+    // ordering_policy (ADR pool_v2): 0 = ArrivalOrder (default). Pass 1
+    // for a sorteio pool — payout order drawn at fill by finalize_draw.
     encodeU8(0),
   ]);
 
