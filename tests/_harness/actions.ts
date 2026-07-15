@@ -380,9 +380,10 @@ export async function closePoolVaults(env: Env, opts: ClosePoolVaultsOpts): Prom
 
 // ─── settle_default ────────────────────────────────────────────────────
 // Permissionless settlement of a defaulted member. Anyone can crank;
-// caller pays the rent for the attestation PDA. The cycle parameter is
-// the cycle the member missed (typically pool.current_cycle - 1, but
-// callers can settle older skips too).
+// caller pays the rent for the attestation PDA. The cycle parameter MUST
+// equal pool.current_cycle (settle_default.rs:162 WrongCycle guard) — a
+// member is behind when contributions_paid < current_cycle, and the crank
+// settles that missed contribution at the current cycle.
 export interface SettleDefaultOpts {
   pool: PoolHandle;
   defaulter: MemberHandle;

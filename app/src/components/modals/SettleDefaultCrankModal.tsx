@@ -110,13 +110,18 @@ export function SettleDefaultCrankModal({
   const onChainPool = usePool(selectedPool);
   const onChainMembers = usePoolMembers(selectedPool);
 
-  // Cycle to settle — per the on-chain `WrongCycle` guard, this is
-  // `pool.current_cycle - 1` (the cranker settles the PREVIOUS cycle's
-  // defaulters once `current_cycle` has advanced past them).
+  // Cycle to pass to settle_default. The on-chain guard is
+  // `args.cycle == pool.current_cycle` (settle_default.rs:162) — NOT
+  // current_cycle - 1. A member is "behind" when contributions_paid <
+  // current_cycle; the crank settles that missed contribution AT the
+  // current cycle (the same value the CLI seed-default.ts and the
+  // bankrun boundary spec pass). Only meaningful once the pool advanced
+  // past cycle 0 — before that nobody can be behind — so null until
+  // current_cycle >= 1.
   const settleCycle = useMemo(() => {
     if (onChainPool.status !== "ok" || !onChainPool.pool) return null;
     const cc = onChainPool.pool.currentCycle;
-    return cc > 0 ? cc - 1 : null;
+    return cc > 0 ? cc : null;
   }, [onChainPool]);
 
   // Build candidate list. A member is a candidate when:
@@ -135,26 +140,29 @@ export function SettleDefaultCrankModal({
     // reverted with GracePeriodNotElapsed (wasted signature + fee).
     const graceDeadline = nextCycleAt + GRACE_PERIOD_SECS;
 
-    return onChainMembers.members
-      .filter((m) => m.contributionsPaid <= settleCycle)
-      .filter((m) => !m.defaulted)
-      .map<CandidateMember>((m) => {
-        const graceSecsRemaining = Number(graceDeadline - now);
-        const walletStr = m.wallet.toBase58();
-        return {
-          slotIndex: m.slotIndex,
-          wallet: walletStr,
-          shortWallet: shortAddr(walletStr),
-          contributionsPaid: m.contributionsPaid,
-          onTimeCount: m.onTimeCount,
-          lateCount: m.lateCount,
-          escrowBalance: m.escrowBalance,
-          stakeDeposited: m.stakeDeposited,
-          defaulted: m.defaulted,
-          eligibleNow: graceSecsRemaining <= 0,
-          graceSecsRemaining,
-        };
-      });
+    return (
+      onChainMembers.members
+        // Behind = contributions_paid < current_cycle (settleCycle == current_cycle).
+        .filter((m) => m.contributionsPaid < settleCycle)
+        .filter((m) => !m.defaulted)
+        .map<CandidateMember>((m) => {
+          const graceSecsRemaining = Number(graceDeadline - now);
+          const walletStr = m.wallet.toBase58();
+          return {
+            slotIndex: m.slotIndex,
+            wallet: walletStr,
+            shortWallet: shortAddr(walletStr),
+            contributionsPaid: m.contributionsPaid,
+            onTimeCount: m.onTimeCount,
+            lateCount: m.lateCount,
+            escrowBalance: m.escrowBalance,
+            stakeDeposited: m.stakeDeposited,
+            defaulted: m.defaulted,
+            eligibleNow: graceSecsRemaining <= 0,
+            graceSecsRemaining,
+          };
+        })
+    );
   }, [onChainMembers, onChainPool, settleCycle, now]);
 
   // Auto-select the first eligible candidate when the list refreshes.
@@ -364,7 +372,8 @@ export function SettleDefaultCrankModal({
                   {t("modal.settleDefault.currentCycle")}:{" "}
                   <span style={{ color: tokens.text }}>{onChainPool.pool.currentCycle}</span> ·{" "}
                   {t("modal.settleDefault.settleCycle")}:{" "}
-                  <span style={{ color: tokens.text }}>{settleCycle}</span>
+                  <span style={{ color: tokens.text }}>{settleCycle}</span>{" "}
+                  <span style={{ opacity: 0.7 }}>({t("modal.settleDefault.behindNote")})</span>
                 </div>
                 <div>
                   {t("modal.settleDefault.graceWindow", {
