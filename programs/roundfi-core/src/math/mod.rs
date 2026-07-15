@@ -32,6 +32,16 @@ fn map_err(e: MathError) -> anchor_lang::error::Error {
     }
 }
 
+// ─── slot draw (sorteio ordering policy, ADR pool_v2) ───────────────────
+
+/// Fill `order` with a payout-order permutation drawn from `seed`.
+/// Bijection over `0..order.len()` guaranteed (unit + fuzz tested in
+/// roundfi-math).
+#[inline]
+pub fn draw_slot_order_checked(seed: &[u8; 32], order: &mut [u8]) -> Result<()> {
+    roundfi_math::draw_slot_order(seed, order).map_err(map_err)
+}
+
 // ─── bps ────────────────────────────────────────────────────────────────
 
 #[inline]

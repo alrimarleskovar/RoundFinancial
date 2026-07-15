@@ -204,4 +204,19 @@ pub enum RoundfiError {
     // would silently renumber every error after it.
     #[msg("Ordering policy not yet supported — only ArrivalOrder (0) is active")]
     OrderingPolicyUnsupported,
+
+    // ─── ADR pool_v2 — sorteio draw machinery ─────────────────────────
+    // Appended at the END of the enum (codes are positional).
+    /// finalize_draw called before the pool filled, on a non-sorteio
+    /// pool, or on a pool that isn't Active.
+    #[msg("Draw not ready — pool must be a full, Active sorteio pool")]
+    DrawNotReady,
+    /// A payout instruction ran on a sorteio pool without the DrawResult
+    /// appended as the first remaining account (or before finalize_draw).
+    #[msg("Sorteio pool requires the finalized DrawResult account — run finalize_draw / append it to the call")]
+    DrawRequired,
+    /// The remaining-account passed as the draw is not this pool's
+    /// canonical DrawResult PDA (wrong address, owner, type, or pool).
+    #[msg("Invalid DrawResult account for this pool")]
+    InvalidDrawAccount,
 }

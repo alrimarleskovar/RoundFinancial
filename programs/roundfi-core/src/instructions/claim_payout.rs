@@ -97,7 +97,17 @@ pub fn handler(ctx: Context<ClaimPayout>, args: ClaimPayoutArgs) -> Result<()> {
 
     // ─── Slot monotonicity (invariant #6) ───────────────────────────────
     require!(args.cycle == pool.current_cycle,   RoundfiError::WrongCycle);
-    require!(member.slot_index == args.cycle,    RoundfiError::NotYourPayoutSlot);
+    // Policy-aware contemplation gate (ADR pool_v2): ArrivalOrder keeps
+    // seat == cycle byte-for-byte; sorteio pools translate seat → cycle
+    // through the DrawResult appended as the first remaining account
+    // (fully re-verified inside — owner, canonical PDA, type, pool).
+    let contemplated_cycle = crate::state::contemplated_cycle_for_seat(
+        pool.ordering_policy,
+        member.slot_index,
+        &pool.key(),
+        ctx.remaining_accounts,
+    )?;
+    require!(contemplated_cycle == args.cycle,   RoundfiError::NotYourPayoutSlot);
     require!(args.cycle < pool.cycles_total,     RoundfiError::PoolClosed);
 
     // ─── Seed Draw invariant (invariant #1) ─────────────────────────────

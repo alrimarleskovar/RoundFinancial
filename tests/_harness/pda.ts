@@ -16,6 +16,7 @@ import { PublicKey } from "@solana/web3.js";
 import {
   SEED,
   attestationPda,
+  drawResultPda,
   escrowVaultAuthorityPda,
   identityGatePda,
   identityPda,
@@ -85,6 +86,11 @@ export function memberFor(env: Env, pool: PublicKey, wallet: PublicKey): PublicK
 
 export function positionAuthorityFor(env: Env, pool: PublicKey, slotIndex: number): PublicKey {
   return positionAuthorityPda(env.ids.core, pool, slotIndex)[0];
+}
+
+/** Per-pool sorteio DrawResult PDA (ADR pool_v2). */
+export function drawResultFor(env: Env, pool: PublicKey): PublicKey {
+  return drawResultPda(env.ids.core, pool)[0];
 }
 
 export function attestationFor(

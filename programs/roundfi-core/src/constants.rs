@@ -31,6 +31,10 @@ pub const SEED_LISTING:    &[u8] = b"listing";   // 4c: escape valve listings
 /// pre-drain does NOT cover this case: the old asset is mpl-core-owned
 /// with data, not a pre-funded empty account.)
 pub const SEED_POSITION_ASSET: &[u8] = b"position-asset";
+/// Per-pool payout-order draw result (sorteio policy, ADR pool_v2).
+/// NOT b"draw" — that stem could be confused with SEED_DRAW_BPS's
+/// seed-draw retention concept; "draw-result" is unambiguous.
+pub const SEED_DRAW_RESULT: &[u8] = b"draw-result";
 
 // ─── Step 4c: timing & defaults ─────────────────────────────────────────
 /// Grace window after `pool.next_cycle_at` before `settle_default` is

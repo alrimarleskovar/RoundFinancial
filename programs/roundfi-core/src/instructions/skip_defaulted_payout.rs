@@ -72,7 +72,15 @@ pub fn handler(ctx: Context<SkipDefaultedPayout>, args: SkipDefaultedPayoutArgs)
     // Same slot-monotonicity guards as claim_payout: only the CURRENT
     // contemplation slot, and only its own (defaulted) member.
     require!(args.cycle == pool.current_cycle, RoundfiError::WrongCycle);
-    require!(member.slot_index == args.cycle, RoundfiError::NotYourPayoutSlot);
+    // Policy-aware gate (ADR pool_v2): sorteio pools translate seat →
+    // cycle via the DrawResult in remaining_accounts (re-verified inside).
+    let contemplated_cycle = crate::state::contemplated_cycle_for_seat(
+        pool.ordering_policy,
+        member.slot_index,
+        &pool.key(),
+        ctx.remaining_accounts,
+    )?;
+    require!(contemplated_cycle == args.cycle, RoundfiError::NotYourPayoutSlot);
     require!(args.cycle < pool.cycles_total, RoundfiError::PoolClosed);
 
     // No token transfer — the defaulter forfeited the pot; it stays in the
