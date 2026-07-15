@@ -67,13 +67,16 @@ export const DEVNET_POOLS = {
   // instead of following arrival order. 6 slots / 6 cycles, 2-day cycle,
   // tiny economics (4 USDC credit / 1 USDC installment → Lv1 stake 2 USDC;
   // each member needs ~8 USDC total, one faucet hit). Seeded under the
-  // DEPLOYER authority (64XM…Cffm) with POOL_SEED_ID=8 ORDERING_POLICY=1 →
-  // deterministic PDA, cross-verified by re-derivation from
-  // [b"pool", DEVNET_DEPLOYER, u64le(8)]. Its DrawResult lives at
-  // [b"draw-result", pool] (see @roundfi/sdk `drawResultPda`).
+  // operator's sandbox authority B8CjP1mC…ci8di (the SAME wallet that
+  // seeded pool4 — its live first-attempt log printed exactly this PDA)
+  // with POOL_SEED_ID=8 ORDERING_POLICY=1 → deterministic PDA,
+  // cross-verified by re-derivation from [b"pool", B8CjP1mC…, u64le(8)].
+  // Its DrawResult lives at [b"draw-result", pool] =
+  // FRqAQyV43788H4acp9JmQecitH1xfCr2C9iN8V42Ybgt (@roundfi/sdk
+  // `drawResultPda`).
   pool8: {
     seedId: 8n,
-    pda: new PublicKey("51F8KpZYVJdht553e3gFayCqewubo1a6WBNLKgtjN69E"),
+    pda: new PublicKey("3zPNwkGw1dTuhzyRtfjejSBDoZUsFEdben2EiKWg8Lsh"),
   },
 } as const;
 
