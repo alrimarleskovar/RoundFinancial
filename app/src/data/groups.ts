@@ -219,4 +219,23 @@ export const DISCOVER_GROUPS: DiscoverGroup[] = [
     level: 1,
     devnetPool: "pool8",
   },
+  // Live devnet SORTEIO trio (pool9) — the minimum-bureaucracy sorteio
+  // testbed: 3 slots / 3 cycles of 2 days (whole group closes in ~6 days
+  // ≈ one week). Same drawn-order mechanics as pool8, pool7-tiny economics
+  // (2 USDC credit → 11 BRL prize, 1 USDC installment → 5.50 BRL; Lv1
+  // stake 1 USDC — each wallet needs ~4 USDC total). The card's duration
+  // label reads the REAL on-chain cycle length once the pool exists.
+  {
+    id: "d8",
+    name: "Sorteio Trio · Devnet",
+    emoji: "🎯",
+    tone: "t",
+    prize: 11,
+    months: 3,
+    installment: 5.5,
+    filled: 0,
+    total: 3,
+    level: 1,
+    devnetPool: "pool9",
+  },
 ];

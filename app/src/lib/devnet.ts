@@ -78,6 +78,19 @@ export const DEVNET_POOLS = {
     seedId: 8n,
     pda: new PublicKey("3zPNwkGw1dTuhzyRtfjejSBDoZUsFEdben2EiKWg8Lsh"),
   },
+  // pool9 — the "trio" SORTEIO pool: 3 slots / 3 cycles, 2-day cycle (the
+  // whole group closes in ~6 days ≈ one week), minimum bureaucracy for a
+  // tight test crew (the operator's two wallets + one committed tester).
+  // Same tiny economics as pool7 (2 USDC credit / 1 USDC installment →
+  // Lv1 stake 1 USDC; each wallet needs ~4 USDC total). Seeded under the
+  // sandbox authority B8CjP1mC…ci8di (same as pool4/pool8) with
+  // POOL_SEED_ID=9 ORDERING_POLICY=1 → deterministic PDA, derived from
+  // [b"pool", B8CjP1mC…, u64le(9)]. DrawResult at [b"draw-result", pool]
+  // = HRX3kS8uyFF14bdzcvXZCpg4RJNV3RMKWE5rUtqgygAQ.
+  pool9: {
+    seedId: 9n,
+    pda: new PublicKey("9WJDL5nEpGKjVT7yhBE75zQomJrr6UJe2oeNtcmS7rAY"),
+  },
 } as const;
 
 export type DevnetPoolKey = keyof typeof DEVNET_POOLS;
