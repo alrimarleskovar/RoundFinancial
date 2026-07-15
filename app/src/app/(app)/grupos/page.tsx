@@ -24,7 +24,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 
 import { Icons } from "@/components/brand/icons";
 import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
@@ -44,6 +44,8 @@ import {
 import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
+import { sendFinalizeDraw } from "@/lib/finalize-draw";
+import { contemplatedSlotForCycle, drawnCycleForSlot, isSorteioPool, useDraw } from "@/lib/sorteio";
 import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
 import { usePool, usePoolMembers } from "@/lib/usePool";
 
@@ -78,6 +80,7 @@ function descKeyFor(name: string): string {
   if (name.includes("Casa")) return "groupsV2.desc.casa";
   if (name.includes("Dev")) return "groupsV2.desc.dev";
   if (name.includes("Piloto")) return "groupsV2.desc.piloto";
+  if (name.includes("Sorteio")) return "groupsV2.desc.sorteio";
   return "groupsV2.desc.default";
 }
 
@@ -148,6 +151,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const { user, joinedGroupNames, claimedGroups, demoActive } = useSession();
   const { explorerAddr } = useWallet();
   const adapter = useAdapterWallet();
+  const { connection } = useConnection();
   const [joinOpen, setJoinOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [claimOpen, setClaimOpen] = useState(false);
@@ -160,6 +164,10 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // "Formando · faltam 4" chip instead of a stale fixture count.
   const live = usePool(group.devnetPool ?? "pool1");
   const lp = group.devnetPool && live.status === "ok" && live.pool ? live.pool : null;
+  // Sorteio pools (ADR pool_v2): the payout order lives in the DrawResult
+  // PDA, minted once when the pool fills. `useDraw` only fetches when the
+  // live pool actually is a sorteio pool — arrival pools skip the read.
+  const drawRes = useDraw(group.devnetPool, lp);
   // Live roster for devnet-linked cards — used to detect "it's your turn to
   // receive" (the connected wallet holds the slot whose index === current_cycle).
   // Membership is read from CHAIN here, not the session `isJoined` flag, because a
@@ -204,9 +212,13 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // claimed yet this session.
   const claimReadyDemo = isJoined && !!group.contemplated && !claimedGroups.includes(group.name);
   // Real on-chain claim surfacing — the MISSING HALF of the cycle: the cycle only
-  // advances when the slot whose index === current_cycle claims its payout. When
-  // the connected wallet (myMember, above) holds that slot, show a real "Receber"
-  // that fires claim_payout(cycle) in chain mode (memberRecord/pool/seedKey).
+  // advances when the CONTEMPLATED seat claims its payout. Arrival pools: the
+  // seat whose index === current_cycle. Sorteio pools: the seat the DrawResult
+  // assigned to this cycle — and null while undrawn, so nobody sees "Receber"
+  // before the draw (mirrors the on-chain DrawRequired gate). When the connected
+  // wallet (myMember, above) holds that seat, show a real "Receber" that fires
+  // claim_payout(cycle) in chain mode (memberRecord/pool/seedKey).
+  const contemplatedSlot = lp ? contemplatedSlotForCycle(lp, drawRes.draw, lp.currentCycle) : null;
   const claimReadyChain =
     !demoActive &&
     !!lp &&
@@ -214,7 +226,8 @@ function GroupCard({ group }: { group: CatalogGroup }) {
     !!myMember &&
     !myMember.defaulted &&
     !myMember.paidOut &&
-    myMember.slotIndex === lp.currentCycle;
+    contemplatedSlot !== null &&
+    myMember.slotIndex === contemplatedSlot;
   const claimPrizeBrl =
     claimReadyChain && lp ? (Number(lp.creditAmount) / 1e6) * USDC_RATE : group.prize;
 
@@ -228,8 +241,11 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const contemplatedMember = useMemo(() => {
     if (!lp || lp.status !== "active" || membersRes.status !== "ok") return null;
     if (lp.currentCycle >= lp.cyclesTotal) return null;
-    return membersRes.members.find((m) => m.slotIndex === lp.currentCycle) ?? null;
-  }, [lp, membersRes]);
+    // Draw-aware: on an undrawn sorteio pool contemplatedSlot is null → no
+    // member is contemplated → "Processar ciclo" can't point at seat 0.
+    if (contemplatedSlot === null) return null;
+    return membersRes.members.find((m) => m.slotIndex === contemplatedSlot) ?? null;
+  }, [lp, membersRes, contemplatedSlot]);
   const graceElapsed =
     !!lp && Math.floor(Date.now() / 1000) >= Number(lp.nextCycleAt) + Number(GRACE_PERIOD_SECS);
   const needsProcessing =
@@ -239,6 +255,59 @@ function GroupCard({ group }: { group: CatalogGroup }) {
     !contemplatedMember.defaulted &&
     graceElapsed &&
     !claimReadyChain;
+
+  // ─── Sorteio draw (ADR pool_v2) ──────────────────────────────────────
+  // A full (Active) sorteio pool with no DrawResult is waiting for its
+  // one-shot, permissionless draw — payouts are unreachable on-chain
+  // (DrawRequired) until someone fires finalize_draw. Surface a plain
+  // "Sortear ordem" CTA to any connected wallet; the program re-anchors
+  // the cycle-0 window at draw time, so drawing late costs nobody.
+  const drawPending =
+    !demoActive &&
+    !!lp &&
+    isSorteioPool(lp) &&
+    lp.status === "active" &&
+    drawRes.status === "ok" &&
+    !drawRes.draw;
+  // The connected member's drawn cycle (order[seat]) — shown as a chip so
+  // everyone knows their turn the moment the draw lands.
+  const myDrawnCycle =
+    lp && myMember && isSorteioPool(lp)
+      ? drawnCycleForSlot(lp, drawRes.draw, myMember.slotIndex)
+      : null;
+  const [drawSubmitting, setDrawSubmitting] = useState(false);
+  const [drawError, setDrawError] = useState<string | null>(null);
+  const handleDraw = async () => {
+    if (!group.devnetPool || !adapter.publicKey || !adapter.sendTransaction) {
+      setDrawError(t("groupsV2.card.draw.noWallet"));
+      return;
+    }
+    setDrawSubmitting(true);
+    setDrawError(null);
+    try {
+      await sendFinalizeDraw({
+        connection,
+        sendTransaction: adapter.sendTransaction,
+        pool: DEVNET_POOLS[group.devnetPool].pda,
+        caller: adapter.publicKey,
+      });
+      // Eager re-read: the order chip + Receber gating go live immediately.
+      void drawRes.refresh();
+      void live.refresh();
+      void membersRes.refresh();
+    } catch (err) {
+      const e = err as { message?: string; logs?: string[] };
+      const blob = [e.message, ...(Array.isArray(e.logs) ? e.logs : [])].filter(Boolean).join("\n");
+      // A parallel draw (someone else clicked first) collides on the PDA
+      // init — that's success from the group's point of view: refresh.
+      if (/already in use|AccountAlreadyInUse|custom program error: 0x0/i.test(blob)) {
+        void drawRes.refresh();
+      } else {
+        setDrawError(blob || String(err));
+      }
+    }
+    setDrawSubmitting(false);
+  };
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/[0.08] bg-[#0C111A]/95 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
@@ -311,7 +380,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             <span
               className="inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em]"
               style={
-                needsProcessing
+                needsProcessing || drawPending
                   ? { borderColor: "#FFB54766", background: "#FFB5471a", color: "#FFB547" }
                   : completed
                     ? { borderColor: "#00C8FF66", background: "#00C8FF1a", color: "#00C8FF" }
@@ -320,17 +389,26 @@ function GroupCard({ group }: { group: CatalogGroup }) {
                       : { borderColor: "#14F19566", background: "#14F1951a", color: "#14F195" }
               }
             >
-              {needsProcessing
-                ? t("groupsV2.card.processing.badge")
-                : completed
-                  ? t("groupsV2.card.completed")
-                  : forming
-                    ? t("groupsV2.card.forming", {
-                        f: filled,
-                        t: total,
-                        r: Math.max(0, total - filled),
-                      })
-                    : t("groupsV2.card.active")}
+              {drawPending
+                ? t("groupsV2.card.draw.badge")
+                : needsProcessing
+                  ? t("groupsV2.card.processing.badge")
+                  : completed
+                    ? t("groupsV2.card.completed")
+                    : forming
+                      ? t("groupsV2.card.forming", {
+                          f: filled,
+                          t: total,
+                          r: Math.max(0, total - filled),
+                        })
+                      : t("groupsV2.card.active")}
+            </span>
+          )}
+          {/* Sorteio pools: once drawn, pin the member's own turn — the
+              draw is the single fact everyone wants to see on the card. */}
+          {lp && myDrawnCycle !== null && !completed && (
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-[#9945FF]/40 bg-[#9945FF]/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#B782FF]">
+              🎲 {t("groupsV2.card.draw.yourCycle", { n: myDrawnCycle + 1, t: total })}
             </span>
           )}
         </div>
@@ -363,6 +441,31 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             style={{ width: `${pct}%`, background: tone, boxShadow: `0 0 18px ${tone}55` }}
           />
         </div>
+
+        {/* Sorteio (ADR pool_v2): the pool filled but the payout order hasn't
+            been drawn — nothing moves until finalize_draw runs. Permissionless
+            by design, so ANY member can fire it right from the card. */}
+        {drawPending && (
+          <div className="mb-3 rounded-xl border border-[#9945FF]/30 bg-[#9945FF]/10 p-3">
+            <p className="text-xs font-black text-[#B782FF]">{t("groupsV2.card.draw.title")}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400">
+              {t("groupsV2.card.draw.body")}
+            </p>
+            {drawError && (
+              <p className="mt-1.5 max-h-20 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed text-[#FF5656]">
+                {drawError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleDraw}
+              disabled={drawSubmitting}
+              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              🎲 {drawSubmitting ? t("groupsV2.card.draw.drawing") : t("groupsV2.card.draw.cta")}
+            </button>
+          </div>
+        )}
 
         {/* Liveness (SEV-051): the contemplated member never claimed and their
             grace elapsed → the cycle is stuck. Surface the permissionless
@@ -434,7 +537,14 @@ function GroupCard({ group }: { group: CatalogGroup }) {
           open={claimOpen}
           onClose={() => setClaimOpen(false)}
           {...(claimReadyChain && lp && myMember && group.devnetPool
-            ? { memberRecord: myMember, pool: lp, seedKey: group.devnetPool }
+            ? {
+                memberRecord: myMember,
+                pool: lp,
+                seedKey: group.devnetPool,
+                // Sorteio pools: claim_payout needs the DrawResult as a
+                // remaining account (claimReadyChain implies it exists).
+                ...(isSorteioPool(lp) && drawRes.drawPda ? { drawResult: drawRes.drawPda } : {}),
+              }
             : {})}
         />
       )}

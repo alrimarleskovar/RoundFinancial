@@ -26,9 +26,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { Connection, PublicKey } from "@solana/web3.js";
 
-import { fetchPoolMembers, fetchPoolRaw } from "@roundfi/sdk";
+import { fetchDrawRaw, fetchPoolMembers, fetchPoolRaw } from "@roundfi/sdk";
 
 import { DEVNET_POOLS, DEVNET_PROGRAM_IDS, type DevnetPoolKey } from "./devnet";
+import { contemplatedSlotForCycle, isSorteioPool } from "./sorteio";
 
 export type PoolRadarStatus = "forming" | "active" | "completed" | "liquidated" | "closed";
 
@@ -48,12 +49,17 @@ export interface PoolRadarEntry {
   cyclesTotal: number | null;
   nextCycleAt: bigint | null;
   creditAmount: bigint | null;
-  /** The contemplated member (slot == current_cycle) who hasn't claimed yet
-   *  and isn't defaulted — the `crank_payout` target. null when none. */
+  /** The contemplated member who hasn't claimed yet and isn't defaulted —
+   *  the `crank_payout` target. Arrival pools: the seat == current_cycle.
+   *  Sorteio pools: the seat the DrawResult assigned to this cycle (null
+   *  while undrawn — an undrawn pool has NO crankable target). */
   payoutTarget: { wallet: PublicKey; slotIndex: number } | null;
   /** Count of members behind on contributions and not defaulted — the
    *  `settle_default` candidates. 0 when none. */
   settleCandidates: number;
+  /** Sorteio pool (ADR pool_v2) that filled but whose payout order hasn't
+   *  been drawn yet — the pending action is `finalize_draw`, not a crank. */
+  drawPending: boolean;
 }
 
 export interface UsePoolRadarResult {
@@ -77,6 +83,7 @@ function emptyEntry(key: DevnetPoolKey): PoolRadarEntry {
     creditAmount: null,
     payoutTarget: null,
     settleCandidates: 0,
+    drawPending: false,
   };
 }
 
@@ -91,9 +98,18 @@ async function scanPool(connection: Connection, key: DevnetPoolKey): Promise<Poo
 
     const active = pool.status === "active";
     const inRange = pool.currentCycle < pool.cyclesTotal;
+    // Sorteio pools (ADR pool_v2): the seat→cycle map lives in the
+    // DrawResult — one extra read, only for pools that actually need it.
+    const draw =
+      active && isSorteioPool(pool)
+        ? await fetchDrawRaw(connection, DEVNET_PROGRAM_IDS.core, target.pda)
+        : null;
+    const drawPending = active && isSorteioPool(pool) && !draw;
+    const contemplatedSlot =
+      active && inRange ? contemplatedSlotForCycle(pool, draw, pool.currentCycle) : null;
     const contemplated =
-      active && inRange
-        ? members.find((m) => m.slotIndex === pool.currentCycle && !m.paidOut && !m.defaulted)
+      contemplatedSlot !== null
+        ? members.find((m) => m.slotIndex === contemplatedSlot && !m.paidOut && !m.defaulted)
         : undefined;
     const settleCandidates =
       pool.currentCycle > 0
@@ -114,6 +130,7 @@ async function scanPool(connection: Connection, key: DevnetPoolKey): Promise<Poo
         ? { wallet: contemplated.wallet, slotIndex: contemplated.slotIndex }
         : null,
       settleCandidates,
+      drawPending,
     };
   } catch {
     return emptyEntry(key);

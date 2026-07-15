@@ -15,6 +15,7 @@ import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
+import { contemplatedSlotForCycle, useDraw } from "@/lib/sorteio";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
 import { useUsdcBalance } from "@/lib/useUsdcBalance";
@@ -96,14 +97,24 @@ export function PayInstallmentModal({
   const poolCycle = onChainPool.status === "ok" ? (onChainPool.pool?.currentCycle ?? null) : null;
   const aheadOfCycle = memberCycle !== null && poolCycle !== null && memberCycle > poolCycle;
   const behindCycle = memberCycle !== null && poolCycle !== null && memberCycle < poolCycle;
-  // When paid-ahead, the cycle only rolls when slot==current_cycle claims. If
-  // that slot is the connected wallet, it's THEIR turn to receive — point them
-  // at claim, not "waiting".
-  const myTurnToClaim = aheadOfCycle && memberRecord?.slotIndex === poolCycle;
+  // When paid-ahead, the cycle only rolls when the CONTEMPLATED seat claims.
+  // Arrival pools: seat == current_cycle. Sorteio pools (ADR pool_v2): the
+  // seat the DrawResult assigned to this cycle — null while undrawn, so the
+  // "waiting for claimer" copy degrades to "—" instead of pointing at seat 0.
+  // If that seat is the connected wallet, it's THEIR turn to receive — point
+  // them at claim, not "waiting".
+  const livePool = onChainPool.status === "ok" ? onChainPool.pool : null;
+  const drawRes = useDraw(seedKey, livePool);
+  const contemplatedSlot =
+    livePool && poolCycle !== null
+      ? contemplatedSlotForCycle(livePool, drawRes.draw, poolCycle)
+      : null;
+  const myTurnToClaim =
+    aheadOfCycle && contemplatedSlot !== null && memberRecord?.slotIndex === contemplatedSlot;
   const claimer = useMemo(() => {
-    if (poolCycle === null || onChainMembers.status !== "ok") return null;
-    return onChainMembers.members.find((m) => m.slotIndex === poolCycle) ?? null;
-  }, [poolCycle, onChainMembers]);
+    if (contemplatedSlot === null || onChainMembers.status !== "ok") return null;
+    return onChainMembers.members.find((m) => m.slotIndex === contemplatedSlot) ?? null;
+  }, [contemplatedSlot, onChainMembers]);
 
   // ─── Real-pool guard (anti-mock) ─────────────────────────────────────
   // A group carrying a `devnetPool` pointer, on a real connected wallet

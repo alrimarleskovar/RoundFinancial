@@ -198,4 +198,25 @@ export const DISCOVER_GROUPS: DiscoverGroup[] = [
     level: 1,
     devnetPool: "pool7",
   },
+  // Live devnet SORTEIO pool (pool8, ADR pool_v2) — the first pool whose
+  // payout order is NOT arrival order: when the 6 seats fill, anyone hits
+  // "Sortear ordem" (permissionless finalize_draw) and the on-chain draw
+  // assigns who receives in which cycle — auditable via the stored seed,
+  // impossible to re-roll (single-shot PDA). 6 slots / 6 cycles, 2-day
+  // cycle, tiny economics (4 USDC credit → 22 BRL prize, 1 USDC installment
+  // → 5.50 BRL at the 5.5 display rate; Lv1 stake 2 USDC, each member needs
+  // ~8 USDC total — one faucet hit). Lv1 so fresh Phantom wallets can join.
+  {
+    id: "d7",
+    name: "Sorteio na Hora · 6 vagas",
+    emoji: "🎲",
+    tone: "p",
+    prize: 22,
+    months: 6,
+    installment: 5.5,
+    filled: 0,
+    total: 6,
+    level: 1,
+    devnetPool: "pool8",
+  },
 ];
