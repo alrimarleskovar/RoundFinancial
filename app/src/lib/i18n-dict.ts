@@ -93,6 +93,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool8.label": "Pool 8 · 6 vagas · ordem por sorteio · Devnet",
     "home.devnet.pool8.headline":
       "Primeira pool com ordem de contemplação por SORTEIO on-chain — quando as 6 vagas enchem, qualquer participante sorteia a ordem (auditável e impossível de re-rolar) e cada ciclo de 2 dias paga o sorteado da vez.",
+    "home.devnet.pool9.label": "Pool 9 · trio · ordem por sorteio · Devnet",
+    "home.devnet.pool9.headline":
+      "Trio de teste com sorteio on-chain — 3 vagas, ciclos de 2 dias, o grupo inteiro fecha em ~1 semana. Mesma mecânica da pool 8 com burocracia mínima.",
     // levels
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Saldo Protegido",
@@ -2108,6 +2111,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool8.label": "Pool 8 · 6 slots · payout order by draw · Devnet",
     "home.devnet.pool8.headline":
       "First pool with an on-chain DRAWN payout order — once the 6 seats fill, any participant runs the draw (auditable, impossible to re-roll) and each 2-day cycle pays whoever the draw picked.",
+    "home.devnet.pool9.label": "Pool 9 · trio · payout order by draw · Devnet",
+    "home.devnet.pool9.headline":
+      "Drawn-order test trio — 3 seats, 2-day cycles, the whole group closes in ~1 week. Same mechanics as pool 8 with minimum bureaucracy.",
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Protected Balance",
     "home.kpi.receivable": "Receivable",
