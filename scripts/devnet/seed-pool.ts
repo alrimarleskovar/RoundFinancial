@@ -71,6 +71,9 @@ const CYCLE_DURATION = process.env.CYCLE_DURATION_SEC
   ? BigInt(process.env.CYCLE_DURATION_SEC)
   : 86_400n; // default 1 day — MIN_CYCLE_DURATION on chain (SEV-023)
 const ESCROW_RELEASE_BPS = 2_500; // 25% per checkpoint (default)
+// ADR pool_v2: 0 = ArrivalOrder (default), 1 = Sorteio (payout order drawn
+// at fill by finalize_draw — see scripts/devnet/finalize-draw.ts).
+const ORDERING_POLICY = process.env.ORDERING_POLICY ? Number(process.env.ORDERING_POLICY) : 0;
 
 function loadKeypair(path: string): Keypair {
   if (!existsSync(path)) {
@@ -154,9 +157,8 @@ async function callCreatePool(
     encodeU8(CYCLES_TOTAL),
     encodeI64LE(CYCLE_DURATION),
     encodeU16LE(ESCROW_RELEASE_BPS),
-    // ordering_policy (ADR pool_v2): 0 = ArrivalOrder (default). Pass 1
-    // for a sorteio pool — payout order drawn at fill by finalize_draw.
-    encodeU8(0),
+    // ordering_policy (ADR pool_v2) — env-configurable, see const block.
+    encodeU8(ORDERING_POLICY),
   ]);
 
   // Account list — order matches `CreatePool` in

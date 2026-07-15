@@ -60,6 +60,10 @@ const CLAIM_PAYOUT_DISCRIMINATOR = Buffer.from([0x7f, 0xf0, 0x84, 0x3e, 0xe3, 0x
 export interface BuildClaimPayoutIxArgs {
   /** Pool PDA (mutable account). */
   pool: PublicKey;
+  /** Sorteio pools (ADR pool_v2): the pool's DrawResult PDA, appended as
+   *  the first remaining account so the on-chain seat→cycle translation
+   *  runs. Omit for ArrivalOrder pools — call shape unchanged. */
+  drawResult?: PublicKey;
   /** Connected wallet — must equal pool.member.wallet for the slot. */
   memberWallet: PublicKey;
   /** Cycle to claim, must equal pool.current_cycle. */
@@ -123,6 +127,10 @@ export function buildClaimPayoutIx(args: BuildClaimPayoutIxArgs): TransactionIns
       { pubkey: identityRecord, isSigner: false, isWritable: false },
       { pubkey: attestation, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      // Sorteio pools (ADR pool_v2): the pool's DrawResult PDA rides as a
+      // REMAINING account (not part of the declared struct) so ArrivalOrder
+      // pools keep their exact call shape. Omit for arrival pools.
+      ...(args.drawResult ? [{ pubkey: args.drawResult, isSigner: false, isWritable: false }] : []),
     ],
   });
 }

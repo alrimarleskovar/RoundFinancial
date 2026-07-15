@@ -46,6 +46,10 @@ const CRANK_PAYOUT_DISCRIMINATOR = Buffer.from([0x82, 0xb3, 0x62, 0xf3, 0x86, 0x
 export interface BuildCrankPayoutIxArgs {
   /** Pool PDA (mutable). */
   pool: PublicKey;
+  /** Sorteio pools (ADR pool_v2): the pool's DrawResult PDA, appended as
+   *  the first remaining account so the on-chain seat→cycle translation
+   *  runs. Omit for ArrivalOrder pools — call shape unchanged. */
+  drawResult?: PublicKey;
   /** Permissionless caller — signs + pays. Need NOT be a member. */
   caller: PublicKey;
   /** The contemplated member's wallet (slot == current_cycle). Does NOT sign;
@@ -118,6 +122,10 @@ export function buildCrankPayoutIx(args: BuildCrankPayoutIxArgs): TransactionIns
       { pubkey: attestation, isSigner: false, isWritable: true },
       { pubkey: neglectAttestation, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      // Sorteio pools (ADR pool_v2): the pool's DrawResult PDA rides as a
+      // REMAINING account (not part of the declared struct) so ArrivalOrder
+      // pools keep their exact 16-account call shape. Omit for arrival pools.
+      ...(args.drawResult ? [{ pubkey: args.drawResult, isSigner: false, isWritable: false }] : []),
     ],
   });
 }
