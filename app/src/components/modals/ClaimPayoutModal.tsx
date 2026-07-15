@@ -14,6 +14,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendClaimPayout } from "@/lib/claim-payout";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
+import { isDrawRequiredError } from "@/lib/sorteio";
 import { usePoolMembers } from "@/lib/usePool";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -40,6 +41,9 @@ export interface ClaimPayoutModalProps {
   pool?: RawPoolView;
   /** Chain-mode: DEVNET_POOLS key (matches group.devnetPool). */
   seedKey?: keyof typeof DEVNET_POOLS;
+  /** Sorteio pools (ADR pool_v2): the pool's DrawResult PDA — appended to
+   *  claim_payout as a remaining account. Omit for arrival-order pools. */
+  drawResult?: PublicKey;
 }
 
 export function ClaimPayoutModal({
@@ -49,6 +53,7 @@ export function ClaimPayoutModal({
   memberRecord,
   pool,
   seedKey,
+  drawResult,
 }: ClaimPayoutModalProps) {
   const { tokens } = useTheme();
   const { t, fmtMoney } = useI18n();
@@ -213,6 +218,9 @@ export function ClaimPayoutModal({
           memberWallet: connectedWallet as PublicKey,
           cycle: pool.currentCycle,
           slotIndex: memberRecord.slotIndex,
+          // Sorteio pools ride the DrawResult as a remaining account; the
+          // encoder appends it only when present (arrival shape unchanged).
+          drawResult,
         });
         setTxSig(sig);
         // Record the real claim in the session ledger so /carteira + the Activity
@@ -238,7 +246,10 @@ export function ClaimPayoutModal({
         if (parts.length === 0) parts.push(String(err));
         // eslint-disable-next-line no-console
         console.error("[RoundFi] claim_payout failed:", err);
-        setChainError(parts.join("\n"));
+        const blob = parts.join("\n");
+        // Sorteio fail-closed gate (ADR pool_v2): a claim raced the draw or
+        // the UI is stale — translate instead of dumping the raw revert.
+        setChainError(isDrawRequiredError(blob) ? t("modal.claimPayout.error.drawRequired") : blob);
         setSubmitting(false);
       }
       return;

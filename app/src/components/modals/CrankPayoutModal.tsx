@@ -12,6 +12,12 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendCrankPayout } from "@/lib/crank-payout";
 import { DEVNET_POOLS, GRACE_PERIOD_SECS, type DevnetPoolKey } from "@/lib/devnet";
 import { useT } from "@/lib/i18n";
+import {
+  contemplatedSlotForCycle,
+  isDrawRequiredError,
+  isSorteioPool,
+  useDraw,
+} from "@/lib/sorteio";
 import { useTheme } from "@/lib/theme";
 import { usePool, usePoolMembers } from "@/lib/usePool";
 import { shortAddr, useWallet } from "@/lib/wallet";
@@ -74,20 +80,37 @@ export function CrankPayoutModal({
 
   const onChainPool = usePool(selectedPool);
   const onChainMembers = usePoolMembers(selectedPool);
+  // Sorteio pools (ADR pool_v2): the seat→cycle translation lives in the
+  // DrawResult; fetched only when the selected pool actually is sorteio.
+  const drawRes = useDraw(selectedPool, onChainPool.status === "ok" ? onChainPool.pool : null);
+  // Full Active sorteio pool with no draw yet — there IS no contemplated
+  // member to crank; the group needs "Sortear ordem" (on its card) first.
+  const awaitingDraw =
+    onChainPool.status === "ok" &&
+    !!onChainPool.pool &&
+    isSorteioPool(onChainPool.pool) &&
+    onChainPool.pool.status === "active" &&
+    drawRes.status === "ok" &&
+    !drawRes.draw;
 
-  // The contemplated member is the one whose slot_index == current_cycle.
+  // The contemplated member: arrival pools → slot_index == current_cycle;
+  // sorteio pools → the seat the DrawResult assigned to this cycle (null
+  // while undrawn, so no crank target can exist pre-draw).
   const target = useMemo(() => {
     if (onChainPool.status !== "ok" || !onChainPool.pool) return null;
     if (onChainMembers.status !== "ok") return null;
     const pool = onChainPool.pool;
     if (pool.status !== "active") return null;
     if (pool.currentCycle >= pool.cyclesTotal) return null;
-    const m = onChainMembers.members.find((x) => x.slotIndex === pool.currentCycle);
+    const contemplatedSlot = contemplatedSlotForCycle(pool, drawRes.draw, pool.currentCycle);
+    if (contemplatedSlot === null) return null;
+    const m = onChainMembers.members.find((x) => x.slotIndex === contemplatedSlot);
     if (!m) return null;
     const graceDeadline = pool.nextCycleAt + GRACE_PERIOD_SECS;
     const graceSecsRemaining = Number(graceDeadline - now);
     return {
       cycle: pool.currentCycle,
+      slotIndex: m.slotIndex,
       wallet: m.wallet,
       shortWallet: shortAddr(m.wallet.toBase58()),
       defaulted: m.defaulted,
@@ -97,7 +120,7 @@ export function CrankPayoutModal({
       // Eligible = live, unclaimed, past the self-claim grace window.
       eligibleNow: !m.defaulted && !m.paidOut && graceSecsRemaining <= 0,
     };
-  }, [onChainPool, onChainMembers, now]);
+  }, [onChainPool, onChainMembers, drawRes.draw, now]);
 
   // ─── Funding pre-check (SEV-053 UX follow-up) ────────────────────────
   // crank_payout enforces spendable = vault − (guarantee_fund + lp_distribution)
@@ -192,7 +215,14 @@ export function CrankPayoutModal({
         caller: adapter.publicKey,
         contemplatedMemberWallet: target.wallet,
         cycle: target.cycle,
-        slotIndex: target.cycle,
+        // The member's REAL seat — equals cycle on arrival pools, and the
+        // drawn seat on sorteio pools (the attestation nonce packs both).
+        slotIndex: target.slotIndex,
+        // Sorteio pools ride the DrawResult as a remaining account; the
+        // encoder appends it only when present (arrival shape unchanged).
+        ...(onChainPool.status === "ok" && isSorteioPool(onChainPool.pool) && drawRes.drawPda
+          ? { drawResult: drawRes.drawPda }
+          : {}),
       });
       setTxSig(sig);
       void onChainPool.refresh();
@@ -209,7 +239,10 @@ export function CrankPayoutModal({
       if (parts.length === 0) parts.push(String(err));
       // eslint-disable-next-line no-console
       console.error("[RoundFi] crank_payout failed:", err);
-      setChainError(parts.join("\n"));
+      const blob = parts.join("\n");
+      // Sorteio fail-closed gate (ADR pool_v2): crank raced the draw or the
+      // UI is stale — translate instead of dumping the raw revert.
+      setChainError(isDrawRequiredError(blob) ? t("modal.crankPayout.error.drawRequired") : blob);
       setSubmitting(false);
     }
   };
@@ -335,11 +368,13 @@ export function CrankPayoutModal({
                   background: tokens.fillSoft,
                   border: `1px dashed ${tokens.border}`,
                   fontSize: 12,
-                  color: tokens.muted,
+                  color: awaitingDraw ? tokens.amber : tokens.muted,
                   textAlign: "center",
                 }}
               >
-                {t("modal.crankPayout.nothingStuck")}
+                {awaitingDraw
+                  ? t("modal.crankPayout.awaitingDraw")
+                  : t("modal.crankPayout.nothingStuck")}
               </div>
             ) : (
               <div

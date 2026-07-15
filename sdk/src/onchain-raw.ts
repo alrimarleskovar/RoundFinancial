@@ -23,7 +23,12 @@ import {
   type BehavioralPayload,
   decodeBehavioralPayload,
 } from "./behavioralPayload.js";
-import { identityPda, poolPda as derivePoolPda, reputationProfilePda } from "./pda.js";
+import {
+  drawResultPda,
+  identityPda,
+  poolPda as derivePoolPda,
+  reputationProfilePda,
+} from "./pda.js";
 
 // ─── Pool offsets (declaration-order Borsh, no padding) ────────────────
 //
@@ -55,6 +60,11 @@ import { identityPda, poolPda as derivePoolPda, reputationProfilePda } from "./p
 //   off 227: defaulted_members  u8      ( 1)
 //   off 228: lp_distribution_balance    u64 (8)
 //   off 236: slots_bitmap       [u8; 8] ( 8)
+//   off 244: bump + 3 vault bumps       ( 4)
+//   off 248: vaults_initialized bool    ( 1)
+//   off 249: ordering_policy    u8      ( 1)  // ADR pool_v2 — 0=arrival, 1=sorteio.
+//                                             // Pre-carve pools read their zeroed
+//                                             // padding byte here ⇒ 0 = ArrivalOrder.
 
 // Re-uses the PoolStatusName from reads.ts (same enum, exported from
 // there as the shared type). Kept here as a local alias for clarity.
@@ -90,6 +100,9 @@ export interface RawPoolView {
   defaultedMembers: number;
   lpDistributionBalance: bigint;
   occupiedSlots: number[];
+  /** ADR pool_v2 — `ORDERING_POLICY.ArrivalOrder` (0) or `.Sorteio` (1).
+   *  Pools created before the carve read 0 (their old padding byte). */
+  orderingPolicy: number;
 }
 
 const STATUS_NAMES: LocalPoolStatusName[] = [
@@ -141,6 +154,7 @@ export function decodePoolRaw(address: PublicKey, data: Buffer): RawPoolView {
     defaultedMembers: data.readUInt8(227),
     lpDistributionBalance: data.readBigUInt64LE(228),
     occupiedSlots,
+    orderingPolicy: data.readUInt8(249),
   };
 }
 
@@ -170,6 +184,69 @@ export async function fetchPoolBySeed(
 ): Promise<RawPoolView | null> {
   const [pda] = derivePoolPda(coreProgram, authority, seedId);
   return fetchPoolRaw(connection, pda);
+}
+
+// ─── DrawResult offsets (ADR pool_v2 — sorteio payout order) ───────────
+//
+// Minted exactly once per sorteio pool by `finalize_draw` at PDA
+// `[b"draw-result", pool]`. Source of truth:
+// programs/roundfi-core/src/state/draw.rs. Layout after the 8-byte
+// Anchor discriminator:
+//   off   8: pool           Pubkey   (32)
+//   off  40: seed           [u8; 32] (32)  // stored so anyone can re-derive
+//                                          // order = draw_slot_order(seed, n)
+//   off  72: order          [u8; 64] (64)  // order[seat] = payout cycle;
+//                                          // only [0, members_target) meaningful
+//   off 136: members_target u8       ( 1)
+//   off 137: bump           u8       ( 1)
+//   off 138: _padding       [u8; 6]  ( 6)  → size 8 + 136 = 144
+
+const DRAW_RESULT_MIN_LEN = 138; // through `bump` — padding not required
+
+export interface RawDrawView {
+  /** The DrawResult PDA itself — pass as `drawResult` to the payout encoders. */
+  address: PublicKey;
+  pool: PublicKey;
+  /** The stored draw seed — auditability: re-run the permutation off-chain. */
+  seed: Buffer;
+  /** `order[seat] = payout cycle`, truncated to `membersTarget` entries. */
+  order: number[];
+  membersTarget: number;
+}
+
+/** Decode a DrawResult account's raw bytes into a view. */
+export function decodeDrawRaw(address: PublicKey, data: Buffer): RawDrawView {
+  if (data.length < DRAW_RESULT_MIN_LEN) {
+    throw new Error(
+      `decodeDrawRaw: account ${address.toBase58()} is ${data.length} bytes, ` +
+        `expected >= ${DRAW_RESULT_MIN_LEN} (not a complete DrawResult)`,
+    );
+  }
+  const membersTarget = data.readUInt8(136);
+  return {
+    address,
+    pool: new PublicKey(data.subarray(8, 40)),
+    seed: Buffer.from(data.subarray(40, 72)),
+    order: Array.from(data.subarray(72, 72 + membersTarget)),
+    membersTarget,
+  };
+}
+
+/**
+ * Fetch a pool's DrawResult (derived at `[b"draw-result", pool]`). Returns
+ * null when the draw hasn't been finalized yet — for a sorteio pool that
+ * means payouts are still gated on-chain (`DrawRequired`), so callers
+ * should surface "awaiting draw", not an error.
+ */
+export async function fetchDrawRaw(
+  connection: Connection,
+  coreProgram: PublicKey,
+  poolAddress: PublicKey,
+): Promise<RawDrawView | null> {
+  const [address] = drawResultPda(coreProgram, poolAddress);
+  const info = await connection.getAccountInfo(address, "confirmed");
+  if (!info) return null;
+  return decodeDrawRaw(address, info.data as Buffer);
 }
 
 // ─── Member offsets (declaration-order Borsh, no padding) ──────────────

@@ -90,6 +90,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool7.label": "Pool 7 · 5 vagas · pool rápido · Ativo",
     "home.devnet.pool7.headline":
       "Pool rápido de teste na devnet — economia enxuta (crédito 2 USDC) e ciclo de 2 dias para o time rodar o ciclo completo em poucos dias.",
+    "home.devnet.pool8.label": "Pool 8 · 6 vagas · ordem por sorteio · Devnet",
+    "home.devnet.pool8.headline":
+      "Primeira pool com ordem de contemplação por SORTEIO on-chain — quando as 6 vagas enchem, qualquer participante sorteia a ordem (auditável e impossível de re-rolar) e cada ciclo de 2 dias paga o sorteado da vez.",
     // levels
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Saldo Protegido",
@@ -1056,6 +1059,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.recipient": "contemplado",
     "modal.crankPayout.loading": "Lendo estado on-chain…",
     "modal.crankPayout.nothingStuck": "Nenhum ciclo travado neste grupo.",
+    "modal.crankPayout.awaitingDraw":
+      "Este grupo usa ordem por sorteio e ainda não foi sorteado — não há contemplado para processar. Sorteie a ordem no card do grupo primeiro.",
+    "modal.crankPayout.error.drawRequired":
+      "A ordem deste grupo ainda não foi sorteada — sorteie no card do grupo e tente de novo.",
     "modal.crankPayout.cycle": "Ciclo",
     "modal.crankPayout.alreadyPaid": "já sacou",
     "modal.crankPayout.defaulted": "inadimplente (use settle)",
@@ -1121,6 +1128,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.claimPayout.whatHappens.reputation":
       "Este ciclo concluído entra na sua reputação e sobe o seu score",
     "modal.claimPayout.error.label": "Falha na transação",
+    "modal.claimPayout.error.drawRequired":
+      "A ordem deste grupo ainda não foi sorteada — sorteie no card do grupo e tente de novo.",
     "modal.claimPayout.cta.processing": "Processando…",
     "modal.claimPayout.cta.waitingFunds": "Aguardando fundos",
     "modal.claimPayout.cta.confirm": "Confirmar recebimento",
@@ -1417,6 +1426,14 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.processing.title": "Esta pool precisa ser processada",
     "groupsV2.card.processing.body": "O próximo ciclo está pronto para continuar.",
     "groupsV2.card.processing.cta": "Processar ciclo",
+    "groupsV2.card.draw.badge": "Aguardando sorteio",
+    "groupsV2.card.draw.title": "Grupo completo — falta sortear a ordem",
+    "groupsV2.card.draw.body":
+      "Neste grupo a ordem de recebimento é definida por sorteio on-chain. Qualquer participante pode sortear — o resultado fica registrado na blockchain, é auditável e ninguém consegue sortear de novo.",
+    "groupsV2.card.draw.cta": "Sortear ordem",
+    "groupsV2.card.draw.drawing": "Sorteando…",
+    "groupsV2.card.draw.noWallet": "Conecte uma carteira para sortear.",
+    "groupsV2.card.draw.yourCycle": "Você recebe no ciclo {n} de {t}",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
     "groupsV2.footer.note":
       "Sua reputação e nível de acesso determinam os grupos disponíveis para você.",
@@ -1428,6 +1445,8 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.desc.casa": "Capital para entrada, reforma ou regularização do seu imóvel.",
     "groupsV2.desc.dev": "Equipamentos e ferramentas para desenvolvedores e criadores.",
     "groupsV2.desc.piloto": "Pool piloto on-chain na devnet — entre para exercer o fluxo real.",
+    "groupsV2.desc.sorteio":
+      "Grupo com ordem de recebimento por SORTEIO on-chain: ninguém escolhe vaga — quando o grupo enche, o sorteio define quem recebe em cada ciclo, auditável na blockchain.",
     "groupsV2.desc.default": "Capital para alcançar seu objetivo com planejamento.",
     // categories
     "cat.pme": "PME",
@@ -2086,6 +2105,9 @@ export const DICT: Record<Lang, Dict> = {
     "home.devnet.pool7.label": "Pool 7 · 5 slots · fast pool · Active",
     "home.devnet.pool7.headline":
       "Fast test pool on devnet — lean economics (2 USDC credit) and a 2-day cycle so the team can run the full lifecycle in a few days.",
+    "home.devnet.pool8.label": "Pool 8 · 6 slots · payout order by draw · Devnet",
+    "home.devnet.pool8.headline":
+      "First pool with an on-chain DRAWN payout order — once the 6 seats fill, any participant runs the draw (auditable, impossible to re-roll) and each 2-day cycle pays whoever the draw picked.",
     // home (redesigned dashboard — graduated from /home-v2)
     "home.kpi.protected": "Protected Balance",
     "home.kpi.receivable": "Receivable",
@@ -3044,6 +3066,10 @@ export const DICT: Record<Lang, Dict> = {
     "modal.crankPayout.recipient": "recipient",
     "modal.crankPayout.loading": "Reading on-chain state…",
     "modal.crankPayout.nothingStuck": "No stuck cycle in this group.",
+    "modal.crankPayout.awaitingDraw":
+      "This group uses a drawn payout order and hasn't been drawn yet — there is no contemplated member to process. Run the draw on the group card first.",
+    "modal.crankPayout.error.drawRequired":
+      "This group's order hasn't been drawn yet — run the draw on the group card and try again.",
     "modal.crankPayout.cycle": "Cycle",
     "modal.crankPayout.alreadyPaid": "already claimed",
     "modal.crankPayout.defaulted": "defaulted (use settle)",
@@ -3109,6 +3135,8 @@ export const DICT: Record<Lang, Dict> = {
     "modal.claimPayout.whatHappens.reputation":
       "This completed cycle is recorded in your reputation and raises your score",
     "modal.claimPayout.error.label": "Transaction failed",
+    "modal.claimPayout.error.drawRequired":
+      "This group's order hasn't been drawn yet — run the draw on the group card and try again.",
     "modal.claimPayout.cta.processing": "Processing…",
     "modal.claimPayout.cta.waitingFunds": "Waiting for funds",
     "modal.claimPayout.cta.confirm": "Confirm receipt",
@@ -3402,6 +3430,14 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.processing.title": "This pool needs processing",
     "groupsV2.card.processing.body": "The next cycle is ready to continue.",
     "groupsV2.card.processing.cta": "Process cycle",
+    "groupsV2.card.draw.badge": "Awaiting draw",
+    "groupsV2.card.draw.title": "Group is full — the order needs drawing",
+    "groupsV2.card.draw.body":
+      "This group assigns the payout order by an on-chain draw. Any participant can run it — the result is recorded on the blockchain, auditable, and impossible to re-roll.",
+    "groupsV2.card.draw.cta": "Draw the order",
+    "groupsV2.card.draw.drawing": "Drawing…",
+    "groupsV2.card.draw.noWallet": "Connect a wallet to run the draw.",
+    "groupsV2.card.draw.yourCycle": "You receive in cycle {n} of {t}",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
     "groupsV2.footer.note":
       "Your reputation and access level determine which groups are available to you.",
@@ -3413,6 +3449,8 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.desc.casa": "Capital for a down payment, renovation, or to regularize your home.",
     "groupsV2.desc.dev": "Gear and tools for developers and creators.",
     "groupsV2.desc.piloto": "On-chain pilot pool on devnet — join to exercise the real flow.",
+    "groupsV2.desc.sorteio":
+      "Group with an on-chain DRAWN payout order: nobody picks a slot — once the group fills, the draw decides who receives in each cycle, auditable on the blockchain.",
     "groupsV2.desc.default": "Capital to reach your goal with planning.",
     "cat.pme": "SMB",
     "cat.vip": "✦ VIP",
