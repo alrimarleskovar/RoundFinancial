@@ -1461,6 +1461,14 @@ export const DICT: Record<Lang, Dict> = {
     "cat.casa": "Casa",
     "cat.pessoal": "Pessoal",
     // wallet
+    "wallet.mobileBanner.title": "No celular, use o navegador da sua carteira",
+    "wallet.mobileBanner.body":
+      "Assinar pelo Safari/Chrome do celular falha com frequência (a carteira não devolve a assinatura). Abra o RoundFi pelo navegador DENTRO do app da carteira — um toque abaixo já leva você pra esta mesma página.",
+    "wallet.mobileBanner.phantom": "Abrir na Phantom",
+    "wallet.mobileBanner.solflare": "Abrir na Solflare",
+    "wallet.mobileBanner.dismiss": "Continuar mesmo assim",
+    "wallet.mobileRelay.error":
+      "Sua carteira não devolveu a assinatura — isso acontece ao assinar pelo Safari/Chrome do celular. Abra o RoundFi pelo navegador dentro do app da carteira (Phantom → aba Explorar; Solflare → Browser) e tente de novo. Sua conta está OK — nada foi debitado.",
     "wallet.badge": "◆ Carteira multi-cofre",
     "wallet.title": "Sua posição na RoundFi",
     "wallet.send": "Enviar",
@@ -3467,6 +3475,14 @@ export const DICT: Record<Lang, Dict> = {
     "cat.estudo": "Study",
     "cat.casa": "Home",
     "cat.pessoal": "Personal",
+    "wallet.mobileBanner.title": "On mobile, use your wallet's browser",
+    "wallet.mobileBanner.body":
+      "Signing through phone Safari/Chrome fails often (the wallet doesn't return the signature). Open RoundFi in the browser INSIDE your wallet app — one tap below takes you to this same page.",
+    "wallet.mobileBanner.phantom": "Open in Phantom",
+    "wallet.mobileBanner.solflare": "Open in Solflare",
+    "wallet.mobileBanner.dismiss": "Continue anyway",
+    "wallet.mobileRelay.error":
+      "Your wallet didn't return the signature — this happens when signing through phone Safari/Chrome. Open RoundFi in the browser inside your wallet app (Phantom → Explore tab; Solflare → Browser) and try again. Your account is fine — nothing was charged.",
     "wallet.badge": "◆ Multi-vault wallet",
     "wallet.title": "Your RoundFi position",
     "wallet.send": "Send",

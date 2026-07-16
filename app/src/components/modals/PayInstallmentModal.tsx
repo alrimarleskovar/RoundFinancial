@@ -14,6 +14,7 @@ import { sendContribute } from "@/lib/contribute";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
 import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
+import { isMissingSignatureError } from "@/lib/mobileWallet";
 import { useSession } from "@/lib/session";
 import { contemplatedSlotForCycle, useDraw } from "@/lib/sorteio";
 import { useTheme } from "@/lib/theme";
@@ -271,7 +272,10 @@ export function PayInstallmentModal({
         if (parts.length === 0) parts.push(String(err));
         // eslint-disable-next-line no-console
         console.error("[RoundFi] contribute failed:", err);
-        setChainError(parts.join("\n"));
+        const blob = parts.join("\n");
+        // Mobile relay failure — the wallet never returned the signature
+        // (Safari/Chrome ⇄ wallet-app relay). Steer to the in-app browser.
+        setChainError(isMissingSignatureError(blob) ? t("wallet.mobileRelay.error") : blob);
         setSubmitting(false);
       }
       return;
