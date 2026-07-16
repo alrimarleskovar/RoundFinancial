@@ -78,6 +78,13 @@ const PROFILE_LEVEL_OFFSET = 40;
 export interface BuildJoinPoolIxArgs {
   /** Pool PDA (mutable). Must be in Forming status. */
   pool: PublicKey;
+  /** Sorteio pools (ADR pool_v2): the pool's DrawResult PDA, appended as
+   *  the first remaining account so the ACTIVATING join auto-draws the
+   *  payout order in the same transaction (no button, no extra tx).
+   *  Non-activating joins carry it harmlessly; omitting it degrades to
+   *  the permissionless finalize_draw backstop. ArrivalOrder pools:
+   *  omit — call shape byte-identical. */
+  drawResult?: PublicKey;
   /** Connected wallet — signs + pays. Becomes the new Member. */
   memberWallet: PublicKey;
   /** Slot to occupy (0..members_target-1). Client picks the first free slot. */
@@ -149,6 +156,10 @@ export function buildJoinPoolIx(args: BuildJoinPoolIxArgs): TransactionInstructi
       { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+      // Sorteio auto-draw (ADR pool_v2): the DrawResult PDA rides as a
+      // REMAINING account (writable — the activating join pays its rent
+      // and writes the drawn order). Omitted on ArrivalOrder pools.
+      ...(args.drawResult ? [{ pubkey: args.drawResult, isSigner: false, isWritable: true }] : []),
     ],
   });
 }
@@ -160,6 +171,8 @@ export interface SendJoinPoolArgs {
    *  that don't honor the adapter's `signers` option. */
   sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>;
   pool: PublicKey;
+  /** Sorteio pools: the DrawResult PDA — see BuildJoinPoolIxArgs. */
+  drawResult?: PublicKey;
   memberWallet: PublicKey;
   /** Slot to occupy — caller resolves the first free slot from usePoolMembers. */
   slotIndex: number;
@@ -194,6 +207,7 @@ export async function sendJoinPool(args: SendJoinPoolArgs): Promise<string> {
 
   const ix = buildJoinPoolIx({
     pool: args.pool,
+    drawResult: args.drawResult,
     memberWallet: args.memberWallet,
     slotIndex: args.slotIndex,
     reputationLevel,

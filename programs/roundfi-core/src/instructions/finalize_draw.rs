@@ -1,13 +1,20 @@
 //! `finalize_draw` — mint the payout-order permutation for a sorteio pool
 //! (ADR pool_v2). Permissionless, exactly once per pool.
 //!
-//! When a pool with `ordering_policy == ORDERING_SORTEIO` fills (last
-//! `join_pool` flips it Active), payouts are UNREACHABLE — the three
-//! payout instructions fail `DrawRequired` — until someone runs this. The
-//! app fires it right after the activating join; because it's
+//! Since the auto-draw upgrade this is the BACKSTOP path: the activating
+//! `join_pool` normally draws the order itself (the last joiner's tx
+//! appends the DrawResult as a remaining account — no extra transaction
+//! for anyone). This instruction remains for pools whose activating join
+//! didn't carry the account: pools filled before the upgrade (e.g.
+//! devnet pool9) and stale clients. Same single-shot PDA — whichever
+//! path runs first wins, the other collides.
+//!
+//! When a pool with `ordering_policy == ORDERING_SORTEIO` is Active but
+//! undrawn, payouts are UNREACHABLE — the three payout instructions
+//! fail `DrawRequired` — until the draw exists. Because this is
 //! permissionless (same trust model as `crank_payout`: no funds move
 //! anywhere but where the protocol already says they go), any member can
-//! unstick a pool whose creator forgot.
+//! unstick such a pool.
 //!
 //! **Seed (v1-canary, honest limitation).** sha256(pool ‖ clock.slot ‖
 //! clock.unix_timestamp ‖ members_target). The finalize caller can grind

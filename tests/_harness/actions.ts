@@ -178,8 +178,14 @@ export async function finalizeDraw(env: Env, opts: FinalizeDrawOpts): Promise<Pu
 }
 
 /** Fetch + decode a pool's DrawResult account. */
-export async function fetchDraw(env: Env, pool: PublicKey): Promise<Record<string, unknown>> {
-  return (env.programs.core.account as any).drawResult.fetch(drawResultFor(env, pool));
+/** Nullable by design: a sorteio pool that hasn't been drawn yet (or an
+ *  ArrivalOrder pool) simply has no DrawResult — callers assert on null
+ *  for the undrawn state instead of catching a fetch throw. */
+export async function fetchDraw(
+  env: Env,
+  pool: PublicKey,
+): Promise<Record<string, unknown> | null> {
+  return (env.programs.core.account as any).drawResult.fetchNullable(drawResultFor(env, pool));
 }
 
 // ─── release_escrow ────────────────────────────────────────────────────

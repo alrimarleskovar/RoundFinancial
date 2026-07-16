@@ -63,8 +63,9 @@ export interface CreatePoolOpts {
   cycleDurationSec?: number;
   escrowReleaseBps?: number;
   yieldAdapter?: PublicKey; // defaults to env.ids.yieldMock
-  /** ORDERING_POLICY id (ADR pool_v2). Defaults to 0 = ArrivalOrder —
-   *  today's behavior; Sorteio (1) is fail-closed on-chain for now. */
+  /** ORDERING_POLICY id (ADR pool_v2). Defaults to 0 = ArrivalOrder;
+   *  Sorteio (1) draws the payout order at activation (auto-draw via the
+   *  activating join's remaining account, else finalize_draw backstop). */
   orderingPolicy?: number;
 }
 
@@ -98,6 +99,11 @@ export interface JoinOpts {
   prefundStake?: boolean;
   /** Pre-airdrop SOL for rent + tx fees. Default true (1 SOL). */
   prefundSol?: boolean;
+  /** Sorteio pools (ADR pool_v2): the pool's DrawResult PDA, appended as
+   *  the first remaining account so the ACTIVATING join auto-draws the
+   *  payout order. Omit → the join still works and the pool activates
+   *  undrawn (finalize_draw backstop). */
+  drawResult?: PublicKey;
 }
 
 export interface MemberHandle {
@@ -302,6 +308,13 @@ export async function joinPool(env: Env, pool: PoolHandle, opts: JoinOpts): Prom
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
     })
+    // Sorteio auto-draw (ADR pool_v2): the DrawResult PDA rides as the
+    // first remaining account; the ACTIVATING join inits it and draws.
+    // Non-activating joins ignore it; omitting it degrades to the
+    // finalize_draw backstop. ArrivalOrder joins never pass it.
+    .remainingAccounts(
+      opts.drawResult ? [{ pubkey: opts.drawResult, isSigner: false, isWritable: true }] : [],
+    )
     .preInstructions([bumpCu])
     .signers([opts.member])
     .rpc();
