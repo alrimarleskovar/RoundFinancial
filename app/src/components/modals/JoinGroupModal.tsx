@@ -9,8 +9,11 @@ import { MonoLabel } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
-import { DEVNET_POOLS } from "@/lib/devnet";
+import { drawResultPda } from "@roundfi/sdk";
+
+import { DEVNET_POOLS, DEVNET_PROGRAM_IDS } from "@/lib/devnet";
 import { isMissingSignatureError } from "@/lib/mobileWallet";
+import { isSorteioPool } from "@/lib/sorteio";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { sendJoinPool } from "@/lib/join-pool";
@@ -191,10 +194,20 @@ export function JoinGroupModal({
 
     if (onChainReady && connectedWallet && adapter.sendTransaction && freeSlot !== null) {
       try {
+        // Sorteio pools (ADR pool_v2): append the DrawResult PDA so that
+        // if THIS join is the one that fills the pool, the payout order
+        // is drawn in the same transaction — no button, no extra tx for
+        // anyone. Harmless on non-activating joins; ArrivalOrder pools
+        // never pass it (byte-identical call shape).
+        const livePool = onChainPool.status === "ok" ? onChainPool.pool : null;
+        const drawResult = isSorteioPool(livePool)
+          ? drawResultPda(DEVNET_PROGRAM_IDS.core, DEVNET_POOLS[seedKey!].pda)[0]
+          : undefined;
         const sig = await sendJoinPool({
           connection,
           sendTransaction: adapter.sendTransaction,
           pool: DEVNET_POOLS[seedKey!].pda,
+          drawResult,
           memberWallet: connectedWallet,
           slotIndex: freeSlot,
         });

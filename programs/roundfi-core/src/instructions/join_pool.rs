@@ -1,6 +1,11 @@
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::{
+    allocate, assign, create_account, transfer as system_transfer, Allocate, Assign,
+    CreateAccount, Transfer as SystemTransfer,
+};
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use solana_program::hash::hashv;
 
 use mpl_core::{
     instructions::CreateV2CpiBuilder,
@@ -15,7 +20,8 @@ use roundfi_reputation::state::ReputationProfile;
 
 use crate::constants::*;
 use crate::error::RoundfiError;
-use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
+use crate::math::draw_slot_order_checked;
+use crate::state::{DrawResult, Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct JoinPoolArgs {
@@ -139,7 +145,13 @@ pub struct JoinPool<'info> {
     pub rent:                     Sysvar<'info, Rent>,
 }
 
-pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
+// The explicit `'info` binding ties `ctx.remaining_accounts` (the
+// optional sorteio DrawResult) to the same lifetime as the named
+// accounts — required to hand both to `auto_draw_at_activation`.
+pub fn handler<'info>(
+    ctx: Context<'info, JoinPool<'info>>,
+    args: JoinPoolArgs,
+) -> Result<()> {
     // v5.2 four-tier ladder: levels 1..=4 (L4 = Elite). The asserted
     // level is verified against the ReputationProfile below; this is the
     // cheap range guard before the PDA read.
@@ -365,6 +377,48 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
             .checked_add(pool.cycle_duration)
             .ok_or(error!(RoundfiError::MathOverflow))?;
         msg!("roundfi-core: pool activated — all members joined");
+
+        // ─── Sorteio auto-draw (ADR pool_v2 follow-up) ──────────────────
+        // The activating join IS the moment a sorteio pool becomes
+        // drawable — running the draw here removes the extra
+        // transaction (and the "Sortear ordem" button) entirely: the
+        // last joiner's own join tx mints the DrawResult, paying only
+        // its rent (~0.0016 SOL) on a tx they were signing anyway. The
+        // cycle-0 window starts NOW (set just above), so no re-anchor
+        // is needed.
+        //
+        // OPPORTUNISTIC by design: the draw account rides as the first
+        // remaining account (ArrivalOrder joins stay byte-identical),
+        // and if it's absent or in any unexpected state the join still
+        // activates the pool UNDRAWN — the permissionless
+        // `finalize_draw` backstop (and its UI button) covers it, same
+        // as pools that filled before this upgrade. A stale client can
+        // never brick an activation.
+        //
+        // Seed entropy is the same v1-canary formula as finalize_draw
+        // (sha256(pool ‖ slot ‖ ts ‖ n)); the timing-grind surface just
+        // moves from "whoever calls finalize" to "whoever joins last" —
+        // the same actor class. The VRF-bound seed planned pre-mainnet
+        // (ADR pool_v2) neutralizes both variants at once.
+        if pool.ordering_policy == ORDERING_SORTEIO {
+            let pool_key = pool.key();
+            let n = pool.members_target;
+            let payer_ai = ctx.accounts.member_wallet.to_account_info();
+            let system_ai = ctx.accounts.system_program.to_account_info();
+            let drawn = auto_draw_at_activation(
+                ctx.remaining_accounts.first(),
+                &payer_ai,
+                &system_ai,
+                &pool_key,
+                n,
+                &clock,
+            )?;
+            if drawn {
+                msg!("roundfi-core: payout order auto-drawn at activation");
+            } else {
+                msg!("roundfi-core: auto-draw skipped — finalize_draw backstop remains");
+            }
+        }
     }
 
     msg!(
@@ -374,6 +428,125 @@ pub fn handler(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
         stake_amount,
     );
     Ok(())
+}
+
+// ─── helper: auto_draw_at_activation (sorteio, ADR pool_v2) ─────────────
+//
+// Mints the pool's DrawResult inside the ACTIVATING join. `#[inline(never)]`
+// keeps its locals ([u8;64] order + hashing state) in a separate stack
+// frame — join_pool is already the deepest instruction (the mpl-core
+// CreateV2 CPI is why create_pool got split), so the draw work must not
+// widen the handler's own frame.
+//
+// Returns Ok(false) — activation proceeds UNDRAWN, `finalize_draw`
+// backstop remains — whenever the draw can't happen safely:
+//   - no remaining account appended (stale client / ArrivalOrder-style call);
+//   - the account is already an initialized DrawResult (can't happen
+//     pre-activation via finalize_draw's own gates, but single-shot
+//     semantics stay intact if it somehow exists).
+// It REVERTS (InvalidDrawAccount) only when the appended account is at
+// the wrong address — that's a malformed client, not a degraded state.
+//
+// Rent-funding is grief-hardened: anyone can send lamports to the PDA
+// address ahead of time, which makes a naive `create_account` fail. The
+// pre-funded path tops up + `allocate` + `assign` instead (the same
+// dance Anchor's `init` does), so a 0.001-SOL griefer cannot block a
+// pool's activation draw.
+#[inline(never)]
+fn auto_draw_at_activation<'a>(
+    draw_info: Option<&AccountInfo<'a>>,
+    payer: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    pool_key: &Pubkey,
+    members_target: u8,
+    clock: &Clock,
+) -> Result<bool> {
+    let Some(info) = draw_info else {
+        return Ok(false);
+    };
+
+    // Canonical PDA only — an appended account anywhere else is a
+    // malformed call, never silently accepted.
+    let (expected, bump) =
+        Pubkey::find_program_address(&[SEED_DRAW_RESULT, pool_key.as_ref()], &crate::ID);
+    require!(info.key == &expected, RoundfiError::InvalidDrawAccount);
+
+    // Already initialized → single-shot: never re-roll.
+    if info.owner == &crate::ID {
+        return Ok(false);
+    }
+    // Anything else unexpected (non-system owner, pre-existing data):
+    // degrade to the backstop rather than risk the activation.
+    if info.owner != &anchor_lang::system_program::ID || !info.data_is_empty() {
+        return Ok(false);
+    }
+
+    let rent = Rent::get()?;
+    let space = DrawResult::SIZE;
+    let required = rent.minimum_balance(space);
+    let seeds: &[&[u8]] = &[SEED_DRAW_RESULT, pool_key.as_ref(), &[bump]];
+    let signer_seeds: &[&[&[u8]]] = &[seeds];
+
+    let system_program_id = *system_program.key;
+    if info.lamports() == 0 {
+        create_account(
+            CpiContext::new_with_signer(
+                system_program_id,
+                CreateAccount { from: payer.clone(), to: info.clone() },
+                signer_seeds,
+            ),
+            required,
+            space as u64,
+            &crate::ID,
+        )?;
+    } else {
+        // Pre-funded (grief or accident): top up to rent-exempt if
+        // short, then allocate + assign with the PDA as signer.
+        let shortfall = required.saturating_sub(info.lamports());
+        if shortfall > 0 {
+            system_transfer(
+                CpiContext::new(
+                    system_program_id,
+                    SystemTransfer { from: payer.clone(), to: info.clone() },
+                ),
+                shortfall,
+            )?;
+        }
+        allocate(
+            CpiContext::new_with_signer(
+                system_program_id,
+                Allocate { account_to_allocate: info.clone() },
+                signer_seeds,
+            ),
+            space as u64,
+        )?;
+        assign(
+            CpiContext::new_with_signer(
+                system_program_id,
+                Assign { account_to_assign: info.clone() },
+                signer_seeds,
+            ),
+            &crate::ID,
+        )?;
+    }
+
+    // Same v1-canary entropy as finalize_draw — stored for auditability
+    // (anyone re-derives order = draw_slot_order(seed, n)).
+    let seed = hashv(&[
+        pool_key.as_ref(),
+        &clock.slot.to_le_bytes(),
+        &clock.unix_timestamp.to_le_bytes(),
+        &[members_target],
+    ])
+    .to_bytes();
+
+    let mut order = [0u8; MAX_MEMBERS as usize];
+    draw_slot_order_checked(&seed, &mut order[..members_target as usize])?;
+
+    let value = DrawResult { pool: *pool_key, seed, order, members_target, bump };
+    let mut data = info.try_borrow_mut_data()?;
+    value.try_serialize(&mut &mut data[..])?;
+    Ok(true)
 }
 
 // ─── helper: derive_trusted_reputation_level ────────────────────────────

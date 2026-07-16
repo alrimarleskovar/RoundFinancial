@@ -4,8 +4,11 @@ use crate::constants::{MAX_MEMBERS, SEED_DRAW_RESULT};
 use crate::error::RoundfiError;
 
 /// Result of a pool's payout-order draw (sorteio ordering policy).
-/// PDA seeds: `[b"draw-result", pool]` — one per pool, minted exactly once
-/// by `finalize_draw` when the pool fills.
+/// PDA seeds: `[b"draw-result", pool]` — one per pool, minted exactly
+/// once: normally by the ACTIVATING `join_pool` (auto-draw — the last
+/// joiner's tx draws the order atomically), else by the permissionless
+/// `finalize_draw` backstop. The `init`-style collision on the PDA makes
+/// the two paths mutually exclusive.
 ///
 /// `order[seat] == cycle` — the member holding arrival-seat `seat`
 /// (their immutable `member.slot_index`) is contemplated in payout

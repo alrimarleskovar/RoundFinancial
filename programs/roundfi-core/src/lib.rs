@@ -55,7 +55,12 @@ pub mod roundfi_core {
         instructions::init_pool_vaults::handler(ctx)
     }
 
-    pub fn join_pool(ctx: Context<JoinPool>, args: JoinPoolArgs) -> Result<()> {
+    // Explicit `'info` binding — join_pool reads its optional sorteio
+    // DrawResult from `remaining_accounts` (auto-draw at activation).
+    pub fn join_pool<'info>(
+        ctx: Context<'info, JoinPool<'info>>,
+        args: JoinPoolArgs,
+    ) -> Result<()> {
         instructions::join_pool::handler(ctx, args)
     }
 
