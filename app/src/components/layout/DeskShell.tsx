@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { MobileWalletBanner } from "@/components/layout/MobileWalletBanner";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { TopBar } from "@/components/layout/TopBar";
 import { TweaksPanel } from "@/components/layout/TweaksPanel";
@@ -33,6 +34,10 @@ export function DeskShell({ children }: { children: ReactNode }) {
       }}
     >
       <TopBar />
+      {/* Phone + non-wallet browser ⇒ signatures ride the unreliable
+          cross-process relay ("Missing signature") — steer to the wallet's
+          in-app browser BEFORE the first doomed sign. */}
+      <MobileWalletBanner />
       <div
         style={{
           flex: 1,

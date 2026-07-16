@@ -10,6 +10,7 @@ import { Icons } from "@/components/brand/icons";
 import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { DEVNET_POOLS } from "@/lib/devnet";
+import { isMissingSignatureError } from "@/lib/mobileWallet";
 import type { CatalogGroup } from "@/lib/groups";
 import { useI18n, useT } from "@/lib/i18n";
 import { sendJoinPool } from "@/lib/join-pool";
@@ -234,7 +235,17 @@ export function JoinGroupModal({
           /AccountNotFound|could not find account|InsufficientStake|0x1770/i.test(blob);
         // eslint-disable-next-line no-console
         console.error("[RoundFi] join_pool failed:", err);
-        setChainError(looksLikeNoUsdc ? t("modal.join.err.noUsdc") : blob);
+        // Mobile relay failure ("Missing signature…"): simulation already
+        // passed, so the account is FINE — the wallet just never returned
+        // the signature (Safari/Chrome ⇄ wallet-app relay). Point at the
+        // in-app browser instead of dumping base58 (see lib/mobileWallet).
+        setChainError(
+          isMissingSignatureError(blob)
+            ? t("wallet.mobileRelay.error")
+            : looksLikeNoUsdc
+              ? t("modal.join.err.noUsdc")
+              : blob,
+        );
         setSubmitting(false);
       }
       return;

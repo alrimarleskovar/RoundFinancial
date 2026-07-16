@@ -14,6 +14,7 @@ import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendClaimPayout } from "@/lib/claim-payout";
 import type { ActiveGroup } from "@/data/groups";
 import { DEVNET_POOLS } from "@/lib/devnet";
+import { isMissingSignatureError } from "@/lib/mobileWallet";
 import { isDrawRequiredError } from "@/lib/sorteio";
 import { usePoolMembers } from "@/lib/usePool";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
@@ -248,8 +249,16 @@ export function ClaimPayoutModal({
         console.error("[RoundFi] claim_payout failed:", err);
         const blob = parts.join("\n");
         // Sorteio fail-closed gate (ADR pool_v2): a claim raced the draw or
-        // the UI is stale — translate instead of dumping the raw revert.
-        setChainError(isDrawRequiredError(blob) ? t("modal.claimPayout.error.drawRequired") : blob);
+        // the UI is stale. Mobile relay failure ("Missing signature"): the
+        // wallet never returned the signature — steer to the in-app
+        // browser. Either way, translate instead of dumping the raw revert.
+        setChainError(
+          isDrawRequiredError(blob)
+            ? t("modal.claimPayout.error.drawRequired")
+            : isMissingSignatureError(blob)
+              ? t("wallet.mobileRelay.error")
+              : blob,
+        );
         setSubmitting(false);
       }
       return;
