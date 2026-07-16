@@ -55,8 +55,25 @@ impl Member {
     /// D_initial = pool.credit_amount (the credit taken when it's the member's slot);
     /// D_remaining = (cycles_total - contributions_paid) * installment_amount.
     /// Used by settle_default to enforce the debt/collateral invariant.
-    pub fn debt_initial(pool_credit_amount: u64) -> u64 {
-        pool_credit_amount
+    /// Initial debt = the member's TOTAL contribution obligation
+    /// (`cycles_total × installment`) — the SAME unit `debt_remaining`
+    /// counts down in, so `D_rem/D_init` starts at exactly 1 and falls
+    /// with each payment.
+    ///
+    /// **SEV-054.** This was `pool_credit_amount`. Credit and the
+    /// installment stream are DIFFERENT quantities on every
+    /// constructible pool — create_pool's viability guard forces
+    /// `credit ≤ members × installment × (1 − solidarity − escrow)`,
+    /// i.e. credit < cycles × installment ALWAYS — so a member behind
+    /// early/mid pool had `D_rem > D_init` while `C_rem ≤ C_init` by
+    /// construction, the seizure floor `ceil(d_rem·c_init/d_init)` sat
+    /// above the collateral ceiling, and every real mid-pool
+    /// `settle_default` reverted `DebtCollateralViolation` (found live
+    /// on pool7's first real default). Anchoring both sides in
+    /// installment units restores the intended reading: collateral must
+    /// proportionally cover the REMAINING obligation.
+    pub fn debt_initial(cycles_total: u8, installment_amount: u64) -> u64 {
+        (cycles_total as u64).saturating_mul(installment_amount)
     }
 
     pub fn debt_remaining(&self, cycles_total: u8, installment_amount: u64) -> u64 {
@@ -100,10 +117,26 @@ mod tests {
     // ─── debt_initial / debt_remaining ──────────────────────────────────
 
     #[test]
-    fn debt_initial_is_pool_credit_amount() {
-        assert_eq!(Member::debt_initial(10_000_000_000), 10_000_000_000);
-        assert_eq!(Member::debt_initial(0), 0);
-        assert_eq!(Member::debt_initial(u64::MAX), u64::MAX);
+    fn debt_initial_is_total_contribution_obligation() {
+        // SEV-054: cycles × installment — the same unit debt_remaining
+        // counts down in (NOT the credit, which is strictly smaller on
+        // every constructible pool).
+        assert_eq!(Member::debt_initial(24, 416_000_000), 24 * 416_000_000);
+        assert_eq!(Member::debt_initial(0, 416_000_000), 0);
+        assert_eq!(Member::debt_initial(24, 0), 0);
+        // saturating_mul clamps instead of overflowing.
+        assert_eq!(Member::debt_initial(2, u64::MAX), u64::MAX);
+    }
+
+    #[test]
+    fn debt_initial_equals_debt_remaining_at_join() {
+        // The anchor property that makes the D/C floor satisfiable: a
+        // brand-new member starts at D_rem == D_init exactly.
+        let m = blank(0, 0, 0, 0, 0);
+        assert_eq!(
+            m.debt_remaining(24, 416_000_000),
+            Member::debt_initial(24, 416_000_000)
+        );
     }
 
     #[test]
@@ -188,25 +221,24 @@ mod tests {
     fn new_member_at_cycle_zero_satisfies_invariant() {
         use crate::math::dc_invariant_holds;
         // Brand-new member: no contributions yet, full collateral posted.
-        // D_init = 10_000, D_rem = 24 × 416 = 9_984 (24 cycles).
-        // C_init = stake_initial + total_escrow_deposited.
-        // C_rem  = stake_deposited + escrow_balance.
-        let pool_credit = 10_000_000_000u64;
+        // With the SEV-054 anchor, D_rem == D_init exactly at join and
+        // C_rem == C_init, so the invariant holds at equality — for ANY
+        // pool economics, including the viability-constrained ones
+        // (credit < cycles × installment) the old credit-anchored D_init
+        // classified as violated from birth.
         let installment = 416_000_000u64;
         let cycles_total = 24u8;
-        let stake_initial = 5_000_000_000u64; // 50% of credit
+        let stake_initial = 5_000_000_000u64; // 50% of a 10_000 credit
         let escrow_deposit = 0u64;             // nothing escrowed yet
 
         let m = blank(0, stake_initial, stake_initial, escrow_deposit, escrow_deposit);
 
-        let d_init = Member::debt_initial(pool_credit);
+        let d_init = Member::debt_initial(cycles_total, installment);
         let d_rem  = m.debt_remaining(cycles_total, installment);
         let c_init = m.collateral_initial();
         let c_rem  = m.collateral_remaining();
 
-        // D_rem = 9_984_000_000 < D_init = 10_000_000_000 (ratio ~99.84%)
-        // C_rem = C_init = 5_000_000_000 (ratio 100%)
-        // 100% >= 99.84% → invariant holds.
+        assert_eq!(d_rem, d_init, "join starts at the D ratio boundary");
         assert!(dc_invariant_holds(d_init, d_rem, c_init, c_rem));
     }
 
@@ -214,7 +246,8 @@ mod tests {
     fn member_after_many_on_time_contributions_still_holds_invariant() {
         use crate::math::dc_invariant_holds;
         // 12 of 24 cycles paid + full escrow contributions → invariant
-        // strengthens (debt ratio drops, collateral ratio held steady).
+        // strengthens (debt ratio drops, collateral ratio actually RISES
+        // as escrow deposits accumulate collateral).
         let installment = 416_000_000u64;
         let cycles_total = 24u8;
         let stake_initial = 5_000_000_000u64;
@@ -222,7 +255,7 @@ mod tests {
         let escrow_deposited = 12u64 * 104_000_000;
 
         let m = blank(12, stake_initial, stake_initial, escrow_deposited, escrow_deposited);
-        let d_init = Member::debt_initial(10_000_000_000);
+        let d_init = Member::debt_initial(cycles_total, installment);
         let d_rem  = m.debt_remaining(cycles_total, installment);
         let c_init = m.collateral_initial();
         let c_rem  = m.collateral_remaining();
@@ -230,5 +263,34 @@ mod tests {
         assert!(dc_invariant_holds(d_init, d_rem, c_init, c_rem),
             "halfway member must satisfy invariant: d_init={d_init} d_rem={d_rem} c_init={c_init} c_rem={c_rem}",
         );
+    }
+
+    #[test]
+    fn mid_pool_defaulter_on_viable_economics_is_settleable() {
+        use crate::math::{dc_invariant_holds, max_seizure_respecting_dc};
+        // SEV-054 regression at the unit level — the live pool7 shape:
+        // credit 2_000, installment 1_000, 5 cycles (total obligation
+        // 5_000 > credit, as the viability guard forces), member paid 2.
+        // Old anchor (d_init = credit): d_rem 3_000 > 2_000 → floor above
+        // ceiling → unsatisfiable. New anchor: floor is proportional and
+        // a partial seizure down to it must satisfy the invariant.
+        let installment = 1_000_000_000u64;
+        let cycles_total = 5u8;
+        let stake_initial = 1_000_000_000u64; // 50% of the 2_000 credit
+        let escrow_deposited = 2 * 250_000_000u64; // 2 payments × 25%
+
+        let m = blank(2, stake_initial, stake_initial, escrow_deposited, escrow_deposited);
+        let d_init = Member::debt_initial(cycles_total, installment);
+        let d_rem  = m.debt_remaining(cycles_total, installment);
+        let c_init = m.collateral_initial();
+        let c_before = m.collateral_remaining();
+
+        // The floor is BELOW the current collateral — something is
+        // seizable (the old anchor made this zero and the handler's
+        // final check revert).
+        let seizable =
+            max_seizure_respecting_dc(d_init, d_rem, c_init, c_before, u64::MAX).unwrap();
+        assert!(seizable > 0, "mid-pool defaulter must be partially seizable");
+        assert!(dc_invariant_holds(d_init, d_rem, c_init, c_before - seizable));
     }
 }

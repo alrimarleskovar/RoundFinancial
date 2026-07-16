@@ -151,7 +151,6 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
     let pool_current_cycle   = ctx.accounts.pool.current_cycle;
     let pool_next_cycle_at   = ctx.accounts.pool.next_cycle_at;
     let pool_installment     = ctx.accounts.pool.installment_amount;
-    let pool_credit          = ctx.accounts.pool.credit_amount;
     let pool_cycles_total    = ctx.accounts.pool.cycles_total;
     let solidarity_available = ctx.accounts.solidarity_vault.amount;
     let escrow_vault_amount  = ctx.accounts.escrow_vault.amount;
@@ -173,7 +172,12 @@ pub fn handler(ctx: Context<SettleDefault>, args: SettleDefaultArgs) -> Result<(
     );
 
     // ─── D/C invariant (pre-seizure snapshot) ───────────────────────────
-    let d_initial   = Member::debt_initial(pool_credit);
+    // SEV-054: D anchors in INSTALLMENT units on BOTH sides
+    // (cycles × installment vs unpaid × installment) — anchoring D_init
+    // to the credit made the floor unsatisfiable on every constructible
+    // pool (credit < cycles × installment by the viability guard) and
+    // every real mid-pool settle reverted DebtCollateralViolation.
+    let d_initial   = Member::debt_initial(pool_cycles_total, pool_installment);
     let d_remaining = member.debt_remaining(pool_cycles_total, pool_installment);
     let c_initial   = member.collateral_initial();
     let c_before    = member.collateral_remaining();
