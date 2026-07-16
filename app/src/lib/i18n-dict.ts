@@ -1029,6 +1029,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.settleDefault.rpcUnavailable": "RPC indisponível — não foi possível ler o grupo.",
     "modal.settleDefault.currentCycle": "ciclo atual",
     "modal.settleDefault.settleCycle": "ciclo a cobrar",
+    "modal.settleDefault.behindNote": "quem não pagou este ciclo",
     "modal.settleDefault.graceWindow": "carência: {days} dias após o vencimento do ciclo",
     "modal.settleDefault.noPreviousCycle":
       "Este grupo ainda está no primeiro ciclo — não há ciclo anterior para cobrar.",
@@ -3039,6 +3040,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.settleDefault.rpcUnavailable": "RPC unavailable — couldn't read the group.",
     "modal.settleDefault.currentCycle": "current cycle",
     "modal.settleDefault.settleCycle": "cycle to settle",
+    "modal.settleDefault.behindNote": "members who skipped this cycle",
     "modal.settleDefault.graceWindow": "grace: {days} days after the cycle is due",
     "modal.settleDefault.noPreviousCycle":
       "This group is still on its first cycle — there's no previous cycle to settle.",

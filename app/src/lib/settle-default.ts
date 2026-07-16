@@ -15,12 +15,12 @@
  * attestation written via reputation CPI. Caller pays for the
  * attestation init rent.
  *
- * Pre-conditions (program-enforced):
+ * Pre-conditions (program-enforced — settle_default.rs:162-173):
+ *   - `args.cycle == pool.current_cycle` (else: `WrongCycle`)
+ *   - `member.contributions_paid < pool.current_cycle` (else: `MemberNotBehind`)
  *   - `clock.unix_timestamp >= pool.next_cycle_at + GRACE_PERIOD_SECS`
- *     (else: `SettleDefaultGracePeriodNotElapsed`)
- *   - `member.contributions_paid < args.cycle` (else: `AlreadyContributed`)
+ *     (else: `GracePeriodNotElapsed`)
  *   - `!member.defaulted` (else: `AlreadyDefaulted`)
- *   - `args.cycle == pool.current_cycle.saturating_sub(1)` (else: `WrongCycle`)
  *
  * Failure modes the on-chain handler raises (caller renders):
  *   - `SettleDefaultGracePeriodNotElapsed` — too early
@@ -76,9 +76,11 @@ export interface BuildSettleDefaultIxArgs {
   /** Slot index of the defaulter — drives attestation nonce. Must
    *  match `member.slot_index` (program enforces via the Member PDA). */
   slotIndex: number;
-  /** Cycle being settled — must equal `pool.current_cycle - 1` per the
-   *  on-chain `WrongCycle` guard (the cracker settles the previous
-   *  cycle's defaulter once `pool.current_cycle` has advanced). */
+  /** Cycle being settled — must equal `pool.current_cycle` per the
+   *  on-chain `WrongCycle` guard (settle_default.rs:162). A member is
+   *  behind when `contributions_paid < current_cycle`; the crank settles
+   *  that missed contribution at the current cycle. Same value the CLI
+   *  `seed-default.ts` and the bankrun boundary spec pass. */
   cycle: number;
   /** Optional program ID override — for tests against a bankrun-deployed
    *  program set. Defaults to `DEVNET_PROGRAM_IDS`. */
