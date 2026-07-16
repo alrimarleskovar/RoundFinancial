@@ -56,8 +56,17 @@ const MEMBERS_TARGET = 3;
 const CYCLES_TOTAL = 3;
 const CYCLE_DURATION_SEC = 86_400n;
 const INSTALLMENT = 1_000_000_000n; // 1_000 USDC
-const CREDIT = 3_000_000_000n; // 3_000 USDC
-const STAKE_INITIAL = 1_500_000_000n; // 50% of credit (Level-1)
+// SEV-054 note: this used to mock CREDIT = 3_000 (== cycles × installment),
+// a pool create_pool would REJECT — the viability guard forces
+// credit ≤ members × installment × (1 − solidarity − escrow) = 2_220 here.
+// That unconstructible shape was the ONLY one where the old
+// credit-anchored D/C floor was satisfiable mid-pool, which is exactly
+// how this spec stayed green while every real pool's settle reverted
+// DebtCollateralViolation. Model constructible economics so the spec
+// can never mask that class again (the invariant now anchors to
+// cycles × installment on both sides, independent of credit).
+const CREDIT = 2_200_000_000n; // 2_200 USDC — viability-passing
+const STAKE_INITIAL = 1_100_000_000n; // 50% of credit (Level-1)
 const ESCROW_DEPOSITED = 250_000_000n; // one installment × 25%
 
 const SOLIDARITY_BALANCE = 50_000_000n;
