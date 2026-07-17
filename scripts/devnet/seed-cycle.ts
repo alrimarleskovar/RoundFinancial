@@ -302,7 +302,14 @@ async function main() {
       `Cannot resolve deployer pubkey: neither ${walletPath} nor ${DEPLOYMENT_CONFIG_PATH} found.`,
     );
   }
-  const pool = poolPda(coreProgram, deployerPubkey, POOL_SEED_ID);
+  // POOL_PDA override (same escape hatch as inspect-pool.ts): drive a pool
+  // whose authority ISN'T the local wallet. contribute is signed by the
+  // member keypairs, never the authority — the authority is used ONLY to
+  // derive the PDA, so an explicit PDA fully decouples this from whose
+  // keypair is in ~/.config/solana. drive-pool.ts passes it through.
+  const pool = process.env.POOL_PDA
+    ? new PublicKey(process.env.POOL_PDA)
+    : poolPda(coreProgram, deployerPubkey, POOL_SEED_ID);
 
   console.log(`→ Cluster      : ${cluster.name}`);
   console.log(`→ Deployer     : ${deployerPubkey.toBase58()}`);

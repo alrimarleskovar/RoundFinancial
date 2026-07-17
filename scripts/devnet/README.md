@@ -61,6 +61,30 @@ The seed-default script is the **canonical Triple Shield exercise** — see [`do
 | `seed-evbuy.ts`         | `escape_valve_buy`                | Listing exists, buyer has USDC               | ⚠️ — buyer must be a fresh wallet (PDA `[member, pool, buyer]` is one-shot) | ~0.005 SOL (+ listed price) |
 | `seed-close.ts`         | `close_pool`                      | All cycles complete, no defaults             | ✅ — checks `pool.status == Completed`                                      | ~0.002 SOL                  |
 | `seed-default.ts`       | `settle_default`                  | Grace period elapsed since missed cycle      | ⚠️ — one-way state change (member.defaulted=true)                           | ~0.005 SOL                  |
+| `inspect-pool.ts`       | _(read-only)_                     | Pool exists                                  | ✅ — signs nothing, moves nothing                                           | free                        |
+| `drive-pool.ts`         | orchestrates `contribute`+`claim` | Arrival-order pool, member keypairs on disk  | ✅ — reuses the idempotent primitives; stops at the first wall              | ~0.008 SOL/cycle            |
+
+### Driving a stuck pool to term (`drive-pool.ts`)
+
+A pool whose members are `keypairs/member-{N}.json` (script-seeded, not browser
+wallets) can be pushed forward from the CLI. `drive-pool.ts` reads the chain,
+auto-discovers the `MEMBER_INDEX_OFFSET` by matching local keypairs to on-chain
+members, then loops **pay this cycle → claim (advance)** until the pool finishes
+or hits a wall it can't pass (an underfunded float needing `settle_default`,
+which is grace-gated — it prints the unlock time). Arrival-order only; sorteio
+pools use the app's draw + Receber flow.
+
+```bash
+# preview the plan + discovered offset, sign nothing:
+DRY_RUN=1 POOL_PDA=<pda> pnpm exec tsx scripts/devnet/drive-pool.ts
+# actually drive it:
+POOL_PDA=<pda> pnpm exec tsx scripts/devnet/drive-pool.ts
+```
+
+`POOL_PDA` (accepted by `inspect-pool`, `drive-pool`, and now `seed-cycle` /
+`seed-claim`) targets a pool by address, so it works even when the pool's
+authority isn't your local wallet — contribute/claim are signed by the member
+keypairs, never the authority.
 
 ## Customization
 
