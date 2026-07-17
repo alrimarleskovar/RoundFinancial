@@ -33,6 +33,7 @@ import {
 } from "@roundfi/sdk";
 
 import { DEVNET_POOLS, DEVNET_PROGRAM_IDS, type DevnetPoolKey } from "./devnet";
+import { cacheGet, cacheSet } from "./poolCache";
 
 /** True when the pool assigns payout order by on-chain draw (pool8+). */
 export function isSorteioPool(pool: RawPoolView | null | undefined): boolean {
@@ -119,6 +120,9 @@ export function useDraw(
         DEVNET_POOLS[seedKey].pda,
       );
       if (cancelledRef.current) return;
+      // A minted DrawResult is IMMUTABLE (single-shot PDA) — the ideal cache
+      // entry. draw=null (undrawn) is deliberately NOT cached: it flips once.
+      if (view) cacheSet("draw", `${seedKey}:${DEVNET_POOLS[seedKey].pda.toBase58()}`, view);
       setState({ draw: view, status: "ok" });
     } catch {
       if (cancelledRef.current) return;
@@ -134,14 +138,23 @@ export function useDraw(
       return;
     }
     cancelledRef.current = false;
-    setState((prev) => (prev.status === "idle" ? { ...prev, status: "loading" } : prev));
+    // Stale-while-revalidate: the drawn order paints instantly (the "você
+    // recebe no ciclo N" chip), then load() re-reads the immutable account.
+    setState((prev) => {
+      if (prev.draw) return prev;
+      const cached = seedKey
+        ? cacheGet<RawDrawView>("draw", `${seedKey}:${DEVNET_POOLS[seedKey].pda.toBase58()}`)
+        : null;
+      if (cached) return { draw: cached, status: "ok" };
+      return prev.status === "idle" ? { ...prev, status: "loading" } : prev;
+    });
     void load();
     const id = window.setInterval(load, refreshMs);
     return () => {
       cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, [load, refreshMs, enabled]);
+  }, [load, refreshMs, enabled, seedKey]);
 
   return { ...state, drawPda, refresh: load };
 }

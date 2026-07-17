@@ -23,6 +23,7 @@ import { useConnection } from "@solana/wallet-adapter-react";
 import { fetchPoolMembers, fetchPoolRaw, type RawMemberView, type RawPoolView } from "@roundfi/sdk";
 
 import { DEVNET_POOLS, DEVNET_PROGRAM_IDS, type DevnetPoolKey } from "./devnet";
+import { cacheDelete, cacheGet, cacheSet } from "./poolCache";
 
 export type UsePoolStatus = "loading" | "ok" | "fallback";
 
@@ -48,10 +49,14 @@ export function usePool(seedKey: DevnetPoolKey, refreshMs = 30_000): UsePoolResu
 
   const load = useCallback(async () => {
     const target = DEVNET_POOLS[seedKey];
+    const cacheKey = `${seedKey}:${target.pda.toBase58()}`;
     try {
       const view = await fetchPoolRaw(connection, target.pda);
       if (cancelledRef.current) return;
       if (!view) {
+        // The account genuinely doesn't exist — a cached snapshot of it is a
+        // lie now (pool closed / PDA re-pinned), so drop it and fall back.
+        cacheDelete("pool", cacheKey);
         setState({
           status: "fallback",
           pool: null,
@@ -59,23 +64,40 @@ export function usePool(seedKey: DevnetPoolKey, refreshMs = 30_000): UsePoolResu
         });
         return;
       }
+      cacheSet("pool", cacheKey, view);
       setState({ status: "ok", pool: view, error: null });
     } catch (err) {
       if (cancelledRef.current) return;
       const message = err instanceof Error ? err.message : String(err);
-      setState({ status: "fallback", pool: null, error: message });
+      // RPC hiccup: keep showing the last-known chain state (from cache or a
+      // previous poll) instead of wiping to the mock-fixture fallback — a
+      // transient 429 must not flash wrong data over real data.
+      setState((prev) =>
+        prev.pool
+          ? { ...prev, error: message }
+          : { status: "fallback", pool: null, error: message },
+      );
     }
   }, [connection, seedKey]);
 
   useEffect(() => {
     cancelledRef.current = false;
+    // Stale-while-revalidate: paint the last-known on-chain state NOW (kills
+    // the empty-state flash on every navigation); load() below revalidates
+    // and replaces it with fresh chain data as soon as the RPC answers.
+    setState((prev) => {
+      if (prev.status !== "loading") return prev;
+      const target = DEVNET_POOLS[seedKey];
+      const cached = cacheGet<RawPoolView>("pool", `${seedKey}:${target.pda.toBase58()}`);
+      return cached ? { status: "ok", pool: cached, error: null } : prev;
+    });
     void load();
     const id = window.setInterval(load, refreshMs);
     return () => {
       cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, [load, refreshMs]);
+  }, [load, refreshMs, seedKey]);
 
   return { ...state, refresh: load };
 }
@@ -118,14 +140,21 @@ export function usePoolMembers(
   const load = useCallback(async () => {
     if (!enabled) return;
     const target = DEVNET_POOLS[seedKey];
+    const cacheKey = `${seedKey}:${target.pda.toBase58()}`;
     try {
       const list = await fetchPoolMembers(connection, DEVNET_PROGRAM_IDS.core, target.pda);
       if (cancelledRef.current) return;
+      cacheSet("members", cacheKey, list);
       setState({ status: "ok", members: list, error: null });
     } catch (err) {
       if (cancelledRef.current) return;
       const message = err instanceof Error ? err.message : String(err);
-      setState({ status: "fallback", members: [], error: message });
+      // Keep the last-known roster on a transient RPC failure — see usePool.
+      setState((prev) =>
+        prev.members.length
+          ? { ...prev, error: message }
+          : { status: "fallback", members: [], error: message },
+      );
     }
   }, [connection, seedKey, enabled]);
 
@@ -134,13 +163,21 @@ export function usePoolMembers(
     // getProgramAccounts roster scan per poll on pools the caller never reads.
     if (!enabled) return;
     cancelledRef.current = false;
+    // Stale-while-revalidate hydrate — the roster scan (getProgramAccounts) is
+    // the SLOWEST read on the page, so painting the cached roster matters most.
+    setState((prev) => {
+      if (prev.status !== "loading") return prev;
+      const target = DEVNET_POOLS[seedKey];
+      const cached = cacheGet<RawMemberView[]>("members", `${seedKey}:${target.pda.toBase58()}`);
+      return cached ? { status: "ok", members: cached, error: null } : prev;
+    });
     void load();
     const id = window.setInterval(load, refreshMs);
     return () => {
       cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, [load, refreshMs, enabled]);
+  }, [load, refreshMs, enabled, seedKey]);
 
   return { ...state, refresh: load };
 }
