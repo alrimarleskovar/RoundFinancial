@@ -90,14 +90,14 @@ keypairs, never the authority.
 
 Most scripts read params from env or have inline constants at the top:
 
-| Env var                 | Used by           | Default                         |
-| ----------------------- | ----------------- | ------------------------------- |
-| `SOLANA_WALLET`         | All scripts       | `~/.config/solana/id.json`      |
-| `ANCHOR_PROVIDER_URL`   | All scripts       | `https://api.devnet.solana.com` |
-| `POOL_SEED_ID`          | `seed-pool.ts`    | `1`                             |
+| Env var                 | Used by           | Default                                          |
+| ----------------------- | ----------------- | ------------------------------------------------ |
+| `SOLANA_WALLET`         | All scripts       | `~/.config/solana/id.json`                       |
+| `ANCHOR_PROVIDER_URL`   | All scripts       | `https://api.devnet.solana.com`                  |
+| `POOL_SEED_ID`          | `seed-pool.ts`    | `1`                                              |
 | `CYCLE_DURATION_SEC`    | `seed-pool.ts`    | `86400` (= `MIN_CYCLE_DURATION`, 1 day; SEV-023) |
-| `MEMBER_COUNT`          | `seed-members.ts` | `3`                             |
-| `SETTLE_DEFAULTER_SLOT` | `seed-default.ts` | `1`                             |
+| `MEMBER_COUNT`          | `seed-members.ts` | `3`                                              |
+| `SETTLE_DEFAULTER_SLOT` | `seed-default.ts` | `1`                                              |
 
 Bump `POOL_SEED_ID` to create additional pools on the same protocol — every script then targets the new pool's PDA without affecting Pool 1.
 
