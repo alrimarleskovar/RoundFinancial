@@ -1439,6 +1439,9 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.draw.noWallet": "Conecte uma carteira para sortear.",
     "groupsV2.card.draw.yourCycle": "Você recebe no ciclo {n} de {t}",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
+    "groupsV2.card.fullBadge": "Cheio",
+    "groupsV2.card.cta.full": "Grupo cheio · em andamento",
+    "groupsV2.card.cta.finished": "Grupo finalizado",
     "groupsV2.footer.note":
       "Sua reputação e nível de acesso determinam os grupos disponíveis para você.",
     "groupsV2.footer.link": "Entenda como funciona",
@@ -3455,6 +3458,9 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.draw.noWallet": "Connect a wallet to run the draw.",
     "groupsV2.card.draw.yourCycle": "You receive in cycle {n} of {t}",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
+    "groupsV2.card.fullBadge": "Full",
+    "groupsV2.card.cta.full": "Group full · in progress",
+    "groupsV2.card.cta.finished": "Group finished",
     "groupsV2.footer.note":
       "Your reputation and access level determine which groups are available to you.",
     "groupsV2.footer.link": "Learn how it works",
