@@ -110,31 +110,50 @@ export function useMyDevnetPositions(): NftPosition[] {
   const members4 = usePoolMembers("pool4", REFRESH_MS);
   const pool7 = usePool("pool7", REFRESH_MS);
   const members7 = usePoolMembers("pool7", REFRESH_MS);
+  const pool8 = usePool("pool8", REFRESH_MS);
+  const members8 = usePoolMembers("pool8", REFRESH_MS);
+  const pool9 = usePool("pool9", REFRESH_MS);
+  const members9 = usePoolMembers("pool9", REFRESH_MS);
 
-  return useMemo(
-    () =>
-      collect(publicKey, [
-        { key: "pool1", pool: pool1, members: members1 },
-        { key: "pool2", pool: pool2, members: members2 },
-        { key: "pool3", pool: pool3, members: members3 },
-        { key: "pool4", pool: pool4, members: members4 },
-        // pool7 = the live "fast pool" team test (5 slots, 2-day cycle, tiny
-        // economics) — surfaces each joined member's cota in /carteira +
-        // /home + /grupos.
-        { key: "pool7", pool: pool7, members: members7 },
-      ]),
-    [
-      publicKey,
-      pool1,
-      members1,
-      pool2,
-      members2,
-      pool3,
-      members3,
-      pool4,
-      members4,
-      pool7,
-      members7,
-    ],
-  );
+  return useMemo(() => {
+    // Exhaustive BY CONSTRUCTION: the Record<DevnetPoolKey, …> literal fails
+    // to typecheck the moment lib/devnet.ts gains a pool that isn't wired
+    // here. This is the guard against the exact bug that hid pool8/pool9:
+    // both existed in DEVNET_POOLS + /grupos, but this list (the single
+    // source of "your cotas" for /home, /carteira and the Pagar button)
+    // was appended by hand and silently skipped them — members of a live,
+    // Active pool had no way to pay.
+    const entries: Record<DevnetPoolKey, PoolEntry> = {
+      pool1: { key: "pool1", pool: pool1, members: members1 },
+      pool2: { key: "pool2", pool: pool2, members: members2 },
+      pool3: { key: "pool3", pool: pool3, members: members3 },
+      pool4: { key: "pool4", pool: pool4, members: members4 },
+      // pool7 = the live "fast pool" team test (5 slots, 2-day cycle, tiny
+      // economics) — surfaces each joined member's cota in /carteira +
+      // /home + /grupos.
+      pool7: { key: "pool7", pool: pool7, members: members7 },
+      // pool8/pool9 = the sorteio pools (ADR pool_v2). Same surfacing —
+      // ordering policy changes WHO receives each cycle, never whether a
+      // member owes the installment.
+      pool8: { key: "pool8", pool: pool8, members: members8 },
+      pool9: { key: "pool9", pool: pool9, members: members9 },
+    };
+    return collect(publicKey, Object.values(entries));
+  }, [
+    publicKey,
+    pool1,
+    members1,
+    pool2,
+    members2,
+    pool3,
+    members3,
+    pool4,
+    members4,
+    pool7,
+    members7,
+    pool8,
+    members8,
+    pool9,
+    members9,
+  ]);
 }

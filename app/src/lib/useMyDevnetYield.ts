@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 
+import type { DevnetPoolKey } from "@/lib/devnet";
 import {
   usePool,
   usePoolMembers,
@@ -79,28 +80,40 @@ export function useMyDevnetYield(): MyYield {
   const members4 = usePoolMembers("pool4", REFRESH_MS);
   const pool7 = usePool("pool7", REFRESH_MS);
   const members7 = usePoolMembers("pool7", REFRESH_MS);
+  const pool8 = usePool("pool8", REFRESH_MS);
+  const members8 = usePoolMembers("pool8", REFRESH_MS);
+  const pool9 = usePool("pool9", REFRESH_MS);
+  const members9 = usePoolMembers("pool9", REFRESH_MS);
 
-  return useMemo(
-    () =>
-      aggregate(publicKey, [
-        { pool: pool1, members: members1 },
-        { pool: pool2, members: members2 },
-        { pool: pool3, members: members3 },
-        { pool: pool4, members: members4 },
-        { pool: pool7, members: members7 },
-      ]),
-    [
-      publicKey,
-      pool1,
-      members1,
-      pool2,
-      members2,
-      pool3,
-      members3,
-      pool4,
-      members4,
-      pool7,
-      members7,
-    ],
-  );
+  return useMemo(() => {
+    // Exhaustive by construction (same guard as useMyDevnetPositions): a
+    // pool added to lib/devnet.ts but not wired here is a typecheck error,
+    // not a silently-missing yield row.
+    const entries: Record<DevnetPoolKey, Entry> = {
+      pool1: { pool: pool1, members: members1 },
+      pool2: { pool: pool2, members: members2 },
+      pool3: { pool: pool3, members: members3 },
+      pool4: { pool: pool4, members: members4 },
+      pool7: { pool: pool7, members: members7 },
+      pool8: { pool: pool8, members: members8 },
+      pool9: { pool: pool9, members: members9 },
+    };
+    return aggregate(publicKey, Object.values(entries));
+  }, [
+    publicKey,
+    pool1,
+    members1,
+    pool2,
+    members2,
+    pool3,
+    members3,
+    pool4,
+    members4,
+    pool7,
+    members7,
+    pool8,
+    members8,
+    pool9,
+    members9,
+  ]);
 }
