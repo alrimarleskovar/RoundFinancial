@@ -228,6 +228,9 @@ jobs:
       - name: App ↔ chain encoder structural parity (38 tests)
         run: pnpm test:app-encoders
 
+      - name: Pool-cache SWR codec + TTL semantics (7 tests)
+        run: pnpm test:pool-cache
+
       - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events
 
