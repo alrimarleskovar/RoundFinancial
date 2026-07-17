@@ -275,8 +275,16 @@ async function main() {
     console.log(`· claiming cycle ${cyc} as seat #${cyc}…`);
     runChild("seed-claim.ts", childEnv);
 
-    // Did it advance?
+    // Did it advance (or finish)?
     const after = await fetchPoolRaw(connection, poolPda);
+    // Final cycle: claim_payout flips status to Completed instead of bumping
+    // current_cycle (claim_payout.rs — `if next_cycle >= cycles_total`), so the
+    // last successful claim leaves current_cycle unchanged. Treat any non-active
+    // status as success; the loop head then prints the done line + final state.
+    if (after && after.status !== "active") {
+      console.log(`✓ final cycle claimed — pool ${after.status.toUpperCase()}.`);
+      continue;
+    }
     if (after && after.currentCycle > cyc) {
       console.log(`✓ advanced to cycle ${after.currentCycle}.`);
       continue;
