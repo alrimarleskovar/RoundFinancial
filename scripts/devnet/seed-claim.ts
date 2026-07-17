@@ -370,7 +370,13 @@ async function main() {
       `Cannot resolve deployer pubkey: neither ${walletPath} nor ${DEPLOYMENT_CONFIG_PATH} found.`,
     );
   }
-  const pool = poolPda(coreProgram, deployerPubkey, POOL_SEED_ID);
+  // POOL_PDA override (same escape hatch as inspect-pool.ts): claim_payout is
+  // signed by the winning member keypair, never the pool authority — the
+  // authority only derives the PDA. An explicit PDA lets drive-pool.ts drive a
+  // pool whose authority isn't the local wallet.
+  const pool = process.env.POOL_PDA
+    ? new PublicKey(process.env.POOL_PDA)
+    : poolPda(coreProgram, deployerPubkey, POOL_SEED_ID);
 
   console.log(`→ Cluster      : ${cluster.name}`);
   console.log(`→ Deployer     : ${deployerPubkey.toBase58()}`);
