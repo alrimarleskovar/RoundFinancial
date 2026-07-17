@@ -204,6 +204,11 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   // offers "Entrar" to someone who is already a member (e.g. right after they
   // claimed, when claimReadyChain has gone false).
   const isJoined = group.joined || joinedGroupNames.includes(group.name) || !!myMember;
+  // A group a NON-member can actually enter: devnet pools must still be
+  // Forming with a free seat (join_pool's own gate — Active/Completed/full
+  // pools reject the join anyway, so offering "Entrar" just walks the user
+  // into a dead modal); fixtures fall back to their static count.
+  const joinable = lp ? forming && filled < total : filled < total;
   // Level gate mirrors roundfi-core::join_pool — block before paying gas.
   const locked = !isJoined && group.level > user.level;
   // Same gap the JoinGroupModal locked card shows: score → next tier.
@@ -342,6 +347,12 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         ) : isJoined ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-3 py-1 text-[11px] font-bold text-[#14F195]">
             <Icons.check size={13} stroke="currentColor" sw={2.6} /> {t("groupsV2.card.joined")}
+          </span>
+        ) : !joinable ? (
+          // Full / running / finished and the viewer is NOT in it — "Compatível"
+          // here read as an invitation to a join that can only fail.
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-[11px] font-bold text-gray-400">
+            {completed ? t("groupsV2.card.completed") : t("groupsV2.card.fullBadge")}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-3 py-1 text-[11px] font-bold text-[#14F195]">
@@ -515,6 +526,14 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-white transition hover:border-white/20"
           >
             {t("groups.card.cta.view")}
+          </button>
+        ) : !joinable ? (
+          <button
+            type="button"
+            disabled
+            className="w-full cursor-not-allowed rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-bold text-gray-500"
+          >
+            {completed ? t("groupsV2.card.cta.finished") : t("groupsV2.card.cta.full")}
           </button>
         ) : (
           <button
