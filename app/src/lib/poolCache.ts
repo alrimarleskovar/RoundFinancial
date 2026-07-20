@@ -35,7 +35,9 @@ const CACHE_VERSION = 1;
 const TTL_MS = 24 * 60 * 60 * 1000;
 const PREFIX = `roundfi:cache:v${CACHE_VERSION}`;
 
-type Kind = "pool" | "members" | "draw";
+// Wallet-scoped kinds (timeline/profile/txhistory/txclass) key by the wallet's
+// base58 — callers own the keying; the cache is agnostic.
+type Kind = "pool" | "members" | "draw" | "timeline" | "profile" | "txhistory" | "txclass";
 
 // Tier 1 — same-session memory. Holds the DECODED value (no re-parse).
 const mem = new Map<string, { ts: number; value: unknown }>();

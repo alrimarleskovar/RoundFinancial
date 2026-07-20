@@ -39,6 +39,7 @@ import {
   DEVNET_USDC_MINT,
   type DevnetPoolKey,
 } from "@/lib/devnet";
+import { cacheGet, cacheSet } from "@/lib/poolCache";
 
 // Pool display name + per-installment + prize (all BRL), sourced from the same
 // catalogs the cards render from so the ledger labels/amounts stay in sync.
@@ -98,8 +99,11 @@ export function useMyDevnetTxHistory(refreshMs = 30_000): UseTxHistoryResult {
   });
   const cancelled = useRef(false);
   // signature → true once classified as a claim_payout (member received the
-  // pot). Persists across the 30s refresh so each tx is decoded at most once.
+  // pot). Persists across the 30s refresh so each tx is decoded at most once;
+  // rehydrated from poolCache on mount so it also survives reloads.
   const payoutCache = useRef<Map<string, boolean>>(new Map());
+  // Wallet whose ledger sits in `state` — guards the SWR hydrate on switches.
+  const walletRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!publicKey) {
@@ -169,6 +173,11 @@ export function useMyDevnetTxHistory(refreshMs = 30_000): UseTxHistoryResult {
             seedKey: e.key,
           };
         });
+      // Persist ledger + payout classification: reloads paint instantly and a
+      // confirmed tx never re-pays the getParsedTransactions decode.
+      const w = publicKey.toBase58();
+      cacheSet("txhistory", w, txs);
+      cacheSet("txclass", w, Object.fromEntries(payoutCache.current));
       setState({ status: "ok", txs });
     } catch {
       // RPC hiccup / rate-limit — keep whatever we had, fall back to the
@@ -180,13 +189,33 @@ export function useMyDevnetTxHistory(refreshMs = 30_000): UseTxHistoryResult {
 
   useEffect(() => {
     cancelled.current = false;
+    // Stale-while-revalidate: paint the last-known ledger for THIS wallet
+    // immediately (relative dates recomputed from the stored timestamps so a
+    // cached "2h atrás" doesn't fossilize), rehydrate the signature→payout
+    // memo so the classification survives reloads, then load() revalidates.
+    const w = publicKey?.toBase58() ?? null;
+    if (walletRef.current !== w) {
+      walletRef.current = w;
+      payoutCache.current = new Map(
+        Object.entries(w ? (cacheGet<Record<string, boolean>>("txclass", w) ?? {}) : {}),
+      );
+      const cached = w ? cacheGet<Transaction[]>("txhistory", w) : null;
+      setState(
+        cached
+          ? {
+              status: "ok",
+              txs: cached.map((t) => ({ ...t, date: t.ts ? relative(t.ts) : "—" })),
+            }
+          : { status: "loading", txs: [] },
+      );
+    }
     void load();
     const id = window.setInterval(load, refreshMs);
     return () => {
       cancelled.current = true;
       window.clearInterval(id);
     };
-  }, [load, refreshMs]);
+  }, [load, refreshMs, publicKey]);
 
   return { ...state, refresh: load };
 }
