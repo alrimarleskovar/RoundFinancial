@@ -19,6 +19,7 @@ import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-ada
 import { fetchReputationProfileRaw } from "@roundfi/sdk";
 
 import { DEVNET_PROGRAM_IDS } from "./devnet";
+import { cacheGet, cacheSet } from "./poolCache";
 
 export type UseReputationStatus = "loading" | "ok" | "fallback";
 
@@ -48,6 +49,9 @@ const FRESH: Omit<UseReputationResult, "refresh"> = {
   totalParticipated: 0,
 };
 
+// The cacheable slice of the result (status is derived, refresh is a fn).
+type ProfileSnapshot = Omit<UseReputationResult, "refresh" | "status">;
+
 export function useReputation(refreshMs = 30_000): UseReputationResult {
   const { connection } = useConnection();
   const { publicKey } = useAdapterWallet();
@@ -56,6 +60,9 @@ export function useReputation(refreshMs = 30_000): UseReputationResult {
     status: "loading",
   });
   const cancelledRef = useRef(false);
+  // Wallet whose snapshot sits in `state` — guards the SWR hydrate on wallet
+  // switches (one wallet's score must never paint under another's key).
+  const walletRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!publicKey) {
@@ -74,8 +81,7 @@ export function useReputation(refreshMs = 30_000): UseReputationResult {
         setState({ ...FRESH, status: "ok" });
         return;
       }
-      setState({
-        status: "ok",
+      const snapshot: ProfileSnapshot = {
         exists: true,
         level: raw.level,
         score: Number(raw.score),
@@ -84,22 +90,38 @@ export function useReputation(refreshMs = 30_000): UseReputationResult {
         latePayments: raw.latePayments,
         defaults: raw.defaults,
         totalParticipated: raw.totalParticipated,
-      });
+      };
+      cacheSet("profile", publicKey.toBase58(), snapshot);
+      setState({ status: "ok", ...snapshot });
     } catch {
       if (cancelledRef.current) return;
-      setState({ ...FRESH, status: "fallback" });
+      // RPC hiccup: keep the last-known REAL score (from cache or a prior
+      // poll) instead of wiping to score 0 — flashing a zeroed passport over
+      // real reputation is worse than a stale one. Status still signals it.
+      setState((prev) =>
+        prev.exists ? { ...prev, status: "fallback" } : { ...FRESH, status: "fallback" },
+      );
     }
   }, [connection, publicKey]);
 
   useEffect(() => {
     cancelledRef.current = false;
+    // Stale-while-revalidate: paint the last-known profile for THIS wallet
+    // immediately; load() revalidates. A wallet switch resets instead of
+    // leaking the previous wallet's numbers.
+    const w = publicKey?.toBase58() ?? null;
+    if (walletRef.current !== w) {
+      walletRef.current = w;
+      const cached = w ? cacheGet<ProfileSnapshot>("profile", w) : null;
+      setState(cached ? { status: "ok", ...cached } : { ...FRESH, status: "loading" });
+    }
     void load();
     const id = window.setInterval(load, refreshMs);
     return () => {
       cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, [load, refreshMs]);
+  }, [load, refreshMs, publicKey]);
 
   return { ...state, refresh: load };
 }
