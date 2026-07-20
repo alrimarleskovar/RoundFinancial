@@ -173,6 +173,21 @@ export async function fetchPoolRaw(
 }
 
 /**
+ * Batched variant: fetch + decode MANY pool accounts in a single
+ * `getMultipleAccountsInfo` round-trip (N× cheaper than N `fetchPoolRaw`
+ * calls — the app's pool store reads every devnet pool per poll tick).
+ * Result aligns index-for-index with `addresses`; missing accounts → null.
+ */
+export async function fetchPoolsRaw(
+  connection: Connection,
+  addresses: PublicKey[],
+): Promise<(RawPoolView | null)[]> {
+  if (addresses.length === 0) return [];
+  const infos = await connection.getMultipleAccountsInfo(addresses, "confirmed");
+  return infos.map((info, i) => (info ? decodePoolRaw(addresses[i]!, info.data as Buffer) : null));
+}
+
+/**
  * Convenience wrapper: derive the pool PDA from (coreProgram, authority,
  * seedId) and fetch it in one call.
  */
@@ -350,6 +365,31 @@ export async function fetchPoolMembers(
       { dataSize: MEMBER_ACCOUNT_SIZE },
       { memcmp: { offset: 8, bytes: poolAddress.toBase58() } },
     ],
+  });
+  const members = accounts.map(({ pubkey, account }) =>
+    decodeMemberRaw(pubkey, account.data as Buffer),
+  );
+  members.sort((a, b) => a.slotIndex - b.slotIndex);
+  return members;
+}
+
+/**
+ * Batched variant: ONE `getProgramAccounts` scan (dataSize filter only —
+ * no per-pool memcmp) returning EVERY Member account the program owns,
+ * sorted by slotIndex. The caller groups by `member.pool` client-side.
+ *
+ * Why: the app reads the roster of N pools per poll tick; N memcmp scans
+ * are the slowest reads on the page (getProgramAccounts is unindexed on
+ * most RPCs), while the whole program's member set is tiny (dozens of
+ * 187-byte accounts) — one scan + a client-side group-by replaces N.
+ */
+export async function fetchAllPoolMembers(
+  connection: Connection,
+  coreProgram: PublicKey,
+): Promise<RawMemberView[]> {
+  const accounts = await connection.getProgramAccounts(coreProgram, {
+    commitment: "confirmed",
+    filters: [{ dataSize: MEMBER_ACCOUNT_SIZE }],
   });
   const members = accounts.map(({ pubkey, account }) =>
     decodeMemberRaw(pubkey, account.data as Buffer),

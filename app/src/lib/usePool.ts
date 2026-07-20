@@ -1,31 +1,35 @@
 "use client";
 
 /**
- * `usePool(seedKey)` — React hook that reads a deployed devnet pool's
- * on-chain state via the wallet adapter's Connection and decodes it
- * with the IDL-free `fetchPoolRaw` helper from `@roundfi/sdk`.
+ * `usePool(seedKey)` / `usePoolMembers(seedKey)` — the app's read API for
+ * devnet pool state.
  *
- * The hook is intentionally read-only and fallback-friendly: if the
- * RPC is down, the pool doesn't exist, or the user is on a different
- * cluster, it returns `{ status: "fallback", pool: null }` so callers
- * can fall back to mock fixtures cleanly.
+ * Since the poolStore refactor these are THIN SELECTORS over one shared
+ * store (`poolStore.ts`): every mounted hook — the 14 on /home, the pair
+ * per /grupos card — reads from a single sync loop that costs exactly TWO
+ * RPC calls per tick (`getMultipleAccountsInfo` for all pools + one
+ * program-wide member scan). Mounting more hooks adds zero RPC.
  *
- * Refreshes every `refreshMs` ms (default 30s — pools advance only on
- * cycle / claim boundaries; aggressive polling is wasted RPC). Callers
- * that just performed a write (contribute, claim_payout, …) can invoke
- * the returned `refresh()` to get an immediate re-fetch instead of
- * waiting up to a full poll interval.
+ * The public contract is unchanged from the per-hook fetch era:
+ *   - status: "loading" (nothing known yet) | "ok" (live chain data,
+ *     possibly cache-seeded stale-while-revalidate) | "fallback" (pool
+ *     absent or RPC failed with nothing cached — callers show fixtures);
+ *   - `refresh()` — eager re-read after a write. Now refreshes the whole
+ *     store (2 calls), which is still cheaper than one old roster scan;
+ *   - `refreshMs` — treated as a REQUEST: the store runs at the fastest
+ *     cadence any mounted subscriber asked for (floor 15s);
+ *   - `enabled=false` (usePoolMembers) — returns the inert loading shape,
+ *     exactly like the never-fetched state it used to be.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useMemo } from "react";
 
-import { fetchPoolMembers, fetchPoolRaw, type RawMemberView, type RawPoolView } from "@roundfi/sdk";
+import type { RawMemberView, RawPoolView } from "@roundfi/sdk";
 
-import { DEVNET_POOLS, DEVNET_PROGRAM_IDS, type DevnetPoolKey } from "./devnet";
-import { cacheDelete, cacheGet, cacheSet } from "./poolCache";
+import type { DevnetPoolKey } from "./devnet";
+import { usePoolStore, type PoolEntryStatus } from "./poolStore";
 
-export type UsePoolStatus = "loading" | "ok" | "fallback";
+export type UsePoolStatus = PoolEntryStatus;
 
 export interface UsePoolResult {
   status: UsePoolStatus;
@@ -35,74 +39,12 @@ export interface UsePoolResult {
 }
 
 export function usePool(seedKey: DevnetPoolKey, refreshMs = 30_000): UsePoolResult {
-  const { connection } = useConnection();
-  const [state, setState] = useState<{
-    status: UsePoolStatus;
-    pool: RawPoolView | null;
-    error: string | null;
-  }>({
-    status: "loading",
-    pool: null,
-    error: null,
-  });
-  const cancelledRef = useRef(false);
-
-  const load = useCallback(async () => {
-    const target = DEVNET_POOLS[seedKey];
-    const cacheKey = `${seedKey}:${target.pda.toBase58()}`;
-    try {
-      const view = await fetchPoolRaw(connection, target.pda);
-      if (cancelledRef.current) return;
-      if (!view) {
-        // The account genuinely doesn't exist — a cached snapshot of it is a
-        // lie now (pool closed / PDA re-pinned), so drop it and fall back.
-        cacheDelete("pool", cacheKey);
-        setState({
-          status: "fallback",
-          pool: null,
-          error: `Pool ${seedKey} not found at ${target.pda.toBase58()}`,
-        });
-        return;
-      }
-      cacheSet("pool", cacheKey, view);
-      setState({ status: "ok", pool: view, error: null });
-    } catch (err) {
-      if (cancelledRef.current) return;
-      const message = err instanceof Error ? err.message : String(err);
-      // RPC hiccup: keep showing the last-known chain state (from cache or a
-      // previous poll) instead of wiping to the mock-fixture fallback — a
-      // transient 429 must not flash wrong data over real data.
-      setState((prev) =>
-        prev.pool
-          ? { ...prev, error: message }
-          : { status: "fallback", pool: null, error: message },
-      );
-    }
-  }, [connection, seedKey]);
-
-  useEffect(() => {
-    cancelledRef.current = false;
-    // Stale-while-revalidate: paint the last-known on-chain state NOW (kills
-    // the empty-state flash on every navigation); load() below revalidates
-    // and replaces it with fresh chain data as soon as the RPC answers.
-    setState((prev) => {
-      if (prev.status !== "loading") return prev;
-      const target = DEVNET_POOLS[seedKey];
-      const cached = cacheGet<RawPoolView>("pool", `${seedKey}:${target.pda.toBase58()}`);
-      return cached ? { status: "ok", pool: cached, error: null } : prev;
-    });
-    void load();
-    const id = window.setInterval(load, refreshMs);
-    return () => {
-      cancelledRef.current = true;
-      window.clearInterval(id);
-    };
-  }, [load, refreshMs, seedKey]);
-
-  return { ...state, refresh: load };
+  const { state, refresh } = usePoolStore(refreshMs);
+  const entry = state.pools[seedKey];
+  return useMemo(() => ({ ...entry, refresh }), [entry, refresh]);
 }
 
-export type UsePoolMembersStatus = "loading" | "ok" | "fallback";
+export type UsePoolMembersStatus = PoolEntryStatus;
 
 export interface UsePoolMembersResult {
   status: UsePoolMembersStatus;
@@ -111,73 +53,19 @@ export interface UsePoolMembersResult {
   refresh: () => Promise<void>;
 }
 
-/**
- * `usePoolMembers(seedKey)` — enumerates every Member account attached to
- * the given devnet pool via `getProgramAccounts` (dataSize + memcmp on
- * the pool field). Refreshes on the same cadence as `usePool`, plus
- * exposes a `refresh()` callback for eager re-fetch after a write.
- *
- * Returns an empty list on RPC failure or when the pool has no members
- * yet (status="fallback") so callers can render a graceful empty state.
- */
+// The shape a disabled hook used to sit in forever (no fetch ever fired).
+const DISABLED_MEMBERS = {
+  status: "loading" as UsePoolMembersStatus,
+  members: [] as RawMemberView[],
+  error: null,
+};
+
 export function usePoolMembers(
   seedKey: DevnetPoolKey,
   refreshMs = 30_000,
   enabled = true,
 ): UsePoolMembersResult {
-  const { connection } = useConnection();
-  const [state, setState] = useState<{
-    status: UsePoolMembersStatus;
-    members: RawMemberView[];
-    error: string | null;
-  }>({
-    status: "loading",
-    members: [],
-    error: null,
-  });
-  const cancelledRef = useRef(false);
-
-  const load = useCallback(async () => {
-    if (!enabled) return;
-    const target = DEVNET_POOLS[seedKey];
-    const cacheKey = `${seedKey}:${target.pda.toBase58()}`;
-    try {
-      const list = await fetchPoolMembers(connection, DEVNET_PROGRAM_IDS.core, target.pda);
-      if (cancelledRef.current) return;
-      cacheSet("members", cacheKey, list);
-      setState({ status: "ok", members: list, error: null });
-    } catch (err) {
-      if (cancelledRef.current) return;
-      const message = err instanceof Error ? err.message : String(err);
-      // Keep the last-known roster on a transient RPC failure — see usePool.
-      setState((prev) =>
-        prev.members.length
-          ? { ...prev, error: message }
-          : { status: "fallback", members: [], error: message },
-      );
-    }
-  }, [connection, seedKey, enabled]);
-
-  useEffect(() => {
-    // Skip entirely when disabled (e.g. non-devnet cards) so we don't pay for a
-    // getProgramAccounts roster scan per poll on pools the caller never reads.
-    if (!enabled) return;
-    cancelledRef.current = false;
-    // Stale-while-revalidate hydrate — the roster scan (getProgramAccounts) is
-    // the SLOWEST read on the page, so painting the cached roster matters most.
-    setState((prev) => {
-      if (prev.status !== "loading") return prev;
-      const target = DEVNET_POOLS[seedKey];
-      const cached = cacheGet<RawMemberView[]>("members", `${seedKey}:${target.pda.toBase58()}`);
-      return cached ? { status: "ok", members: cached, error: null } : prev;
-    });
-    void load();
-    const id = window.setInterval(load, refreshMs);
-    return () => {
-      cancelledRef.current = true;
-      window.clearInterval(id);
-    };
-  }, [load, refreshMs, enabled, seedKey]);
-
-  return { ...state, refresh: load };
+  const { state, refresh } = usePoolStore(refreshMs);
+  const entry = enabled ? state.members[seedKey] : DISABLED_MEMBERS;
+  return useMemo(() => ({ ...entry, refresh }), [entry, refresh]);
 }
