@@ -362,6 +362,39 @@ export function buildScoreTimeline(atts: ReadonlyArray<ScoreAttestation>): Score
   return pts;
 }
 
+/**
+ * Choose which curve the /insights chart renders, given the live state of the
+ * TRUE attestation replay (`useScoreTimeline`) and a lazily-built linear
+ * reconstruction fallback. The ORDER is what keeps the fake straight line off
+ * the screen:
+ *
+ *   1. Replay ready (≥2 vertices — includes an SWR-cached curve painted before
+ *      revalidation) → use it. This is the honest per-event curve, with the real
+ *      dips (late/default) and jumps (pool-complete) the reconstruction can't draw.
+ *   2. Replay still LOADING → return [] so the chart shows its loading skeleton.
+ *      We deliberately do NOT draw the reconstruction here: it interpolates the
+ *      score evenly across payment timestamps, i.e. a straight ax+b line, and
+ *      rendering it for the ~1–2 s until `getProgramAccounts` resolves is the
+ *      "the chart went linear again" flash. Worse, `currentScore` is still 0
+ *      mid-load, so it's a flat line pinned to the axis that then jumps. A brief
+ *      skeleton is honest; a wrong line that snaps to the real one is not.
+ *   3. Replay SETTLED but unavailable (`fallback` — getProgramAccounts failed
+ *      with an empty cache) → best-effort reconstruction, so a wallet on a flaky
+ *      RPC still sees an approximate climb instead of an empty box.
+ *
+ * `reconstruction` is a thunk so the (non-trivial) fallback curve is built only
+ * when it's actually going to be shown — never during the loading path.
+ */
+export function selectScoreHistory(
+  timelineStatus: "loading" | "ok" | "fallback",
+  timelinePoints: ReadonlyArray<ScorePoint>,
+  reconstruction: () => ScorePoint[],
+): ScorePoint[] {
+  if (timelinePoints.length >= 2) return timelinePoints.slice();
+  if (timelineStatus === "loading") return [];
+  return reconstruction();
+}
+
 export interface ScoreScale {
   yMin: number;
   yMax: number;

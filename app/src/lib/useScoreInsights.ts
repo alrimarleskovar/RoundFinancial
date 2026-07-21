@@ -19,6 +19,7 @@ import {
   annotateScoreHistory,
   computeRealFactors,
   reconstructScoreHistory,
+  selectScoreHistory,
   type RealFactor,
   type ScorePoint,
 } from "@/data/insights";
@@ -79,17 +80,19 @@ export function useScoreInsights(): ScoreInsights {
     const joinPool = joinTx ? poolNameFromLabel(joinTx.label) : null;
 
     // Prefer the TRUE attestation-replay curve (real per-event deltas, exact
-    // endpoint). Fall back to the payment-timestamp reconstruction only if the
-    // replay is unavailable (getProgramAccounts failed / not yet loaded) so the
-    // chart still shows an approximate climb instead of an empty box.
-    const history =
-      timeline.points.length >= 2
-        ? timeline.points
-        : annotateScoreHistory(
-            reconstructScoreHistory(rep.score, payTimes, start),
-            joinPool,
-            paymentPools,
-          );
+    // endpoint). While it's still LOADING, show nothing (→ the chart's loading
+    // skeleton) rather than the payment-timestamp reconstruction — that straight
+    // ax+b line, drawn for the ~1–2 s until getProgramAccounts resolves, was the
+    // recurring "chart went linear again" flash. Only once the replay has
+    // settled unavailable do we fall back to the reconstruction so a wallet on a
+    // flaky RPC still sees an approximate climb instead of an empty box.
+    const history = selectScoreHistory(timeline.status, timeline.points, () =>
+      annotateScoreHistory(
+        reconstructScoreHistory(rep.score, payTimes, start),
+        joinPool,
+        paymentPools,
+      ),
+    );
 
     return {
       status: loading ? "loading" : "ready",

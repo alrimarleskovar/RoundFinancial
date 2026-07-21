@@ -19,6 +19,7 @@ import {
   reconstructScoreHistory,
   scoreDeltaFor,
   scoreScale,
+  selectScoreHistory,
   type RepCounters,
   type ScoreAttestation,
   type ScorePoint,
@@ -124,6 +125,45 @@ describe("insights — reconstructScoreHistory (anchored to current score)", () 
     const pts = reconstructScoreHistory(5, [1, 2, 3], 0); // 5 - 30 < 0
     expect(pts[0]!.score).to.equal(0); // floored start
     expect(pts[pts.length - 1]!.score).to.equal(5); // endpoint still exact
+  });
+});
+
+describe("insights — selectScoreHistory (replay-first; no linear flash while loading)", () => {
+  // A real two-vertex attestation replay vs. a straight reconstruction.
+  const replay: ScorePoint[] = [
+    { t: 1, score: 0, kind: "join", delta: 0 },
+    { t: 2, score: 10, kind: "payment", delta: 10 },
+  ];
+  const recon = (): ScorePoint[] => [
+    { t: 1, score: 0 },
+    { t: 2, score: 5 },
+    { t: 3, score: 10 },
+  ];
+
+  it("uses the true replay whenever it has ≥2 vertices", () => {
+    expect(selectScoreHistory("ok", replay, recon)).to.deep.equal(replay);
+    // Even after a getProgramAccounts hiccup (status 'fallback'), an SWR-cached
+    // real curve is still preferred over rebuilding the straight line.
+    expect(selectScoreHistory("fallback", replay, recon)).to.deep.equal(replay);
+  });
+
+  it("returns [] while the replay is LOADING and never even builds the linear line", () => {
+    let built = 0;
+    const spyRecon = (): ScorePoint[] => {
+      built++;
+      return recon();
+    };
+    // The load-time flash: with payment history present the old code drew the
+    // reconstruction here. Now it yields to the chart's loading skeleton.
+    expect(selectScoreHistory("loading", [], spyRecon)).to.deep.equal([]);
+    expect(built).to.equal(0); // thunk not invoked → no wasted work, no ax+b line
+  });
+
+  it("falls back to the reconstruction only once the replay settled unavailable", () => {
+    expect(selectScoreHistory("fallback", [], recon)).to.deep.equal(recon());
+    // 'ok' with an empty replay = wallet has no attestations yet; a best-effort
+    // climb from payment timestamps still beats an empty box.
+    expect(selectScoreHistory("ok", [], recon)).to.deep.equal(recon());
   });
 });
 
