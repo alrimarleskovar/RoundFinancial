@@ -81,6 +81,7 @@
     "test:app-encoders": "pnpm exec mocha -t 60000 'tests/app_encoders.spec.ts'",
     "test:pool-cache": "pnpm exec mocha -t 60000 'tests/app_pool_cache.spec.ts'",
     "test:pool-store": "pnpm exec mocha -t 60000 'tests/app_pool_store.spec.ts'",
+    "test:ev-errors": "pnpm exec mocha -t 60000 'tests/app_escape_valve_errors.spec.ts'",
     "test:events": "pnpm exec mocha -t 60000 'tests/events.spec.ts'",
     "test:behavioral-payload": "pnpm exec mocha -t 60000 'tests/behavioral_payload_parity.spec.ts'",
     "test:attestation-decode": "pnpm exec mocha -t 60000 'tests/onchain_raw_attestation.spec.ts'",
