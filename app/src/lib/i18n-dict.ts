@@ -1340,6 +1340,15 @@ export const DICT: Record<Lang, Dict> = {
     "modal.sell.success.body":
       "Sua oferta está visível no mercado secundário com desconto de {d}%.",
     "modal.sell.success.cta": "Ver no Mercado",
+    "modal.sell.err.behind":
+      "Você precisa estar em dia com as parcelas para listar sua cota. Pague o ciclo atual e tente de novo.",
+    "modal.sell.err.price": "O preço da listagem precisa ser maior que zero.",
+    "modal.sell.err.defaulted": "Uma cota liquidada não pode ser listada no mercado.",
+    "modal.sell.err.poolInactive": "Este grupo não está ativo — não dá para listar a cota agora.",
+    "modal.sell.err.commitReveal":
+      "A listagem direta está desativada neste grupo (proteção anti-sniping). Use o fluxo de commit + reveal.",
+    "modal.sell.err.alreadyListed": "Esta cota já está listada no mercado.",
+    "modal.sell.err.details": "detalhes técnicos",
     // groups
     "groups.badge": "◆ Catálogo",
     "groups.title": "Grupos disponíveis",
@@ -3360,6 +3369,15 @@ export const DICT: Record<Lang, Dict> = {
     "modal.sell.success.body":
       "Your offer is now visible on the secondary market at a {d}% discount.",
     "modal.sell.success.cta": "Open Market",
+    "modal.sell.err.behind":
+      "You must be up to date on your installments to list your share. Pay the current cycle and try again.",
+    "modal.sell.err.price": "The listing price must be greater than zero.",
+    "modal.sell.err.defaulted": "A defaulted share cannot be listed on the market.",
+    "modal.sell.err.poolInactive": "This group isn't active — you can't list the share right now.",
+    "modal.sell.err.commitReveal":
+      "Direct listing is disabled for this group (anti-sniping protection). Use the commit + reveal flow.",
+    "modal.sell.err.alreadyListed": "This share is already listed on the market.",
+    "modal.sell.err.details": "technical details",
     "groups.badge": "◆ Catalog",
     "groups.title": "Available groups",
     "groups.subtitle": "{open} groups with open spots · your current level unlocks {access}",

@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import type { NftPosition, Tone } from "@/data/carteira";
 import { DEVNET_POOLS } from "@/lib/devnet";
+import { classifyEscapeValveListError } from "@/lib/escape-valve-errors";
 import { sendEscapeValveList } from "@/lib/escape-valve-list";
 import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -41,6 +42,9 @@ export function SellShareModal({
   const [done, setDone] = useState(false);
   const [txSig, setTxSig] = useState<string | null>(null);
   const [chainError, setChainError] = useState<string | null>(null);
+  // Raw program logs behind a "detalhes" toggle — the friendly reason above
+  // is what the seller reads; power users can still see the on-chain trace.
+  const [chainErrorDetails, setChainErrorDetails] = useState<string | null>(null);
   const { connection } = useConnection();
   const adapter = useAdapterWallet();
   const wallet = useWallet();
@@ -52,6 +56,7 @@ export function SellShareModal({
       setDone(false);
       setTxSig(null);
       setChainError(null);
+      setChainErrorDetails(null);
     }
   }, [open]);
 
@@ -84,6 +89,7 @@ export function SellShareModal({
     setDone(false);
     setTxSig(null);
     setChainError(null);
+    setChainErrorDetails(null);
     onClose();
   };
 
@@ -91,6 +97,7 @@ export function SellShareModal({
     if (!position) return;
     setSubmitting(true);
     setChainError(null);
+    setChainErrorDetails(null);
 
     if (
       onChainReady &&
@@ -126,9 +133,18 @@ export function SellShareModal({
         if (Array.isArray(e.logs) && e.logs.length > 0) parts.push("logs:\n" + e.logs.join("\n"));
         if (e.cause) parts.push("cause: " + String(e.cause));
         if (parts.length === 0) parts.push(String(err));
+        const raw = parts.join("\n");
         // eslint-disable-next-line no-console
         console.error("[RoundFi] escape_valve_list failed:", err);
-        setChainError(parts.join("\n"));
+        // Map the revert to a clear reason. The on-chain #[msg] for the
+        // behind-seller gate is MISLEADING (MemberNotBehind reuses the
+        // settle_default text "member is current"), so we override it with the
+        // right message; unknown reverts keep the raw blob as the message.
+        const reasonKey = classifyEscapeValveListError(
+          `${e.message ?? ""}\n${(e.logs ?? []).join("\n")}`,
+        );
+        setChainError(reasonKey ? t(reasonKey) : raw);
+        setChainErrorDetails(reasonKey ? raw : null);
         setSubmitting(false);
       }
       return;
@@ -413,7 +429,21 @@ export function SellShareModal({
               <MonoLabel size={9} color={tokens.red}>
                 TX FAILED
               </MonoLabel>
-              <div style={{ marginTop: 4 }}>{chainError}</div>
+              <div
+                style={{ marginTop: 4, fontFamily: "var(--font-sans), sans-serif", fontSize: 12 }}
+              >
+                {chainError}
+              </div>
+              {chainErrorDetails ? (
+                <details style={{ marginTop: 6 }}>
+                  <summary style={{ cursor: "pointer", fontSize: 10, color: tokens.text2 }}>
+                    {t("modal.sell.err.details")}
+                  </summary>
+                  <div style={{ marginTop: 4, whiteSpace: "pre-wrap", fontSize: 10 }}>
+                    {chainErrorDetails}
+                  </div>
+                </details>
+              ) : null}
             </div>
           ) : null}
 

@@ -234,6 +234,9 @@ jobs:
       - name: Pool-store batched-scan grouping (4 tests)
         run: pnpm test:pool-store
 
+      - name: Escape-valve list error classifier (8 tests)
+        run: pnpm test:ev-errors
+
       - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events
 
