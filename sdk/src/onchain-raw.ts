@@ -492,6 +492,30 @@ export async function fetchActivePoolListings(
     .sort((a, b) => a.slotIndex - b.slotIndex);
 }
 
+/**
+ * Diagnostic sibling of `fetchActivePoolListings` that returns EVERY listing
+ * account for the pool regardless of status (active / filled / cancelled /
+ * pending). The buy-side market only shows `active`; this exists so ops can
+ * see WHY a listing a seller expects isn't on the market — e.g. it's stuck in
+ * `pending` (commit-revealed but never revealed) or was `cancelled`.
+ */
+export async function fetchAllPoolListings(
+  connection: Connection,
+  coreProgram: PublicKey,
+  poolAddress: PublicKey,
+): Promise<RawListingView[]> {
+  const accounts = await connection.getProgramAccounts(coreProgram, {
+    commitment: "confirmed",
+    filters: [
+      { dataSize: LISTING_ACCOUNT_SIZE },
+      { memcmp: { offset: 8, bytes: poolAddress.toBase58() } },
+    ],
+  });
+  return accounts
+    .map(({ pubkey, account }) => decodeListingRaw(pubkey, account.data as Buffer))
+    .sort((a, b) => a.slotIndex - b.slotIndex);
+}
+
 // ─── ReputationProfile (roundfi-reputation) ──────────────────────────────
 //
 // IDL-free decode of the per-wallet on-chain score. Source of truth:
