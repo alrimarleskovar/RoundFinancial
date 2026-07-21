@@ -140,7 +140,7 @@ export function SellPositionModal({
                   letterSpacing: "-0.02em",
                 }}
               >
-                {fmtMoney(askPrice, { noCents: true })}
+                {fmtMoney(askPrice)}
               </span>
             </div>
             <input
@@ -151,7 +151,7 @@ export function SellPositionModal({
               value={askPctOfFace}
               onChange={(e) => setAskPctOfFace(Number(e.target.value))}
               aria-label={t("market.sellModal.askPrice")}
-              aria-valuetext={`${askPctOfFace}% — ${fmtMoney(askPrice, { noCents: true })}`}
+              aria-valuetext={`${askPctOfFace}% — ${fmtMoney(askPrice)}`}
               style={{
                 width: "100%",
                 accentColor: tokens.purple,
@@ -189,7 +189,7 @@ export function SellPositionModal({
           >
             <Stat
               label={t("market.sellModal.face")}
-              value={fmtMoney(position.value, { noCents: true })}
+              value={fmtMoney(position.value)}
               color={tokens.text2}
             />
             <Stat
@@ -199,7 +199,7 @@ export function SellPositionModal({
             />
             <Stat
               label={t("market.sellModal.youReceive")}
-              value={fmtMoney(askPrice, { noCents: true })}
+              value={fmtMoney(askPrice)}
               color={tokens.text}
               emphasis
             />
@@ -311,7 +311,7 @@ export function SellPositionModal({
           title={t("market.sellModal.successHeadline")}
           body={t("market.sellModal.successBody", {
             group: position.group,
-            price: fmtMoney(askPrice, { noCents: true }),
+            price: fmtMoney(askPrice),
             discount: discount.toFixed(0),
             days: SLASHING_DAYS,
           })}

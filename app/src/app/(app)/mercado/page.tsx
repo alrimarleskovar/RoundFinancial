@@ -242,7 +242,7 @@ function OfferRow({
         </div>
       </div>
       <div>
-        <div className="text-sm font-black text-white">{fmtMoney(economy, { noCents: true })}</div>
+        <div className="text-sm font-black text-white">{fmtMoney(economy)}</div>
         <div className="text-xs text-slate-500">{t("marketV2.row.economy")}</div>
       </div>
       <div>
@@ -288,15 +288,11 @@ function SellRow({ pos, onSell }: { pos: NftPosition; onSell: (position: NftPosi
         </div>
       </div>
       <div>
-        <div className="text-sm font-black text-white">
-          {fmtMoney(pos.value, { noCents: true })}
-        </div>
+        <div className="text-sm font-black text-white">{fmtMoney(pos.value)}</div>
         <div className="text-xs text-slate-500">{t("marketV2.row.faceValue")}</div>
       </div>
       <div>
-        <div className="text-sm font-black text-[#14F195]">
-          {fmtMoney(sellPrice, { noCents: true })}
-        </div>
+        <div className="text-sm font-black text-[#14F195]">{fmtMoney(sellPrice)}</div>
         <div className="text-xs text-slate-500">{t("marketV2.row.suggested", { n: disc })}</div>
       </div>
       <button
@@ -336,9 +332,7 @@ function ListingRow({
         </div>
       </div>
       <div>
-        <div className="text-sm font-black text-white">
-          {fmtMoney(listing.askPrice, { noCents: true })}
-        </div>
+        <div className="text-sm font-black text-white">{fmtMoney(listing.askPrice)}</div>
         <div className="text-xs text-slate-500">{t("marketV2.resalePrice")}</div>
       </div>
       <div>
@@ -378,14 +372,14 @@ function FeaturedOfferCard({ onBuy }: { onBuy: (target: BuyOfferTarget) => void 
           </span>
         </div>
         <div className="mt-2 text-xl font-bold text-slate-500 line-through decoration-slate-600">
-          {fmtMoney(FEATURED_OFFER.face, { noCents: true })}
+          {fmtMoney(FEATURED_OFFER.face)}
         </div>
 
         <div className="mt-6 text-xs uppercase tracking-[0.13em] text-slate-500">
           {t("marketV2.feat.discounted")}
         </div>
         <div className="mt-1 text-4xl font-black tracking-tight text-white">
-          {fmtMoney(FEATURED_OFFER.price, { noCents: true })}
+          {fmtMoney(FEATURED_OFFER.price)}
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4">
@@ -393,9 +387,7 @@ function FeaturedOfferCard({ onBuy }: { onBuy: (target: BuyOfferTarget) => void 
             <div className="text-xs uppercase tracking-[0.13em] text-slate-500">
               {t("marketV2.economy")}
             </div>
-            <div className="mt-1 text-lg font-black text-[#14F195]">
-              {fmtMoney(economy, { noCents: true })}
-            </div>
+            <div className="mt-1 text-lg font-black text-[#14F195]">{fmtMoney(economy)}</div>
           </div>
           <div>
             <div className="text-xs uppercase tracking-[0.13em] text-slate-500">
@@ -470,14 +462,14 @@ function FeaturedSellCard({
           </span>
         </div>
         <div className="mt-2 text-xl font-bold text-slate-500 line-through decoration-slate-600">
-          {fmtMoney(best.value, { noCents: true })}
+          {fmtMoney(best.value)}
         </div>
 
         <div className="mt-6 text-xs uppercase tracking-[0.13em] text-slate-500">
           {t("marketV2.resalePrice")}
         </div>
         <div className="mt-1 text-4xl font-black tracking-tight text-white">
-          {fmtMoney(sellPrice, { noCents: true })}
+          {fmtMoney(sellPrice)}
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4">
@@ -485,9 +477,7 @@ function FeaturedSellCard({
             <div className="text-xs uppercase tracking-[0.13em] text-slate-500">
               {t("marketV2.featSell.youReceive")}
             </div>
-            <div className="mt-1 text-lg font-black text-[#14F195]">
-              {fmtMoney(sellPrice, { noCents: true })}
-            </div>
+            <div className="mt-1 text-lg font-black text-[#14F195]">{fmtMoney(sellPrice)}</div>
           </div>
           <div>
             <div className="text-xs uppercase tracking-[0.13em] text-slate-500">
@@ -707,13 +697,13 @@ export default function MercadoPage() {
             />
             <MiniStat
               label={t("marketV2.faceValue")}
-              value={fmtMoney(myFaceTotal, { noCents: true })}
+              value={fmtMoney(myFaceTotal)}
               helper={t("marketV2.kpi.face.helper")}
               tone="cyan"
             />
             <MiniStat
               label={t("marketV2.resalePrice")}
-              value={fmtMoney(myResaleTotal, { noCents: true })}
+              value={fmtMoney(myResaleTotal)}
               helper={t("marketV2.kpi.resale.helper")}
               tone="amber"
             />
@@ -823,7 +813,7 @@ export default function MercadoPage() {
             />
             <MiniStat
               label={t("marketV2.kpi.economy.label")}
-              value={fmtMoney(avgEconomy, { noCents: true })}
+              value={fmtMoney(avgEconomy)}
               helper={t("marketV2.kpi.economy.helper")}
               tone="amber"
             />

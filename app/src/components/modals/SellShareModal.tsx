@@ -334,7 +334,7 @@ export function SellShareModal({
                   marginTop: 4,
                 }}
               >
-                {fmtMoney(faceBrl, { noCents: true })}
+                {fmtMoney(faceBrl)}
               </div>
             </div>
             <div>
@@ -351,7 +351,11 @@ export function SellShareModal({
                   letterSpacing: "-0.02em",
                 }}
               >
-                {fmtMoney(askBrl, { noCents: true })}
+                {/* Cents matter here: with a 2 USDC face, every slider step
+                    moves the ask by fractions of a cent-unit — rounding to
+                    whole units pinned the display at "2" across the entire
+                    0–8% range, so dragging looked broken. */}
+                {fmtMoney(askBrl)}
               </div>
             </div>
             <div style={{ gridColumn: "1 / -1", marginTop: 4 }}>

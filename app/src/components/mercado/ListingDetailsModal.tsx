@@ -121,7 +121,7 @@ export function ListingDetailsModal({
       >
         <Stat
           label={t("market.sellModal.face")}
-          value={fmtMoney(listing.position.value, { noCents: true })}
+          value={fmtMoney(listing.position.value)}
           color={tokens.text2}
         />
         <Stat
@@ -131,7 +131,7 @@ export function ListingDetailsModal({
         />
         <Stat
           label={t("market.sellModal.youReceive")}
-          value={fmtMoney(listing.askPrice, { noCents: true })}
+          value={fmtMoney(listing.askPrice)}
           color={tokens.text}
           emphasis
         />
