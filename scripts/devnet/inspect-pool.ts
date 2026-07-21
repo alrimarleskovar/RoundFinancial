@@ -26,7 +26,12 @@ import { resolve } from "node:path";
 
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
-import { fetchDrawRaw, fetchPoolMembers, fetchPoolRaw } from "@roundfi/sdk/onchain-raw";
+import {
+  fetchAllPoolListings,
+  fetchDrawRaw,
+  fetchPoolMembers,
+  fetchPoolRaw,
+} from "@roundfi/sdk/onchain-raw";
 
 import { loadCluster, requireProgram } from "../../config/clusters.js";
 
@@ -134,6 +139,50 @@ async function main() {
     console.log(
       `seat #${m.slotIndex}: ${m.wallet.toBase58()}\n` +
         `   paid ${m.contributionsPaid}/${pool.cyclesTotal} cycles · stake ${USDC(m.stakeDeposited)} · escrow ${USDC(m.escrowBalance)} · on-time ${m.onTimeCount} late ${m.lateCount}${marks ? ` · ${marks}` : ""}`,
+    );
+  }
+
+  // ── Escape-valve listings (secondary market) ────────────────────────
+  // Shows EVERY listing (any status), so a seller whose cota isn't on the
+  // /mercado buy side can see WHY: only `ACTIVE` shows there; `PENDING`
+  // (commit-revealed, never revealed) / `CANCELLED` / `FILLED` don't.
+  const listings = await fetchAllPoolListings(connection, coreProgram, poolPda);
+  console.log(`\n━━━ listings (${listings.length}) ━━━`);
+  if (listings.length === 0) {
+    console.log(`  none — no cota is listed for this pool (nothing on the secondary market).`);
+  } else {
+    for (const l of listings) {
+      const onMarket = l.status === "active";
+      const cooldown = Number(l.buyableAfter) - now;
+      console.log(
+        `seat #${l.slotIndex}: ${USDC(l.priceUsdc)} · status ${l.status.toUpperCase()}` +
+          `${onMarket ? " → ON THE MARKET (buy side shows it)" : " → NOT on the buy side"}\n` +
+          `   seller ${l.seller.toBase58()}` +
+          (onMarket && cooldown > 0
+            ? ` · buyable in ${(cooldown / 3600).toFixed(1)}h (anti-snipe cooldown)`
+            : ""),
+      );
+    }
+  }
+  // Who is even ALLOWED to list right now? escape_valve_list requires
+  // !defaulted AND contributions_paid >= current_cycle (a behind member
+  // cannot dump their obligation on the market → RoundfiError::MemberNotBehind).
+  if (pool.status === "active") {
+    const listedSeats = new Set(
+      listings.filter((l) => l.status !== "cancelled").map((l) => l.slotIndex),
+    );
+    const canList = members.filter(
+      (m) =>
+        !m.defaulted && m.contributionsPaid >= pool.currentCycle && !listedSeats.has(m.slotIndex),
+    );
+    const blockedBehind = members.filter(
+      (m) => !m.defaulted && m.contributionsPaid < pool.currentCycle,
+    );
+    console.log(
+      `\nlist-eligibility: ${canList.length ? canList.map((m) => `#${m.slotIndex}`).join(", ") + " can list" : "nobody can list right now"}` +
+        (blockedBehind.length
+          ? ` · BEHIND (cannot list until caught up): ${blockedBehind.map((m) => `#${m.slotIndex}`).join(", ")}`
+          : ""),
     );
   }
 
