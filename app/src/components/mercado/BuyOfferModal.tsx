@@ -230,12 +230,12 @@ export function BuyOfferModal({
             >
               <Stat
                 label={t("market.buyModal.face")}
-                value={fmtMoney(target.face, { noCents: true })}
+                value={fmtMoney(target.face)}
                 color={tokens.text2}
               />
               <Stat
                 label={t("market.buyModal.price")}
-                value={fmtMoney(target.price, { noCents: true })}
+                value={fmtMoney(target.price)}
                 color={tokens.text}
                 emphasis
               />
@@ -246,7 +246,7 @@ export function BuyOfferModal({
               />
               <Stat
                 label={t("market.buyModal.savings")}
-                value={fmtMoney(savings, { noCents: true })}
+                value={fmtMoney(savings)}
                 color={tokens.green}
               />
             </div>
@@ -378,7 +378,7 @@ export function BuyOfferModal({
           )}
           body={t(onchain ? "market.buyModal.realSuccessBody" : "market.buyModal.successBody", {
             group: target.group,
-            price: fmtMoney(target.price, { noCents: true }),
+            price: fmtMoney(target.price),
           })}
           cta={
             <button
