@@ -69,6 +69,10 @@ export interface BuildContributeIxArgs {
   /** Pool's current-cycle deadline (unix secs). on-time → PAYMENT, late →
    *  LATE — also part of the attestation PDA seeds. */
   nextCycleAt?: number | bigint;
+  /** Pool's current cycle — lets the encoder classify an ARREARS catch-up
+   *  (`cycle < currentCycle`, ADR 0013) as LATE so the attestation PDA
+   *  matches the program. Omit on legacy callers (time-based fallback). */
+  currentCycle?: number;
   /** Optional explicit override; when omitted, derived from cycle/cyclesTotal/
    *  nextCycleAt to match the program (see `deriveContributeSchema`). */
   schemaId?: number;
@@ -96,19 +100,28 @@ export interface BuildContributeIxArgs {
  *     POOL_COMPLETE (schema 4). This is the bug that blocked the last payment
  *     of every pool: the client used PAYMENT here, so the attestation PDA
  *     mismatched and the reputation CPI reverted with ConstraintSeeds (2006).
+ *   - ARREARS catch-up (`cycle < currentCycle`, ADR 0013) → LATE, regardless
+ *     of the clock: on-chain `on_time = args.cycle >= current_cycle && …`, so
+ *     a regularização is late BY CONSTRUCTION (the installment's own deadline
+ *     passed when the pool advanced). A catch-up can never be the final
+ *     installment, so the POOL_COMPLETE branch keeps priority harmlessly.
  *   - otherwise on-time (now ≤ nextCycleAt) → PAYMENT, late → LATE.
  *
- * Back-compat: with cyclesTotal/nextCycleAt omitted it falls back to PAYMENT,
- * preserving the encoder's prior behaviour for callers that don't pass them.
+ * Back-compat: with cyclesTotal/nextCycleAt/currentCycle omitted it falls back
+ * to PAYMENT, preserving the encoder's prior behaviour for existing callers.
  */
 export function deriveContributeSchema(
   cycle: number,
   cyclesTotal?: number,
   nextCycleAt?: number | bigint,
   nowSec: number = Math.floor(Date.now() / 1000),
+  currentCycle?: number,
 ): number {
   if (cyclesTotal !== undefined && cycle === cyclesTotal - 1) {
     return ATTESTATION_SCHEMA.PoolComplete;
+  }
+  if (currentCycle !== undefined && cycle < currentCycle) {
+    return ATTESTATION_SCHEMA.Late;
   }
   if (nextCycleAt !== undefined) {
     const onTime = BigInt(nowSec) <= BigInt(nextCycleAt);
@@ -138,7 +151,14 @@ export function buildContributeIx(args: BuildContributeIxArgs): TransactionInstr
   const [repProfile] = reputationProfilePda(reputation, args.memberWallet);
 
   const schemaId =
-    args.schemaId ?? deriveContributeSchema(args.cycle, args.cyclesTotal, args.nextCycleAt);
+    args.schemaId ??
+    deriveContributeSchema(
+      args.cycle,
+      args.cyclesTotal,
+      args.nextCycleAt,
+      undefined,
+      args.currentCycle,
+    );
   const slotIndex = args.slotIndex ?? 0;
   const nonce = attestationNonce(args.cycle, slotIndex);
   // The reputation program is its own "no identity linked" sentinel —

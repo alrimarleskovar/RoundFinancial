@@ -151,6 +151,32 @@ describe("deriveContributeSchema — mirrors contribute.rs", () => {
     expect(deriveContributeSchema(0, 3, BigInt(FUTURE))).to.equal(ATTESTATION_SCHEMA.Payment);
     expect(deriveContributeSchema(0, 3, BigInt(PAST))).to.equal(ATTESTATION_SCHEMA.Late);
   });
+
+  // ADR 0013 — arrears catch-up. On-chain `on_time = args.cycle >=
+  // current_cycle && clock <= next_cycle_at`, so a regularização (cycle <
+  // current_cycle) is LATE by construction; the client must derive the same
+  // schema or the attestation PDA mismatches (ConstraintSeeds).
+  it("classifies an arrears catch-up (cycle < currentCycle) as LATE even when the clock is on-time", () => {
+    // Pool at cycle 2; member pays missed cycle 0 with the CURRENT deadline
+    // still in the future — chain says LATE regardless of the clock.
+    expect(deriveContributeSchema(0, 6, FUTURE, undefined, 2)).to.equal(ATTESTATION_SCHEMA.Late);
+  });
+
+  it("leaves the on-schedule and prepaid paths untouched when currentCycle is provided", () => {
+    // Normal path (cycle == currentCycle) — still time-based.
+    expect(deriveContributeSchema(2, 6, FUTURE, undefined, 2)).to.equal(ATTESTATION_SCHEMA.Payment);
+    expect(deriveContributeSchema(2, 6, PAST, undefined, 2)).to.equal(ATTESTATION_SCHEMA.Late);
+    // Prepay (cycle > currentCycle, ADR 0012) — also time-based, never forced LATE.
+    expect(deriveContributeSchema(3, 6, FUTURE, undefined, 2)).to.equal(ATTESTATION_SCHEMA.Payment);
+  });
+
+  it("keeps POOL_COMPLETE priority over the arrears branch (mirrors contribute.rs order)", () => {
+    // Unreachable on-chain (an arrears cycle can never be the final one), but
+    // the function-level priority must mirror the program's check order.
+    expect(deriveContributeSchema(2, 3, FUTURE, undefined, 5)).to.equal(
+      ATTESTATION_SCHEMA.PoolComplete,
+    );
+  });
 });
 
 describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
