@@ -108,3 +108,54 @@ export async function simulateOrThrow(connection: Connection, tx: Transaction): 
     );
   }
 }
+
+/**
+ * Await confirmation for an ALREADY-SUBMITTED transaction and throw if it
+ * landed on-chain with an error.
+ *
+ * `Connection.confirmTransaction` RESOLVES for a transaction that was included
+ * in a block but REJECTED by the program — `value.err` is set, and it only
+ * *throws* when the blockhash expires before inclusion. Every fund-movement
+ * sender used to `await confirmTransaction(...)` and ignore that result, so a
+ * tx that failed AFTER a passing pre-sign `simulateOrThrow` (pool state changed
+ * between the dry-run and execution) was reported to the modal as a SUCCESS — a
+ * success card linking a FAILED tx, with no state actually changed. That's the
+ * "listei mas não apareceu para comprar" case, and the same class of silent
+ * false-success on the pay / claim / settle paths.
+ *
+ * Centralized here so every sender behaves identically: on a rejected tx it
+ * re-fetches the failed tx's logs (best-effort) and throws a
+ * {@link TransactionSimulationError} — the SAME type `simulateOrThrow` throws —
+ * so the modals' existing rendering (`summarizeSimError` + the per-flow
+ * classifiers) maps a POST-send revert exactly like a PRE-sign one.
+ */
+export async function confirmOrThrow(
+  connection: Connection,
+  signature: string,
+  blockhash: string,
+  lastValidBlockHeight: number,
+): Promise<string> {
+  const conf = await connection.confirmTransaction(
+    { signature, blockhash, lastValidBlockHeight },
+    "confirmed",
+  );
+  if (conf.value.err) {
+    let logs: string[] = [];
+    try {
+      const info = await connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+      logs = info?.meta?.logMessages ?? [];
+    } catch {
+      // Logs are a nice-to-have for classification; the throw already prevents
+      // the false-success card regardless of whether we could fetch them.
+    }
+    throw new TransactionSimulationError(
+      summarizeSimError(conf.value.err, logs),
+      conf.value.err,
+      logs,
+    );
+  }
+  return signature;
+}
