@@ -48,7 +48,7 @@ import {
 } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "./devnet";
-import { simulateOrThrow } from "./simulateTx";
+import { confirmOrThrow, simulateOrThrow } from "./simulateTx";
 
 // sha256("global:claim_payout")[:8] — precomputed.
 //   $ node -e 'console.log(require("crypto").createHash("sha256")
@@ -154,9 +154,6 @@ export async function sendClaimPayout(args: SendClaimPayoutArgs): Promise<string
   await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
-  await args.connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
+  await confirmOrThrow(args.connection, signature, blockhash, lastValidBlockHeight);
   return signature;
 }

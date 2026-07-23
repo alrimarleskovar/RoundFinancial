@@ -9,8 +9,13 @@
  */
 
 import { expect } from "chai";
+import type { Connection } from "@solana/web3.js";
 
-import { summarizeSimError, TransactionSimulationError } from "../app/src/lib/simulateTx";
+import {
+  confirmOrThrow,
+  summarizeSimError,
+  TransactionSimulationError,
+} from "../app/src/lib/simulateTx";
 
 describe("frontend — summarizeSimError (pre-sign simulation reason)", () => {
   it("extracts Anchor's 'Error Message:' line (the friendliest reason)", () => {
@@ -75,5 +80,67 @@ describe("frontend — TransactionSimulationError", () => {
     expect(e.logs).to.deep.equal(["Program log: x"]);
     expect(e.err).to.deep.equal({ Custom: 6001 });
     expect(e instanceof Error).to.equal(true);
+  });
+});
+
+describe("frontend — confirmOrThrow (post-send confirmation guard)", () => {
+  // Minimal Connection stub — confirmOrThrow only touches confirmTransaction +
+  // getTransaction, so `as unknown as Connection` keeps the test off the full
+  // RPC surface.
+  function mockConnection(opts: {
+    err: unknown;
+    logs?: string[] | null;
+    getTxThrows?: boolean;
+  }): Connection {
+    return {
+      confirmTransaction: async () => ({ context: { slot: 0 }, value: { err: opts.err } }),
+      getTransaction: async () => {
+        if (opts.getTxThrows) throw new Error("rpc down");
+        if (opts.logs === null) return null;
+        return { meta: { logMessages: opts.logs ?? [] } };
+      },
+    } as unknown as Connection;
+  }
+
+  it("returns the signature when the tx confirmed with no error", async () => {
+    const sig = await confirmOrThrow(mockConnection({ err: null }), "SiG", "bh", 100);
+    expect(sig).to.equal("SiG");
+  });
+
+  it("throws when the tx confirmed WITH an on-chain error — the false-success gap", async () => {
+    // A revert that lands AFTER a passing pre-sign simulation. confirmTransaction
+    // would resolve (err set, not thrown); the sender used to ignore it and
+    // report success. The logs from the failed tx are attached so the modal
+    // classifier can key off the error NAME (MemberNotBehind) even though the
+    // distilled #[msg] misleads ("member is current").
+    const conn = mockConnection({
+      err: { InstructionError: [0, { Custom: 6085 }] },
+      logs: [
+        "Program log: Instruction: EscapeValveList",
+        "Program log: AnchorError. Error Code: MemberNotBehind. Error Number: 6085. Error Message: Member is current on contributions — default not applicable.",
+      ],
+    });
+    let thrown: unknown;
+    try {
+      await confirmOrThrow(conn, "SiG", "bh", 100);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).to.be.instanceOf(TransactionSimulationError);
+    const err = thrown as TransactionSimulationError;
+    expect(err.logs.join("\n")).to.contain("MemberNotBehind");
+    expect(err.err).to.deep.equal({ InstructionError: [0, { Custom: 6085 }] });
+  });
+
+  it("still throws (with empty logs) when fetching the failed tx's logs itself fails", async () => {
+    const conn = mockConnection({ err: { Custom: 1 }, getTxThrows: true });
+    let thrown: unknown;
+    try {
+      await confirmOrThrow(conn, "SiG", "bh", 100);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).to.be.instanceOf(TransactionSimulationError);
+    expect((thrown as TransactionSimulationError).logs).to.deep.equal([]);
   });
 });

@@ -40,7 +40,7 @@ import {
 } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS } from "./devnet";
-import { simulateOrThrow } from "./simulateTx";
+import { confirmOrThrow, simulateOrThrow } from "./simulateTx";
 
 // sha256("global:devnet_issue_attestation")[:8]
 const ISSUE_DISCRIMINATOR = Buffer.from([0xf6, 0x94, 0xd0, 0x91, 0x01, 0x4b, 0x4c, 0x8b]);
@@ -134,10 +134,7 @@ export async function sendVerifyPassport(args: SendVerifyPassportArgs): Promise<
   await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
-  await args.connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
+  await confirmOrThrow(args.connection, signature, blockhash, lastValidBlockHeight);
   return signature;
 }
 
@@ -209,9 +206,6 @@ export async function sendUnlinkPassport(args: SendUnlinkPassportArgs): Promise<
   await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
-  await args.connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
+  await confirmOrThrow(args.connection, signature, blockhash, lastValidBlockHeight);
   return signature;
 }

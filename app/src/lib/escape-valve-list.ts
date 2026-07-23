@@ -35,7 +35,7 @@ import {
 import { listingPda, memberPda, protocolConfigPda } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS } from "./devnet";
-import { simulateOrThrow } from "./simulateTx";
+import { confirmOrThrow, simulateOrThrow } from "./simulateTx";
 
 // sha256("global:escape_valve_list")[:8] = 3c15934956dc4fc3
 const ESCAPE_VALVE_LIST_DISCRIMINATOR = Buffer.from([
@@ -107,34 +107,13 @@ export async function sendEscapeValveList(args: SendEscapeValveListArgs): Promis
   await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
-  const conf = await args.connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
-  // `confirmTransaction` RESOLVES for a tx that landed but was REJECTED by the
-  // program (value.err set) — it only throws on expiry. Our `simulateOrThrow`
-  // above makes this rare, but a state change between the dry-run and execution
-  // (e.g. the slot got listed/taken in the interim) still lands a failed tx.
-  // Never treat that as a successful listing: the modal would show a success
-  // card linking a FAILED tx while no Listing account exists — exactly the
-  // "listei mas não apareceu para comprar" confusion. Surface it like any other
-  // revert instead, with the failed tx's logs so the modal's classifier can map
-  // a known reason (e.g. MemberNotBehind → "você precisa estar em dia").
-  if (conf.value.err) {
-    const err = new Error(
-      `escape_valve_list confirmed with on-chain error: ${JSON.stringify(conf.value.err)}`,
-    ) as Error & { logs?: string[] };
-    try {
-      const info = await args.connection.getTransaction(signature, {
-        commitment: "confirmed",
-        maxSupportedTransactionVersion: 0,
-      });
-      if (info?.meta?.logMessages) err.logs = info.meta.logMessages;
-    } catch {
-      // Logs are a nice-to-have for classification; the throw already prevents
-      // the false-success card regardless of whether we could fetch them.
-    }
-    throw err;
-  }
+  // Never report a listing as successful when the tx landed with an on-chain
+  // error (a pool-state change between our dry-run and execution — e.g. the slot
+  // got listed/taken in the interim): `confirmOrThrow` surfaces it like any
+  // other revert, attaching the failed tx's logs so the SellShareModal
+  // classifier maps a known reason (e.g. MemberNotBehind → "você precisa estar
+  // em dia"). Otherwise the modal shows a success card linking a FAILED tx while
+  // no Listing account exists — the "listei mas não apareceu para comprar" case.
+  await confirmOrThrow(args.connection, signature, blockhash, lastValidBlockHeight);
   return signature;
 }
