@@ -1326,7 +1326,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.gate.claimTurn":
       "Você já pagou e agora é a SUA vez de receber 🎉. Saque o crédito deste ciclo pelo seu grupo — isso avança o ciclo e libera a próxima parcela pra todos.",
     "modal.pay.gate.behind":
-      "Você está atrasado: a pool já avançou de ciclo e ficou uma parcela sua pra trás. Não dá pra pagar fora de ordem — fale com o grupo pra regularizar.",
+      "Você está atrasado: a pool avançou de ciclo e uma parcela sua ficou pra trás. Por ora não há como pagar essa parcela fora de ordem por aqui — enquanto a carência não vencer sua cota segue ativa; se ela vencer sem regularização, a cota pode ser liquidada.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -3355,7 +3355,7 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.gate.claimTurn":
       "You've paid and now it's YOUR turn to receive 🎉. Claim this cycle's payout from your group — that advances the cycle and opens the next installment for everyone.",
     "modal.pay.gate.behind":
-      "You're behind: the pool advanced a cycle and one of your installments was left behind. You can't pay out of order — reach out to the group to sort it out.",
+      "You're behind: the pool advanced a cycle and one of your installments was left behind. There's no way to pay this installment out of order here yet — while the grace window is open your share stays active; if it lapses without being settled, the share can be liquidated.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
