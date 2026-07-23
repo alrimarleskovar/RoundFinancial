@@ -83,6 +83,19 @@ pub struct Pool {
     /// behavior they were created under. No migration needed (same
     /// carve pattern as `vaults_initialized`, Adevar SEV-004).
     pub ordering_policy: u8,
+
+    // ─── Embedded-bid tracker (ADR 0012 Phase 2 — lance embutido) ──────
+    /// Depth (installments prepaid beyond the one currently DUE, i.e.
+    /// `contributions_paid − current_cycle − 1`) of the best embedded bid
+    /// REGISTERED for the pool's current cycle. `0` = no
+    /// bid yet; `place_embedded_bid` only accepts a STRICTLY deeper bid,
+    /// and each cycle advance (claim/crank) resets this to 0 so every
+    /// cycle's competition starts fresh. The bid's effect itself lives
+    /// in the DrawResult (two `order` entries swapped) — this byte only
+    /// adjudicates who may outbid whom within one cycle. Carved from
+    /// padding (5 → 4, SIZE unchanged): pre-existing pools read 0 = no
+    /// bid, exactly right.
+    pub current_bid_depth: u8,
 }
 
 #[repr(u8)]
@@ -115,7 +128,8 @@ impl Pool {
         + 4                    // four bumps
         + 1                    // vaults_initialized (Adevar SEV-004)
         + 1                    // ordering_policy (ADR pool_v2, carved from padding)
-        + 5;                   // padding (was 7 → 6 for vaults_initialized → 5 for ordering_policy)
+        + 1                    // current_bid_depth (ADR 0012 Phase 2, carved from padding)
+        + 4;                   // padding (7 → 6 vaults_initialized → 5 ordering_policy → 4 bid depth)
 
     #[inline]
     pub fn is_slot_taken(&self, slot: u8) -> bool {
