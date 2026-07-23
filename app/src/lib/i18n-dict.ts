@@ -1321,12 +1321,19 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.gate.label.upToDate": "EM DIA",
     "modal.pay.gate.label.yourTurn": "SUA VEZ",
     "modal.pay.gate.label.behind": "ATRASADO",
+    "modal.pay.gate.label.behindPayable": "REGULARIZAR",
     "modal.pay.gate.alreadyPaid":
       "Você já pagou a parcela deste ciclo — está em dia ✓. A próxima só abre quando o membro da vez (slot {slot} · {claimer}) sacar o crédito e o ciclo virar.",
     "modal.pay.gate.claimTurn":
       "Você já pagou e agora é a SUA vez de receber 🎉. Saque o crédito deste ciclo pelo seu grupo — isso avança o ciclo e libera a próxima parcela pra todos.",
     "modal.pay.gate.behind":
-      "Você está atrasado: a pool avançou de ciclo e uma parcela sua ficou pra trás. Por ora não há como pagar essa parcela fora de ordem por aqui — enquanto a carência não vencer sua cota segue ativa; se ela vencer sem regularização, a cota pode ser liquidada.",
+      "Você está atrasado e o prazo de regularização (carência) já venceu. Essa parcela não pode mais ser paga por aqui — a cota está sujeita à liquidação pelo protocolo.",
+    "modal.pay.gate.behindPayable":
+      "Você tem uma parcela atrasada (parcela {n} de {total}). Dá pra regularizar agora, dentro da carência: o pagamento entra como atraso no seu histórico (o score sente o impacto), mas sua cota volta a ficar em dia e sai da rota de liquidação.",
+    "modal.pay.cta.regularize": "Regularizar parcela",
+    "modal.pay.prepay.cta": "Adiantar parcela",
+    "modal.pay.prepay.hint":
+      "Quer adiantar? Dá pra pagar a parcela {n} agora, antes do ciclo virar — o valor já entra no cofre do grupo e conta no seu histórico.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -3350,12 +3357,19 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.gate.label.upToDate": "UP TO DATE",
     "modal.pay.gate.label.yourTurn": "YOUR TURN",
     "modal.pay.gate.label.behind": "BEHIND",
+    "modal.pay.gate.label.behindPayable": "CATCH UP",
     "modal.pay.gate.alreadyPaid":
       "You've already paid this cycle's installment — you're up to date ✓. The next one only opens once it's that slot's turn (slot {slot} · {claimer}) to claim the payout and the cycle rolls over.",
     "modal.pay.gate.claimTurn":
       "You've paid and now it's YOUR turn to receive 🎉. Claim this cycle's payout from your group — that advances the cycle and opens the next installment for everyone.",
     "modal.pay.gate.behind":
-      "You're behind: the pool advanced a cycle and one of your installments was left behind. There's no way to pay this installment out of order here yet — while the grace window is open your share stays active; if it lapses without being settled, the share can be liquidated.",
+      "You're behind and the grace window has closed. This installment can no longer be paid here — the share is subject to protocol settlement.",
+    "modal.pay.gate.behindPayable":
+      "You have an overdue installment ({n} of {total}). You can catch up now, inside the grace window: the payment lands as late on your history (your score takes the hit), but your share is current again and off the liquidation track.",
+    "modal.pay.cta.regularize": "Catch up installment",
+    "modal.pay.prepay.cta": "Pay ahead",
+    "modal.pay.prepay.hint":
+      "Want to get ahead? You can pay installment {n} now, before the cycle turns — the funds go straight into the group vault and count on your history.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",

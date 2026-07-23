@@ -12,7 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ModalSuccess } from "@/components/ui/ModalSuccess";
 import { sendContribute } from "@/lib/contribute";
 import type { ActiveGroup } from "@/data/groups";
-import { DEVNET_POOLS } from "@/lib/devnet";
+import { DEVNET_POOLS, GRACE_PERIOD_SECS } from "@/lib/devnet";
 import { USDC_RATE, useI18n, useT } from "@/lib/i18n";
 import { isMissingSignatureError } from "@/lib/mobileWallet";
 import { useSession } from "@/lib/session";
@@ -98,6 +98,17 @@ export function PayInstallmentModal({
   const poolCycle = onChainPool.status === "ok" ? (onChainPool.pool?.currentCycle ?? null) : null;
   const aheadOfCycle = memberCycle !== null && poolCycle !== null && memberCycle > poolCycle;
   const behindCycle = memberCycle !== null && poolCycle !== null && memberCycle < poolCycle;
+  // ADR 0013 — a BEHIND member can regularizar (pay the missed installment)
+  // while the CURRENT cycle's grace window is open (clock < next_cycle_at +
+  // GRACE). settle_default only acts >= that same deadline, so offering the
+  // catch-up here can never race a settlement. After the deadline the arrears
+  // path closes on-chain (WrongCycle) and the gate falls back to the honest
+  // dead-end copy.
+  const nowSec = Math.floor(Date.now() / 1000);
+  const poolForGrace = onChainPool.status === "ok" ? onChainPool.pool : null;
+  const graceOpen =
+    poolForGrace != null && nowSec < Number(poolForGrace.nextCycleAt) + Number(GRACE_PERIOD_SECS);
+  const behindPayable = behindCycle && graceOpen;
   // When paid-ahead, the cycle only rolls when the CONTEMPLATED seat claims.
   // Arrival pools: seat == current_cycle. Sorteio pools (ADR pool_v2): the
   // seat the DrawResult assigned to this cycle — null while undrawn, so the
@@ -133,6 +144,7 @@ export function PayInstallmentModal({
     | "unavailable"
     | "alreadyPaid"
     | "claimTurn"
+    | "behindPayable"
     | "behind"
     | null = mockMode
     ? null
@@ -141,9 +153,11 @@ export function PayInstallmentModal({
         ? "claimTurn"
         : aheadOfCycle
           ? "alreadyPaid"
-          : behindCycle
-            ? "behind"
-            : null
+          : behindPayable
+            ? "behindPayable"
+            : behindCycle
+              ? "behind"
+              : null
       : onChainPool.status === "loading"
         ? "loading"
         : onChainPool.status === "ok" && onChainPool.pool?.status !== "active"
@@ -151,6 +165,14 @@ export function PayInstallmentModal({
           : onChainPool.status === "ok" && onChainPool.pool?.status === "active" && !memberRecord
             ? "notMember"
             : "unavailable";
+
+  // `behindPayable` is the one gate that stays ACTIONABLE: it explains the
+  // arrears (amber) but the CTA fires the catch-up contribute. Every other
+  // gate disables the CTA as before.
+  const gateBlocksCta = chainGate !== null && chainGate !== "behindPayable";
+  // A payment is genuinely due either on the normal path (no gate) or on the
+  // catch-up path — both need the live balance pre-check below.
+  const paymentDue = chainGate === null || chainGate === "behindPayable";
 
   // Positive gates (em dia / sua vez) read green; waiting/behind read amber.
   const gatePositive = chainGate === "alreadyPaid" || chainGate === "claimTurn";
@@ -160,9 +182,11 @@ export function PayInstallmentModal({
       ? "modal.pay.gate.label.upToDate"
       : chainGate === "claimTurn"
         ? "modal.pay.gate.label.yourTurn"
-        : chainGate === "behind"
-          ? "modal.pay.gate.label.behind"
-          : "modal.pay.gate.label";
+        : chainGate === "behindPayable"
+          ? "modal.pay.gate.label.behindPayable"
+          : chainGate === "behind"
+            ? "modal.pay.gate.label.behind"
+            : "modal.pay.gate.label";
 
   // `group` is the static fixture; live progress comes from session.
   // effectiveMonth is the month the user is *about to pay for*. When
@@ -183,12 +207,29 @@ export function PayInstallmentModal({
   const insufficient = mockMode && user.balance < group.installment;
   const insufficientChain =
     onChainReady &&
-    !chainGate &&
+    paymentDue &&
     installmentUsdc !== null &&
     usdc.status === "ok" &&
     usdc.uiAmount !== null &&
     usdc.uiAmount < installmentUsdc;
   const blocked = cycleDone || insufficient || insufficientChain;
+
+  // ADR 0012 — optional prepay: a member who already paid the current cycle
+  // (gate "alreadyPaid") may pay their NEXT installment ahead of the pool's
+  // clock. Only offered when installments remain and the balance covers it —
+  // the same contribute path, just with cycle = contributions_paid (> current).
+  const canPrepay =
+    chainGate === "alreadyPaid" &&
+    !!memberRecord &&
+    onChainPool.status === "ok" &&
+    !!onChainPool.pool &&
+    memberRecord.contributionsPaid < onChainPool.pool.cyclesTotal;
+  const prepayInsufficient =
+    canPrepay &&
+    installmentUsdc !== null &&
+    usdc.status === "ok" &&
+    usdc.uiAmount !== null &&
+    usdc.uiAmount < installmentUsdc;
 
   // A2-F2: when on-chain, drive the 40px hero + Triple-Shield breakdown from the
   // pinned chain installment (as the IntentPanel already does) rather than the
@@ -205,30 +246,35 @@ export function PayInstallmentModal({
     onClose();
   };
 
-  const handleConfirm = async () => {
-    // `chainGate` ⇒ real devnet pool that can't be contributed to yet
-    // (Forming, wallet-not-member, …). The CTA is disabled in that state;
-    // this guard makes the no-op explicit so we never reach the mock path.
-    if (blocked || chainGate) return;
-    setSubmitting(true);
-    setChainError(null);
-
+  // Shared on-chain sender for BOTH the primary CTA (normal path + ADR 0013
+  // catch-up) and the optional ADR 0012 prepay action — callers validate
+  // their own gates before invoking.
+  const fireOnChainContribute = async () => {
     if (onChainReady && memberRecord && onChainPool.pool && adapter.sendTransaction) {
+      setSubmitting(true);
+      setChainError(null);
       try {
         // The attestation PDA seeds include the schema id, so the off-chain
         // derivation MUST match contribute.rs — and the FINAL installment
         // escalates to POOL_COMPLETE (4), not PAYMENT/LATE. Pass cyclesTotal +
-        // nextCycleAt and let the encoder pick the schema; hardcoding PAYMENT
-        // here was the bug that ConstraintSeeds-rejected the last installment
-        // of every pool (cycle == cyclesTotal-1).
+        // nextCycleAt + currentCycle and let the encoder pick the schema;
+        // hardcoding PAYMENT here was the bug that ConstraintSeeds-rejected
+        // the last installment of every pool (cycle == cyclesTotal-1), and an
+        // arrears catch-up must derive LATE (ADR 0013) the same way.
+        //
+        // `cycle` is ALWAYS the member's next unpaid installment
+        // (contributions_paid): the program requires args.cycle ==
+        // member.contributions_paid on every path — normal (== current_cycle),
+        // catch-up (< current_cycle, inside grace) and prepay (> current_cycle).
         const sig = await sendContribute({
           connection,
           sendTransaction: adapter.sendTransaction,
           pool: DEVNET_POOLS[seedKey!].pda,
           memberWallet: connectedWallet as PublicKey,
-          cycle: onChainPool.pool.currentCycle,
+          cycle: memberRecord.contributionsPaid,
           cyclesTotal: onChainPool.pool.cyclesTotal,
           nextCycleAt: onChainPool.pool.nextCycleAt,
+          currentCycle: onChainPool.pool.currentCycle,
           slotIndex: memberRecord.slotIndex,
         });
         setTxSig(sig);
@@ -278,17 +324,41 @@ export function PayInstallmentModal({
         setChainError(isMissingSignatureError(blob) ? t("wallet.mobileRelay.error") : blob);
         setSubmitting(false);
       }
+    }
+  };
+
+  const handleConfirm = async () => {
+    // `gateBlocksCta` ⇒ real devnet pool that can't be contributed to right
+    // now (Forming, wallet-not-member, already-paid, post-grace behind, …).
+    // The CTA is disabled in those states; this guard makes the no-op
+    // explicit so we never reach the mock path. `behindPayable` deliberately
+    // passes — that IS the catch-up payment (ADR 0013).
+    if (blocked || gateBlocksCta) return;
+    if (onChainReady && memberRecord && onChainPool.pool) {
+      // fireOnChainContribute re-validates the wallet adapter internally.
+      await fireOnChainContribute();
       return;
     }
 
     // Mock fallback — only reachable in `mockMode` (pure fixtures + demo
-    // personas); the `chainGate` guard above stops real devnet pools from
-    // ever landing here. Preserves the original pitch flow exactly.
+    // personas); the gate guard above stops real devnet pools from ever
+    // landing here. Preserves the original pitch flow exactly.
+    setSubmitting(true);
+    setChainError(null);
     setTimeout(() => {
       payInstallment(group);
       setSubmitting(false);
       setDone(true);
     }, 1500);
+  };
+
+  // ADR 0012 — optional "adiantar parcela" from the alreadyPaid gate: the
+  // same real contribute, with cycle = contributions_paid (> current_cycle).
+  // Rendered only when `canPrepay`, so the alreadyPaid gate is deliberately
+  // bypassed here.
+  const handlePrepay = async () => {
+    if (submitting || blocked || !canPrepay || prepayInsufficient) return;
+    await fireOnChainContribute();
   };
 
   return (
@@ -600,8 +670,50 @@ export function PayInstallmentModal({
                   target: onChainPool.pool?.membersTarget ?? group.total,
                   slot: poolCycle ?? 0,
                   claimer: claimer ? shortAddr(claimer.wallet.toBase58()) : "—",
+                  // 1-based installment numbers for the human copy (catch-up /
+                  // prepay panels): the arrears one is contributions_paid + 1.
+                  n: (memberCycle ?? 0) + 1,
+                  total: onChainPool.pool?.cyclesTotal ?? group.total,
                 })}
               </span>
+            </div>
+          ) : null}
+
+          {/* ADR 0012 — optional prepay affordance, shown alongside the green
+              "em dia" gate: pay the NEXT installment ahead of the pool's
+              clock. Disabled (not hidden) when the balance is short so the
+              affordance stays discoverable. */}
+          {canPrepay ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: `${tokens.teal}14`,
+                border: `1px solid ${tokens.teal}33`,
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <span style={{ flex: 1, fontSize: 11, color: tokens.text2, lineHeight: 1.5 }}>
+                {t("modal.pay.prepay.hint", { n: (memberCycle ?? 0) + 1 })}
+              </span>
+              <button
+                type="button"
+                onClick={handlePrepay}
+                disabled={submitting || prepayInsufficient}
+                style={{
+                  ...primaryBtn(tokens),
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  opacity: submitting || prepayInsufficient ? 0.45 : 1,
+                  cursor: submitting || prepayInsufficient ? "default" : "pointer",
+                }}
+              >
+                {submitting ? t("modal.processing") : t("modal.pay.prepay.cta")}
+              </button>
             </div>
           ) : null}
 
@@ -609,8 +721,9 @@ export function PayInstallmentModal({
               Renders authoritative tx summary inside our UI so the user
               has a reference to cross-check Phantom's prompt against
               (phishing-resistance). Hidden in mock mode since no real
-              tx fires. */}
-          {onChainReady && !blocked && !chainGate && (
+              tx fires. Shown for the normal path AND the catch-up
+              (behindPayable) — both fire a real contribute. */}
+          {onChainReady && !blocked && paymentDue && !mockMode && (
             <IntentPanel
               action="contribute"
               amountUsdc={Number(onChainPool.pool!.installmentAmount) / 1e6}
@@ -630,14 +743,18 @@ export function PayInstallmentModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting || blocked || !!chainGate}
+              disabled={submitting || blocked || gateBlocksCta}
               style={{
                 ...primaryBtn(tokens),
-                opacity: submitting || blocked || chainGate ? 0.45 : 1,
-                cursor: submitting || blocked || chainGate ? "default" : "pointer",
+                opacity: submitting || blocked || gateBlocksCta ? 0.45 : 1,
+                cursor: submitting || blocked || gateBlocksCta ? "default" : "pointer",
               }}
             >
-              {submitting ? t("modal.processing") : t("modal.pay.cta")}
+              {submitting
+                ? t("modal.processing")
+                : chainGate === "behindPayable"
+                  ? t("modal.pay.cta.regularize")
+                  : t("modal.pay.cta")}
             </button>
           </div>
         </>
