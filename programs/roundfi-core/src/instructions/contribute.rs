@@ -19,8 +19,10 @@ use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ContributeArgs {
-    /// Must equal `pool.current_cycle` AND `member.contributions_paid` —
-    /// enforces ordered contributions (no skipping / no retroactive pay).
+    /// The installment being paid. Must equal `member.contributions_paid`
+    /// (strictly the next unpaid installment — no skipping) and be
+    /// `>= pool.current_cycle` (ADR 0012 Phase 1 — prepayment: a member MAY
+    /// pay ahead of the current cycle, but never retroactively / behind).
     pub cycle: u8,
 }
 
@@ -131,7 +133,15 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     let member = &mut ctx.accounts.member;
 
     // ─── Cycle alignment ─────────────────────────────────────────────────
-    require!(args.cycle == pool.current_cycle,          RoundfiError::WrongCycle);
+    // ADR 0012 (Phase 1 — prepayment): `>=`, not `==`, so a member MAY pay a
+    // future installment AHEAD of the pool's current cycle. The
+    // `== contributions_paid` check below still forces strictly the next unpaid
+    // installment (no skipping), and a BEHIND member (contributions_paid <
+    // current_cycle) still fails `>= current_cycle` (no retroactive / back-pay).
+    // Prepaid funds are fungible in the vault, so paying ahead only adds float
+    // earlier — never reduces it. The final-installment escalation to
+    // POOL_COMPLETE below then fires when the member prepays their LAST cycle.
+    require!(args.cycle >= pool.current_cycle,          RoundfiError::WrongCycle);
     require!(args.cycle == member.contributions_paid,   RoundfiError::AlreadyContributed);
     require!(args.cycle < pool.cycles_total,            RoundfiError::PoolClosed);
 
