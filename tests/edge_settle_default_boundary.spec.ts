@@ -11,16 +11,24 @@
  *      tests probe it far from the boundary (`next_cycle_at - 1` and
  *      `+GRACE+10`), so the exact `>=` threshold is unasserted. Here we pin
  *      `deadline - 1` (reject) and `deadline` exactly (accept).
- *   2. "Payable XOR settleable": a member is either PAYABLE
- *      (`contributions_paid == current_cycle`, `contribute`'s precondition) or
- *      SETTLEABLE (`contributions_paid < current_cycle`, `settle_default`'s
- *      precondition) — never both, and there is no catch-up path. So a late
- *      payment can never race settlement for the same cycle. This invariant is
- *      emergent from two `require!`s in two files (`contribute.rs:135`,
- *      `settle_default.rs:164`) with no single test pinning it. Case C pins the
- *      settle side: a paid-up (current) member is rejected with `MemberNotBehind`
- *      — and, because that check runs BEFORE the grace gate, it is rejected even
- *      when the grace window HAS elapsed.
+ *   2. "Payable XOR settleable": a member is either PAYABLE or SETTLEABLE
+ *      (`contributions_paid < current_cycle`, `settle_default`'s precondition) —
+ *      never both, and there is no catch-up path (a BEHIND member cannot pay).
+ *      So a late payment can never race settlement for the same cycle. This
+ *      invariant is emergent from the `contribute` cycle gate + the
+ *      `settle_default` `MemberNotBehind` require, with no single test pinning it.
+ *
+ *      NOTE (ADR 0012, #643): `contribute` relaxed from `== current_cycle` to
+ *      `>= current_cycle` (prepayment), so PAYABLE widened from
+ *      `contributions_paid == current_cycle` to `contributions_paid >=
+ *      current_cycle` — a CURRENT *or* a prepaid (AHEAD) member. The XOR still
+ *      holds: `>=` (payable) and `<` (settleable) partition every state,
+ *      including the now-reachable `> current_cycle`. Case C pins the current
+ *      side, Case D the prepaid side — both reject `settle_default` with
+ *      `MemberNotBehind`, and because that check runs BEFORE the grace gate they
+ *      are rejected even after the grace window HAS elapsed. (The behind →
+ *      catch-up direction — regularização during grace — is a separate,
+ *      security-gated design: ADR 0013.)
  *
  * Seeding mirrors `edge_grace_default.spec.ts` (settle_default needs the three
  * pool vaults + the D/C-invariant anchors). `reputation_program = default`
@@ -306,5 +314,29 @@ describe("edge — settle_default grace boundary + payable-XOR-settleable (LEAD-
       );
     }
     expect(threw, "settling a current (payable) member must reject").to.equal(true);
+  });
+
+  it("D. a prepaid (ahead) member is NOT settleable either — MemberNotBehind (ADR 0012 state)", async function () {
+    // ADR 0012 (#643) made `contributions_paid > current_cycle` reachable
+    // (prepayment). It sits on the PAYABLE side of the XOR, so settle_default
+    // must still reject it — same reason as Case C (`contributions_paid` is not
+    // `< current_cycle`, so MemberNotBehind fires before the grace gate). Fully
+    // prepaid here: contributions_paid = cyclesTotal (3), pool at cycle 2.
+    await seedMember(CYCLES_TOTAL, false); // contributions_paid = 3 > current_cycle = 2
+    await setBankrunUnixTs(env.context, DEADLINE + 100n);
+
+    let threw = false;
+    try {
+      await settle().rpc();
+    } catch (e) {
+      threw = true;
+      const err = e as { logs?: string[]; message?: string };
+      const haystack = [...(err.logs ?? []), err.message ?? "", String(e)].join("\n");
+      expect(haystack).to.match(
+        /MemberNotBehind/,
+        `expected MemberNotBehind for a prepaid member, got:\n${haystack}`,
+      );
+    }
+    expect(threw, "settling a prepaid (payable) member must reject").to.equal(true);
   });
 });
