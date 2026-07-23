@@ -219,4 +219,16 @@ pub enum RoundfiError {
     /// canonical DrawResult PDA (wrong address, owner, type, or pool).
     #[msg("Invalid DrawResult account for this pool")]
     InvalidDrawAccount,
+
+    // ─── ADR 0012 Phase 2 — lance embutido (embedded bid) ─────────────
+    // Appended at the END of the enum (codes are positional).
+    /// `place_embedded_bid` on a pool/member state where a bid makes no
+    /// sense: non-sorteio pool, member already contemplated (paid_out /
+    /// drawn cycle not in the future), or member behind on contributions.
+    #[msg("Embedded bid unavailable — sorteio pool with a future drawn turn and paid-ahead installments required")]
+    EmbeddedBidUnavailable,
+    /// The bid's depth (installments prepaid beyond the current cycle)
+    /// does not STRICTLY beat the best bid already registered this cycle.
+    #[msg("Embedded bid too shallow — prepay more installments than the current best bid to take this cycle")]
+    EmbeddedBidTooShallow,
 }
