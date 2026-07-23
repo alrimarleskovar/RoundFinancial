@@ -20,8 +20,10 @@
  *         path reads the swapped truth) and the advance resets the tracker;
  *   (vi)  the pool completes with every member paid out exactly once —
  *         bijection preserved through two swaps;
- *   (vii) arrival-order pool → EmbeddedBidUnavailable (policy gate fires at
- *         the pool constraint, before the draw account resolves).
+ *   (vii) arrival-order pool → structurally impossible: its DrawResult PDA
+ *         can never exist (finalize_draw requires sorteio), so account
+ *         deserialization rejects with AccountNotInitialized before any
+ *         constraint runs — the policy gate is belt-and-braces behind it.
  *
  * Harness mirrors litesvm_sorteio_draw: anchored clock, funded members,
  * finalizeDraw backstop after the joins. Skips cleanly without artifacts.
@@ -92,9 +94,16 @@ describe("ADR 0012 Phase 2 — lance embutido (embedded bid) (litesvm)", functio
   let members: MemberHandle[] = [];
   let drawPda: PublicKey;
 
-  const placeBid = (m: MemberHandle) =>
+  const placeBid = (m: MemberHandle) => {
+    // `place_embedded_bid` carries NO args, so two bids by the same member
+    // build byte-identical transactions under litesvm's frozen blockhash and
+    // the ledger dedupes the second as AlreadyProcessed (tx err 6) — even
+    // when the first REVERTED (failed txs are still recorded). Rotate the
+    // blockhash so every bid is a distinct transaction. (Same litesvm quirk
+    // the pool_complete_cooldown spec documents for idempotent mintTo.)
+    env.svm.expireBlockhash();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (env.programs.core.methods as any)
+    return (env.programs.core.methods as any)
       .placeEmbeddedBid()
       .accounts({
         memberWallet: m.wallet.publicKey,
@@ -105,6 +114,7 @@ describe("ADR 0012 Phase 2 — lance embutido (embedded bid) (litesvm)", functio
       })
       .signers([m.wallet])
       .rpc();
+  };
 
   const expectRevert = async (p: Promise<unknown>, pattern: RegExp, label: string) => {
     let threw = false;
@@ -253,7 +263,7 @@ describe("ADR 0012 Phase 2 — lance embutido (embedded bid) (litesvm)", functio
     }
   });
 
-  it("(vii) rejects an embedded bid on an arrival-order pool (policy gate)", async function () {
+  it("(vii) arrival-order pool: bid structurally impossible — no DrawResult exists", async function () {
     if (!available) {
       this.skip();
       return;
@@ -297,8 +307,13 @@ describe("ADR 0012 Phase 2 — lance embutido (embedded bid) (litesvm)", functio
           config: configPda(env),
           pool: arrival.pool,
           member: mA!.member,
-          // Canonical (nonexistent) draw PDA for the arrival pool — the pool's
-          // policy constraint must fire before this account even resolves.
+          // Canonical draw PDA for the arrival pool — which can NEVER exist
+          // (finalize_draw requires sorteio), so Anchor's account
+          // deserialization rejects the call with AccountNotInitialized
+          // BEFORE any constraint runs. The pool's ordering-policy constraint
+          // (EmbeddedBidUnavailable) is belt-and-braces BEHIND this
+          // structural impossibility — an arrival pool is fail-closed against
+          // bids at the account layer itself.
           draw: PublicKey.findProgramAddressSync(
             [Buffer.from("draw-result"), arrival.pool.toBuffer()],
             env.ids.core,
@@ -306,7 +321,7 @@ describe("ADR 0012 Phase 2 — lance embutido (embedded bid) (litesvm)", functio
         })
         .signers([mA!.wallet])
         .rpc();
-      await expectRevert(bid, /EmbeddedBidUnavailable/, "arrival-order pool cannot take bids");
+      await expectRevert(bid, /AccountNotInitialized/, "arrival-order pool cannot take bids");
     } catch (e) {
       const logs = (e as { logs?: string[] }).logs;
       if (logs?.length) console.error("\n[litesvm] program logs:\n" + logs.join("\n"));

@@ -43,7 +43,7 @@ A consórcio lance lets a member be contemplated **now** instead of at their dra
 - (iv) deeper counter-bid → second swap chains correctly (previous bidder displaced to the newcomer's old cycle);
 - (v) the winning bidder **claims the current cycle** end-to-end (proves the payout path reads the swapped truth) and the advance resets `current_bid_depth` to 0;
 - (vi) the pool then runs to completion with every member contemplated exactly once (bijection preserved through multiple swaps);
-- (vii) arrival-order pool → `EmbeddedBidUnavailable` (policy gate).
+- (vii) arrival-order pool → structurally impossible: its `DrawResult` PDA can never exist (`finalize_draw` requires sorteio), so the account layer rejects with `AccountNotInitialized` before any constraint runs — the `ordering_policy` gate is belt-and-braces behind that.
 
 ## 5. Phase 3 — lance livre (design only; code gated on this doc's review)
 
