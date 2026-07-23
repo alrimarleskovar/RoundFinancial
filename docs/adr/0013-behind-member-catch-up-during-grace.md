@@ -1,9 +1,12 @@
 # ADR 0013 — Behind-member catch-up (regularização) during the grace window
 
-**Status:** 🟡 Proposed — **security-gated, no on-chain code until reviewed**
+**Status:** 🟡 Proposed — **devnet implementation authorized; Caio review required before mainnet**
 **Date:** 2026-07-23
 **Decision-makers:** RoundFi team (Alrimar, Caio — security owner)
+
 **Related:** LEAD-001 (payable-XOR-settleable, `docs/security/audit-leads-triage.md`); `tests/edge_settle_default_boundary.spec.ts`; ADR 0012 (prepayment — the AHEAD direction); the `contribute` cycle gate; `settle_default` grace gate; SEV-053 (window anchoring).
+
+> **Update (2026-07-23) — Alrimar.** Authorized implementing + validating this design **on devnet now** (the Genesis Canary phase exists exactly to exercise changes like this live). The implementing PR carries the full validation matrix below as `tests/litesvm_catchup_grace.spec.ts` (CI litesvm lane). **Caio's security review remains a hard gate before any mainnet deploy** — the invariant rewrite (state→time exclusion) ships to mainnet only after that sign-off.
 
 ## Context
 

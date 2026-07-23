@@ -20,9 +20,11 @@ use crate::state::{Member, Pool, PoolStatus, ProtocolConfig};
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ContributeArgs {
     /// The installment being paid. Must equal `member.contributions_paid`
-    /// (strictly the next unpaid installment — no skipping) and be
-    /// `>= pool.current_cycle` (ADR 0012 Phase 1 — prepayment: a member MAY
-    /// pay ahead of the current cycle, but never retroactively / behind).
+    /// (strictly the next unpaid installment — no skipping) and be EITHER
+    /// `>= pool.current_cycle` (ADR 0012 — prepayment: pay ahead) OR an
+    /// ARREARS cycle while the current grace window is open (ADR 0013 —
+    /// catch-up: `< current_cycle` accepted only when
+    /// `clock < next_cycle_at + GRACE_PERIOD_SECS`; classified LATE).
     pub cycle: u8,
 }
 
@@ -133,15 +135,27 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     let member = &mut ctx.accounts.member;
 
     // ─── Cycle alignment ─────────────────────────────────────────────────
-    // ADR 0012 (Phase 1 — prepayment): `>=`, not `==`, so a member MAY pay a
-    // future installment AHEAD of the pool's current cycle. The
-    // `== contributions_paid` check below still forces strictly the next unpaid
-    // installment (no skipping), and a BEHIND member (contributions_paid <
-    // current_cycle) still fails `>= current_cycle` (no retroactive / back-pay).
-    // Prepaid funds are fungible in the vault, so paying ahead only adds float
-    // earlier — never reduces it. The final-installment escalation to
-    // POOL_COMPLETE below then fires when the member prepays their LAST cycle.
-    require!(args.cycle >= pool.current_cycle,          RoundfiError::WrongCycle);
+    // ADR 0012 (prepayment): `args.cycle >= current_cycle` — a member MAY pay
+    // AHEAD of the pool's current cycle. ADR 0013 (catch-up): OR pay ARREARS
+    // (`args.cycle < current_cycle`) while the CURRENT cycle's grace window is
+    // still open (`clock < next_cycle_at + GRACE_PERIOD_SECS`). settle_default
+    // requires `clock >=` that SAME deadline, so the catch-up and settle
+    // windows are temporally DISJOINT — a late payment can never race a
+    // settlement for the same miss (LEAD-001, preserved by TIME instead of
+    // STATE; pinned in tests/litesvm_catchup_grace.spec.ts).
+    // The `== contributions_paid` check still forces strictly the next unpaid
+    // installment (no skipping, oldest arrears first); `< cycles_total` caps
+    // at the final installment. Funds are fungible in the vault either way.
+    let grace_deadline = pool
+        .next_cycle_at
+        .checked_add(GRACE_PERIOD_SECS)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
+    let arrears_in_grace =
+        args.cycle < pool.current_cycle && clock.unix_timestamp < grace_deadline;
+    require!(
+        args.cycle >= pool.current_cycle || arrears_in_grace,
+        RoundfiError::WrongCycle,
+    );
     require!(args.cycle == member.contributions_paid,   RoundfiError::AlreadyContributed);
     require!(args.cycle < pool.cycles_total,            RoundfiError::PoolClosed);
 
@@ -196,7 +210,17 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     )?;
 
     // ─── On-time vs late ────────────────────────────────────────────────
-    let on_time = clock.unix_timestamp <= pool.next_cycle_at;
+    // ADR 0013: cycle-aware. An ARREARS catch-up (`args.cycle < current_cycle`)
+    // is late BY CONSTRUCTION — the installment's own deadline passed when the
+    // pool advanced — regardless of the clock vs the CURRENT deadline. For the
+    // on-schedule/prepaid path (`args.cycle >= current_cycle`, the only one
+    // reachable pre-0013) this reduces to the original `clock <= next_cycle_at`.
+    // (An arrears payment can never be the FINAL installment: while Active,
+    // `current_cycle <= cycles_total - 1`, so `args.cycle < current_cycle`
+    // implies `contributions_paid` lands `< cycles_total` — the POOL_COMPLETE
+    // escalation below is unreachable from the catch-up path.)
+    let on_time =
+        args.cycle >= pool.current_cycle && clock.unix_timestamp <= pool.next_cycle_at;
     if on_time {
         member.on_time_count = member
             .on_time_count
