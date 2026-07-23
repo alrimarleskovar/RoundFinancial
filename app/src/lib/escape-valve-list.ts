@@ -107,9 +107,34 @@ export async function sendEscapeValveList(args: SendEscapeValveListArgs): Promis
   await simulateOrThrow(args.connection, tx);
 
   const signature = await args.sendTransaction(tx, args.connection);
-  await args.connection.confirmTransaction(
+  const conf = await args.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
     "confirmed",
   );
+  // `confirmTransaction` RESOLVES for a tx that landed but was REJECTED by the
+  // program (value.err set) — it only throws on expiry. Our `simulateOrThrow`
+  // above makes this rare, but a state change between the dry-run and execution
+  // (e.g. the slot got listed/taken in the interim) still lands a failed tx.
+  // Never treat that as a successful listing: the modal would show a success
+  // card linking a FAILED tx while no Listing account exists — exactly the
+  // "listei mas não apareceu para comprar" confusion. Surface it like any other
+  // revert instead, with the failed tx's logs so the modal's classifier can map
+  // a known reason (e.g. MemberNotBehind → "você precisa estar em dia").
+  if (conf.value.err) {
+    const err = new Error(
+      `escape_valve_list confirmed with on-chain error: ${JSON.stringify(conf.value.err)}`,
+    ) as Error & { logs?: string[] };
+    try {
+      const info = await args.connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+      if (info?.meta?.logMessages) err.logs = info.meta.logMessages;
+    } catch {
+      // Logs are a nice-to-have for classification; the throw already prevents
+      // the false-success card regardless of whether we could fetch them.
+    }
+    throw err;
+  }
   return signature;
 }
