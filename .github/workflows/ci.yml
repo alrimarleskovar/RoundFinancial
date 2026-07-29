@@ -225,7 +225,7 @@ jobs:
         # Sub-second.
         run: pnpm test:kamino-pin
 
-      - name: App ↔ chain encoder structural parity (38 tests)
+      - name: App ↔ chain encoder structural parity (85 tests)
         run: pnpm test:app-encoders
 
       - name: Pool-cache SWR codec + TTL semantics (7 tests)
@@ -236,6 +236,15 @@ jobs:
 
       - name: Escape-valve list error classifier (8 tests)
         run: pnpm test:ev-errors
+
+      - name: Lance embutido eligibility math (23 tests)
+        # ADR 0012 Fase 2. Pins app/src/lib/lance.ts against the gates in
+        # place_embedded_bid.rs — the depth metric (incl. the load-bearing
+        # `−1`), the strictly-greater rule, the runway ceiling and every
+        # panel-hiding state. Drift = the UI promises a bid the program
+        # rejects, and the user pays gas to find out. Pure, sub-second;
+        # the on-chain half of the same matrix is litesvm_lance_embutido.
+        run: pnpm test:lance-ui
 
       - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events

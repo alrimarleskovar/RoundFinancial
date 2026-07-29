@@ -45,7 +45,8 @@ export type IntentAction =
   | "escape_valve_buy"
   | "harvest_yield"
   | "deposit_idle_to_yield"
-  | "settle_default";
+  | "settle_default"
+  | "place_embedded_bid";
 
 export interface IntentPanelProps {
   /** Which instruction is about to be signed. */

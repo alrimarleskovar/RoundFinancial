@@ -1334,6 +1334,42 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.prepay.cta": "Adiantar parcela",
     "modal.pay.prepay.hint":
       "Quer adiantar? Dá pra pagar a parcela {n} agora, antes do ciclo virar — o valor já entra no cofre do grupo e conta no seu histórico.",
+    // lance embutido (ADR 0012 Fase 2)
+    "modal.lance.title": "Dar lance",
+    "modal.lance.subtitle": "Receba neste ciclo em vez de esperar a sua vez",
+    "modal.lance.hero.label": "SEU LANCE",
+    "modal.lance.hero.depth": "{n} parcelas adiantadas",
+    "modal.lance.hero.depthOne": "1 parcela adiantada",
+    "modal.lance.swap.label": "COMO FUNCIONA",
+    "modal.lance.swap.body":
+      "Você assume o ciclo {now} e quem estava nele passa a receber no seu ciclo {mine}. É uma troca de lugares: ninguém perde a vez, só muda a ordem.",
+    "modal.lance.book.label": "LANCE ATUAL",
+    "modal.lance.book.none":
+      "Ninguém deu lance neste ciclo ainda — 1 parcela adiantada já é suficiente.",
+    "modal.lance.book.standing":
+      "O melhor lance deste ciclo é de {d} parcela(s) adiantada(s). Você tem {y} — o seu ganha.",
+    "modal.lance.nofunds.label": "NADA SAI DA CARTEIRA AGORA",
+    "modal.lance.nofunds.body":
+      "O lance não movimenta dinheiro: ele é feito com as parcelas que você já pagou adiantado. É a sua própria dívida antecipada — o total que você deve ao grupo continua exatamente o mesmo.",
+    "modal.lance.risk.label": "PODE SER SUPERADO",
+    "modal.lance.risk.body":
+      "Enquanto o ciclo não for sacado, alguém com mais parcelas adiantadas pode assumir o seu lugar. Se isso acontecer, suas parcelas antecipadas continuam valendo e você volta para a fila na sua vez.",
+    "modal.lance.cta.confirm": "Confirmar lance",
+    "modal.lance.cta.processing": "Registrando lance…",
+    "modal.lance.success.title": "Lance registrado! 🎯",
+    "modal.lance.success.body":
+      "Você assumiu o ciclo {n}. Quando o caixa do grupo fechar, o botão Receber aparece pra você.",
+    "modal.lance.success.txLabel": "ver no explorer",
+    "modal.lance.err.label": "NÃO ROLOU",
+    "modal.lance.err.tooShallow":
+      "Alguém deu um lance mais fundo antes do seu chegar. Antecipe mais uma parcela e tente de novo.",
+    "modal.lance.err.unavailable":
+      "Este lance não está disponível: ou você já foi contemplado, ou não tem parcelas adiantadas suficientes, ou o ciclo já virou.",
+    "modal.lance.err.noDraw":
+      "Este grupo ainda não teve a ordem sorteada — sem sorteio não existe ordem para trocar.",
+    "modal.lance.err.defaulted": "Sua cota está inadimplente — o lance não está disponível.",
+    "modal.lance.err.poolInactive": "O grupo não está ativo no momento.",
+    "modal.lance.err.paused": "O protocolo está pausado agora. Tente de novo em alguns minutos.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -1454,6 +1490,17 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.draw.drawing": "Sorteando…",
     "groupsV2.card.draw.noWallet": "Conecte uma carteira para sortear.",
     "groupsV2.card.draw.yourCycle": "Você recebe no ciclo {n} de {t}",
+    "groupsV2.card.lance.title": "Dar lance — receba antes",
+    "groupsV2.card.lance.ready":
+      "Você tem {d} parcela(s) adiantada(s) — o suficiente para assumir o ciclo {c} agora, no lugar de esperar até o {mine}.",
+    "groupsV2.card.lance.need":
+      "Antecipe mais {n} parcela(s) para dar um lance e assumir o ciclo {c} (hoje você recebe no {mine}).",
+    "groupsV2.card.lance.needFresh":
+      "Antecipe {n} parcela(s) e você pode assumir o ciclo {c} agora, no lugar de esperar até o {mine}.",
+    "groupsV2.card.lance.outOfRunway":
+      "O lance que está ganhando ({d}) é mais fundo do que as parcelas que ainda restam pra você antecipar neste grupo.",
+    "groupsV2.card.lance.cta": "Dar lance",
+    "groupsV2.card.lance.ctaPrepay": "Antecipar parcelas",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
     "groupsV2.card.fullBadge": "Cheio",
     "groupsV2.card.cta.full": "Grupo cheio · em andamento",
@@ -1563,6 +1610,7 @@ export const DICT: Record<Lang, Dict> = {
     "intent.action.harvest_yield": "colher rendimento",
     "intent.action.deposit_idle_to_yield": "depositar float no adapter",
     "intent.action.settle_default": "resolver default (cranker)",
+    "intent.action.place_embedded_bid": "dar lance (trocar a ordem)",
     "phishing.previewBanner":
       "Deploy de preview detectado ({host}). URL canônica: roundfi.vercel.app",
     "phishing.unknownBanner":
@@ -3370,6 +3418,41 @@ export const DICT: Record<Lang, Dict> = {
     "modal.pay.prepay.cta": "Pay ahead",
     "modal.pay.prepay.hint":
       "Want to get ahead? You can pay installment {n} now, before the cycle turns — the funds go straight into the group vault and count on your history.",
+    // embedded bid (ADR 0012 Phase 2)
+    "modal.lance.title": "Place a bid",
+    "modal.lance.subtitle": "Receive in this cycle instead of waiting for your turn",
+    "modal.lance.hero.label": "YOUR BID",
+    "modal.lance.hero.depth": "{n} installments paid ahead",
+    "modal.lance.hero.depthOne": "1 installment paid ahead",
+    "modal.lance.swap.label": "HOW IT WORKS",
+    "modal.lance.swap.body":
+      "You take cycle {now} and whoever held it moves to your cycle {mine}. It's a swap of places: nobody loses their turn, only the order changes.",
+    "modal.lance.book.label": "STANDING BID",
+    "modal.lance.book.none": "Nobody has bid on this cycle yet — 1 installment ahead is enough.",
+    "modal.lance.book.standing":
+      "The best bid this cycle is {d} installment(s) ahead. You have {y} — yours wins.",
+    "modal.lance.nofunds.label": "NOTHING LEAVES YOUR WALLET NOW",
+    "modal.lance.nofunds.body":
+      "The bid moves no money: it's made of installments you already paid ahead. It's your own debt, brought forward — the total you owe the group stays exactly the same.",
+    "modal.lance.risk.label": "CAN BE OUTBID",
+    "modal.lance.risk.body":
+      "Until the cycle is claimed, someone with more installments paid ahead can take your place. If that happens your prepaid installments still count and you go back to your own turn.",
+    "modal.lance.cta.confirm": "Confirm bid",
+    "modal.lance.cta.processing": "Placing bid…",
+    "modal.lance.success.title": "Bid placed! 🎯",
+    "modal.lance.success.body":
+      "You took cycle {n}. Once the group's vault is funded, the Receive button shows up for you.",
+    "modal.lance.success.txLabel": "view on explorer",
+    "modal.lance.err.label": "DIDN'T LAND",
+    "modal.lance.err.tooShallow":
+      "Someone placed a deeper bid before yours landed. Pay one more installment ahead and try again.",
+    "modal.lance.err.unavailable":
+      "This bid isn't available: either you've already been contemplated, or you don't have enough installments paid ahead, or the cycle already turned.",
+    "modal.lance.err.noDraw":
+      "This group hasn't had its order drawn yet — with no draw there's no order to swap.",
+    "modal.lance.err.defaulted": "Your share is in default — bidding isn't available.",
+    "modal.lance.err.poolInactive": "The group isn't active right now.",
+    "modal.lance.err.paused": "The protocol is paused right now. Try again in a few minutes.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
@@ -3489,6 +3572,17 @@ export const DICT: Record<Lang, Dict> = {
     "groupsV2.card.draw.drawing": "Drawing…",
     "groupsV2.card.draw.noWallet": "Connect a wallet to run the draw.",
     "groupsV2.card.draw.yourCycle": "You receive in cycle {n} of {t}",
+    "groupsV2.card.lance.title": "Place a bid — receive sooner",
+    "groupsV2.card.lance.ready":
+      "You have {d} installment(s) paid ahead — enough to take cycle {c} now instead of waiting until {mine}.",
+    "groupsV2.card.lance.need":
+      "Pay {n} more installment(s) ahead to bid for cycle {c} (today you receive in {mine}).",
+    "groupsV2.card.lance.needFresh":
+      "Pay {n} installment(s) ahead and you can take cycle {c} now instead of waiting until {mine}.",
+    "groupsV2.card.lance.outOfRunway":
+      "The winning bid ({d}) is deeper than the installments you have left to pay ahead in this group.",
+    "groupsV2.card.lance.cta": "Place a bid",
+    "groupsV2.card.lance.ctaPrepay": "Pay ahead",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
     "groupsV2.card.fullBadge": "Full",
     "groupsV2.card.cta.full": "Group full · in progress",
@@ -3594,6 +3688,7 @@ export const DICT: Record<Lang, Dict> = {
     "intent.action.harvest_yield": "harvest yield",
     "intent.action.deposit_idle_to_yield": "deposit float to adapter",
     "intent.action.settle_default": "settle default (cranker)",
+    "intent.action.place_embedded_bid": "place a bid (swap the order)",
     "phishing.previewBanner":
       "Preview deployment detected ({host}). Canonical URL: roundfi.vercel.app",
     "phishing.unknownBanner":

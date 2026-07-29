@@ -58,6 +58,7 @@ import { ATTESTATION_SCHEMA } from "@roundfi/sdk/constants";
 import {
   attestationNonce,
   attestationPda,
+  drawResultPda,
   escrowVaultAuthorityPda,
   listingPda,
   memberPda,
@@ -76,6 +77,7 @@ import { buildEscapeValveListIx } from "../app/src/lib/escape-valve-list";
 import { buildDepositIdleToYieldIx } from "../app/src/lib/deposit-idle-to-yield";
 import { buildEscapeValveBuyIx } from "../app/src/lib/escape-valve-buy";
 import { buildSettleDefaultIx } from "../app/src/lib/settle-default";
+import { buildPlaceEmbeddedBidIx } from "../app/src/lib/place-embedded-bid";
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "../app/src/lib/devnet";
 import type { TransactionInstruction } from "@solana/web3.js";
 
@@ -687,6 +689,61 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
     });
   });
 
+  describe("buildPlaceEmbeddedBidIx", () => {
+    // ADR 0012 Fase 2 — lance embutido. No args: the whole "price" was
+    // already paid through earlier contribute() calls, so the instruction
+    // carries nothing but its discriminator and swaps two DrawResult
+    // entries. That makes the ACCOUNT list the entire attack surface.
+    const ix = buildPlaceEmbeddedBidIx({ pool: POOL, memberWallet: MEMBER });
+
+    it("uses sha256(global:place_embedded_bid)[:8] as discriminator", () => {
+      const expected = expectedDiscriminator("place_embedded_bid");
+      expect(ix.data.subarray(0, 8).toString("hex")).to.equal(expected.toString("hex"));
+    });
+
+    it("carries NO args — 8 bytes, discriminator only", () => {
+      expect(ix.data.length).to.equal(8);
+    });
+
+    it("has 5 accounts in the program-mandated order", () => {
+      // Mirrors PlaceEmbeddedBid<'info> in place_embedded_bid.rs.
+      expect(ix.keys.length).to.equal(5);
+    });
+
+    it("places the member wallet as signer at index 0", () => {
+      expect(key(ix, 0).pubkey.toBase58()).to.equal(MEMBER.toBase58());
+      expect(key(ix, 0).isSigner).to.equal(true);
+    });
+
+    it("derives config / member / draw from the canonical PDA helpers", () => {
+      const [config] = protocolConfigPda(CORE);
+      const [member] = memberPda(CORE, POOL, MEMBER);
+      const [draw] = drawResultPda(CORE, POOL);
+      expect(key(ix, 1).pubkey.toBase58()).to.equal(config.toBase58());
+      expect(key(ix, 2).pubkey.toBase58()).to.equal(POOL.toBase58());
+      expect(key(ix, 3).pubkey.toBase58()).to.equal(member.toBase58());
+      expect(key(ix, 4).pubkey.toBase58()).to.equal(draw.toBase58());
+    });
+
+    it("marks exactly the two mutated accounts writable (pool + draw)", () => {
+      // The bid writes `pool.current_bid_depth` and the two swapped
+      // `draw.order` entries — nothing else. A stray `mut` here would
+      // hand the program write access it doesn't declare.
+      expect(key(ix, 1).isWritable).to.equal(false); // config
+      expect(key(ix, 2).isWritable).to.equal(true); // pool
+      expect(key(ix, 3).isWritable).to.equal(false); // member (read-only)
+      expect(key(ix, 4).isWritable).to.equal(true); // draw
+    });
+
+    it("passes the DrawResult as a DECLARED account, not a remaining one", () => {
+      // Unlike claim_payout (where the draw rides as a remaining account so
+      // arrival pools keep their call shape), the bid's entire effect IS the
+      // draw mutation — it must be inside the 5 declared accounts.
+      const [draw] = drawResultPda(CORE, POOL);
+      expect(ix.keys.map((k) => k.pubkey.toBase58())).to.include(draw.toBase58());
+    });
+  });
+
   describe("cross-encoder invariants", () => {
     const META_URI = "https://roundfi.app/p.json";
     function allIxs() {
@@ -724,6 +781,7 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
           slotIndex: 0,
           cycle: 1,
         }),
+        buildPlaceEmbeddedBidIx({ pool: POOL, memberWallet: MEMBER }),
       ];
     }
 

@@ -32,6 +32,8 @@ import { NewCycleModal } from "@/components/grupos/NewCycleModal";
 import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
 import { CrankPayoutModal } from "@/components/modals/CrankPayoutModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
+import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
+import { PlaceBidModal } from "@/components/modals/PlaceBidModal";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type ActiveGroup, type GroupLevel } from "@/data/groups";
 import { DEVNET_POOLS, GRACE_PERIOD_SECS } from "@/lib/devnet";
 import {
@@ -42,6 +44,7 @@ import {
   type CatalogGroup,
 } from "@/lib/groups";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
+import { lanceView, showsLancePanel } from "@/lib/lance";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
 import { sendFinalizeDraw } from "@/lib/finalize-draw";
@@ -280,6 +283,29 @@ function GroupCard({ group }: { group: CatalogGroup }) {
     lp && myMember && isSorteioPool(lp)
       ? drawnCycleForSlot(lp, drawRes.draw, myMember.slotIndex)
       : null;
+  // ─── Lance embutido (ADR 0012 Fase 2) ────────────────────────────────
+  // A member drawn for a FUTURE cycle can bring their turn forward by
+  // offering the installments they've already prepaid. `lanceView` is the
+  // same arithmetic the program gates on (depth = contributions_paid −
+  // current_cycle − 1, strictly deeper than the standing bid), so the
+  // panel only promises a bid that will actually land.
+  const lance = lanceView({
+    isSorteio: isSorteioPool(lp),
+    poolActive: !!lp && lp.status === "active",
+    currentCycle: lp?.currentCycle ?? 0,
+    cyclesTotal: lp?.cyclesTotal ?? 0,
+    currentBidDepth: lp?.currentBidDepth ?? 0,
+    myDrawnCycle: myDrawnCycle,
+    contributionsPaid: myMember?.contributionsPaid ?? null,
+    defaulted: myMember?.defaulted ?? false,
+    paidOut: myMember?.paidOut ?? false,
+  });
+  // Demo personas never bid: the swap is real on-chain state, so a mock
+  // "success" would misrepresent the payout order.
+  const lanceOpen = !demoActive && !!group.devnetPool && showsLancePanel(lance.status);
+  const [bidOpen, setBidOpen] = useState(false);
+  const [prepayOpen, setPrepayOpen] = useState(false);
+
   const [drawSubmitting, setDrawSubmitting] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
   const handleDraw = async () => {
@@ -499,6 +525,52 @@ function GroupCard({ group }: { group: CatalogGroup }) {
           </div>
         )}
 
+        {/* Lance embutido (ADR 0012 Fase 2): the order was drawn and this
+            member is waiting for a LATER cycle — they can bring their turn
+            forward with the installments they've prepaid. The panel states
+            the exact depth needed, so the CTA never fires a doomed bid.
+            `outOfRunway` deliberately shows the explanation with NO button:
+            offering "antecipe mais" when the remaining installments can't
+            reach the required depth would be a lie. */}
+        {lanceOpen && (
+          <div className="mb-3 rounded-xl border border-[#9945FF]/30 bg-[#9945FF]/10 p-3">
+            <p className="text-xs font-black text-[#B782FF]">🎯 {t("groupsV2.card.lance.title")}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400">
+              {lance.status === "ready"
+                ? t("groupsV2.card.lance.ready", {
+                    d: lance.depth,
+                    c: lance.targetCycle + 1,
+                    mine: (lance.myCycle ?? 0) + 1,
+                  })
+                : lance.status === "outOfRunway"
+                  ? t("groupsV2.card.lance.outOfRunway", { d: lance.bestDepth })
+                  : // No standing bid yet reads as an invitation; an existing
+                    // one has to say it's a competition you're currently losing.
+                    t(
+                      lance.bestDepth === 0
+                        ? "groupsV2.card.lance.needFresh"
+                        : "groupsV2.card.lance.need",
+                      {
+                        n: lance.prepaysNeeded,
+                        c: lance.targetCycle + 1,
+                        mine: (lance.myCycle ?? 0) + 1,
+                      },
+                    )}
+            </p>
+            {lance.status !== "outOfRunway" && (
+              <button
+                type="button"
+                onClick={() => (lance.status === "ready" ? setBidOpen(true) : setPrepayOpen(true))}
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-110"
+              >
+                {lance.status === "ready"
+                  ? t("groupsV2.card.lance.cta")
+                  : t("groupsV2.card.lance.ctaPrepay")}
+              </button>
+            )}
+          </div>
+        )}
+
         {claimReadyChain || claimReadyDemo ? (
           <button
             type="button"
@@ -565,6 +637,38 @@ function GroupCard({ group }: { group: CatalogGroup }) {
                 ...(isSorteioPool(lp) && drawRes.drawPda ? { drawResult: drawRes.drawPda } : {}),
               }
             : {})}
+        />
+      )}
+      {/* Lance flow — both mounted only while open (same double-poll
+          reasoning as the crank modal below). The bid modal re-reads
+          `lance` on every render, so if a deeper bid lands while it's
+          open the CTA disables itself instead of firing a losing tx. */}
+      {group.devnetPool && bidOpen && (
+        <PlaceBidModal
+          group={catalogGroupToActiveGroup(group)}
+          open={bidOpen}
+          onClose={() => setBidOpen(false)}
+          view={lance}
+          seedKey={group.devnetPool}
+          onSuccess={() => {
+            // The swap lives in the DrawResult, so THAT's the read that
+            // has to refresh — otherwise the card keeps showing the old
+            // drawn cycle and the Receber gate stays closed.
+            void drawRes.refresh();
+            void live.refresh();
+            void membersRes.refresh();
+          }}
+        />
+      )}
+      {group.devnetPool && prepayOpen && (
+        <PayInstallmentModal
+          group={catalogGroupToActiveGroup(group)}
+          open={prepayOpen}
+          onClose={() => setPrepayOpen(false)}
+          onSuccess={() => {
+            void live.refresh();
+            void membersRes.refresh();
+          }}
         />
       )}
       {/* Mount only while open — the modal runs its own usePool/usePoolMembers,

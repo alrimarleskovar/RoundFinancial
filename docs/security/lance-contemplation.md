@@ -45,6 +45,8 @@ A consórcio lance lets a member be contemplated **now** instead of at their dra
 - (vi) the pool then runs to completion with every member contemplated exactly once (bijection preserved through multiple swaps);
 - (vii) arrival-order pool → structurally impossible: its `DrawResult` PDA can never exist (`finalize_draw` requires sorteio), so the account layer rejects with `AccountNotInitialized` before any constraint runs — the `ordering_policy` gate is belt-and-braces behind that.
 
+**Front-end mirror.** The "Dar lance" affordance (`app/src/lib/lance.ts`, panel in `/grupos`, `PlaceBidModal`) recomputes the SAME depth arithmetic off-chain so the CTA never fires a bid the program will reject — including the `−1`, the strictly-greater rule, and a `outOfRunway` state that refuses to promise a bid the member's remaining installments can't fund. It is a UX guard, **not** a security boundary: every gate is still enforced on chain, the encoder is IDL-free (`place-embedded-bid.ts`, 5 declared accounts, no args), and the sender confirms post-send because a losing race is the EXPECTED failure (`confirmTransaction` resolves for a landed-but-reverted tx). Pinned by `tests/lance_ui.spec.ts` (23) + `tests/app_encoders.spec.ts` (7).
+
 ## 5. Phase 3 — lance livre (design only; code gated on this doc's review)
 
 Free bids bring **external USDC**, so Phase 3 = escrow + auction on top of Phase 2's settled swap mechanism:

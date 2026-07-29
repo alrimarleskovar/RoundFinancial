@@ -65,6 +65,11 @@ import {
 //   off 249: ordering_policy    u8      ( 1)  // ADR pool_v2 — 0=arrival, 1=sorteio.
 //                                             // Pre-carve pools read their zeroed
 //                                             // padding byte here ⇒ 0 = ArrivalOrder.
+//   off 250: current_bid_depth  u8      ( 1)  // ADR 0012 Fase 2 — depth of the best
+//                                             // embedded bid REGISTERED for the
+//                                             // pool's current cycle; reset to 0 on
+//                                             // every cycle advance. Same carve ⇒
+//                                             // pre-existing pools read 0 = no bid.
 
 // Re-uses the PoolStatusName from reads.ts (same enum, exported from
 // there as the shared type). Kept here as a local alias for clarity.
@@ -103,6 +108,12 @@ export interface RawPoolView {
   /** ADR pool_v2 — `ORDERING_POLICY.ArrivalOrder` (0) or `.Sorteio` (1).
    *  Pools created before the carve read 0 (their old padding byte). */
   orderingPolicy: number;
+  /** ADR 0012 Fase 2 (lance embutido) — depth of the best embedded bid
+   *  standing for THIS cycle, where depth = installments prepaid beyond
+   *  the one currently due. `place_embedded_bid` only accepts a strictly
+   *  deeper bid, and every cycle advance resets it, so `0` reads as "no
+   *  bid yet this cycle" — which is also what pre-carve pools decode. */
+  currentBidDepth: number;
 }
 
 const STATUS_NAMES: LocalPoolStatusName[] = [
@@ -155,6 +166,7 @@ export function decodePoolRaw(address: PublicKey, data: Buffer): RawPoolView {
     lpDistributionBalance: data.readBigUInt64LE(228),
     occupiedSlots,
     orderingPolicy: data.readUInt8(249),
+    currentBidDepth: data.readUInt8(250),
   };
 }
 

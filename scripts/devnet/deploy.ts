@@ -24,7 +24,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { Keypair } from "@solana/web3.js";
@@ -42,6 +42,78 @@ type ProgramName = (typeof PROGRAMS)[number];
 function run(cmd: string) {
   console.log(`$ ${cmd}`);
   execSync(cmd, { stdio: "inherit" });
+}
+
+/** Same as `run`, but returns stdout (stderr still streams to the log). */
+function capture(cmd: string): string {
+  console.log(`$ ${cmd}`);
+  return execSync(cmd, { encoding: "utf-8", stdio: ["ignore", "pipe", "inherit"] });
+}
+
+// ─── ProgramData capacity (BPF Upgradeable Loader) ────────────────────
+//
+// An in-place upgrade can only write into the ProgramData account that
+// already exists. When the new `.so` outgrows it, `solana program deploy`
+// tries to auto-extend — but the loader REJECTS any extension smaller than
+// 10240 bytes:
+//
+//     ExtendProgram requires a minimum of 10240 additional bytes or to
+//     extend to maximum size, but only 9520 were requested
+//
+// That is exactly how the 2026-07-29 devnet deploy of ADR 0012 Fase 2
+// failed: the program grew ~9.5 KB, the CLI asked for precisely that, and
+// the loader refused. So we extend EXPLICITLY, above the loader's floor and
+// with headroom, before handing over to `deploy`.
+const EXTEND_MIN_BYTES = 10_240; // the loader's hard minimum per extend
+const EXTEND_HEADROOM_BYTES = 32_768; // spare room so the next few upgrades don't need one
+
+/**
+ * Bytecode capacity of a live upgradeable program, or null when it can't be
+ * read (program missing, CLI shape drift). Null = "don't try to extend" —
+ * the deploy itself stays the authority on whether it can proceed.
+ */
+function onChainCapacity(programId: string, rpcUrl: string): number | null {
+  try {
+    const out = capture(`solana program show ${programId} --url ${rpcUrl} --output json`);
+    const json = JSON.parse(out) as { dataLen?: number; data_len?: number };
+    const len = json.dataLen ?? json.data_len;
+    return typeof len === "number" && Number.isFinite(len) ? len : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Grow the program account when the freshly built `.so` no longer fits.
+ * No-op when it already fits — the common case, so a normal upgrade pays
+ * one extra RPC read and nothing else.
+ */
+function ensureCapacity(programId: string, soPath: string, cluster: ClusterConfig, payer: string) {
+  const soBytes = statSync(soPath).size;
+  const capacity = onChainCapacity(programId, cluster.rpcUrl);
+  if (capacity === null) {
+    console.log(`  (could not read on-chain size for ${programId} — skipping the extend check)`);
+    return;
+  }
+  if (soBytes <= capacity) {
+    console.log(`  ${programId}: ${soBytes} B fits in ${capacity} B — no extend needed.`);
+    return;
+  }
+  const needed = soBytes - capacity;
+  const additional = Math.max(EXTEND_MIN_BYTES, needed + EXTEND_HEADROOM_BYTES);
+  console.log(
+    `\n⚠ ${programId} grew past its on-chain capacity ` +
+      `(${soBytes} B > ${capacity} B, short by ${needed} B).\n` +
+      `  Extending by ${additional} B (loader minimum ${EXTEND_MIN_BYTES} B + ` +
+      `${EXTEND_HEADROOM_BYTES} B headroom). Costs rent from the deployer.\n`,
+  );
+  // `extend` is permissionless — the signer only pays the added rent, so the
+  // upgrade authority isn't required here (it still is for the deploy).
+  run(
+    `solana program extend ${programId} ${additional} ` +
+      `--keypair ${payer} ` +
+      `--url ${cluster.rpcUrl}`,
+  );
 }
 
 /** Program address from the generated keypair (localnet fresh-deploy path). */
@@ -144,6 +216,10 @@ function upgradeInPlace(cluster: ClusterConfig) {
     if (!existsSync(soPath)) {
       throw new Error(`Missing built program: ${soPath} (did "anchor build" run?)`);
     }
+    // Grow the ProgramData account FIRST when the build outgrew it — the
+    // loader's 10240-byte minimum makes `deploy`'s own auto-extend fail for
+    // any smaller growth (see ensureCapacity).
+    ensureCapacity(programId, soPath, cluster, authority);
     // In-place upgrade: `--program-id <pubkey>` targets the live program;
     // `--upgrade-authority` signs the upgrade. No program keypair needed.
     run(

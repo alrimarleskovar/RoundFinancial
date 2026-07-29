@@ -118,6 +118,23 @@ jobs:
           BAL=$(solana balance --url devnet)
           echo "Deployer balance: $BAL"
 
+      - name: Reclaim orphaned deploy buffers
+        # A FAILED deploy strands its intermediate buffer account on chain,
+        # holding ~2x-bytecode worth of rent (several SOL for roundfi_core).
+        # Run 30412204521 did exactly that. Buffers here are purely transient
+        # — the concurrency group serializes deploys, so nothing else can own
+        # a live one — and closing them refunds the rent to the deployer
+        # BEFORE the balance floor is checked below. Never fatal: no buffers
+        # to close is the normal, healthy case.
+        # `< /dev/null` is deliberate: if a CLI version ever prompts for
+        # confirmation, it gets EOF and fails fast instead of hanging the
+        # job until the 30-minute timeout.
+        run: |
+          solana program close --buffers \
+            --keypair target/devnet-deployer.json \
+            --url devnet < /dev/null \
+            || echo "::notice::No orphaned buffers to reclaim (expected on a clean run)."
+
       - name: Check deployer balance ≥ 20 SOL
         # SEV-046 follow-up — actual cost per anchor deploy of 4
         # programs is ~12-15 SOL (NOT the ~3-4 SOL the original docs
