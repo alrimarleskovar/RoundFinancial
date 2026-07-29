@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Icons } from "@/components/brand/icons";
+import { MobileHome } from "@/components/home/MobileHome";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { SellShareModal } from "@/components/modals/SellShareModal";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type ActiveGroup } from "@/data/groups";
@@ -291,7 +292,7 @@ function Greeting({
           {t("homeV2.cta.payInstallment")}
         </button>
         <Link
-          href="/grupos"
+          href="/grupos?tab=mine"
           className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:border-white/30"
         >
           <Icons.plus size={16} stroke="currentColor" sw={2} />
@@ -509,7 +510,7 @@ function CycleValueDetails({
         </div>
       </div>
       <Link
-        href="/grupos"
+        href="/grupos?tab=mine"
         className="inline-flex items-center gap-2 text-xs font-bold text-[#14F195]"
       >
         {t("homeV2.seeDetails")} <Glyph name="chevronRight" color="#14F195" size={14} sw={2.2} />
@@ -809,7 +810,7 @@ function AchievementCard({
 
 export default function HomePage() {
   const { t, fmtMoney } = useI18n();
-  const { user, monthsPaidByGroup, claimedGroups, demoActive } = useSession();
+  const { user, events, monthsPaidByGroup, claimedGroups, demoActive } = useSession();
   const theme = "dark";
   const [liveBalance, setLiveBalance] = useState(user.balance + user.yield);
   const [expanded, setExpanded] = useState<ExpandKey>(null);
@@ -960,159 +961,169 @@ export default function HomePage() {
   const nextDue = `${dd} / ${monCap} / ${dueDate.getFullYear()}`;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl animate-in flex-col gap-6 p-4 font-sans fade-in duration-700 md:p-8">
-      <Greeting firstName={firstName} payGroup={firstGroup} />
+    <>
+      <MobileHome
+        user={user}
+        events={events}
+        groups={cycleGroups}
+        monthsPaidByGroup={monthsPaidByGroup}
+        lockedUsdc={lockedUsdc}
+        demoActive={demoActive}
+      />
+      <div className="mx-auto hidden w-full max-w-6xl animate-in flex-col gap-6 p-4 font-sans fade-in duration-700 md:p-8 lg:flex">
+        <Greeting firstName={firstName} payGroup={firstGroup} />
 
-      {firstGroup ? (
-        <ActionHero
-          nextDue={nextDue}
-          installment={installment}
-          daysUntil={daysUntil}
-          dueDay={dd}
-          dueMon={monCap.toUpperCase()}
-          payGroup={firstGroup}
-        />
-      ) : (
-        <NoCycleHero />
-      )}
+        {firstGroup ? (
+          <ActionHero
+            nextDue={nextDue}
+            installment={installment}
+            daysUntil={daysUntil}
+            dueDay={dd}
+            dueMon={monCap.toUpperCase()}
+            payGroup={firstGroup}
+          />
+        ) : (
+          <NoCycleHero />
+        )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <ExpandableMetricCard
-          id="protected"
-          expanded={expanded === "protected"}
-          onToggle={setExpanded}
-          tone="#14F195"
-          title={t("homeV2.metric.balance")}
-          value={demoActive ? fmtMoney(liveBalance) : fmtMoney(lockedUsdc)}
-          subtitle={
-            demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubLocked")
-          }
-          icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
-        >
-          <ProtectedDetails liveBalance={liveBalance} demoActive={demoActive} />
-        </ExpandableMetricCard>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ExpandableMetricCard
+            id="protected"
+            expanded={expanded === "protected"}
+            onToggle={setExpanded}
+            tone="#14F195"
+            title={t("homeV2.metric.balance")}
+            value={demoActive ? fmtMoney(liveBalance) : fmtMoney(lockedUsdc)}
+            subtitle={
+              demoActive ? t("homeV2.metric.balanceSub") : t("homeV2.metric.balanceSubLocked")
+            }
+            icon={<Icons.trend size={17} stroke="currentColor" sw={1.9} />}
+          >
+            <ProtectedDetails liveBalance={liveBalance} demoActive={demoActive} />
+          </ExpandableMetricCard>
 
-        <ExpandableMetricCard
-          id="cycles"
-          expanded={expanded === "cycles"}
-          onToggle={setExpanded}
-          tone="#9945FF"
-          title={t("homeV2.metric.cycles")}
-          value={fmtMoney(receivable)}
-          subtitle={t("homeV2.metric.cyclesSub")}
-          icon={<Glyph name="pie" color="currentColor" size={17} sw={1.9} />}
-        >
-          <CycleValueDetails demoActive={demoActive} activeCount={cycleGroups.length} />
-        </ExpandableMetricCard>
+          <ExpandableMetricCard
+            id="cycles"
+            expanded={expanded === "cycles"}
+            onToggle={setExpanded}
+            tone="#9945FF"
+            title={t("homeV2.metric.cycles")}
+            value={fmtMoney(receivable)}
+            subtitle={t("homeV2.metric.cyclesSub")}
+            icon={<Glyph name="pie" color="currentColor" size={17} sw={1.9} />}
+          >
+            <CycleValueDetails demoActive={demoActive} activeCount={cycleGroups.length} />
+          </ExpandableMetricCard>
 
-        <ExpandableMetricCard
-          id="collateral"
-          expanded={expanded === "collateral"}
-          onToggle={setExpanded}
-          tone="#FFB547"
-          title={t("homeV2.metric.collateral")}
-          value={`${user.colateralPct}%`}
-          subtitle={t("homeV2.metric.collateralSub")}
-          icon={<Icons.shield size={17} stroke="currentColor" sw={1.9} />}
-        >
-          <CollateralDetails pct={user.colateralPct} />
-        </ExpandableMetricCard>
+          <ExpandableMetricCard
+            id="collateral"
+            expanded={expanded === "collateral"}
+            onToggle={setExpanded}
+            tone="#FFB547"
+            title={t("homeV2.metric.collateral")}
+            value={`${user.colateralPct}%`}
+            subtitle={t("homeV2.metric.collateralSub")}
+            icon={<Icons.shield size={17} stroke="currentColor" sw={1.9} />}
+          >
+            <CollateralDetails pct={user.colateralPct} />
+          </ExpandableMetricCard>
 
-        <PassportTile
-          score={user.score}
-          passportId={user.walletShort}
-          expanded={expanded === "passport"}
-          onToggle={setExpanded}
-        />
-      </div>
-
-      <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 shadow-2xl sm:p-7">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
-            {t("home.cycles.title")}
-          </h3>
-          <span className="rounded-full border border-[#14F195]/20 bg-[#14F195]/10 px-3 py-1 text-[10px] font-black uppercase text-[#14F195]">
-            {t("home.cycles.escrow")}
-          </span>
+          <PassportTile
+            score={user.score}
+            passportId={user.walletShort}
+            expanded={expanded === "passport"}
+            onToggle={setExpanded}
+          />
         </div>
 
-        {cycleGroups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-            <Glyph name="ticket" color="#6B7280" size={30} sw={1.6} />
-            <p className="text-sm text-gray-400">{t("home.cycles.empty.title")}</p>
-            <Link
-              href="/grupos"
-              className="rounded-xl border border-[#14F195]/30 bg-[#14F195]/10 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-[#14F195] transition-all hover:bg-[#14F195]/20"
-            >
-              {t("home.cycles.empty.cta")}
+        <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 shadow-2xl sm:p-7">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
+              {t("home.cycles.title")}
+            </h3>
+            <span className="rounded-full border border-[#14F195]/20 bg-[#14F195]/10 px-3 py-1 text-[10px] font-black uppercase text-[#14F195]">
+              {t("home.cycles.escrow")}
+            </span>
+          </div>
+
+          {cycleGroups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+              <Glyph name="ticket" color="#6B7280" size={30} sw={1.6} />
+              <p className="text-sm text-gray-400">{t("home.cycles.empty.title")}</p>
+              <Link
+                href="/grupos"
+                className="rounded-xl border border-[#14F195]/30 bg-[#14F195]/10 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-[#14F195] transition-all hover:bg-[#14F195]/20"
+              >
+                {t("home.cycles.empty.cta")}
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {cycleGroups.map((g) => {
+                const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
+                return <GroupCard key={g.id} g={g} month={month} theme={theme} />;
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 sm:p-7">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
+              {t("homeV2.achiev.title")}
+            </h3>
+            <Link href="/insights" className="text-xs font-bold text-gray-400 hover:text-white">
+              {t("homeV2.achiev.seeAll")}
             </Link>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {cycleGroups.map((g) => {
-              const month = Math.min(g.total, g.month + (monthsPaidByGroup[g.name] ?? 0));
-              return <GroupCard key={g.id} g={g} month={month} theme={theme} />;
-            })}
+          <div className="grid gap-4 md:grid-cols-3">
+            {demoActive ? (
+              <>
+                <AchievementCard
+                  icon="star"
+                  title={t("homeV2.achiev.1.t")}
+                  subtitle={t("homeV2.achiev.earn", { n: 18 })}
+                  progress="0/2"
+                />
+                <AchievementCard
+                  icon="people"
+                  title={t("homeV2.achiev.2.t")}
+                  subtitle={t("homeV2.achiev.earn", { n: 24 })}
+                  progress="0/1"
+                />
+                <AchievementCard
+                  icon="trophy"
+                  title={t("homeV2.achiev.3.t")}
+                  subtitle={t("homeV2.achiev.earn", { n: 42 })}
+                  progress="0/1"
+                />
+              </>
+            ) : (
+              realAchievements.map((a) => (
+                <AchievementCard
+                  key={a.title}
+                  icon={a.icon}
+                  title={a.title}
+                  subtitle={t("homeV2.achiev.earn", { n: a.points })}
+                  progress={a.progress}
+                  pct={a.pct}
+                />
+              ))
+            )}
           </div>
-        )}
-      </section>
+        </section>
 
-      <section className="rounded-[2rem] border border-white/[0.06] bg-white/[0.025] p-5 sm:p-7">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
-            {t("homeV2.achiev.title")}
-          </h3>
-          <Link href="/insights" className="text-xs font-bold text-gray-400 hover:text-white">
-            {t("homeV2.achiev.seeAll")}
-          </Link>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {demoActive ? (
-            <>
-              <AchievementCard
-                icon="star"
-                title={t("homeV2.achiev.1.t")}
-                subtitle={t("homeV2.achiev.earn", { n: 18 })}
-                progress="0/2"
-              />
-              <AchievementCard
-                icon="people"
-                title={t("homeV2.achiev.2.t")}
-                subtitle={t("homeV2.achiev.earn", { n: 24 })}
-                progress="0/1"
-              />
-              <AchievementCard
-                icon="trophy"
-                title={t("homeV2.achiev.3.t")}
-                subtitle={t("homeV2.achiev.earn", { n: 42 })}
-                progress="0/1"
-              />
-            </>
-          ) : (
-            realAchievements.map((a) => (
-              <AchievementCard
-                key={a.title}
-                icon={a.icon}
-                title={a.title}
-                subtitle={t("homeV2.achiev.earn", { n: a.points })}
-                progress={a.progress}
-                pct={a.pct}
-              />
-            ))
-          )}
-        </div>
-      </section>
-
-      <footer className="flex flex-col gap-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
-        <span className="inline-flex items-center gap-2">
-          <Icons.lock size={14} stroke="currentColor" sw={1.8} />
-          {t("homeV2.footer.protected")}
-        </span>
-        <span className="inline-flex items-center gap-2 text-[#14F195]">
-          <Icons.check size={14} stroke="#14F195" sw={2.2} />
-          {t("homeV2.footer.audited")}
-        </span>
-      </footer>
-    </div>
+        <footer className="flex flex-col gap-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-center gap-2">
+            <Icons.lock size={14} stroke="currentColor" sw={1.8} />
+            {t("homeV2.footer.protected")}
+          </span>
+          <span className="inline-flex items-center gap-2 text-[#14F195]">
+            <Icons.check size={14} stroke="#14F195" sw={2.2} />
+            {t("homeV2.footer.audited")}
+          </span>
+        </footer>
+      </div>
+    </>
   );
 }

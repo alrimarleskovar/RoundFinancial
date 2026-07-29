@@ -88,7 +88,7 @@ export function ConnectionCard({
   const glass = glassSurfaceStyle(palette);
   const t = useT();
   const { lang } = useI18n();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   const tc = ((): string => {
     switch (c.tone) {

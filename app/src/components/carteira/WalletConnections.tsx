@@ -49,7 +49,7 @@ export function WalletConnections() {
   const t = useT();
   const { lang, fmtMoney } = useI18n();
   const wallet = useWallet();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const conns = useConnections();
   const { demoActive } = useSession();
   const myYield = useMyDevnetYield();

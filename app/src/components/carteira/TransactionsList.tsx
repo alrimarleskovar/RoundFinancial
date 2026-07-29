@@ -116,7 +116,7 @@ export function TransactionsList({ limit, onSeeAll }: { limit?: number; onSeeAll
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const { events, demoActive } = useSession();
   const { explorerTx } = useWallet();
   // Durable on-chain history (read via getSignaturesForAddress on each Member

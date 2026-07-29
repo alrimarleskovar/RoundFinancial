@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { RFILogoMark } from "@/components/brand/brand";
 import { NetworkBadge } from "@/components/layout/NetworkBadge";
@@ -19,6 +20,7 @@ import { useWallet } from "@/lib/wallet";
 // dashboard route shares the same top navigation.
 
 export function TopBar() {
+  const pathname = usePathname();
   const { tokens, isDark } = useTheme();
   const i18n = useI18n();
   const wallet = useWallet();
@@ -33,7 +35,7 @@ export function TopBar() {
     // at z-70). Padding + gap are responsive and the nav scrolls when cramped,
     // so the bar never overlaps itself on mobile or under heavy browser zoom.
     <div
-      className="sticky top-0 z-50 flex items-center gap-2.5 px-3 py-3 md:gap-4 md:px-8"
+      className={`${pathname === "/home" ? "hidden lg:flex" : "flex"} sticky top-0 z-50 items-center gap-2.5 px-3 py-3 md:gap-4 md:px-8`}
       style={{
         background: isDark ? "rgba(6,9,15,0.85)" : "rgba(245,241,234,0.85)",
         backdropFilter: "blur(12px)",

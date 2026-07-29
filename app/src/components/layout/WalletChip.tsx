@@ -14,7 +14,7 @@ import { faucetDripMessage, shortAddr, type WalletView } from "@/lib/wallet";
 // explorer / disconnect). Port of the inline WalletChip from
 // prototype/index.html.
 
-export function WalletChip({ wallet }: { wallet: WalletView }) {
+export function WalletChip({ wallet, compact = false }: { wallet: WalletView; compact?: boolean }) {
   const { tokens, isDark } = useTheme();
   const t = useT();
   const { lang } = useI18n();
@@ -86,18 +86,18 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
         }
         disabled={connecting}
         style={{
-          padding: "8px 14px",
-          borderRadius: 10,
+          padding: compact ? "6px 9px" : "8px 14px",
+          borderRadius: compact ? 8 : 10,
           cursor: connecting ? "default" : "pointer",
           background: `linear-gradient(135deg, ${tokens.green}, ${tokens.teal})`,
           border: "none",
           color: isDark ? tokens.bgDeep : "#FFFFFF",
-          fontSize: 12,
+          fontSize: compact ? 10 : 12,
           fontWeight: 700,
           fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
           display: "inline-flex",
           alignItems: "center",
-          gap: 8,
+          gap: compact ? 5 : 8,
           opacity: connecting ? 0.75 : 1,
           boxShadow: `0 0 20px ${tokens.green}55, 0 4px 14px ${tokens.teal}33`,
         }}
@@ -115,11 +115,15 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
             }}
           />
         )}
-        {connecting
-          ? t("top.connecting")
-          : !mounted || wallet.isInstalled
-            ? t("top.connect")
-            : t("conn.phantom.installCTA")}
+        {compact
+          ? connecting
+            ? "..."
+            : "Carteira"
+          : connecting
+            ? t("top.connecting")
+            : !mounted || wallet.isInstalled
+              ? t("top.connect")
+              : t("conn.phantom.installCTA")}
       </button>
     );
   }
@@ -138,25 +142,25 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         style={{
-          padding: "6px 12px 6px 8px",
-          borderRadius: 10,
+          padding: compact ? "4px 7px 4px 5px" : "6px 12px 6px 8px",
+          borderRadius: compact ? 8 : 10,
           cursor: "pointer",
           background: tokens.fillSoft,
           border: `1px solid ${tokens.green}33`,
           color: tokens.text,
-          fontSize: 12,
+          fontSize: compact ? 10 : 12,
           fontWeight: 600,
           display: "inline-flex",
           alignItems: "center",
-          gap: 8,
+          gap: compact ? 5 : 8,
           fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
           animation: "rfi-glow 2.4s ease-in-out infinite",
         }}
       >
         <span
           style={{
-            width: 22,
-            height: 22,
+            width: compact ? 18 : 22,
+            height: compact ? 18 : 22,
             borderRadius: 6,
             background: `linear-gradient(135deg, ${tokens.purple}, ${tokens.teal})`,
             display: "inline-flex",
@@ -173,34 +177,37 @@ export function WalletChip({ wallet }: { wallet: WalletView }) {
             fontSize: 11,
           }}
         >
-          {shortAddr(addr, 4, 4)}
+          {shortAddr(addr, compact ? 3 : 4, compact ? 3 : 4)}
         </span>
         {/* Inline network badge (checklist §2.1) — the active cluster sits
             right next to the address so the user can't mistake which
             network they're signing on. Mainnet is loud red; devnet/localnet
             muted. (NetworkBanner also flags this at page top; this is the
             at-a-glance, chip-level cue.) */}
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 800,
-            padding: "1px 5px",
-            borderRadius: 5,
-            letterSpacing: "0.06em",
-            background: wallet.network === "mainnet-beta" ? `${tokens.red}1A` : `${tokens.muted}1A`,
-            color: wallet.network === "mainnet-beta" ? tokens.red : tokens.muted,
-            border:
-              wallet.network === "mainnet-beta"
-                ? `1px solid ${tokens.red}55`
-                : `1px solid ${tokens.muted}33`,
-          }}
-        >
-          {wallet.network === "mainnet-beta"
-            ? "MAINNET"
-            : wallet.network === "devnet"
-              ? "DEVNET"
-              : "LOCAL"}
-        </span>
+        {!compact && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 800,
+              padding: "1px 5px",
+              borderRadius: 5,
+              letterSpacing: "0.06em",
+              background:
+                wallet.network === "mainnet-beta" ? `${tokens.red}1A` : `${tokens.muted}1A`,
+              color: wallet.network === "mainnet-beta" ? tokens.red : tokens.muted,
+              border:
+                wallet.network === "mainnet-beta"
+                  ? `1px solid ${tokens.red}55`
+                  : `1px solid ${tokens.muted}33`,
+            }}
+          >
+            {wallet.network === "mainnet-beta"
+              ? "MAINNET"
+              : wallet.network === "devnet"
+                ? "DEVNET"
+                : "LOCAL"}
+          </span>
+        )}
         {/* Wallet allowlist badges (issue #249 workstream 1).
             Hardware = "🔒 HW" pill (green, confidence signal).
             Unknown wallet on devnet = "⚠ ?" pill (amber, soft warning).
