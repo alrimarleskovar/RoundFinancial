@@ -1370,6 +1370,57 @@ export const DICT: Record<Lang, Dict> = {
     "modal.lance.err.defaulted": "Sua cota está inadimplente — o lance não está disponível.",
     "modal.lance.err.poolInactive": "O grupo não está ativo no momento.",
     "modal.lance.err.paused": "O protocolo está pausado agora. Tente de novo em alguns minutos.",
+    "modal.lance.err.windowClosed":
+      "Fora da janela. Os lances são selados ANTES do prazo do ciclo e abertos DEPOIS — é essa separação que impede alguém de ver os lances e responder.",
+    "modal.lance.err.commitMismatch":
+      "Esse valor e esse segredo não abrem o seu envelope. Se você selou em outro navegador ou dispositivo, use “Recuperar com a carteira”.",
+    "modal.lance.err.alreadyRevealed": "Este envelope já foi aberto — é de uso único.",
+    "modal.lance.err.notMultiple":
+      "O lance é feito de parcelas inteiras. Escolha um número de parcelas, não um valor solto.",
+    "modal.lance.err.badSalt": "Segredo inválido. Gere o envelope de novo pela carteira.",
+    "modal.lance.err.alreadySealed":
+      "Você já selou um lance para este ciclo. Não dá para selar outro — reselar depois de espiar é exatamente o que o envelope existe para impedir.",
+    // lance livre — modal de duas fases (ADR 0012 Fase 3)
+    "modal.freeBid.seal.title": "Selar lance",
+    "modal.freeBid.seal.subtitle": "Escolha quanto pagar adiantado — ninguém vê o valor",
+    "modal.freeBid.seal.pick": "QUANTAS PARCELAS",
+    "modal.freeBid.seal.max": "Você pode ir até {n} parcela(s) neste grupo.",
+    "modal.freeBid.seal.secretLabel": "FICA SELADO",
+    "modal.freeBid.seal.secretBody":
+      "Só um resumo criptográfico do seu lance vai para a blockchain — nem o valor, nem a profundidade. O segredo é gerado a partir de uma assinatura da sua carteira, então dá para recuperar em qualquer dispositivo assinando a mesma mensagem.",
+    "modal.freeBid.seal.windowLabel": "DUAS ETAPAS",
+    "modal.freeBid.seal.windowBody":
+      "Agora você sela. Depois que o prazo do ciclo virar, você volta para abrir o envelope — e é só na abertura que o dinheiro sai. Quem selou não consegue mudar o valor depois de ver os outros.",
+    "modal.freeBid.seal.loseLabel": "PERDER NÃO CUSTA",
+    "modal.freeBid.seal.loseBody":
+      "Se alguém abrir um lance mais fundo que o seu, a abertura do seu simplesmente não passa e o dinheiro nem sai da carteira. Você perde a taxa da transação, mais nada.",
+    "modal.freeBid.open.title": "Abrir lance",
+    "modal.freeBid.open.subtitle": "Hora de mostrar o valor que você selou",
+    "modal.freeBid.open.sealedLabel": "VOCÊ SELOU",
+    "modal.freeBid.open.payLabel": "O QUE ACONTECE AGORA",
+    "modal.freeBid.open.payBody":
+      "Abrir paga essas parcelas de uma vez (são suas, adiantadas) e, se o seu lance for o mais fundo, você assume o ciclo {n} na hora. Tudo numa transação só.",
+    "modal.freeBid.open.loseLabel": "SE VOCÊ PERDER",
+    "modal.freeBid.open.loseBody":
+      "A transação reverte inteira: o dinheiro não sai e as parcelas não são cobradas. Não existe reembolso porque não existe nada preso.",
+    "modal.freeBid.recover.label": "SEGREDO NÃO ENCONTRADO",
+    "modal.freeBid.recover.body":
+      "Este navegador não tem a cópia do seu envelope — provável que você tenha selado em outro dispositivo. Dá para recuperar: assine a mesma mensagem com a mesma carteira e o segredo é reconstruído.",
+    "modal.freeBid.recover.cta": "Recuperar com a carteira",
+    "modal.freeBid.recover.working": "Recuperando…",
+    "modal.freeBid.cta.seal": "Selar lance",
+    "modal.freeBid.cta.open": "Abrir envelope",
+    "modal.freeBid.cta.working": "Enviando…",
+    "modal.freeBid.sealed.title": "Lance selado! 🔒",
+    "modal.freeBid.sealed.body":
+      "Ninguém consegue ver quanto você ofereceu. Volte aqui depois que o prazo do ciclo {n} virar para abrir o envelope — se não abrir, o lance não vale.",
+    "modal.freeBid.opened.title": "Lance aberto! 🎯",
+    "modal.freeBid.opened.body":
+      "Você assumiu o ciclo {n} e as parcelas foram pagas. Quando o caixa do grupo fechar, o botão Receber aparece pra você.",
+    "modal.freeBid.err.noSignMessage":
+      "Esta carteira não assina mensagens, e o lance selado precisa disso para gerar o segredo. Tente por outra carteira.",
+    "modal.freeBid.err.recoveryFailed":
+      "Não deu para reconstruir o segredo com esta carteira. Confira se é a mesma que selou o lance — o envelope é preso a ela.",
     // sell share
     "modal.sell.title": "Vender cota",
     "modal.sell.subtitle": "Liste sua posição NFT no mercado secundário.",
@@ -1501,6 +1552,15 @@ export const DICT: Record<Lang, Dict> = {
       "O lance que está ganhando ({d}) é mais fundo do que as parcelas que ainda restam pra você antecipar neste grupo.",
     "groupsV2.card.lance.cta": "Dar lance",
     "groupsV2.card.lance.ctaPrepay": "Antecipar parcelas",
+    "groupsV2.card.freeBid.title": "Lance selado — ninguém vê o valor",
+    "groupsV2.card.freeBid.canSeal":
+      "Dá para disputar o ciclo {c} com um lance secreto. Você sela agora (nada sai da carteira) e abre depois que o prazo virar, em ~{h}h.",
+    "groupsV2.card.freeBid.sealed":
+      "Seu lance está selado. Volte em ~{h}h, quando a janela abrir, para revelar — lance não aberto não vale.",
+    "groupsV2.card.freeBid.canReveal":
+      "A janela abriu: revele seu lance para disputar o ciclo. Faltam ~{h}h — depois disso o ciclo fecha.",
+    "groupsV2.card.freeBid.ctaSeal": "Selar lance",
+    "groupsV2.card.freeBid.ctaOpen": "Abrir envelope",
     "groupsV2.card.cta.locked": "Faltam {pts} pontos para Nv. {lv}",
     "groupsV2.card.fullBadge": "Cheio",
     "groupsV2.card.cta.full": "Grupo cheio · em andamento",
@@ -1611,6 +1671,8 @@ export const DICT: Record<Lang, Dict> = {
     "intent.action.deposit_idle_to_yield": "depositar float no adapter",
     "intent.action.settle_default": "resolver default (cranker)",
     "intent.action.place_embedded_bid": "dar lance (trocar a ordem)",
+    "intent.action.place_bid_commit": "selar lance (nada sai da carteira)",
+    "intent.action.place_bid_reveal": "abrir lance (paga as parcelas)",
     "phishing.previewBanner":
       "Deploy de preview detectado ({host}). URL canônica: roundfi.vercel.app",
     "phishing.unknownBanner":
@@ -3453,6 +3515,57 @@ export const DICT: Record<Lang, Dict> = {
     "modal.lance.err.defaulted": "Your share is in default — bidding isn't available.",
     "modal.lance.err.poolInactive": "The group isn't active right now.",
     "modal.lance.err.paused": "The protocol is paused right now. Try again in a few minutes.",
+    "modal.lance.err.windowClosed":
+      "Outside the window. Bids are sealed BEFORE the cycle deadline and opened AFTER it — that separation is what stops anyone from reading the bids and replying.",
+    "modal.lance.err.commitMismatch":
+      "That amount and secret don't open your envelope. If you sealed it in another browser or device, use “Recover with your wallet”.",
+    "modal.lance.err.alreadyRevealed": "This envelope was already opened — it's single-use.",
+    "modal.lance.err.notMultiple":
+      "A bid is made of whole installments. Pick a number of installments, not a loose amount.",
+    "modal.lance.err.badSalt": "Invalid secret. Generate the envelope again through your wallet.",
+    "modal.lance.err.alreadySealed":
+      "You already sealed a bid for this cycle. You can't seal another — re-sealing after a peek is exactly what the envelope exists to stop.",
+    // free bid — two-act modal (ADR 0012 Phase 3)
+    "modal.freeBid.seal.title": "Seal a bid",
+    "modal.freeBid.seal.subtitle": "Choose how much to pay ahead — nobody sees the amount",
+    "modal.freeBid.seal.pick": "HOW MANY INSTALLMENTS",
+    "modal.freeBid.seal.max": "You can go up to {n} installment(s) in this group.",
+    "modal.freeBid.seal.secretLabel": "STAYS SEALED",
+    "modal.freeBid.seal.secretBody":
+      "Only a cryptographic digest of your bid goes on chain — not the amount, not the depth. The secret is derived from a wallet signature, so you can recover it on any device by signing the same message.",
+    "modal.freeBid.seal.windowLabel": "TWO STEPS",
+    "modal.freeBid.seal.windowBody":
+      "You seal now. Once the cycle deadline passes you come back to open the envelope — and only opening moves money. Whoever sealed can't change their amount after seeing the others.",
+    "modal.freeBid.seal.loseLabel": "LOSING IS FREE",
+    "modal.freeBid.seal.loseBody":
+      "If someone opens a deeper bid than yours, your opening simply doesn't go through and the money never leaves your wallet. You lose the transaction fee, nothing else.",
+    "modal.freeBid.open.title": "Open your bid",
+    "modal.freeBid.open.subtitle": "Time to show the amount you sealed",
+    "modal.freeBid.open.sealedLabel": "YOU SEALED",
+    "modal.freeBid.open.payLabel": "WHAT HAPPENS NOW",
+    "modal.freeBid.open.payBody":
+      "Opening pays those installments at once (they're yours, brought forward) and, if your bid is the deepest, you take cycle {n} immediately. All in one transaction.",
+    "modal.freeBid.open.loseLabel": "IF YOU LOSE",
+    "modal.freeBid.open.loseBody":
+      "The whole transaction reverts: the money doesn't move and the installments aren't charged. There's no refund because nothing was ever locked up.",
+    "modal.freeBid.recover.label": "SECRET NOT FOUND",
+    "modal.freeBid.recover.body":
+      "This browser doesn't have your envelope's copy — you probably sealed it on another device. It's recoverable: sign the same message with the same wallet and the secret is rebuilt.",
+    "modal.freeBid.recover.cta": "Recover with your wallet",
+    "modal.freeBid.recover.working": "Recovering…",
+    "modal.freeBid.cta.seal": "Seal bid",
+    "modal.freeBid.cta.open": "Open envelope",
+    "modal.freeBid.cta.working": "Sending…",
+    "modal.freeBid.sealed.title": "Bid sealed! 🔒",
+    "modal.freeBid.sealed.body":
+      "Nobody can see how much you offered. Come back once the cycle {n} deadline passes to open the envelope — an unopened bid doesn't count.",
+    "modal.freeBid.opened.title": "Bid opened! 🎯",
+    "modal.freeBid.opened.body":
+      "You took cycle {n} and the installments are paid. Once the group's vault is funded, the Receive button shows up for you.",
+    "modal.freeBid.err.noSignMessage":
+      "This wallet doesn't sign messages, and a sealed bid needs that to derive the secret. Try another wallet.",
+    "modal.freeBid.err.recoveryFailed":
+      "Couldn't rebuild the secret with this wallet. Check it's the same one that sealed the bid — the envelope is bound to it.",
     // sell share
     "modal.sell.title": "Sell share",
     "modal.sell.subtitle": "List your NFT position on the secondary market.",
@@ -3583,6 +3696,15 @@ export const DICT: Record<Lang, Dict> = {
       "The winning bid ({d}) is deeper than the installments you have left to pay ahead in this group.",
     "groupsV2.card.lance.cta": "Place a bid",
     "groupsV2.card.lance.ctaPrepay": "Pay ahead",
+    "groupsV2.card.freeBid.title": "Sealed bid — nobody sees the amount",
+    "groupsV2.card.freeBid.canSeal":
+      "You can compete for cycle {c} with a secret bid. Seal it now (nothing leaves your wallet) and open it after the deadline, in ~{h}h.",
+    "groupsV2.card.freeBid.sealed":
+      "Your bid is sealed. Come back in ~{h}h, when the window opens, to reveal it — an unopened bid doesn't count.",
+    "groupsV2.card.freeBid.canReveal":
+      "The window is open: reveal your bid to compete for the cycle. ~{h}h left — after that the cycle closes.",
+    "groupsV2.card.freeBid.ctaSeal": "Seal bid",
+    "groupsV2.card.freeBid.ctaOpen": "Open envelope",
     "groupsV2.card.cta.locked": "{pts} points to reach Lv. {lv}",
     "groupsV2.card.fullBadge": "Full",
     "groupsV2.card.cta.full": "Group full · in progress",
@@ -3689,6 +3811,8 @@ export const DICT: Record<Lang, Dict> = {
     "intent.action.deposit_idle_to_yield": "deposit float to adapter",
     "intent.action.settle_default": "settle default (cranker)",
     "intent.action.place_embedded_bid": "place a bid (swap the order)",
+    "intent.action.place_bid_commit": "seal a bid (nothing leaves your wallet)",
+    "intent.action.place_bid_reveal": "open the bid (pays the installments)",
     "phishing.previewBanner":
       "Preview deployment detected ({host}). Canonical URL: roundfi.vercel.app",
     "phishing.unknownBanner":

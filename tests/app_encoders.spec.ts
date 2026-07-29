@@ -58,6 +58,7 @@ import { ATTESTATION_SCHEMA } from "@roundfi/sdk/constants";
 import {
   attestationNonce,
   attestationPda,
+  bidPda,
   drawResultPda,
   escrowVaultAuthorityPda,
   listingPda,
@@ -78,6 +79,7 @@ import { buildDepositIdleToYieldIx } from "../app/src/lib/deposit-idle-to-yield"
 import { buildEscapeValveBuyIx } from "../app/src/lib/escape-valve-buy";
 import { buildSettleDefaultIx } from "../app/src/lib/settle-default";
 import { buildPlaceEmbeddedBidIx } from "../app/src/lib/place-embedded-bid";
+import { buildPlaceBidCommitIx, buildPlaceBidRevealIx } from "../app/src/lib/place-bid";
 import { DEVNET_PROGRAM_IDS, DEVNET_USDC_MINT } from "../app/src/lib/devnet";
 import type { TransactionInstruction } from "@solana/web3.js";
 
@@ -744,6 +746,141 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
     });
   });
 
+  describe("buildPlaceBidCommitIx / buildPlaceBidRevealIx", () => {
+    // ADR 0012 Fase 3 — the sealed free bid. The commit carries a 32-byte
+    // digest and moves nothing; the reveal pays K installments and
+    // adjudicates, so it needs contribute's full vault + reputation set.
+    const HASH = new Uint8Array(32).fill(9);
+    const commitIx = buildPlaceBidCommitIx({
+      pool: POOL,
+      bidder: MEMBER,
+      cycle: 2,
+      commitHash: HASH,
+    });
+    const revealIx = buildPlaceBidRevealIx({
+      pool: POOL,
+      bidder: MEMBER,
+      cycle: 2,
+      parcels: 3,
+      installmentAmount: 2_000_000n,
+      salt: 0xfeedn,
+      contributionsPaid: 3,
+      cyclesTotal: 8,
+      slotIndex: 1,
+    });
+
+    it("uses the canonical discriminators", () => {
+      expect(commitIx.data.subarray(0, 8).toString("hex")).to.equal(
+        expectedDiscriminator("place_bid_commit").toString("hex"),
+      );
+      expect(revealIx.data.subarray(0, 8).toString("hex")).to.equal(
+        expectedDiscriminator("place_bid_reveal").toString("hex"),
+      );
+    });
+
+    it("commit encodes [disc | cycle u8 | hash 32] = 41 bytes", () => {
+      expect(commitIx.data.length).to.equal(41);
+      expect(commitIx.data[8]).to.equal(2);
+      expect(commitIx.data.subarray(9).toString("hex")).to.equal(Buffer.from(HASH).toString("hex"));
+    });
+
+    it("commit rejects a hash that isn't 32 bytes", () => {
+      // A short hash would be silently zero-padded into an envelope nobody
+      // can ever open.
+      expect(() =>
+        buildPlaceBidCommitIx({
+          pool: POOL,
+          bidder: MEMBER,
+          cycle: 0,
+          commitHash: new Uint8Array(31),
+        }),
+      ).to.throw();
+    });
+
+    it("reveal encodes [disc | cycle u8 | amount u64 | salt u64] = 25 bytes", () => {
+      expect(revealIx.data.length).to.equal(25);
+      expect(revealIx.data[8]).to.equal(2);
+      // amount = parcels × installment — derived, never caller-supplied, so
+      // the program's exact-multiple rule holds by construction.
+      expect(revealIx.data.readBigUInt64LE(9)).to.equal(6_000_000n);
+      expect(revealIx.data.readBigUInt64LE(17)).to.equal(0xfeedn);
+    });
+
+    it("reveal rejects a non-positive parcel count", () => {
+      expect(() =>
+        buildPlaceBidRevealIx({
+          pool: POOL,
+          bidder: MEMBER,
+          cycle: 0,
+          parcels: 0,
+          installmentAmount: 1n,
+          salt: 1n,
+          contributionsPaid: 0,
+          cyclesTotal: 4,
+          slotIndex: 0,
+        }),
+      ).to.throw();
+    });
+
+    it("has 6 / 20 accounts, bidder signing at index 0", () => {
+      expect(commitIx.keys.length).to.equal(6);
+      expect(revealIx.keys.length).to.equal(20);
+      expect(key(commitIx, 0).isSigner).to.equal(true);
+      expect(key(revealIx, 0).isSigner).to.equal(true);
+    });
+
+    it("derives the Bid PDA with the cycle in its seeds", () => {
+      // The cycle being a seed is what stops an envelope being replayed
+      // into a later auction.
+      const [bid] = bidPda(CORE, POOL, 2, MEMBER);
+      expect(key(commitIx, 4).pubkey.toBase58()).to.equal(bid.toBase58());
+      expect(key(revealIx, 4).pubkey.toBase58()).to.equal(bid.toBase58());
+      expect(bidPda(CORE, POOL, 3, MEMBER)[0].toBase58()).to.not.equal(bid.toBase58());
+    });
+
+    it("commit writes ONLY the envelope — pool and member stay read-only", () => {
+      expect(key(commitIx, 2).isWritable).to.equal(false); // pool
+      expect(key(commitIx, 3).isWritable).to.equal(false); // member
+      expect(key(commitIx, 4).isWritable).to.equal(true); // bid
+    });
+
+    it("reveal nonces the attestation on the LAST installment it pays", () => {
+      // contributions_paid 3 + 3 parcels = 6 → the event is nonced on
+      // installment 5, and 6 < cyclesTotal 8 so it stays PAYMENT. Deriving
+      // it any other way fails ConstraintSeeds on chain.
+      const [attestation] = attestationPda(
+        REPUTATION,
+        POOL,
+        MEMBER,
+        ATTESTATION_SCHEMA.Payment,
+        attestationNonce(5, 1),
+      );
+      expect(key(revealIx, 18).pubkey.toBase58()).to.equal(attestation.toBase58());
+    });
+
+    it("reveal escalates to POOL_COMPLETE when the bid pays the final installment", () => {
+      const finalIx = buildPlaceBidRevealIx({
+        pool: POOL,
+        bidder: MEMBER,
+        cycle: 0,
+        parcels: 2,
+        installmentAmount: 1_000_000n,
+        salt: 1n,
+        contributionsPaid: 2,
+        cyclesTotal: 4,
+        slotIndex: 0,
+      });
+      const [attestation] = attestationPda(
+        REPUTATION,
+        POOL,
+        MEMBER,
+        ATTESTATION_SCHEMA.PoolComplete,
+        attestationNonce(3, 0),
+      );
+      expect(key(finalIx, 18).pubkey.toBase58()).to.equal(attestation.toBase58());
+    });
+  });
+
   describe("cross-encoder invariants", () => {
     const META_URI = "https://roundfi.app/p.json";
     function allIxs() {
@@ -782,6 +919,23 @@ describe("app/src/lib/*.ts IDL-free encoders — structural parity", () => {
           cycle: 1,
         }),
         buildPlaceEmbeddedBidIx({ pool: POOL, memberWallet: MEMBER }),
+        buildPlaceBidCommitIx({
+          pool: POOL,
+          bidder: MEMBER,
+          cycle: 0,
+          commitHash: new Uint8Array(32),
+        }),
+        buildPlaceBidRevealIx({
+          pool: POOL,
+          bidder: MEMBER,
+          cycle: 0,
+          parcels: 1,
+          installmentAmount: 1n,
+          salt: 1n,
+          contributionsPaid: 1,
+          cyclesTotal: 4,
+          slotIndex: 0,
+        }),
       ];
     }
 

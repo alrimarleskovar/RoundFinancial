@@ -228,6 +228,68 @@ export async function fetchPoolBySeed(
 //   off 137: bump           u8       ( 1)
 //   off 138: _padding       [u8; 6]  ( 6)  → size 8 + 136 = 144
 
+// ─── Bid offsets (ADR 0012 Fase 3 — sealed free bid) ───────────────────
+//
+// PDA `[b"bid", pool, cycle, bidder]`. Source of truth:
+// programs/roundfi-core/src/state/bid.rs. Layout after the discriminator:
+//   off   8: pool          Pubkey   (32)
+//   off  40: bidder        Pubkey   (32)
+//   off  72: cycle         u8       ( 1)
+//   off  73: commit_hash   [u8;32]  (32)  // sha256(amount ‖ salt ‖ bidder)
+//   off 105: amount        u64      ( 8)  // 0 until revealed
+//   off 113: parcels       u8       ( 1)  // 0 until revealed
+//   off 114: state         u8       ( 1)  // 0 Committed, 1 Revealed
+//   off 115: committed_at  i64      ( 8)
+//   off 123: bump          u8       ( 1)  → size 8 + 123 = 131 with padding
+const BID_MIN_LEN = 124; // through `bump`
+
+export const BID_STATE = { Committed: 0, Revealed: 1 } as const;
+
+export interface RawBidView {
+  address: PublicKey;
+  pool: PublicKey;
+  bidder: PublicKey;
+  cycle: number;
+  /** The sealed hash — the ONLY way to recover the amount if the client
+   *  lost its copy (scan candidates against this). */
+  commitHash: Buffer;
+  /** 0 until revealed. */
+  amount: bigint;
+  /** 0 until revealed. */
+  parcels: number;
+  /** `BID_STATE`. */
+  state: number;
+  committedAt: bigint;
+}
+
+/** Decode a Bid account's raw bytes. */
+export function decodeBidRaw(address: PublicKey, data: Buffer): RawBidView {
+  if (data.length < BID_MIN_LEN) {
+    throw new Error(`Bid account too small: ${data.length} < ${BID_MIN_LEN}`);
+  }
+  return {
+    address,
+    pool: new PublicKey(data.subarray(8, 40)),
+    bidder: new PublicKey(data.subarray(40, 72)),
+    cycle: data.readUInt8(72),
+    commitHash: Buffer.from(data.subarray(73, 105)),
+    amount: data.readBigUInt64LE(105),
+    parcels: data.readUInt8(113),
+    state: data.readUInt8(114),
+    committedAt: data.readBigInt64LE(115),
+  };
+}
+
+/** Fetch + decode a Bid PDA. Null when no envelope was sealed. */
+export async function fetchBidRaw(
+  connection: Connection,
+  address: PublicKey,
+): Promise<RawBidView | null> {
+  const info = await connection.getAccountInfo(address, "confirmed");
+  if (!info) return null;
+  return decodeBidRaw(address, info.data as Buffer);
+}
+
 const DRAW_RESULT_MIN_LEN = 138; // through `bump` — padding not required
 
 export interface RawDrawView {

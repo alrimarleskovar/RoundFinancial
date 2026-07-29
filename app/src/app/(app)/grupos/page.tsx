@@ -33,6 +33,7 @@ import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
 import { CrankPayoutModal } from "@/components/modals/CrankPayoutModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
+import { FreeBidModal } from "@/components/modals/FreeBidModal";
 import { PlaceBidModal } from "@/components/modals/PlaceBidModal";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type ActiveGroup, type GroupLevel } from "@/data/groups";
 import { DEVNET_POOLS, GRACE_PERIOD_SECS } from "@/lib/devnet";
@@ -44,7 +45,8 @@ import {
   type CatalogGroup,
 } from "@/lib/groups";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
-import { lanceView, showsLancePanel } from "@/lib/lance";
+import { freeBidView, lanceView, showsFreeBidPanel, showsLancePanel } from "@/lib/lance";
+import { useBid } from "@/lib/useBid";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
 import { sendFinalizeDraw } from "@/lib/finalize-draw";
@@ -305,6 +307,35 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const lanceOpen = !demoActive && !!group.devnetPool && showsLancePanel(lance.status);
   const [bidOpen, setBidOpen] = useState(false);
   const [prepayOpen, setPrepayOpen] = useState(false);
+
+  // ─── Lance livre (ADR 0012 Fase 3) ───────────────────────────────────
+  // The sealed free bid adds a TIME dimension: envelopes are sealed while
+  // the cycle runs and opened in the window right after its deadline. Only
+  // read the envelope when the member could actually have one.
+  const bidRes = useBid(
+    group.devnetPool,
+    lp?.currentCycle ?? null,
+    connectedWallet,
+    !demoActive && !!myMember && isSorteioPool(lp),
+  );
+  const freeBid = freeBidView({
+    isSorteio: isSorteioPool(lp),
+    poolActive: !!lp && lp.status === "active",
+    currentCycle: lp?.currentCycle ?? 0,
+    cyclesTotal: lp?.cyclesTotal ?? 0,
+    currentBidDepth: lp?.currentBidDepth ?? 0,
+    myDrawnCycle: myDrawnCycle,
+    contributionsPaid: myMember?.contributionsPaid ?? null,
+    defaulted: myMember?.defaulted ?? false,
+    paidOut: myMember?.paidOut ?? false,
+    nowSec: Math.floor(Date.now() / 1000),
+    nextCycleAt: Number(lp?.nextCycleAt ?? 0),
+    graceSecs: Number(GRACE_PERIOD_SECS),
+    hasEnvelope: bidRes.hasEnvelope,
+    envelopeRevealed: bidRes.revealed,
+  });
+  const freeBidOpen = !demoActive && !!group.devnetPool && showsFreeBidPanel(freeBid.status);
+  const [freeBidModalOpen, setFreeBidModalOpen] = useState(false);
 
   const [drawSubmitting, setDrawSubmitting] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
@@ -571,6 +602,47 @@ function GroupCard({ group }: { group: CatalogGroup }) {
           </div>
         )}
 
+        {/* Lance livre (ADR 0012 Fase 3): the sealed free bid. Distinct from
+            the embedded-bid panel above because it has a CLOCK — you seal
+            while the cycle runs and open in the window right after its
+            deadline — and because it's paid with money you have, not with
+            installments you already prepaid. */}
+        {freeBidOpen && (
+          <div className="mb-3 rounded-xl border border-[#00C8FF]/30 bg-[#00C8FF]/10 p-3">
+            <p className="text-xs font-black text-[#00C8FF]">
+              🔒 {t("groupsV2.card.freeBid.title")}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400">
+              {freeBid.status === "canSeal"
+                ? t("groupsV2.card.freeBid.canSeal", {
+                    c: freeBid.targetCycle + 1,
+                    h: Math.max(1, Math.round(freeBid.secondsLeft / 3600)),
+                  })
+                : freeBid.status === "sealed"
+                  ? t("groupsV2.card.freeBid.sealed", {
+                      h: Math.max(1, Math.round(freeBid.secondsLeft / 3600)),
+                    })
+                  : t("groupsV2.card.freeBid.canReveal", {
+                      h: Math.max(1, Math.round(freeBid.secondsLeft / 3600)),
+                    })}
+            </p>
+            {/* `sealed` deliberately has NO button: the envelope can't be
+                re-sealed (the program rejects a second commit on `init`),
+                so offering an action here would only produce a revert. */}
+            {freeBid.status !== "sealed" && (
+              <button
+                type="button"
+                onClick={() => setFreeBidModalOpen(true)}
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#00C8FF] to-[#9945FF] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-110"
+              >
+                {freeBid.status === "canSeal"
+                  ? t("groupsV2.card.freeBid.ctaSeal")
+                  : t("groupsV2.card.freeBid.ctaOpen")}
+              </button>
+            )}
+          </div>
+        )}
+
         {claimReadyChain || claimReadyDemo ? (
           <button
             type="button"
@@ -654,6 +726,28 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             // The swap lives in the DrawResult, so THAT's the read that
             // has to refresh — otherwise the card keeps showing the old
             // drawn cycle and the Receber gate stays closed.
+            void drawRes.refresh();
+            void live.refresh();
+            void membersRes.refresh();
+          }}
+        />
+      )}
+      {group.devnetPool && freeBidModalOpen && lp && myMember && (
+        <FreeBidModal
+          group={catalogGroupToActiveGroup(group)}
+          open={freeBidModalOpen}
+          onClose={() => setFreeBidModalOpen(false)}
+          view={freeBid}
+          seedKey={group.devnetPool}
+          installmentAmount={lp.installmentAmount}
+          cyclesTotal={lp.cyclesTotal}
+          contributionsPaid={myMember.contributionsPaid}
+          slotIndex={myMember.slotIndex}
+          bid={bidRes.bid}
+          onSuccess={() => {
+            // The envelope, the swapped order and the member's installment
+            // count all move on a reveal — refresh every one of them.
+            void bidRes.refresh();
             void drawRes.refresh();
             void live.refresh();
             void membersRes.refresh();

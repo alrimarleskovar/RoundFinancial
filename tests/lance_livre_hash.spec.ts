@@ -22,7 +22,15 @@ import { expect } from "chai";
 import { createHash } from "node:crypto";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
-import { freeBidAmount, freeBidCommitHash, randomBidSalt } from "@roundfi/sdk";
+import {
+  BID_ENVELOPE_DOMAIN,
+  bidEnvelopeMessage,
+  freeBidAmount,
+  freeBidCommitHash,
+  randomBidSalt,
+  recoverBidParcels,
+  saltFromSignature,
+} from "@roundfi/sdk";
 
 const BIDDER = new PublicKey("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
 
@@ -123,5 +131,80 @@ describe("freeBidAmount — whole installments only", () => {
     for (let k = 1; k <= 12; k++) {
       expect(freeBidAmount(k, INSTALLMENT) % INSTALLMENT).to.equal(0n);
     }
+  });
+});
+
+describe("bidEnvelopeMessage — the recovery contract", () => {
+  const POOL = new PublicKey("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
+
+  it("binds the message to (pool, cycle) so one signature can't unlock another auction", () => {
+    // Re-using a signature across cycles would let anyone who saw one
+    // signed message derive every future envelope's salt for that wallet.
+    expect(bidEnvelopeMessage(POOL, 0)).to.not.equal(bidEnvelopeMessage(POOL, 1));
+    const other = new PublicKey("Hpo174C6JTCfiZ6r8VYVQdKxo3LBHaJmMbkgrEkxe9R2");
+    expect(bidEnvelopeMessage(POOL, 0)).to.not.equal(bidEnvelopeMessage(other, 0));
+  });
+
+  it("is stable for the same (pool, cycle) — that stability IS the recovery", () => {
+    expect(bidEnvelopeMessage(POOL, 3)).to.equal(bidEnvelopeMessage(POOL, 3));
+  });
+
+  it("carries the domain tag and says the signature costs nothing", () => {
+    const msg = bidEnvelopeMessage(POOL, 2);
+    expect(msg).to.contain(BID_ENVELOPE_DOMAIN);
+    // A signature request with no explanation reads like a phishing prompt.
+    expect(msg.toLowerCase()).to.contain("nao e uma transacao");
+  });
+});
+
+describe("saltFromSignature — deterministic secret", () => {
+  const sig = new Uint8Array(64).fill(7);
+
+  it("is a pure function of the signature bytes", () => {
+    expect(saltFromSignature(sig)).to.equal(saltFromSignature(new Uint8Array(64).fill(7)));
+  });
+
+  it("changes completely when the signature changes", () => {
+    const other = new Uint8Array(64).fill(7);
+    other[63] = 8;
+    expect(saltFromSignature(sig)).to.not.equal(saltFromSignature(other));
+  });
+
+  it("never yields 0 — the program rejects that salt outright", () => {
+    for (let i = 0; i < 32; i++) {
+      const s = new Uint8Array(64).fill(i);
+      expect(saltFromSignature(s)).to.not.equal(0n);
+    }
+  });
+});
+
+describe("recoverBidParcels — reopening an envelope without local state", () => {
+  const BIDDER2 = new PublicKey("8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2JsaR9jTQQjw");
+  const INSTALLMENT = 2_000_000n;
+  const SALT = 0xdead_beef_cafe_1234n;
+
+  it("finds the sealed parcel count by scanning candidates", () => {
+    // This is what makes localStorage a CACHE and not a dependency: with
+    // the salt (re-derived from the wallet) the amount is recoverable from
+    // the on-chain hash alone.
+    const hash = freeBidCommitHash(3n * INSTALLMENT, SALT, BIDDER2);
+    expect(recoverBidParcels(hash, SALT, BIDDER2, INSTALLMENT, 10)).to.equal(3);
+  });
+
+  it("finds a 1-installment bid (the lower edge)", () => {
+    const hash = freeBidCommitHash(INSTALLMENT, SALT, BIDDER2);
+    expect(recoverBidParcels(hash, SALT, BIDDER2, INSTALLMENT, 10)).to.equal(1);
+  });
+
+  it("returns null with the WRONG salt — a different wallet can't reopen it", () => {
+    const hash = freeBidCommitHash(2n * INSTALLMENT, SALT, BIDDER2);
+    expect(recoverBidParcels(hash, SALT + 1n, BIDDER2, INSTALLMENT, 10)).to.equal(null);
+  });
+
+  it("returns null when the true count is beyond the scan bound", () => {
+    // The caller passes the pool's remaining installments; a bid deeper
+    // than that can't exist, so null here means "wrong salt", not "give up".
+    const hash = freeBidCommitHash(9n * INSTALLMENT, SALT, BIDDER2);
+    expect(recoverBidParcels(hash, SALT, BIDDER2, INSTALLMENT, 4)).to.equal(null);
   });
 });
