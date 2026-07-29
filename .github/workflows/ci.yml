@@ -246,6 +246,14 @@ jobs:
         # the on-chain half of the same matrix is litesvm_lance_embutido.
         run: pnpm test:lance-ui
 
+      - name: Sealed free-bid commit hash TS↔Rust parity (11 tests)
+        # ADR 0012 Fase 3. Pins sha256(amount_le ‖ salt_le ‖ bidder) against
+        # the pre-image place_bid_reveal.rs rebuilds on chain. Drift makes a
+        # sealed envelope PERMANENTLY unopenable (BidCommitMismatch) — the
+        # bidder loses the auction with no recourse and no way to notice
+        # before the reveal window. Pure, sub-second.
+        run: pnpm test:lance-hash
+
       - name: LifecycleEvent canonical-types contract (2 tests)
         run: pnpm test:events
 

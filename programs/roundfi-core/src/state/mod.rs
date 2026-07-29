@@ -1,9 +1,11 @@
+pub mod bid;
 pub mod config;
 pub mod draw;
 pub mod listing;
 pub mod member;
 pub mod pool;
 
+pub use bid::*;
 pub use config::*;
 pub use draw::*;
 pub use listing::*;

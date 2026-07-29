@@ -231,4 +231,27 @@ pub enum RoundfiError {
     /// does not STRICTLY beat the best bid already registered this cycle.
     #[msg("Embedded bid too shallow — prepay more installments than the current best bid to take this cycle")]
     EmbeddedBidTooShallow,
+
+    // ─── ADR 0012 Phase 3 — lance livre (sealed free bid) ─────────────
+    // Appended at the END of the enum (codes are positional).
+    /// A sealed bid may only be committed while bidding is OPEN
+    /// (`clock < pool.next_cycle_at`) and only revealed after it closes
+    /// (`next_cycle_at <= clock < next_cycle_at + GRACE`). Commits and
+    /// reveals are temporally disjoint — that separation IS the seal.
+    #[msg("Bid window closed — commits happen before the cycle deadline, reveals in the window right after it")]
+    BidWindowClosed,
+    /// `sha256(amount_le || salt_le || bidder)` did not reproduce the
+    /// stored commit hash: wrong amount, wrong salt, or a bid being
+    /// revealed against someone else's envelope.
+    #[msg("Bid reveal does not match the committed hash")]
+    BidCommitMismatch,
+    /// The sealed envelope for this (pool, cycle, bidder) was already
+    /// opened — one reveal per commit.
+    #[msg("Bid already revealed")]
+    BidAlreadyRevealed,
+    /// A free bid buys WHOLE installments: `amount` must be an exact
+    /// multiple of `pool.installment_amount` (≥ 1×). Exactness is what
+    /// keeps the bid free of dust, refunds and a settlement step.
+    #[msg("Bid amount must be a whole number of installments (exact multiple of the installment amount)")]
+    BidAmountNotMultiple,
 }

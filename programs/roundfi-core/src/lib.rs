@@ -125,6 +125,31 @@ pub mod roundfi_core {
         instructions::place_embedded_bid::handler(ctx)
     }
 
+    /// Lance livre, 1/2 (ADR 0012 Fase 3). Seals a bid amount behind
+    /// `sha256(amount || salt || bidder)` while bidding is open, so a
+    /// later bidder can't read the book and outbid it by exactly one
+    /// installment. No funds move. See `instructions::place_bid_commit`.
+    pub fn place_bid_commit(
+        ctx: Context<PlaceBidCommit>,
+        args: PlaceBidCommitArgs,
+    ) -> Result<()> {
+        instructions::place_bid_commit::handler(ctx, args)
+    }
+
+    /// Lance livre, 2/2 (ADR 0012 Fase 3). Opens the envelope, pays the
+    /// bid as K whole installments through the normal `split_installment`
+    /// partition, and adjudicates it with Fase 2's rule — atomically. A
+    /// losing bid REVERTS, so it costs only the fee; a winning one has
+    /// already become the bidder's own prepaid installments, so there is
+    /// no vault, no refund and no settlement step. See
+    /// `instructions::place_bid_reveal`.
+    pub fn place_bid_reveal(
+        ctx: Context<PlaceBidReveal>,
+        args: PlaceBidRevealArgs,
+    ) -> Result<()> {
+        instructions::place_bid_reveal::handler(ctx, args)
+    }
+
     /// Permissionless, single-shot payout-order draw for a full sorteio
     /// pool (ADR pool_v2). Mints the DrawResult PDA and re-anchors the
     /// cycle-0 window. See `instructions::finalize_draw`.

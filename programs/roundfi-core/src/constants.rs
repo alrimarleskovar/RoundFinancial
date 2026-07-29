@@ -35,6 +35,10 @@ pub const SEED_POSITION_ASSET: &[u8] = b"position-asset";
 /// NOT b"draw" — that stem could be confused with SEED_DRAW_BPS's
 /// seed-draw retention concept; "draw-result" is unambiguous.
 pub const SEED_DRAW_RESULT: &[u8] = b"draw-result";
+/// Per-(pool, cycle, bidder) sealed free bid (ADR 0012 Fase 3 — lance
+/// livre). One PDA per bidder per cycle, so a second commit for the same
+/// cycle collides on `init` instead of overwriting a sealed envelope.
+pub const SEED_BID: &[u8] = b"bid";
 
 // ─── Step 4c: timing & defaults ─────────────────────────────────────────
 /// Grace window after `pool.next_cycle_at` before `settle_default` is

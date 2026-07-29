@@ -25,6 +25,8 @@ export const SEED = {
   // Per-pool payout-order draw (sorteio policy, ADR pool_v2). Minted
   // once by finalize_draw when a sorteio pool fills.
   drawResult: Buffer.from("draw-result"),
+  // Per-(pool, cycle, bidder) sealed free bid (ADR 0012 Fase 3).
+  bid: Buffer.from("bid"),
   reputation: Buffer.from("reputation"),
   reputationConfig: Buffer.from("rep-config"),
   attestation: Buffer.from("attestation"),
@@ -128,6 +130,24 @@ export function positionAssetPda(
 
 export function drawResultPda(coreProgram: PublicKey, pool: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([SEED.drawResult, pool.toBuffer()], coreProgram);
+}
+
+/**
+ * Sealed free-bid envelope (ADR 0012 Fase 3). One per (pool, cycle,
+ * bidder) — the cycle is IN the seeds, so a commit can never be replayed
+ * into another cycle, and a second commit for the same cycle collides on
+ * `init` instead of resealing after a peek.
+ */
+export function bidPda(
+  coreProgram: PublicKey,
+  pool: PublicKey,
+  cycle: number,
+  bidder: PublicKey,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED.bid, pool.toBuffer(), u8le(cycle), bidder.toBuffer()],
+    coreProgram,
+  );
 }
 
 export function listingPda(
