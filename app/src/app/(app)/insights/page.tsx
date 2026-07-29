@@ -151,7 +151,7 @@ const REC_META: Record<string, { icon: string; href: string }> = {
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <section
-      className={`rounded-[1.75rem] border border-white/10 bg-[#0B111A]/80 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14F195]/25 hover:shadow-[0_28px_90px_rgba(0,0,0,0.4),0_0_44px_rgba(20,241,149,0.09)] ${className}`}
+      className={`rounded-2xl border border-white/[0.08] bg-[#0B111A]/80 shadow-[0_12px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all duration-300 hover:border-[#14F195]/25 lg:rounded-[1.75rem] lg:shadow-[0_24px_80px_rgba(0,0,0,0.35)] lg:hover:-translate-y-0.5 lg:hover:shadow-[0_28px_90px_rgba(0,0,0,0.4),0_0_44px_rgba(20,241,149,0.09)] ${className}`}
     >
       {children}
     </section>
@@ -161,7 +161,7 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
 function MonoTitle({ children, color = "#14F195" }: { children: React.ReactNode; color?: string }) {
   return (
     <div
-      className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em]"
+      className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] lg:text-[11px] lg:tracking-[0.22em]"
       style={{ color }}
     >
       <span
@@ -170,6 +170,34 @@ function MonoTitle({ children, color = "#14F195" }: { children: React.ReactNode;
       />
       {children}
     </div>
+  );
+}
+
+function MobileInsightDisclosure({
+  title,
+  summary,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  summary: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group rounded-2xl border border-white/[0.07] bg-white/[0.025]"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between p-3">
+        <div>
+          <p className="text-[13px] font-semibold text-white">{title}</p>
+          <p className="mt-1 text-[10px] text-gray-500">{summary}</p>
+        </div>
+        <span className="text-lg text-[#14F195] transition-transform group-open:rotate-45">+</span>
+      </summary>
+      <div className="space-y-2 border-t border-white/[0.06] p-2">{children}</div>
+    </details>
   );
 }
 
@@ -189,7 +217,7 @@ function ScoreHero() {
   const percentile = 72; // static — no population data on devnet yet
 
   return (
-    <Card className="group relative overflow-hidden p-7 md:p-8">
+    <Card className="group relative overflow-hidden p-3.5 lg:p-8">
       {/* ambient glows */}
       <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#14F195]/10 blur-[80px]" />
       <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-[#9945FF]/10 blur-[80px]" />
@@ -207,11 +235,11 @@ function ScoreHero() {
         <Icons.info size={18} stroke="currentColor" sw={1.8} />
       </button>
 
-      <div className="relative grid items-center gap-8 md:grid-cols-[auto_1fr]">
+      <div className="relative grid grid-cols-[auto_1fr] items-center gap-3 lg:gap-8">
         {/* left — gradient gauge ring + score */}
-        <div className="flex items-center gap-7">
+        <div className="flex items-center gap-2.5 lg:gap-7">
           <div
-            className="relative h-[132px] w-[132px] shrink-0"
+            className="relative h-[72px] w-[72px] shrink-0 lg:h-[132px] lg:w-[132px]"
             style={{ filter: "drop-shadow(0 0 22px rgba(20,241,149,0.16))" }}
           >
             <svg viewBox="0 0 120 120" className="h-full w-full">
@@ -262,35 +290,35 @@ function ScoreHero() {
           </div>
           <div>
             <div
-              className={`text-[5.5rem] font-black leading-[0.85] tracking-[-0.07em] text-white ${MONO}`}
+              className={`text-[2.35rem] font-black leading-[0.85] tracking-[-0.07em] text-white lg:text-[5.5rem] ${MONO}`}
             >
               {score}
             </div>
-            <div className="mt-2 text-2xl font-semibold text-[#14F195]">
+            <div className="mt-1 text-[10px] font-semibold text-[#14F195] lg:mt-2 lg:text-2xl">
               {t("insightsv2.hero.points")}
             </div>
           </div>
         </div>
 
         {/* right — level + progress */}
-        <div className="border-white/10 md:border-l md:pl-10">
-          <div className="text-sm font-black uppercase tracking-[0.18em] text-[#14F195]">
+        <div className="border-white/10 lg:border-l lg:pl-10">
+          <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#14F195] lg:text-sm lg:tracking-[0.18em]">
             {t("insightsv2.hero.level", { n: tier.level, name: levelName })}
           </div>
-          <div className="mt-3 text-base text-gray-300">
+          <div className="mt-1 text-[9px] text-gray-300 lg:mt-3 lg:text-base">
             {toNext > 0 ? t("insightsv2.hero.toNext", { n: toNext }) : t("insightsv2.hero.atMax")}
           </div>
           {toNext > 0 && (
-            <div className="mt-1 text-xl font-bold text-[#9945FF]">{nextLevelName}</div>
+            <div className="mt-1 text-xs font-bold text-[#9945FF] lg:text-xl">{nextLevelName}</div>
           )}
-          <div className="mt-7 flex items-center gap-4">
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="mt-2 flex items-center gap-2 lg:mt-7 lg:gap-4">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.06] lg:h-2.5">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]"
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span className={`shrink-0 text-sm text-gray-300 ${MONO}`}>
+            <span className={`shrink-0 text-[8px] text-gray-300 lg:text-sm ${MONO}`}>
               {score} / {nextMin}
             </span>
           </div>
@@ -298,7 +326,7 @@ function ScoreHero() {
       </div>
 
       {/* bottom — percentile, centered across the card */}
-      <div className="relative mt-7 flex items-center justify-center gap-3">
+      <div className="relative mt-7 hidden items-center justify-center gap-3 lg:flex">
         <span className="text-sm text-gray-400">{t("insightsv2.hero.betterThan")}</span>
         <span className="inline-flex items-center gap-2 rounded-full border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-1.5 text-sm font-bold text-[#14F195]">
           <Icons.people size={15} stroke="#14F195" sw={2} />
@@ -402,14 +430,14 @@ function RecommendationCards() {
   if (cards.length === 0) return null;
 
   return (
-    <Card className="p-4 md:p-5">
+    <Card className="p-3 lg:p-5">
       <MonoTitle>{t("insightsv2.next.title")}</MonoTitle>
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
+      <div className="mt-3 grid gap-2 lg:mt-5 lg:grid-cols-3 lg:gap-4">
         {cards.map((card) => (
           <Link
             key={card.key}
             href={card.href}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25"
+            className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-all duration-300 hover:border-white/25 lg:rounded-2xl lg:p-5 lg:hover:-translate-y-0.5"
           >
             <div
               className="absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-20 blur-3xl"
@@ -418,24 +446,24 @@ function RecommendationCards() {
             {/* icon + points share the top row (per the print) */}
             <div className="relative flex items-center gap-3">
               <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full lg:h-11 lg:w-11"
                 style={{ backgroundColor: `${card.color}1f`, border: `1px solid ${card.color}33` }}
               >
                 <Glyph name={card.icon} color={card.color} size={22} sw={1.9} />
               </div>
               <div
-                className={`text-3xl font-black tracking-[-0.05em] ${MONO}`}
+                className={`text-xl font-black tracking-[-0.05em] lg:text-3xl ${MONO}`}
                 style={{ color: card.color }}
               >
                 {t("insightsv2.pts", { n: card.pts })}
               </div>
             </div>
             {/* min-height keeps the CTAs aligned across the three cards */}
-            <div className="relative mt-4 min-h-[44px] text-base font-semibold leading-snug text-white">
+            <div className="relative mt-2 text-[12px] font-semibold leading-snug text-white lg:mt-4 lg:min-h-[44px] lg:text-base">
               {card.label}
             </div>
             <div
-              className="relative mt-5 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-black text-[#06110D]"
+              className="relative mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-[10px] font-black text-[#06110D] lg:mt-5 lg:rounded-xl lg:px-4 lg:py-3 lg:text-sm"
               style={{
                 background: `linear-gradient(135deg, ${card.color}, ${card.color === TONE_HEX.g ? "#00C8FF" : card.color})`,
               }}
@@ -463,7 +491,7 @@ function FactorRow({ factor, statusKey }: { factor: BehaviorFactor; statusKey?: 
   const status = t(`insightsv2.status.${statusKey ?? meta.statusKey}`);
   return (
     <div
-      className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 transition-all duration-200"
+      className="rounded-xl border border-white/10 bg-white/[0.025] p-3 transition-all duration-200 lg:rounded-2xl lg:px-4 lg:py-4"
       {...liftHover(color, "rgba(255,255,255,0.1)")}
     >
       {/* header — the whole row toggles the detail */}
@@ -471,19 +499,21 @@ function FactorRow({ factor, statusKey }: { factor: BehaviorFactor; statusKey?: 
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-4 text-left"
+        className="flex w-full items-center gap-2.5 text-left lg:gap-4"
       >
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl lg:h-12 lg:w-12 lg:rounded-2xl"
           style={{ backgroundColor: `${color}1c`, border: `1px solid ${color}3a` }}
         >
           <Glyph name={meta.icon} color={color} size={22} sw={2} />
         </div>
-        <div className="min-w-[150px] flex-1">
-          <div className="text-base font-bold text-white">{label}</div>
-          <div className="text-sm text-gray-400">{t(`insightsv2.factor.${factor.key}.desc`)}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12px] font-bold text-white lg:text-base">{label}</div>
+          <div className="truncate text-[9px] text-gray-400 lg:text-sm">
+            {t(`insightsv2.factor.${factor.key}.desc`)}
+          </div>
         </div>
-        <div className="hidden h-2 flex-[1.25] overflow-hidden rounded-full bg-white/5 md:block">
+        <div className="hidden h-2 flex-[1.25] overflow-hidden rounded-full bg-white/5 lg:block">
           <div
             className="h-full rounded-full"
             style={{
@@ -494,12 +524,12 @@ function FactorRow({ factor, statusKey }: { factor: BehaviorFactor; statusKey?: 
           />
         </div>
         <div
-          className={`w-14 text-right text-3xl font-black tracking-[-0.06em] ${MONO}`}
+          className={`w-10 text-right text-xl font-black tracking-[-0.06em] lg:w-14 lg:text-3xl ${MONO}`}
           style={{ color }}
         >
           {factor.value}
         </div>
-        <div className="hidden w-28 text-sm font-semibold md:block" style={{ color }}>
+        <div className="hidden w-28 text-sm font-semibold lg:block" style={{ color }}>
           {status}
         </div>
         <span
@@ -519,7 +549,7 @@ function FactorRow({ factor, statusKey }: { factor: BehaviorFactor; statusKey?: 
         <div className="overflow-hidden">
           <div className="border-t border-white/10 pt-4">
             {/* on small screens the status/value hide in the header — show them here */}
-            <div className="mb-3 flex items-center gap-2 md:hidden">
+            <div className="mb-3 flex items-center gap-2 lg:hidden">
               <span className="text-sm font-semibold" style={{ color }}>
                 {status}
               </span>
@@ -557,12 +587,12 @@ function FactorsPanel({ insights }: { insights: ScoreInsights }) {
   const factors = demoActive ? FACTORS : insights.factors;
   const loading = !demoActive && insights.status === "loading";
   return (
-    <Card className="p-4 md:p-5">
+    <Card className="p-3 lg:p-5">
       <div className="flex items-center gap-2">
         <MonoTitle>{t("insightsv2.factors.title")}</MonoTitle>
         <Icons.info size={14} stroke="#14F195" sw={1.8} />
       </div>
-      <div className="mt-5 grid gap-3">
+      <div className="mt-3 grid gap-2 lg:mt-5 lg:gap-3">
         {factors.length > 0 ? (
           factors.map((factor) => (
             <FactorRow
@@ -603,22 +633,22 @@ function DemoScoreChart() {
   const dotTop = lastPoint ? (lastPoint[1] / 220) * 100 : 0;
 
   return (
-    <Card className="p-5 md:p-7">
+    <Card className="p-3 lg:p-7">
       <div className="flex items-center justify-between gap-4">
         <MonoTitle>{t("insightsv2.chart.title")}</MonoTitle>
-        <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+        <div className="flex rounded-lg border border-white/10 bg-white/[0.03] p-0.5 lg:rounded-2xl lg:p-1">
           {SCORE_RANGES.map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${range === r ? "bg-[#14F195] text-[#04130D]" : "text-gray-400 hover:text-white"}`}
+              className={`rounded-md px-2.5 py-1.5 text-[9px] font-bold transition-all lg:rounded-xl lg:px-4 lg:py-2 lg:text-xs ${range === r ? "bg-[#14F195] text-[#04130D]" : "text-gray-400 hover:text-white"}`}
             >
               {r}
             </button>
           ))}
         </div>
       </div>
-      <div className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]">
+      <div className="relative mt-3 h-[210px] overflow-hidden rounded-xl border border-white/[0.06] bg-[#070B11] lg:mt-7 lg:h-[340px] lg:rounded-2xl">
         {/* tier guides — behind the curve, spanning the full box width */}
         <div className="pointer-events-none absolute inset-x-0 top-[20%] border-t border-dashed border-[#9945FF]/45" />
         <div className="pointer-events-none absolute inset-x-0 top-[48%] border-t border-dashed border-[#14F195]/40" />
@@ -691,7 +721,7 @@ function DemoScoreChart() {
         {/* month axis — aligned to the full-bleed curve. Hidden without a curve
             so an empty real-mode plot doesn't show months implying data. */}
         {hasCurve && (
-          <div className="absolute inset-x-2 bottom-3 flex justify-between text-xs text-gray-500">
+          <div className="absolute inset-x-2 bottom-2 flex justify-between text-[9px] text-gray-500 lg:bottom-3 lg:text-xs">
             {months.map((m) => (
               <span key={m}>{m}</span>
             ))}
@@ -794,7 +824,7 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
   const fmtDelta = (d: number) => (d > 0 ? `+${d}` : `${d}`);
 
   return (
-    <Card className="p-5 md:p-7">
+    <Card className="p-3 lg:p-7">
       <div className="flex items-center justify-between gap-4">
         <MonoTitle>{t("insightsv2.chart.title")}</MonoTitle>
         {hasCurve && (
@@ -809,7 +839,7 @@ function RealScoreChart({ insights }: { insights: ScoreInsights }) {
         )}
       </div>
       <div
-        className="relative mt-7 h-[340px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#070B11]"
+        className="relative mt-3 h-[210px] overflow-hidden rounded-xl border border-white/[0.06] bg-[#070B11] lg:mt-7 lg:h-[340px] lg:rounded-2xl"
         onMouseLeave={() => setActive(null)}
       >
         {hasCurve && geom ? (
@@ -1048,28 +1078,99 @@ function ScoreChart({ insights }: { insights: ScoreInsights }) {
   return demoActive ? <DemoScoreChart /> : <RealScoreChart insights={insights} />;
 }
 
+const MOBILE_MISSIONS = [
+  { label: "Pague 2 parcelas no prazo", reward: "+20 pts", progress: "0/2", tone: "#14F195" },
+  { label: "Complete um ciclo", reward: "+50 pts", progress: "0/1", tone: "#9945FF" },
+  { label: "Entre em um novo grupo", reward: "+10 pts", progress: "0/1", tone: "#00C8FF" },
+];
+
+function MobileMissions() {
+  return (
+    <MobileInsightDisclosure title="Missões" summary="Objetivos simples para evoluir">
+      <div className="space-y-2">
+        {MOBILE_MISSIONS.map((mission) => (
+          <div
+            key={mission.label}
+            className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3"
+          >
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+              style={{ color: mission.tone, backgroundColor: `${mission.tone}14` }}
+            >
+              <Glyph name="target" color="currentColor" size={15} sw={1.9} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-white">{mission.label}</p>
+              <p className="mt-0.5 text-[9px] text-gray-500">{mission.progress}</p>
+            </div>
+            <span className={`text-[10px] font-black ${MONO}`} style={{ color: mission.tone }}>
+              {mission.reward}
+            </span>
+          </div>
+        ))}
+      </div>
+    </MobileInsightDisclosure>
+  );
+}
+
+function MobileScoreExplanation() {
+  return (
+    <MobileInsightDisclosure
+      title="Como seu score funciona"
+      summary="Critérios, pesos e atualização do Passport"
+    >
+      <div className="space-y-2 px-1 pb-1 text-[10px] leading-relaxed text-gray-400">
+        <p>Pagamentos pontuais e ciclos concluídos aumentam sua reputação.</p>
+        <p>Atrasos e inadimplência reduzem o score e podem limitar o acesso a novos grupos.</p>
+        <p>O histórico é atualizado com os eventos registrados no seu Passport on-chain.</p>
+      </div>
+    </MobileInsightDisclosure>
+  );
+}
+
 export default function InsightsPage() {
   const { t } = useI18n();
   // Real on-chain factors + score curve, read once and shared by both panels
   // (demo mode ignores it and renders the fixtures).
   const insights = useScoreInsights();
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 p-3 font-sans text-white animate-in fade-in duration-700 lg:gap-6 lg:p-8">
       <header className="flex items-end justify-between gap-6">
         <div>
           <MonoTitle>{t("insightsv2.badge")}</MonoTitle>
-          <h1 className="mt-4 text-4xl font-black tracking-[-0.05em] text-white [font-family:var(--font-syne),sans-serif] md:text-5xl">
-            {t("insights.title")}
+          <h1 className="mt-1.5 text-lg font-black tracking-[-0.04em] text-white [font-family:var(--font-syne),sans-serif] lg:mt-4 lg:text-5xl lg:tracking-[-0.05em]">
+            <span className="lg:hidden">Insights do seu score</span>
+            <span className="hidden lg:inline">{t("insights.title")}</span>
           </h1>
-          <p className="mt-3 text-base text-gray-400">{t("insights.subtitle")}</p>
+          <p className="mt-3 hidden text-base text-gray-400 lg:block">{t("insights.subtitle")}</p>
         </div>
       </header>
 
-      <main className="flex flex-col gap-6">
+      <main className="flex flex-col gap-3 lg:hidden">
         <ScoreHero />
-        <RecommendationCards />
-        <FactorsPanel insights={insights} />
         <ScoreChart insights={insights} />
+        <MobileInsightDisclosure
+          title="Principais fatores"
+          summary="O que aumentou ou reduziu seu score"
+          defaultOpen
+        >
+          <FactorsPanel insights={insights} />
+        </MobileInsightDisclosure>
+        <MobileInsightDisclosure
+          title="Ações recomendadas"
+          summary="Prioridades para aumentar seu score"
+        >
+          <RecommendationCards />
+        </MobileInsightDisclosure>
+        <MobileMissions />
+        <MobileScoreExplanation />
+      </main>
+
+      <main className="hidden flex-col gap-6 lg:flex">
+        <ScoreHero />
+        <ScoreChart insights={insights} />
+        <FactorsPanel insights={insights} />
+        <RecommendationCards />
       </main>
     </div>
   );

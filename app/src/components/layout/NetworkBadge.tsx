@@ -10,7 +10,13 @@ import { useTheme } from "@/lib/theme";
 // drifting copies. Caller passes `connected` (it already has the wallet
 // view); the badge reads theme tokens + the i18n label itself.
 
-export function NetworkBadge({ connected }: { connected: boolean }) {
+export function NetworkBadge({
+  connected,
+  compact = false,
+}: {
+  connected: boolean;
+  compact?: boolean;
+}) {
   const { tokens } = useTheme();
   const t = useT();
   const netLabel = connected ? t("top.network.devnet") : t("top.network.offline");
@@ -19,16 +25,16 @@ export function NetworkBadge({ connected }: { connected: boolean }) {
   return (
     <div
       style={{
-        padding: "8px 12px",
-        borderRadius: 10,
+        padding: compact ? "5px 7px" : "8px 12px",
+        borderRadius: compact ? 8 : 10,
         background: tokens.fillSoft,
         border: `1px solid ${connected ? `${tokens.green}33` : tokens.border}`,
         color: connected ? tokens.green : tokens.text2,
-        fontSize: 10,
+        fontSize: compact ? 8 : 10,
         fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
         display: "flex",
         alignItems: "center",
-        gap: 8,
+        gap: compact ? 5 : 8,
         userSelect: "none",
         letterSpacing: "0.12em",
         fontWeight: 600,
@@ -60,7 +66,7 @@ export function NetworkBadge({ connected }: { connected: boolean }) {
           />
         )}
       </span>
-      {netLabel}
+      {compact ? "DEVNET" : netLabel}
     </div>
   );
 }

@@ -22,10 +22,14 @@ export function GroupDetailsModal({
   group,
   open,
   onClose,
+  joined = true,
+  onJoin,
 }: {
   group: CatalogGroup | null;
   open: boolean;
   onClose: () => void;
+  joined?: boolean;
+  onJoin?: () => void;
 }) {
   const { tokens } = useTheme();
   const { fmtMoney } = useI18n();
@@ -172,7 +176,7 @@ export function GroupDetailsModal({
             textTransform: "uppercase",
           }}
         >
-          ◆ {t("groups.card.joined")}
+          ◆ {joined ? t("groups.card.joined") : `${remaining} vagas`}
         </span>
       </div>
 
@@ -323,67 +327,148 @@ export function GroupDetailsModal({
         </div>
       </div>
 
-      {/* Recent ledger activity for this group */}
+      {/* Decision information belongs here, not in the comparison list. */}
       <div
         style={{
           marginTop: 14,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+          }}
+        >
+          <MonoLabel size={9} color={tokens.teal}>
+            Forma de recebimento
+          </MonoLabel>
+          <div style={{ marginTop: 7, fontSize: 12, color: tokens.text, fontWeight: 600 }}>
+            {group.name.toLowerCase().includes("sorteio") ? "Sorteio on-chain" : "Ordem definida"}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 10, color: tokens.muted, lineHeight: 1.5 }}>
+            Cronograma de {group.months} ciclos, com uma parcela por ciclo.
+          </div>
+        </div>
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+          }}
+        >
+          <MonoLabel size={9} color={tokens.purple}>
+            Reputação exigida
+          </MonoLabel>
+          <div style={{ marginTop: 7, fontSize: 12, color: tokens.text, fontWeight: 600 }}>
+            Tier {group.level}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 10, color: tokens.muted, lineHeight: 1.5 }}>
+            {filled} de {total} participantes confirmados.
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 10,
           padding: 14,
           borderRadius: 12,
           background: tokens.fillSoft,
           border: `1px solid ${tokens.border}`,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
         }}
       >
-        <MonoLabel size={9} color={tokens.muted}>
-          {t("groups.details.activity")}
-        </MonoLabel>
-        {ledgerRows.length === 0 ? (
-          <div
-            style={{
-              marginTop: 10,
-              fontSize: 11,
-              color: tokens.muted,
-              lineHeight: 1.5,
-            }}
-          >
-            {t("groups.details.activityEmpty")}
+        <div>
+          <MonoLabel size={9} color={tokens.green}>
+            Como funciona
+          </MonoLabel>
+          <div style={{ marginTop: 5, fontSize: 11, color: tokens.text2, lineHeight: 1.55 }}>
+            Os participantes contribuem a cada ciclo. O prêmio é liberado conforme a forma de
+            recebimento do grupo e o cronograma permanece registrado on-chain.
           </div>
-        ) : (
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-            }}
-          >
-            {ledgerRows.map((row) => (
-              <div
-                key={row.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: 11,
-                  color: tokens.text2,
-                  lineHeight: 1.4,
-                }}
-              >
-                <span>{row.label}</span>
-                <span
+        </div>
+        <div>
+          <MonoLabel size={9} color={tokens.amber}>
+            Regras e riscos
+          </MonoLabel>
+          <div style={{ marginTop: 5, fontSize: 11, color: tokens.text2, lineHeight: 1.55 }}>
+            Pagamentos fora do prazo podem afetar o score e acionar as proteções do escrow. Revise o
+            valor e a duração antes de entrar.
+          </div>
+        </div>
+      </div>
+
+      {/* Recent ledger activity for this group */}
+      {joined && (
+        <div
+          style={{
+            marginTop: 14,
+            padding: 14,
+            borderRadius: 12,
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+          }}
+        >
+          <MonoLabel size={9} color={tokens.muted}>
+            {t("groups.details.activity")}
+          </MonoLabel>
+          {ledgerRows.length === 0 ? (
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 11,
+                color: tokens.muted,
+                lineHeight: 1.5,
+              }}
+            >
+              {t("groups.details.activityEmpty")}
+            </div>
+          ) : (
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              {ledgerRows.map((row) => (
+                <div
+                  key={row.id}
                   style={{
-                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                    color: row.amountBrl >= 0 ? tokens.green : tokens.text,
-                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontSize: 11,
+                    color: tokens.text2,
+                    lineHeight: 1.4,
                   }}
                 >
-                  {row.amountBrl >= 0 ? "+" : ""}
-                  {fmtMoney(row.amountBrl, { noCents: true, signed: true })}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  <span>{row.label}</span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      color: row.amountBrl >= 0 ? tokens.green : tokens.text,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {row.amountBrl >= 0 ? "+" : ""}
+                    {fmtMoney(row.amountBrl, { noCents: true, signed: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Action row */}
       <div style={{ marginTop: 18, display: "flex", gap: 8 }}>
@@ -405,6 +490,26 @@ export function GroupDetailsModal({
         >
           {t("groups.details.close")}
         </button>
+        {!joined && onJoin && (
+          <button
+            type="button"
+            onClick={onJoin}
+            style={{
+              flex: 1.4,
+              padding: 11,
+              borderRadius: 11,
+              background: `linear-gradient(90deg, ${tokens.green}, ${tokens.teal})`,
+              color: "#03130D",
+              border: 0,
+              fontWeight: 800,
+              fontSize: 12,
+              cursor: "pointer",
+              fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+            }}
+          >
+            Entrar neste grupo
+          </button>
+        )}
       </div>
     </Modal>
   );

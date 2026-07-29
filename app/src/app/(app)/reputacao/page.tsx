@@ -168,6 +168,108 @@ function MonoTitle({ children, color = "#14F195" }: { children: ReactNode; color
   );
 }
 
+function MobileDisclosure({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-[13px] font-semibold text-white">{title}</p>
+          <p className="mt-1 text-[10px] text-white/40">{summary}</p>
+        </div>
+        <span className="text-lg text-[#14F195] transition-transform group-open:rotate-45">+</span>
+      </summary>
+      <div className="space-y-3 border-t border-white/[0.06] p-3">{children}</div>
+    </details>
+  );
+}
+
+function MobilePassportSummary() {
+  const { t } = useI18n();
+  const { user } = useSession();
+  const tier = tierForScore(user.score);
+  const current = LEVELS.find((level) => level.lv === user.level) ?? LEVELS[0];
+  const atTop = user.level >= 4;
+  const nextScore = atTop ? user.score : user.nextLevel;
+  const range = Math.max(1, nextScore - tier.min);
+  const progress = atTop
+    ? 100
+    : Math.max(0, Math.min(100, ((user.score - tier.min) / range) * 100));
+  const pointsToNext = Math.max(0, user.nextLevel - user.score);
+
+  return (
+    <Card className="relative overflow-hidden rounded-2xl border-[#14F195]/20 p-4">
+      <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#9945FF]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-[#14F195]/15 blur-3xl" />
+
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#14F195]/25 bg-[#14F195]/10">
+            <Icons.shield size={14} stroke="#14F195" sw={2} />
+          </span>
+          <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#7FFFE0]">
+            SAS Digital Passport
+          </span>
+        </div>
+        <span className="rounded-lg border border-[#00C8FF]/25 bg-[#00C8FF]/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#55DFFF]">
+          Tier {user.level}
+        </span>
+      </div>
+
+      <div className="relative mt-4 flex items-end justify-between gap-3">
+        <div className="flex items-end gap-3">
+          <strong className={`text-[46px] leading-[0.82] tracking-[-0.07em] text-white ${MONO}`}>
+            {user.score}
+          </strong>
+          <div className="pb-0.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#14F195]">
+              {t(levelNameKey(user.level))}
+            </p>
+            <p className="mt-1 text-[8px] text-white/40">Score atual</p>
+          </div>
+        </div>
+        <span className="text-[10px] font-semibold text-[#14F195]">+{user.scoreDelta} pts</span>
+      </div>
+
+      <div className="relative mt-4">
+        <div className="mb-1.5 flex items-center justify-between text-[8px] text-white/45">
+          <span>
+            {atTop ? "Nível máximo alcançado" : `${pointsToNext} pts para o próximo nível`}
+          </span>
+          <span className={MONO}>{atTop ? "100%" : `${Math.round(progress)}%`}</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF]"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="relative mt-4 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#14F195]/10">
+          <Icons.shield size={15} stroke="#14F195" sw={1.9} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[8px] font-black uppercase tracking-[0.13em] text-white/35">
+            Principal benefício atual
+          </p>
+          <p className="mt-1 truncate text-[11px] font-semibold text-white">
+            Colateral de {current.colat}% · Alavancagem de até {current.lev}x
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // Narrative milestones — no clean event source, so kept as i18n fixtures.
 const TIMELINE: Array<{ tKey: string; dKey: string; pts: string; color: string }> = [
   { tKey: "rep.timeline.1.t", dKey: "rep.timeline.1.d", pts: "+48 pts", color: C.green },
@@ -202,7 +304,7 @@ function PassportHero() {
   };
 
   return (
-    <Card className="group relative flex flex-col justify-between gap-6 overflow-hidden p-6 transition-transform duration-500 hover:scale-[1.01] md:p-8">
+    <Card className="group relative flex flex-col justify-between gap-4 overflow-hidden p-4 transition-transform duration-500 hover:scale-[1.01] md:gap-6 md:p-8">
       {/* ambient glows */}
       <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[#00C8FF]/15 blur-[80px]" />
       <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-[#14F195]/10 blur-[90px]" />
@@ -228,7 +330,7 @@ function PassportHero() {
       </div>
 
       {/* score + gauge ring */}
-      <div className="relative z-10 grid items-center gap-6 lg:grid-cols-[1fr_auto]">
+      <div className="relative z-10 grid grid-cols-[1fr_auto] items-center gap-3 md:gap-6">
         <div>
           <div
             className={`text-[11px] font-black uppercase tracking-[0.22em] text-[#14F195] ${MONO}`}
@@ -237,27 +339,29 @@ function PassportHero() {
           </div>
           <div className="mt-2 flex flex-wrap items-end gap-4">
             <div
-              className={`text-[84px] font-black leading-[0.82] tracking-[-0.07em] text-white md:text-[104px] ${MONO}`}
+              className={`text-[48px] font-black leading-[0.82] tracking-[-0.07em] text-white md:text-[104px] ${MONO}`}
             >
               {user.score}
             </div>
-            <div className="mb-3">
-              <div className="text-2xl font-black text-[#14F195]">+{user.scoreDelta}</div>
-              <div className="text-xs text-white/45">{t("rep.sinceLast")}</div>
+            <div className="mb-1 md:mb-3">
+              <div className="text-base font-black text-[#14F195] md:text-2xl">
+                +{user.scoreDelta}
+              </div>
+              <div className="hidden text-xs text-white/45 md:block">{t("rep.sinceLast")}</div>
             </div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="rounded-xl border border-[#00C8FF]/25 bg-[#00C8FF]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#55DFFF]">
+            <span className="rounded-lg border border-[#00C8FF]/25 bg-[#00C8FF]/10 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-[#55DFFF] md:rounded-xl md:px-4 md:py-2 md:text-xs">
               {t("rep.levelN", { n: user.level })}
             </span>
-            <span className="rounded-xl border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#14F195]">
+            <span className="hidden rounded-xl border border-[#14F195]/25 bg-[#14F195]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#14F195] md:inline-flex">
               {t(levelNameKey(user.level))}
             </span>
           </div>
         </div>
 
         <div
-          className="relative mx-auto h-[184px] w-[184px] shrink-0"
+          className="relative mx-auto h-[96px] w-[96px] shrink-0 md:h-[184px] md:w-[184px]"
           style={{ filter: "drop-shadow(0 0 24px rgba(20,241,149,0.16))" }}
         >
           <svg viewBox="0 0 120 120" className="h-full w-full">
@@ -288,8 +392,8 @@ function PassportHero() {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
             <svg
-              width="60"
-              height="60"
+              width="46"
+              height="46"
               viewBox="0 0 24 24"
               fill="none"
               stroke="#14F195"
@@ -330,7 +434,7 @@ function PassportHero() {
       </div>
 
       {/* identity row */}
-      <div className="relative z-10 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
+      <div className="relative z-10 hidden items-center justify-between gap-4 border-t border-white/[0.08] pt-5 md:flex">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#14F195]/30 to-[#9945FF]/30 text-sm font-black text-white ring-1 ring-white/15">
             {user.name
@@ -827,20 +931,20 @@ export default function ReputacaoPage() {
   // share a single poll. Empty for a fresh wallet (honest empty-state).
   const positions = useMyDevnetPositions();
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 font-sans text-white animate-in fade-in duration-700 md:p-8">
-      <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 font-sans text-white animate-in fade-in duration-700 md:gap-6 md:p-8">
+      <header className="flex items-start justify-between gap-3">
         <div>
           <MonoTitle>{t("rep.badge")}</MonoTitle>
-          <h1 className="mt-4 text-4xl font-black tracking-[-0.05em] text-white [font-family:var(--font-syne),sans-serif] md:text-5xl">
+          <h1 className="mt-1.5 whitespace-nowrap text-xl font-black tracking-[-0.05em] text-white [font-family:var(--font-syne),sans-serif] md:mt-4 md:text-5xl">
             {t("score.title")}
           </h1>
-          <p className="mt-3 max-w-xl text-base leading-relaxed text-white/60">
+          <p className="mt-3 hidden max-w-xl text-base leading-relaxed text-white/60 md:block">
             {t("rep.subtitle")}
           </p>
         </div>
         <Link
           href="/insights"
-          className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.06] px-5 py-3 text-sm font-bold text-[#14F195] transition-colors hover:bg-[#14F195]/[0.12]"
+          className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-[#14F195]/25 bg-[#14F195]/[0.06] px-3 py-2 text-[10px] font-bold text-[#14F195] transition-colors hover:bg-[#14F195]/[0.12] md:inline-flex md:rounded-2xl md:px-5 md:py-3 md:text-sm"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8 5v14l11-7z" />
@@ -849,7 +953,38 @@ export default function ReputacaoPage() {
         </Link>
       </header>
 
-      <main className="flex flex-col gap-6">
+      <main className="flex flex-col gap-3 lg:hidden">
+        <MobilePassportSummary />
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href="/insights"
+            className="rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-3 py-3 text-center text-[10px] font-black uppercase text-[#03130D]"
+          >
+            Como melhorar
+          </Link>
+          <Link
+            href="/carteira?tab=transactions"
+            className="rounded-xl border border-white/[0.09] bg-white/[0.035] px-3 py-3 text-center text-[10px] font-bold uppercase text-white"
+          >
+            Ver histórico
+          </Link>
+        </div>
+        <MobileDisclosure title="Próximo nível" summary="O que fazer agora para evoluir seu score">
+          <NextLevelPanel />
+          <BenefitsPanel />
+        </MobileDisclosure>
+        <MobileDisclosure title="Níveis e benefícios" summary="Compare os tiers do Passport">
+          <LevelsPanel />
+        </MobileDisclosure>
+        <MobileDisclosure title="Histórico on-chain" summary="Trajetória, eventos e attestations">
+          <TrajectorySummary positions={positions} />
+          <Timeline />
+          <Attestations positions={positions} />
+          <OnChainFooter />
+        </MobileDisclosure>
+      </main>
+
+      <main className="hidden flex-col gap-6 lg:flex">
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <PassportHero />
           <LevelsPanel />

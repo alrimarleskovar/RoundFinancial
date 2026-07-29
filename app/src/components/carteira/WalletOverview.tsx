@@ -31,7 +31,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   const glass = glassSurfaceStyle(palette);
   const { t, currency, fmtMoney, lang } = useI18n();
   const { user, demoActive } = useSession();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   // Real composition = the wallet's free USDC + the collateral it locked across
   // its on-chain cotas (stake + escrow). Demo keeps the fixture breakdown for
@@ -80,17 +80,17 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
   return (
     <div
       style={{
-        marginTop: 20,
+        marginTop: isMobile ? 12 : 20,
         display: "flex",
         flexDirection: "column",
-        gap: 16,
+        gap: isMobile ? 12 : 16,
       }}
     >
       <div
         style={{
           display: "grid",
           gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr",
-          gap: 16,
+          gap: isMobile ? 10 : 16,
         }}
       >
         {/* Balance hero */}
@@ -98,8 +98,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
           className="group transition-transform duration-500 hover:scale-[1.01]"
           style={{
             ...glass,
-            padding: 28,
-            borderRadius: 20,
+            padding: isMobile ? 18 : 28,
+            borderRadius: isMobile ? 16 : 20,
             position: "relative",
             overflow: "hidden",
             display: "flex",
@@ -138,7 +138,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
               <span
                 style={{
                   fontFamily: "var(--font-syne), Syne",
-                  fontSize: isMobile ? WMT.valorPrincipal : 64,
+                  fontSize: isMobile ? 36 : 64,
                   fontWeight: 800,
                   color: tokens.text,
                   letterSpacing: "-0.04em",
@@ -169,27 +169,29 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
                 Hidden when there's nothing to break down (e.g. a 0-balance wallet). */}
             {composition.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <MonoLabel size={isMobile ? WMT.micro : 9}>{t("wallet.comp")}</MonoLabel>
-                  {/* Total in devnet USDC, anchored right at the bar. */}
-                  <span
+                {!isMobile && (
+                  <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: tokens.text2,
-                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      display: "flex",
+                      alignItems: "baseline",
+                      justifyContent: "space-between",
+                      gap: 8,
                     }}
                   >
-                    {usdcTotal} USDC
-                  </span>
-                </div>
+                    <MonoLabel size={isMobile ? WMT.micro : 9}>{t("wallet.comp")}</MonoLabel>
+                    {/* Total in devnet USDC, anchored right at the bar. */}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: tokens.text2,
+                        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      }}
+                    >
+                      {usdcTotal} USDC
+                    </span>
+                  </div>
+                )}
                 <div
                   style={{
                     marginTop: 10,
@@ -284,8 +286,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
           style={{
             ...glass,
             border: "1px solid transparent",
-            padding: 22,
-            borderRadius: 20,
+            padding: isMobile ? 16 : 22,
+            borderRadius: isMobile ? 16 : 20,
             position: "relative",
             overflow: "hidden",
             display: "flex",
@@ -307,7 +309,7 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
           <div
             style={{
               fontFamily: "var(--font-syne), Syne",
-              fontSize: isMobile ? WMT.valorSecundario : 36,
+              fontSize: isMobile ? 24 : 36,
               fontWeight: 800,
               color: tokens.text,
               letterSpacing: "-0.03em",
@@ -327,7 +329,14 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
             {t("wallet.yieldAcc")}
           </div>
 
-          <div style={{ marginTop: 18, flex: 1, display: "flex", minHeight: 96 }}>
+          <div
+            style={{
+              marginTop: 18,
+              flex: 1,
+              display: isMobile ? "none" : "flex",
+              minHeight: 96,
+            }}
+          >
             <svg
               viewBox="0 0 200 60"
               preserveAspectRatio="none"
@@ -377,8 +386,8 @@ export function WalletOverview({ onSeeAllTx }: { onSeeAllTx?: () => void }) {
 
       {/* Preview rows: 2 positions + 3 recent txs */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-        <PositionsList limit={2} />
-        <TransactionsList limit={3} onSeeAll={onSeeAllTx} />
+        <PositionsList limit={isMobile ? 1 : 2} />
+        {!isMobile && <TransactionsList limit={3} onSeeAll={onSeeAllTx} />}
       </div>
 
       <WithdrawYieldModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />

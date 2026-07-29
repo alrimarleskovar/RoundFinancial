@@ -92,7 +92,13 @@ function collect(wallet: PublicKey | null, entries: PoolEntry[]): NftPosition[] 
   return out;
 }
 
-export function useMyDevnetPositions(): NftPosition[] {
+export interface DevnetPoolDirectory {
+  positions: NftPosition[];
+  pools: Record<DevnetPoolKey, UsePoolResult>;
+  joinedPoolKeys: DevnetPoolKey[];
+}
+
+export function useDevnetPoolDirectory(): DevnetPoolDirectory {
   const { publicKey } = useAdapterWallet();
   // 15s (vs the 30s default) so the /home hero countdown + cycle dial reflect
   // a fresh join/contribute within seconds rather than half a minute — the
@@ -138,7 +144,22 @@ export function useMyDevnetPositions(): NftPosition[] {
       pool8: { key: "pool8", pool: pool8, members: members8 },
       pool9: { key: "pool9", pool: pool9, members: members9 },
     };
-    return collect(publicKey, Object.values(entries));
+    const joinedPoolKeys = publicKey
+      ? Object.values(entries)
+          .filter(
+            ({ members }) =>
+              members.status === "ok" &&
+              members.members.some((member) => member.wallet.equals(publicKey)),
+          )
+          .map(({ key }) => key)
+      : [];
+    return {
+      positions: collect(publicKey, Object.values(entries)),
+      pools: Object.fromEntries(
+        Object.values(entries).map(({ key, pool }) => [key, pool]),
+      ) as Record<DevnetPoolKey, UsePoolResult>,
+      joinedPoolKeys,
+    };
   }, [
     publicKey,
     pool1,
@@ -156,4 +177,8 @@ export function useMyDevnetPositions(): NftPosition[] {
     pool9,
     members9,
   ]);
+}
+
+export function useMyDevnetPositions(): NftPosition[] {
+  return useDevnetPoolDirectory().positions;
 }

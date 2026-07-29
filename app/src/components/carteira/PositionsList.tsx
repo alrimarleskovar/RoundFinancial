@@ -26,7 +26,7 @@ export function PositionsList({ limit }: { limit?: number }) {
   const { tokens, palette } = useTheme();
   const glass = glassSurfaceStyle(palette);
   const { t, fmtMoney } = useI18n();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const { acquiredPositions, listings, demoActive } = useSession();
   // The connected wallet's REAL on-chain cotas across every devnet pool —
   // drives the real escape_valve_list path in SellShareModal. Empty unless a
