@@ -117,6 +117,10 @@ pub mod roundfi_core {
     /// Permissionless, single-shot payout-order draw for a full sorteio
     /// pool (ADR pool_v2). Mints the DrawResult PDA and re-anchors the
     /// cycle-0 window. See `instructions::finalize_draw`.
+    pub fn place_embedded_bid(ctx: Context<PlaceEmbeddedBid>) -> Result<()> {
+        instructions::place_embedded_bid::handler(ctx)
+    }
+
     pub fn finalize_draw(ctx: Context<FinalizeDraw>) -> Result<()> {
         instructions::finalize_draw::handler(ctx)
     }

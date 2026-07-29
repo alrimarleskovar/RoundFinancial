@@ -224,6 +224,8 @@ pub fn handler(ctx: Context<CrankPayout>, args: CrankPayoutArgs) -> Result<()> {
         .ok_or(error!(RoundfiError::MathOverflow))?;
 
     // ─── Advance cycle — identical to claim_payout ──────────────────────
+    // ADR 0012 Phase 2: per-cycle embedded-bid tracker resets on advance.
+    pool.current_bid_depth = 0;
     let next_cycle = args.cycle.checked_add(1).ok_or(error!(RoundfiError::MathOverflow))?;
     if next_cycle >= pool.cycles_total {
         pool.status = PoolStatus::Completed as u8;

@@ -85,6 +85,8 @@ pub fn handler(ctx: Context<SkipDefaultedPayout>, args: SkipDefaultedPayoutArgs)
 
     // No token transfer — the defaulter forfeited the pot; it stays in the
     // float. Advance the cycle exactly like claim_payout does.
+    // ADR 0012 Phase 2: per-cycle embedded-bid tracker resets on advance.
+    pool.current_bid_depth = 0;
     let next_cycle = args.cycle.checked_add(1).ok_or(error!(RoundfiError::MathOverflow))?;
     if next_cycle >= pool.cycles_total {
         pool.status = PoolStatus::Completed as u8;
