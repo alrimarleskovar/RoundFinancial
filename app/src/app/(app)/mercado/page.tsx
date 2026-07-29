@@ -29,7 +29,7 @@ import { useSession, type ActiveListing } from "@/lib/session";
 import { useDevnetListings } from "@/lib/useDevnetListings";
 
 // Category filter keys (internal) + their i18n label keys.
-const categories = ["Todas", "PME", "Casa", "Dev", "Pessoal", "Delivery"];
+const categories = ["Todas", "Casa", "PME", "Educação", "Veículos"];
 const CAT_LABEL_KEY: Record<string, string> = {
   Todas: "marketV2.cat.all",
   PME: "marketV2.cat.pme",
@@ -90,9 +90,16 @@ const WHY_SELL = [
 const categoryFor = (group: string) => {
   const name = group.toLowerCase();
   if (name.includes("pme")) return "PME";
-  if (name.includes("casa") || name.includes("reforma")) return "Casa";
-  if (name.includes("dev")) return "Dev";
-  if (name.includes("delivery") || name.includes("enxoval")) return "Delivery";
+  if (name.includes("casa") || name.includes("reforma") || name.includes("enxoval")) return "Casa";
+  if (
+    name.includes("intercâmbio") ||
+    name.includes("educação") ||
+    name.includes("curso") ||
+    name.includes("dev")
+  )
+    return "Educação";
+  if (name.includes("delivery") || name.includes("moto") || name.includes("veículo"))
+    return "Veículos";
   return "Pessoal";
 };
 
@@ -109,6 +116,8 @@ const suggestedDiscFor = (pos: NftPosition) =>
 const CAT_TONE: Record<string, Tone> = {
   PME: "g",
   Casa: "t",
+  Educação: "p",
+  Veículos: "a",
   Dev: "p",
   Delivery: "a",
   Pessoal: "r",
@@ -217,52 +226,107 @@ function OfferRow({
   const economy = offer.face - offer.price;
   const apy = apyFor(offer);
   return (
-    <div className="grid min-w-[600px] grid-cols-[1.6fr_0.55fr_0.75fr_0.8fr_0.65fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055]">
-      <div className="flex min-w-0 items-center gap-3">
-        <CatIcon group={offer.group} />
-        <div className="min-w-0">
-          <div className="truncate text-sm font-extrabold text-white">{offer.group}</div>
-          <div className="mt-0.5 text-xs text-slate-500">
-            {t("marketV2.row.share", { num: offer.num })}
+    <>
+      <article className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 lg:hidden">
+        <div className="flex items-start gap-3">
+          <CatIcon group={offer.group} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-[14px] font-bold leading-tight text-white">{offer.group}</h3>
+                <p className="mt-1 text-[9px] text-slate-500">{categoryFor(offer.group)}</p>
+              </div>
+              <span className="shrink-0 rounded-lg bg-[#14F195]/10 px-2 py-1 text-[10px] font-black text-[#14F195]">
+                -{offer.disc.toFixed(1).replace(".0", "")}%
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-      <div>
-        <div className="text-sm font-bold text-white">{offer.total - offer.month}m</div>
-        <div className="text-xs text-slate-500">
-          {offer.month}/{offer.total}
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-white/[0.03] p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/35">
+              {t("marketV2.compact.buyPrice")}
+            </p>
+            <p className="mt-1 text-[15px] font-semibold text-white">{fmtMoney(offer.price)}</p>
+          </div>
+          <div className="rounded-xl bg-white/[0.03] p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/35">
+              {t("marketV2.compact.remaining")}
+            </p>
+            <p className="mt-1 text-[15px] font-semibold text-white">{fmtMoney(offer.face)}</p>
+          </div>
         </div>
-      </div>
-      <div>
-        <div className="inline-flex rounded-lg bg-[#14F195]/10 px-2.5 py-1 text-sm font-black text-[#14F195]">
-          -{offer.disc.toFixed(1).replace(".0", "")}%
+
+        <div className="mt-3 flex items-center justify-between gap-3 text-[9px] text-slate-500">
+          <span>{offer.total - offer.month} parcelas restantes</span>
+          <span className="inline-flex items-center gap-1 text-[#00C8FF]">
+            <Icons.shield size={11} stroke="currentColor" sw={1.9} />
+            {t("marketV2.compact.verified")}
+          </span>
         </div>
-        <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">
-          {t("marketV2.row.vsFace")}
-        </div>
-      </div>
-      <div>
-        <div className="text-sm font-black text-white">{fmtMoney(economy)}</div>
-        <div className="text-xs text-slate-500">{t("marketV2.row.economy")}</div>
-      </div>
-      <div>
-        <div className="text-sm font-black text-white">{apy}%</div>
-        <div className="text-xs text-slate-500">{t("marketV2.row.perYear")}</div>
-      </div>
-      {purchased ? (
-        <span className="inline-flex items-center justify-center rounded-xl border border-[#14F195]/40 bg-[#14F195]/10 px-4 py-2 text-xs font-black text-[#14F195]">
-          {t("marketV2.cta.bought")}
-        </span>
-      ) : (
+
         <button
           type="button"
+          disabled={purchased}
           onClick={() => onBuy(offerToBuyTarget(offer))}
-          className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:border-[#14F195]/50 hover:bg-[#14F195]/10 hover:text-[#14F195]"
+          className={`mt-4 w-full rounded-xl px-4 py-2.5 text-[10px] font-black ${
+            purchased
+              ? "border border-[#14F195]/30 bg-[#14F195]/10 text-[#14F195]"
+              : "bg-gradient-to-r from-[#14F195] to-[#00C8FF] text-[#03130D]"
+          }`}
         >
-          {t("marketV2.cta.buy")}
+          {purchased ? t("marketV2.cta.bought") : "Ver posição"}
         </button>
-      )}
-    </div>
+      </article>
+
+      <div className="hidden min-w-[600px] grid-cols-[1.6fr_0.55fr_0.75fr_0.8fr_0.65fr_0.7fr] items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.035] p-4 transition hover:border-[#14F195]/30 hover:bg-white/[0.055] lg:grid">
+        <div className="flex min-w-0 items-center gap-3">
+          <CatIcon group={offer.group} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-extrabold text-white">{offer.group}</div>
+            <div className="mt-0.5 text-xs text-slate-500">
+              {t("marketV2.row.share", { num: offer.num })}
+            </div>
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-bold text-white">{offer.total - offer.month}m</div>
+          <div className="text-xs text-slate-500">
+            {offer.month}/{offer.total}
+          </div>
+        </div>
+        <div>
+          <div className="inline-flex rounded-lg bg-[#14F195]/10 px-2.5 py-1 text-sm font-black text-[#14F195]">
+            -{offer.disc.toFixed(1).replace(".0", "")}%
+          </div>
+          <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">
+            {t("marketV2.row.vsFace")}
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-black text-white">{fmtMoney(economy)}</div>
+          <div className="text-xs text-slate-500">{t("marketV2.row.economy")}</div>
+        </div>
+        <div>
+          <div className="text-sm font-black text-white">{apy}%</div>
+          <div className="text-xs text-slate-500">{t("marketV2.row.perYear")}</div>
+        </div>
+        {purchased ? (
+          <span className="inline-flex items-center justify-center rounded-xl border border-[#14F195]/40 bg-[#14F195]/10 px-4 py-2 text-xs font-black text-[#14F195]">
+            {t("marketV2.cta.bought")}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onBuy(offerToBuyTarget(offer))}
+            className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:border-[#14F195]/50 hover:bg-[#14F195]/10 hover:text-[#14F195]"
+          >
+            {t("marketV2.cta.buy")}
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -590,6 +654,9 @@ export default function MercadoPage() {
   const liveListings = useDevnetListings(!demoActive);
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [category, setCategory] = useState("Todas");
+  const [marketSort, setMarketSort] = useState<
+    "recent" | "price-low" | "discount-high" | "risk-low"
+  >("recent");
   const [buying, setBuying] = useState<BuyOfferTarget | null>(null);
   const [selling, setSelling] = useState<NftPosition | null>(null);
   const [openListing, setOpenListing] = useState<ActiveListing | null>(null);
@@ -608,10 +675,14 @@ export default function MercadoPage() {
   // (no one has listed yet) falls through to the honest empty state below.
   const offers = useMemo(() => {
     const source = demoActive ? MARKET_OFFERS : liveListings.offers;
-    return source
-      .filter((offer) => category === "Todas" || categoryFor(offer.group) === category)
-      .sort((a, b) => b.disc - a.disc);
-  }, [category, demoActive, liveListings.offers]);
+    const filtered = source.filter(
+      (offer) => category === "Todas" || categoryFor(offer.group) === category,
+    );
+    if (marketSort === "price-low") return [...filtered].sort((a, b) => a.price - b.price);
+    if (marketSort === "discount-high") return [...filtered].sort((a, b) => b.disc - a.disc);
+    if (marketSort === "risk-low") return [...filtered].sort((a, b) => a.disc - b.disc);
+    return [...filtered].reverse();
+  }, [category, demoActive, liveListings.offers, marketSort]);
 
   // Sell side = holdings minus anything already listed this session. Demo
   // shows the fixture cotas as sellable; a real wallet only its genuine
@@ -645,23 +716,28 @@ export default function MercadoPage() {
     : 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-8 text-white animate-in fade-in duration-700 md:px-8">
-      <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 text-white animate-in fade-in duration-700 md:gap-7 md:px-8 md:py-8">
+      <header className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#14F195]">
             ◆ {t("marketV2.badge")}
           </div>
-          <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-[-0.045em] text-white [font-family:var(--font-syne),sans-serif] md:text-5xl">
+          <h1 className="mt-2 max-w-3xl text-xl font-black tracking-[-0.045em] text-white [font-family:var(--font-syne),sans-serif] lg:mt-4 lg:text-5xl">
             {tab === "buy" ? t("marketV2.title.buy") : t("marketV2.title.sell")}
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-400">
+          <p className="mt-1.5 text-[10px] text-slate-400 lg:hidden">
+            {tab === "buy"
+              ? "Encontre posições disponíveis e compare antes de comprar."
+              : "Liste uma posição com preço e condições transparentes."}
+          </p>
+          <p className="mt-4 hidden max-w-2xl text-base leading-relaxed text-slate-400 lg:block">
             {tab === "buy" ? t("marketV2.subtitle.buy") : t("marketV2.subtitle.sell")}
           </p>
         </div>
         <button
           type="button"
           onClick={scrollToHow}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.08] px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:border-[#14F195]/50 hover:bg-[#14F195]/[0.16]"
+          className="hidden shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#14F195]/25 bg-[#14F195]/[0.08] px-3 py-2 text-[10px] font-bold text-white transition hover:-translate-y-0.5 hover:border-[#14F195]/50 hover:bg-[#14F195]/[0.16] lg:inline-flex lg:rounded-2xl lg:px-5 lg:py-3 lg:text-sm"
         >
           <span className="text-[#14F195]">
             <PlayIcon />
@@ -670,26 +746,94 @@ export default function MercadoPage() {
         </button>
       </header>
 
-      <div className="flex w-fit rounded-2xl border border-white/[0.07] bg-white/[0.035] p-1">
+      <div className="grid w-full grid-cols-2 rounded-xl border border-white/[0.07] bg-white/[0.035] p-1 lg:flex lg:w-fit lg:rounded-2xl">
         <button
           type="button"
           onClick={() => setTab("buy")}
-          className={`rounded-xl px-5 py-3 text-sm font-black transition ${tab === "buy" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}
+          className={`rounded-lg px-4 py-2.5 text-[11px] font-black transition lg:rounded-xl lg:px-5 lg:py-3 lg:text-sm ${tab === "buy" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}
         >
           {t("marketV2.tab.buy")}
         </button>
         <button
           type="button"
           onClick={() => setTab("sell")}
-          className={`rounded-xl px-5 py-3 text-sm font-black transition ${tab === "sell" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}
+          className={`rounded-lg px-4 py-2.5 text-[11px] font-black transition lg:rounded-xl lg:px-5 lg:py-3 lg:text-sm ${tab === "sell" ? "bg-[#14F195]/[0.14] text-[#14F195] shadow-[0_0_24px_rgba(20,241,149,0.14)]" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}
         >
           {t("marketV2.tab.sell")}
         </button>
       </div>
 
+      <details className="group rounded-xl border border-white/[0.07] bg-white/[0.025] lg:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-3.5 py-3 text-[10px] font-bold text-slate-300">
+          {t("marketV2.compact.stats")}
+          <span className="text-base text-[#14F195] transition-transform group-open:rotate-45">
+            +
+          </span>
+        </summary>
+        <div className="grid grid-cols-2 gap-2 border-t border-white/[0.06] p-3">
+          {tab === "buy" ? (
+            <>
+              <MiniStat
+                label={t("marketV2.kpi.disc.label")}
+                value={t("marketV2.kpi.disc.value", {
+                  n: statOffers.length
+                    ? Math.round(Math.max(...statOffers.map((offer) => offer.disc)))
+                    : 0,
+                })}
+                helper={t("marketV2.kpi.disc.helper")}
+              />
+              <MiniStat
+                label={t("marketV2.kpi.available.label")}
+                value={`${offers.length}`}
+                helper={t("marketV2.kpi.available.helper")}
+                tone="cyan"
+              />
+              <MiniStat
+                label={t("marketV2.kpi.economy.label")}
+                value={fmtMoney(avgEconomy)}
+                helper={t("marketV2.kpi.economy.helper")}
+                tone="amber"
+              />
+              <MiniStat
+                label={t("marketV2.kpi.p2p.label")}
+                value={`${pct1(avgApy)}%`}
+                helper={t("marketV2.kpi.p2p.helper")}
+                tone="purple"
+              />
+            </>
+          ) : (
+            <>
+              <MiniStat
+                label={t("marketV2.yourShares")}
+                value={`${available.length}`}
+                helper={t("marketV2.kpi.count.helper")}
+              />
+              <MiniStat
+                label={t("marketV2.faceValue")}
+                value={fmtMoney(myFaceTotal)}
+                helper={t("marketV2.kpi.face.helper")}
+                tone="cyan"
+              />
+              <MiniStat
+                label={t("marketV2.resalePrice")}
+                value={fmtMoney(myResaleTotal)}
+                helper={t("marketV2.kpi.resale.helper")}
+                tone="amber"
+              />
+              <MiniStat
+                label={t("marketV2.kpi.disc2.label")}
+                value={`${pct1(myAvgDisc)}%`}
+                helper={t("marketV2.kpi.disc2.helper")}
+                tone="purple"
+              />
+            </>
+          )}
+        </div>
+      </details>
+
       {tab === "sell" ? (
         <>
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="hidden gap-4 lg:grid lg:grid-cols-4">
             <MiniStat
               label={t("marketV2.yourShares")}
               value={`${available.length}`}
@@ -745,7 +889,7 @@ export default function MercadoPage() {
                 </div>
               ) : (
                 <>
-                  <div className="hidden grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] gap-3 px-4 pb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 md:grid">
+                  <div className="hidden grid-cols-[1.7fr_0.6fr_0.85fr_0.95fr_0.7fr] gap-3 px-4 pb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 lg:grid">
                     <span>{t("marketV2.col.group")}</span>
                     <span>{t("marketV2.col.term")}</span>
                     <span>{t("marketV2.faceValue")}</span>
@@ -797,7 +941,7 @@ export default function MercadoPage() {
         </>
       ) : (
         <>
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="hidden gap-4 lg:grid lg:grid-cols-4">
             <MiniStat
               label={t("marketV2.kpi.disc.label")}
               value={t("marketV2.kpi.disc.value", {
@@ -826,30 +970,52 @@ export default function MercadoPage() {
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1.6fr_0.9fr]">
-            <div className="rounded-[2rem] border border-white/[0.07] bg-white/[0.025] p-3 md:p-5">
-              <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex flex-wrap gap-2">
+            <div className="rounded-[2rem] border border-white/[0.07] bg-white/[0.025] p-3 lg:p-5">
+              <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex shrink-0 gap-2">
                   {categories.map((cat) => (
                     <button
                       key={cat}
                       type="button"
                       onClick={() => setCategory(cat)}
-                      className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide transition ${category === cat ? "bg-[#14F195]/[0.14] text-[#14F195]" : "bg-white/[0.04] text-slate-400 hover:bg-[#14F195]/[0.08] hover:text-[#14F195]"}`}
+                      className={`shrink-0 rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wide transition lg:rounded-xl lg:px-4 lg:text-xs ${category === cat ? "bg-[#14F195]/[0.14] text-[#14F195]" : "bg-white/[0.04] text-slate-400 hover:bg-[#14F195]/[0.08] hover:text-[#14F195]"}`}
                     >
-                      {t(CAT_LABEL_KEY[cat] ?? cat)}
+                      {CAT_LABEL_KEY[cat] ? t(CAT_LABEL_KEY[cat]) : cat}
                     </button>
                   ))}
                 </div>
+                <span className="h-6 w-px shrink-0 bg-white/[0.1]" aria-hidden />
+                {[
+                  ["price-low", "Menor preço"],
+                  ["discount-high", "Maior desconto"],
+                  ["risk-low", "Menor risco"],
+                  ["recent", "Mais recentes"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      setMarketSort(value as "recent" | "price-low" | "discount-high" | "risk-low")
+                    }
+                    className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold transition lg:text-xs ${
+                      marketSort === value
+                        ? "border-[#23D9FF]/30 bg-[#23D9FF]/10 text-[#23D9FF]"
+                        : "border-white/[0.07] bg-white/[0.025] text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
                 <button
                   type="button"
-                  className="flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-slate-300 transition hover:text-white"
+                  className="hidden shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-slate-300 transition hover:text-white lg:flex"
                   aria-label={t("marketV2.search")}
                 >
                   <SearchIcon size={16} />
                 </button>
               </div>
 
-              <div className="hidden grid-cols-[1.6fr_0.55fr_0.75fr_0.8fr_0.65fr_0.7fr] gap-3 px-4 pb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 md:grid">
+              <div className="hidden grid-cols-[1.6fr_0.55fr_0.75fr_0.8fr_0.65fr_0.7fr] gap-3 px-4 pb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 lg:grid">
                 <span>{t("marketV2.col.group")}</span>
                 <span>{t("marketV2.col.term")}</span>
                 <span>{t("marketV2.col.discount")}</span>
