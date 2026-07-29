@@ -35,7 +35,8 @@
     "./reads": "./src/reads.ts",
     "./onchain-raw": "./src/onchain-raw.ts",
     "./stressLab": "./src/stressLab.ts",
-    "./events": "./src/events.ts"
+    "./events": "./src/events.ts",
+    "./lance": "./src/lance.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -77,6 +78,10 @@
       "./events": {
         "types": "./dist/events.d.ts",
         "default": "./dist/events.js"
+      },
+      "./lance": {
+        "types": "./dist/lance.d.ts",
+        "default": "./dist/lance.js"
       }
     }
   },
@@ -92,6 +97,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
+    "@noble/hashes": "^1.8.0",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.95.3"
   },

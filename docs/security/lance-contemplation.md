@@ -1,7 +1,13 @@
 # Lance contemplation — security design (ADR 0012 Phases 2–3)
 
-**Status:** Phase 2 (lance embutido) — **implemented for devnet validation** (authorized by Alrimar, same canary posture as ADR 0013); **Caio's review of this document hard-gates mainnet**. Phase 3 (lance livre) — **design only; no on-chain code until this document is reviewed.**
-**Date:** 2026-07-23
+**Status:** Phases 2 (lance embutido) and 3 (lance livre) — **implemented for devnet validation**; **Caio's review of this document hard-gates mainnet for both.**
+
+> **Authorization (Alrimar, 2026-07-29).** This document previously gated Phase 3 at "design only; no on-chain code until reviewed". Alrimar authorized implementation on the devnet canary — the same posture Phase 2 and ADR 0013 already run under. The **mainnet** gate is unchanged: Caio reviews this document before any of it ships to mainnet.
+>
+> **Writing the implementable spec invalidated §5's original design.** It posited a bid vault, a `withdraw_bid` refund path and a post-window settlement step — and simultaneously claimed reveals convert to installments immediately, which are mutually exclusive (if everyone converts at reveal, losers have nothing to reclaim). The resolution turned out to delete surface rather than add it; §5 below is the corrected, as-built spec. The two findings that drove it are called out inline.
+
+**Date:** 2026-07-23 (Phase 3 as-built: 2026-07-29)
+
 **Related:** ADR 0012 (phases + rationale); ADR pool_v2 (sorteio draw / `DrawResult`); ADR 0013 (grace catch-up — the BEHIND direction); #232 escape-valve commit-reveal (anti-snipe mold); LEAD-001 (payable-XOR-settleable).
 
 ## 1. The mechanism in one paragraph
@@ -47,23 +53,71 @@ A consórcio lance lets a member be contemplated **now** instead of at their dra
 
 **Front-end mirror.** The "Dar lance" affordance (`app/src/lib/lance.ts`, panel in `/grupos`, `PlaceBidModal`) recomputes the SAME depth arithmetic off-chain so the CTA never fires a bid the program will reject — including the `−1`, the strictly-greater rule, and a `outOfRunway` state that refuses to promise a bid the member's remaining installments can't fund. It is a UX guard, **not** a security boundary: every gate is still enforced on chain, the encoder is IDL-free (`place-embedded-bid.ts`, 5 declared accounts, no args), and the sender confirms post-send because a losing race is the EXPECTED failure (`confirmTransaction` resolves for a landed-but-reverted tx). Pinned by `tests/lance_ui.spec.ts` (23) + `tests/app_encoders.spec.ts` (7).
 
-## 5. Phase 3 — lance livre (design only; code gated on this doc's review)
+## 5. Phase 3 — lance livre, sealed free bid (implemented)
 
-Free bids bring **external USDC**, so Phase 3 = escrow + auction on top of Phase 2's settled swap mechanism:
+A free bid brings **external USDC** instead of installments already prepaid. Two instructions, one new account, **no vault**.
 
-- **`Bid` PDA** `[b"bid", pool, cycle, bidder]` — amount, commit hash, state (Committed / Revealed / Won / Refundable), bump. Rent by bidder.
-- **`place_bid_commit(hash)`** during the cycle: locks USDC into a bid vault; stores `hash = sha256(amount ‖ salt ‖ bidder)` — commit-reveal in the #232 mold so a late bidder can't read the book and snipe.
-- **`place_bid_reveal(amount, salt)`** inside a reveal window (ends ≥ N seconds before the claim becomes crankable): verifies the hash; converts the bid to **depth** — the locked USDC is applied as the bidder's next `⌊amount / installment⌋` prepaid installments **through the normal `split_installment` path** (so solidarity/escrow/float shares — and every Phase 1 safety argument — carry over verbatim), remainder refundable; then the winner adjudication + swap is **exactly Phase 2's** (`depth > current_bid_depth` → swap). This is the load-bearing design choice: _the free bid compiles down to prepayment + embedded bid_, so Phase 3 adds escrow/refund/reveal surface but **no new contemplation math**.
-- **`withdraw_bid`** — losers (and expired commits) reclaim their full lock; `Won` bids have already been converted to installments (nothing to withdraw beyond the remainder).
-- **Amortization** falls out for free: the winner's locked USDC became their future installments — balance reduced, term shortened, exactly the consórcio's _lance abate saldo_ semantics — with no separate amortization math to audit.
-- **Unified metric:** free and embedded bids compete in the same unit (depth), so a hybrid cycle has one adjudication rule.
-- **Viability:** unchanged — bids only accelerate float (the Phase 1 argument), never reduce it; losing bids never touch pool vaults (separate bid vault).
-- **Open questions for the review:** reveal-window length + placement vs the SEV-053 re-anchored deadline; minimum bid (≥ 1 installment implicit — enough?); whether `Won` remainder auto-refunds in `settle` or stays in `withdraw_bid`; indexer/reputation treatment (bids are behaviorally interesting — new informational schema?).
+### 5.1 The reduction — and what it deleted
+
+The free bid **compiles down to prepayment + embedded bid**, executed atomically inside the reveal:
+
+1. `amount` buys `K = amount / installment_amount` whole installments, moved through the **same `split_installment` partition** `contribute` uses, and `member.contributions_paid += K`;
+2. the resulting depth is adjudicated by **Phase 2's rule verbatim** — `depth = contributions_paid − current_cycle − 1`, strictly greater than `pool.current_bid_depth` — and the winner swaps two `DrawResult.order` entries.
+
+So Phase 3 adds a sealed-envelope layer and **no new contemplation math**: the bijection argument, the payout instructions, the vault waterfall and every Phase 1 safety property carry over unchanged.
+
+> **Finding 1 — the bid vault was never necessary.** The original §5 escrowed every bid, adjudicated after the reveal window, converted the winner's lock and refunded losers: a vault authority, a winner pointer, a settlement crank and a refund path, all holding other people's money. None of it exists, because **adjudication runs before any transfer**. A losing reveal simply REVERTS (`EmbeddedBidTooShallow`) and the USDC never leaves the wallet; a winning one has already become the bidder's own prepaid installments. The bid is all-or-nothing by construction, so there is nothing to refund and nothing to settle later. Pinned by `tests/litesvm_lance_livre.spec.ts` case (vi), which asserts the loser's balance is **byte-identical** after the revert.
+
+> **Finding 2 — one attestation, K installments.** `BehavioralPayload` already carries `parcels_paid: u8` ("installments paid this event"); `contribute` has always set it to 1 simply because it pays one at a time. A K-installment bid is ONE behavioral event, so the reveal mints one attestation with `parcels_paid = K`, nonced on the LAST installment paid. Minting K attestations would inflate the payment count for a single act and burn K cooldown slots. This is the constraint that made the atomic design possible at all — without it, K installments would mean K attestation PDAs and the bid could not settle in one transaction.
+
+### 5.2 Surface
+
+- **`Bid` PDA** `[b"bid", pool, cycle, bidder]` — `commit_hash`, `amount`/`parcels` (0 until revealed), `state` (Committed / Revealed), `committed_at`, bump. Rent by the bidder. `init` (not `init_if_needed`): a second commit for the same cycle must FAIL, because re-sealing after a peek is exactly what the commit exists to stop.
+- **`place_bid_commit(cycle, commit_hash)`** — stores `sha256(amount ‖ salt ‖ bidder)`. **No funds move and no amount is stored**, so the chain shows that someone is bidding but not how deep. Same eligibility gates as `place_embedded_bid` (a revealed free bid IS an embedded bid), checked up front so committing when ineligible only wastes rent.
+- **`place_bid_reveal(cycle, amount, salt)`** — verifies the hash, requires `salt ≠ 0` (SEV-013), requires `amount` to be an **exact multiple** of the installment (exactness is what keeps the bid free of dust and refunds), then pays + adjudicates as above.
+
+**The seal is temporal.** Commits require `clock < pool.next_cycle_at`; reveals require `next_cycle_at ≤ clock < next_cycle_at + GRACE_PERIOD_SECS`. The windows are **disjoint**, so by the time the first envelope opens nobody can seal a new one, and nobody can change what they sealed. The upper bound is the same grace deadline `settle_default` waits for (ADR 0013's time exclusion): once the cycle can be settled or cranked, its auction is over.
+
+**The bidder is inside the pre-image** (the #232 listing commit hashes only `price ‖ salt`) so a hash copied from another envelope can never be revealed from a different wallet, even if the salt leaks.
+
+**Entry condition.** The bidder must already be current for the cycle (`contributions_paid ≥ current_cycle + 1`). Every installment the bid buys is therefore strictly in the FUTURE, which is what lets the event be classified EARLY with no clock test — no risk of stamping a prepayment as late merely because the reveal window opens at the deadline.
+
+### 5.3 Threat model (Phase 3 additions)
+
+| Threat                                                           | Outcome                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Read the book, then outbid by one** (Phase 2's accepted snipe) | Closed. Commits are sealed and close before any reveal opens, so a late bidder has nothing to read and no way to seal a reply.                                                                                                                                                                         |
+| **Reveal-order advantage**                                       | A late revealer does see standing bids, but their own amount is already fixed. The only remaining choice is _whether_ to reveal — and declining costs them the auction while taking nothing from anyone. Losing costs the fee only, so declining is nearly free either way.                            |
+| **Brute-forcing a sealed envelope**                              | The amount space is small (a handful of installment multiples), so the salt carries the entropy. `salt = 0` is rejected on chain; real entropy is the client's job (`randomBidSalt`, SEV-013's lesson from #232). **Residual, flagged:** a client that ships a weak salt breaks its own bidder's seal. |
+| **Commit-and-never-reveal**                                      | Costs the bidder the rent and wins nothing. It leaks only "someone considered bidding". Accepted.                                                                                                                                                                                                      |
+| **Copied commit hash**                                           | Unrevealable from another wallet — the bidder is in the pre-image, and the PDA is keyed by bidder anyway.                                                                                                                                                                                              |
+| **Partial / dust bids**                                          | Rejected (`BidAmountNotMultiple`). Whole installments only — that is what removes the remainder-refund path.                                                                                                                                                                                           |
+| **Paying past the end of the pool**                              | `contributions_paid + K ≤ cycles_total` (`PoolClosed`).                                                                                                                                                                                                                                                |
+| **Double reveal**                                                | `state == Committed` required (`BidAlreadyRevealed`); the state flips inside the same transaction that pays.                                                                                                                                                                                           |
+| **Replay into another cycle**                                    | The cycle is a PDA seed AND is re-checked against `pool.current_cycle`.                                                                                                                                                                                                                                |
+| **Viability**                                                    | Unchanged and strictly improved: a winning bid moves USDC INTO the pool vaults early (float accelerates, the Phase 1 argument); a losing bid moves nothing at all.                                                                                                                                     |
+
+**Amortization** still falls out for free: the winner's USDC became their own future installments — balance reduced, term shortened, the consórcio's _lance abate saldo_ semantics — with no separate amortization math to audit.
+
+### 5.4 Validation matrix (`tests/litesvm_lance_livre.spec.ts`)
+
+(i) a sealed envelope leaks neither amount nor depth; (ii) revealing before the deadline is refused; (iii) committing after it is refused; (iv) a wrong amount or salt cannot open the envelope; (v) a valid reveal debits **exactly** K × installment and credits K installments at once; (vi) **an equal-depth bid reverts with the loser's balance and `contributions_paid` unchanged**; (vii) a deeper bid chains a second swap and escalates its single attestation to POOL_COMPLETE when it pays through the last installment; (viii) the envelope is single-use; (ix) the pool completes with every member contemplated exactly once — the bijection survived two swaps.
+
+Commit-hash parity with the on-chain pre-image is pinned separately and validator-free by `tests/lance_livre_hash.spec.ts` (11): drift there would make an envelope permanently unopenable, and the bidder could not detect it before the reveal window.
+
+### 5.5 Open questions for the review
+
+- **Reveal window length.** It currently spans the whole grace period. Shorter is more MEV-resistant (less time to reorganize around a revealed book) but risks bidders missing it. Is grace the right bound, or should reveals close earlier than `settle_default` opens?
+- **Losing costs only the fee.** This is deliberate (no money stuck) but it makes bidding cheap: a bidder can seal an aggressive envelope and lose for free. Is that acceptable, or should a losing reveal burn something?
+- **Indexer/reputation treatment.** A K-parcel `parcels_paid` is a first for the payload. The indexer reads the field but has only ever seen 1 — confirm its scoring handles K > 1 as one event, not K.
+- **Hybrid cycles.** Free and embedded bids share the depth metric and the same `current_bid_depth` tracker, so they compete directly. An embedded bid can still land _during_ the reveal window and beat a sealed one. Intended?
 
 ## 6. Review checklist for Caio
 
 1. Swap-preserves-bijection argument (§1) — is a two-entry swap of a verified permutation sufficient, given the `paid_out` gate?
 2. Bid-vs-claim race classification as benign (§3) — any interleaving we missed?
-3. Snipe acceptance for embedded bids on the canary (§3) — or should Phase 2 already take the commit-reveal?
-4. Phase 3's "free bid compiles to prepayment" reduction (§5) — the whole Phase 3 audit surface hangs on it.
-5. The per-cycle reset sites (3 payout instructions) — any advance path missed? (`close_pool` doesn't advance; `settle_default` doesn't advance.)
+3. Snipe acceptance for embedded bids on the canary (§3) — now that Phase 3 has commit-reveal, should Phase 2's bare bid keep its window?
+4. The "free bid compiles to prepayment + embedded bid" reduction (§5.1) — the whole Phase 3 audit surface hangs on it.
+5. **Adjudicate-before-paying** (§5.1, Finding 1) — is that sufficient to justify deleting the bid vault, the refund path and the settlement step?
+6. **One attestation with `parcels_paid = K`** (§5.1, Finding 2) — correct reputation semantics, or should a K-parcel bid mint K events?
+7. The per-cycle reset sites (3 payout instructions) — any advance path missed? (`close_pool` doesn't advance; `settle_default` doesn't advance.)

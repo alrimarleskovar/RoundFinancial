@@ -27,6 +27,8 @@ pub mod lock_reputation_program;
 pub mod lock_treasury;
 pub mod migrate_protocol_config;
 pub mod pause;
+pub mod place_bid_commit;
+pub mod place_bid_reveal;
 pub mod place_embedded_bid;
 pub mod propose_new_authority;
 pub mod propose_new_fee_bps_yield;
@@ -73,6 +75,8 @@ mod reexports {
     pub use super::lock_treasury::*;
     pub use super::migrate_protocol_config::*;
     pub use super::pause::*;
+    pub use super::place_bid_commit::*;
+    pub use super::place_bid_reveal::*;
     pub use super::place_embedded_bid::*;
     pub use super::propose_new_authority::*;
     pub use super::propose_new_fee_bps_yield::*;
