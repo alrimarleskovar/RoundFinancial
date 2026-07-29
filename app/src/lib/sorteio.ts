@@ -10,7 +10,9 @@
  *
  * Sorteio pools (`ordering_policy == 1`): the payout order lives in the
  * DrawResult PDA (`order[seat] = cycle`), minted exactly once by the
- * permissionless `finalize_draw` when the pool fills. Until it exists,
+ * permissionless `finalize_draw` when the pool fills — and thereafter
+ * mutated only by a winning lance embutido, which SWAPS two entries
+ * (ADR 0012 Fase 2), so `order` is always a permutation. Until it exists,
  * NOBODY is contemplated — payouts are fail-closed on-chain
  * (`DrawRequired`) and every helper here returns null so the UI shows
  * "aguardando sorteio" instead of wrongly pointing at seat 0 (the
@@ -120,8 +122,13 @@ export function useDraw(
         DEVNET_POOLS[seedKey].pda,
       );
       if (cancelledRef.current) return;
-      // A minted DrawResult is IMMUTABLE (single-shot PDA) — the ideal cache
-      // entry. draw=null (undrawn) is deliberately NOT cached: it flips once.
+      // The DrawResult PDA is minted once, but its `order` is NO LONGER
+      // immutable: `place_embedded_bid` (ADR 0012 Fase 2) swaps two entries
+      // every time a lance wins. So this cache entry is a paint-first HINT,
+      // not a terminal value — the poll below must keep revalidating it, and
+      // any caller that mutates the order (the bid modal) has to call
+      // `refresh()` eagerly. draw=null (undrawn) is still not cached: it
+      // flips exactly once, when finalize_draw runs.
       if (view) cacheSet("draw", `${seedKey}:${DEVNET_POOLS[seedKey].pda.toBase58()}`, view);
       setState({ draw: view, status: "ok" });
     } catch {
@@ -139,7 +146,8 @@ export function useDraw(
     }
     cancelledRef.current = false;
     // Stale-while-revalidate: the drawn order paints instantly (the "você
-    // recebe no ciclo N" chip), then load() re-reads the immutable account.
+    // recebe no ciclo N" chip), then load() re-reads the live account — the
+    // re-read is mandatory now that a winning lance can swap the order.
     setState((prev) => {
       if (prev.draw) return prev;
       const cached = seedKey

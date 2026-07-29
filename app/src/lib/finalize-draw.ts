@@ -23,7 +23,7 @@ import {
 import { drawResultPda } from "@roundfi/sdk/pda";
 
 import { DEVNET_PROGRAM_IDS } from "./devnet";
-import { simulateOrThrow } from "./simulateTx";
+import { confirmOrThrow, simulateOrThrow } from "./simulateTx";
 
 // sha256("global:finalize_draw")[:8] — precomputed.
 //   $ node -e 'console.log(require("crypto").createHash("sha256")
@@ -61,13 +61,21 @@ export interface SendFinalizeDrawArgs extends BuildFinalizeDrawIxArgs {
   sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>;
 }
 
-/** Simulate-then-sign `finalize_draw`. Returns the tx signature. */
+/** Simulate, sign and CONFIRM `finalize_draw`. Returns the tx signature. */
 export async function sendFinalizeDraw(args: SendFinalizeDrawArgs): Promise<string> {
   const ix = buildFinalizeDrawIx(args);
   const tx = new Transaction().add(ix);
   tx.feePayer = args.caller;
-  const { blockhash } = await args.connection.getLatestBlockhash("confirmed");
+  const { blockhash, lastValidBlockHeight } = await args.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   await simulateOrThrow(args.connection, tx);
-  return args.sendTransaction(tx, args.connection);
+  const signature = await args.sendTransaction(tx, args.connection);
+  // The last sender that still returned before confirmation. A parallel
+  // draw is the LIKELY outcome here (permissionless, everyone sees the
+  // same CTA), and the loser's tx lands REVERTED — which `sendTransaction`
+  // resolves happily. Without this the caller would refresh into an order
+  // it thinks it drew. The card already treats the PDA-collision revert as
+  // success-for-the-group, so surfacing it costs nothing.
+  await confirmOrThrow(args.connection, signature, blockhash, lastValidBlockHeight);
+  return signature;
 }

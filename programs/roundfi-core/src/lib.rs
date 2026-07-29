@@ -114,13 +114,20 @@ pub mod roundfi_core {
         instructions::crank_payout::handler(ctx, args)
     }
 
-    /// Permissionless, single-shot payout-order draw for a full sorteio
-    /// pool (ADR pool_v2). Mints the DrawResult PDA and re-anchors the
-    /// cycle-0 window. See `instructions::finalize_draw`.
+    /// Lance embutido (ADR 0012 Fase 2). A sorteio-pool member who has
+    /// PREPAID installments beyond the current cycle offers that depth to
+    /// be contemplated NOW: two entries of the pool's `DrawResult.order`
+    /// are SWAPPED, so the bidder takes the current cycle and the seat
+    /// that held it inherits the bidder's future one. `order` stays a
+    /// bijection — everyone is still contemplated exactly once — and no
+    /// funds move. See `instructions::place_embedded_bid`.
     pub fn place_embedded_bid(ctx: Context<PlaceEmbeddedBid>) -> Result<()> {
         instructions::place_embedded_bid::handler(ctx)
     }
 
+    /// Permissionless, single-shot payout-order draw for a full sorteio
+    /// pool (ADR pool_v2). Mints the DrawResult PDA and re-anchors the
+    /// cycle-0 window. See `instructions::finalize_draw`.
     pub fn finalize_draw(ctx: Context<FinalizeDraw>) -> Result<()> {
         instructions::finalize_draw::handler(ctx)
     }
