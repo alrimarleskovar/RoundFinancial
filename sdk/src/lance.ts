@@ -16,9 +16,17 @@
  * bidder, so binding the hash to the same wallet means a hash copied
  * from someone else's envelope can never be revealed from another
  * wallet, even if their salt leaks.
+ *
+ * **Browser-safe by construction.** This module is reachable from the
+ * SDK barrel, which the Next.js app imports — so it must never touch
+ * `node:crypto`. It uses `@noble/hashes` (pure JS, browser + node), the
+ * same family `@solana/web3.js` already relies on. An earlier revision
+ * imported `node:crypto` and broke the app's webpack build with
+ * `UnhandledSchemeError: Reading from "node:crypto" is not handled`.
  */
 
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha256";
+import { randomBytes } from "@noble/hashes/utils";
 import { PublicKey } from "@solana/web3.js";
 
 /**
@@ -27,16 +35,15 @@ import { PublicKey } from "@solana/web3.js";
  * multiples — so a predictable salt lets anyone brute-force the
  * envelope by enumerating candidates. The program rejects `salt = 0`
  * as the minimal trivially-broken guard; everything above that is on us.
+ *
+ * `randomBytes` is noble's CSPRNG wrapper over Web Crypto
+ * (`crypto.getRandomValues`) — real entropy in both the browser and Node.
  */
 export function randomBidSalt(): bigint {
-  // 8 cryptographically-random bytes → u64. Rejecting 0 costs one retry
-  // with probability 2^-64 and keeps the on-chain guard unreachable.
+  // Rejecting 0 costs one retry with probability 2^-64 and keeps the
+  // on-chain guard unreachable in practice.
   for (;;) {
-    const buf = createHash("sha512")
-      .update(globalThis.crypto.getRandomValues(new Uint8Array(32)))
-      .digest()
-      .subarray(0, 8);
-    const salt = buf.readBigUInt64LE(0);
+    const salt = Buffer.from(randomBytes(8)).readBigUInt64LE(0);
     if (salt !== 0n) return salt;
   }
 }
@@ -47,7 +54,7 @@ export function freeBidCommitHash(amount: bigint, salt: bigint, bidder: PublicKe
   preimage.writeBigUInt64LE(amount, 0);
   preimage.writeBigUInt64LE(salt, 8);
   bidder.toBuffer().copy(preimage, 16);
-  return createHash("sha256").update(preimage).digest();
+  return Buffer.from(sha256(preimage));
 }
 
 /**
