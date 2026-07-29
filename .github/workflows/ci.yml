@@ -45,9 +45,10 @@ jobs:
   #     tests pinning the JSON shape services/indexer/src/log.ts emits
   #     (observability/README.md #2 / Pass-14). Drift here silently
   #     breaks alert grouping + log queries in Loki/Datadog.
-  #   - App ↔ chain encoder structural parity (test:app-encoders) — 58
+  #   - App ↔ chain encoder structural parity (test:app-encoders) — 95
   #     tests covering discriminators, account counts, signer positions,
-  #     PDA derivations on the 6 front-end IDL-free encoders (#283 + #291).
+  #     PDA derivations on the front-end IDL-free encoders (#283 + #291,
+  #     plus the ADR 0012 lance encoders).
   #   - LifecycleEvent shape contract (test:events) — 2 tests
   #   - Stress Lab L1 economic-parity (test:economic-parity-l1) — 34
   #     tests, includes the "Triple Veteran Default" whitepaper scenario.
@@ -225,7 +226,7 @@ jobs:
         # Sub-second.
         run: pnpm test:kamino-pin
 
-      - name: App ↔ chain encoder structural parity (85 tests)
+      - name: App ↔ chain encoder structural parity (95 tests)
         run: pnpm test:app-encoders
 
       - name: Pool-cache SWR codec + TTL semantics (7 tests)
@@ -237,7 +238,7 @@ jobs:
       - name: Escape-valve list error classifier (8 tests)
         run: pnpm test:ev-errors
 
-      - name: Lance embutido eligibility math (23 tests)
+      - name: Lance embutido + lance livre eligibility math (38 tests)
         # ADR 0012 Fase 2. Pins app/src/lib/lance.ts against the gates in
         # place_embedded_bid.rs — the depth metric (incl. the load-bearing
         # `−1`), the strictly-greater rule, the runway ceiling and every
@@ -246,7 +247,7 @@ jobs:
         # the on-chain half of the same matrix is litesvm_lance_embutido.
         run: pnpm test:lance-ui
 
-      - name: Sealed free-bid commit hash TS↔Rust parity (11 tests)
+      - name: Sealed free-bid envelope — hash parity + recovery (21 tests)
         # ADR 0012 Fase 3. Pins sha256(amount_le ‖ salt_le ‖ bidder) against
         # the pre-image place_bid_reveal.rs rebuilds on chain. Drift makes a
         # sealed envelope PERMANENTLY unopenable (BidCommitMismatch) — the

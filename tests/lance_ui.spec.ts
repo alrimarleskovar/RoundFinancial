@@ -21,8 +21,12 @@ import { expect } from "chai";
 
 import {
   classifyLanceError,
+  freeBidPhase,
+  freeBidView,
   lanceView,
+  showsFreeBidPanel,
   showsLancePanel,
+  type FreeBidInputs,
   type LanceInputs,
 } from "../app/src/lib/lance";
 
@@ -213,5 +217,134 @@ describe("classifyLanceError — reverts → honest copy", () => {
 
   it("returns null for an unrecognized revert (caller keeps its fallback)", () => {
     expect(classifyLanceError("blockhash not found")).to.equal(null);
+  });
+});
+
+describe("freeBidPhase — the seal is temporal (ADR 0012 Fase 3)", () => {
+  const DEADLINE = 1_000_000;
+  const GRACE = 86_400;
+
+  it("bidding is open strictly BEFORE the cycle deadline", () => {
+    expect(freeBidPhase(DEADLINE - 1, DEADLINE, GRACE)).to.equal("bidding");
+  });
+
+  it("revealing opens exactly where bidding closes — no gap, no overlap", () => {
+    // The disjunction IS the seal: if both were open at the same instant, a
+    // bidder could read a revealed amount and then seal a winning reply.
+    expect(freeBidPhase(DEADLINE, DEADLINE, GRACE)).to.equal("revealing");
+  });
+
+  it("revealing runs to the grace deadline settle_default waits for", () => {
+    expect(freeBidPhase(DEADLINE + GRACE - 1, DEADLINE, GRACE)).to.equal("revealing");
+    expect(freeBidPhase(DEADLINE + GRACE, DEADLINE, GRACE)).to.equal("closed");
+  });
+});
+
+describe("freeBidView — sealed-envelope state machine", () => {
+  const DEADLINE = 1_000_000;
+  const GRACE = 86_400;
+
+  function fb(over: Partial<FreeBidInputs> = {}): FreeBidInputs {
+    return {
+      ...inputs(),
+      nowSec: DEADLINE - 100,
+      nextCycleAt: DEADLINE,
+      graceSecs: GRACE,
+      hasEnvelope: false,
+      envelopeRevealed: false,
+      ...over,
+    };
+  }
+
+  it("offers sealing while bidding is open", () => {
+    const v = freeBidView(fb());
+    expect(v.status).to.equal("canSeal");
+    expect(v.phase).to.equal("bidding");
+    expect(v.secondsLeft).to.equal(100);
+  });
+
+  it("a sealed envelope waits — it cannot be re-sealed", () => {
+    // Re-sealing after a peek is what the commit exists to stop, and the
+    // program enforces it via `init`. The UI must not offer it either.
+    expect(freeBidView(fb({ hasEnvelope: true })).status).to.equal("sealed");
+  });
+
+  it("offers opening once the window flips", () => {
+    const v = freeBidView(fb({ nowSec: DEADLINE + 10, hasEnvelope: true }));
+    expect(v.status).to.equal("canReveal");
+    expect(v.secondsLeft).to.equal(GRACE - 10);
+  });
+
+  it("says missedBidding — not canSeal — when the window flipped with no envelope", () => {
+    // The honest state: they can no longer seal AND have nothing to open.
+    expect(freeBidView(fb({ nowSec: DEADLINE + 10 })).status).to.equal("missedBidding");
+  });
+
+  it("an opened envelope is terminal for the cycle", () => {
+    expect(
+      freeBidView(fb({ nowSec: DEADLINE + 10, hasEnvelope: true, envelopeRevealed: true })).status,
+    ).to.equal("revealed");
+  });
+
+  it("closes at the grace deadline", () => {
+    expect(freeBidView(fb({ nowSec: DEADLINE + GRACE, hasEnvelope: true })).status).to.equal(
+      "closed",
+    );
+  });
+
+  it("bounds the bid by the runway AND by what's actually unpaid", () => {
+    // 6-cycle pool at cycle 1, paid through 2: maxDepth = 6−1−1 = 4, but
+    // only 4 installments remain unpaid. Offering 5 would build an amount
+    // the program rejects with PoolClosed.
+    const v = freeBidView(fb({ currentCycle: 1, cyclesTotal: 6, contributionsPaid: 2 }));
+    expect(v.maxParcels).to.equal(4);
+  });
+
+  it("won't offer sealing with no runway left", () => {
+    // Paid through the end: nothing left to bid with.
+    expect(
+      freeBidView(fb({ currentCycle: 1, cyclesTotal: 6, contributionsPaid: 6 })).status,
+    ).to.equal("notApplicable");
+  });
+
+  it("inherits every eligibility gate from lanceView", () => {
+    expect(freeBidView(fb({ isSorteio: false })).status).to.equal("notApplicable");
+    expect(freeBidView(fb({ myDrawnCycle: null })).status).to.equal("awaitingDraw");
+    expect(freeBidView(fb({ paidOut: true })).status).to.equal("contemplated");
+    expect(freeBidView(fb({ defaulted: true })).status).to.equal("notApplicable");
+  });
+
+  it("showsFreeBidPanel is true exactly for the actionable states", () => {
+    expect(showsFreeBidPanel("canSeal")).to.equal(true);
+    expect(showsFreeBidPanel("sealed")).to.equal(true);
+    expect(showsFreeBidPanel("canReveal")).to.equal(true);
+    expect(showsFreeBidPanel("missedBidding")).to.equal(false);
+    expect(showsFreeBidPanel("revealed")).to.equal(false);
+    expect(showsFreeBidPanel("closed")).to.equal(false);
+    expect(showsFreeBidPanel("notApplicable")).to.equal(false);
+  });
+});
+
+describe("classifyLanceError — Fase 3 reverts", () => {
+  it("maps the sealed-bid window and envelope errors", () => {
+    expect(classifyLanceError("Error Code: BidWindowClosed.")).to.equal(
+      "modal.lance.err.windowClosed",
+    );
+    expect(classifyLanceError("Error Code: BidCommitMismatch.")).to.equal(
+      "modal.lance.err.commitMismatch",
+    );
+    expect(classifyLanceError("Error Code: BidAlreadyRevealed.")).to.equal(
+      "modal.lance.err.alreadyRevealed",
+    );
+    expect(classifyLanceError("Error Code: BidAmountNotMultiple.")).to.equal(
+      "modal.lance.err.notMultiple",
+    );
+  });
+
+  it("maps the anti-reseal init collision to its own copy", () => {
+    // A second commit for the same cycle is the guard working, not a bug.
+    expect(classifyLanceError("Allocate: account Address { .. } already in use")).to.equal(
+      "modal.lance.err.alreadySealed",
+    );
   });
 });

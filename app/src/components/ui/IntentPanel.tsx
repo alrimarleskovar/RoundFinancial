@@ -46,7 +46,9 @@ export type IntentAction =
   | "harvest_yield"
   | "deposit_idle_to_yield"
   | "settle_default"
-  | "place_embedded_bid";
+  | "place_embedded_bid"
+  | "place_bid_commit"
+  | "place_bid_reveal";
 
 export interface IntentPanelProps {
   /** Which instruction is about to be signed. */

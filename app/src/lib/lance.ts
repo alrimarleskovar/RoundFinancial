@@ -128,6 +128,119 @@ export function showsLancePanel(status: LanceStatus): boolean {
   return status === "ready" || status === "needsPrepay" || status === "outOfRunway";
 }
 
+// ─── Lance livre (ADR 0012 Fase 3) — the sealed free bid ──────────────
+//
+// The free bid adds a TIME dimension the embedded bid doesn't have:
+// bidding closes at the cycle deadline and revealing opens there. The two
+// windows are disjoint on chain (that disjunction IS the seal), so the UI
+// has to know which one it's in before offering anything.
+
+export type FreeBidPhase =
+  /** `clock < next_cycle_at` — envelopes can be sealed. */
+  | "bidding"
+  /** `next_cycle_at ≤ clock < next_cycle_at + GRACE` — envelopes open. */
+  | "revealing"
+  /** Past the grace deadline: the cycle can be settled/cranked, auction over. */
+  | "closed";
+
+export function freeBidPhase(nowSec: number, nextCycleAt: number, graceSecs: number): FreeBidPhase {
+  if (nowSec < nextCycleAt) return "bidding";
+  if (nowSec < nextCycleAt + graceSecs) return "revealing";
+  return "closed";
+}
+
+export interface FreeBidInputs extends LanceInputs {
+  nowSec: number;
+  nextCycleAt: number;
+  graceSecs: number;
+  /** True once this wallet has a Bid PDA for the current cycle. */
+  hasEnvelope: boolean;
+  /** True once that envelope was opened (state = Revealed). */
+  envelopeRevealed: boolean;
+}
+
+export type FreeBidStatus =
+  /** Not a sorteio member with a future turn — no free bid to offer. */
+  | "notApplicable"
+  | "awaitingDraw"
+  | "contemplated"
+  /** Bidding is open and this wallet hasn't sealed anything yet. */
+  | "canSeal"
+  /** Sealed; waiting for the reveal window. */
+  | "sealed"
+  /** Reveal window open and an envelope is waiting to be opened. */
+  | "canReveal"
+  /** Reveal window open but this wallet never sealed — nothing to do. */
+  | "missedBidding"
+  /** Already opened this cycle's envelope. */
+  | "revealed"
+  /** Auction over for this cycle. */
+  | "closed";
+
+export interface FreeBidView {
+  status: FreeBidStatus;
+  phase: FreeBidPhase;
+  /** Seconds until the phase flips (0 when closed). */
+  secondsLeft: number;
+  /** Most installments this member could still bid (the runway). */
+  maxParcels: number;
+  /** The cycle a winning bid takes. */
+  targetCycle: number;
+  /** The cycle they hold today (null pre-draw). */
+  myCycle: number | null;
+}
+
+/**
+ * Classify a member's free-bid position. Shares every eligibility gate
+ * with `lanceView` — a revealed free bid IS an embedded bid — and layers
+ * the window state on top.
+ */
+export function freeBidView(input: FreeBidInputs): FreeBidView {
+  const base = lanceView(input);
+  const phase = freeBidPhase(input.nowSec, input.nextCycleAt, input.graceSecs);
+  const secondsLeft =
+    phase === "bidding"
+      ? Math.max(0, input.nextCycleAt - input.nowSec)
+      : phase === "revealing"
+        ? Math.max(0, input.nextCycleAt + input.graceSecs - input.nowSec)
+        : 0;
+
+  // The bid must leave the member current for this cycle AND fit inside
+  // the remaining installments: they can bid at most `maxDepth` (which
+  // already accounts for the `−1`), but never more than what's unpaid.
+  const unpaid =
+    input.contributionsPaid === null ? 0 : Math.max(0, input.cyclesTotal - input.contributionsPaid);
+  const maxParcels = Math.min(base.maxDepth, unpaid);
+
+  const shell = {
+    phase,
+    secondsLeft,
+    maxParcels,
+    targetCycle: base.targetCycle,
+    myCycle: base.myCycle,
+  };
+
+  if (base.status === "notApplicable") return { ...shell, status: "notApplicable" };
+  if (base.status === "awaitingDraw") return { ...shell, status: "awaitingDraw" };
+  if (base.status === "contemplated") return { ...shell, status: "contemplated" };
+
+  if (input.envelopeRevealed) return { ...shell, status: "revealed" };
+  if (phase === "closed") return { ...shell, status: "closed" };
+
+  if (phase === "bidding") {
+    // Sealing is pointless with no runway to pay the bid from.
+    if (!input.hasEnvelope && maxParcels < 1) return { ...shell, status: "notApplicable" };
+    return { ...shell, status: input.hasEnvelope ? "sealed" : "canSeal" };
+  }
+  // revealing
+  return { ...shell, status: input.hasEnvelope ? "canReveal" : "missedBidding" };
+}
+
+/** The statuses that put a free-bid affordance on screen. */
+export function showsFreeBidPanel(status: FreeBidStatus): boolean {
+  return status === "canSeal" || status === "sealed" || status === "canReveal";
+}
+
 /**
  * Map a failed `place_embedded_bid` revert to a user-facing i18n key.
  *
@@ -141,6 +254,16 @@ export function showsLancePanel(status: LanceStatus): boolean {
  */
 export function classifyLanceError(errorText: string): string | null {
   const s = errorText;
+  // Fase 3 reverts come first: they are more specific than the shared
+  // depth gates a free bid also runs through.
+  if (/BidWindowClosed/i.test(s)) return "modal.lance.err.windowClosed";
+  if (/BidCommitMismatch/i.test(s)) return "modal.lance.err.commitMismatch";
+  if (/BidAlreadyRevealed/i.test(s)) return "modal.lance.err.alreadyRevealed";
+  if (/BidAmountNotMultiple/i.test(s)) return "modal.lance.err.notMultiple";
+  if (/SaltMustBeNonZero/i.test(s)) return "modal.lance.err.badSalt";
+  // A second commit for the same cycle collides on `init` — that's the
+  // anti-reseal guard, not a bug, so it gets its own copy.
+  if (/already in use|AccountAlreadyInUse/i.test(s)) return "modal.lance.err.alreadySealed";
   if (/EmbeddedBidTooShallow/i.test(s)) return "modal.lance.err.tooShallow";
   if (/EmbeddedBidUnavailable/i.test(s)) return "modal.lance.err.unavailable";
   // The DrawResult account doesn't exist — the pool hasn't been drawn (or

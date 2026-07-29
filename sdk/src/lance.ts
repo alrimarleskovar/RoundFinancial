@@ -68,3 +68,89 @@ export function freeBidAmount(parcels: number, installmentAmount: bigint): bigin
   }
   return BigInt(parcels) * installmentAmount;
 }
+
+// ─── Recoverable envelopes ─────────────────────────────────────────────
+//
+// The commit-reveal flow has a failure mode no on-chain code can fix: the
+// bidder seals `(amount, salt)` in one session and must reproduce BOTH,
+// exactly, in another — possibly days later. Keep the pair only in
+// localStorage and a cleared cache, a new browser or a second device turns
+// the envelope into an unopenable one. The bidder loses the auction and
+// there is no recourse.
+//
+// The fix is to stop storing the secret at all and DERIVE it:
+//
+//   salt   = sha256(wallet signature over a canonical per-(pool, cycle)
+//            message) — ed25519 signing is deterministic (RFC 8032: the
+//            nonce comes from the key and the message, not from an RNG),
+//            so the same wallet re-signing the same message always yields
+//            the same bytes, on any device.
+//   amount = recovered by SCANNING the (tiny) space of whole-installment
+//            bids against the on-chain `commit_hash`.
+//
+// The amount space being small is exactly what makes a weak salt
+// dangerous — and exactly what makes recovery cheap. Both facts come from
+// the same property, pointing in opposite directions.
+//
+// This does NOT weaken the seal: an outsider still cannot derive the salt
+// without the bidder's private key, and the scan needs the salt.
+
+/** Domain tag — changing it invalidates every outstanding envelope. */
+export const BID_ENVELOPE_DOMAIN = "RoundFi lance livre v1";
+
+/**
+ * The exact message the wallet signs to derive an envelope's salt. It is
+ * bound to (pool, cycle) so one signature cannot be replayed to recover a
+ * different auction's secret, and it says plainly that signing costs
+ * nothing — a signature request with no explanation reads like a scam.
+ */
+export function bidEnvelopeMessage(pool: PublicKey, cycle: number): string {
+  return [
+    BID_ENVELOPE_DOMAIN,
+    `pool: ${pool.toBase58()}`,
+    `cycle: ${cycle}`,
+    "",
+    "Assine para gerar o segredo do seu lance selado.",
+    "Esta assinatura NAO e uma transacao: nao move fundos e nao paga taxa.",
+    "Assinar a mesma mensagem de novo recupera o mesmo segredo em qualquer",
+    "dispositivo — e a sua unica forma de reabrir o envelope.",
+  ].join("\n");
+}
+
+/**
+ * Derive the envelope salt from a wallet signature. Never returns 0 (the
+ * program rejects it): on the ~2^-64 chance the leading bytes are all
+ * zero, fall through to the next 8 — still deterministic.
+ */
+export function saltFromSignature(signature: Uint8Array): bigint {
+  const digest = Buffer.from(sha256(signature));
+  const first = digest.readBigUInt64LE(0);
+  if (first !== 0n) return first;
+  const second = digest.readBigUInt64LE(8);
+  return second !== 0n ? second : 1n;
+}
+
+/**
+ * Recover how many installments a sealed envelope bid, by re-deriving the
+ * hash for each candidate and comparing against the on-chain
+ * `commit_hash`. Returns null when nothing matches — which means the salt
+ * is wrong (a different wallet, or a wallet whose signatures are not
+ * deterministic), not that the bid was invalid.
+ *
+ * `maxParcels` bounds the scan; callers pass the pool's remaining
+ * installments, so this is a handful of hashes, not a search.
+ */
+export function recoverBidParcels(
+  commitHash: Uint8Array,
+  salt: bigint,
+  bidder: PublicKey,
+  installmentAmount: bigint,
+  maxParcels: number,
+): number | null {
+  const target = Buffer.from(commitHash).toString("hex");
+  for (let k = 1; k <= maxParcels; k++) {
+    const candidate = freeBidCommitHash(BigInt(k) * installmentAmount, salt, bidder);
+    if (candidate.toString("hex") === target) return k;
+  }
+  return null;
+}
