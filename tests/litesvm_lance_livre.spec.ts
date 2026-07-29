@@ -39,12 +39,14 @@ import { expect } from "chai";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { BN } from "@coral-xyz/anchor";
 
 import { ATTESTATION_SCHEMA, ORDERING_POLICY, freeBidCommitHash } from "@roundfi/sdk";
 import { attestationNonce, attestationPda, bidPda } from "@roundfi/sdk/pda";
 
 import {
+  balanceOf,
   claimPayout,
   contribute,
   createPool,
@@ -111,14 +113,6 @@ describe("ADR 0012 Phase 3 — lance livre (sealed free bid) (litesvm)", functio
   let members: MemberHandle[] = [];
   let drawPda: PublicKey;
 
-  /** SPL token account: `amount` is a u64 LE at offset 64. */
-  const usdcBalance = (owner: PublicKey): bigint => {
-    const ata = getAssociatedTokenAddressSync(usdcMint, owner);
-    const acct = env.svm.getAccount(ata);
-    if (!acct) return 0n;
-    return Buffer.from(acct.data).readBigUInt64LE(64);
-  };
-
   const commit = (m: MemberHandle, cycle: number, hash: Buffer) => {
     // Same litesvm quirk the Phase 2 spec documents: the frozen blockhash
     // dedupes byte-identical transactions (even reverted ones), so rotate it.
@@ -157,32 +151,43 @@ describe("ADR 0012 Phase 3 — lance livre (sealed free bid) (litesvm)", functio
       attestationNonce(lastCyclePaid, m.slotIndex),
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (env.programs.core.methods as any)
-      .placeBidReveal({ cycle, amount, salt })
-      .accounts({
-        bidder: m.wallet.publicKey,
-        config: configPda(env),
-        pool: pool.pool,
-        member: m.member,
-        bid: bidPda(env.ids.core, pool.pool, cycle, m.wallet.publicKey)[0],
-        draw: drawPda,
-        usdcMint: pool.usdcMint,
-        bidderUsdc: m.memberUsdc,
-        poolUsdcVault: pool.poolUsdcVault,
-        solidarityVaultAuthority: solidarityVaultAuthorityPda(env.ids.core, pool.pool)[0],
-        solidarityVault: pool.solidarityVault,
-        escrowVaultAuthority: escrowVaultAuthorityPda(env.ids.core, pool.pool)[0],
-        escrowVault: pool.escrowVault,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        reputationProgram: env.ids.reputation,
-        reputationConfig: reputationConfigPda(env.ids.reputation)[0],
-        reputationProfile: reputationProfilePda(env.ids.reputation, m.wallet.publicKey)[0],
-        identityRecord: env.ids.reputation,
-        attestation,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([m.wallet])
-      .rpc();
+    return (
+      (env.programs.core.methods as any)
+        // Anchor's borsh `u64` layout calls `src.toArrayLike(...)`, so both
+        // u64 args must arrive as BN — a native bigint fails client-side with
+        // "src.toArrayLike is not a function" before the tx is ever built
+        // (which is what the first CI run of this spec hit). Same convention
+        // as the harness's escapeValveList / depositIdleToYield.
+        .placeBidReveal({
+          cycle,
+          amount: new BN(amount.toString()),
+          salt: new BN(salt.toString()),
+        })
+        .accounts({
+          bidder: m.wallet.publicKey,
+          config: configPda(env),
+          pool: pool.pool,
+          member: m.member,
+          bid: bidPda(env.ids.core, pool.pool, cycle, m.wallet.publicKey)[0],
+          draw: drawPda,
+          usdcMint: pool.usdcMint,
+          bidderUsdc: m.memberUsdc,
+          poolUsdcVault: pool.poolUsdcVault,
+          solidarityVaultAuthority: solidarityVaultAuthorityPda(env.ids.core, pool.pool)[0],
+          solidarityVault: pool.solidarityVault,
+          escrowVaultAuthority: escrowVaultAuthorityPda(env.ids.core, pool.pool)[0],
+          escrowVault: pool.escrowVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          reputationProgram: env.ids.reputation,
+          reputationConfig: reputationConfigPda(env.ids.reputation)[0],
+          reputationProfile: reputationProfilePda(env.ids.reputation, m.wallet.publicKey)[0],
+          identityRecord: env.ids.reputation,
+          attestation,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([m.wallet])
+        .rpc()
+    );
   };
 
   const expectRevert = async (p: Promise<unknown>, pattern: RegExp, label: string) => {
@@ -334,10 +339,10 @@ describe("ADR 0012 Phase 3 — lance livre (sealed free bid) (litesvm)", functio
       );
 
       // ─── (v) a valid reveal pays K installments and swaps the draw ────
-      const balFirstBefore = usdcBalance(first.wallet.publicKey);
+      const balFirstBefore = await balanceOf(env, first.memberUsdc);
       await reveal(first, 0, amountFirst, saltFirst, 1);
       expect(
-        balFirstBefore - usdcBalance(first.wallet.publicKey),
+        balFirstBefore - (await balanceOf(env, first.memberUsdc)),
         "debited EXACTLY the sealed bid",
       ).to.equal(amountFirst);
 
@@ -359,7 +364,7 @@ describe("ADR 0012 Phase 3 — lance livre (sealed free bid) (litesvm)", functio
       // adjudication runs BEFORE any transfer, so the revert must leave the
       // balance untouched. If this ever regresses, the design needs the bid
       // vault + refund path it was built to avoid.
-      const balLoserBefore = usdcBalance(loser.wallet.publicKey);
+      const balLoserBefore = await balanceOf(env, loser.memberUsdc);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mLoserBefore = (await fetchMember(env, loser.member)) as any;
       await expectRevert(
@@ -368,7 +373,7 @@ describe("ADR 0012 Phase 3 — lance livre (sealed free bid) (litesvm)", functio
         "an equal-depth sealed bid loses",
       );
       expect(
-        usdcBalance(loser.wallet.publicKey),
+        await balanceOf(env, loser.memberUsdc),
         "a losing bid must not move a single lamport",
       ).to.equal(balLoserBefore);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -381,10 +386,10 @@ describe("ADR 0012 Phase 3 — lance livre (sealed free bid) (litesvm)", functio
       // ─── (vii) a DEEPER sealed bid chains a second swap ───────────────
       // 3 installments at once → contributions 1 → 4 == cycles_total, so the
       // SINGLE attestation escalates to POOL_COMPLETE.
-      const balWinnerBefore = usdcBalance(winner.wallet.publicKey);
+      const balWinnerBefore = await balanceOf(env, winner.memberUsdc);
       await reveal(winner, 0, amountWinner, saltWinner, 3, true);
       expect(
-        balWinnerBefore - usdcBalance(winner.wallet.publicKey),
+        balWinnerBefore - (await balanceOf(env, winner.memberUsdc)),
         "debited exactly 3 installments in one transaction",
       ).to.equal(amountWinner);
 
