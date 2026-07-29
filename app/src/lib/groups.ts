@@ -83,3 +83,25 @@ export function fromDiscover(g: DiscoverGroup): CatalogGroup {
     devnetPool: g.devnetPool,
   };
 }
+
+// CatalogGroup → ActiveGroup adapter for the ClaimPayoutModal mock path (it
+// only needs name / prize / month / total / emoji; the rest get sane defaults).
+export function catalogGroupToActiveGroup(g: CatalogGroup): ActiveGroup {
+  return {
+    id: g.id,
+    name: g.name,
+    emoji: g.emoji,
+    tone: g.tone,
+    prize: g.prize,
+    month: 1,
+    total: g.months,
+    status: "drawn",
+    nextDue: 0,
+    progress: 0,
+    members: g.total,
+    draw: "ganho neste ciclo",
+    installment: g.installment,
+    level: g.level,
+    contemplated: g.contemplated,
+  };
+}

@@ -21,37 +21,37 @@
 // grid live. The card footer (prêmio·parcela + bar + CTA) is pinned to the
 // bottom so it aligns across cards regardless of description length.
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { useConnection, useWallet as useAdapterWallet } from "@solana/wallet-adapter-react";
 
 import { Icons } from "@/components/brand/icons";
+import { CompactGroupCard, type GroupsTab } from "@/components/grupos/CompactGroupCard";
+import { GroupCardModals, type GroupCardModalFlags } from "@/components/grupos/GroupCardModals";
 import { GroupDetailsModal } from "@/components/grupos/GroupDetailsModal";
 import { NewCycleModal } from "@/components/grupos/NewCycleModal";
-import { ClaimPayoutModal } from "@/components/modals/ClaimPayoutModal";
-import { CrankPayoutModal } from "@/components/modals/CrankPayoutModal";
 import { JoinGroupModal } from "@/components/modals/JoinGroupModal";
-import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
-import { FreeBidModal } from "@/components/modals/FreeBidModal";
-import { PlaceBidModal } from "@/components/modals/PlaceBidModal";
 import { ACTIVE_GROUPS, DISCOVER_GROUPS, type ActiveGroup, type GroupLevel } from "@/data/groups";
 import { DEVNET_POOLS, GRACE_PERIOD_SECS } from "@/lib/devnet";
 import {
   CATEGORY_KEYS,
+  catalogGroupToActiveGroup,
   fromActive,
   fromDiscover,
   type Category,
   type CatalogGroup,
 } from "@/lib/groups";
 import { USDC_RATE, useI18n } from "@/lib/i18n";
-import { freeBidView, lanceView, showsFreeBidPanel, showsLancePanel } from "@/lib/lance";
+import { useGroupChainState } from "@/lib/useGroupChainState";
 import { useBid } from "@/lib/useBid";
 import { useSession } from "@/lib/session";
 import { useWallet } from "@/lib/wallet";
 import { sendFinalizeDraw } from "@/lib/finalize-draw";
 import { contemplatedSlotForCycle, drawnCycleForSlot, isSorteioPool, useDraw } from "@/lib/sorteio";
-import { useMyDevnetPositions } from "@/lib/useMyDevnetPositions";
+import { useDevnetPoolDirectory } from "@/lib/useMyDevnetPositions";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { usePool, usePoolMembers } from "@/lib/usePool";
 
 const TONE_HEX: Record<string, string> = {
@@ -87,28 +87,6 @@ function descKeyFor(name: string): string {
   if (name.includes("Piloto")) return "groupsV2.desc.piloto";
   if (name.includes("Sorteio")) return "groupsV2.desc.sorteio";
   return "groupsV2.desc.default";
-}
-
-// CatalogGroup → ActiveGroup adapter for the ClaimPayoutModal mock path (it
-// only needs name / prize / month / total / emoji; the rest get sane defaults).
-function catalogGroupToActiveGroup(g: CatalogGroup): ActiveGroup {
-  return {
-    id: g.id,
-    name: g.name,
-    emoji: g.emoji,
-    tone: g.tone,
-    prize: g.prize,
-    month: 1,
-    total: g.months,
-    status: "drawn",
-    nextDue: 0,
-    progress: 0,
-    members: g.total,
-    draw: "ganho neste ciclo",
-    installment: g.installment,
-    level: g.level,
-    contemplated: g.contemplated,
-  };
 }
 
 function Chip({
@@ -157,219 +135,58 @@ function GroupCard({ group }: { group: CatalogGroup }) {
   const { explorerAddr } = useWallet();
   const adapter = useAdapterWallet();
   const { connection } = useConnection();
-  const [joinOpen, setJoinOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [claimOpen, setClaimOpen] = useState(false);
-  const [processOpen, setProcessOpen] = useState(false);
 
   const tone = TONE_HEX[group.tone] ?? "#14F195";
-  // Live on-chain fill for devnet-linked cards (members_joined / target +
-  // Forming status). Fixtures keep their static numbers; the "pool1" arg is
-  // inert when there's no devnetPool. This is what shows a real "1/5" + a
-  // "Formando · faltam 4" chip instead of a stale fixture count.
-  const live = usePool(group.devnetPool ?? "pool1");
-  const lp = group.devnetPool && live.status === "ok" && live.pool ? live.pool : null;
-  // Sorteio pools (ADR pool_v2): the payout order lives in the DrawResult
-  // PDA, minted once when the pool fills. `useDraw` only fetches when the
-  // live pool actually is a sorteio pool — arrival pools skip the read.
-  const drawRes = useDraw(group.devnetPool, lp);
-  // Live roster for devnet-linked cards — used to detect "it's your turn to
-  // receive" (the connected wallet holds the slot whose index === current_cycle).
-  // Membership is read from CHAIN here, not the session `isJoined` flag, because a
-  // pool joined in a previous session won't be in `joinedGroupNames`.
-  const membersRes = usePoolMembers(group.devnetPool ?? "pool1", 30_000, !!group.devnetPool);
-  const connectedWallet = adapter.publicKey;
-  // The connected wallet's live Member record for this pool (read from chain).
-  const myMember = useMemo(() => {
-    if (!group.devnetPool || !connectedWallet || membersRes.status !== "ok") return null;
-    return membersRes.members.find((m) => m.wallet.equals(connectedWallet)) ?? null;
-  }, [group.devnetPool, connectedWallet, membersRes]);
-  const filled = lp ? lp.membersJoined : group.filled;
-  const total = lp ? lp.membersTarget : group.total;
-  const forming = lp ? lp.status === "forming" : false;
-  // Every cycle drawn + claimed → the pool is finished on-chain
-  // (claim_payout sets PoolStatus::Completed on the last cycle).
-  const completed = lp ? lp.status === "completed" : false;
-  const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
-  const devnetMeta = group.devnetPool ? DEVNET_POOLS[group.devnetPool] : null;
-  // Duration label that respects the REAL on-chain cycle length. `group.months`
-  // is actually the cycle count; the prior label assumed 1 cycle = 1 month, so
-  // "Pool Rápida · Devnet 2d" (2-day cycle, 5 cycles ≈ 10 days) wrongly showed
-  // "5 meses". Use the live pool's `cycleDurationSec` when available; fixtures
-  // (no live pool) keep the monthly assumption.
-  const cycleDays = lp ? Math.max(1, Math.round(Number(lp.cycleDurationSec) / 86_400)) : 30;
-  const isMonthlyCycle = cycleDays >= 28;
-  const durLabel = isMonthlyCycle
-    ? t("groupsV2.card.months", { n: group.months })
-    : t("groupsV2.card.days", { n: group.months * cycleDays });
-  const durShort = isMonthlyCycle ? `${group.months}m` : `${group.months * cycleDays}d`;
-  // Joined = static fixture flag OR runtime session membership (JOIN_GROUP) OR a
-  // real on-chain Member record. The on-chain check matters because a pool joined
-  // in a PAST session isn't in joinedGroupNames — without it the card wrongly
-  // offers "Entrar" to someone who is already a member (e.g. right after they
-  // claimed, when claimReadyChain has gone false).
-  const isJoined = group.joined || joinedGroupNames.includes(group.name) || !!myMember;
-  // A group a NON-member can actually enter: devnet pools must still be
-  // Forming with a free seat (join_pool's own gate — Active/Completed/full
-  // pools reject the join anyway, so offering "Entrar" just walks the user
-  // into a dead modal); fixtures fall back to their static count.
-  const joinable = lp ? forming && filled < total : filled < total;
-  // Level gate mirrors roundfi-core::join_pool — block before paying gas.
-  const locked = !isJoined && group.level > user.level;
-  // Same gap the JoinGroupModal locked card shows: score → next tier.
-  const pointsNeeded = Math.max(0, user.nextLevel - user.score);
-  // Demo claim (mock mode): the user holds the contemplated slot and hasn't
-  // claimed yet this session.
-  const claimReadyDemo = isJoined && !!group.contemplated && !claimedGroups.includes(group.name);
-  // Real on-chain claim surfacing — the MISSING HALF of the cycle: the cycle only
-  // advances when the CONTEMPLATED seat claims its payout. Arrival pools: the
-  // seat whose index === current_cycle. Sorteio pools: the seat the DrawResult
-  // assigned to this cycle — and null while undrawn, so nobody sees "Receber"
-  // before the draw (mirrors the on-chain DrawRequired gate). When the connected
-  // wallet (myMember, above) holds that seat, show a real "Receber" that fires
-  // claim_payout(cycle) in chain mode (memberRecord/pool/seedKey).
-  const contemplatedSlot = lp ? contemplatedSlotForCycle(lp, drawRes.draw, lp.currentCycle) : null;
-  const claimReadyChain =
-    !demoActive &&
-    !!lp &&
-    lp.status === "active" &&
-    !!myMember &&
-    !myMember.defaulted &&
-    !myMember.paidOut &&
-    contemplatedSlot !== null &&
-    myMember.slotIndex === contemplatedSlot;
-  const claimPrizeBrl =
-    claimReadyChain && lp ? (Number(lp.creditAmount) / 1e6) * USDC_RATE : group.prize;
+  // Every on-chain fact + affordance comes from ONE hook, shared with the
+  // compact mobile card. See lib/useGroupChainState.ts for why: two cards
+  // deriving "can this member claim / crank / draw / bid?" independently is
+  // exactly how the mobile redesign package lost those affordances.
+  const chain = useGroupChainState(group);
+  const {
+    lp,
+    myMember,
+    filled,
+    total,
+    forming,
+    completed,
+    pct,
+    devnetMeta,
+    durLabel,
+    durShort,
+    isJoined,
+    joinable,
+    locked,
+    pointsNeeded,
+    claimReadyDemo,
+    claimReadyChain,
+    claimPrizeBrl,
+    needsProcessing,
+    drawPending,
+    myDrawnCycle,
+    drawPda,
+    lance,
+    lanceOpen,
+    freeBid,
+    freeBidOpen,
+    drawSubmitting,
+    drawError,
+    handleDraw,
+  } = chain;
 
-  // "Awaiting processing" (SEV-051 liveness) — the group is stuck: the
-  // contemplated member (slot === current_cycle) never claimed and their
-  // self-claim grace (next_cycle_at + GRACE_PERIOD_SECS) has elapsed, so the
-  // cycle can't advance for anyone. This surfaces the permissionless
-  // crank_payout as a plain "Processar ciclo" affordance — hiding the
-  // admin/cranker concept from the member. Not shown to the contemplated
-  // member themselves (they get the "Receber" claim button above instead).
-  const contemplatedMember = useMemo(() => {
-    if (!lp || lp.status !== "active" || membersRes.status !== "ok") return null;
-    if (lp.currentCycle >= lp.cyclesTotal) return null;
-    // Draw-aware: on an undrawn sorteio pool contemplatedSlot is null → no
-    // member is contemplated → "Processar ciclo" can't point at seat 0.
-    if (contemplatedSlot === null) return null;
-    return membersRes.members.find((m) => m.slotIndex === contemplatedSlot) ?? null;
-  }, [lp, membersRes, contemplatedSlot]);
-  const graceElapsed =
-    !!lp && Math.floor(Date.now() / 1000) >= Number(lp.nextCycleAt) + Number(GRACE_PERIOD_SECS);
-  const needsProcessing =
-    !demoActive &&
-    !!contemplatedMember &&
-    !contemplatedMember.paidOut &&
-    !contemplatedMember.defaulted &&
-    graceElapsed &&
-    !claimReadyChain;
-
-  // ─── Sorteio draw (ADR pool_v2) ──────────────────────────────────────
-  // A full (Active) sorteio pool with no DrawResult is waiting for its
-  // one-shot, permissionless draw — payouts are unreachable on-chain
-  // (DrawRequired) until someone fires finalize_draw. Surface a plain
-  // "Sortear ordem" CTA to any connected wallet; the program re-anchors
-  // the cycle-0 window at draw time, so drawing late costs nobody.
-  const drawPending =
-    !demoActive &&
-    !!lp &&
-    isSorteioPool(lp) &&
-    lp.status === "active" &&
-    drawRes.status === "ok" &&
-    !drawRes.draw;
-  // The connected member's drawn cycle (order[seat]) — shown as a chip so
-  // everyone knows their turn the moment the draw lands.
-  const myDrawnCycle =
-    lp && myMember && isSorteioPool(lp)
-      ? drawnCycleForSlot(lp, drawRes.draw, myMember.slotIndex)
-      : null;
-  // ─── Lance embutido (ADR 0012 Fase 2) ────────────────────────────────
-  // A member drawn for a FUTURE cycle can bring their turn forward by
-  // offering the installments they've already prepaid. `lanceView` is the
-  // same arithmetic the program gates on (depth = contributions_paid −
-  // current_cycle − 1, strictly deeper than the standing bid), so the
-  // panel only promises a bid that will actually land.
-  const lance = lanceView({
-    isSorteio: isSorteioPool(lp),
-    poolActive: !!lp && lp.status === "active",
-    currentCycle: lp?.currentCycle ?? 0,
-    cyclesTotal: lp?.cyclesTotal ?? 0,
-    currentBidDepth: lp?.currentBidDepth ?? 0,
-    myDrawnCycle: myDrawnCycle,
-    contributionsPaid: myMember?.contributionsPaid ?? null,
-    defaulted: myMember?.defaulted ?? false,
-    paidOut: myMember?.paidOut ?? false,
+  // Modal flags stay local: they're per-card presentation, never gate an
+  // on-chain action, and sharing them would re-render both cards on a
+  // purely visual toggle. The stack they drive is shared (GroupCardModals).
+  const [flags, setFlags] = useState<GroupCardModalFlags>({
+    join: false,
+    details: false,
+    claim: false,
+    process: false,
+    bid: false,
+    prepay: false,
+    freeBid: false,
   });
-  // Demo personas never bid: the swap is real on-chain state, so a mock
-  // "success" would misrepresent the payout order.
-  const lanceOpen = !demoActive && !!group.devnetPool && showsLancePanel(lance.status);
-  const [bidOpen, setBidOpen] = useState(false);
-  const [prepayOpen, setPrepayOpen] = useState(false);
-
-  // ─── Lance livre (ADR 0012 Fase 3) ───────────────────────────────────
-  // The sealed free bid adds a TIME dimension: envelopes are sealed while
-  // the cycle runs and opened in the window right after its deadline. Only
-  // read the envelope when the member could actually have one.
-  const bidRes = useBid(
-    group.devnetPool,
-    lp?.currentCycle ?? null,
-    connectedWallet,
-    !demoActive && !!myMember && isSorteioPool(lp),
-  );
-  const freeBid = freeBidView({
-    isSorteio: isSorteioPool(lp),
-    poolActive: !!lp && lp.status === "active",
-    currentCycle: lp?.currentCycle ?? 0,
-    cyclesTotal: lp?.cyclesTotal ?? 0,
-    currentBidDepth: lp?.currentBidDepth ?? 0,
-    myDrawnCycle: myDrawnCycle,
-    contributionsPaid: myMember?.contributionsPaid ?? null,
-    defaulted: myMember?.defaulted ?? false,
-    paidOut: myMember?.paidOut ?? false,
-    nowSec: Math.floor(Date.now() / 1000),
-    nextCycleAt: Number(lp?.nextCycleAt ?? 0),
-    graceSecs: Number(GRACE_PERIOD_SECS),
-    hasEnvelope: bidRes.hasEnvelope,
-    envelopeRevealed: bidRes.revealed,
-  });
-  const freeBidOpen = !demoActive && !!group.devnetPool && showsFreeBidPanel(freeBid.status);
-  const [freeBidModalOpen, setFreeBidModalOpen] = useState(false);
-
-  const [drawSubmitting, setDrawSubmitting] = useState(false);
-  const [drawError, setDrawError] = useState<string | null>(null);
-  const handleDraw = async () => {
-    if (!group.devnetPool || !adapter.publicKey || !adapter.sendTransaction) {
-      setDrawError(t("groupsV2.card.draw.noWallet"));
-      return;
-    }
-    setDrawSubmitting(true);
-    setDrawError(null);
-    try {
-      await sendFinalizeDraw({
-        connection,
-        sendTransaction: adapter.sendTransaction,
-        pool: DEVNET_POOLS[group.devnetPool].pda,
-        caller: adapter.publicKey,
-      });
-      // Eager re-read: the order chip + Receber gating go live immediately.
-      void drawRes.refresh();
-      void live.refresh();
-      void membersRes.refresh();
-    } catch (err) {
-      const e = err as { message?: string; logs?: string[] };
-      const blob = [e.message, ...(Array.isArray(e.logs) ? e.logs : [])].filter(Boolean).join("\n");
-      // A parallel draw (someone else clicked first) collides on the PDA
-      // init — that's success from the group's point of view: refresh.
-      if (/already in use|AccountAlreadyInUse|custom program error: 0x0/i.test(blob)) {
-        void drawRes.refresh();
-      } else {
-        setDrawError(blob || String(err));
-      }
-    }
-    setDrawSubmitting(false);
-  };
+  const openModal = (k: keyof GroupCardModalFlags) => setFlags((f) => ({ ...f, [k]: true }));
+  const closeModal = (k: keyof GroupCardModalFlags) => setFlags((f) => ({ ...f, [k]: false }));
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/[0.08] bg-[#0C111A]/95 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
@@ -548,7 +365,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             </p>
             <button
               type="button"
-              onClick={() => setProcessOpen(true)}
+              onClick={() => openModal("process")}
               className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#FFB547] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-[#1A1200] transition hover:brightness-110"
             >
               {t("groupsV2.card.processing.cta")}
@@ -591,7 +408,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             {lance.status !== "outOfRunway" && (
               <button
                 type="button"
-                onClick={() => (lance.status === "ready" ? setBidOpen(true) : setPrepayOpen(true))}
+                onClick={() => (lance.status === "ready" ? openModal("bid") : openModal("prepay"))}
                 className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-110"
               >
                 {lance.status === "ready"
@@ -632,7 +449,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
             {freeBid.status !== "sealed" && (
               <button
                 type="button"
-                onClick={() => setFreeBidModalOpen(true)}
+                onClick={() => openModal("freeBid")}
                 className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#00C8FF] to-[#9945FF] px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white transition hover:brightness-110"
               >
                 {freeBid.status === "canSeal"
@@ -646,7 +463,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         {claimReadyChain || claimReadyDemo ? (
           <button
             type="button"
-            onClick={() => setClaimOpen(true)}
+            onClick={() => openModal("claim")}
             title={t("home.featured.claimTooltip")}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#9945FF] to-[#00C8FF] px-4 py-3 text-sm font-black text-white shadow-[0_10px_30px_rgba(153,69,255,0.25)] transition hover:scale-[1.01]"
           >
@@ -657,7 +474,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         ) : locked ? (
           <button
             type="button"
-            onClick={() => setJoinOpen(true)}
+            onClick={() => openModal("join")}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-gray-400 transition hover:border-white/20 hover:text-gray-300"
           >
             <Icons.lock size={14} stroke="currentColor" sw={2} />{" "}
@@ -666,7 +483,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         ) : isJoined ? (
           <button
             type="button"
-            onClick={() => setDetailsOpen(true)}
+            onClick={() => openModal("details")}
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-bold text-white transition hover:border-white/20"
           >
             {t("groups.card.cta.view")}
@@ -682,7 +499,7 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         ) : (
           <button
             type="button"
-            onClick={() => setJoinOpen(true)}
+            onClick={() => openModal("join")}
             className="w-full rounded-xl bg-gradient-to-r from-[#14F195] to-[#00C8FF] px-4 py-3 text-sm font-black text-[#03130D] shadow-[0_10px_30px_rgba(20,241,149,0.18)] transition hover:scale-[1.01]"
           >
             {t("groups.card.cta.join")}
@@ -690,104 +507,20 @@ function GroupCard({ group }: { group: CatalogGroup }) {
         )}
       </div>
 
-      {joinOpen && (
-        <JoinGroupModal group={group} open={joinOpen} onClose={() => setJoinOpen(false)} />
-      )}
-      <GroupDetailsModal group={group} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
-      {(claimReadyChain || claimReadyDemo) && (
-        <ClaimPayoutModal
-          group={catalogGroupToActiveGroup(group)}
-          open={claimOpen}
-          onClose={() => setClaimOpen(false)}
-          {...(claimReadyChain && lp && myMember && group.devnetPool
-            ? {
-                memberRecord: myMember,
-                pool: lp,
-                seedKey: group.devnetPool,
-                // Sorteio pools: claim_payout needs the DrawResult as a
-                // remaining account (claimReadyChain implies it exists).
-                ...(isSorteioPool(lp) && drawRes.drawPda ? { drawResult: drawRes.drawPda } : {}),
-              }
-            : {})}
-        />
-      )}
-      {/* Lance flow — both mounted only while open (same double-poll
-          reasoning as the crank modal below). The bid modal re-reads
-          `lance` on every render, so if a deeper bid lands while it's
-          open the CTA disables itself instead of firing a losing tx. */}
-      {group.devnetPool && bidOpen && (
-        <PlaceBidModal
-          group={catalogGroupToActiveGroup(group)}
-          open={bidOpen}
-          onClose={() => setBidOpen(false)}
-          view={lance}
-          seedKey={group.devnetPool}
-          onSuccess={() => {
-            // The swap lives in the DrawResult, so THAT's the read that
-            // has to refresh — otherwise the card keeps showing the old
-            // drawn cycle and the Receber gate stays closed.
-            void drawRes.refresh();
-            void live.refresh();
-            void membersRes.refresh();
-          }}
-        />
-      )}
-      {group.devnetPool && freeBidModalOpen && lp && myMember && (
-        <FreeBidModal
-          group={catalogGroupToActiveGroup(group)}
-          open={freeBidModalOpen}
-          onClose={() => setFreeBidModalOpen(false)}
-          view={freeBid}
-          seedKey={group.devnetPool}
-          installmentAmount={lp.installmentAmount}
-          cyclesTotal={lp.cyclesTotal}
-          contributionsPaid={myMember.contributionsPaid}
-          slotIndex={myMember.slotIndex}
-          bid={bidRes.bid}
-          onSuccess={() => {
-            // The envelope, the swapped order and the member's installment
-            // count all move on a reveal — refresh every one of them.
-            void bidRes.refresh();
-            void drawRes.refresh();
-            void live.refresh();
-            void membersRes.refresh();
-          }}
-        />
-      )}
-      {group.devnetPool && prepayOpen && (
-        <PayInstallmentModal
-          group={catalogGroupToActiveGroup(group)}
-          open={prepayOpen}
-          onClose={() => setPrepayOpen(false)}
-          onSuccess={() => {
-            void live.refresh();
-            void membersRes.refresh();
-          }}
-        />
-      )}
-      {/* Mount only while open — the modal runs its own usePool/usePoolMembers,
-          so mounting it on `needsProcessing` alone would double-poll the chain
-          for every stuck card. `processOpen` stays true through the success
-          screen (cleared only by the user), so nothing flashes/unmounts. */}
-      {group.devnetPool && processOpen && (
-        <CrankPayoutModal
-          open={processOpen}
-          onClose={() => setProcessOpen(false)}
-          initialPool={group.devnetPool}
-          lockPool
-          onSuccess={() => {
-            void live.refresh();
-            void membersRes.refresh();
-          }}
-        />
-      )}
+      <GroupCardModals group={group} chain={chain} flags={flags} onClose={closeModal} />
     </article>
   );
 }
 
-export default function GruposPage() {
+function GruposPageInner() {
   const { t, fmtMoneyThreshold } = useI18n();
   const { user, demoGroup, demoActive } = useSession();
+  const isMobile = useIsMobile(1024);
+  // `/grupos?tab=mine` is how the mobile Home's "Ver todos" lands here.
+  const requestedTab = useSearchParams().get("tab");
+  const [tab, setTab] = useState<GroupsTab>(
+    requestedTab === "mine" ? "mine" : requestedTab === "completed" ? "completed" : "available",
+  );
 
   const [sort, setSort] = useState<Sort>("relevant");
   const [level, setLevel] = useState<LevelFilter>("all");
@@ -803,7 +536,9 @@ export default function GruposPage() {
   // (empty for a fresh wallet). In real mode these are the ONLY "joined"
   // groups; the static ACTIVE_GROUPS fixtures (e.g. "Renovação MEI") are
   // demo-only, so a fresh wallet no longer shows them as participating.
-  const realPositions = useMyDevnetPositions();
+  const poolDirectory = useDevnetPoolDirectory();
+  const realPositions = poolDirectory.positions;
+  const poolStates = poolDirectory.pools;
   const joinedOnChainGroups = useMemo<ActiveGroup[]>(() => {
     // Demo mode renders the ACTIVE_GROUPS fixtures, so skip their pools to
     // avoid dups; real mode surfaces every genuine on-chain cota.
@@ -857,10 +592,57 @@ export default function GruposPage() {
     return base;
   }, [demoActive, joinedOnChainGroups, demoGroup]);
 
-  const compatibleCount = enriched.filter((g) => g.level <= user.level).length;
+  // Tab partitions read the LIVE pool status, not the fixture counts: a
+  // pool that filled up while you were looking must leave "disponíveis".
+  const groupIsCompleted = (g: CatalogGroup) => {
+    if (!g.devnetPool) return false;
+    const st = poolStates[g.devnetPool];
+    return st.status === "ok" && st.pool?.status === "completed";
+  };
+  const groupIsAvailable = (g: CatalogGroup) => {
+    if (!g.devnetPool) return g.filled < g.total;
+    const st = poolStates[g.devnetPool];
+    if (st.status !== "ok" || !st.pool) return g.filled < g.total;
+    return st.pool.status === "forming" && st.pool.membersJoined < st.pool.membersTarget;
+  };
+  const availableGroups = useMemo(
+    () => enriched.filter(groupIsAvailable),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [enriched, poolStates],
+  );
+  const myGroups = useMemo(
+    () => enriched.filter((g) => g.joined && !groupIsCompleted(g)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [enriched, poolStates],
+  );
+  // A finished pool drops out of `realPositions` (the NFT is spent), so the
+  // history tab reads membership straight from the roster instead.
+  const completedGroups = useMemo(() => {
+    const seen = new Map<string, CatalogGroup>();
+    const historical = DISCOVER_GROUPS.filter(
+      (g) => !!g.devnetPool && poolDirectory.joinedPoolKeys.includes(g.devnetPool),
+    ).map((g) => ({ ...fromDiscover(g), joined: true }));
+    [...enriched, ...historical]
+      .filter((g) => g.joined && groupIsCompleted(g))
+      .forEach((g) => seen.set(g.devnetPool ?? g.id, g));
+    return [...seen.values()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enriched, poolDirectory.joinedPoolKeys, poolStates]);
+  const activeByName = useMemo(
+    () =>
+      new Map(
+        [...(demoActive ? ACTIVE_GROUPS : []), ...joinedOnChainGroups].map((g) => [g.name, g]),
+      ),
+    [demoActive, joinedOnChainGroups],
+  );
+
+  const compatibleCount = availableGroups.filter((g) => g.level <= user.level).length;
 
   const filtered = useMemo(() => {
-    let rows = enriched;
+    let rows = tab === "mine" ? myGroups : tab === "completed" ? completedGroups : availableGroups;
+    // Filters describe what you'd like to JOIN — they'd only get in the way
+    // of "my groups" and "history", which are short, closed lists.
+    if (tab !== "available") return rows;
     if (level !== "all") rows = rows.filter((g) => g.level === level);
     if (category !== "all") rows = rows.filter((g) => g.category === category);
     if (budget !== "all") {
@@ -884,7 +666,20 @@ export default function GruposPage() {
     if (sort === "prize-high") rows = [...rows].sort((a, b) => b.prize - a.prize);
     if (sort === "installment-low") rows = [...rows].sort((a, b) => a.installment - b.installment);
     return rows;
-  }, [enriched, sort, level, category, budget, duration, onlyOpen, onlyAccessible, user.level]);
+  }, [
+    tab,
+    myGroups,
+    completedGroups,
+    availableGroups,
+    sort,
+    level,
+    category,
+    budget,
+    duration,
+    onlyOpen,
+    onlyAccessible,
+    user.level,
+  ]);
 
   const activeCount =
     [level, category, budget, duration].filter((x) => x !== "all").length +
@@ -937,141 +732,170 @@ export default function GruposPage() {
       </section>
 
       {/* filter bar */}
-      <section className="rounded-[1.5rem] border border-white/[0.08] bg-[#0B1018]/90 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:overflow-visible">
-          <div className="flex shrink-0 gap-2 lg:flex-wrap lg:gap-3 lg:shrink">
-            {SORTS.map(([key, glyph, labelKey]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSort(key)}
-                className={`shrink-0 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-bold transition lg:px-5 lg:py-3 lg:text-sm ${
-                  sort === key
-                    ? "border-[#14F195]/50 bg-[#14F195]/10 text-[#14F195] shadow-[0_0_22px_rgba(20,241,149,0.12)]"
-                    : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
-                }`}
-              >
-                {glyph} {t(labelKey)}
-              </button>
-            ))}
-          </div>
+      {/* Tabs — the redesign's main move on mobile: "o que posso entrar",
+          "o que já é meu" e "o que terminou" deixam de disputar a mesma
+          lista. Filtros só valem na primeira; as outras são listas curtas. */}
+      <section className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {(
+          [
+            ["available", "groupsV2.tab.available", availableGroups.length],
+            ["mine", "groupsV2.tab.mine", myGroups.length],
+            ["completed", "groupsV2.tab.completed", completedGroups.length],
+          ] as const
+        ).map(([key, labelKey, count]) => (
           <button
+            key={key}
             type="button"
-            onClick={() => setShowFilters((v) => !v)}
-            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-bold transition lg:px-5 lg:py-3 lg:text-sm ${
-              showFilters || activeCount > 0
-                ? "border-[#14F195]/40 bg-[#14F195]/[0.08] text-[#14F195]"
+            onClick={() => setTab(key)}
+            className={`shrink-0 rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
+              tab === key
+                ? "border-[#14F195]/50 bg-[#14F195]/10 text-[#14F195]"
                 : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
             }`}
           >
-            {t("groupsV2.moreFilters")}
-            {activeCount > 0 && (
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#14F195] px-1 text-[11px] font-black text-[#03130D]">
-                {activeCount}
-              </span>
-            )}
-            <span className={`transition-transform ${showFilters ? "rotate-180" : ""}`}>
-              <Icons.arrow size={14} stroke="currentColor" sw={2.4} style={{ rotate: "90deg" }} />
-            </span>
+            {t(labelKey)}
+            <span className="ml-1.5 text-[10px] opacity-60">{count}</span>
           </button>
-        </div>
-
-        {/* expandable panel */}
-        {showFilters && (
-          <div className="mt-4 flex flex-col gap-4 border-t border-white/[0.07] pt-4">
-            <FilterRow label={t("groups.filter.level")}>
-              <Chip active={level === "all"} onClick={() => setLevel("all")}>
-                {t("groups.chip.all")}
-              </Chip>
-              <Chip active={level === 1} onClick={() => setLevel(1)}>
-                {t("groupsV2.lvl", { n: 1 })}
-              </Chip>
-              <Chip active={level === 2} onClick={() => setLevel(2)}>
-                {t("groupsV2.lvl", { n: 2 })}
-              </Chip>
-              <Chip active={level === 3} tone="#9945FF" onClick={() => setLevel(3)}>
-                {t("groupsV2.lvl", { n: 3 })}
-              </Chip>
-              <Chip active={level === 4} tone="#9945FF" onClick={() => setLevel(4)}>
-                {t("groupsV2.lvl", { n: 4 })}
-              </Chip>
-            </FilterRow>
-
-            <FilterRow label={t("groups.filter.category")}>
-              <Chip active={category === "all"} onClick={() => setCategory("all")}>
-                {t("groups.chip.all")}
-              </Chip>
-              {CATEGORY_KEYS.map((k) => (
-                <Chip key={k} active={category === k} onClick={() => setCategory(k)}>
-                  {t(`cat.${k}`)}
-                </Chip>
-              ))}
-            </FilterRow>
-
-            <FilterRow label={t("groups.filter.prize")}>
-              <Chip active={budget === "all"} onClick={() => setBudget("all")}>
-                {t("groups.chip.any")}
-              </Chip>
-              <Chip active={budget === "lt15"} onClick={() => setBudget("lt15")}>
-                {t("groups.chip.lt15", { v: fmtMoneyThreshold(15000) })}
-              </Chip>
-              <Chip active={budget === "15to30"} onClick={() => setBudget("15to30")}>
-                {t("groups.chip.15to30", {
-                  a: fmtMoneyThreshold(15000),
-                  b: fmtMoneyThreshold(30000),
-                })}
-              </Chip>
-              <Chip active={budget === "gt30"} onClick={() => setBudget("gt30")}>
-                {t("groups.chip.gt30", { v: fmtMoneyThreshold(30000) })}
-              </Chip>
-            </FilterRow>
-
-            <FilterRow label={t("groups.filter.duration")}>
-              <Chip active={duration === "all"} onClick={() => setDuration("all")}>
-                {t("groups.chip.any")}
-              </Chip>
-              <Chip active={duration === "short"} onClick={() => setDuration("short")}>
-                {t("groups.chip.lt6")}
-              </Chip>
-              <Chip active={duration === "mid"} onClick={() => setDuration("mid")}>
-                {t("groups.chip.7to12")}
-              </Chip>
-              <Chip active={duration === "long"} onClick={() => setDuration("long")}>
-                {t("groups.chip.gt12")}
-              </Chip>
-            </FilterRow>
-
-            <FilterRow label={t("groups.filter.avail")}>
-              <Chip active={onlyOpen} onClick={() => setOnlyOpen((v) => !v)}>
-                {t("groupsV2.chip.onlyOpen")}
-              </Chip>
-              <Chip active={onlyAccessible} onClick={() => setOnlyAccessible((v) => !v)}>
-                {t("groupsV2.chip.onlyCompatible")}
-              </Chip>
-            </FilterRow>
-
-            <div className="flex items-center justify-between gap-3 border-t border-white/[0.07] pt-3 text-[11px]">
-              <span className="font-mono text-gray-400">
-                {t("groups.ofN", {
-                  n: filtered.length,
-                  total: enriched.length,
-                  c: activeCount,
-                  s: activeCount > 1 ? "s" : "",
-                })}
-              </span>
-              {activeCount > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  className="inline-flex items-center gap-1 font-bold text-[#00C8FF] hover:text-[#14F195]"
-                >
-                  <Icons.close size={12} stroke="currentColor" sw={2.4} /> {t("groups.clear")}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        ))}
       </section>
+
+      {tab === "available" && (
+        <section className="rounded-[1.5rem] border border-white/[0.08] bg-[#0B1018]/90 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
+          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:overflow-visible">
+            <div className="flex shrink-0 gap-2 lg:flex-wrap lg:gap-3 lg:shrink">
+              {SORTS.map(([key, glyph, labelKey]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSort(key)}
+                  className={`shrink-0 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-bold transition lg:px-5 lg:py-3 lg:text-sm ${
+                    sort === key
+                      ? "border-[#14F195]/50 bg-[#14F195]/10 text-[#14F195] shadow-[0_0_22px_rgba(20,241,149,0.12)]"
+                      : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
+                  }`}
+                >
+                  {glyph} {t(labelKey)}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-bold transition lg:px-5 lg:py-3 lg:text-sm ${
+                showFilters || activeCount > 0
+                  ? "border-[#14F195]/40 bg-[#14F195]/[0.08] text-[#14F195]"
+                  : "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:border-white/20"
+              }`}
+            >
+              {t("groupsV2.moreFilters")}
+              {activeCount > 0 && (
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#14F195] px-1 text-[11px] font-black text-[#03130D]">
+                  {activeCount}
+                </span>
+              )}
+              <span className={`transition-transform ${showFilters ? "rotate-180" : ""}`}>
+                <Icons.arrow size={14} stroke="currentColor" sw={2.4} style={{ rotate: "90deg" }} />
+              </span>
+            </button>
+          </div>
+
+          {/* expandable panel */}
+          {showFilters && (
+            <div className="mt-4 flex flex-col gap-4 border-t border-white/[0.07] pt-4">
+              <FilterRow label={t("groups.filter.level")}>
+                <Chip active={level === "all"} onClick={() => setLevel("all")}>
+                  {t("groups.chip.all")}
+                </Chip>
+                <Chip active={level === 1} onClick={() => setLevel(1)}>
+                  {t("groupsV2.lvl", { n: 1 })}
+                </Chip>
+                <Chip active={level === 2} onClick={() => setLevel(2)}>
+                  {t("groupsV2.lvl", { n: 2 })}
+                </Chip>
+                <Chip active={level === 3} tone="#9945FF" onClick={() => setLevel(3)}>
+                  {t("groupsV2.lvl", { n: 3 })}
+                </Chip>
+                <Chip active={level === 4} tone="#9945FF" onClick={() => setLevel(4)}>
+                  {t("groupsV2.lvl", { n: 4 })}
+                </Chip>
+              </FilterRow>
+
+              <FilterRow label={t("groups.filter.category")}>
+                <Chip active={category === "all"} onClick={() => setCategory("all")}>
+                  {t("groups.chip.all")}
+                </Chip>
+                {CATEGORY_KEYS.map((k) => (
+                  <Chip key={k} active={category === k} onClick={() => setCategory(k)}>
+                    {t(`cat.${k}`)}
+                  </Chip>
+                ))}
+              </FilterRow>
+
+              <FilterRow label={t("groups.filter.prize")}>
+                <Chip active={budget === "all"} onClick={() => setBudget("all")}>
+                  {t("groups.chip.any")}
+                </Chip>
+                <Chip active={budget === "lt15"} onClick={() => setBudget("lt15")}>
+                  {t("groups.chip.lt15", { v: fmtMoneyThreshold(15000) })}
+                </Chip>
+                <Chip active={budget === "15to30"} onClick={() => setBudget("15to30")}>
+                  {t("groups.chip.15to30", {
+                    a: fmtMoneyThreshold(15000),
+                    b: fmtMoneyThreshold(30000),
+                  })}
+                </Chip>
+                <Chip active={budget === "gt30"} onClick={() => setBudget("gt30")}>
+                  {t("groups.chip.gt30", { v: fmtMoneyThreshold(30000) })}
+                </Chip>
+              </FilterRow>
+
+              <FilterRow label={t("groups.filter.duration")}>
+                <Chip active={duration === "all"} onClick={() => setDuration("all")}>
+                  {t("groups.chip.any")}
+                </Chip>
+                <Chip active={duration === "short"} onClick={() => setDuration("short")}>
+                  {t("groups.chip.lt6")}
+                </Chip>
+                <Chip active={duration === "mid"} onClick={() => setDuration("mid")}>
+                  {t("groups.chip.7to12")}
+                </Chip>
+                <Chip active={duration === "long"} onClick={() => setDuration("long")}>
+                  {t("groups.chip.gt12")}
+                </Chip>
+              </FilterRow>
+
+              <FilterRow label={t("groups.filter.avail")}>
+                <Chip active={onlyOpen} onClick={() => setOnlyOpen((v) => !v)}>
+                  {t("groupsV2.chip.onlyOpen")}
+                </Chip>
+                <Chip active={onlyAccessible} onClick={() => setOnlyAccessible((v) => !v)}>
+                  {t("groupsV2.chip.onlyCompatible")}
+                </Chip>
+              </FilterRow>
+
+              <div className="flex items-center justify-between gap-3 border-t border-white/[0.07] pt-3 text-[11px]">
+                <span className="font-mono text-gray-400">
+                  {t("groups.ofN", {
+                    n: filtered.length,
+                    total: enriched.length,
+                    c: activeCount,
+                    s: activeCount > 1 ? "s" : "",
+                  })}
+                </span>
+                {activeCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    className="inline-flex items-center gap-1 font-bold text-[#00C8FF] hover:text-[#14F195]"
+                  >
+                    <Icons.close size={12} stroke="currentColor" sw={2.4} /> {t("groups.clear")}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* grid */}
       {filtered.length === 0 ? (
@@ -1087,10 +911,25 @@ export default function GruposPage() {
           </button>
         </section>
       ) : (
-        <section className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((group) => (
-            <GroupCard key={group.id} group={group} />
-          ))}
+        <section
+          className={`grid grid-cols-1 items-stretch md:grid-cols-2 xl:grid-cols-3 ${
+            isMobile ? "gap-3" : "gap-5"
+          }`}
+        >
+          {filtered.map((group) =>
+            isMobile ? (
+              <CompactGroupCard
+                key={group.id}
+                group={group}
+                mode={tab}
+                {...(activeByName.get(group.name)
+                  ? { activeGroup: activeByName.get(group.name)! }
+                  : {})}
+              />
+            ) : (
+              <GroupCard key={group.id} group={group} />
+            ),
+          )}
         </section>
       )}
 
@@ -1112,5 +951,15 @@ export default function GruposPage() {
 
       <NewCycleModal open={newCycleOpen} onClose={() => setNewCycleOpen(false)} />
     </main>
+  );
+}
+
+export default function GruposPage() {
+  // `useSearchParams` must sit under a Suspense boundary or Next refuses to
+  // statically render the route.
+  return (
+    <Suspense fallback={null}>
+      <GruposPageInner />
+    </Suspense>
   );
 }
