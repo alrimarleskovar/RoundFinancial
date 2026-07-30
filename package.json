@@ -75,6 +75,7 @@
     "test:email-send": "pnpm exec mocha -t 60000 'tests/email_send.spec.ts'",
     "test:email-notify": "pnpm exec mocha -t 60000 'tests/email_notify_select.spec.ts'",
     "test:insights-real": "pnpm exec mocha -t 60000 'tests/insights_real.spec.ts'",
+    "test:insights-gates": "pnpm exec mocha -t 60000 'services/indexer/test/insights_pure.spec.ts'",
     "test:yield-harvest-floor": "pnpm exec mocha -t 60000 'tests/yield_harvest_floor.spec.ts'",
     "test:kamino-pin": "pnpm exec mocha -t 60000 'tests/kamino_pin_verify.spec.ts'",
     "verify:kamino-pin": "tsx scripts/mainnet/verify-kamino-pin.ts",

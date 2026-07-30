@@ -207,6 +207,17 @@ jobs:
         # Pure (no React / RPC / network), sub-second.
         run: pnpm test:insights-real
 
+      - name: Insights sample-size gates — ADR 0010 (13 tests)
+        # Pins the anti-p-hacking machinery: the four thresholds (30/100/50/30)
+        # as exact values, classifySample's boundaries at each of them, and
+        # wilson95Bps by exact value — including the two cases that are the
+        # whole reason Wilson was chosen over Wald (0 successes must NOT
+        # report [0,0], N successes must NOT report [100%,100%]).
+        # These lived in services/indexer/test/insights.spec.ts, which builds
+        # a PrismaClient at module scope and therefore cannot run without a
+        # Postgres — so they ran in no lane at all. Pure, sub-second.
+        run: pnpm test:insights-gates
+
       - name: Harvest slippage floor (7 tests)
         # Pins computeHarvestFloor (audit Wave 3): the off-chain crank now
         # computes a LIVE min_realized_usdc floor from the expected surplus

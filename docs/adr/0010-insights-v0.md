@@ -103,12 +103,40 @@ Shipped in `services/indexer/src/insights.ts`, surfaced at `/api/admin/insights`
 | §3  | The four views                 | `retentionByLevel` · `defaultPredictor` · `progression` · `behavioralImprovement`, composed by `getInsights`                                                                   |
 | §5  | 95% Wilson CI                  | `wilson95Bps` — chosen over Wald because Wald lies near 0 and 1, which is exactly where thin devnet data sits                                                                  |
 
-**Testing caveat, recorded rather than glossed:** `tests/insights_real.spec.ts`
-(31 cases, pure on-chain→display math) runs in CI as `pnpm test:insights-real`.
-`services/indexer/test/insights.spec.ts` needs a live Postgres via Prisma and is
-**not** in a CI lane — it is a local/manual spec today. The gates themselves
-(`classifySample`, `wilson95Bps`) are pure functions and could be covered without a
-database; doing so would close the gap.
+### Test coverage — and the gap that was found closing it
+
+`services/indexer/test/insights.spec.ts` constructs `new PrismaClient()` at
+**module scope**, so it throws `PrismaClientInitializationError` at import time
+without a live Postgres. It held the only tests for `classifySample` and
+`wilson95Bps` — which meant the gates that exist to stop this surface printing
+noise as a number **ran in no CI lane at all**. The gates were specified, built,
+and untested in practice.
+
+Closed by splitting the pure primitives into
+**`services/indexer/test/insights_pure.spec.ts`** (no Prisma import, no I/O),
+wired as `pnpm test:insights-gates` in the `js` lane — **13 exact-value tests**:
+
+- The four thresholds pinned as literals. Lowering one to make a devnet card
+  render is precisely the failure mode §1 was written against, so it now breaks
+  the build instead of passing quietly.
+- `classifySample` boundaries checked at **every real threshold**, both sides:
+  `n = T` must already be `preliminary`, `n = 2T − 1` must not yet be `significant`.
+- `wilson95Bps` by exact value, including the two cases that justify §5's choice
+  of Wilson over Wald: **0 successes of 100 → `[0, 370]` bps**, not `[0, 0]` (Wald
+  would claim certainty of a 0% rate from 100 observations), and **100 of 100 →
+  `[9630, 10000]`**, not `[10000, 10000]`. Plus: the interval never escapes
+  `[0, 10000]`, always brackets its own point estimate, and **narrows monotonically**
+  as `n` grows — without that last property the preliminary/significant badge would
+  be decorative.
+
+| Suite                                         | Cases | In CI                            |
+| --------------------------------------------- | ----: | -------------------------------- |
+| `services/indexer/test/insights_pure.spec.ts` |    13 | ✅ `pnpm test:insights-gates`    |
+| `tests/insights_real.spec.ts`                 |    31 | ✅ `pnpm test:insights-real`     |
+| `services/indexer/test/insights.spec.ts`      |   ~30 | ❌ needs Postgres — local/manual |
+
+The DB-backed view suites still need a Postgres and remain manual. That is a
+smaller gap than the one that was there: the arithmetic is pinned, the queries are not.
 
 ## Consequences
 
