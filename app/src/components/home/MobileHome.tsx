@@ -3,8 +3,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 
+import { RFILogoMark } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
 import { NetworkBadge } from "@/components/layout/NetworkBadge";
+import { TopBarPrefsMenu } from "@/components/layout/TopBarPrefsMenu";
 import { WalletChip } from "@/components/layout/WalletChip";
 import { PayInstallmentModal } from "@/components/modals/PayInstallmentModal";
 import { SellShareModal } from "@/components/modals/SellShareModal";
@@ -30,22 +32,21 @@ function Surface({ children, className = "" }: { children: ReactNode; className?
   );
 }
 
-function CompactHeader({ user }: { user: User }) {
-  const { t } = useI18n();
+function CompactHeader() {
   const wallet = useWallet();
   const connected = wallet.status === "connected";
 
+  // The shell's TopBar is hidden on /home below `lg` (TopBar.tsx), so this
+  // header is the ONLY place a phone can reach the language/currency menu —
+  // which is precisely what TopBarPrefsMenu exists for. Leaving it out left
+  // the home screen showing money in a currency it gave no way to change.
   return (
     <header className="flex items-center justify-between gap-2 py-2">
-      <div className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#8A5CFF]/25 bg-gradient-to-br from-[#8A5CFF]/20 to-[#23D9FF]/10 px-3 text-white">
-        <Icons.shield size={15} stroke={COLORS.purple} sw={1.9} />
-        <span className="text-[10px] font-black uppercase tracking-[0.08em]">
-          {t("mhome.tier", { n: user.level })}
-        </span>
-      </div>
+      <RFILogoMark size={32} />
 
       <div className="flex shrink-0 items-center gap-1.5">
         <NetworkBadge connected={connected} compact />
+        <TopBarPrefsMenu connected={connected} />
         <WalletChip wallet={wallet} compact />
       </div>
     </header>
@@ -79,6 +80,7 @@ function ProtectedBalanceCard({ value, yieldValue }: { value: number; yieldValue
 
 function PassportGlanceCard({ user, demoActive }: { user: User; demoActive: boolean }) {
   const { t } = useI18n();
+  const [info, setInfo] = useState(false);
   const score = Math.max(0, Math.min(100, Math.round(user.score / 10)));
   const label = t(user.score >= 500 ? "mhome.tier.trusted" : "mhome.tier.building");
   const passportId = user.walletShort || (demoActive ? "G8Z…EZF" : t("mhome.idPending"));
@@ -95,7 +97,12 @@ function PassportGlanceCard({ user, demoActive }: { user: User; demoActive: bool
               <Icons.spark size={9} stroke="currentColor" sw={2} />
               {t("mhome.passport")}
             </span>
-            <p className="mt-2 truncate text-[8px] text-white/40">ID {passportId}</p>
+            {/* The tier badge used to occupy the screen's top-left — where the
+                logo belongs. Reputation already lives on this card, so it
+                moved here instead of being dropped. */}
+            <p className="mt-2 truncate text-[8px] text-white/40">
+              {t("mhome.tier", { n: user.level })} · ID {passportId}
+            </p>
             <div className="mt-3">
               <p className="bg-gradient-to-r from-[#00F59B] to-[#23D9FF] bg-clip-text text-[12px] font-black uppercase tracking-[0.1em] text-transparent">
                 {label}
@@ -123,6 +130,42 @@ function PassportGlanceCard({ user, demoActive }: { user: User; demoActive: bool
           <span className="absolute bottom-3 right-3 text-white/35">
             <Icons.arrow size={11} stroke="currentColor" sw={1.8} />
           </span>
+
+          {/* The card is a Link, so the info affordance has to swallow the
+              tap — otherwise "what is this?" would navigate to /reputacao,
+              which is the one place someone who already understands it goes. */}
+          <button
+            type="button"
+            aria-label={t("mhome.passportInfo.aria")}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setInfo((v) => !v);
+            }}
+            className="absolute right-2 top-2 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white/20 bg-white/10 text-[10px] font-black leading-none text-white/70 backdrop-blur-sm transition hover:bg-white/20 hover:text-white"
+          >
+            i
+          </button>
+
+          {info && (
+            <div
+              role="presentation"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setInfo(false);
+              }}
+              className="absolute inset-0 z-10 flex flex-col justify-center gap-1.5 rounded-[15px] bg-[#080C13]/95 p-3.5 backdrop-blur-sm"
+            >
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#7BEAFF]">
+                {t("mhome.passport")}
+              </p>
+              <p className="text-[10px] leading-snug text-white/70">{t("mhome.passportInfo")}</p>
+              <p className="text-[8px] uppercase tracking-[0.12em] text-white/35">
+                {t("mhome.passportInfo.dismiss")}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </Link>
@@ -268,14 +311,9 @@ function ActiveCycles({
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#9CA3AF]">
-            {t("mhome.workspace")}
-          </p>
-          <h2 className="mt-1 text-lg font-semibold tracking-[-0.03em] text-white">
-            {t("mhome.cyclesTitle")}
-          </h2>
-        </div>
+        <h2 className="text-lg font-semibold tracking-[-0.03em] text-white">
+          {t("mhome.cyclesTitle")}
+        </h2>
         <Link href="/grupos?tab=mine" className="text-[10px] font-semibold text-[#00F59B]">
           {t("mhome.seeAll")}
         </Link>
@@ -444,7 +482,7 @@ export function MobileHome({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_10%_0%,rgba(0,245,155,0.06),transparent_42%),radial-gradient(circle_at_92%_12%,rgba(138,92,255,0.07),transparent_44%)]" />
 
       <div className="relative">
-        <CompactHeader user={user} />
+        <CompactHeader />
 
         <section className="mt-2 grid grid-cols-2 gap-3">
           <ProtectedBalanceCard value={protectedBalance} yieldValue={user.yield} />

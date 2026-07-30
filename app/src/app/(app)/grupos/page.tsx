@@ -710,14 +710,33 @@ function GruposPageInner() {
           <p className="mt-2 max-w-2xl text-sm text-gray-400 md:mt-3 md:text-base">
             {t("groupsV2.subtitle")}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 md:mt-5 md:gap-3">
-            <span className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
-              <Icons.people size={15} stroke="currentColor" />{" "}
-              {t("groupsV2.stat.available", { n: enriched.length })}
+          {/* Both counts on ONE row on phones — stacked full-width chips were
+              spending a third of the first screen. The available count reads
+              `availableGroups`, the same list the "Disponíveis" tab counts:
+              it used to read `enriched` (the whole catalog), so the header
+              said "4 grupos disponíveis" while the tab right below said 0. */}
+          <div className="mt-4 flex flex-nowrap gap-2 md:mt-5 md:gap-3">
+            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-gray-300 md:gap-2 md:px-4 md:py-2 md:text-sm">
+              <span className="shrink-0 leading-none">
+                <Icons.people size={15} stroke="currentColor" />
+              </span>
+              <span className="truncate md:hidden">
+                {t("groupsV2.stat.availableShort", { n: availableGroups.length })}
+              </span>
+              <span className="hidden md:inline">
+                {t("groupsV2.stat.available", { n: availableGroups.length })}
+              </span>
             </span>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-[#14F195]/15 bg-[#14F195]/[0.06] px-4 py-2 text-sm text-gray-300">
-              <Icons.check size={15} stroke="#14F195" sw={2.4} />{" "}
-              {t("groupsV2.stat.compatible", { n: compatibleCount })}
+            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-[#14F195]/15 bg-[#14F195]/[0.06] px-2.5 py-1.5 text-[11px] text-gray-300 md:gap-2 md:px-4 md:py-2 md:text-sm">
+              <span className="shrink-0 leading-none">
+                <Icons.check size={15} stroke="#14F195" sw={2.4} />
+              </span>
+              <span className="truncate md:hidden">
+                {t("groupsV2.stat.compatibleShort", { n: compatibleCount })}
+              </span>
+              <span className="hidden md:inline">
+                {t("groupsV2.stat.compatible", { n: compatibleCount })}
+              </span>
             </span>
           </div>
         </div>
