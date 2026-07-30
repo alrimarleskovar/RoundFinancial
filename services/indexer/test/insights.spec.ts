@@ -8,7 +8,12 @@
  *       exact-value parity against the spec definition + Wilson CI bounds.
  *
  * `classifySample` and `wilson95Bps` are pure functions and get exact-
- * value coverage of their own.
+ * value coverage of their own in `insights_pure.spec.ts` — which has NO
+ * Prisma import, so unlike this file it can actually run in CI.
+ *
+ * NOTE: this file constructs `new PrismaClient()` at module scope, so it
+ * needs a live Postgres (`DATABASE_URL`) even to be imported. It is a
+ * local/manual spec, not a CI lane.
  *
  * Fixture topology: the schema enforces `@@unique([poolId, slotIndex])` on
  * Member, so synthetic cohorts can't all share the same pool with
@@ -27,12 +32,10 @@ import { PrismaClient } from "@prisma/client";
 
 import {
   behavioralImprovement,
-  classifySample,
   defaultPredictor,
   INSIGHTS_THRESHOLDS,
   progression,
   retentionByLevel,
-  wilson95Bps,
 } from "../src/insights.js";
 
 const prisma = new PrismaClient();
@@ -134,48 +137,11 @@ function id(prefix: string, n: number, len = 44): string {
   return (s + "1".repeat(Math.max(0, len - s.length))).slice(0, len);
 }
 
-describe("Insights v0 — pure helpers", function () {
-  this.timeout(5_000);
-
-  it("classifySample: below T → insufficient", () => {
-    expect(classifySample(0, 30)).to.equal("insufficient");
-    expect(classifySample(29, 30)).to.equal("insufficient");
-  });
-
-  it("classifySample: [T, 2T) → preliminary", () => {
-    expect(classifySample(30, 30)).to.equal("preliminary");
-    expect(classifySample(59, 30)).to.equal("preliminary");
-  });
-
-  it("classifySample: ≥ 2T → significant", () => {
-    expect(classifySample(60, 30)).to.equal("significant");
-    expect(classifySample(1_000, 30)).to.equal("significant");
-  });
-
-  it("wilson95Bps(0, 0) is null (no observation, no interval)", () => {
-    expect(wilson95Bps(0, 0)).to.equal(null);
-  });
-
-  it("wilson95Bps stays inside [0, 10000] even at the boundaries", () => {
-    const lo = wilson95Bps(0, 100);
-    expect(lo).to.not.equal(null);
-    expect(lo![0]).to.be.gte(0);
-    expect(lo![1]).to.be.lte(10_000);
-
-    const hi = wilson95Bps(100, 100);
-    expect(hi).to.not.equal(null);
-    expect(hi![0]).to.be.gte(0);
-    expect(hi![1]).to.be.lte(10_000);
-  });
-
-  it("wilson95Bps(50, 100) returns a CI centered ≈ 50%", () => {
-    const ci = wilson95Bps(50, 100);
-    expect(ci).to.not.equal(null);
-    // Wilson 50%/100 ≈ [40.4%, 59.6%].
-    expect(ci![0]).to.be.within(4_000, 4_100);
-    expect(ci![1]).to.be.within(5_900, 6_000);
-  });
-});
+// `classifySample` and `wilson95Bps` moved to `insights_pure.spec.ts`.
+// They are pure functions of numbers, but living here meant they were
+// gated behind this file's module-level `new PrismaClient()` — so without
+// a Postgres they never ran at all, in CI or anywhere else. Kept in one
+// place rather than two so the assertions cannot drift apart.
 
 describe("Insights v0 — retentionByLevel (gate: 30 per cohort)", function () {
   this.timeout(30_000);
