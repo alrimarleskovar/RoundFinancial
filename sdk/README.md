@@ -47,16 +47,46 @@ console.log(poolView.currentCycle, poolView.totalContributed);
 
 ## Exports
 
-| Subpath                  | What                                    |
-| ------------------------ | --------------------------------------- |
-| `@roundfi/sdk`           | Barrel — everything below               |
-| `@roundfi/sdk/constants` | `MAX_BPS`, fee schedule, SAS schema IDs |
-| `@roundfi/sdk/pda`       | 12 PDA derivation functions             |
-| `@roundfi/sdk/client`    | High-level TypeScript client            |
-| `@roundfi/sdk/actions`   | Typed instruction builders              |
-| `@roundfi/sdk/reads`     | Account fetch + decode helpers          |
-| `@roundfi/sdk/stressLab` | Pure-TS actuarial simulator             |
-| `@roundfi/sdk/events`    | `LifecycleEvent` discriminated union    |
+| Subpath                    | What                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@roundfi/sdk`             | Barrel — everything below                                                                                                            |
+| `@roundfi/sdk/constants`   | `MAX_BPS`, fee schedule, SAS schema IDs                                                                                              |
+| `@roundfi/sdk/pda`         | 18 PDA derivation functions (incl. `drawResultPda`, `bidPda`)                                                                        |
+| `@roundfi/sdk/client`      | High-level TypeScript client                                                                                                         |
+| `@roundfi/sdk/actions`     | Typed instruction builders                                                                                                           |
+| `@roundfi/sdk/reads`       | Account fetch + decode helpers                                                                                                       |
+| `@roundfi/sdk/onchain-raw` | 8 IDL-free account decoders — `Pool`, `Member`, `Listing`, `DrawResult`, `Bid`, `ReputationProfile`, `IdentityRecord`, `Attestation` |
+| `@roundfi/sdk/stressLab`   | Pure-TS actuarial simulator                                                                                                          |
+| `@roundfi/sdk/events`      | `LifecycleEvent` discriminated union                                                                                                 |
+| `@roundfi/sdk/lance`       | Sealed free-bid envelope — `freeBidCommitHash`, `bidEnvelopeMessage`, `saltFromSignature`, `recoverBidParcels`                       |
+
+### `@roundfi/sdk/lance` — the sealed bid envelope
+
+Helpers for the ADR 0012 Fase 3 free bid. Browser-safe by construction: hashing goes
+through `@noble/hashes`, never `node:crypto`, so the module can sit in the barrel
+without breaking a bundler.
+
+```ts
+import {
+  freeBidCommitHash,
+  bidEnvelopeMessage,
+  saltFromSignature,
+  recoverBidParcels,
+} from "@roundfi/sdk/lance";
+
+// The salt is derived from a wallet signature over a canonical per-(pool, cycle)
+// message. ed25519 signing is deterministic (RFC 8032), so the same wallet always
+// recovers the same salt — losing localStorage cannot strand a sealed bid.
+const salt = saltFromSignature(await wallet.signMessage(bidEnvelopeMessage(pool, cycle)));
+const commitHash = freeBidCommitHash(amount, salt, bidder);
+
+// ...and the amount is recovered by scanning K against the on-chain commit hash.
+const parcels = recoverBidParcels(onChainCommitHash, salt, bidder, installmentAmount, maxParcels);
+```
+
+The commit hash is `sha256` over a **48-byte** preimage — `amount_le ‖ salt_le ‖ bidder`
+— and is pinned byte-for-byte against the Rust implementation by
+`tests/lance_livre_hash.spec.ts`.
 
 ## Programs
 
@@ -95,13 +125,13 @@ const frames = runSimulation(preset.config, preset.matrix);
 console.log(frames[frames.length - 1].metrics.poolBalance);
 ```
 
-51 economic-parity tests run against these presets — see [`docs/stress-lab.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/stress-lab.md).
+57 economic-parity tests run against these presets — see [`docs/stress-lab.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/stress-lab.md).
 
 ## Security
 
 This SDK is part of the RoundFi audit perimeter. Disclosure: see [`SECURITY.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/SECURITY.md).
 
-For full security posture documentation: [`docs/security/README.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/security/README.md) (8 docs, ~2 hour first-pass).
+For full security posture documentation: [`docs/security/README.md`](https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/security/README.md) (20 docs, ~2 hour first-pass).
 
 ## Versioning
 

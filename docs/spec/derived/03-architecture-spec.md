@@ -125,6 +125,29 @@ buy the NFT is **thawed → transferred → re-frozen** via mpl-core CPIs, autho
 by the slot's `position_authority` PDA. The frozen-by-default state is what binds
 the NFT to its slot's obligations between trades.
 
+### 2.7 The contemplation accounts
+
+Two PDAs decide **who receives the carta, and when** (MASTER-SPEC §4.8):
+
+- **`DrawResult`** — keyed **`[b"draw-result", pool]`**, written once by
+  `finalize_draw` when a sorteio pool fills. It stores `order[seat] = cycle`, which
+  is a **permutation** — and that single fact is what makes "every member is
+  contemplated exactly once" a property of the data structure rather than an
+  invariant anyone has to enforce. The seed is `draw-result` and not `draw`
+  precisely because the shorter stem reads as `SEED_DRAW_BPS`, the unrelated 91.6%
+  seed-draw constant.
+- **`Bid`** — keyed **`[b"bid", pool, cycle, bidder]`**, one sealed envelope per
+  bidder per cycle. Holds `commit_hash: [u8; 32]`, the revealed `amount` and
+  `parcels`, and a `Committed → Revealed` state. Putting the **cycle in the seeds**
+  means a commitment can never be replayed into a different cycle, and a second
+  commit for the same cycle collides on `init` instead of quietly re-sealing after
+  a peek.
+
+`Pool` also carries two single-byte fields for this subsystem — `ordering_policy`
+and `current_bid_depth` — both **carved from trailing padding** so `Pool::SIZE`
+never changed and pools created before the feature existed decode fine, reading a
+zeroed byte as the safe default.
+
 ## 3. The instruction surface
 
 The instruction surface, grouped by lifecycle phase. Every named instruction
@@ -146,20 +169,46 @@ below appears in MASTER-SPEC §4; nothing is invented here.
 | `claim_payout`    | The drawn member claims the carta; advances `current_cycle`, re-arms `next_cycle_at`; flips **Completed** on the final cycle. |
 | `release_escrow`  | Vests stake back out of escrow for an on-time member, gated on `on_time_count ≥ checkpoint` (else `EscrowLocked`). |
 
-### 3.3 Default settlement
+### 3.3 Contemplation — sorteio and lance
+
+Who gets the carta, and in what order. Specified in MASTER-SPEC §4.8; decided in
+[ADR 0012](../../adr/0012-contemplation-lance-and-prepayment.md).
+
+| Instruction            | Effect                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `finalize_draw`        | **Permissionless.** When `pool.ordering_policy == 1` (sorteio), draws the contemplation order on-chain once the pool fills and freezes it into a `DrawResult` PDA. |
+| `place_embedded_bid`   | Bids the installments the member has **already prepaid**. Depth is `contributions_paid − current_cycle − 1`; strictly greater than `pool.current_bid_depth` wins. |
+| `place_bid_commit`     | Seals a free bid: writes `sha256(amount ‖ salt ‖ bidder)` into a `Bid` PDA. Requires `clock < pool.next_cycle_at`. Uses `init`, not `init_if_needed` — re-sealing is what a commitment must forbid. |
+| `place_bid_reveal`     | Opens the envelope during `next_cycle_at ≤ clock < next_cycle_at + GRACE_PERIOD_SECS`. **Adjudicates before transferring**, so a losing bid reverts with the USDC still in the bidder's wallet. |
+
+Three properties carry this subsystem:
+
+- **`DrawResult.order[seat] = cycle` is a permutation**, and a winning bid **swaps**
+  two of its entries. A transposition of a permutation is still a permutation, so
+  "every member is contemplated exactly once" holds **by construction** — and
+  `claim_payout` / `crank_payout` required no changes to support bidding at all.
+- **The windows are disjoint.** Commits close exactly where reveals open, so a bid
+  can never be placed in response to one already revealed. That is the whole
+  anti-snipe mechanism; it needs no extra state.
+- **Losing is free apart from the fee**, because eligibility is checked before any
+  token moves. This is why there is no bid vault, no refund path, and no settlement
+  instruction — the free bid reduces to prepayment plus an embedded bid, and a
+  K-installment bid settles with **one** attestation (`BehavioralPayload.parcels_paid`).
+
+### 3.4 Default settlement
 
 | Instruction       | Effect                                                                                 |
 | ----------------- | -------------------------------------------------------------------------------------- |
 | `settle_default`  | Seizes solidarity → escrow → stake into `pool_usdc_vault`; marks `defaulted`; emits `SCHEMA_DEFAULT`. Eligibility gated on the **7-day mainnet / 1-day canary** grace window. |
 
-### 3.4 Yield Cascade
+### 3.5 Yield Cascade
 
 | Instruction             | Effect                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------- |
 | `deposit_idle_to_yield` | Routes idle `pool_usdc_vault` float into `yield_vault` via the adapter CPI.      |
 | `harvest_yield`         | Realizes yield and runs the 20% fee → guarantee fund → 65% LP → residual waterfall; `min_realized` slippage floor. |
 
-### 3.5 Escape Valve (secondary market)
+### 3.6 Escape Valve (secondary market)
 
 | Instruction                  | Effect                                                                      |
 | ---------------------------- | -------------------------------------------------------------------------- |
@@ -168,7 +217,7 @@ below appears in MASTER-SPEC §4; nothing is invented here.
 | `escape_valve_list_reveal`   | Reveals `(price, salt)`; arms `buyable_after = now + REVEAL_COOLDOWN_SECS` (30s). |
 | `escape_valve_buy`           | Atomically transfers price, swaps the Member PDA (position-state snapshot), moves the NFT, closes the listing; enforces `now ≥ buyable_after` (`ListingNotBuyableYet`). |
 
-### 3.6 Termination and rent reclaim
+### 3.7 Termination and rent reclaim
 
 | Instruction         | Effect                                                                       |
 | ------------------- | ---------------------------------------------------------------------------- |
@@ -180,7 +229,7 @@ below appears in MASTER-SPEC §4; nothing is invented here.
 rent-reclaim ceremony — `close_member` × N (rent → members) followed by
 `close_pool_vaults` (residual → treasury, accounts closed, rent → authority).
 
-### 3.7 Reputation and identity (`roundfi-reputation`)
+### 3.8 Reputation and identity (`roundfi-reputation`)
 
 | Instruction      | Effect                                                                          |
 | ---------------- | ------------------------------------------------------------------------------- |
@@ -193,16 +242,26 @@ rent-reclaim ceremony — `close_member` × N (rent → members) followed by
 account, so paused instructions revert with `ProtocolPaused` **before** any
 handler logic runs.
 
-**13 instructions are gated** while paused — including `create_pool`, `join_pool`,
-`contribute`, `claim_payout`, `release_escrow`, `deposit_idle_to_yield`,
-`harvest_yield`, and **both Escape Valve paths**.
+**17 instructions are gated** while paused — `create_pool`, `join_pool`,
+`contribute`, `claim_payout`, `crank_payout`, `release_escrow`,
+`skip_defaulted_payout`, `deposit_idle_to_yield`, `harvest_yield`, **all four
+Escape Valve paths**, `cancel_pending_listing`, and **all three lance paths**
+(`place_embedded_bid`, `place_bid_commit`, `place_bid_reveal`).
 
-**`settle_default` is the single deliberate carve-out.** A default already in
+**`settle_default` is the deliberate carve-out.** A default already in
 flight must remain settleable while the rest of the protocol is frozen, so that a
 pause cannot trap a pool with an unrecoverable delinquent member. Structurally
 this means `settle_default` does **not** carry the `!config.paused` constraint
-that the other thirteen do — the exemption is enforced by the **absence** of the
-gate on exactly one instruction.
+that the gated instructions do — the exemption is enforced by the **absence** of
+the gate.
+
+**`finalize_draw` is outside the gate for a different reason:** it takes no
+`config` account at all, so it is structurally un-pausable rather than
+deliberately exempted. It is permissionless and moves no funds — it only freezes
+a `DrawResult` for a pool that has filled — and every instruction that would
+*pay* against that order is itself gated. The distinction matters: `settle_default`
+is an exemption someone chose, while this one is a consequence of the account
+list. Recorded so it is reviewed rather than discovered.
 
 ## 5. Validated topology
 

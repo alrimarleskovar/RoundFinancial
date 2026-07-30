@@ -155,6 +155,39 @@ Pre-mainnet policy draft:
 
 **Why ninth:** for would-be reporters once mainnet ships. Pre-mainnet uses SECURITY.md's interim policy.
 
+### 10. Newest surface — `lance-contemplation.md`
+
+The **contemplation subsystem** — sorteio ordering plus all three lance phases
+([ADR 0012](../adr/0012-contemplation-lance-and-prepayment.md)) — shipped to devnet
+in Jul 2026. Read it **after** the tracker and before the deep dive if you are
+scoping an engagement: it is the **least-weathered code in the audit scope** and has
+not been through an internal red-team pass of its own.
+
+What the doc establishes:
+
+- **Bid depth** `= contributions_paid − current_cycle − 1`, strictly-greater wins.
+  The `−1` separates _ahead_ from merely _current_ and is load-bearing.
+- **The bijection argument** — a winning bid **swaps** two entries of
+  `DrawResult.order`; a transposition of a permutation is still a permutation, so
+  "contemplated exactly once" survives without any new check, and the payout
+  instructions were never modified.
+- **Adjudicate-before-paying** — `place_bid_reveal` tests eligibility _before_ any
+  transfer, so losing bids revert and the USDC never moves. This is what removed the
+  bid vault, the refund path and the settlement instruction from the design; writing
+  §5 is what surfaced that the draft had specified a vault-with-refunds **and**
+  conversion-at-reveal, which are mutually exclusive.
+- **Disjoint commit/reveal windows** as the whole anti-snipe mechanism.
+- **Envelope recovery** — deterministic salt from a wallet signature (ed25519 is
+  deterministic per RFC 8032) plus an amount scan, so a lost `localStorage` cannot
+  strand a sealed bid.
+
+**§5.5 carries 4 unresolved questions** — reveal-window length, whether a losing bid
+costing only the transaction fee makes bidding too cheap, whether the indexer treats
+`parcels_paid > 1` as a single event, and whether hybrid embedded×free-bid cycles are
+intended. These are **open**, not rhetorical: the team has not settled them, and
+[`MAINNET_READINESS.md`](../../MAINNET_READINESS.md) item **1.12** treats the review as
+a hard mainnet blocker for this surface.
+
 ### Design drafts (not yet implemented)
 
 Pre-implementation security designs for **deferred** features — choreography +

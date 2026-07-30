@@ -1,9 +1,10 @@
 # ADR 0012 — Contemplation by lance (consórcio bidding) + installment prepayment
 
-**Status:** 🟡 Proposed
-**Date:** 2026-07-23
+**Status:** ✅ Accepted — **all three phases implemented on-chain** (Jul 2026). See [Implementation outcome](#implementation-outcome): Phase 3 shipped in a **materially smaller** shape than the sketch below, and the sketch is kept as the historical record rather than edited into agreement.
+**Date:** 2026-07-23 · _implementation outcome recorded 2026-07-30_
 **Decision-makers:** RoundFi team (Alrimar, Caio)
-**Related:** the sorteio draw machinery (`ordering_policy` + `finalize_draw` / `DrawResult`); the `contribute` cycle gate; escape-valve commit-reveal (#232, anti-snipe). **Phased** — Phase 1 (prepayment) has an implementing PR that this ADR gates; Phases 2–3 (lance) precede their implementation and gate it.
+**Related:** the sorteio draw machinery (`ordering_policy` + `finalize_draw` / `DrawResult`); the `contribute` cycle gate; escape-valve commit-reveal (#232, anti-snipe). **Phased** — Phase 1 (prepayment) had an implementing PR that this ADR gated; Phases 2–3 (lance) preceded their implementation and gated it.
+**Open gate:** external review of [`docs/security/lance-contemplation.md`](../security/lance-contemplation.md) §5.5 (4 questions) remains **required before mainnet** for the lance surface.
 
 ## Context
 
@@ -60,13 +61,104 @@ The complete consórcio lance: a member bids **external** USDC (not just their o
 
 Phase 3 **precedes implementation** with its own security design doc (`docs/security/lance-contemplation.md`): winner-selection rule, amortization math and its effect on `pool_is_viable`, the refund path, the reputation treatment (contemplation-by-bid still owes every installment), and the anti-sniping model. **No on-chain code for Phase 3 until that doc lands + is reviewed.**
 
+## Implementation outcome
+
+_Recorded 2026-07-30, after all three phases shipped. The Decision section above is the
+record of what we **decided**; this section is what we **built**. Where they disagree,
+this section is correct and the divergence is explained rather than papered over._
+
+### Phase 1 — shipped as designed
+
+The comparator relaxed exactly as written (`==` → `>=` on the cycle gate), no new error
+variant, no layout change. Proven by `tests/litesvm_prepay_ahead.spec.ts`.
+
+### Phase 2 — shipped as designed, with the tracking slot carved from padding
+
+`place_embedded_bid` (no args, 5 accounts). The "per-cycle best embedded bid" became
+**`pool.current_bid_depth: u8`**, carved out of `Pool`'s trailing padding so `Pool::SIZE`
+is unchanged and pre-existing pools read a zeroed byte as the safe default. Bid depth is
+
+```
+depth = contributions_paid − current_cycle − 1
+```
+
+and the `−1` is load-bearing: `contributions_paid == current_cycle + 1` means you are
+merely **current**, not ahead, so it must not count as bid material. Strictly-greater
+wins; ties lose.
+
+**The contemplation change is a swap, not a new payout path.** `DrawResult.order[seat] = cycle`
+is a permutation; a winning bid swaps two entries so the bidder takes the current cycle and
+the displaced seat inherits the bidder's former future cycle. A swap of two entries in a
+permutation is still a permutation — so "everyone is contemplated exactly once" survives
+**by construction**, and `claim_payout` / `crank_payout` needed no changes at all.
+
+### Phase 3 — shipped **much smaller** than sketched
+
+The sketch above called for three instructions (`place_bid`, `settle_contemplation`,
+`withdraw_bid`), a bid vault holding locked external USDC, a refund path for losers,
+amortization math against the winner's remaining obligation, and a new `ordering_policy`
+value. **None of those shipped, and none of them are needed.** What shipped:
+
+| Sketched                                            | Actually shipped                                                |
+| --------------------------------------------------- | --------------------------------------------------------------- |
+| `place_bid`, `settle_contemplation`, `withdraw_bid` | `place_bid_commit` + `place_bid_reveal` (2 instructions)        |
+| Bid vault holding locked USDC                       | **no vault**                                                    |
+| Refund path for losing bids                         | **no refund path**                                              |
+| Amortization of the winner's balance                | **no amortization** — the bid _is_ prepayment of K installments |
+| `ordering_policy` gains a value (`2`)               | **unchanged** — the free bid rides the existing sorteio         |
+| Cool-down / commit-reveal on bid close              | **disjoint temporal windows** (below)                           |
+
+The collapse comes from one decision: **adjudicate before paying.** `place_bid_reveal`
+verifies the envelope, then checks `depth > pool.current_bid_depth` **before any token
+transfer**. A losing bid therefore _reverts_ — the USDC never leaves the bidder's wallet.
+There is nothing to hold, so there is no vault; nothing was taken, so there is no refund;
+the winner is known the moment the reveal succeeds, so there is no settlement step.
+
+Writing §5 of the security doc is what surfaced this: the draft simultaneously specified a
+bid vault with refunds _and_ conversion-at-reveal, which are mutually exclusive. Resolving
+the contradiction **deleted** surface instead of adding it.
+
+The second reduction: a free bid is not "external USDC" but **K installments prepaid
+atomically**. So Phase 3 _compiles down to_ Phase 1 + Phase 2 plus a sealed envelope, and
+introduces **no new contemplation math**. `BehavioralPayload.parcels_paid: u8` is what lets
+K installments settle with **one** attestation rather than K.
+
+**Anti-snipe is temporal, not a cooldown.** Commits require `clock < pool.next_cycle_at`;
+reveals require `next_cycle_at ≤ clock < next_cycle_at + GRACE_PERIOD_SECS`. The windows are
+**disjoint** — you cannot see a revealed bid and still place one. That is the whole
+anti-snipe property, and it needs no extra state.
+
+**New state:** a `Bid` PDA per `(pool, cycle, bidder)` (`SIZE = 131`) holding
+`commit_hash: [u8; 32]`, `amount`, `parcels`, and a `BidState { Committed, Revealed }`.
+Commit uses `init`, not `init_if_needed` — re-sealing is exactly what a commitment must forbid.
+
+**New errors** (appended at the enum end, since `RoundfiError` variants are positional):
+`BidWindowClosed`, `BidCommitMismatch`, `BidAlreadyRevealed`, `BidAmountNotMultiple`.
+
+**Envelope recoverability.** The commit hash is `sha256(amount_le ‖ salt_le ‖ bidder)` over a
+48-byte preimage. The salt is derived deterministically from a wallet signature over a
+canonical per-`(pool, cycle)` message (ed25519 signing is deterministic per RFC 8032), and the
+amount is recovered by scanning candidate `K` against the on-chain `commit_hash`. So losing
+`localStorage` cannot strand a sealed envelope. The small amount space is simultaneously what
+makes a weak salt dangerous and what makes recovery cheap — hence deriving the salt from a
+signature rather than from the amount.
+
+### Validation shipped with the phases
+
+`tests/litesvm_prepay_ahead.spec.ts` (Phase 1), `tests/litesvm_lance_embutido.spec.ts`
+(Phase 2), `tests/litesvm_lance_livre.spec.ts` (Phase 3, 9-case matrix),
+`tests/lance_livre_hash.spec.ts` (21 tests pinning the TS↔Rust preimage byte-for-byte and
+the deterministic-salt/recovery path), `tests/lance_ui.spec.ts` (38 tests over the pure
+eligibility/window helpers).
+
 ## Consequences
 
 - ✅ Phase 1 unlocks _"pagar antecipado"_ with a one-comparator, invariant-preserving relaxation — real member value at near-zero risk.
 - ✅ Phases 2–3 make RoundFi a faithful consórcio (sorteio + lance) — the mechanism the target user already understands — a product-defining feature, not a bolt-on.
 - ✅ Reuses proven substrate: prepayment rides `contribute`; the draw rides the sorteio machinery; anti-sniping rides the #232 commit-reveal shape.
 - ⚠️ Prepayment changes the funding **timeline** (float arrives earlier, unevenly). It never reduces total float, but the parity model + the litesvm prepayment test must confirm the claim waterfall + viability hold when one member is several cycles ahead.
-- ⚠️ Lance (Phase 3) adds material on-chain surface (new account + 3 instructions + policy branch + refund / amortization math) — its own audit + fuzz pass, gated by the security doc.
+- ⚠️ Lance (Phase 3) adds on-chain surface — but **less than feared**: 1 new account + 2 instructions + 4 error variants, with **no policy branch, no refund path and no amortization math** (see [Implementation outcome](#implementation-outcome)). Still needs its own audit pass; the security doc's §5.5 review is the open gate.
+- ⚠️ The `−1` in the bid-depth formula and the "adjudicate before transferring" ordering inside `place_bid_reveal` are both **load-bearing and easy to break silently**. Dropping the `−1` would let a merely-current member bid; moving the eligibility check after the transfers would reintroduce the refund problem the design deleted. Both are covered by the litesvm matrices.
 - ❌ Contemplation-by-bid complicates the "everyone is treated equally" story: a wealthier member can bid to jump the queue. This is inherent to consórcio and bounded (the bid is real money that accelerates the whole pool); we document it rather than design it away.
 
 ## Alternatives considered
@@ -95,4 +187,8 @@ Keeps RoundFi a draw-only / arrival-only ROSCA. Rejected: prepayment is a direct
 - Viability / split math: `pool_is_viable`, `math::split_installment`
 - Prepayment lifecycle proof: `tests/litesvm_prepay_ahead.spec.ts`
 - Member asks: live devnet testing ("pagar antecipado", "sistema de lances")
-- Follow-up (required before Phase 3 code): `docs/security/lance-contemplation.md`
+- Security design (was: required before Phase 3 code; now: **§5.5 review is the open mainnet gate**): [`docs/security/lance-contemplation.md`](../security/lance-contemplation.md)
+- Phase 2 implementation: `programs/roundfi-core/src/instructions/place_embedded_bid.rs`; `pool.current_bid_depth`
+- Phase 3 implementation: `programs/roundfi-core/src/state/bid.rs`, `instructions/place_bid_commit.rs`, `instructions/place_bid_reveal.rs`
+- Envelope primitives (TS): `sdk/src/lance.ts` (`freeBidCommitHash`, `bidEnvelopeMessage`, `saltFromSignature`, `recoverBidParcels`); `sdk/src/pda.ts` (`bidPda`)
+- Front-end: `app/src/lib/lance.ts` (pure eligibility + window helpers), `app/src/lib/place-embedded-bid.ts`, `app/src/lib/place-bid.ts`, `app/src/components/modals/PlaceBidModal.tsx`, `app/src/components/modals/FreeBidModal.tsx`

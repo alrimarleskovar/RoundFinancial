@@ -11,6 +11,33 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Added — contemplation subsystem: sorteio + lance ([ADR 0012](docs/adr/0012-contemplation-lance-and-prepayment.md), all three phases on-chain)
+
+- **Sorteio ordering** — `pool.ordering_policy` (`0` arrival / `1` sorteio, fail-closed on unknown values, carved from `Pool`'s trailing padding so `Pool::SIZE` is unchanged) + `finalize_draw` freezing the drawn order into a `DrawResult` PDA. `DrawResult.order[seat] = cycle` is a **permutation**, which is what makes "everyone is contemplated exactly once" structural rather than checked.
+- **Fase 1 · installment prepayment** — the `contribute` cycle gate relaxes from `args.cycle == pool.current_cycle` to `>=`. No skipping, no back-pay: a behind member still fails. One comparator; no new error, no layout change. Proof: `tests/litesvm_prepay_ahead.spec.ts`.
+- **Fase 2 · lance embutido** — `place_embedded_bid` (5 accounts, no args) offers already-prepaid installments as the bid. Depth is `contributions_paid − current_cycle − 1` (the `−1` is load-bearing: `current_cycle + 1` means merely **current**, not ahead); strictly-greater wins, ties lose. Tracked in `pool.current_bid_depth`, also carved from padding. A win **swaps** two entries of the drawn order, so `claim_payout` / `crank_payout` needed no changes.
+- **Fase 3 · lance livre (sealed)** — `place_bid_commit` + `place_bid_reveal` over a new `Bid` PDA (`SIZE = 131`, seeds `[b"bid", pool, cycle, bidder]`) holding `sha256(amount_le ‖ salt_le ‖ bidder)`. Anti-snipe is **temporal**: commits require `clock < next_cycle_at`, reveals require `next_cycle_at ≤ clock < next_cycle_at + GRACE_PERIOD_SECS` — disjoint windows, so a revealed bid can never be answered. The reveal **adjudicates before transferring**, so a losing bid reverts and the USDC never leaves the wallet — hence **no bid vault, no refund path, no settlement instruction**. A K-installment bid settles with **one** attestation via `BehavioralPayload.parcels_paid: u8`.
+- **New `RoundfiError` variants** (appended at the enum end — Anchor codes are positional): `BidWindowClosed`, `BidCommitMismatch`, `BidAlreadyRevealed`, `BidAmountNotMultiple`. Total is now **91**.
+- **SDK** — `sdk/src/lance.ts` (`freeBidCommitHash`, `bidEnvelopeMessage`, `saltFromSignature`, `recoverBidParcels`) using `@noble/hashes` so the browser bundle never reaches for `node:crypto`; `bidPda` / `drawPda`; `decodeBidRaw` + `decodeDrawRaw`; `Pool.current_bid_depth` decoded at offset 250.
+- **Envelope recoverability** — the salt is derived from a wallet signature over a canonical per-`(pool, cycle)` message (ed25519 is deterministic per RFC 8032) and the amount is recovered by scanning `K` against the on-chain `commit_hash`, so losing `localStorage` cannot strand a sealed bid.
+- **Front-end** — `PlaceBidModal` (embedded) and `FreeBidModal` (two acts: seal / open), plus `app/src/lib/lance.ts` holding the eligibility and window logic as **pure functions**, unit-tested without a chain (`lance_ui`, 38 tests).
+- **Tests** — `litesvm_sorteio_draw`, `litesvm_sorteio_autodraw`, `litesvm_ordering_policy`, `litesvm_prepay_ahead`, `litesvm_lance_embutido`, `litesvm_lance_livre` (9-case matrix), and `lance_livre_hash` (21 tests pinning the TS↔Rust preimage byte-for-byte plus the deterministic-salt/recovery path).
+
+> ⚠️ **Open mainnet gate:** external review of [`docs/security/lance-contemplation.md`](docs/security/lance-contemplation.md) §5.5 — reveal-window length, whether losing costing only the fee makes bidding too cheap, whether the indexer treats `parcels_paid > 1` as a single event, and whether hybrid embedded×free cycles are intended.
+
+### Added — mobile pass (PRs #651–#653)
+
+- **Dedicated mobile `/home`**, tabbed **`/grupos`** (Disponíveis / Meus grupos / Concluídos, deep-linkable via `?tab=mine`), and a compact group card that surfaces **one** on-chain action at a time in urgency order (draw → process → claim → free bid → embedded bid); a sealed envelope renders as a note with no button, because re-sealing is what a commitment must forbid.
+- **`useGroupChainState` + `GroupCardModals`** — the compact and full cards share one on-chain state machine and one modal stack, so a new affordance appears in both or neither. `/grupos` shed 469 lines.
+- **Breakpoint aligned to the shell (1024px)** across `/carteira` · `/reputacao` · `/insights`, killing the squeezed-desktop look on tablets.
+
+### Fixed — mobile pass follow-ups (#653)
+
+- `/grupos` header read `enriched` (the whole catalog) under a label promising availability, so it could claim "4 grupos disponíveis" while the Disponíveis tab right below read 0. Now both read `availableGroups`.
+- The same cota rendered `0,73 USDC` in Visão geral and `1 USDC` in Posições NFT — `noCents` rounding a holding's value. Removed.
+- `/home` hides the shell `TopBar` below `lg`, which took `TopBarPrefsMenu` with it: the phone had no way to switch language or currency while looking at money. Restored in the mobile header.
+- Posições NFT stacked on phones — four columns left the name ~85px on a 360px screen and "Cota on-chain · pool 8" broke into four lines.
+
 ### Added — PRs #405–#413 (SEV-012 litesvm lane, identity gate, reputation-config migration, ECO economics, wallet QR)
 
 - **SEV-012 closed via a REQUIRED litesvm CI lane** ([#411](https://github.com/alrimarleskovar/RoundFinancial/pull/411)). The mpl_core path (`join_pool` / `escape_valve_buy`), previously local-only and upstream-blocked, now runs in CI via litesvm — new `tests/_harness/litesvm.ts` harness + `tests/litesvm_join_pool.spec.ts` lifecycle spec. A V8-GC `std::bad_alloc` crash on Node 20 was fixed by pinning that lane to **Node 24**. CI is now **6 lanes** (`js · lint + typecheck + parity + L1`; `audit · cargo-audit`; `deny · supply-chain`; `anchor · build`; `bankrun · no-mpl-core (security_kamino_cpi)`; `litesvm · mpl-core path (join_pool lifecycle)` — NEW + required).
