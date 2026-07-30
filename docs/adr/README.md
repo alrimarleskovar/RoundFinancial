@@ -16,8 +16,8 @@
 | [0006](./0006-app-encoder-coverage-layers.md)         | ✅ Accepted | Three-layer coverage for front-end IDL-free encoders                                                                                          |
 | [0007](./0007-bankrun-compat-shim.md)                 | ✅ Accepted | `bankrun_compat` Connection shim for time-warp-bound specs                                                                                    |
 | [0008](./0008-treasury-custody-squads-multisig.md)    | ✅ Accepted | Treasury custody via Squads multisig (external ATA, not program PDA)                                                                          |
-| [0009](./0009-admin-ops-console.md)                   | 🟡 Proposed | Operational admin console (`/admin/ops`) for the devnet canary                                                                                |
-| [0010](./0010-insights-v0.md)                         | 🟡 Proposed | Insights v0 — analytics with honest sample-size gates                                                                                         |
+| [0009](./0009-admin-ops-console.md)                   | ✅ Accepted | Operational admin console (`/admin/ops`) — **implemented**: all 4 phases + Insights, 15 route handlers                                        |
+| [0010](./0010-insights-v0.md)                         | ✅ Accepted | Insights v0 — analytics with honest sample-size gates — **implemented** (`classifySample`, Wilson CI, 4 views)                                |
 | [0011](./0011-social-recovery-member-positions.md)    | 🟡 Proposed | Social recovery for member positions (recovery wallet + time-lock)                                                                            |
 | [0012](./0012-contemplation-lance-and-prepayment.md)  | ✅ Accepted | Contemplation by lance (consórcio bidding) + installment prepayment — **all 3 phases on-chain**; §5.5 security review is an open mainnet gate |
 | [0013](./0013-behind-member-catch-up-during-grace.md) | 🟡 Proposed | Behind-member catch-up (regularização) during the grace period                                                                                |

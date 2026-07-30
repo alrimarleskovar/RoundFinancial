@@ -1,7 +1,7 @@
 # ADR 0010 — Insights v0 (`/admin/ops/insights`) — analytics with honest sample-size gates
 
-**Status:** 🟡 Proposed
-**Date:** 2026-05-28
+**Status:** ✅ Accepted — **implemented** (verified 2026-07-30)
+**Date:** 2026-05-28 · _implementation verified 2026-07-30_
 **Decision-makers:** Engineering (canary)
 **Related:** ADR [0009](./0009-admin-ops-console.md) (admin/ops console + canonical events table), `sdk/src/behavioral.ts` (canonical timing semantics).
 
@@ -90,6 +90,25 @@ For proportions (retention rates, share-reached-level), we render a 95% **Wilson
 ### 6. Devnet posture
 
 A loud amber banner specific to Insights: **"devnet · sem volume estatístico — instrumentação pronta, números reais com tráfego."** This is the same honest framing as Economy's banner (ADR 0009 amendment) but sharpened for Insights: even when a card has enough rows to render, on devnet it almost certainly will not, and the "insufficient data" empty state is the expected screen.
+
+## Implementation status (verified 2026-07-30)
+
+Shipped in `services/indexer/src/insights.ts`, surfaced at `/api/admin/insights` →
+`/admin/ops/insights`. Verified against the tree:
+
+| §   | Decision                       | Where                                                                                                                                                                          |
+| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| §2  | `classifySample(n, threshold)` | `insights.ts:40` — `insufficient` / `preliminary` (`n < 2×`) / `significant`                                                                                                   |
+| §2  | Per-view thresholds pinned     | `INSIGHTS_THRESHOLDS` — `retentionPerCohort: 30`, `predictorTotalWallets: 100`, `progressionEligibleWallets: 50`, `improvementEligibleWallets: 30` — matching this ADR exactly |
+| §3  | The four views                 | `retentionByLevel` · `defaultPredictor` · `progression` · `behavioralImprovement`, composed by `getInsights`                                                                   |
+| §5  | 95% Wilson CI                  | `wilson95Bps` — chosen over Wald because Wald lies near 0 and 1, which is exactly where thin devnet data sits                                                                  |
+
+**Testing caveat, recorded rather than glossed:** `tests/insights_real.spec.ts`
+(31 cases, pure on-chain→display math) runs in CI as `pnpm test:insights-real`.
+`services/indexer/test/insights.spec.ts` needs a live Postgres via Prisma and is
+**not** in a CI lane — it is a local/manual spec today. The gates themselves
+(`classifySample`, `wilson95Bps`) are pure functions and could be covered without a
+database; doing so would close the gap.
 
 ## Consequences
 

@@ -165,6 +165,24 @@ both Escape Valve paths, escrow vesting, the pause breaker, and the complete
 rent-reclaim wind-down — ran to completion against live programs with real token
 transfers.
 
+### 4.1 What the count does _not_ include yet
+
+The **contemplation subsystem** — sorteio ordering plus all three lance phases
+(prepayment, embedded bid, sealed free bid) — shipped to devnet in **July 2026**,
+after the 2026-06-12 exercise this document reports. It is **deployed and covered
+by proofs**, but those proofs are **in-process lifecycle specs** (litesvm driving
+whole pools: `litesvm_sorteio_draw`, `litesvm_ordering_policy`,
+`litesvm_prepay_ahead`, `litesvm_lance_embutido`, `litesvm_lance_livre`, plus a
+byte-for-byte TS↔Rust commit-hash parity suite) rather than a devnet run with real
+USDC under the v5.2 runbook shape.
+
+By the standard this document holds itself to, that is **not** the same evidence
+class as the eight rows above, so it does not get a row. It earns one when the
+pools driving it are replayed on devnet and the signatures land in the runbook.
+
+Separately: external review of the lance security design remains an **open mainnet
+gate** — see [`MAINNET_READINESS.md`](../../../MAINNET_READINESS.md) item 1.12.
+
 ## 5. How to verify this yourself
 
 This document deliberately contains **no transaction signatures**. The signatures,

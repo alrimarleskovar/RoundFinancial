@@ -68,6 +68,56 @@ received your own payout.** This is the heart of it. Receiving the pot early is 
 benefit, not the finish line — your job is to keep paying your share until the
 circle is complete.
 
+### 3.1 How your turn is decided
+
+Two ways, and the circle picks one when it is created:
+
+- **By arrival** — turns follow the order in which people joined.
+- **By draw (_sorteio_)** — once the circle fills, the order is drawn **on-chain**,
+  in public, and frozen. Nobody — including us — can change it afterwards.
+
+Either way, **every member receives exactly once**. That is not a promise we
+monitor; it is built into how the order is stored, so there is no version of events
+where someone is skipped or paid twice.
+
+### 3.2 Paying ahead, and bidding for an earlier turn (_lance_)
+
+If you want your turn sooner, you can pay for it. This is the **lance** — the same
+mechanism a Brazilian consórcio has always had.
+
+**Paying ahead.** You can pay your next contribution before it is due, and keep
+going — several cycles ahead if you want. Two rules:
+
+- You always pay the **next** one you owe. You cannot skip ahead over an unpaid
+  contribution.
+- If you are **behind**, you must catch up first. Paying ahead is for getting
+  further ahead, never for filling a hole you left behind.
+
+**Bidding with what you have paid ahead.** Once you are ahead of the group, you can
+offer that as a bid. The member who is furthest ahead takes the current turn, and
+swaps places with whoever held it — they get your later turn. Nobody loses their
+turn; two people trade.
+
+**Bidding in a sealed envelope.** You can also bid without anyone seeing the amount.
+You seal your bid before the cycle turns over, and open it in the window right
+after. Because those two windows do not overlap, **nobody can wait to see your bid
+and then outbid you at the last second.** Once sealed, a bid cannot be changed —
+that is the whole point of sealing it.
+
+Three things worth knowing before you bid:
+
+- **If you lose, you pay nothing** beyond the network fee. Your money is only moved
+  if you win; a losing bid simply doesn't go through.
+- **You still owe every remaining contribution.** Winning a lance moves your turn
+  earlier. It does not shorten what you owe, and it never has.
+- **A tie loses.** To take a turn you must beat the standing bid outright, not
+  match it.
+
+**And the honest part:** because a lance is real money, a member who can pay more
+can move up the queue. That is how a consórcio has always worked, and there is a
+reason it is not simply unfair — the money goes into the pot, so an earlier bid
+means the circle contemplates *everyone* faster.
+
 ## 4. On time vs. late
 
 Every cycle has a due time. How your payment lands is what builds — or damages —
