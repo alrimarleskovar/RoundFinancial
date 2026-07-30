@@ -97,6 +97,10 @@ Solid arrows are happy-path movements; dashed arrows fire only when `settle_defa
 
 All accounts are PDAs derived from the seeds below. Numeric amounts are `u64` in **base units of USDC** (6 decimals) unless noted.
 
+> **This section predates three account types.** `roundfi-core` now has **six**: the three detailed below (`ProtocolConfig`, `Pool`, `Member`) plus **`Listing`** (escape valve, v0.3), **`DrawResult`** (sorteio ordering) and **`Bid`** (sealed free bid, ADR 0012 Fase 3). Seeds for all six are in [§7](#7-pda-seeds--authoritative-list); the contemplation accounts are specified in [Master Spec §4.8](spec/MASTER-SPEC.md#48-contemplation-order--the-lance).
+>
+> `Pool` has also grown three fields since this was written — `vaults_initialized`, `ordering_policy`, `current_bid_depth` — each **carved from the trailing padding** (7 → 6 → 5 → 4 bytes) so `Pool::SIZE` never changed and previously-created pools stay decodable, reading a zeroed byte as the safe default.
+
 ### 3.1 `ProtocolConfig` (singleton)
 
 Seeds: `[b"config"]`
@@ -253,6 +257,8 @@ pub struct YieldVaultState {
 ## 4. Instruction Surface
 
 ### 4.1 `roundfi-core`
+
+> **Partial list — `roundfi-core` is now 40 instructions.** The table below covers the v0.5 (Apr 2026) surface. Not listed here, and specified in the Master Spec instead: `crank_payout` and `skip_defaulted_payout` (liveness, SEV-049/050); `migrate_protocol_config`; `lock_reputation_program`; the escape-valve commit-reveal pair; and the **contemplation subsystem** — `finalize_draw`, `place_embedded_bid`, `place_bid_commit`, `place_bid_reveal` ([Master Spec §4.8](spec/MASTER-SPEC.md#48-contemplation-order--the-lance), [ADR 0012](adr/0012-contemplation-lance-and-prepayment.md)).
 
 | Instruction                          | Caller        | Key accounts (signer = S, mut = M)                                                                | Effect                                                                                                                                                                                                                                                                                                             |
 | ------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -724,7 +730,9 @@ These are enforced by assertions inside instruction handlers. A test per invaria
 
 ## 6. Error Taxonomy
 
-Defined in `roundfi-core/src/error.rs`:
+Defined in `roundfi-core/src/error.rs` — **now 91 variants**; the excerpt below is the v0.5 subset.
+
+> **Anchor error codes are positional** (`6000 + index`), so a variant may only ever be **appended** at the end of the enum. Inserting or reordering silently renumbers every code after it — including codes already baked into deployed clients, indexer rules and test assertions. The four newest are the lance variants: `BidWindowClosed`, `BidCommitMismatch`, `BidAlreadyRevealed`, `BidAmountNotMultiple`.
 
 ```
 InsufficientStake, PoolFull, PoolNotForming, PoolNotActive, PoolClosed,
@@ -745,21 +753,24 @@ EscapeValveNotListed, EscapeValvePriceMismatch
 
 ## 7. PDA Seeds — Authoritative List
 
-| Account                    | Program    | Seeds                                                                             |
-| -------------------------- | ---------- | --------------------------------------------------------------------------------- |
-| ProtocolConfig             | core       | `[b"config"]`                                                                     |
-| Pool                       | core       | `[b"pool", authority, seed_id.to_le_bytes()]`                                     |
-| Member                     | core       | `[b"member", pool, wallet]`                                                       |
-| escrow_vault authority     | core       | `[b"escrow", pool]`                                                               |
-| solidarity_vault authority | core       | `[b"solidarity", pool]`                                                           |
-| yield_vault authority      | core       | `[b"yield", pool]`                                                                |
-| position_authority         | core       | `[b"position", pool, slot_index.to_le_bytes()]`                                   |
-| position NFT asset         | core       | `[b"position-asset", pool, slot_index.to_le_bytes()]`                             |
-| ReputationProfile          | reputation | `[b"reputation", wallet]`                                                         |
-| ReputationConfig           | reputation | `[b"rep-config"]`                                                                 |
-| Attestation                | reputation | `[b"attestation", issuer, subject, schema_id.to_le_bytes(), nonce.to_le_bytes()]` |
-| IdentityRecord             | reputation | `[b"identity", wallet]`                                                           |
-| YieldVaultState            | yield-\*   | `[b"yield-state", owner]`                                                         |
+| Account                    | Program    | Seeds                                                                                                                                                                                                                             |
+| -------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ProtocolConfig             | core       | `[b"config"]`                                                                                                                                                                                                                     |
+| Pool                       | core       | `[b"pool", authority, seed_id.to_le_bytes()]`                                                                                                                                                                                     |
+| Member                     | core       | `[b"member", pool, wallet]`                                                                                                                                                                                                       |
+| Listing                    | core       | `[b"listing", pool, slot_index.to_le_bytes()]`                                                                                                                                                                                    |
+| DrawResult                 | core       | `[b"draw-result", pool]` — **`draw-result`, not `draw`**: the shorter stem reads as `SEED_DRAW_BPS` (the 91.6% seed-draw constant), which is an unrelated concept                                                                 |
+| Bid                        | core       | `[b"bid", pool, cycle.to_le_bytes(), bidder]` — the **cycle is in the seeds**, so a commit can never be replayed into another cycle, and a second commit for the same cycle collides on `init` rather than resealing after a peek |
+| escrow_vault authority     | core       | `[b"escrow", pool]`                                                                                                                                                                                                               |
+| solidarity_vault authority | core       | `[b"solidarity", pool]`                                                                                                                                                                                                           |
+| yield_vault authority      | core       | `[b"yield", pool]`                                                                                                                                                                                                                |
+| position_authority         | core       | `[b"position", pool, slot_index.to_le_bytes()]`                                                                                                                                                                                   |
+| position NFT asset         | core       | `[b"position-asset", pool, slot_index.to_le_bytes()]`                                                                                                                                                                             |
+| ReputationProfile          | reputation | `[b"reputation", wallet]`                                                                                                                                                                                                         |
+| ReputationConfig           | reputation | `[b"rep-config"]`                                                                                                                                                                                                                 |
+| Attestation                | reputation | `[b"attestation", issuer, subject, schema_id.to_le_bytes(), nonce.to_le_bytes()]`                                                                                                                                                 |
+| IdentityRecord             | reputation | `[b"identity", wallet]`                                                                                                                                                                                                           |
+| YieldVaultState            | yield-\*   | `[b"yield-state", owner]`                                                                                                                                                                                                         |
 
 ---
 

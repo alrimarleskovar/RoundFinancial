@@ -60,13 +60,15 @@ All protocol logic lives in `roundfi-core` (`8LVrgxKwKwqjcdq7rUUwWY2zPNk8anpo2Js
 
 `Forming → Active → Completed → Closed`.
 
-| Transition         | Instruction                        | Notes                                                                      |
-| ------------------ | ---------------------------------- | -------------------------------------------------------------------------- |
-| (create) → Forming | `create_pool` + `init_pool_vaults` | Two ixs: PDA alloc, then the four USDC vault ATAs (split for stack-depth). |
-| Forming → Active   | `join_pool` (last member)          | Pool flips Active when `members_joined == members_target`.                 |
-| (per cycle)        | `contribute`, `claim_payout`       | A cycle's claim advances `current_cycle` and re-arms `next_cycle_at`.      |
-| Active → Completed | `claim_payout` (final cycle)       | When `next_cycle ≥ cycles_total`.                                          |
-| Completed → Closed | `close_pool`                       | Pure terminal transition; decrements committed TVL. Moves no funds.        |
+| Transition         | Instruction                                                    | Notes                                                                                                               |
+| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| (create) → Forming | `create_pool` + `init_pool_vaults`                             | Two ixs: PDA alloc, then the four USDC vault ATAs (split for stack-depth).                                          |
+| Forming → Active   | `join_pool` (last member)                                      | Pool flips Active when `members_joined == members_target`.                                                          |
+| (on fill, sorteio) | `finalize_draw`                                                | Permissionless. Draws the contemplation order into a `DrawResult` PDA when `ordering_policy == 1`. See §4.8.        |
+| (per cycle)        | `contribute`, `claim_payout`                                   | A cycle's claim advances `current_cycle` and re-arms `next_cycle_at`. `crank_payout` is the permissionless variant. |
+| (per cycle, lance) | `place_embedded_bid` · `place_bid_commit` + `place_bid_reveal` | Optional. Bids swap two entries of the drawn order — the payout path is untouched. See §4.8.                        |
+| Active → Completed | `claim_payout` (final cycle)                                   | When `next_cycle ≥ cycles_total`.                                                                                   |
+| Completed → Closed | `close_pool`                                                   | Pure terminal transition; decrements committed TVL. Moves no funds.                                                 |
 
 **Hard geometry invariant:** `cycles_total == members_target` (`create_pool.rs:123`, SEV-038). Every slot is drawn exactly once; no orphan cycles.
 
@@ -127,7 +129,72 @@ On `escape_valve_buy` the handler atomically: transfers `price` buyer→seller; 
 
 ### 4.7 Pause (circuit breaker)
 
-`pause(bool)` (authority-gated) sets `config.paused`. While paused, **13 instructions** revert with `ProtocolPaused` at account-validation time (the `!config.paused` constraint on the shared `config` account) — including `create_pool`, `join_pool`, `contribute`, `claim_payout`, `release_escrow`, `deposit_idle_to_yield`, `harvest_yield`, and both Escape Valve paths. `settle_default` is a **deliberate carve-out**: a default in flight must still be settleable while paused.
+`pause(bool)` (authority-gated) sets `config.paused`. While paused, **17 instructions** revert with `ProtocolPaused` at account-validation time (the `constraint = !config.paused` on the shared `config` account): `create_pool`, `join_pool`, `contribute`, `claim_payout`, `crank_payout`, `release_escrow`, `skip_defaulted_payout`, `deposit_idle_to_yield`, `harvest_yield`, all four Escape Valve paths (`escape_valve_list_commit`, `escape_valve_list_reveal`, `escape_valve_list`, `escape_valve_buy`), `cancel_pending_listing`, and **all three lance paths** (`place_embedded_bid`, `place_bid_commit`, `place_bid_reveal`).
+
+Two instructions sit **outside** the pause gate, for different reasons:
+
+- **`settle_default`** — a **deliberate carve-out**: a default in flight must still be settleable while paused. Tracked as SEV-018 (design-intentional).
+- **`finalize_draw`** — takes **no `config` account at all**, so it is structurally un-pausable rather than deliberately exempted. It is permissionless and moves no funds — it only freezes a `DrawResult` for a pool that has filled — so a draw finalized during a pause cannot move money; every instruction that _would_ pay against that order is itself gated. Recorded here so the carve-out is documented rather than discovered; **whether `finalize_draw` should take `config` and gate on it is an open question for the external audit.**
+
+### 4.8 Contemplation order & the lance
+
+RoundFi is a **consórcio**: exactly one member is contemplated (handed the credit) per cycle.
+Two questions decide who — in what order the pool contemplates, and whether a member may pay
+to move up. Both are on-chain. Design record: [ADR 0012](../adr/0012-contemplation-lance-and-prepayment.md);
+security analysis: [`docs/security/lance-contemplation.md`](../security/lance-contemplation.md).
+
+**Ordering policy** (`pool.ordering_policy: u8`, carved from `Pool`'s trailing padding so
+`Pool::SIZE` is unchanged — same pattern as `vaults_initialized`, Adevar SEV-004):
+
+| Value | Policy  | Mechanism                                                                                          |
+| ----: | ------- | -------------------------------------------------------------------------------------------------- |
+|   `0` | arrival | Payout follows join order. The default; a zeroed byte on a pre-existing pool reads as this.        |
+|   `1` | sorteio | `finalize_draw` draws the order on-chain when the pool fills and freezes it in a `DrawResult` PDA. |
+
+Validation is **fail-closed**: an unknown policy value is rejected rather than silently
+treated as arrival.
+
+**`DrawResult.order[seat] = cycle` is a permutation**, and that is the load-bearing fact of
+this whole subsystem: "every member is contemplated exactly once" is a structural property of
+a bijection, not an invariant anyone has to check.
+
+**The lance** lets a member bid to be contemplated earlier. A lance changes _who_ is
+contemplated _when_ — never _whether_ they still owe every remaining installment
+(the pay-after-receiving thesis is non-negotiable).
+
+- **Prepayment** — `contribute` accepts your **next unpaid** installment even when it is ahead
+  of `pool.current_cycle` (`args.cycle >= pool.current_cycle`). No skipping (`args.cycle ==
+member.contributions_paid` still holds) and no back-pay: a behind member still fails the gate.
+- **Lance embutido** — `place_embedded_bid` offers the installments you have already prepaid.
+  Depth is `contributions_paid − current_cycle − 1`; the `−1` is load-bearing, because
+  `contributions_paid == current_cycle + 1` means merely **current**, not ahead. Strictly
+  greater than `pool.current_bid_depth` wins; ties lose. Required depth to take the cycle is
+  therefore `current_bid_depth + 1`.
+- **Lance livre (sealed)** — `place_bid_commit` writes a `Bid` PDA (`SIZE = 131`, seeds
+  `[b"bid", pool, cycle, bidder]`) holding `commit_hash = sha256(amount_le ‖ salt_le ‖ bidder)`
+  over a 48-byte preimage. `place_bid_reveal` opens it. The bid amount must be an exact
+  multiple of the installment: a free bid **is** K installments prepaid atomically, settled with
+  **one** attestation via `BehavioralPayload.parcels_paid: u8`.
+
+**Contemplation is a swap, not a new payout path.** A winning bid swaps two entries of
+`DrawResult.order` — the bidder takes the current cycle, the displaced seat inherits the
+bidder's former future cycle. A transposition of a permutation is still a permutation, so
+`claim_payout` and `crank_payout` required **no changes**.
+
+**Anti-snipe is temporal.** Commits require `clock < pool.next_cycle_at`; reveals require
+`next_cycle_at ≤ clock < next_cycle_at + GRACE_PERIOD_SECS`. The windows are **disjoint** —
+you cannot observe a revealed bid and still place one.
+
+**Losing costs nothing but the fee.** `place_bid_reveal` adjudicates (`depth >
+pool.current_bid_depth`) **before** any token transfer, so a losing reveal reverts and the
+USDC never leaves the bidder's wallet. This is why there is **no bid vault, no refund path and
+no settlement instruction** — the free bid reduces to prepayment plus an embedded bid.
+
+> ⚠️ **Open mainnet gate.** The lance surface ships on devnet but external review of
+> [`lance-contemplation.md`](../security/lance-contemplation.md) §5.5 (reveal-window length;
+> whether losing costing only the fee makes bidding too cheap; whether the indexer treats
+> `parcels_paid > 1` as one event; whether hybrid embedded×free cycles are intended) is
+> **required before mainnet**.
 
 ## 5. Reputation engine
 
@@ -268,6 +335,10 @@ Seven of the eight protocol capability areas were exercised **end-to-end on devn
 The rent-reclaim ceremony (#8) is the **true** end of a pool's lifecycle: `close_pool` only flips status to `Closed`, but `close_member` × N (rent → members) then `close_pool_vaults` (residual USDC → treasury, vault ATAs + Pool PDA closed, rent → authority) reclaim everything. Validated on pool `Ga2RwgSk…` — the authority's SOL went **up** (+0.0108 net of fees).
 
 Transaction signatures and the reproducible runbook: `docs/operations/v52-devnet-runbook.md`.
+
+**Contemplation subsystem (Jul 2026, [ADR 0012](../adr/0012-contemplation-lance-and-prepayment.md)).** Sorteio ordering, installment prepayment, the embedded lance and the sealed free bid are **deployed on devnet** and covered by in-process lifecycle proofs rather than the capability table above — each is exercised by a litesvm spec that drives a whole pool (`litesvm_sorteio_draw`, `litesvm_ordering_policy`, `litesvm_prepay_ahead`, `litesvm_lance_embutido`, `litesvm_lance_livre`) plus `lance_livre_hash` pinning the TS↔Rust commit-hash preimage byte-for-byte. A devnet capability row lands once the pools driving it are replayed under the v5.2 runbook shape. **External review of the lance security doc §5.5 is an open mainnet gate** — see [`MAINNET_READINESS.md`](../../MAINNET_READINESS.md).
+
+**Account types (`roundfi-core`).** `ProtocolConfig`, `Pool`, `Member`, `Listing`, `DrawResult`, `Bid` — 6 total. `Pool::SIZE` has been held constant across three field additions (`vaults_initialized`, `ordering_policy`, `current_bid_depth`) by carving each from trailing padding (7 → 6 → 5 → 4 bytes), so previously-created pools stay decodable and read a zeroed byte as the safe default. `RoundfiError` has **91 variants**; because Anchor error codes are positional (`6000 + index`), new variants are only ever **appended**.
 
 **Deployed program IDs (devnet, shared across clusters):**
 
