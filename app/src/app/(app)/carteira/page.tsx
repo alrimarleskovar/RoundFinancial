@@ -266,69 +266,150 @@ function CarteiraContent() {
         />
       )}
 
-      {/* Tabs — scroll horizontally on phones (the four labels don't fit at
-          once) instead of clipping the rightmost tab off the edge. */}
-      <div
-        className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{
-          marginTop: isMobile ? 14 : 24,
-          display: "flex",
-          gap: 2,
-          borderBottom: `1px solid ${tokens.border}`,
-          overflowX: "auto",
-        }}
-      >
-        {ALL_TABS.map((id) => {
-          const labels: Record<Tab, string> = {
-            overview: t("wallet.tab.overview"),
-            positions: t("wallet.tab.positions"),
-            transactions: t("wallet.tab.transactions"),
-            connections: t("wallet.tab.connections"),
-          };
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              ref={active ? scrollActiveTabIntoView : undefined}
-              onClick={() => setTab(id)}
+      {/* Connections is the 4th tab in a strip that scrolls, so on a phone the
+          screen everyone lands on never revealed it existed. Surfacing it here
+          beats reordering the tabs — reordering only clips a different one. */}
+      {isMobile && tab === "overview" && (
+        <button
+          type="button"
+          onClick={() => setTab("connections")}
+          style={{
+            marginTop: 12,
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 14px",
+            borderRadius: 12,
+            cursor: "pointer",
+            background: tokens.fillSoft,
+            border: `1px solid ${tokens.border}`,
+            textAlign: "left",
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span
               style={{
-                flexShrink: 0,
-                padding: isMobile ? "10px 12px" : "12px 18px",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: active ? tokens.text : tokens.text2,
-                fontSize: isMobile ? WMT.tabs : 13,
-                fontWeight: active ? 600 : 500,
+                display: "block",
+                fontSize: WMT.body,
+                fontWeight: 600,
+                color: tokens.text,
                 fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
-                borderBottom: `2px solid ${active ? tokens.green : "transparent"}`,
-                marginBottom: -1,
-                display: "flex",
-                alignItems: "center",
-                whiteSpace: "nowrap",
-                gap: 6,
               }}
             >
-              {labels[id]}
-              {id === "connections" && (
-                <span
-                  style={{
-                    fontSize: isMobile ? WMT.micro : 9,
-                    padding: "2px 6px",
-                    borderRadius: 999,
-                    background: `${tokens.green}22`,
-                    color: tokens.green,
-                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                    fontWeight: 600,
-                  }}
-                >
-                  {connectedConns}/{totalConns}
-                </span>
-              )}
-            </button>
-          );
-        })}
+              {t("wallet.tab.connections")}
+            </span>
+            <span
+              style={{
+                display: "block",
+                marginTop: 2,
+                fontSize: WMT.micro,
+                color: tokens.muted,
+                fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              }}
+            >
+              {t("wallet.connections.entry")}
+            </span>
+          </span>
+          <span
+            style={{
+              flexShrink: 0,
+              fontSize: WMT.micro,
+              padding: "2px 6px",
+              borderRadius: 999,
+              background: `${tokens.green}22`,
+              color: tokens.green,
+              fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+              fontWeight: 600,
+            }}
+          >
+            {connectedConns}/{totalConns}
+          </span>
+          <span style={{ flexShrink: 0, color: tokens.muted, fontSize: 14 }}>→</span>
+        </button>
+      )}
+
+      {/* Tabs — scroll horizontally on phones (the four labels don't fit at
+          once) instead of clipping the rightmost tab off the edge. The strip
+          also hides its scrollbar, which left "Conexões" not merely off-screen
+          but with no hint that it existed at all; the right-edge fade below is
+          that hint. */}
+      <div style={{ position: "relative", marginTop: isMobile ? 14 : 24 }}>
+        <div
+          className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{
+            display: "flex",
+            gap: 2,
+            borderBottom: `1px solid ${tokens.border}`,
+            overflowX: "auto",
+          }}
+        >
+          {ALL_TABS.map((id) => {
+            const labels: Record<Tab, string> = {
+              overview: t("wallet.tab.overview"),
+              positions: t("wallet.tab.positions"),
+              transactions: t("wallet.tab.transactions"),
+              connections: t("wallet.tab.connections"),
+            };
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                ref={active ? scrollActiveTabIntoView : undefined}
+                onClick={() => setTab(id)}
+                style={{
+                  flexShrink: 0,
+                  padding: isMobile ? "10px 12px" : "12px 18px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: active ? tokens.text : tokens.text2,
+                  fontSize: isMobile ? WMT.tabs : 13,
+                  fontWeight: active ? 600 : 500,
+                  fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                  borderBottom: `2px solid ${active ? tokens.green : "transparent"}`,
+                  marginBottom: -1,
+                  display: "flex",
+                  alignItems: "center",
+                  whiteSpace: "nowrap",
+                  gap: 6,
+                }}
+              >
+                {labels[id]}
+                {id === "connections" && (
+                  <span
+                    style={{
+                      fontSize: isMobile ? WMT.micro : 9,
+                      padding: "2px 6px",
+                      borderRadius: 999,
+                      background: `${tokens.green}22`,
+                      color: tokens.green,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {connectedConns}/{totalConns}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {isMobile && (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              right: 0,
+              top: 0,
+              bottom: 1,
+              width: 32,
+              pointerEvents: "none",
+              background: `linear-gradient(to right, ${tokens.bg}00, ${tokens.bg})`,
+            }}
+          />
+        )}
       </div>
 
       {tab === "overview" && !isMobile && (

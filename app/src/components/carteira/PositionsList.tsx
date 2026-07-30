@@ -100,151 +100,184 @@ export function PositionsList({ limit }: { limit?: number }) {
       >
         {rows.map((n) => {
           const c = toneColor(n.tone);
+          // Phones: four columns (icon · name · price · action) left the name
+          // roughly 85px on a 360px screen, so "Cota on-chain · pool 8" broke
+          // into four lines. Stack instead — identity on top, money below.
+          const stacked = isMobile;
+          const glyphSize = stacked ? 44 : 52;
           return (
             <div
               key={n.id}
               style={{
-                display: "grid",
-                gridTemplateColumns: limit ? "52px 1fr auto" : "52px 1fr auto auto",
-                gap: 14,
+                display: stacked ? "flex" : "grid",
+                ...(stacked
+                  ? { flexDirection: "column" as const, gap: 10 }
+                  : {
+                      gridTemplateColumns: limit ? "52px 1fr auto" : "52px 1fr auto auto",
+                      gap: 14,
+                      alignItems: "center",
+                    }),
                 padding: 12,
                 borderRadius: 12,
                 background: tokens.fillSoft,
                 border: "1px solid transparent",
-                alignItems: "center",
                 transition: "transform 180ms ease, border-color 180ms ease",
               }}
               {...liftHover(c)}
             >
               <div
                 style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 10,
-                  background: `linear-gradient(135deg, ${c}33, ${c}11)`,
-                  border: `1px solid ${c}4D`,
-                  display: "flex",
+                  display: stacked ? "flex" : "contents",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "var(--font-syne), Syne",
-                  fontWeight: 800,
-                  fontSize: 14,
-                  color: c,
-                  flexDirection: "column",
+                  gap: 12,
+                  minWidth: 0,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 8,
-                    opacity: 0.7,
-                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                    fontWeight: 500,
-                  }}
-                >
-                  #
-                </span>
-                {n.num}
-              </div>
-              <div>
                 <div
                   style={{
-                    fontSize: isMobile ? WMT.body : 13,
-                    fontWeight: 600,
-                    color: tokens.text,
-                  }}
-                >
-                  {n.group}
-                </div>
-                <div
-                  style={{
-                    fontSize: isMobile ? WMT.micro : 10,
-                    color: tokens.muted,
-                    marginTop: 2,
-                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                  }}
-                >
-                  {t("home.month")} {n.month}/{n.total} · {t("wallet.expires", { d: n.exp })}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div
-                  style={{
+                    width: glyphSize,
+                    height: glyphSize,
+                    flexShrink: 0,
+                    borderRadius: 10,
+                    background: `linear-gradient(135deg, ${c}33, ${c}11)`,
+                    border: `1px solid ${c}4D`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     fontFamily: "var(--font-syne), Syne",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: tokens.text,
+                    fontWeight: 800,
+                    fontSize: 14,
+                    color: c,
+                    flexDirection: "column",
                   }}
                 >
-                  {fmtMoney(n.value, { noCents: true })}
+                  <span
+                    style={{
+                      fontSize: 8,
+                      opacity: 0.7,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                      fontWeight: 500,
+                    }}
+                  >
+                    #
+                  </span>
+                  {n.num}
                 </div>
-                <div
-                  style={{
-                    fontSize: isMobile ? WMT.micro : 10,
-                    color: tokens.green,
-                    marginTop: 2,
-                    fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                  }}
-                >
-                  +{n.yieldPct}%
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: isMobile ? WMT.body : 13,
+                      fontWeight: 600,
+                      color: tokens.text,
+                    }}
+                  >
+                    {n.group}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: isMobile ? WMT.micro : 10,
+                      color: tokens.muted,
+                      marginTop: 2,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
+                    {t("home.month")} {n.month}/{n.total} · {t("wallet.expires", { d: n.exp })}
+                  </div>
                 </div>
               </div>
-              {!limit &&
-                (listedIds.has(n.id) ? (
-                  <span
+
+              <div
+                style={{
+                  display: stacked ? "flex" : "contents",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ textAlign: stacked ? "left" : "right" }}>
+                  <div
                     style={{
-                      padding: "5px 11px",
-                      borderRadius: 999,
-                      background: `${tokens.green}1F`,
-                      border: `1px solid ${tokens.green}55`,
-                      color: tokens.green,
-                      fontSize: isMobile ? WMT.micro : 9,
+                      fontFamily: "var(--font-syne), Syne",
+                      fontSize: 15,
                       fontWeight: 700,
-                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    ◆ Listado
-                  </span>
-                ) : n.paidOut ? (
-                  <span
-                    title="Você já recebeu o crédito desta cota — continue pagando as parcelas restantes."
-                    style={{
-                      padding: "5px 11px",
-                      borderRadius: 999,
-                      background: `${tokens.purple}1F`,
-                      border: `1px solid ${tokens.purple}55`,
-                      color: tokens.purple,
-                      fontSize: isMobile ? WMT.micro : 9,
-                      fontWeight: 700,
-                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    ◆ Recebido
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setSelling(n)}
-                    style={{
-                      padding: "7px 12px",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      background: "transparent",
-                      border: `1px solid ${tokens.borderStr}`,
                       color: tokens.text,
-                      fontSize: isMobile ? WMT.button : 11,
-                      fontWeight: 600,
-                      fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
                     }}
                   >
-                    {t("wallet.sell")}
-                  </button>
-                ))}
+                    {/* No `noCents` here: the same cota rendered 0,73 USDC in
+                      Visão geral and "1 USDC" in this list. Rounding a
+                      holding's value is the difference between two screens
+                      disagreeing about what you own. */}
+                    {fmtMoney(n.value)}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: isMobile ? WMT.micro : 10,
+                      color: tokens.green,
+                      marginTop: 2,
+                      fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                    }}
+                  >
+                    +{n.yieldPct}%
+                  </div>
+                </div>
+                {!limit &&
+                  (listedIds.has(n.id) ? (
+                    <span
+                      style={{
+                        padding: "5px 11px",
+                        borderRadius: 999,
+                        background: `${tokens.green}1F`,
+                        border: `1px solid ${tokens.green}55`,
+                        color: tokens.green,
+                        fontSize: isMobile ? WMT.micro : 9,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ◆ Listado
+                    </span>
+                  ) : n.paidOut ? (
+                    <span
+                      title="Você já recebeu o crédito desta cota — continue pagando as parcelas restantes."
+                      style={{
+                        padding: "5px 11px",
+                        borderRadius: 999,
+                        background: `${tokens.purple}1F`,
+                        border: `1px solid ${tokens.purple}55`,
+                        color: tokens.purple,
+                        fontSize: isMobile ? WMT.micro : 9,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-jetbrains-mono), JetBrains Mono, monospace",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ◆ Recebido
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSelling(n)}
+                      style={{
+                        padding: "7px 12px",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        background: "transparent",
+                        border: `1px solid ${tokens.borderStr}`,
+                        color: tokens.text,
+                        fontSize: isMobile ? WMT.button : 11,
+                        fontWeight: 600,
+                        fontFamily: "var(--font-dm-sans), DM Sans, sans-serif",
+                      }}
+                    >
+                      {t("wallet.sell")}
+                    </button>
+                  ))}
+              </div>
             </div>
           );
         })}
