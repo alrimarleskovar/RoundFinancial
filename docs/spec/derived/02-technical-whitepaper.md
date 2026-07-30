@@ -76,6 +76,84 @@ This separation matters: a slow cycle cannot stall the pool's state machine, and
 conversely the passage of time alone never forces a transition. The clock is an
 input to scoring and to default eligibility, not a driver of the lifecycle.
 
+### 2.3 Contemplation order — who receives, and when
+
+§2.1 fixes **how many** members are contemplated (exactly one per cycle, each
+exactly once). This section fixes **which** one.
+
+`pool.ordering_policy` selects the mechanism:
+
+| Value | Policy  | Mechanism                                                                     |
+| ----: | ------- | ------------------------------------------------------------------------------ |
+|   `0` | arrival | Payout follows join order. A pool created before the field existed reads a zeroed byte and behaves this way. |
+|   `1` | sorteio | `finalize_draw` draws the order on-chain when the pool fills and freezes it into a `DrawResult` PDA. |
+
+An unrecognized value is **rejected**, not silently treated as arrival — the
+validation is fail-closed.
+
+The `DrawResult` stores `order[seat] = cycle`, and the fact that this mapping is a
+**permutation** is what makes §2.1's guarantee structural. "Every slot is drawn
+exactly once" is not an invariant anyone checks each cycle; it is a property of a
+bijection between seats and cycles.
+
+### 2.4 The lance — bidding to be contemplated earlier
+
+A Brazilian consórcio contemplates through **two** channels each assembly: the
+sorteio and the **lance** — a bid. RoundFi implements both. The lance changes
+_who_ is contemplated _when_; it never changes _whether_ the winner still owes
+every remaining installment. That distinction is the pay-after-receiving thesis,
+and it is non-negotiable.
+
+Three mechanisms, each building on the previous:
+
+**Prepayment.** `contribute` accepts a member's **next unpaid** installment even
+when it sits ahead of `pool.current_cycle`. There is no skipping (the payment must
+still be exactly `contributions_paid`) and no back-pay (a member who has fallen
+behind still fails the gate). Prepaying can only bring float into the pool
+*earlier*, never reduce it — so it is strictly safer for the viability guard of
+§6.1, never worse.
+
+**Lance embutido (embedded bid).** `place_embedded_bid` offers the installments a
+member has already prepaid as their bid. Depth is
+
+```
+depth = contributions_paid − current_cycle − 1
+```
+
+and the `−1` is load-bearing: `contributions_paid == current_cycle + 1` means the
+member is merely **current**, not ahead, so it must not count as bid material. A
+bid must be **strictly** greater than the standing `pool.current_bid_depth`; ties
+lose, which makes the outcome independent of transaction ordering within a block.
+
+**Lance livre (sealed free bid).** `place_bid_commit` writes
+`sha256(amount ‖ salt ‖ bidder)` into a `Bid` PDA; `place_bid_reveal` opens it.
+The bid amount must be an exact multiple of the installment, because a free bid
+**is** K installments prepaid in one shot — which is why the whole feature adds no
+new contemplation math, and why K installments settle with a **single** attestation.
+
+Three properties are worth stating plainly, because each one removed work rather
+than adding it:
+
+- **Contemplation is a swap.** A winning bid transposes two entries of
+  `DrawResult.order`: the bidder takes the current cycle, and the displaced seat
+  inherits the bidder's former future cycle. A transposition of a permutation is
+  still a permutation — so §2.1 survives untouched, and `claim_payout` required **no
+  changes at all** to support bidding.
+- **Anti-sniping is temporal.** Commits require `clock < pool.next_cycle_at`;
+  reveals require `next_cycle_at ≤ clock < next_cycle_at + GRACE_PERIOD_SECS`. The
+  windows are **disjoint**, so no one can observe a revealed bid and answer it. No
+  cool-down, no extra state — the schedule itself is the defense.
+- **Losing costs only the transaction fee.** `place_bid_reveal` checks eligibility
+  **before** moving any tokens, so a losing bid reverts and the USDC never leaves
+  the bidder's wallet. There is consequently no bid vault to hold funds, no refund
+  path to get them back, and no settlement step to run.
+
+**The honest trade-off:** contemplation-by-bid means a member with more capital can
+move up the queue. That is inherent to the consórcio model rather than a flaw in
+this implementation, and it is bounded — the bid is real money paid into the pool,
+which accelerates contemplation for *everyone*. We document it rather than design
+it away.
+
 ## 3. The four vaults
 
 Each pool owns **four USDC token accounts**, all with PDA authorities. The

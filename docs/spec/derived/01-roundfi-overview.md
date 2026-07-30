@@ -76,6 +76,14 @@ with no external subsidy — RoundFi refuses to create a pool whose math does no
 close. (The mechanics live in [`02-technical-whitepaper`](./02-technical-whitepaper.md)
 and the solvency math in [`05-stress-lab-economic-model`](./05-stress-lab-economic-model.md).)
 
+The order of contemplation follows the model the target user already knows. A pool
+is either **arrival-ordered** or **drawn** (_sorteio_) on-chain when it fills — and
+in either case a member can bid to be contemplated earlier, the consórcio's
+**lance**. A member can pay installments ahead, offer what they have prepaid as a
+bid, or seal a bid in a commit-reveal envelope so nobody can outbid them at the
+buzzer. A lance moves *when* you are contemplated; it never reduces what you still
+owe. See [`02-technical-whitepaper`](./02-technical-whitepaper.md) §2.3–§2.4.
+
 ### 3.2 Layer two — the attestation layer
 
 Each consequential event emits a signed, **immutable on-chain attestation**: a

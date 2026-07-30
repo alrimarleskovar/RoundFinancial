@@ -1,7 +1,7 @@
 # ADR 0009 — Operational admin console (`/admin/ops`) for the devnet canary
 
-**Status:** 🟡 Proposed
-**Date:** 2026-05-27
+**Status:** ✅ Accepted — **implemented** (verified 2026-07-30)
+**Date:** 2026-05-27 · _implementation verified 2026-07-30_
 **Decision-makers:** Engineering (canary)
 **Related:** Indexer score-fields migration (`services/indexer/prisma/migrations/2026-05-canary-score-fields-options/`), ADR [0002](./0002-idl-free-sdk-encoders.md) (IDL-free decoders), ADR [0005](./0005-indexer-finality-gate.md) (reconciler finality gate), `MAINNET_READINESS.md` §6.1 (attestation as "credit data").
 
@@ -36,7 +36,7 @@ Sign-In-With-Solana: connect wallet → server issues a nonce → client signs �
 
 **Acceptable shortcut for the FIRST vertical slice only:** deploy-level protection (Vercel Access / basic-auth) also gates the endpoints and is real auth — but SIWS is the target and must not be deferred past the first slice.
 
-**Status — server-side core + endpoints landed.** `app/src/lib/admin/{siws,challenge,session,allowlist,auth}.ts` implement the gate (ed25519 verify via Node `crypto`, no new dep; HMAC session in an httpOnly cookie; stateless single-use challenge; allowlist = `ADMIN_ALLOWLIST` env ∪ best-effort IDL-free `ProtocolConfig.authority` read). Endpoints: `POST /api/admin/auth/nonce`, `POST /api/admin/auth/verify`, `GET /api/admin/auth/session`, `POST /api/admin/auth/logout`, and `GET /api/admin/ping` as the protected-route template (call `requireAdmin` FIRST). Fail-closed: missing `ADMIN_SESSION_SECRET` refuses to authenticate; empty allowlist authorizes no one. Covered by `tests/admin_auth.spec.ts` (15 cases: real ed25519 sign/verify, challenge expiry/forgery/replay, session expiry/tamper, allowlist). The client sign-in button + the authority-union live wiring land with the `/admin/ops` shell in Phase 1; since real SIWS endpoints exist, the basic-auth interim is unnecessary.
+**Status — server-side core + endpoints landed.** `app/src/lib/admin/{siws,challenge,session,allowlist,auth}.ts` implement the gate (ed25519 verify via Node `crypto`, no new dep; HMAC session in an httpOnly cookie; stateless single-use challenge; allowlist = `ADMIN_ALLOWLIST` env ∪ best-effort IDL-free `ProtocolConfig.authority` read). Endpoints: `POST /api/admin/auth/nonce`, `POST /api/admin/auth/verify`, `GET /api/admin/auth/session`, `POST /api/admin/auth/logout`, and `GET /api/admin/ping` as the protected-route template (call `requireAdmin` FIRST). Fail-closed: missing `ADMIN_SESSION_SECRET` refuses to authenticate; empty allowlist authorizes no one. Covered by `tests/admin_auth.spec.ts` (**14 cases**: real ed25519 sign/verify, challenge expiry/forgery/replay, session expiry/tamper, allowlist). The client sign-in button + the authority-union live wiring land with the `/admin/ops` shell in Phase 1; since real SIWS endpoints exist, the basic-auth interim is unnecessary.
 
 ### 2. One canonical `events` table + Option B fields + `details` JSONB
 
@@ -93,6 +93,13 @@ Validated by `tests/behavioral.spec.ts` (exact-value parity, including iterated-
 ### Sequencing
 
 Phase 0 (foundations) → Phase 1 (Home/Canary + Pools end-to-end on real indexer data — **stop & validate**) → Phase 2 (Users) → Phase 3 (Events + export). Insights: schema only now, implementation deferred (devnet data is too thin for correlations).
+
+**Outcome (verified 2026-07-30): every phase shipped, and Insights shipped too** — the deferral above was lifted by [ADR 0010](./0010-insights-v0.md), which specifies the sample-size gates that make thin devnet data safe to render (it refuses to render rather than showing noise). Verified against the tree:
+
+- **Auth (§1)** — all five modules present (`app/src/lib/admin/{siws,challenge,session,allowlist,auth}.ts`); endpoints `POST /api/admin/auth/nonce` · `/verify` · `GET /session` · `POST /logout` · `GET /api/admin/ping`.
+- **Canonical events table (§2)** — `model Event` in `services/indexer/prisma/schema.prisma`.
+- **Route handlers (§3)** — 15 handlers under `app/src/app/api/admin/**`, including `canary` (Phase 1 Home), `pools` + `pools/[pda]` (Phase 1), `users` + `users/[wallet]` + `users/[wallet]/reputation-score` (Phase 2), `events` + `events/export` (Phase 3), `economy`, and `insights`.
+- **Namespace (§4)** — `/admin/ops` with sub-routes `pools` · `pools/[pda]` · `users` · `users/[wallet]` · `events` · `economy` · `insights`; `/admin` (Demo Studio) and `/admin/cranker` untouched.
 
 ## Consequences
 
