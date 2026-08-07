@@ -102,6 +102,7 @@
     "test:bankrun:identity-floor": "pnpm exec mocha -t 180000 'tests/reputation_identity_floor_bankrun.spec.ts'",
     "test:bankrun:schema-whitelist": "pnpm exec mocha -t 120000 'tests/reputation_schema_whitelist_bankrun.spec.ts'",
     "test:litesvm": "pnpm exec mocha -t 120000 'tests/litesvm_*.spec.ts'",
+    "test:cu-budget": "pnpm exec mocha -t 180000 'tests/litesvm_compute_budget.spec.ts'",
     "test:security:localnet": "pnpm exec mocha -t 120000 'tests/security_*.spec.ts'",
     "test:fuzz": "for t in bps cascade dc_invariant escrow_vesting seed_draw waterfall; do echo \"=== fuzz target: $t ===\"; cargo fuzz run --fuzz-dir crates/math/fuzz \"$t\" -- -max_total_time=60 || exit 1; done",
     "test:mainnet-hardening": "tsx scripts/mainnet/mainnet-hardening-check.ts",

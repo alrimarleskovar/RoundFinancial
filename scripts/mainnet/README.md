@@ -45,7 +45,6 @@ Every script in this directory:
 
 - #266 — Squads multi-sig migration (required for `create_pool` + `close_pool` signing path)
 - #267 — External audit clear (required for mainnet write authorization)
-- #230 — Solana SDK transitive bump (CLI half on Agave 3.0.0 is done; `solana-program 1.18.x` transitive through `anchor-lang 0.30.1` is the remaining gate)
 - #233 part B — Kamino canary integration (canonical reserve pin + smoke-test; on-chain CPI code from part A is already shipped in `roundfi-yield-kamino`)
 - #268 — Legal counsel BR + US opinions (off-chain blocker)
 
