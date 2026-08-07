@@ -106,7 +106,11 @@ const MEMBERS = 2;
 const CYCLES = 2;
 const INSTALLMENT = 3_000_000n; // 3 USDC
 const CREDIT = 4_000_000n; // 4 USDC
-const CYCLE_DURATION = 3_600;
+// Must be >= MIN_CYCLE_DURATION (constants.rs:216 — 86_400 = 1 day), else
+// create_pool rejects with InvalidCycleDuration (6033) before any CU is
+// measured. The devnet pools that ran on 60s/3600s cycles did so under a
+// patched floor, not this build's.
+const CYCLE_DURATION = 86_400;
 
 interface Reading {
   ix: string;
