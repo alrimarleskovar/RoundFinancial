@@ -38,6 +38,42 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 - `/home` hides the shell `TopBar` below `lg`, which took `TopBarPrefsMenu` with it: the phone had no way to switch language or currency while looking at money. Restored in the mobile header.
 - Posições NFT stacked on phones — four columns left the name ~85px on a 360px screen and "Cota on-chain · pool 8" broke into four lines.
 
+### Added — compute-unit budget lane
+
+There was **no CU assertion anywhere in the repo**, and the limits that exist were
+hand-picked and never verified. `app/src/lib/join-pool.ts:219` asks for 400k,
+`escape-valve-buy.ts:225` for 600k, `sdk/src/actions.ts:350` for 400k — and every other
+instruction, `contribute` and `claim_payout` included, rides Solana's 200k default because
+its sender sets no limit at all.
+
+The devnet seed scripts, tuned empirically against a live cluster, disagree with the app on
+the same instructions: `seed-members.ts` requests **600k** for `join_pool` where the app
+requests 400k, and `seed-evbuy.ts` requests **800k** for `escape_valve_buy` where the app
+requests 600k. Both cannot be right, and if the true cost sits between them the script
+succeeds while the user's transaction fails.
+
+- **`tests/_harness/litesvm.ts`** — the `submit` path now records
+  `computeUnitsConsumed()` on success, exposed as `env.cu.last() / .log() / .reset()`.
+  Wrapped in try/catch: metering is best-effort and must never take down the twelve litesvm
+  specs that do not care about CU.
+- **`tests/litesvm_compute_budget.spec.ts`** — prices `create_pool → join_pool →
+contribute → claim_payout` and requires each to fit **the limit its real sender
+  requests**, with 15% headroom (fitting exactly is not a property worth testing — the next
+  added branch is what pushes it over). No invented ceilings: every budget mirrors a limit
+  already in the tree, and the failure message names the file to edit. Picked up by the
+  existing `tests/litesvm_*.spec.ts` glob, so it runs in the litesvm lane with no new CI
+  step; `pnpm test:cu-budget` runs it alone.
+- Instructions **not** priced yet are listed explicitly in the spec header rather than left
+  to look covered — `escape_valve_buy` is the one to add next, carrying both the largest
+  requested budget and the widest disagreement about its real cost.
+
+Found while writing it: `create_pool` was already raised to **250k** in
+`scripts/devnet/seed-pool.ts`, so someone had already discovered empirically that the
+mpl-core `CreateV2` CPI does not fit the 200k default. `join_pool` makes the same CPI.
+
+Also refreshed two CI comments in the litesvm lane that the #487 migration left stale
+("the repo's anchor 0.30.1", "without waiting on the #230 anchor-0.31 bump").
+
 ### Fixed — auditor-facing docs drifted behind the #487 migration
 
 Sweep of the critical-path and verification claims against the tree. Everything below was

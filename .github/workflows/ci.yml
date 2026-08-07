@@ -737,10 +737,10 @@ jobs:
   # reads eBPF/SBFv1 and panics loading the current mainnet SBFv2
   # mpl_core.so. litesvm 1.x tracks current Agave and loads SBFv2 fine,
   # so this lane runs the full pool-formation lifecycle — each step
-  # minting an mpl_core asset via the CreateV2 CPI — on the repo's anchor
-  # 0.30.1, via a thin custom Provider + one-point v1→v2 tx bridge (see
-  # tests/_harness/litesvm.ts). This closes the SEV-012 coverage gap for
-  # the mpl_core path without waiting on the #230 anchor-0.31 bump.
+  # minting an mpl_core asset via the CreateV2 CPI — via a thin custom
+  # Provider + one-point v1→v2 tx bridge (see tests/_harness/litesvm.ts).
+  # This closes the SEV-012 coverage gap for the mpl_core path. (The
+  # anchor 0.30.1 → 1.0 bump it originally routed around landed in #487.)
   litesvm-mpl-core:
     name: litesvm · mpl-core path (join_pool lifecycle)
     runs-on: ubuntu-latest
@@ -868,9 +868,16 @@ jobs:
           file "$SO" || true
           sha256sum "$SO" || true
 
-      - name: Run litesvm mpl_core-path lifecycle spec
+      - name: Run litesvm mpl_core-path lifecycle + CU budget specs
         # createUsdcMint → initializeProtocol → createPool → joinMembers;
         # create_pool mints the pool Collection NFT and join_pool the
         # member position NFT, both via the mpl_core CreateV2 CPI — the
         # exact path bankrun can't execute.
+        #
+        # The glob also picks up tests/litesvm_compute_budget.spec.ts,
+        # which prices each instruction's compute units and fails if one
+        # no longer fits the CU limit its real sender requests (the app
+        # and SDK ask for 400k/600k; everything else rides the 200k
+        # default). It prints the CU table to this log — no separate step,
+        # because a second invocation would just re-run the same suite.
         run: pnpm test:litesvm
