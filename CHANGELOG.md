@@ -38,6 +38,35 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 - `/home` hides the shell `TopBar` below `lg`, which took `TopBarPrefsMenu` with it: the phone had no way to switch language or currency while looking at money. Restored in the mobile header.
 - Posições NFT stacked on phones — four columns left the name ~85px on a 360px screen and "Cota on-chain · pool 8" broke into four lines.
 
+### Fixed — auditor-facing docs drifted behind the #487 migration
+
+Sweep of the critical-path and verification claims against the tree. Everything below was
+stated as current and was not.
+
+- **`MAINNET_READINESS.md` §7 item 1** listed the Solana SDK transitive bump as _"pending
+  devnet redeploy + merge"_ — the **first** step of the critical path, so the whole path read
+  as blocked at step 1. Both had landed: `anchor-lang = "1.0"` is in the tree, and the devnet
+  in-place upgrade was re-exercised end-to-end on 2026-06-14
+  (`rehearsal-logs/2026-06-14-post-487-lifecycle-revalidation.md`). Same staleness in **1.7**
+  (_"Only the #230 … dep bump remains"_), **4.1** (canary gated on #230 via the superseded
+  PR #319), and `scripts/mainnet/README.md`.
+- **Verify-build attestations are stale and three docs said otherwise.** The #487 in-place
+  upgrade used a non-reproducible `anchor build`, so the attested hash no longer matches the
+  deployed bytecode — recorded in `docs/verified-build.md` since 2026-06-22, but never
+  propagated. `README.md` told the public _"audit yourself in 30 seconds … all three match"_
+  against a pre-#487 commit and the wrong Docker image tag (`1.18.26`; the pinned image is
+  `3.1.14`), so anyone following the instructions would hit a mismatch and reasonably read it
+  as source/bytecode divergence. Corrected in `README.md` (status line + verification block),
+  `AUDIT_SCOPE.md` (warning ahead of the CLI check — an audit should not open on a failing
+  verification), and `MAINNET_READINESS.md` 3.8 (✅ → 🟡, with the refresh as the remaining
+  step). The bytecode still reproduces from source; only the on-chain metadata is stale.
+- **`MAINNET_READINESS.md` §1** listed row 1.12 before 1.11.
+
+Methodology note: the PR #654 sweep verified counts, section contents, and links — not the
+**status column** of checklist rows. Item status is its own drift class and needs its own
+pass; a ✅ that quietly stopped being true is more expensive than a wrong number, because it
+removes the item from view.
+
 ### Added — PRs #405–#413 (SEV-012 litesvm lane, identity gate, reputation-config migration, ECO economics, wallet QR)
 
 - **SEV-012 closed via a REQUIRED litesvm CI lane** ([#411](https://github.com/alrimarleskovar/RoundFinancial/pull/411)). The mpl_core path (`join_pool` / `escape_valve_buy`), previously local-only and upstream-blocked, now runs in CI via litesvm — new `tests/_harness/litesvm.ts` harness + `tests/litesvm_join_pool.spec.ts` lifecycle spec. A V8-GC `std::bad_alloc` crash on Node 20 was fixed by pinning that lane to **Node 24**. CI is now **6 lanes** (`js · lint + typecheck + parity + L1`; `audit · cargo-audit`; `deny · supply-chain`; `anchor · build`; `bankrun · no-mpl-core (security_kamino_cpi)`; `litesvm · mpl-core path (join_pool lifecycle)` — NEW + required).
