@@ -69,7 +69,7 @@ import {
   createUsdcMint,
   fundUsdc,
   initializeProtocol,
-  joinMembers,
+  joinPool,
 } from "./_harness/index.js";
 import { setupLitesvmEnv, type LitesvmEnv } from "./_harness/litesvm.js";
 
@@ -215,18 +215,23 @@ describe("compute-unit budgets — every instruction fits the limit its sender r
     await fundUsdc(e, usdcMint, a.publicKey, funding);
     await fundUsdc(e, usdcMint, b.publicKey, funding);
 
+    // `joinPool` (singular) rather than `joinMembers`: the plural helper
+    // derives each slot from the entry's position in the slate, so two
+    // one-entry calls both ask for slot 0 and the second reverts SlotTaken.
+    //
     // Priced on the FIRST member only. The last join activates the pool
     // (and on a sorteio pool would also carry the auto-draw), so pricing
     // it would conflate two different costs under one label.
-    const [first] = await priceOf("join_pool", () =>
-      joinMembers(e, pool, [{ member: a, reputationLevel: 1 }]),
+    const first = await priceOf("join_pool", () =>
+      joinPool(e, pool, { member: a, slotIndex: 0, reputationLevel: 1 }),
     );
-    const [second] = await joinMembers(e, pool, [{ member: b, reputationLevel: 1 }]);
+    const second = await joinPool(e, pool, { member: b, slotIndex: 1, reputationLevel: 1 });
 
-    await priceOf("contribute", () => contribute(e, { pool, member: first!, cycle: 0 }));
-    await contribute(e, { pool, member: second!, cycle: 0 });
+    await priceOf("contribute", () => contribute(e, { pool, member: first, cycle: 0 }));
+    await contribute(e, { pool, member: second, cycle: 0 });
 
-    await priceOf("claim_payout", () => claimPayout(e, { pool, member: first!, cycle: 0 }));
+    // ArrivalOrder pool: slot 0 is contemplated at cycle 0.
+    await priceOf("claim_payout", () => claimPayout(e, { pool, member: first, cycle: 0 }));
 
     expect(readings.length, "all four instructions priced").to.equal(4);
 
