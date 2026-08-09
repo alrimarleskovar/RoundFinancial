@@ -263,6 +263,102 @@ describe("ADR 0012 Phase 2 — lance embutido (embedded bid) (litesvm)", functio
     }
   });
 
+  it("(viii) the bidding window closes where sealed commits close — audit M-2", async function () {
+    if (!available) {
+      this.skip();
+      return;
+    }
+    try {
+      // Own pool: the shared one is walked to Completed by the matrix above.
+      env.svm.expireBlockhash();
+      await setLitesvmUnixTs(env.svm, BASE_TS);
+      const authorityW = Keypair.generate();
+      const kps = memberKeypairs(2, "litesvm_lance_window");
+      for (const kp of [authorityW, ...kps]) {
+        env.svm.airdrop(kp.publicKey.toBase58(), 100_000_000_000n);
+      }
+      const CREDIT_W = usdc(1_480n);
+      const STAKE_W = (CREDIT_W * 5_000n) / 10_000n;
+      const wPool = await createPool(env, {
+        authority: authorityW,
+        usdcMint,
+        membersTarget: 2,
+        installmentAmount: usdc(1_000n),
+        creditAmount: CREDIT_W,
+        cyclesTotal: 2,
+        cycleDurationSec: CYCLE_DURATION_SEC,
+        orderingPolicy: ORDERING_POLICY.Sorteio,
+      });
+      for (const kp of kps) {
+        await fundUsdc(env, usdcMint, kp.publicKey, 2n * usdc(1_000n) + STAKE_W);
+      }
+      const wMembers = await joinMembers(
+        env,
+        wPool,
+        kps.map((kp) => ({ member: kp, reputationLevel: 1 })),
+      );
+      const wDraw = await finalizeDraw(env, { pool: wPool });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = (await fetchDraw(env, wPool.pool)) as any;
+      const order = Array.from(d.order as number[]).slice(0, 2);
+      // The member drawn LAST is the one with something to bid for.
+      const bidder = wMembers.find((m) => order[m.slotIndex] === 1)!;
+
+      // Give them real bid material: paid cycle 0 + prepaid cycle 1 → depth 1,
+      // strictly deeper than the fresh tracker (0). Nothing about THIS member
+      // can be the reason for a revert — only the clock.
+      await contribute(env, { pool: wPool, member: bidder, cycle: 0 });
+      await contribute(env, { pool: wPool, member: bidder, cycle: 1, isFinalInstallment: true });
+
+      const bid = () => {
+        env.svm.expireBlockhash();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (env.programs.core.methods as any)
+          .placeEmbeddedBid()
+          .accounts({
+            memberWallet: bidder.wallet.publicKey,
+            config: configPda(env),
+            pool: wPool.pool,
+            member: bidder.member,
+            draw: wDraw,
+          })
+          .signers([bidder.wallet])
+          .rpc();
+      };
+
+      // At `next_cycle_at` the sealed reveal window opens. An embedded bid
+      // landing here would let a member read a revealed depth (the WON log
+      // publishes it) and beat it by one with no envelope — the snipe the
+      // whole sealed phase exists to close.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p = (await fetchPool(env, wPool.pool)) as any;
+      const nextCycleAt = BigInt(String(p.nextCycleAt));
+      await setLitesvmUnixTs(env.svm, nextCycleAt);
+      await expectRevert(bid(), /BidWindowClosed/, "bid inside the reveal window");
+
+      // Deeper into the reveal window, same answer.
+      await setLitesvmUnixTs(env.svm, nextCycleAt + 60n);
+      await expectRevert(bid(), /BidWindowClosed/, "bid later in the reveal window");
+
+      // The control that makes the two asserts above mean something: rewind
+      // one second inside the commit window and the SAME bid lands. The
+      // window was the only thing standing in the way.
+      await setLitesvmUnixTs(env.svm, nextCycleAt - 1n);
+      await bid();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const after = (await fetchDraw(env, wPool.pool)) as any;
+      const orderAfter = Array.from(after.order as number[]).slice(0, 2);
+      expect(orderAfter[bidder.slotIndex], "bidder took the current cycle").to.equal(0);
+
+      await setLitesvmUnixTs(env.svm, BASE_TS);
+    } catch (e) {
+      const logs = (e as { logs?: string[] }).logs;
+      if (logs?.length) console.error("\n[litesvm] program logs:\n" + logs.join("\n"));
+      throw e;
+    }
+  });
+
   it("(vii) arrival-order pool: bid structurally impossible — no DrawResult exists", async function () {
     if (!available) {
       this.skip();

@@ -390,22 +390,24 @@ function GroupCard({ group }: { group: CatalogGroup }) {
                     c: lance.targetCycle + 1,
                     mine: (lance.myCycle ?? 0) + 1,
                   })
-                : lance.status === "outOfRunway"
-                  ? t("groupsV2.card.lance.outOfRunway", { d: lance.bestDepth })
-                  : // No standing bid yet reads as an invitation; an existing
-                    // one has to say it's a competition you're currently losing.
-                    t(
-                      lance.bestDepth === 0
-                        ? "groupsV2.card.lance.needFresh"
-                        : "groupsV2.card.lance.need",
-                      {
-                        n: lance.prepaysNeeded,
-                        c: lance.targetCycle + 1,
-                        mine: (lance.myCycle ?? 0) + 1,
-                      },
-                    )}
+                : lance.status === "windowClosed"
+                  ? t("groupsV2.card.lance.windowClosed", { c: lance.targetCycle + 1 })
+                  : lance.status === "outOfRunway"
+                    ? t("groupsV2.card.lance.outOfRunway", { d: lance.bestDepth })
+                    : // No standing bid yet reads as an invitation; an existing
+                      // one has to say it's a competition you're currently losing.
+                      t(
+                        lance.bestDepth === 0
+                          ? "groupsV2.card.lance.needFresh"
+                          : "groupsV2.card.lance.need",
+                        {
+                          n: lance.prepaysNeeded,
+                          c: lance.targetCycle + 1,
+                          mine: (lance.myCycle ?? 0) + 1,
+                        },
+                      )}
             </p>
-            {lance.status !== "outOfRunway" && (
+            {lance.status !== "outOfRunway" && lance.status !== "windowClosed" && (
               <button
                 type="button"
                 onClick={() => (lance.status === "ready" ? openModal("bid") : openModal("prepay"))}
