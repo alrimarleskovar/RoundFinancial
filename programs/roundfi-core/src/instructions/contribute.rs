@@ -210,17 +210,55 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     )?;
 
     // ─── On-time vs late ────────────────────────────────────────────────
-    // ADR 0013: cycle-aware. An ARREARS catch-up (`args.cycle < current_cycle`)
-    // is late BY CONSTRUCTION — the installment's own deadline passed when the
-    // pool advanced — regardless of the clock vs the CURRENT deadline. For the
-    // on-schedule/prepaid path (`args.cycle >= current_cycle`, the only one
-    // reachable pre-0013) this reduces to the original `clock <= next_cycle_at`.
-    // (An arrears payment can never be the FINAL installment: while Active,
-    // `current_cycle <= cycles_total - 1`, so `args.cycle < current_cycle`
-    // implies `contributions_paid` lands `< cycles_total` — the POOL_COMPLETE
-    // escalation below is unreachable from the catch-up path.)
-    let on_time =
-        args.cycle >= pool.current_cycle && clock.unix_timestamp <= pool.next_cycle_at;
+    // Every installment is judged against ITS OWN deadline, derived from the
+    // pool's current anchor:
+    //
+    //     deadline(c) = next_cycle_at − (current_cycle − c) × cycle_duration
+    //
+    // `next_cycle_at` is by definition the deadline of `current_cycle`, so
+    // stepping back one `cycle_duration` per cycle recovers any earlier
+    // installment's deadline, and stepping FORWARD (negative difference)
+    // recovers a future one.
+    //
+    // **Why this replaced `args.cycle >= current_cycle && clock <= next_cycle_at`.**
+    // That form called every arrears payment late by construction, on the
+    // premise that "the installment's own deadline passed when the pool
+    // advanced". The pool does not advance on the clock — it advances on
+    // `claim_payout`, which has no lower time bound and fires as soon as the
+    // vault can fund the credit (`spendable >= credit_amount`). The
+    // contemplated member has every reason to claim the moment that clears,
+    // which in the default geometry happens once ~23 of 24 members have paid.
+    // Whoever pays after that — still comfortably inside their own 30-day
+    // window — was stamped LATE, costing a permanent −100 (`SCORE_LATE`, a
+    // fifth of an outright default) against a 500-point L2 threshold that
+    // governs their required stake. A timing accident cost real collateral.
+    // The same form also stamped a CURRENT member LATE for prepaying during
+    // the grace window, since `clock > next_cycle_at` there.
+    //
+    // **Known residual — the derivation errs late, never early.** SEV-053
+    // re-anchors `next_cycle_at` forward when an advance lands past a frozen
+    // deadline, and this back-derivation carries that shift into the
+    // reconstructed past deadlines. In a pool that stalled, a genuinely late
+    // arrears payment can therefore read as on-time. That direction is the
+    // deliberate one: a missed LATE under-counts a soft signal, while a
+    // wrongful LATE is permanent and priced in collateral.
+    //
+    // (Unchanged by this rewrite: an arrears payment can never be the FINAL
+    // installment. While Active, `current_cycle <= cycles_total - 1`, so
+    // `args.cycle < current_cycle` lands `contributions_paid < cycles_total`
+    // — the POOL_COMPLETE escalation below stays unreachable from catch-up.)
+    let cycles_behind = (pool.current_cycle as i64)
+        .checked_sub(args.cycle as i64)
+        .ok_or(error!(RoundfiError::MathOverflow))?;
+    let installment_deadline = pool
+        .next_cycle_at
+        .checked_sub(
+            cycles_behind
+                .checked_mul(pool.cycle_duration)
+                .ok_or(error!(RoundfiError::MathOverflow))?,
+        )
+        .ok_or(error!(RoundfiError::MathOverflow))?;
+    let on_time = clock.unix_timestamp <= installment_deadline;
     if on_time {
         member.on_time_count = member
             .on_time_count
@@ -310,16 +348,21 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
             CLASS_POOL_COMPLETE
         } else if !on_time {
             CLASS_LATE
-        } else if clock.unix_timestamp < pool.next_cycle_at {
+        } else if clock.unix_timestamp < installment_deadline {
             CLASS_PAYMENT_EARLY
         } else {
             CLASS_PAYMENT_ON_TIME
         };
+        // `due_ts` is THIS installment's deadline, not the pool's current one.
+        // Sending `next_cycle_at` made an arrears payment look early to the
+        // indexer (`paid_ts < due_ts`) while the schema said LATE — the two
+        // halves of the same attestation disagreeing about the same event.
+        // `delta_seconds` now signs correctly for every path.
         let payload = BehavioralPayload::new(
             classification,
             pool.members_target,
             1,
-            pool.next_cycle_at,
+            installment_deadline,
             clock.unix_timestamp,
             pool.installment_amount,
         )

@@ -11,6 +11,51 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Fixed — wrongful LATE on punctual payments (external audit M-1, with L-3 + L-4)
+
+A member paying **inside their own deadline** could be stamped LATE for a permanent −100.
+Not an attack path — the default one.
+
+`claim_payout` has no lower time bound: it fires as soon as the vault can fund the credit
+(`spendable >= credit_amount`), and advancing the cycle is a side effect of claiming. The
+contemplated member has every reason to claim the moment that clears — in the default
+geometry, once ~23 of 24 members have paid. From that instant everyone still unpaid was in
+"arrears", and [ADR 0013](docs/adr/0013-behind-member-catch-up-during-grace.md) §3 classified
+arrears as late **by construction**, clock ignored. Pay on day 29 of a 30-day window, after
+the claimant moved on day 3, and you lost 100 points — a fifth of an outright default —
+against the 500-point L2 threshold that sets your required stake. A timing accident priced in
+collateral.
+
+- **`contribute.rs`** — every installment is now judged against **its own** deadline:
+  `deadline(c) = next_cycle_at − (current_cycle − c) × cycle_duration`. Identical to the old
+  rule when `c == current_cycle`; only the two broken directions move. This also fixes **L-4**
+  (a current member prepaying during grace was marked LATE because `clock > next_cycle_at`)
+  and **L-3** (the attestation carried `due_ts = next_cycle_at`, so an arrears payment looked
+  _early_ to the indexer while the schema said LATE — the two halves of one event disagreeing).
+- **Deliberate residual:** the derivation inherits SEV-053's forward re-anchoring, so in a
+  stalled pool a genuinely late catch-up can read on-time. That direction is chosen: a missed
+  LATE under-counts a soft signal; a wrongful LATE is permanent and costs collateral.
+- **`tests/litesvm_catchup_grace.spec.ts`** — case (a) **asserted the bug** (`lateCount == 1`
+  for a payment made a full `cycle_duration` before the missed installment's deadline); it now
+  pins ON TIME. New case **(a2)** pays the same arrears _past_ that deadline and requires LATE
+  — without it, the fix would be satisfied by never classifying anything late at all.
+- Verified unaffected: SEV-053's stall re-anchor pin and `edge_cycle_boundary` case B both
+  exercise `c == current_cycle`, where old and new rules are the same expression.
+
+### Fixed — docs claimed a closed snipe that is open (external audit M-2)
+
+`docs/security/lance-contemplation.md` §5.3 listed **"Read the book, then outbid by one"** as
+`Closed`. It is closed against another _sealed_ bid and open via `place_embedded_bid`, which
+references neither `Clock` nor `next_cycle_at` and competes on the same `pool.current_bid_depth`
+the reveal writes — while the winning reveal publishes the number to beat (`depth={}`). A member
+with prepaid installments can watch a reveal land and take the cycle with `depth + 1`. No USDC is
+lost, but someone paid on time for a contemplation they do not get.
+
+Corrected to the real status. **No code change** — closing it is a product decision (exclude
+embedded bids from the reveal window / separate depth tracker / forbid embedded when a sealed
+commit exists), now stated as the open call under §5.5 "Hybrid cycles" rather than left to the
+default.
+
 ### Added — contemplation subsystem: sorteio + lance ([ADR 0012](docs/adr/0012-contemplation-lance-and-prepayment.md), all three phases on-chain)
 
 - **Sorteio ordering** — `pool.ordering_policy` (`0` arrival / `1` sorteio, fail-closed on unknown values, carved from `Pool`'s trailing padding so `Pool::SIZE` is unchanged) + `finalize_draw` freezing the drawn order into a `DrawResult` PDA. `DrawResult.order[seat] = cycle` is a **permutation**, which is what makes "everyone is contemplated exactly once" structural rather than checked.
