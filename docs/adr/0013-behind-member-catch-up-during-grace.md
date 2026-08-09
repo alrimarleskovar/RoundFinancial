@@ -6,6 +6,28 @@
 
 **Related:** LEAD-001 (payable-XOR-settleable, `docs/security/audit-leads-triage.md`); `tests/edge_settle_default_boundary.spec.ts`; ADR 0012 (prepayment — the AHEAD direction); the `contribute` cycle gate; `settle_default` grace gate; SEV-053 (window anchoring).
 
+> **Amendment (2026-08-09) — §3 "Arrears are classified `LATE`" was wrong and is superseded.**
+> The rule this ADR specified — `on_time = args.cycle >= pool.current_cycle && clock <= pool.next_cycle_at`
+> — rests on the premise that "a behind catch-up is therefore always `LATE` … the installment
+> missed its deadline". **It didn't.** The pool does not advance on the clock; it advances on
+> `claim_payout`, which carries no lower time bound and fires as soon as the vault can fund the
+> credit (`spendable >= credit_amount`). The contemplated member has every reason to claim the
+> moment that clears — in the default geometry, once ~23 of 24 members have paid. Everyone who
+> paid **after** that, still comfortably inside their own window, was stamped `LATE` for a
+> permanent −100 (`SCORE_LATE`, a fifth of an outright default) against the 500-point L2
+> threshold that governs their required stake. A timing accident cost real collateral, and
+> `tests/litesvm_catchup_grace.spec.ts` case (a) petrified it by asserting `lateCount == 1` for a
+> payment made a full `cycle_duration` **before** the missed installment's deadline.
+>
+> Superseded by: judge every installment against **its own** deadline,
+> `deadline(c) = next_cycle_at − (current_cycle − c) × cycle_duration`. Identical to the old rule
+> when `c == current_cycle`; it is only the two buggy directions that change. This also fixes the
+> mirror-image defect where a **current** member prepaying during the grace window was marked
+> `LATE` because `clock > next_cycle_at`. Residual, deliberate: the derivation inherits SEV-053's
+> forward re-anchoring, so in a stalled pool a genuinely late catch-up can read on-time — a missed
+> `LATE` under-counts a soft signal, while a wrongful `LATE` is permanent and priced in collateral.
+> Found by the external ADR 0012/0013 audit (M-1, with L-3 and L-4 as the same root).
+
 > **Update (2026-07-23) — Alrimar.** Authorized implementing + validating this design **on devnet now** (the Genesis Canary phase exists exactly to exercise changes like this live). The implementing PR carries the full validation matrix below as `tests/litesvm_catchup_grace.spec.ts` (CI litesvm lane). **Caio's security review remains a hard gate before any mainnet deploy** — the invariant rewrite (state→time exclusion) ships to mainnet only after that sign-off.
 
 ## Context

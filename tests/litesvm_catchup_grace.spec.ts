@@ -7,13 +7,26 @@
  * (`clock < next_cycle_at + GRACE_PERIOD_SECS`). `settle_default` requires
  * `clock >=` that same deadline, so the two windows are temporally disjoint and
  * the LEAD-001 pay-vs-settle race stays impossible — by TIME instead of STATE.
- * Arrears are classified LATE (schema 2): the installment missed its deadline.
+ *
+ * **Arrears are classified against THEIR OWN deadline, not "late by
+ * construction".** This spec previously pinned the opposite — case (a) asserted
+ * `lateCount == 1` for a payment made a full `cycle_duration` BEFORE the missed
+ * installment's deadline, petrifying the bug instead of catching it. The pool
+ * advances on `claim_payout`, which has no lower time bound; the contemplated
+ * member claims the moment the vault can fund the credit, and everyone who pays
+ * after that — still inside their own window — was stamped LATE for −100
+ * permanently. Cases (a) and (a2) below now pin both directions.
  *
  * Pins the ADR's validation matrix on the mpl_core (litesvm) path:
- *   • (a) catch-up DURING grace succeeds: 3-member pool, slot 2 misses cycle 0,
- *     the pool advances (slot 0 claims); slot 2 then pays cycle 0 in arrears →
- *     lands, minted LATE (late_count bumps, never on_time), and its
- *     contributions_paid climbs back to current_cycle.
+ *   • (a) catch-up DURING grace and BEFORE the missed installment's own
+ *     deadline: 3-member pool, slot 2 misses cycle 0, the pool advances (slot 0
+ *     claims early); slot 2 then pays cycle 0 in arrears → lands ON TIME
+ *     (on_time_count bumps, late_count stays 0), and its contributions_paid
+ *     climbs back to current_cycle. An early claim must not cost a punctual
+ *     payer their score.
+ *   • (a2) the same catch-up AFTER that deadline passes (still in grace) →
+ *     LATE. Without this, (a) alone would be satisfied by never classifying
+ *     anything late at all.
  *   • (d) no double-processing: settle_default on the caught-up member rejects
  *     MemberNotBehind (checked before the grace gate, so it holds mid-grace).
  *   • walk-forward: the restored member then pays the CURRENT cycle normally.
@@ -166,7 +179,7 @@ describe("ADR 0013 — behind-member catch-up during grace (litesvm)", function 
     return { pool, behind: h2 };
   }
 
-  it("(a)+(d): catch-up during grace lands as LATE, restores the member, and cannot be settled", async function () {
+  it("(a)+(d): catch-up before the missed installment's deadline lands ON TIME, restores the member, and cannot be settled", async function () {
     if (!available) {
       this.skip();
       return;
@@ -176,28 +189,35 @@ describe("ADR 0013 — behind-member catch-up during grace (litesvm)", function 
 
       // (a) The load-bearing call: pay the MISSED cycle 0 while current_cycle
       // is 1 and grace is open (clock < next_cycle_at + GRACE). Pre-ADR-0013
-      // this reverted WrongCycle. Schema must be LATE — the handler classifies
-      // arrears as late, and the attestation PDA seeds include the schema id.
+      // this reverted WrongCycle.
+      //
+      // The clock has not moved since the pool opened — slot 2 is paying a full
+      // cycle_duration BEFORE cycle 0's own deadline. It is only "in arrears"
+      // because slot 0 claimed the moment two payers had funded the credit,
+      // advancing the pool off the clock. Punctual payment, so: ON TIME, and
+      // the attestation schema is Payment (the schema id is in the PDA seeds,
+      // so the helper's choice has to match what the handler emits).
       await contribute(env, {
         pool,
         member: behind,
         cycle: 0,
-        schemaId: ATTESTATION_SCHEMA.Late,
+        schemaId: ATTESTATION_SCHEMA.Payment,
       });
 
       const m = await fetchMember(env, behind.member);
       expect(num(m.contributionsPaid), "arrears installment recorded").to.equal(1);
-      expect(num(m.lateCount), "catch-up counted as LATE").to.equal(1);
-      expect(num(m.onTimeCount), "no on-time credit for a missed deadline").to.equal(0);
+      expect(num(m.lateCount), "paid before its own deadline — no LATE").to.equal(0);
+      expect(num(m.onTimeCount), "punctual arrears earns on-time credit").to.equal(1);
 
       const attPda = attestationFor(
         env,
         pool.pool,
         behind.wallet.publicKey,
-        ATTESTATION_SCHEMA.Late,
+        ATTESTATION_SCHEMA.Payment,
         attestationNonce(0, behind.slotIndex),
       );
-      expect(await env.connection.getAccountInfo(attPda), "LATE attestation minted").to.not.be.null;
+      expect(await env.connection.getAccountInfo(attPda), "PAYMENT attestation minted").to.not.be
+        .null;
 
       // (d) No double-processing: the caught-up member is payable-current again
       // (contributions_paid == current_cycle), so settle_default rejects
@@ -221,6 +241,62 @@ describe("ADR 0013 — behind-member catch-up during grace (litesvm)", function 
       await contribute(env, { pool, member: behind, cycle: 1 });
       const m2 = await fetchMember(env, behind.member);
       expect(num(m2.contributionsPaid), "current-cycle payment after catch-up").to.equal(2);
+    } catch (e) {
+      const logs = (e as { logs?: string[] }).logs;
+      if (logs?.length) console.error("\n[litesvm] program logs:\n" + logs.join("\n"));
+      throw e;
+    }
+  });
+
+  it("(a2): catch-up AFTER the missed installment's own deadline is still LATE", async function () {
+    if (!available) {
+      this.skip();
+      return;
+    }
+    try {
+      const { pool, behind } = await setupBehindMember("latecatchup");
+
+      // Derive cycle 0's deadline exactly the way the handler does:
+      //   deadline(c) = next_cycle_at − (current_cycle − c) × cycle_duration
+      // Mirroring the on-chain formula here is deliberate — if the handler's
+      // derivation ever changes, this test stops agreeing with it and says so.
+      const p = (await fetchPool(env, pool.pool)) as Record<string, unknown>;
+      const nextCycleAt = BigInt(String(p.nextCycleAt));
+      const cyclesBehind = BigInt(num(p.currentCycle)); // cycle 0 → current − 0
+      const deadline0 = nextCycleAt - cyclesBehind * BigInt(CYCLE_DURATION);
+
+      // One second past cycle 0's deadline — genuinely late — while the
+      // CURRENT cycle's grace is still wide open, so the arrears path is still
+      // reachable and we are testing classification, not the window.
+      const paidAt = deadline0 + 1n;
+      expect(paidAt < nextCycleAt + GRACE_PERIOD_SECS, "still inside the arrears window").to.equal(
+        true,
+      );
+      await setLitesvmUnixTs(env.svm, paidAt);
+
+      await contribute(env, {
+        pool,
+        member: behind,
+        cycle: 0,
+        schemaId: ATTESTATION_SCHEMA.Late,
+      });
+
+      const m = await fetchMember(env, behind.member);
+      expect(num(m.contributionsPaid), "arrears installment recorded").to.equal(1);
+      expect(num(m.lateCount), "past its own deadline — LATE").to.equal(1);
+      expect(num(m.onTimeCount), "no on-time credit for a genuinely missed deadline").to.equal(0);
+
+      const attPda = attestationFor(
+        env,
+        pool.pool,
+        behind.wallet.publicKey,
+        ATTESTATION_SCHEMA.Late,
+        attestationNonce(0, behind.slotIndex),
+      );
+      expect(await env.connection.getAccountInfo(attPda), "LATE attestation minted").to.not.be.null;
+
+      // Restore the clock for any later case in this file.
+      await setLitesvmUnixTs(env.svm, BASE_TS);
     } catch (e) {
       const logs = (e as { logs?: string[] }).logs;
       if (logs?.length) console.error("\n[litesvm] program logs:\n" + logs.join("\n"));
