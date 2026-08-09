@@ -111,7 +111,11 @@ The full per-PR threat-model table + post-patch trade-offs is in each PR descrip
 
 ## Verification — reproducible build attestation
 
-All 4 deployed devnet programs carry an **on-chain verify-build attestation PDA** signed by the deployer, binding the deployed bytecode hash to a specific commit of this repo. 30-second CLI check that anyone can run independently:
+All 4 deployed devnet programs carry an **on-chain verify-build attestation PDA** signed by the deployer, binding a bytecode hash to a specific commit of this repo.
+
+> **⚠️ Read this before running the check.** The attestations were written **before** the Agave 3.x / anchor 1.0 / mpl-core 0.12 migration ([#487](https://github.com/alrimarleskovar/RoundFinancial/pull/487)), which upgraded all 4 programs **in place** on 2026-06-14. The attested hash therefore **no longer matches the deployed bytecode** — the CLI check below will report a mismatch until the refresh run lands ([`MAINNET_READINESS.md`](./MAINNET_READINESS.md) 3.8). This is stale metadata, not a source/bytecode divergence: the deployed programs still reproduce from source inside `solanafoundation/solana-verifiable-build:3.1.14`, validated for `roundfi_core` on 2026-06-22 (hash `ee8ac35…276d`). Flagged here rather than fixed silently so the audit does not open on a failing verification.
+
+30-second CLI check that anyone can run independently:
 
 ```bash
 # Install solana-verify (one-time)

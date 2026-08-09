@@ -43,6 +43,28 @@ export interface LitesvmEnv extends Env {
   /** The raw litesvm instance — for clock warp (`setClock`) etc. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly svm: any;
+  /**
+   * Compute units consumed by transactions submitted through the anchor
+   * provider (`sendAndConfirm` → `submit`), newest last.
+   *
+   * litesvm reports `computeUnitsConsumed()` on the success metadata, so
+   * every protocol tx the harness sends can be priced without touching a
+   * validator. Used by `tests/litesvm_compute_budget.spec.ts` to hold each
+   * instruction under the CU limit its real sender actually requests.
+   *
+   * Only the anchor path is metered. SPL-JS helpers go through
+   * `sendRawTransaction` and are not protocol instructions, so they are
+   * deliberately out of scope — otherwise mint/ATA setup would pollute the
+   * readings a budget assertion is meant to isolate.
+   */
+  readonly cu: {
+    /** CU of the most recent submitted tx, or `null` if none/unavailable. */
+    last(): number | null;
+    /** Every reading since the last `reset()`, in submission order. */
+    log(): readonly number[];
+    /** Drop recorded readings — call before the leg you want to price. */
+    reset(): void;
+  };
 }
 
 const DEPLOY = (n: string): string => resolve(process.cwd(), "target", "deploy", `${n}.so`);
@@ -109,6 +131,10 @@ export async function setupLitesvmEnv(): Promise<LitesvmEnv> {
   const payer = Keypair.generate();
   svm.airdrop(payer.publicKey.toBase58(), 1_000_000_000_000n);
 
+  // CU readings, newest last. Populated on the success path of `submit`
+  // below; see the `cu` docs on `LitesvmEnv`.
+  const cuLog: number[] = [];
+
   // Sign a v1 tx with the fee-payer + extra signers, then bridge v1→v2
   // and submit. litesvm 1.x's sendTransaction asserts a v2 (kit) tx; the
   // wire format is shared, so decode the signed legacy bytes into a v2 tx.
@@ -132,6 +158,18 @@ export async function setupLitesvmEnv(): Promise<LitesvmEnv> {
       const e: any = new Error(`litesvm tx failed: ${String(r.err())}`);
       e.logs = logs;
       throw e;
+    }
+    // Success path: litesvm hands back `TransactionMetadata` directly (the
+    // failure path is what wraps it behind `.meta()`), so the counter is one
+    // call away. Guarded because a litesvm minor that drops or renames the
+    // getter must not take the whole harness down with it — every existing
+    // spec runs through here and none of them care about CU.
+    try {
+      if (r && typeof r.computeUnitsConsumed === "function") {
+        cuLog.push(Number(r.computeUnitsConsumed()));
+      }
+    } catch {
+      /* metering is best-effort — never fail a tx over a missing counter */
     }
     return "litesvm-sig";
   };
@@ -227,6 +265,13 @@ export async function setupLitesvmEnv(): Promise<LitesvmEnv> {
 
   return {
     svm,
+    cu: {
+      last: () => cuLog.at(-1) ?? null,
+      log: () => cuLog,
+      reset: () => {
+        cuLog.length = 0;
+      },
+    },
     connection,
     provider,
     payer,
