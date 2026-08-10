@@ -20,7 +20,7 @@
     "@roundfi/indexer": "workspace:*",
     "@roundfi/orchestrator": "workspace:*",
     "@roundfi/sdk": "workspace:*",
-    "@solana/spl-token": "^0.4.8",
+    "@solana/spl-token": "^0.4.15",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
@@ -28,18 +28,18 @@
     "framer-motion": "^12",
     "next": "^16.2.9",
     "qrcode.react": "4.2.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
     "@prisma/nextjs-monorepo-workaround-plugin": "^7.8.0",
     "@types/node": "^25.9.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.0",
-    "autoprefixer": "^10.5.2",
-    "postcss": "^8.5.16",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "autoprefixer": "^10.5.4",
+    "postcss": "^8.5.26",
     "tailwindcss": "^3.4.13",
     "typescript": "^6.0.3"
   }
