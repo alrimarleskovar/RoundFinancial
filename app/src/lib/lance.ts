@@ -37,6 +37,22 @@ export interface LanceInputs {
   contributionsPaid: number | null;
   defaulted: boolean;
   paidOut: boolean;
+  /**
+   * Wall clock and `pool.next_cycle_at`, for the bidding window.
+   *
+   * Embedded bids close where sealed commits close (`clock < next_cycle_at`)
+   * — without that bound an embedded bidder could watch a sealed reveal land
+   * and outbid it by one, since both paths share `pool.current_bid_depth`
+   * and the winning reveal logs its depth (audit M-2).
+   *
+   * **Optional on purpose.** A caller that omits them gets the pre-window
+   * behaviour, and the worst case is the on-chain `BidWindowClosed` revert
+   * that `classifyLanceError` already translates. Making them required would
+   * turn a missing field into a compile break for every existing caller and
+   * test, to guard against a case that already fails safely.
+   */
+  nowSec?: number;
+  nextCycleAt?: number;
 }
 
 export type LanceStatus =
@@ -49,6 +65,10 @@ export type LanceStatus =
   /** Already received (paid_out), or the current cycle is ALREADY theirs
    *  — nothing left to bid for. */
   | "contemplated"
+  /** Eligible, but this cycle's bidding window has closed — embedded bids
+   *  end where sealed commits end (`clock >= next_cycle_at`). Nothing is
+   *  wrong with the member; the auction for this cycle is simply over. */
+  | "windowClosed"
   /** Eligible, but even prepaying every remaining installment can't reach
    *  the depth needed to beat the standing bid. */
   | "outOfRunway"
@@ -118,6 +138,16 @@ export function lanceView(input: LanceInputs): LanceView {
   if (input.myDrawnCycle === null) return { ...base, status: "awaitingDraw" };
   // Their turn is now (or already passed): nothing to bring forward.
   if (input.myDrawnCycle <= input.currentCycle) return { ...base, status: "contemplated" };
+  // Mirrors the on-chain `clock < next_cycle_at` gate. Reported ahead of
+  // `outOfRunway` because it is the immediate, actionable answer ("this
+  // cycle's auction is over") rather than a standing condition.
+  if (
+    input.nowSec !== undefined &&
+    input.nextCycleAt !== undefined &&
+    input.nowSec >= input.nextCycleAt
+  ) {
+    return { ...base, status: "windowClosed" };
+  }
   if (requiredDepth > maxDepth) return { ...base, status: "outOfRunway" };
   if (prepaysNeeded > 0) return { ...base, status: "needsPrepay" };
   return { ...base, status: "ready" };
@@ -125,7 +155,14 @@ export function lanceView(input: LanceInputs): LanceView {
 
 /** The three statuses that put the "Dar lance" panel on screen. */
 export function showsLancePanel(status: LanceStatus): boolean {
-  return status === "ready" || status === "needsPrepay" || status === "outOfRunway";
+  return (
+    status === "ready" ||
+    status === "needsPrepay" ||
+    status === "outOfRunway" ||
+    // Shown, not hidden: a member who prepaid specifically to bid deserves
+    // to read why the button is gone rather than watch the panel vanish.
+    status === "windowClosed"
+  );
 }
 
 // ─── Lance livre (ADR 0012 Fase 3) — the sealed free bid ──────────────

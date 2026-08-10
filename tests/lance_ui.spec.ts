@@ -170,13 +170,58 @@ describe("lanceView — mirrors place_embedded_bid's gates", () => {
 
   // ─── Panel visibility ──────────────────────────────────────────────
 
-  it("showsLancePanel is true exactly for the three actionable states", () => {
+  it("showsLancePanel is true exactly for the actionable + explanatory states", () => {
     expect(showsLancePanel("ready")).to.equal(true);
     expect(showsLancePanel("needsPrepay")).to.equal(true);
     expect(showsLancePanel("outOfRunway")).to.equal(true);
+    // Shown with an explanation and no button — a member who prepaid to bid
+    // should read why, not watch the panel disappear.
+    expect(showsLancePanel("windowClosed")).to.equal(true);
     expect(showsLancePanel("notApplicable")).to.equal(false);
     expect(showsLancePanel("awaitingDraw")).to.equal(false);
     expect(showsLancePanel("contemplated")).to.equal(false);
+  });
+
+  // ─── Bidding window (audit M-2) ────────────────────────────────────
+  // Embedded bids close where sealed commits close. Without the bound an
+  // embedded bidder could watch a sealed reveal land and outbid it by one,
+  // since both paths share `pool.current_bid_depth` and the winning reveal
+  // logs its depth. The panel mirrors the on-chain gate so the CTA never
+  // fires a bid that reverts `BidWindowClosed`.
+
+  it("a ready member inside the window is still ready", () => {
+    const v = lanceView(inputs({ contributionsPaid: 3, nowSec: 900, nextCycleAt: 1_000 }));
+    expect(v.status).to.equal("ready");
+  });
+
+  it("the same member is windowClosed once the reveal window opens", () => {
+    const v = lanceView(inputs({ contributionsPaid: 3, nowSec: 1_000, nextCycleAt: 1_000 }));
+    expect(v.status).to.equal("windowClosed");
+    // The arithmetic still reports truthfully — only the affordance changes.
+    expect(v.depth).to.equal(1);
+    expect(v.prepaysNeeded).to.equal(0);
+  });
+
+  it("windowClosed outranks needsPrepay — prepaying now cannot help this cycle", () => {
+    const v = lanceView(inputs({ nowSec: 2_000, nextCycleAt: 1_000 }));
+    expect(v.status).to.equal("windowClosed");
+  });
+
+  it("omitting the clock keeps the pre-window behaviour (optional by design)", () => {
+    // A caller that can't supply the clock must not be silently gated: the
+    // on-chain revert is the backstop and `classifyLanceError` translates it.
+    expect(lanceView(inputs({ contributionsPaid: 3 })).status).to.equal("ready");
+    expect(lanceView(inputs({ contributionsPaid: 3, nowSec: 5_000 })).status).to.equal("ready");
+    expect(lanceView(inputs({ contributionsPaid: 3, nextCycleAt: 1_000 })).status).to.equal(
+      "ready",
+    );
+  });
+
+  it("a closed window never overrides a more fundamental gate", () => {
+    const closed = { nowSec: 2_000, nextCycleAt: 1_000 };
+    expect(lanceView(inputs({ ...closed, paidOut: true })).status).to.equal("contemplated");
+    expect(lanceView(inputs({ ...closed, myDrawnCycle: null })).status).to.equal("awaitingDraw");
+    expect(lanceView(inputs({ ...closed, isSorteio: false })).status).to.equal("notApplicable");
   });
 
   it("always reports the target cycle it would win", () => {

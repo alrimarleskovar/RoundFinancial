@@ -1589,6 +1589,8 @@ export const DICT: Record<Lang, Dict> = {
       "Antecipe {n} parcela(s) e você pode assumir o ciclo {c} agora, no lugar de esperar até o {mine}.",
     "groupsV2.card.lance.outOfRunway":
       "O lance que está ganhando ({d}) é mais fundo do que as parcelas que ainda restam pra você antecipar neste grupo.",
+    "groupsV2.card.lance.windowClosed":
+      "A janela de lances do ciclo {c} fechou — agora os envelopes selados estão sendo abertos. Você pode dar lance de novo quando o próximo ciclo começar.",
     "groupsV2.card.lance.cta": "Dar lance",
     "groupsV2.card.lance.ctaPrepay": "Antecipar parcelas",
     "groupsV2.card.freeBid.title": "Lance selado — ninguém vê o valor",
@@ -3789,6 +3791,8 @@ export const DICT: Record<Lang, Dict> = {
       "Pay {n} installment(s) ahead and you can take cycle {c} now instead of waiting until {mine}.",
     "groupsV2.card.lance.outOfRunway":
       "The winning bid ({d}) is deeper than the installments you have left to pay ahead in this group.",
+    "groupsV2.card.lance.windowClosed":
+      "Bidding for cycle {c} has closed — sealed envelopes are being opened now. You can bid again when the next cycle starts.",
     "groupsV2.card.lance.cta": "Place a bid",
     "groupsV2.card.lance.ctaPrepay": "Pay ahead",
     "groupsV2.card.freeBid.title": "Sealed bid — nobody sees the amount",

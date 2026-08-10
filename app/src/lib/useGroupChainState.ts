@@ -211,6 +211,9 @@ export function useGroupChainState(group: CatalogGroup): GroupChainState {
     contributionsPaid: myMember?.contributionsPaid ?? null,
     defaulted: myMember?.defaulted ?? false,
     paidOut: myMember?.paidOut ?? false,
+    // Embedded bids close where sealed commits close. Omitted while the
+    // pool hasn't loaded (`nextCycleAt` 0 would read as "always closed").
+    ...(lp ? { nowSec: Math.floor(Date.now() / 1000), nextCycleAt: Number(lp.nextCycleAt) } : {}),
   });
   // Demo personas never bid: the swap is real on-chain state, so a mock
   // "success" would misrepresent the payout order.

@@ -11,6 +11,42 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Fixed — the sealed-bid snipe was open through the embedded path (external audit M-2)
+
+`docs/security/lance-contemplation.md` §5.3 listed **"read the book, then outbid by one"** as
+`Closed`. It was closed against another _sealed_ bid and wide open through
+`place_embedded_bid`, which referenced neither `Clock` nor `next_cycle_at` — no window at all —
+while competing on the same `pool.current_bid_depth` the reveal writes. The winning reveal even
+publishes the number to beat (`msg!("… depth={}")`). A member holding prepaid installments could
+watch an envelope open and take the cycle with `depth + 1`, no commit required, defeating the
+anti-snipe goal the whole sealed phase exists for. No USDC lost — the displaced bidder's K
+installments stand as prepayment — but they paid, on time, for a contemplation they don't get.
+
+- **`place_embedded_bid.rs`** — embedded bids now close where sealed commits close
+  (`clock < next_cycle_at`, reusing `BidWindowClosed` so the positional error codes are
+  unchanged). The commit window rather than the reveal window is the point: it makes the two
+  instruments symmetric — everyone bids blind to the sealed book, then reveals adjudicate against
+  whatever depth stands. Embedded-vs-embedded stays openly competitive _inside_ the cycle, which
+  is Phase 2's documented and accepted snipe, now bounded to before any envelope opens.
+- **`tests/litesvm_lance_embutido.spec.ts` (viii)** — a member with real bid material (depth 1
+  against a standing 0) is rejected at `next_cycle_at` and again 60s in, then lands the **same
+  bid** one second earlier. That control is what gives the rejections meaning: the clock was the
+  only thing in the way.
+- **`app/src/lib/lance.ts`** — `lanceView` gained a `windowClosed` status so the card explains
+  why the button is gone instead of firing a bid that reverts. The clock inputs are **optional**:
+  a caller that omits them keeps the old behaviour and falls back to the on-chain revert, which
+  `classifyLanceError` already translates. Making them required would break every existing caller
+  to guard a case that already fails safely. Panel shows the explanation with no button, same
+  pattern as `outOfRunway`. +5 unit tests, PT/EN strings at parity (1885/1885).
+
+**Not fixed here — L-1, and deliberately.** Reveals open at `next_cycle_at`, but `claim_payout`
+has no lower time bound, so a claim can advance the cycle before the reveal window opens and
+orphan every sealed envelope for it (`WrongCycle`, rent lost). The dead `CycleNotReady` error was
+written for exactly this gate. Wiring it is a **product decision, not a patch**: it delays every
+payout to the cycle boundary and touches 35 `claimPayout` call sites across 17 specs. Worth
+knowing before deciding — `crank_payout` already requires `clock >= next_cycle_at + GRACE`, so
+`claim_payout` being ungated is an omission, not a design choice. See §5.5.
+
 ### Fixed — wrongful LATE on punctual payments (external audit M-1, with L-3 + L-4)
 
 A member paying **inside their own deadline** could be stamped LATE for a permanent −100.

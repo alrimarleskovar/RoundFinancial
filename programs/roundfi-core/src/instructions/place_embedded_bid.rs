@@ -84,6 +84,32 @@ pub fn handler(ctx: Context<PlaceEmbeddedBid>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let member = &ctx.accounts.member;
     let draw = &mut ctx.accounts.draw;
+    let clock = Clock::get()?;
+
+    // ─── Window: embedded bids close exactly where commits close ────────
+    // An embedded bid needs no envelope, so without a window it could be
+    // placed *after* watching a sealed bid reveal — and the winning reveal
+    // publishes the number to beat (`depth={}` in place_bid_reveal's WON
+    // log). Since both paths compete on the same `pool.current_bid_depth`,
+    // a member holding prepaid installments could take the cycle with
+    // `depth + 1` and no commit, defeating the anti-snipe property the
+    // whole sealed-bid phase exists for. `docs/security/lance-contemplation.md`
+    // §5.3 claimed that snipe was closed; it was closed only against
+    // another SEALED bid (external ADR 0012/0013 audit, M-2).
+    //
+    // Putting embedded bids on the COMMIT window (`clock < next_cycle_at`)
+    // rather than the reveal window is what makes the two paths symmetric:
+    // everyone bids blind to the sealed book, then reveals adjudicate
+    // against whatever depth is standing. Reusing `BidWindowClosed` keeps
+    // the error set unchanged (RoundfiError codes are positional).
+    //
+    // Embedded-vs-embedded stays openly competitive inside the cycle —
+    // that is Phase 2's documented, accepted snipe (§3), now bounded to
+    // before any envelope opens instead of running through the auction.
+    require!(
+        clock.unix_timestamp < pool.next_cycle_at,
+        RoundfiError::BidWindowClosed,
+    );
 
     // A member already contemplated has nothing to bid FOR (and letting a
     // paid-out member swap back into the current cycle would be a second

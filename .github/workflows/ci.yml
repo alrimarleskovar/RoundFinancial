@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual re-run. Added after PR #660 sat with ZERO lanes because no
+  # `pull_request` event ever produced a run — config was valid, workflow
+  # active, and there was no way to start one by hand. Closing/reopening
+  # the PR and pushing an empty commit both failed to trigger it. A
+  # workflow with no manual entry point has no recovery path when the
+  # event side misfires.
+  workflow_dispatch:
 
 # Cancel superseded runs on the same PR — one push per PR keeps the queue
 # moving and stops Vercel from racing the GitHub merge button.
@@ -881,3 +888,60 @@ jobs:
         # default). It prints the CU table to this log — no separate step,
         # because a second invocation would just re-run the same suite.
         run: pnpm test:litesvm
+
+  # ─── CI complete — the single required check ─────────────────────────
+  # Exists so branch protection needs ONE check name instead of six. That
+  # matters more than it sounds: with per-lane requirements, adding a lane
+  # later silently leaves it unenforced until someone remembers to update
+  # the setting, which is how this kind of guard rots.
+  #
+  # `if: always()` is load-bearing. Without it this job is SKIPPED when any
+  # dependency fails, and a skipped required check blocks the PR forever
+  # with no way to read why. It must run and then decide.
+  #
+  # **Gated on the four functional lanes only.** `audit` and `deny` declare
+  # themselves "(advisory)" in their names, and gating on them would let a
+  # new upstream RUSTSEC advisory — no code change on our side — block every
+  # unrelated merge. They still run, still go red, and are printed below.
+  # NB: despite the label they currently carry no `continue-on-error`, so a
+  # failure there DOES fail the workflow run today. That inconsistency is
+  # left as-is deliberately: resolving it (truly advisory, or truly
+  # required) is a policy call, not something to settle inside this job.
+  ci-complete:
+    name: CI complete
+    if: always()
+    needs: [js, anchor, bankrun-no-mpl-core, litesvm-mpl-core, audit, deny]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every functional lane to have succeeded
+        env:
+          JS: ${{ needs.js.result }}
+          ANCHOR: ${{ needs.anchor.result }}
+          # Bracket notation, not dot: a job id containing `-` is ambiguous
+          # with subtraction inside a GitHub expression.
+          BANKRUN: ${{ needs['bankrun-no-mpl-core'].result }}
+          LITESVM: ${{ needs['litesvm-mpl-core'].result }}
+          AUDIT: ${{ needs.audit.result }}
+          DENY: ${{ needs.deny.result }}
+        run: |
+          set -euo pipefail
+          echo "js       $JS"
+          echo "anchor   $ANCHOR"
+          echo "bankrun  $BANKRUN"
+          echo "litesvm  $LITESVM"
+          echo "audit    $AUDIT   (advisory — not gated)"
+          echo "deny     $DENY   (advisory — not gated)"
+          fail=0
+          for pair in "js:$JS" "anchor:$ANCHOR" "bankrun:$BANKRUN" "litesvm:$LITESVM"; do
+            name="${pair%%:*}"; result="${pair#*:}"
+            # Anything that is not an outright success blocks: `failure`,
+            # `cancelled`, and `skipped` alike. A lane that never ran is the
+            # exact hole this job exists to close — treating it as neutral
+            # is what makes a PR look green with no tests behind it.
+            if [ "$result" != "success" ]; then
+              echo "::error::lane '$name' did not succeed (result: $result)"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "All functional lanes green."
