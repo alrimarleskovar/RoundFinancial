@@ -217,3 +217,79 @@ export function MonoLabel({
     </span>
   );
 }
+
+// ─── Marca oficial (handoff Caio, 02/08/2026) ────────────────────────
+// Aditivo de propósito. O `RFILogoMark` acima tem 5+ consumidores fora da
+// landing — TopBar, SideNav, MobileHome, loading, admin/ops — e trocar a
+// implementação dele levaria a marca oficial para o app inteiro de uma vez.
+// Isso pode até ser o desejado, mas é decisão de escopo, não efeito
+// colateral de uma landing. Enquanto a v2 é candidata, ela usa estes dois
+// e o resto do app segue como está.
+//
+// Na graduação: mover o corpo destes para RFILogoMark / RFILogoLockup e
+// apagar estes dois — os consumidores não mudam, porque a assinatura é a
+// mesma.
+//
+// Regra de identidade do handoff: não redesenhar, não simplificar, não
+// voltar a aproximar por SVG. Por isso é <img> do PNG oficial, não um path.
+
+export function RFIOfficialMark({ size = 28, style }: { size?: number; style?: CSSProperties }) {
+  return (
+    <img
+      src="/brand/roundfi-official-mark.png"
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      width={size}
+      height={size}
+      style={{ display: "block", width: size, height: size, objectFit: "contain", ...style }}
+    />
+  );
+}
+
+export function RFIOfficialLockup({
+  size = 28,
+  subline = false,
+}: {
+  size?: number;
+  subline?: boolean;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <div
+      aria-label="RoundFi"
+      role="img"
+      style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}
+    >
+      <img
+        src="/brand/roundfi-official-white-lockup.png"
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        style={{
+          display: "block",
+          width: "auto",
+          height: size,
+          maxWidth: "none",
+          objectFit: "contain",
+        }}
+      />
+      {subline && (
+        <span
+          style={{
+            fontFamily: "DM Sans, system-ui",
+            fontWeight: 400,
+            fontSize: size * 0.28,
+            color: tokens.text2,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            marginTop: size * 0.16,
+            marginLeft: size * 1.2,
+          }}
+        >
+          Collaborative Finance
+        </span>
+      )}
+    </div>
+  );
+}
