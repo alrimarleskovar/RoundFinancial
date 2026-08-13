@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1280" viewBox="0 0 2560 1280" fill="none">
+  <defs>
+    <linearGradient id="space" x1="90" y1="50" x2="2400" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#030A13"/>
+      <stop offset=".48" stop-color="#030813"/>
+      <stop offset=".76" stop-color="#090720"/>
+      <stop offset="1" stop-color="#050512"/>
+    </linearGradient>
+    <radialGradient id="tealMist" cx="0" cy="0" r="1" gradientTransform="translate(340 880) rotate(-10) scale(880 520)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#006777" stop-opacity=".22"/>
+      <stop offset=".58" stop-color="#073446" stop-opacity=".07"/>
+      <stop offset="1" stop-color="#03101B" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="violetMist" cx="0" cy="0" r="1" gradientTransform="translate(1880 920) rotate(-16) scale(1040 560)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#321068" stop-opacity=".2"/>
+      <stop offset=".64" stop-color="#160A3E" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#090720" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="planetSurface" x1="-130" y1="650" x2="940" y2="1260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#061521" stop-opacity=".84"/>
+      <stop offset=".48" stop-color="#04111D" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#020711" stop-opacity=".9"/>
+    </linearGradient>
+    <linearGradient id="planetRim" x1="-120" y1="680" x2="1120" y2="1190" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00B5C4" stop-opacity=".16"/>
+      <stop offset=".48" stop-color="#00D7F4" stop-opacity=".82"/>
+      <stop offset=".82" stop-color="#27BEFF" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#7D5BFF" stop-opacity=".08"/>
+    </linearGradient>
+    <linearGradient id="flowA" x1="520" y1="1110" x2="2330" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#05B9D0" stop-opacity="0"/>
+      <stop offset=".36" stop-color="#00B8D5" stop-opacity=".16"/>
+      <stop offset=".7" stop-color="#385BE7" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#8A5CFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="flowB" x1="850" y1="1210" x2="2360" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4E8" stop-opacity="0"/>
+      <stop offset=".43" stop-color="#1E7CE7" stop-opacity=".13"/>
+      <stop offset=".76" stop-color="#7B36E8" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#8A5CFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="candle" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#00C7E8" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#2464D7" stop-opacity=".07"/>
+    </linearGradient>
+    <clipPath id="planetClip">
+      <path d="M-140 908C238 697 641 714 1032 1051C1113 1121 1177 1198 1228 1280H-140V908Z"/>
+    </clipPath>
+    <filter id="rimGlow" x="-30%" y="-80%" width="170%" height="260%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feColorMatrix in="blur" values="0 0 0 0 0.04 0 0 0 0 0.72 0 0 0 0 0.94 0 0 0 .5 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <filter id="vignette" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="1"/>
+    </filter>
+  </defs>
+
+  <rect width="2560" height="1280" fill="url(#space)"/>
+  <rect width="2560" height="1280" fill="url(#tealMist)"/>
+  <rect width="2560" height="1280" fill="url(#violetMist)"/>
+
+  <!-- Sparse stars -->
+  <g>
+    <circle cx="458" cy="462" r="1.7" fill="#27D9FF" fill-opacity=".42"/>
+    <circle cx="806" cy="584" r="1.35" fill="#3CCEFF" fill-opacity=".5"/>
+    <circle cx="1097" cy="316" r="1" fill="#27D9FF" fill-opacity=".2"/>
+    <circle cx="1523" cy="518" r="1.1" fill="#8A5CFF" fill-opacity=".28"/>
+    <circle cx="1965" cy="348" r="1.2" fill="#4D7DFF" fill-opacity=".22"/>
+    <circle cx="2297" cy="374" r="1.5" fill="#8A5CFF" fill-opacity=".48"/>
+    <circle cx="2056" cy="222" r=".9" fill="#3FEAFF" fill-opacity=".24"/>
+    <circle cx="1285" cy="688" r="1.1" fill="#3FEAFF" fill-opacity=".16"/>
+  </g>
+
+  <!-- Long data-flow ribbons -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M400 1195C986 1039 1241 977 1569 859C1872 750 2092 578 2290 371" stroke="url(#flowA)" stroke-width="1.7"/>
+    <path d="M523 1242C981 1131 1307 1026 1632 923C1968 817 2157 664 2375 466" stroke="url(#flowB)" stroke-width="1.35"/>
+    <path d="M701 1278C1094 1170 1332 1121 1659 1011C1996 898 2246 711 2450 557" stroke="url(#flowB)" stroke-width="1.1" opacity=".72"/>
+    <path d="M785 1105C1182 990 1388 926 1649 815C1957 684 2135 521 2289 409" stroke="url(#flowA)" stroke-width=".75" opacity=".56"/>
+    <path d="M952 1268C1274 1175 1524 1094 1769 1004C2062 897 2292 747 2480 612" stroke="#602DD5" stroke-opacity=".09" stroke-width="1"/>
+  </g>
+
+  <!-- Planet body and grid -->
+  <path d="M-140 908C238 697 641 714 1032 1051C1113 1121 1177 1198 1228 1280H-140V908Z" fill="url(#planetSurface)"/>
+  <g clip-path="url(#planetClip)" fill="none">
+    <path d="M-175 1005C250 822 672 839 1113 1175" stroke="#00B8D5" stroke-opacity=".075" stroke-width="1"/>
+    <path d="M-205 1080C260 910 742 954 1206 1264" stroke="#00B8D5" stroke-opacity=".065" stroke-width="1"/>
+    <path d="M-240 1166C307 1010 813 1062 1260 1365" stroke="#00B8D5" stroke-opacity=".055" stroke-width="1"/>
+    <path d="M76 774C283 937 335 1097 326 1329" stroke="#00B8D5" stroke-opacity=".064" stroke-width="1"/>
+    <path d="M255 737C441 909 535 1105 559 1343" stroke="#00B8D5" stroke-opacity=".065" stroke-width="1"/>
+    <path d="M445 749C618 928 755 1126 829 1369" stroke="#00B8D5" stroke-opacity=".06" stroke-width="1"/>
+    <path d="M653 801C811 979 959 1150 1064 1360" stroke="#00B8D5" stroke-opacity=".05" stroke-width="1"/>
+    <path d="M-36 811C158 963 230 1102 222 1287" stroke="#1672A5" stroke-opacity=".05" stroke-width="1"/>
+  </g>
+  <path d="M-140 908C238 697 641 714 1032 1051C1113 1121 1177 1198 1228 1280" stroke="#00C7E4" stroke-opacity=".25" stroke-width="18" filter="url(#softGlow)"/>
+  <path d="M-140 908C238 697 641 714 1032 1051C1113 1121 1177 1198 1228 1280" stroke="url(#planetRim)" stroke-width="3.2" filter="url(#rimGlow)"/>
+  <path d="M-140 908C238 697 641 714 1032 1051C1113 1121 1177 1198 1228 1280" stroke="#6EE7FF" stroke-opacity=".36" stroke-width=".9"/>
+
+  <!-- Candlestick silhouettes -->
+  <g opacity=".75">
+    <g transform="translate(1730 1120)"><path d="M10-44V34" stroke="#1185BA" stroke-opacity=".18"/><rect x="3" y="-25" width="14" height="40" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(1780 1082)"><path d="M10-71V47" stroke="#1185BA" stroke-opacity=".2"/><rect x="3" y="-48" width="14" height="55" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(1830 1115)"><path d="M10-52V38" stroke="#1185BA" stroke-opacity=".17"/><rect x="3" y="-22" width="14" height="43" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(1887 1036)"><path d="M10-92V59" stroke="#1185BA" stroke-opacity=".22"/><rect x="3" y="-62" width="14" height="61" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(1942 996)"><path d="M10-82V57" stroke="#1185BA" stroke-opacity=".2"/><rect x="3" y="-47" width="14" height="58" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(1997 922)"><path d="M10-105V71" stroke="#1185BA" stroke-opacity=".23"/><rect x="3" y="-69" width="14" height="68" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(2052 855)"><path d="M10-136V90" stroke="#1185BA" stroke-opacity=".24"/><rect x="3" y="-79" width="14" height="73" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(2107 895)"><path d="M10-103V65" stroke="#1185BA" stroke-opacity=".2"/><rect x="3" y="-51" width="14" height="59" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(2163 818)"><path d="M10-148V97" stroke="#1185BA" stroke-opacity=".25"/><rect x="3" y="-86" width="14" height="82" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(2218 760)"><path d="M10-135V91" stroke="#1185BA" stroke-opacity=".22"/><rect x="3" y="-69" width="14" height="71" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(2273 796)"><path d="M10-114V77" stroke="#1185BA" stroke-opacity=".2"/><rect x="3" y="-57" width="14" height="65" rx="1" fill="url(#candle)"/></g>
+    <g transform="translate(2328 726)"><path d="M10-140V89" stroke="#1185BA" stroke-opacity=".23"/><rect x="3" y="-80" width="14" height="79" rx="1" fill="url(#candle)"/></g>
+  </g>
+
+  <!-- Edge vignette -->
+  <rect x="1" y="1" width="2558" height="1278" stroke="#01040B" stroke-opacity=".45" stroke-width="80" filter="url(#vignette)"/>
+</svg>
