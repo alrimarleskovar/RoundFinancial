@@ -11,6 +11,44 @@ Unreleased changes that ship user-visible behavior add a line under `[Unreleased
 
 ## [Unreleased]
 
+### Fixed — a bid's attestation contradicted itself, and the timing rule now has one home (external audit L-2)
+
+`place_bid_reveal` sent `due_ts = pool.next_cycle_at`. The reveal window is
+`clock >= next_cycle_at`, so `paid_ts >= due_ts` and `delta_seconds >= 0` — which reads as
+"not early" — while the classification byte three lines above said `CLASS_PAYMENT_EARLY`. One
+attestation, two halves, opposite conclusions about the same event. An indexer trusting
+`delta_seconds` and one trusting `classification` would disagree, and `sdk/src/behavioral.ts`
+is supposed to be the single voice on what "on time" means.
+
+A bid **is** prepayment: the installments it settles are ahead of the pool, so their deadline
+is in the future and `delta_seconds` should be negative. `due_ts` now derives from the last
+installment the bid actually paid.
+
+- **`Pool::installment_deadline(cycle)`** — the derivation
+  (`next_cycle_at − (current_cycle − c) × cycle_duration`) moved out of `contribute` and onto
+  `Pool`, where both callers share it. It was introduced inline for **M-1**; L-2 needed the
+  same notion in a second file, and a second hand-rolled copy is exactly how the two paths
+  would drift into disagreeing about what a deadline is. One definition, both callers.
+- **5 unit tests** on the helper directly, covering all three directions — arrears (steps
+  back), current (the anchor itself, the case that must not move), prepaid (steps forward,
+  the direction this fix needs) — plus the `<=` boundary that keeps an on-the-second payment
+  on time, and hostile geometry returning an error instead of wrapping. 59 → **64 passing**.
+
+### Note — L-5 (bid displacing a defaulted member) is narrower than reported
+
+Traced the case rather than pinning it. Reaching it needs a specific shape: the defaulter has
+to be settled **strictly before** the cycle they hold, and someone must be drawn **after**
+them. `settle_default` requires `clock >= next_cycle_at + GRACE` and neither advances the
+cycle nor re-anchors — so a bid can never land in the same cycle a default was just settled
+in, because the M-2 window closes bidding at `next_cycle_at`, long before. Only a later
+`claim_payout` / `skip_defaulted_payout` re-anchors and opens a fresh window.
+
+Concretely that needs **five** cycles, not three: the defaulter must pay cycle 0 (or the
+seed-draw guard blocks the first payout), fall behind by cycle 2, hold cycle 3, and be
+outbid by the holder of cycle 4. Still benign — the swap is a permutation, and
+`skip_defaulted_payout` doesn't care how the defaulter arrived at its cycle. **No test
+added**; the sequence above is what one would have to build.
+
 ### Fixed — the sealed-bid snipe was open through the embedded path (external audit M-2)
 
 `docs/security/lance-contemplation.md` §5.3 listed **"read the book, then outbid by one"** as

@@ -247,17 +247,11 @@ pub fn handler(ctx: Context<Contribute>, args: ContributeArgs) -> Result<()> {
     // installment. While Active, `current_cycle <= cycles_total - 1`, so
     // `args.cycle < current_cycle` lands `contributions_paid < cycles_total`
     // — the POOL_COMPLETE escalation below stays unreachable from catch-up.)
-    let cycles_behind = (pool.current_cycle as i64)
-        .checked_sub(args.cycle as i64)
-        .ok_or(error!(RoundfiError::MathOverflow))?;
-    let installment_deadline = pool
-        .next_cycle_at
-        .checked_sub(
-            cycles_behind
-                .checked_mul(pool.cycle_duration)
-                .ok_or(error!(RoundfiError::MathOverflow))?,
-        )
-        .ok_or(error!(RoundfiError::MathOverflow))?;
+    // Shared with `place_bid_reveal` via `Pool::installment_deadline` — see
+    // its docstring for the derivation and the SEV-053 residual. Two copies
+    // of this expression is how the two paths would drift apart on what a
+    // deadline means (audit L-2 was the second copy's contradiction).
+    let installment_deadline = pool.installment_deadline(args.cycle)?;
     let on_time = clock.unix_timestamp <= installment_deadline;
     if on_time {
         member.on_time_count = member
