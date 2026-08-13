@@ -151,6 +151,45 @@ impl Pool {
     pub fn next_free_slot(&self) -> Option<u8> {
         (0..self.members_target).find(|&i| !self.is_slot_taken(i))
     }
+
+    /// The deadline of installment `cycle`, derived from the pool's current
+    /// anchor:
+    ///
+    /// ```text
+    /// deadline(c) = next_cycle_at − (current_cycle − c) × cycle_duration
+    /// ```
+    ///
+    /// `next_cycle_at` is by definition the deadline of `current_cycle`, so
+    /// stepping back one `cycle_duration` per cycle recovers an earlier
+    /// installment's deadline and stepping forward (negative difference)
+    /// recovers a future one. Works in all three directions — arrears,
+    /// current, prepaid — which is what lets one expression serve every
+    /// caller.
+    ///
+    /// **Why this lives here.** It was introduced inline in `contribute`
+    /// (audit M-1: arrears were called late by construction, so a member
+    /// paying inside their own window ate a permanent −100). `place_bid_reveal`
+    /// needs the same notion for its attestation's `due_ts` (audit L-2), and a
+    /// second hand-rolled copy is how the two paths would drift into
+    /// disagreeing about what a deadline is. One definition, both callers.
+    ///
+    /// Note the deliberate residual, inherited from SEV-053's forward
+    /// re-anchoring of `next_cycle_at`: in a pool that stalled, a
+    /// reconstructed past deadline lands LATER than the historical one. That
+    /// direction is chosen — a missed LATE under-counts a soft signal, while a
+    /// wrongful LATE is permanent and priced in required stake.
+    pub fn installment_deadline(&self, cycle: u8) -> Result<i64> {
+        let cycles_behind = (self.current_cycle as i64)
+            .checked_sub(cycle as i64)
+            .ok_or(error!(RoundfiError::MathOverflow))?;
+        self.next_cycle_at
+            .checked_sub(
+                cycles_behind
+                    .checked_mul(self.cycle_duration)
+                    .ok_or(error!(RoundfiError::MathOverflow))?,
+            )
+            .ok_or(error!(RoundfiError::MathOverflow))
+    }
 }
 
 #[cfg(test)]
@@ -283,5 +322,68 @@ mod tests {
         assert!(!p.is_slot_taken(64));
         assert!(!p.is_slot_taken(100));
         assert!(!p.is_slot_taken(u8::MAX));
+    }
+
+    // ─── installment_deadline — the shared timing rule ──────────────────
+    // Used by `contribute` (on-time vs late, audit M-1) and by
+    // `place_bid_reveal` (the attestation's `due_ts`, audit L-2). Both
+    // findings were the same mistake: reasoning about the CURRENT cycle's
+    // deadline when the question was about a DIFFERENT installment.
+
+    fn timed_pool(current_cycle: u8, next_cycle_at: i64, cycle_duration: i64) -> Pool {
+        Pool {
+            current_cycle,
+            next_cycle_at,
+            cycle_duration,
+            ..Pool::default()
+        }
+    }
+
+    #[test]
+    fn deadline_of_the_current_cycle_is_next_cycle_at() {
+        // The anchor itself — this is the case the old inline expression got
+        // right, and the one that must not move.
+        let p = timed_pool(3, 1_000_000, 86_400);
+        assert_eq!(p.installment_deadline(3).unwrap(), 1_000_000);
+    }
+
+    #[test]
+    fn earlier_installments_step_back_one_duration_per_cycle() {
+        let p = timed_pool(3, 1_000_000, 86_400);
+        assert_eq!(p.installment_deadline(2).unwrap(), 1_000_000 - 86_400);
+        assert_eq!(p.installment_deadline(1).unwrap(), 1_000_000 - 2 * 86_400);
+        assert_eq!(p.installment_deadline(0).unwrap(), 1_000_000 - 3 * 86_400);
+    }
+
+    #[test]
+    fn future_installments_step_forward() {
+        // The direction `place_bid_reveal` needs: a bid pays installments
+        // AHEAD, so their deadlines are in the future and `paid_ts - due_ts`
+        // goes negative — genuinely early, which is what the attestation's
+        // CLASS_PAYMENT_EARLY claims.
+        let p = timed_pool(3, 1_000_000, 86_400);
+        assert_eq!(p.installment_deadline(4).unwrap(), 1_000_000 + 86_400);
+        assert_eq!(p.installment_deadline(6).unwrap(), 1_000_000 + 3 * 86_400);
+    }
+
+    #[test]
+    fn a_payment_at_the_deadline_is_still_on_time() {
+        // `contribute` compares with `<=`. Pinned here because an off-by-one
+        // to `<` would mint a wrongful LATE (−100, permanent) for anyone
+        // paying on the exact second.
+        let p = timed_pool(0, 1_000_000, 86_400);
+        let deadline = p.installment_deadline(0).unwrap();
+        assert!(1_000_000 <= deadline);
+    }
+
+    #[test]
+    fn deadline_math_saturates_instead_of_panicking() {
+        // Hostile geometry: a huge duration times a large cycle distance must
+        // return an error, never wrap or panic inside a handler.
+        let p = timed_pool(0, 0, i64::MAX);
+        assert!(p.installment_deadline(u8::MAX).is_err());
+
+        let p2 = timed_pool(u8::MAX, i64::MIN, i64::MAX);
+        assert!(p2.installment_deadline(0).is_err());
     }
 }

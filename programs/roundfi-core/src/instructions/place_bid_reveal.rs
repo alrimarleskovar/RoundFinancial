@@ -446,11 +446,25 @@ pub fn handler(ctx: Context<PlaceBidReveal>, args: PlaceBidRevealArgs) -> Result
             CLASS_PAYMENT_EARLY
         };
         let pool = &ctx.accounts.pool;
+        // `due_ts` is the deadline of the LAST installment this bid paid, not
+        // the pool's current one (audit L-2). Sending `next_cycle_at` made the
+        // attestation contradict itself: the reveal window is
+        // `clock >= next_cycle_at`, so `paid_ts >= due_ts` and
+        // `delta_seconds >= 0` read as "not early" — while the classification
+        // byte right above says `CLASS_PAYMENT_EARLY`. An indexer trusting
+        // `delta_seconds` and one trusting `classification` reached opposite
+        // conclusions about the same event.
+        //
+        // A bid IS prepayment: `last_cycle > current_cycle`, so the derived
+        // deadline is in the FUTURE and `delta_seconds` goes negative —
+        // genuinely early, matching the classification. Same helper the
+        // `contribute` path uses, so the two can't drift.
+        let due_ts = pool.installment_deadline(last_cycle)?;
         let payload = BehavioralPayload::new(
             classification,
             pool.members_target,
             parcels,
-            pool.next_cycle_at,
+            due_ts,
             clock.unix_timestamp,
             args.amount,
         )
