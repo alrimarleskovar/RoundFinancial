@@ -325,7 +325,13 @@ function Button({
       className={`group inline-flex min-h-12 items-center justify-center gap-3 rounded-xl px-5 text-sm font-bold transition duration-300 ${
         secondary
           ? "border border-white/12 bg-white/[0.025] text-white hover:border-white/25 hover:bg-white/[0.055]"
-          : "bg-[#14F195] text-[#02120c] shadow-[0_0_24px_rgba(20,241,149,0.24)] hover:-translate-y-0.5 hover:bg-[#42f6ac] hover:shadow-[0_0_34px_rgba(20,241,149,0.36)]"
+          : // `rfi-btn-glow-green` drives the breathing halo (globals.css). It
+            // goes on the anchor itself rather than a wrapper element: the
+            // header CTA toggles its own visibility with `hidden sm:inline-flex`,
+            // so a wrapper would keep painting a haloed empty box on mobile.
+            // The static shadow below stays as the reduced-motion fallback —
+            // the media query kills the animation and this takes over.
+            "rfi-btn-glow-green bg-[#14F195] text-[#02120c] shadow-[0_0_24px_rgba(20,241,149,0.24)] hover:-translate-y-0.5 hover:bg-[#42f6ac]"
       } ${className}`}
     >
       {children}
@@ -575,7 +581,9 @@ export default function LandingPage() {
             <h1 className="max-w-[720px] font-[var(--font-syne)] text-[clamp(2.75rem,5.2vw,5.25rem)] font-bold leading-[.98] tracking-[-0.06em] text-white">
               <span className="block">{c.heroTitle[0]}</span>
               <span className="mt-2 block">{c.heroTitle[1]}</span>
-              <span className="rfi-gradient-text mt-2 block pb-2">{c.heroTitle[2]}</span>
+              <span className="rfi-gradient-text rfi-gradient-flow mt-2 block pb-2">
+                {c.heroTitle[2]}
+              </span>
             </h1>
             <p className="mt-6 max-w-xl text-sm leading-7 text-slate-400 md:text-base">
               {c.heroBody}

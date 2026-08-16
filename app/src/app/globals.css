@@ -244,6 +244,18 @@ body {
   -webkit-background-clip: text;
 }
 
+/* Sweeping variant: pair `.rfi-gradient-text` with `.rfi-gradient-flow`
+   (the shared 6s keyframes, already covered by the reduced-motion block
+   at the end of this file) and the band drifts across the headline.
+   The size has to live here rather than in a `bg-[length:…]` utility:
+   `.rfi-gradient-text` sets the `background` SHORTHAND, which resets
+   background-size to auto, and it wins over the utilities layer by
+   coming later in the file. Without a wider box there is nothing to
+   travel and the animation runs invisibly. */
+.rfi-gradient-text.rfi-gradient-flow {
+  background-size: 200% auto;
+}
+
 .rfi-chroma-frame {
   position: relative;
   border: 1px solid transparent;

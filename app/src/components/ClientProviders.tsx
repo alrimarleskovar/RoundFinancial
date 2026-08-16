@@ -14,8 +14,7 @@ import { SessionProvider } from "@/lib/session";
 import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
 import { shouldAutoConnect } from "@/lib/walletAllowlist";
-import { NetworkBanner } from "@/components/ui/NetworkBanner";
-import { PhishingBanner } from "@/components/ui/PhishingBanner";
+import { SiteBanners } from "@/components/ui/SiteBanners";
 import { WalletAllowlistGuard } from "@/components/WalletAllowlistGuard";
 import { WalletSessionGuard } from "@/components/WalletSessionGuard";
 import { SessionWalletBridge } from "@/components/SessionWalletBridge";
@@ -66,16 +65,11 @@ export function ClientProviders({ children }: { children: ReactNode }) {
             <SessionProvider>
               <NetworkContextProvider>
                 <InnerProviders>
-                  {/* Phishing-resistance banner (#249 W3) — renders at
-                      top of every page when hostname is unknown. SSR-safe
-                      (renders nothing during SSR; classifies post-hydration). */}
-                  <PhishingBanner />
-                  {/* Network identity banner (item 4.6 of MAINNET_READINESS)
-                      — renders below PhishingBanner. Mitigates RPC-confusion:
-                      flags devnet/localnet/unknown clusters so users can't be
-                      phished into thinking devnet is mainnet via a malicious
-                      RPC swap. Reads connection.rpcEndpoint as source of truth. */}
-                  <NetworkBanner />
+                  {/* Top-of-page chrome: the phishing banner (#249 W3) and
+                      the network identity strip (MAINNET_READINESS 4.6).
+                      SiteBanners owns which routes get which — see the
+                      rationale there. */}
+                  <SiteBanners />
                   {children}
                 </InnerProviders>
               </NetworkContextProvider>
