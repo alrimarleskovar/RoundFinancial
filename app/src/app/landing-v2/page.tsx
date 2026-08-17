@@ -1,3 +1,5 @@
+"use client";
+
 // /landing-v2 — CANDIDATA. Landing do handoff do Caio (02/08/2026),
 // publicada numa rota própria para revisão antes de substituir `/`.
 //
@@ -15,9 +17,7 @@
 // O CSS vive em globals.css sob o bloco "Landing v2", todo prefixado
 // `.rfi-`, sem tocar body/html/*/:root — por isso a rota não afeta nada.
 
-"use client";
-
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 
 import { RFIOfficialLockup, RFIOfficialMark } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
@@ -452,6 +452,46 @@ export default function LandingPage() {
   const contributionPerCycle = simGoal / simParticipants;
   const contributedAtReceipt = contributionPerCycle * safeReceiptCycle;
   const remainingCycles = simParticipants - safeReceiptCycle;
+  // Simulator chart geometry, derived from the sliders.
+  //
+  // The handoff markup hard-coded a bezier, so the curve was byte-identical
+  // for every combination of goal, group size and receipt cycle — only the
+  // marker moved. And it didn't even land on its own line: the marker
+  // interpolated linearly while the stroke curved, leaving the dot a few
+  // units off the stroke at mid-range.
+  //
+  // What it plots now is the thing the panel above already states: the
+  // member puts in `contributionPerCycle` once per cycle, so the accumulated
+  // total is a staircase that reaches the goal on the last one. Group size
+  // therefore changes the number of steps, and the marker sits exactly on
+  // the corner of the step for the chosen receipt cycle.
+  const chart = useMemo(() => {
+    const X0 = 35;
+    const X1 = 565;
+    const Y_TOP = 25;
+    const Y_ZERO = 128;
+    const Y_FILL = 140;
+    const at = (cycle: number) => ({
+      x: X0 + (cycle / simParticipants) * (X1 - X0),
+      y: Y_ZERO - (cycle / simParticipants) * (Y_ZERO - Y_TOP),
+    });
+    const round = (n: number) => Number(n.toFixed(1));
+
+    let stroke = `M${X0} ${Y_ZERO}`;
+    for (let cycle = 1; cycle <= simParticipants; cycle += 1) {
+      const step = at(cycle);
+      // Hold the previous level across the cycle, then rise: the
+      // contribution lands at the close of the cycle, not spread through it.
+      stroke += ` L${round(step.x)} ${round(at(cycle - 1).y)} L${round(step.x)} ${round(step.y)}`;
+    }
+
+    return {
+      stroke,
+      area: `${stroke} L${X1} ${Y_FILL} L${X0} ${Y_FILL} Z`,
+      marker: at(safeReceiptCycle),
+      fillBase: Y_FILL,
+    };
+  }, [simParticipants, safeReceiptCycle]);
   const money = useMemo(
     () =>
       new Intl.NumberFormat(lang === "pt" ? "pt-BR" : "en-US", {
@@ -635,8 +675,13 @@ export default function LandingPage() {
             ].map(([number, title, text, icon, tone], index) => (
               <div
                 key={number}
-                className="rfi-floating-panel relative mb-4 flex items-center gap-4 rounded-2xl p-3.5"
-                style={{ marginLeft: index * 12 }}
+                className="rfi-floating-panel rfi-panel-breathe relative mb-4 flex items-center gap-4 rounded-2xl p-3.5"
+                style={
+                  {
+                    marginLeft: index * 12,
+                    "--rfi-breathe-delay": `${index * 0.7}s`,
+                  } as CSSProperties
+                }
               >
                 <IconBadge name={icon} tone={tone as "green" | "cyan" | "purple"} />
                 <div>
@@ -672,7 +717,8 @@ export default function LandingPage() {
               return (
                 <article
                   key={step.title}
-                  className="rfi-luxe-card group relative flex gap-4 rounded-2xl p-5 md:block md:min-h-[250px] md:p-6"
+                  className="rfi-luxe-card rfi-card-breathe group relative flex gap-4 rounded-2xl p-5 md:block md:min-h-[250px] md:p-6"
+                  style={{ "--rfi-breathe-delay": `${index * 0.9}s` } as CSSProperties}
                 >
                   <div
                     className="relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border bg-[#070b13] transition duration-300 group-hover:-translate-y-1 group-hover:scale-[1.03]"
@@ -1238,18 +1284,38 @@ export default function LandingPage() {
               </div>
 
               <div className="mt-6 rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                {/* The vertical axis is normalised to the goal, so the goal
+                    slider alone would move nothing on screen. Carrying the
+                    money in the caption keeps all three controls visibly
+                    connected to the chart. */}
                 <div className="flex items-center justify-between text-[9px] text-slate-500">
                   <span>{lang === "pt" ? "Início" : "Start"}</span>
+                  <span className="text-[#aa82ff]">
+                    {lang === "pt"
+                      ? `Ciclo ${safeReceiptCycle} · ${money.format(contributedAtReceipt)} contribuídos`
+                      : `Cycle ${safeReceiptCycle} · ${money.format(contributedAtReceipt)} contributed`}
+                  </span>
                   <span>
                     {lang === "pt"
-                      ? `Recebimento ilustrativo · ciclo ${safeReceiptCycle}`
-                      : `Illustrative distribution · cycle ${safeReceiptCycle}`}
+                      ? `Encerramento · ${money.format(simGoal)}`
+                      : `Completion · ${money.format(simGoal)}`}
                   </span>
-                  <span>{lang === "pt" ? "Encerramento" : "Completion"}</span>
                 </div>
                 <svg className="mt-2 h-32 w-full" viewBox="0 0 600 150" aria-hidden>
                   <defs>
-                    <linearGradient id="simLine" x1="35" y1="130" x2="565" y2="25">
+                    {/* userSpaceOnUse because the coordinates below are
+                        viewBox units. Without it the default is
+                        objectBoundingBox, where x1="35" means 3500% — the
+                        gradient degenerates and the whole stroke paints in
+                        the first stop, losing the green→cyan→purple run. */}
+                    <linearGradient
+                      id="simLine"
+                      gradientUnits="userSpaceOnUse"
+                      x1="35"
+                      y1="130"
+                      x2="565"
+                      y2="25"
+                    >
                       <stop stopColor="#14F195" />
                       <stop offset=".52" stopColor="#23D9FF" />
                       <stop offset="1" stopColor="#8A5CFF" />
@@ -1259,29 +1325,27 @@ export default function LandingPage() {
                       <stop offset="1" stopColor="#23D9FF" stopOpacity="0" />
                     </linearGradient>
                   </defs>
+                  <path d={chart.area} fill="url(#simArea)" />
                   <path
-                    d="M35 128 C180 110 315 73 565 25 L565 140 L35 140 Z"
-                    fill="url(#simArea)"
-                  />
-                  <path
-                    d="M35 128 C180 110 315 73 565 25"
+                    d={chart.stroke}
                     fill="none"
                     stroke="url(#simLine)"
                     strokeWidth="4"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                   <line
-                    x1={35 + (safeReceiptCycle / simParticipants) * 530}
-                    x2={35 + (safeReceiptCycle / simParticipants) * 530}
+                    x1={chart.marker.x}
+                    x2={chart.marker.x}
                     y1="18"
-                    y2="140"
+                    y2={chart.fillBase}
                     stroke="#8A5CFF"
                     strokeOpacity=".45"
                     strokeDasharray="4 5"
                   />
                   <circle
-                    cx={35 + (safeReceiptCycle / simParticipants) * 530}
-                    cy={128 - (safeReceiptCycle / simParticipants) * 103}
+                    cx={chart.marker.x}
+                    cy={chart.marker.y}
                     r="7"
                     fill="#090D17"
                     stroke="#A87CFF"
@@ -1313,7 +1377,8 @@ export default function LandingPage() {
             {c.trustItems.map((item, index) => (
               <article
                 key={item.title}
-                className="rfi-trust-card group rounded-2xl p-5 transition hover:-translate-y-1"
+                className="rfi-trust-card rfi-card-breathe group rounded-2xl p-5 transition hover:-translate-y-1"
+                style={{ "--rfi-breathe-delay": `${index * 0.9}s` } as CSSProperties}
               >
                 <IconBadge
                   name={["scales", "layers", "cubes"][index]}
