@@ -1,12 +1,24 @@
 # Partner Logos
 
-Drop the 3 partner brand assets in this folder with the **exact filenames** below — the landing-page footer references these paths at runtime.
+Drop the partner brand assets in this folder with the **exact filenames** below — the landing-page footers reference these paths at runtime.
 
-| Filename | Where to grab it |
-|---|---|
-| `solana.svg` | https://solana.com/branding · prefer the wordmark in dark-mode (white text + gradient mark). SVG ideal. |
-| `colosseum.svg` | https://www.colosseum.com/ press kit, or right-click the logo on their landing. |
-| `kamino.svg` | https://app.kamino.finance/ press kit, or extract from their site favicon-set. |
+| Filename | Status | Where to grab it |
+|---|---|---|
+| `solana.svg` | ⚠️ mark only | https://solana.com/branding · what we hold is the bare 101×88 symbol. The **wordmark** (white text + gradient mark) reads far better in a footer strip — worth replacing. |
+| `colosseum.svg` | ✅ present | https://www.colosseum.com/ press kit, or right-click the logo on their landing. |
+| `kamino.svg` | ⚠️ opaque plate | https://app.kamino.finance/ press kit. What we hold is a 540×540 square whose first element is `<rect fill="#082A56"/>` — an **opaque** navy background, against the guidance below. The footers round the corners so it reads as an app icon instead of a broken tile, but a transparent-background asset would be better. |
+| `sas.svg` | ⬜ wanted | Solana Attestation Service. `/landing-v2` renders SAS as a labelled chip until this file exists; adding it plus a `src` on the SAS entry upgrades the chip into a mark. |
+
+## What does NOT belong here
+
+**No auditor logos.** `SECURITY.md` states outright that no external auditor has
+reviewed this code: Adevar Labs / Halborn / OtterSec / **Sec3** are four
+*candidate* firms and the selection is still pending. A logo in a footer reads
+as "audited by", so none of the four goes in until an engagement is signed — and
+then only the firm that actually did the work.
+
+The same test applies to anyone else: a mark here asserts a real relationship.
+If we can't point at the integration or the contract, the logo doesn't ship.
 
 ## Format guidelines
 

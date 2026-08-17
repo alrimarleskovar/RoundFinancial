@@ -352,6 +352,60 @@ body {
   backdrop-filter: blur(20px);
 }
 
+/* Breathing halos for the content cards — opt-in, one keyframe set per
+   card family.
+
+   Opt-in rather than folded into the shared card rule above because a page
+   where every surface pulses in lockstep reads as a strobe, not as life:
+   call sites tag only the focal cards and pass a per-card
+   `--rfi-breathe-delay` so cards in the same grid drift out of phase.
+
+   Animating `box-shadow` rather than fading a blurred `::after` is
+   deliberate. These cards set `backdrop-filter`, which opens a stacking
+   context, and a `z-index: -1` pseudo-element would then be trapped behind
+   the card's own background instead of bleeding past its edge. Each set
+   restates its family's base shadow so the animation ADDS the bloom rather
+   than flattening the lift the card already has. */
+@keyframes rfi-card-breathe {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.025),
+      0 18px 55px rgba(0, 0, 0, 0.2),
+      0 0 18px rgba(35, 217, 255, 0.045);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.025),
+      0 18px 55px rgba(0, 0, 0, 0.2),
+      0 0 40px rgba(35, 217, 255, 0.15);
+  }
+}
+
+@keyframes rfi-panel-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 20px 65px rgba(0, 0, 0, 0.42),
+      0 0 24px rgba(35, 217, 255, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 20px 65px rgba(0, 0, 0, 0.42),
+      0 0 46px rgba(35, 217, 255, 0.17);
+  }
+}
+
+.rfi-card-breathe {
+  animation: rfi-card-breathe 4.4s ease-in-out infinite;
+  animation-delay: var(--rfi-breathe-delay, 0s);
+}
+
+.rfi-panel-breathe {
+  animation: rfi-panel-breathe 4.4s ease-in-out infinite;
+  animation-delay: var(--rfi-breathe-delay, 0s);
+}
+
 .rfi-section-luxe {
   background:
     linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
@@ -605,7 +659,9 @@ body {
   .rfi-pulse-halo,
   .rfi-stream,
   .rfi-btn-glow-wrap.green,
-  .rfi-btn-glow-wrap.purple {
+  .rfi-btn-glow-wrap.purple,
+  .rfi-card-breathe,
+  .rfi-panel-breathe {
     animation: none !important;
   }
 }
