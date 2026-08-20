@@ -1563,6 +1563,12 @@ export default function LandingPage() {
                       href: "https://app.kamino.finance",
                       dot: "#8A5CFF",
                     },
+                    {
+                      label: "COLOSSEUM",
+                      src: "/partners/colosseum.svg",
+                      href: "https://www.colosseum.com",
+                      dot: "#14F195",
+                    },
                     // `src` is optional by design — see the comment above.
                   ] as { label: string; src?: string; href: string; dot: string }[]
                 ).map((partner) =>
