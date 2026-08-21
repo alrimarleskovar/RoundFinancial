@@ -7,7 +7,6 @@ Drop the partner brand assets in this folder with the **exact filenames** below 
 | `solana.svg` | ⚠️ mark only | https://solana.com/branding · what we hold is the bare 101×88 symbol. The **wordmark** (white text + gradient mark) reads far better in a footer strip — worth replacing. |
 | `colosseum.svg` | ✅ present | https://www.colosseum.com/ press kit, or right-click the logo on their landing. |
 | `kamino.svg` | ⚠️ opaque plate | https://app.kamino.finance/ press kit. What we hold is a 540×540 square whose first element is `<rect fill="#082A56"/>` — an **opaque** navy background, against the guidance below. The footers round the corners so it reads as an app icon instead of a broken tile, but a transparent-background asset would be better. |
-| `sas.svg` | ⬜ wanted | Solana Attestation Service. `/landing-v2` renders SAS as a labelled chip until this file exists; adding it plus a `src` on the SAS entry upgrades the chip into a mark. |
 
 ## What does NOT belong here
 

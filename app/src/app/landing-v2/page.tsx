@@ -1534,84 +1534,67 @@ export default function LandingPage() {
               {/* Technology strip, same treatment as the current landing's
                   footer: greyscale at rest, full colour on hover.
 
-                  Entries with `src` render the real mark; entries without
-                  fall back to the labelled chip. That keeps the row honest
-                  about what we actually have — dropping the SVG into
-                  app/public/partners/ (see the README there) is all it takes
-                  to upgrade a chip into a logo.
+                  Marks only — every entry here has a real SVG in
+                  app/public/partners/. The row previously carried text chips
+                  for names we had no asset for; that fallback is gone, so a
+                  logo appearing here means we actually hold the file.
 
-                  SEC3 was deliberately dropped from this row. It is one of
-                  FOUR candidate firms for the external audit and the
-                  selection is still pending — SECURITY.md states outright
-                  that no external auditor has reviewed this code. A logo in
-                  the footer reads as "audited by", which would be a claim we
-                  cannot make, so the slot stays empty until an engagement is
-                  actually signed. */}
+                  Two names were deliberately dropped rather than drawn:
+
+                  SEC3 — one of FOUR candidate firms for the external audit,
+                  selection still pending. SECURITY.md states outright that no
+                  external auditor has reviewed this code, and a logo in a
+                  footer reads as "audited by". The slot stays empty until an
+                  engagement is signed, and then only for the firm that did
+                  the work.
+
+                  SAS — the Solana Attestation Service integration is real
+                  (roundfi-reputation mints against the schema), but it has no
+                  distinct mark of its own in the repo and the Solana logo
+                  already stands for the ecosystem it belongs to. */}
               <div className="mt-6 flex flex-wrap items-center gap-4">
                 {(
                   [
-                    {
-                      label: "SOLANA",
-                      src: "/partners/solana.svg",
-                      href: "https://solana.com",
-                      dot: "#14F195",
-                    },
-                    { label: "SAS", href: LINKS.docs, dot: "#23D9FF" },
+                    { label: "SOLANA", src: "/partners/solana.svg", href: "https://solana.com" },
                     {
                       label: "KAMINO",
                       src: "/partners/kamino.svg",
                       href: "https://app.kamino.finance",
-                      dot: "#8A5CFF",
                     },
                     {
                       label: "COLOSSEUM",
                       src: "/partners/colosseum.svg",
                       href: "https://www.colosseum.com",
-                      dot: "#14F195",
                     },
-                    // `src` is optional by design — see the comment above.
-                  ] as { label: string; src?: string; href: string; dot: string }[]
-                ).map((partner) =>
-                  partner.src ? (
-                    <a
-                      key={partner.label}
-                      href={partner.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={partner.label}
-                      className="flex items-center opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0"
-                    >
-                      <Image
-                        src={partner.src}
-                        alt={partner.label}
-                        width={120}
-                        height={28}
-                        // Next.js leaves SVGs out of the optimizer by
-                        // default; the hint avoids a console warning.
-                        unoptimized
-                        // Tailwind's h-*/w-auto override the intrinsic size
-                        // above so each mark keeps its own aspect ratio.
-                        // Rounded because the assets we hold are square
-                        // app-icon marks and kamino.svg ships an OPAQUE
-                        // navy plate — square-cornered it reads as a broken
-                        // tile rather than a logo. See the README in
-                        // app/public/partners for the assets we'd rather have.
-                        className="h-6 w-auto rounded-[5px] md:h-7"
-                      />
-                    </a>
-                  ) : (
-                    <span
-                      key={partner.label}
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/[0.065] bg-white/[0.02] px-3 py-2 font-[var(--font-jetbrains-mono)] text-[8px] tracking-[0.12em] text-slate-500"
-                    >
-                      <span
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: partner.dot }}
-                      />
-                      {partner.label}
-                    </span>
-                  ),
-                )}
+                  ] as const
+                ).map((partner) => (
+                  <a
+                    key={partner.label}
+                    href={partner.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={partner.label}
+                    className="flex items-center opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0"
+                  >
+                    <Image
+                      src={partner.src}
+                      alt={partner.label}
+                      width={120}
+                      height={28}
+                      // Next.js leaves SVGs out of the optimizer by
+                      // default; the hint avoids a console warning.
+                      unoptimized
+                      // Tailwind's h-*/w-auto override the intrinsic size
+                      // above so each mark keeps its own aspect ratio.
+                      // Rounded because the assets we hold are square
+                      // app-icon marks and kamino.svg ships an OPAQUE
+                      // navy plate — square-cornered it reads as a broken
+                      // tile rather than a logo. See the README in
+                      // app/public/partners for the assets we'd rather have.
+                      className="h-6 w-auto rounded-[5px] md:h-7"
+                    />
+                  </a>
+                ))}
               </div>
             </div>
             {[
