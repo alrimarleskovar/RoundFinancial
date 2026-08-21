@@ -1651,7 +1651,21 @@ export default function LandingPage() {
         </div>
         <div className="border-t border-white/[0.05]">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-5 text-[9px] uppercase tracking-[0.12em] text-slate-700 sm:flex-row md:px-8">
-            <span>© 2026 RoundFi Protocol</span>
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-6">
+              <span>© 2026 RoundFi Protocol</span>
+              {/* Operator surfaces, carried over from the current landing's
+                  footer with the same treatment: dim by default, each with
+                  its own accent on hover. They live down here rather than in
+                  the nav on purpose — they're internal tools, not part of the
+                  public journey. Labels stay untranslated because they are
+                  the same in both dictionaries today. */}
+              <a href="/admin" className="transition-colors hover:text-[#FFD23F]">
+                ◆ Admin · Demo Studio
+              </a>
+              <a href="/lab" className="transition-colors hover:text-[#14F195]">
+                ◆ Stress Lab
+              </a>
+            </div>
             <span className="inline-flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-[#14F195] shadow-[0_0_9px_#14F195]" />
               {c.devnetFooter}
