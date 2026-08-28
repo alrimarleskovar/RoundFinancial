@@ -113,26 +113,8 @@ body {
   }
 }
 
-@keyframes rfi-btn-glow-purple {
-  0%,
-  100% {
-    box-shadow:
-      0 0 24px rgba(153, 69, 255, 0.45),
-      0 4px 18px rgba(20, 241, 149, 0.18);
-  }
-  50% {
-    box-shadow:
-      0 0 38px rgba(153, 69, 255, 0.65),
-      0 6px 22px rgba(20, 241, 149, 0.28);
-  }
-}
-
 .rfi-btn-glow-green {
   animation: rfi-btn-glow-green 2.6s ease-in-out infinite !important;
-}
-
-.rfi-btn-glow-purple {
-  animation: rfi-btn-glow-purple 2.6s ease-in-out infinite !important;
 }
 
 /* Slow horizontal sweep across a gradient — used by the hero
@@ -159,63 +141,14 @@ body {
   animation: rfi-gradient-flow 6s ease-in-out infinite;
 }
 
-/* Wrapper-based glow for the WalletMultiButton instances on the
-   landing. The lib's CSS resets sometimes drop animations set on
-   the button itself, so the halo is driven from a wrapper element
-   we own. We deliberately don't force a `display` value here — the
-   call site picks <span> for sized-to-content (header / hero) or
-   <div> for full-width (simulator card). Forcing inline-flex here
-   broke the full-width case in some engines (renders as a long
-   baseline-aligned strip). */
-.rfi-btn-glow-wrap {
-  position: relative;
-  border-radius: 16px;
-}
-.rfi-btn-glow-wrap.green {
-  animation: rfi-btn-glow-green 2.6s ease-in-out infinite;
-}
-.rfi-btn-glow-wrap.purple {
-  animation: rfi-btn-glow-purple 2.6s ease-in-out infinite;
-}
-
-/* Static chromatic halo that breathes — opacity pulses without
-   rotation, so the gradient sits fixed on the edges of the
-   parent and the "life" comes from the in-out fade. */
-@keyframes rfi-pulse-halo {
-  0%,
-  100% {
-    opacity: 0.28;
-  }
-  50% {
-    opacity: 0.65;
-  }
-}
-.rfi-pulse-halo {
-  animation: rfi-pulse-halo 2.8s ease-in-out infinite;
-  will-change: opacity;
-}
-
-/* Data stream — slow vertical scroll for the hero background.
-   Pair with `mask-image` on the parent for the soft top/bottom
-   fade, and with content duplicated 2x for a seamless loop. */
-@keyframes rfi-stream {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-50%);
-  }
-}
-.rfi-stream {
-  animation: rfi-stream 60s linear infinite;
-}
-
 /* ═══════════════════════════════════════════════════════════════════
-   Landing v2 (candidato) — handoff do Caio de 02/08/2026.
+   Landing pública (`/`) — handoff de marca do Caio, 02/08/2026.
+   Viveu como /landing-v2 durante a revisão e graduou.
+
    Todo seletor daqui pra baixo é prefixado `.rfi-` e nenhum toca
-   body, html, o seletor universal ou :root — então nada do app muda: só a rota
-   /landing-v2 carrega elementos com essas classes. Quando a v2
-   graduar para `/`, este bloco fica e o antigo sai junto com a página.
+   body, html, o seletor universal ou :root — só a landing carrega
+   elementos com essas classes, então mexer aqui não alcança as
+   telas do app.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* Public landing — a restrained orbital field inspired by financial
@@ -655,11 +588,6 @@ body {
   .rfi-gradient-flow,
   .animate-gradient-x,
   .rfi-btn-glow-green,
-  .rfi-btn-glow-purple,
-  .rfi-pulse-halo,
-  .rfi-stream,
-  .rfi-btn-glow-wrap.green,
-  .rfi-btn-glow-wrap.purple,
   .rfi-card-breathe,
   .rfi-panel-breathe {
     animation: none !important;

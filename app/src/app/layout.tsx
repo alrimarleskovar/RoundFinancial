@@ -37,10 +37,42 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+// SEO for the public landing. The copy is PT-BR to match `<html lang>` and
+// the landing itself — the previous title/description were English against
+// a Portuguese page, which is what a crawler would have indexed.
+//
+// `metadataBase` resolves the relative URLs below into absolute ones for
+// OpenGraph. The host is the primary canonical from `lib/domainPinning.ts`
+// — the same list the phishing banner trusts — so the two cannot drift
+// into disagreeing about which domain is ours.
+//
+// No `openGraph.images` on purpose: the only lockup asset we hold is white
+// on transparency, and the clients that composite a transparent OG image
+// onto white would render an invisible logo. A proper 1200x630 card is
+// worth having, but shipping a broken preview is worse than shipping none.
 export const metadata: Metadata = {
-  title: "RoundFi — Cooperative credit, on-chain",
+  metadataBase: new URL("https://roundfi.vercel.app"),
+  title: "RoundFi — grupos financeiros colaborativos na Solana",
   description:
-    "On-chain ROSCA protocol on Solana: behavioral credit, reputation-weighted stake, transparent lifecycle.",
+    "Grupos em que participantes contribuem em ciclos, recebem conforme as regras do grupo e constroem um histórico financeiro verificável on-chain.",
+  keywords: [
+    "consórcio",
+    "grupos financeiros",
+    "ROSCA",
+    "Solana",
+    "reputação on-chain",
+    "crédito colaborativo",
+    "RoundFi",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "RoundFi",
+    url: "/",
+    title: "RoundFi — grupos financeiros colaborativos na Solana",
+    description:
+      "Contribua em grupo, realize objetivos e construa reputação. Regras verificáveis, código aberto, histórico on-chain.",
+  },
 };
 
 // Explicit viewport (Next.js 14 app-router export). Renders to:
