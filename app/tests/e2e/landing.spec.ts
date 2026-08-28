@@ -1,53 +1,69 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("/ — public landing", () => {
-  test.beforeEach(async ({ context }) => {
-    // Pin locale to EN so text assertions are stable across CI runs;
-    // the default `roundfi.lang` localStorage value is "pt".
-    await context.addInitScript(() => {
-      try {
-        window.localStorage.setItem("roundfi.lang", "en");
-      } catch {
-        /* private mode — ignore */
-      }
-    });
-  });
+// Smoke coverage for the public landing at `/`.
+//
+// Rewritten when the landing graduated from `/landing-v2`. The previous
+// version asserted the page it replaced — the old hero copy, and a
+// `wallet-adapter-button` that the current landing does not render at all
+// (it links out to /grupos instead of connecting in place). Those
+// assertions could only fail from here on, and the e2e lane is advisory
+// (`continue-on-error` on both the job and the step), so nothing in CI
+// would have said so.
+//
+// Language is component state on this page, not the app-wide
+// `roundfi.lang` key the dashboard reads — so it always loads in PT and
+// the toggle is driven by clicking it, not by seeding localStorage.
 
-  test("renders hero, wallet connect, and key sections", async ({ page }) => {
+test.describe("/ — public landing", () => {
+  test("renders hero, primary CTA and key sections", async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") consoleErrors.push(msg.text());
+      // Subresource fetch failures are a property of the network the run
+      // sits on, not of the page — a sandbox that blocks the webfont CDN
+      // would fail this for a reason the landing has no say in. Page
+      // defects (exceptions, React errors) still come through.
+      if (msg.type() === "error" && !msg.text().startsWith("Failed to load resource")) {
+        consoleErrors.push(msg.text());
+      }
     });
 
     await page.goto("/");
 
-    // Hero — pinned EN copy (i18n key `landing.hero.title1`).
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByText(/Collateral that earns/i)).toBeVisible();
-    await expect(page.getByText(/Credit that scales/i)).toBeVisible();
+    // Hero — PT is the default language. Scoped to the h1 because the
+    // headline copy also appears in the page's other breakpoints.
+    const hero = page.getByRole("heading", { level: 1 });
+    await expect(hero).toBeVisible();
+    await expect(hero).toContainText("Contribua em grupo.");
+    await expect(hero).toContainText("Construa reputação.");
 
-    // Wallet adapter button — its inner text is "Select Wallet" until
-    // a wallet is selected. Use a generous selector so it matches the
-    // button regardless of state.
-    await expect(
-      page.locator("button.wallet-adapter-button, [class*='wallet-adapter-button']").first(),
-    ).toBeVisible();
+    // The primary CTA is a link into the app, not an in-place connect.
+    // Both the header and the hero carry one; either proves the path out.
+    await expect(page.locator('a[href="/grupos"]').first()).toBeVisible();
 
-    // No console errors caught during the initial render. We tolerate
-    // wallet-adapter's harmless "Wallet not ready" warnings (they
-    // surface as `warn`, not `error`) — that's why this only checks
-    // hard errors.
+    // A couple of anchors further down, so a hero-only render fails loudly.
+    await expect(page.locator("#como-funciona")).toBeAttached();
+    await expect(page.locator("#simulador")).toBeAttached();
+
+    // Wallet-adapter emits "Wallet not ready" as a warning, not an error,
+    // so this stays a hard-error check.
     expect(consoleErrors, `console errors: ${consoleErrors.join("\n")}`).toEqual([]);
   });
 
-  test("language toggle flips hero copy to PT", async ({ page }) => {
-    // Start in EN (per beforeEach), flip to PT via localStorage and
-    // reload — the i18n provider hydrates from storage on mount.
+  test("language toggle flips hero copy to EN", async ({ page }) => {
     await page.goto("/");
-    await page.evaluate(() => window.localStorage.setItem("roundfi.lang", "pt"));
-    await page.reload();
+    const hero = page.getByRole("heading", { level: 1 });
+    await expect(hero).toContainText("Realize objetivos.");
 
-    await expect(page.getByText(/Colateral que rende/i)).toBeVisible();
-    await expect(page.getByText(/Crédito que expande/i)).toBeVisible();
+    await page.getByLabel("Alternar idioma").click();
+
+    await expect(hero).toContainText("Contribute together.");
+    await expect(hero).toContainText("Build reputation.");
+  });
+
+  test("the retired candidate route is gone", async ({ page }) => {
+    // /landing-v2 was the review route this page graduated from. Asserting
+    // the 404 keeps a stale copy from being resurrected unnoticed.
+    const response = await page.goto("/landing-v2");
+    expect(response?.status()).toBe(404);
   });
 });
