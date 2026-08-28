@@ -1,946 +1,1693 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// `/` — a landing pública. Veio do handoff de marca do Caio (02/08/2026),
+// viveu como `/landing-v2` enquanto era revisada, e graduou para cá — o
+// mesmo caminho que o `/grupos` de hoje seguiu a partir de `/grupos-v2`.
+//
+// O CSS vive em globals.css sob o bloco da landing, todo prefixado
+// `.rfi-`, sem tocar body/html/*/:root: nenhuma tela do app depende
+// dessas classes, então mexer aqui não vaza para o resto.
+//
+// A marca sai de `RFILogoMark` / `RFILogoLockup`, que na graduação
+// passaram a renderizar os PNGs oficiais em vez do SVG aproximado — a
+// troca alcançou o app inteiro (TopBar, SideNav, MobileHome, loading,
+// admin/ops), que é o que a regra de identidade do handoff pede.
+
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
-import { SegToggle } from "@/components/layout/SegToggle";
-import { RFILogoMark } from "@/components/brand/brand";
+import { RFILogoLockup, RFILogoMark } from "@/components/brand/brand";
 import { Icons } from "@/components/brand/icons";
-import { DataStream } from "@/components/landing/DataStream";
-import { MountReveal } from "@/components/landing/MountReveal";
-import { Reveal } from "@/components/landing/Reveal";
-import { useI18n, useT } from "@/lib/i18n";
 
-// Marketing landing for RoundFi. Renders before the user connects a
-// wallet; once `connected` flips true (from Phantom/Solflare/Backpack
-// via wallet-adapter), redirects to /home.
-//
-// Visual identity: Neon palette (#06090F + #14F195 green + #9945FF
-// purple + #00C8FF teal accent) — matches the dashboard family.
-//
-// Text is fully i18n'd via the same context the dashboard uses; the
-// PT/EN segmented toggle in the sticky header flips both the landing
-// copy and the dashboard once the user connects.
+const LINKS = {
+  docs: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/spec/MASTER-SPEC.md",
+  devnet: "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/devnet-deployment.md",
+  github: "https://github.com/alrimarleskovar/RoundFinancial",
+  security: "https://github.com/alrimarleskovar/RoundFinancial/tree/main/docs/security",
+};
+
+type Language = "pt" | "en";
+
+const copy = {
+  pt: {
+    nav: [
+      "Como funciona",
+      "Benefícios",
+      "Passport",
+      "Comparativo",
+      "Simulador",
+      "Segurança",
+      "Docs",
+    ],
+    devnet: "Ambiente de teste — esta versão utiliza somente fundos fictícios.",
+    environment: "Entenda o ambiente",
+    explore: "Explorar grupos",
+    heroEyebrow: "Grupos financeiros colaborativos na Solana",
+    heroTitle: ["Contribua em grupo.", "Realize objetivos.", "Construa reputação."],
+    heroBody:
+      "A RoundFi organiza grupos financeiros colaborativos em que participantes contribuem em ciclos, recebem conforme as regras do grupo e constroem um histórico financeiro verificável.",
+    exploreDevnet: "Explorar grupos na Devnet",
+    understand: "Entender como funciona",
+    proofs: ["Regras verificáveis", "Código aberto", "Histórico on-chain"],
+    howEyebrow: "Como funciona",
+    howTitle: "Um ciclo simples, com regras transparentes",
+    howBody:
+      "Do primeiro grupo ao histórico verificável, toda a jornada acontece em três etapas claras.",
+    steps: [
+      {
+        title: "Escolha um grupo",
+        body: "Encontre uma opção compatível com seu objetivo, parcela e duração.",
+      },
+      {
+        title: "Contribua e acompanhe",
+        body: "Faça os pagamentos e acompanhe cada ciclo diretamente pela plataforma.",
+      },
+      {
+        title: "Receba e construa histórico",
+        body: "Receba conforme a modalidade e transforme comportamento em reputação.",
+      },
+    ],
+    howNote: "As regras de recebimento, garantias e duração variam de acordo com cada grupo.",
+    benefitsEyebrow: "Benefícios dos grupos",
+    benefitsTitle: "Valor antes, durante e depois do ciclo",
+    benefitsBody:
+      "Uma estrutura prática para organizar objetivos, acompanhar cada etapa e preservar o valor do seu histórico.",
+    benefits: [
+      {
+        title: "Organize um objetivo maior",
+        body: "Transforme uma meta em contribuições menores, previsíveis e recorrentes.",
+      },
+      {
+        title: "Acompanhe regras e movimentações",
+        body: "Veja pagamentos, ciclos e eventos com clareza durante toda a jornada.",
+      },
+      {
+        title: "Leve seu histórico com você",
+        body: "Seus compromissos fortalecem seu SAS Passport mesmo após o grupo.",
+      },
+    ],
+    compare: "Comparar com modelos tradicionais",
+    group: {
+      eyebrow: "Exemplo de grupo",
+      name: "Sorteio na Hora",
+      objective: "Objetivo",
+      objectiveValue: "Capital de giro",
+      installment: "Parcela",
+      installmentValue: "R$ 5,50",
+      duration: "Duração",
+      durationValue: "6 ciclos",
+      prize: "Recebimento",
+      prizeValue: "R$ 33,00",
+      progress: "Progresso do grupo",
+      cycle: "Ciclo 1 de 6",
+    },
+    passportEyebrow: "SAS Digital Passport",
+    passportTitle: "O grupo termina. Seu histórico continua.",
+    passportBody:
+      "O SAS Passport reúne evidências do seu comportamento financeiro, como pontualidade, ciclos concluídos, atrasos e regularizações.",
+    passportPoints: ["Verificável", "Vinculado ao participante", "Evolui com o comportamento"],
+    today: "Hoje, o Passport melhora sua experiência e o acesso a grupos dentro da RoundFi.",
+    roadmap: "Visão futura: ajudar a comprovar confiança em outros produtos e comunidades.",
+    knowPassport: "Conhecer o SAS Passport",
+    trusted: "Confiável",
+    punctuality: "Pontualidade",
+    groups: "Grupos concluídos",
+    attestations: "Atestados",
+    evolution: "Evolução",
+    trustEyebrow: "Confiança",
+    trustTitle: "Construído para ser verificado",
+    trustBody:
+      "Transparência não é uma promessa visual. É a possibilidade de conferir como o protocolo funciona.",
+    trustItems: [
+      {
+        title: "Regras públicas",
+        body: "A lógica dos grupos é executada por programas na Solana.",
+      },
+      {
+        title: "Recursos organizados por grupo",
+        body: "Cada ciclo segue estruturas próprias de contabilidade e recursos.",
+      },
+      {
+        title: "Desenvolvimento transparente",
+        body: "Código, documentação, testes e status podem ser consultados.",
+      },
+    ],
+    seeSecurity: "Ver segurança",
+    seeDocs: "Ver documentação",
+    seeGithub: "Ver GitHub",
+    finalTitle: "Participe do próximo ciclo de validação da RoundFi",
+    finalBody:
+      "Explore a plataforma em Devnet, utilize fundos fictícios e ajude a validar a experiência antes da mainnet.",
+    nextCanary: "Participar do próximo canário",
+    noMoney: "Nenhum dinheiro real será movimentado.",
+    faqTitle: "Perguntas essenciais",
+    faqs: [
+      {
+        q: "O que é a RoundFi?",
+        a: "Uma plataforma experimental de grupos financeiros colaborativos com regras verificáveis e histórico reputacional.",
+      },
+      {
+        q: "Quando o participante recebe?",
+        a: "Depende da modalidade e das regras apresentadas antes da entrada em cada grupo.",
+      },
+      {
+        q: "Preciso oferecer alguma garantia?",
+        a: "As garantias variam conforme o grupo e são informadas antes da participação.",
+      },
+      {
+        q: "O que significa estar na Devnet?",
+        a: "É um ambiente público de testes da Solana. Os fundos usados são fictícios e não têm valor real.",
+      },
+    ],
+    footer: "Infraestrutura experimental para grupos financeiros e reputação verificável.",
+    product: "Produto",
+    protocol: "Protocolo",
+    community: "Comunidade",
+    legal: "Legal",
+    devnetFooter: "Devnet · somente fundos de teste",
+  },
+  en: {
+    nav: ["How it works", "Benefits", "Passport", "Comparison", "Simulator", "Security", "Docs"],
+    devnet: "Test environment — this version only uses fictional funds.",
+    environment: "Understand the environment",
+    explore: "Explore groups",
+    heroEyebrow: "Collaborative financial groups on Solana",
+    heroTitle: ["Contribute together.", "Reach your goals.", "Build reputation."],
+    heroBody:
+      "RoundFi organizes collaborative financial groups where participants contribute in cycles, receive according to group rules and build a verifiable financial history.",
+    exploreDevnet: "Explore groups on Devnet",
+    understand: "See how it works",
+    proofs: ["Verifiable rules", "Open source", "On-chain history"],
+    howEyebrow: "How it works",
+    howTitle: "A simple cycle with transparent rules",
+    howBody:
+      "From your first group to a verifiable history, the journey happens in three clear steps.",
+    steps: [
+      {
+        title: "Choose a group",
+        body: "Find an option that matches your goal, installment and duration.",
+      },
+      {
+        title: "Contribute and follow",
+        body: "Make payments and follow every cycle directly in the platform.",
+      },
+      {
+        title: "Receive and build history",
+        body: "Receive by the rules and turn behavior into reputation.",
+      },
+    ],
+    howNote: "Distribution, collateral and duration rules vary according to each group.",
+    benefitsEyebrow: "Group benefits",
+    benefitsTitle: "Value before, during and after the cycle",
+    benefitsBody:
+      "A practical structure to organize goals, follow every stage and preserve the value of your history.",
+    benefits: [
+      {
+        title: "Organize a larger goal",
+        body: "Turn a goal into smaller, predictable recurring contributions.",
+      },
+      {
+        title: "Follow rules and activity",
+        body: "See payments, cycles and events clearly throughout the journey.",
+      },
+      {
+        title: "Take your history with you",
+        body: "Your commitments strengthen your SAS Passport after the group.",
+      },
+    ],
+    compare: "Compare with traditional models",
+    group: {
+      eyebrow: "Group example",
+      name: "Instant Draw",
+      objective: "Goal",
+      objectiveValue: "Working capital",
+      installment: "Installment",
+      installmentValue: "R$ 5.50",
+      duration: "Duration",
+      durationValue: "6 cycles",
+      prize: "Distribution",
+      prizeValue: "R$ 33.00",
+      progress: "Group progress",
+      cycle: "Cycle 1 of 6",
+    },
+    passportEyebrow: "SAS Digital Passport",
+    passportTitle: "The group ends. Your history continues.",
+    passportBody:
+      "SAS Passport brings together evidence of your financial behavior, such as punctuality, completed cycles, delays and regularizations.",
+    passportPoints: ["Verifiable", "Linked to the participant", "Evolves with behavior"],
+    today: "Today, Passport improves your experience and group access within RoundFi.",
+    roadmap: "Future vision: help prove trust in other products and communities.",
+    knowPassport: "Discover SAS Passport",
+    trusted: "Trusted",
+    punctuality: "Punctuality",
+    groups: "Completed groups",
+    attestations: "Attestations",
+    evolution: "Evolution",
+    trustEyebrow: "Trust",
+    trustTitle: "Built to be verified",
+    trustBody:
+      "Transparency is not a visual promise. It is the ability to inspect how the protocol works.",
+    trustItems: [
+      {
+        title: "Public rules",
+        body: "Group logic is executed by programs on Solana.",
+      },
+      {
+        title: "Group-organized resources",
+        body: "Each cycle follows its own accounting and resource structures.",
+      },
+      {
+        title: "Transparent development",
+        body: "Code, documentation, tests and status can be inspected.",
+      },
+    ],
+    seeSecurity: "View security",
+    seeDocs: "View documentation",
+    seeGithub: "View GitHub",
+    finalTitle: "Join RoundFi’s next validation cycle",
+    finalBody:
+      "Explore the Devnet platform, use fictional funds and help validate the experience before mainnet.",
+    nextCanary: "Join the next canary",
+    noMoney: "No real money will be moved.",
+    faqTitle: "Essential questions",
+    faqs: [
+      {
+        q: "What is RoundFi?",
+        a: "An experimental platform for collaborative financial groups with verifiable rules and reputation history.",
+      },
+      {
+        q: "When does a participant receive?",
+        a: "It depends on the modality and rules presented before joining each group.",
+      },
+      {
+        q: "Do I need to provide collateral?",
+        a: "Collateral varies by group and is disclosed before participation.",
+      },
+      {
+        q: "What does Devnet mean?",
+        a: "It is Solana’s public test environment. The funds used are fictional and have no real value.",
+      },
+    ],
+    footer: "Experimental infrastructure for financial groups and verifiable reputation.",
+    product: "Product",
+    protocol: "Protocol",
+    community: "Community",
+    legal: "Legal",
+    devnetFooter: "Devnet · test funds only",
+  },
+} as const;
+
+function ArrowIcon({ size = 18 }: { size?: number }) {
+  return <Icons.arrow size={size} stroke="currentColor" sw={1.8} />;
+}
+
+function Button({
+  href,
+  children,
+  secondary = false,
+  external = false,
+  className = "",
+}: {
+  href: string;
+  children: ReactNode;
+  secondary?: boolean;
+  external?: boolean;
+  className?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
+      className={`group inline-flex min-h-12 items-center justify-center gap-3 rounded-xl px-5 text-sm font-bold transition duration-300 ${
+        secondary
+          ? "border border-white/12 bg-white/[0.025] text-white hover:border-white/25 hover:bg-white/[0.055]"
+          : // `rfi-btn-glow-green` drives the breathing halo (globals.css). It
+            // goes on the anchor itself rather than a wrapper element: the
+            // header CTA toggles its own visibility with `hidden sm:inline-flex`,
+            // so a wrapper would keep painting a haloed empty box on mobile.
+            // The static shadow below stays as the reduced-motion fallback —
+            // the media query kills the animation and this takes over.
+            "rfi-btn-glow-green bg-[#14F195] text-[#02120c] shadow-[0_0_24px_rgba(20,241,149,0.24)] hover:-translate-y-0.5 hover:bg-[#42f6ac]"
+      } ${className}`}
+    >
+      {children}
+      <span className="transition-transform duration-300 group-hover:translate-x-1">
+        <ArrowIcon size={17} />
+      </span>
+    </a>
+  );
+}
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#14F195]/25 bg-[#14F195]/[0.055] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#54f5b5]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#14F195] shadow-[0_0_10px_#14F195]" />
+      {children}
+    </div>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  body,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="max-w-3xl">
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className="max-w-2xl font-[var(--font-syne)] text-3xl font-bold leading-[1.08] tracking-[-0.045em] text-white md:text-5xl">
+        {title}
+      </h2>
+      <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">{body}</p>
+    </div>
+  );
+}
+
+function IconBadge({ name, tone = "green" }: { name: string; tone?: "green" | "cyan" | "purple" }) {
+  const Icon = Icons[name] ?? Icons.spark;
+  const colors = {
+    green: ["#14F195", "rgba(20,241,149,.09)", "rgba(20,241,149,.24)"],
+    cyan: ["#23D9FF", "rgba(35,217,255,.08)", "rgba(35,217,255,.23)"],
+    purple: ["#9A68FF", "rgba(154,104,255,.09)", "rgba(154,104,255,.25)"],
+  } as const;
+  const [color, background, border] = colors[tone];
+  return (
+    <span
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border"
+      style={{ color, background, borderColor: border }}
+    >
+      <Icon size={21} stroke="currentColor" sw={1.65} />
+    </span>
+  );
+}
+
+function HeroOrbit({ lang }: { lang: Language }) {
+  const labels =
+    lang === "pt"
+      ? ["Objetivo", "Grupo", "Ciclos", "Passport"]
+      : ["Goal", "Group", "Cycles", "Passport"];
+  return (
+    <div className="relative mx-auto aspect-[1.08/1] w-full max-w-[580px]">
+      <div className="absolute inset-[8%] rounded-full border border-[#23D9FF]/15" />
+      <div className="absolute inset-[18%] rounded-full border border-[#8A5CFF]/20" />
+      <div className="absolute inset-[29%] rounded-full border border-[#14F195]/25" />
+      <div className="absolute inset-[36%] flex items-center justify-center rounded-full border border-[#14F195]/35 bg-[#08141a]/85 shadow-[0_0_70px_rgba(20,241,149,.15)] backdrop-blur-xl">
+        <div className="text-center">
+          <RFILogoLockup size={27} />
+          <p className="mt-1 text-[9px] uppercase tracking-[0.2em] text-slate-500">flow</p>
+        </div>
+      </div>
+      {[
+        ["left-[4%] top-[22%]", "groups", "green"],
+        ["right-[1%] top-[27%]", "wallet", "cyan"],
+        ["bottom-[8%] right-[13%]", "refresh", "purple"],
+        ["bottom-[13%] left-[8%]", "score", "green"],
+      ].map(([position, icon, tone], index) => (
+        <div
+          key={labels[index]}
+          className={`absolute ${position} flex items-center gap-2.5 rounded-2xl border border-white/10 bg-[#090e17]/80 p-2.5 pr-4 shadow-2xl backdrop-blur-xl`}
+        >
+          <IconBadge name={icon} tone={tone as "green" | "cyan" | "purple"} />
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.12em] text-slate-600">0{index + 1}</p>
+            <p className="mt-0.5 text-xs font-semibold text-white">{labels[index]}</p>
+          </div>
+        </div>
+      ))}
+      <div className="absolute left-[16%] top-[44%] h-px w-[20%] rotate-[18deg] bg-gradient-to-r from-[#14F195]/60 to-transparent" />
+      <div className="absolute right-[16%] top-[47%] h-px w-[20%] -rotate-[15deg] bg-gradient-to-l from-[#23D9FF]/60 to-transparent" />
+      <div className="absolute bottom-[25%] right-[28%] h-[18%] w-px rotate-[32deg] bg-gradient-to-b from-[#8A5CFF]/60 to-transparent" />
+    </div>
+  );
+}
 
 export default function LandingPage() {
+  // Behaviour carried over from the landing this replaced: a visitor whose
+  // wallet is already connected (auto-reconnect from a previous session)
+  // goes straight to their dashboard instead of reading the pitch again.
+  // The page has no connect button of its own, so this only ever fires for
+  // a returning wallet — losing it in the migration would have quietly
+  // changed what `/` does for every existing user.
   const { connected } = useWallet();
   const router = useRouter();
-  const t = useT();
-  const i18n = useI18n();
-  const [mounted, setMounted] = useState(false);
-
-  // Simulator state
-  const [simAmount, setSimAmount] = useState(10000);
-  const [simMonths, setSimMonths] = useState(24);
-  const apy = 0.065;
-
-  // FAQ accordion + waitlist state
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   useEffect(() => {
     if (connected) router.push("/home");
   }, [connected, router]);
 
-  if (!mounted) return <div className="min-h-screen bg-[#06090F]" />;
+  const [lang, setLang] = useState<Language>("pt");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [simGoal, setSimGoal] = useState(20000);
+  const [simParticipants, setSimParticipants] = useState(10);
+  const [simReceiptCycle, setSimReceiptCycle] = useState(5);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistJoined, setWaitlistJoined] = useState(false);
+  const c = copy[lang];
 
-  if (connected) {
-    return (
-      <div className="min-h-screen bg-[#06090F] flex items-center justify-center">
-        <div className="text-[#14F195] animate-pulse font-bold tracking-widest uppercase">
-          {t("landing.loading")}
-        </div>
-      </div>
-    );
+  const navHrefs = [
+    "#como-funciona",
+    "#beneficios",
+    "#passport",
+    "#comparativo",
+    "#simulador",
+    "#seguranca",
+    LINKS.docs,
+  ];
+  const safeReceiptCycle = Math.min(simReceiptCycle, simParticipants);
+  const contributionPerCycle = simGoal / simParticipants;
+  const contributedAtReceipt = contributionPerCycle * safeReceiptCycle;
+  const remainingCycles = simParticipants - safeReceiptCycle;
+  // Simulator chart geometry, derived from the sliders.
+  //
+  // The handoff markup hard-coded a bezier, so the curve was byte-identical
+  // for every combination of goal, group size and receipt cycle — only the
+  // marker moved. And it didn't even land on its own line: the marker
+  // interpolated linearly while the stroke curved, leaving the dot a few
+  // units off the stroke at mid-range.
+  //
+  // What it plots now is the thing the panel above already states: the
+  // member puts in `contributionPerCycle` once per cycle, so the accumulated
+  // total is a staircase that reaches the goal on the last one. Group size
+  // therefore changes the number of steps, and the marker sits exactly on
+  // the corner of the step for the chosen receipt cycle.
+  const chart = useMemo(() => {
+    const X0 = 35;
+    const X1 = 565;
+    const Y_TOP = 25;
+    const Y_ZERO = 128;
+    const Y_FILL = 140;
+    const at = (cycle: number) => ({
+      x: X0 + (cycle / simParticipants) * (X1 - X0),
+      y: Y_ZERO - (cycle / simParticipants) * (Y_ZERO - Y_TOP),
+    });
+    const round = (n: number) => Number(n.toFixed(1));
+
+    let stroke = `M${X0} ${Y_ZERO}`;
+    for (let cycle = 1; cycle <= simParticipants; cycle += 1) {
+      const step = at(cycle);
+      // Hold the previous level across the cycle, then rise: the
+      // contribution lands at the close of the cycle, not spread through it.
+      stroke += ` L${round(step.x)} ${round(at(cycle - 1).y)} L${round(step.x)} ${round(step.y)}`;
+    }
+
+    return {
+      stroke,
+      area: `${stroke} L${X1} ${Y_FILL} L${X0} ${Y_FILL} Z`,
+      marker: at(safeReceiptCycle),
+      fillBase: Y_FILL,
+    };
+  }, [simParticipants, safeReceiptCycle]);
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat(lang === "pt" ? "pt-BR" : "en-US", {
+        style: "currency",
+        currency: "BRL",
+        maximumFractionDigits: 0,
+      }),
+    [lang],
+  );
+
+  function handleWaitlist(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!waitlistEmail.trim()) return;
+    setWaitlistJoined(true);
   }
 
-  const finalBalance = simAmount + simAmount * apy * (simMonths / 12);
-  const yieldEarned = simAmount * apy * (simMonths / 12);
-
   return (
-    <main className="flex min-h-screen flex-col bg-[#06090F] text-white font-sans relative">
-      {/* Background glows */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-20%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-[#9945FF] opacity-10 blur-[80px] md:blur-[120px]" />
-        <div className="absolute bottom-[20%] right-[-20%] w-[250px] md:w-[500px] h-[250px] md:h-[500px] bg-[#14F195] opacity-10 blur-[80px] md:blur-[120px]" />
-      </div>
+    <main className="rfi-landing min-h-screen bg-[#050810] text-slate-100 selection:bg-[#14F195]/25">
+      <div aria-hidden className="rfi-page-grid fixed inset-0 pointer-events-none opacity-25" />
 
-      {/* Header (sticky, full-width tinted bar with blurred backdrop) */}
-      <div className="sticky top-0 z-50 bg-[#06090F]/80 backdrop-blur-md border-b border-white/5">
-        <header className="flex justify-between items-center p-4 md:p-6 max-w-7xl w-full mx-auto gap-2">
-          <div className="cursor-pointer transition-transform hover:scale-105 shrink-0 flex items-center h-12 md:h-16">
-            <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
-          </div>
-          <nav className="hidden lg:flex gap-8 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            {(
-              [
-                ["#simulator", t("landing.nav.simulator")],
-                ["#compare", t("landing.nav.advantages")],
-                ["#cofi", t("landing.nav.cofi")],
-                ["#security", t("landing.nav.security")],
-                [
-                  "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/architecture.md",
-                  t("landing.nav.docs"),
-                ],
-                [
-                  "https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/status.md",
-                  t("landing.nav.audit"),
-                ],
-              ] as const
-            ).map(([href, label]) => {
-              const external = href.startsWith("http");
-              return (
-                <a
-                  key={label}
-                  href={href}
-                  target={external ? "_blank" : undefined}
-                  rel={external ? "noopener noreferrer" : undefined}
-                  className="relative hover:text-white transition-colors after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:w-0 after:bg-gradient-to-r after:from-[#14F195] after:to-[#00C8FF] after:transition-all after:duration-300 hover:after:w-full"
-                >
-                  {label}
-                </a>
-              );
-            })}
-          </nav>
-          <div className="flex items-center gap-2 md:gap-3">
-            <SegToggle
-              value={i18n.lang}
-              onChange={i18n.setLang}
-              options={[
-                { v: "pt", l: "PT" },
-                { v: "en", l: "EN" },
-              ]}
-            />
-            <div className="scale-75 md:scale-100 origin-right">
-              <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 12 }}>
-                <WalletMultiButton
-                  style={{
-                    backgroundColor: "#14F195",
-                    color: "#06090F",
-                    borderRadius: "12px",
-                    fontWeight: "bold",
-                  }}
-                />
+      {/* Bloco 1 — Devnet + header */}
+      <div className="relative z-50 px-3 pt-3">
+        <div className="rfi-chroma-frame mx-auto max-w-7xl rounded-xl">
+          <div className="grid min-h-10 grid-cols-1 items-center gap-3 px-4 py-2 text-[10px] sm:grid-cols-[1fr_auto_1fr] md:px-6">
+            <div className="hidden sm:block" />
+            <div className="flex items-center gap-2 text-slate-400 sm:justify-self-center">
+              <Icons.info size={14} stroke="#43eeb5" sw={1.8} />
+              <span className="sm:hidden">
+                {lang === "pt"
+                  ? "Ambiente de teste · fundos fictícios"
+                  : "Test environment · fictional funds"}
               </span>
+              <span className="hidden sm:inline">{c.devnet}</span>
             </div>
+            <div className="hidden items-center justify-self-end gap-4 sm:flex">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#14F195]/25 bg-[#14F195]/[0.06] px-2.5 py-1 font-bold text-[#43eeb5]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#14F195]" />
+                Devnet
+              </span>
+              <a
+                href={LINKS.devnet}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#9d7cff] transition hover:text-white"
+              >
+                {c.environment} ↗
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <header className="rfi-chroma-frame mx-auto mt-3 flex min-h-[84px] max-w-7xl items-center justify-between gap-6 rounded-[1.45rem] px-5 md:px-7">
+          <a href="#" aria-label="RoundFi — início">
+            <RFILogoLockup size={39} />
+          </a>
+          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
+            {c.nav.map((label, index) => (
+              <a
+                key={label}
+                href={navHrefs[index]}
+                target={navHrefs[index].startsWith("http") ? "_blank" : undefined}
+                rel={navHrefs[index].startsWith("http") ? "noopener noreferrer" : undefined}
+                className="relative text-[11px] font-medium text-slate-400 transition after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-gradient-to-r after:from-[#14F195] after:to-[#8A5CFF] after:transition-all hover:text-white hover:after:w-full"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLang(lang === "pt" ? "en" : "pt")}
+              className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-[11px] font-bold text-slate-300 transition hover:border-white/20"
+              aria-label="Alternar idioma"
+            >
+              <span className="text-[#14F195]">{lang.toUpperCase()}</span>
+              <span className="text-slate-600"> / {lang === "pt" ? "EN" : "PT"}</span>
+            </button>
+            <Button href="/grupos" className="hidden min-h-10 px-4 sm:inline-flex">
+              {c.explore}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 lg:hidden"
+              aria-label="Abrir menu"
+              aria-expanded={menuOpen}
+            >
+              {menuOpen ? (
+                <Icons.close size={19} stroke="currentColor" />
+              ) : (
+                <span className="space-y-1">
+                  <span className="block h-px w-4 bg-white" />
+                  <span className="block h-px w-4 bg-white" />
+                  <span className="block h-px w-4 bg-white" />
+                </span>
+              )}
+            </button>
           </div>
         </header>
+        {menuOpen && (
+          <nav className="rfi-chroma-frame mx-auto mt-2 max-w-7xl rounded-xl px-4 py-4 lg:hidden">
+            {c.nav.map((label, index) => (
+              <a
+                key={label}
+                href={navHrefs[index]}
+                onClick={() => setMenuOpen(false)}
+                className="block border-b border-white/[0.05] py-3 text-sm text-slate-300"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        )}
       </div>
 
-      {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center pt-10 md:pt-20 pb-20 md:pb-32 px-4 md:px-6 text-center w-full">
-        <DataStream />
-        <div className="relative z-10 w-full flex flex-col items-center">
-          <MountReveal>
-            <div className="inline-flex items-center gap-2 bg-[#14F195]/10 border border-[#14F195]/20 text-[#14F195] px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-bold mb-6 md:mb-8">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
-              </span>
-              {t("landing.hero.live")}
-            </div>
-          </MountReveal>
-
-          <MountReveal delay={0.08}>
-            <h1 className="text-4xl md:text-7xl font-black leading-tight md:leading-none mb-6 md:mb-8 max-w-4xl tracking-tight">
-              {t("landing.hero.title1")} <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] via-[#00C8FF] to-[#9945FF] bg-[length:200%_auto] drop-shadow-[0_0_24px_rgba(20,241,149,0.25)] rfi-gradient-flow">
-                {t("landing.hero.title2")}
+      {/* Bloco 2 — Hero */}
+      <section className="relative min-h-[calc(100vh-152px)] overflow-hidden">
+        <div aria-hidden className="rfi-space-scene absolute inset-0" />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,8,16,.95)_0%,rgba(3,8,16,.72)_43%,rgba(3,8,16,.08)_76%,transparent_100%)]"
+        />
+        <div className="relative mx-auto grid min-h-[calc(100vh-152px)] max-w-7xl items-center px-4 py-16 md:px-8 lg:py-12">
+          <div className="relative z-10">
+            <Eyebrow>{c.heroEyebrow}</Eyebrow>
+            <h1 className="max-w-[720px] font-[var(--font-syne)] text-[clamp(2.75rem,5.2vw,5.25rem)] font-bold leading-[.98] tracking-[-0.06em] text-white">
+              <span className="block">{c.heroTitle[0]}</span>
+              <span className="mt-2 block">{c.heroTitle[1]}</span>
+              <span className="rfi-gradient-text rfi-gradient-flow mt-2 block pb-2">
+                {c.heroTitle[2]}
               </span>
             </h1>
-          </MountReveal>
-
-          <MountReveal delay={0.16}>
-            <p className="text-sm md:text-xl text-gray-400 max-w-3xl mb-8 md:mb-12 font-light leading-relaxed px-2">
-              {t("landing.hero.body").split(t("landing.hero.cofi"))[0]}
-              <span className="text-white font-bold">{t("landing.hero.cofi")}</span>
-              {t("landing.hero.body").split(t("landing.hero.cofi"))[1]}
+            <p className="mt-6 max-w-xl text-sm leading-7 text-slate-400 md:text-base">
+              {c.heroBody}
             </p>
-          </MountReveal>
-
-          <MountReveal
-            delay={0.24}
-            className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full sm:w-auto"
-          >
-            <div className="w-full sm:w-auto flex justify-center">
-              <span className="rfi-btn-glow-wrap purple inline-flex" style={{ borderRadius: 16 }}>
-                <WalletMultiButton
-                  style={{
-                    height: "50px",
-                    padding: "0 30px",
-                    fontSize: "1rem",
-                    borderRadius: "16px",
-                    backgroundColor: "#9945FF",
-                    color: "#fff",
-                  }}
-                />
-              </span>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button href="/grupos">{c.exploreDevnet}</Button>
+              <Button href="#como-funciona" secondary>
+                {c.understand}
+              </Button>
             </div>
-            <a
-              href="https://x.com/roundfinancesol"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-[50px] px-8 rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-md font-bold flex items-center justify-center hover:bg-white/[0.08] hover:border-[#14F195]/60 hover:shadow-[0_0_24px_rgba(20,241,149,0.25)] hover:scale-[1.03] transition-all duration-300 gap-2 text-sm w-full sm:w-auto tracking-wide"
-            >
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-              {t("landing.hero.x")}
-            </a>
-          </MountReveal>
-
-          {/* Metrics */}
-          <MountReveal
-            delay={0.32}
-            className="w-full max-w-5xl border-t border-white/[0.08] pt-10 md:pt-12 mt-16 md:mt-20"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-[9px] md:text-[10px] font-mono tracking-[0.12em] px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
-                {t("landing.metrics.demoBadge")}
-              </span>
-              <span className="text-[10px] md:text-xs text-gray-500">
-                {t("landing.metrics.demoNote")}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-              <div>
-                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                  {t("landing.metric.tvl")}
-                </p>
-                <p className="text-xl md:text-4xl font-bold">$1,245,800</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                  {t("landing.metric.pools")}
-                </p>
-                <p className="text-xl md:text-4xl font-bold">14</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                  {t("landing.metric.apy")}
-                </p>
-                <p className="text-xl md:text-4xl font-bold text-[#14F195]">~ 6.5%</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-[10px] md:text-sm font-bold uppercase tracking-wider mb-1 md:mb-2">
-                  {t("landing.metric.fee")}
-                </p>
-                <p className="text-xl md:text-4xl font-bold text-[#9945FF]">1.5%</p>
-              </div>
-            </div>
-          </MountReveal>
-        </div>
-      </section>
-
-      {/* CoFi · Next Paradigm */}
-      <section
-        id="cofi"
-        className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-7xl border-t border-white/[0.06] z-10 text-center relative"
-      >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#14F195] opacity-5 blur-[150px] pointer-events-none" />
-        <Reveal>
-          <div className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#14F195]/10 via-white/5 to-[#9945FF]/10 border border-[#14F195]/30 rounded-full px-4 py-1.5 text-xs font-mono mb-6 uppercase tracking-widest backdrop-blur-sm shadow-[0_0_24px_rgba(20,241,149,0.15)] hover:shadow-[0_0_32px_rgba(20,241,149,0.28)] transition-shadow duration-500">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
-            </span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF] font-semibold">
-              {t("landing.cofi.eyebrow")}
-            </span>
-          </div>
-          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
-            {t("landing.cofi.title1")} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#14F195] to-[#9945FF] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">
-              {t("landing.cofi.title2")}
-            </span>
-          </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-12">{t("landing.cofi.body")}</p>
-        </Reveal>
-
-        <Reveal
-          delay={0.08}
-          className="flex flex-col sm:flex-row justify-center gap-4 mb-16 relative z-10"
-        >
-          <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 16 }}>
-            <WalletMultiButton
-              style={{
-                backgroundColor: "#14F195",
-                color: "#06090F",
-                borderRadius: "16px",
-                fontWeight: 900,
-                padding: "0 32px",
-                height: "50px",
-              }}
-            >
-              {t("landing.cofi.cta1")}
-            </WalletMultiButton>
-          </span>
-          <a
-            href="https://github.com/alrimarleskovar/RoundFinancial/tree/main/grant"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-[50px] px-8 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors font-bold text-sm flex items-center justify-center"
-          >
-            {t("landing.cofi.cta2")}
-          </a>
-        </Reveal>
-
-        {/* Three illustrated CoFi cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto text-left">
-          {(
-            [
-              {
-                key: "leverage",
-                color: "#14F195",
-                src: "/illustrations/cofi-leverage.png",
-              },
-              {
-                key: "yield",
-                color: "#9945FF",
-                src: "/illustrations/cofi-yield.png",
-              },
-              {
-                key: "reputation",
-                color: "#14F195",
-                src: "/illustrations/cofi-reputation.png",
-              },
-            ] as const
-          ).map((c, i) => {
-            const desc = t(`landing.cofi.card.${c.key}.desc`);
-            const accent = t(`landing.cofi.card.${c.key}.accent`);
-            const [pre, post] = desc.split(accent);
-            return (
-              <Reveal key={c.key} delay={i * 0.1}>
-                <div
-                  className="rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
-                  style={{
-                    background: `linear-gradient(180deg, ${c.color}14 0%, #000000 40%)`,
-                    border: `1px solid ${c.color}40`,
-                    boxShadow: `0 12px 40px ${c.color}1A, inset 0 1px 0 ${c.color}1F`,
-                  }}
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3">
+              {c.proofs.map((proof) => (
+                <span
+                  key={proof}
+                  className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-400"
                 >
-                  <div className="aspect-square w-full relative overflow-hidden">
-                    <Image
-                      src={c.src}
-                      alt={t(`landing.cofi.card.${c.key}.title`)}
-                      fill
-                      // 1 column on mobile (~100vw), 3 columns on md+ (~33vw).
-                      // Lets next/image generate the right srcSet and skip
-                      // serving a 1.5 MB PNG to a 400px-wide phone viewport.
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover"
-                      // First card is above-the-fold on most viewports;
-                      // priority hint avoids a frame-1 layout shift on the
-                      // hero LCP. Other two stay lazy.
-                      priority={i === 0}
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                  <div className="p-6 md:p-7">
-                    <h3 className="text-xl md:text-2xl font-bold mb-3">
-                      {t(`landing.cofi.card.${c.key}.title`)}
-                    </h3>
-                    <p className="text-gray-400 text-sm md:text-base leading-relaxed">
-                      {pre}
-                      {accent && <span style={{ color: c.color, fontWeight: 700 }}>{accent}</span>}
-                      {post}
-                    </p>
-                  </div>
-                </div>
-              </Reveal>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Security · Solvent by Construction */}
-      <section
-        id="security"
-        className="w-full mx-auto px-4 md:px-6 py-20 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
-      >
-        <Reveal y={16}>
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">
-              {t("landing.security.title1")}{" "}
-              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">
-                {t("landing.security.title2")}
-              </span>
-            </h2>
-            <p className="text-gray-400 max-w-2xl mx-auto text-base">
-              {t("landing.security.body")}
-            </p>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#14F195]/20 bg-[#14F195]/[0.06] text-[#14F195]">
+                    <Icons.check size={11} stroke="currentColor" sw={2} />
+                  </span>
+                  {proof}
+                </span>
+              ))}
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(
+          <div className="absolute right-8 top-1/2 hidden w-[310px] -translate-y-1/2 lg:block">
+            <div className="absolute bottom-9 left-7 top-9 w-px bg-gradient-to-b from-[#14F195]/70 via-[#23D9FF]/55 to-[#8A5CFF]/70" />
+            {[
               [
-                { key: "semente", Icon: Icons.lock, color: "#14F195" },
-                { key: "escrow", Icon: Icons.scales, color: "#4A9EFF" },
-                { key: "valve", Icon: Icons.ticket, color: "#FFD23F" },
-                { key: "slashing", Icon: Icons.bolt, color: "#FF4D4F" },
-                { key: "triplo", Icon: Icons.shield, color: "#9945FF" },
-                { key: "silos", Icon: Icons.cubes, color: "#E0E0E0" },
-              ] as const
-            ).map((c) => (
+                "01",
+                lang === "pt" ? "Escolha o grupo" : "Choose the group",
+                lang === "pt" ? "Objetivo e regras claras" : "Clear goal and rules",
+                "groups",
+                "green",
+              ],
+              [
+                "02",
+                lang === "pt" ? "Complete os ciclos" : "Complete the cycles",
+                lang === "pt" ? "Contribua e acompanhe" : "Contribute and follow",
+                "refresh",
+                "cyan",
+              ],
+              [
+                "03",
+                lang === "pt" ? "Evolua o Passport" : "Evolve your Passport",
+                lang === "pt" ? "Histórico que permanece" : "History that remains",
+                "score",
+                "purple",
+              ],
+            ].map(([number, title, text, icon, tone], index) => (
               <div
-                key={c.key}
-                className="p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
-                style={{
-                  background: `linear-gradient(180deg, ${c.color}0D 0%, rgba(255,255,255,0.02) 60%)`,
-                  border: `1px solid ${c.color}40`,
-                  boxShadow: `inset 0 1px 0 ${c.color}1A, 0 0 0 1px ${c.color}10`,
-                }}
+                key={number}
+                className="rfi-floating-panel rfi-panel-breathe relative mb-4 flex items-center gap-4 rounded-2xl p-3.5"
+                style={
+                  {
+                    marginLeft: index * 12,
+                    "--rfi-breathe-delay": `${index * 0.7}s`,
+                  } as CSSProperties
+                }
               >
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
-                  style={{
-                    background: `${c.color}1F`,
-                    border: `1px solid ${c.color}55`,
-                    color: c.color,
-                    boxShadow: `0 0 28px ${c.color}33`,
-                  }}
-                >
-                  <c.Icon size={26} stroke={c.color} sw={1.8} />
+                <IconBadge name={icon} tone={tone as "green" | "cyan" | "purple"} />
+                <div>
+                  <p className="font-[var(--font-jetbrains-mono)] text-[8px] tracking-[0.16em] text-slate-600">
+                    {number}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">{title}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">{text}</p>
                 </div>
-                <h3 className="text-xl font-bold mb-2">
-                  {t(`landing.security.card.${c.key}.title`)}
-                </h3>
-                <p className="text-gray-400 text-sm">{t(`landing.security.card.${c.key}.desc`)}</p>
               </div>
             ))}
           </div>
-        </Reveal>
+        </div>
       </section>
 
-      {/* Simulator */}
+      {/* Bloco 3 — Como funciona */}
       <section
-        id="simulator"
-        className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 border-t border-white/[0.06] z-10 max-w-6xl"
+        id="como-funciona"
+        className="rfi-section-luxe relative overflow-hidden border-y border-white/[0.055]"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-20 items-center">
-          <Reveal className="text-center lg:text-left">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
-              {t("landing.sim.title1")} <br />
-              <span className="text-[#14F195] drop-shadow-[0_0_18px_rgba(20,241,149,0.22)]">
-                {t("landing.sim.title2")}
-              </span>
-            </h2>
-            <p className="text-gray-400 text-sm md:text-lg mb-8 md:mb-10">
-              {t("landing.sim.body").split(t("landing.sim.cofi"))[0]}
-              <span className="text-white font-bold">{t("landing.sim.cofi")}</span>
-              {t("landing.sim.body").split(t("landing.sim.cofi"))[1]}
-            </p>
+        <div
+          aria-hidden
+          className="rfi-section-orbit absolute -right-52 -top-64 h-[680px] w-[680px] rounded-full"
+        />
+        <div className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
+          <SectionHeading eyebrow={c.howEyebrow} title={c.howTitle} body={c.howBody} />
+          <div className="relative mt-14 grid gap-4 md:grid-cols-3">
+            <div className="absolute left-[16%] right-[16%] top-[31px] hidden h-px bg-gradient-to-r from-[#14F195]/60 via-[#23D9FF]/60 to-[#8A5CFF]/60 md:block" />
+            {c.steps.map((step, index) => {
+              const StepIcon = [Icons.groups, Icons.wallet, Icons.score][index];
+              const accent = ["#14F195", "#23D9FF", "#A77DFF"][index];
 
-            <div className="space-y-6 md:space-y-8 bg-white/[0.03] backdrop-blur-xl p-6 md:p-10 rounded-[24px] md:rounded-3xl border border-white/[0.08]">
-              <div>
-                <label className="text-[10px] md:text-sm text-gray-500 uppercase font-bold mb-3 md:mb-4 block text-left">
-                  {t("landing.sim.amount")}
-                </label>
-                <input
-                  type="range"
-                  min="1000"
-                  max="100000"
-                  step="1000"
-                  value={simAmount}
-                  onChange={(e) => setSimAmount(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#14F195]"
-                />
-                <div className="flex justify-between mt-2 md:mt-4">
-                  <span className="text-xl md:text-2xl font-bold">
-                    ${simAmount.toLocaleString()}
-                  </span>
-                  <span className="text-xs md:text-sm text-gray-500 flex items-end">
-                    {t("landing.sim.amountMax")}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] md:text-sm text-gray-500 uppercase font-bold mb-3 md:mb-4 block text-left">
-                  {t("landing.sim.months")}
-                </label>
-                <input
-                  type="range"
-                  min="6"
-                  max="60"
-                  step="6"
-                  value={simMonths}
-                  onChange={(e) => setSimMonths(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#9945FF]"
-                />
-                <div className="flex justify-between mt-2 md:mt-4">
-                  <span className="text-xl md:text-2xl font-bold">
-                    {simMonths} {t("landing.sim.monthsLabel")}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Reveal>
-
-          {/* Simulator chart */}
-          <Reveal
-            delay={0.12}
-            className="bg-gradient-to-br from-[#14F195]/30 via-white/[0.06] to-[#9945FF]/30 p-0.5 md:p-1 rounded-[32px] md:rounded-[40px] shadow-2xl shadow-[#14F195]/15"
-          >
-            <div className="bg-[#06090F]/85 backdrop-blur-xl rounded-[30px] md:rounded-[38px] p-8 md:p-12 text-center border border-white/[0.06]">
-              <p className="text-gray-500 uppercase tracking-widest text-[10px] md:text-xs font-bold mb-2 md:mb-4">
-                {t("landing.sim.result")}
-              </p>
-              <h3 className="text-4xl md:text-6xl font-black text-white mb-2 truncate">
-                ${finalBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </h3>
-              <p className="text-[#14F195] font-bold text-base md:text-xl mb-8 md:mb-10">
-                + ${yieldEarned.toLocaleString(undefined, { maximumFractionDigits: 0 })}{" "}
-                {t("landing.sim.yieldSuffix")}
-              </p>
-
-              <div className="flex items-end justify-center gap-2 md:gap-3 h-24 md:h-32 mb-8 md:mb-10">
-                {(() => {
-                  // Both sliders feed the bars: bigger credit AND longer term
-                  // both grow finalBalance, so we drive bars off normalized
-                  // finalBalance / maxFinalBalance (=$100k @ 60mo).
-                  const maxBalance = 100000 * (1 + apy * 5);
-                  const fill = Math.max(0, Math.min(1, finalBalance / maxBalance));
-                  const heights = [30, 42, 55, 68, 82, 100];
-                  const segSize = 1 / heights.length;
-                  return heights.map((maxH, i) => {
-                    const segStart = i * segSize;
-                    const progress = Math.max(0, Math.min(1, (fill - segStart) / segSize));
-                    const baseH = 15;
-                    const height = baseH + (maxH - baseH) * progress;
-                    const r = Math.round(75 - 55 * progress);
-                    const g = Math.round(85 + 156 * progress);
-                    const b = Math.round(99 + 50 * progress);
-                    return (
-                      <div
-                        key={i}
-                        className="w-5 md:w-9 rounded-t-lg transition-all duration-200 ease-out"
-                        style={{
-                          height: `${height}%`,
-                          background: `rgb(${r}, ${g}, ${b})`,
-                          boxShadow:
-                            progress > 0.05
-                              ? `0 0 ${8 + 16 * progress}px rgba(20,241,149,${0.4 * progress})`
-                              : "none",
-                        }}
-                      />
-                    );
-                  });
-                })()}
-              </div>
-
-              <div className="flex justify-center">
-                <span className="rfi-btn-glow-wrap green inline-flex" style={{ borderRadius: 16 }}>
-                  <WalletMultiButton
+              return (
+                <article
+                  key={step.title}
+                  className="rfi-luxe-card rfi-card-breathe group relative flex gap-4 rounded-2xl p-5 md:block md:min-h-[250px] md:p-6"
+                  style={{ "--rfi-breathe-delay": `${index * 0.9}s` } as CSSProperties}
+                >
+                  <div
+                    className="relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border bg-[#070b13] transition duration-300 group-hover:-translate-y-1 group-hover:scale-[1.03]"
                     style={{
-                      backgroundColor: "#14F195",
-                      color: "#06090F",
-                      padding: "0 32px",
-                      fontWeight: "bold",
-                      borderRadius: "16px",
-                      height: "54px",
-                      fontSize: "1rem",
+                      color: accent,
+                      borderColor: `${accent}66`,
+                      background: `radial-gradient(circle at 35% 25%, ${accent}20, transparent 58%), #070b13`,
+                      boxShadow: `0 0 30px ${accent}18, inset 0 1px 0 rgba(255,255,255,.05)`,
                     }}
+                  >
+                    <StepIcon size={29} stroke="currentColor" sw={1.55} />
+                    <span
+                      className="absolute -bottom-2 -right-2 flex h-7 min-w-7 items-center justify-center rounded-full border bg-[#050810] px-1 font-[var(--font-jetbrains-mono)] text-[9px] font-bold"
+                      style={{ borderColor: `${accent}70`, color: accent }}
+                    >
+                      0{index + 1}
+                    </span>
+                  </div>
+                  <div className="pt-1 md:mt-8 md:pt-0">
+                    <h3 className="font-[var(--font-syne)] text-lg font-bold text-white">
+                      {step.title}
+                    </h3>
+                    <p className="mt-2 max-w-xs text-sm leading-6 text-slate-400">{step.body}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="rfi-info-strip mt-8 flex items-start gap-3 rounded-xl px-4 py-3 text-xs leading-5 text-slate-400">
+            <Icons.info size={16} stroke="#23D9FF" />
+            {c.howNote}
+          </div>
+        </div>
+      </section>
+
+      {/* Bloco 4 — Benefícios */}
+      <section
+        id="beneficios"
+        className="relative overflow-hidden bg-[radial-gradient(circle_at_0%_50%,rgba(20,241,149,.045),transparent_32%),#050810]"
+      >
+        <div
+          aria-hidden
+          className="absolute -left-32 top-1/3 h-96 w-96 rounded-full bg-[#14F195]/[0.045] blur-[100px]"
+        />
+        <div className="relative mx-auto grid max-w-7xl gap-14 px-4 py-20 md:px-8 md:py-28 lg:grid-cols-[1fr_.9fr] lg:items-center">
+          <div>
+            <SectionHeading
+              eyebrow={c.benefitsEyebrow}
+              title={c.benefitsTitle}
+              body={c.benefitsBody}
+            />
+            <div className="mt-10 space-y-3">
+              {c.benefits.map((benefit, index) => (
+                <article
+                  key={benefit.title}
+                  className="rfi-benefit-row group flex gap-4 rounded-2xl p-4 transition hover:translate-x-1"
+                >
+                  <IconBadge
+                    name={["groups", "eye", "score"][index]}
+                    tone={["green", "cyan", "purple"][index] as "green" | "cyan" | "purple"}
                   />
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 font-[var(--font-jetbrains-mono)] text-[8px] tracking-[0.18em] text-slate-600">
+                      0{index + 1}
+                    </p>
+                    <h3 className="text-base font-semibold text-white">{benefit.title}</h3>
+                    <p className="mt-1.5 max-w-md text-sm leading-6 text-slate-400">
+                      {benefit.body}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <a
+              href="/comparativo"
+              className="mt-9 inline-flex items-center gap-2 text-xs font-semibold text-[#52ddb9] transition hover:text-white"
+            >
+              {c.compare} <span>→</span>
+            </a>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-[510px]">
+            <div className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,rgba(35,217,255,.08),transparent_68%)] blur-xl" />
+            <div className="rfi-product-card relative overflow-hidden rounded-[1.75rem] p-5 shadow-[0_35px_100px_rgba(0,0,0,.5)] md:p-7">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-[#14F195] via-[#23D9FF] to-[#8A5CFF]" />
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#14F195]">
+                    {c.group.eyebrow}
+                  </p>
+                  <h3 className="mt-3 font-[var(--font-syne)] text-2xl font-bold text-white">
+                    {c.group.name}
+                  </h3>
+                </div>
+                <IconBadge name="groups" tone="green" />
+              </div>
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                {[
+                  [c.group.objective, c.group.objectiveValue],
+                  [c.group.installment, c.group.installmentValue],
+                  [c.group.duration, c.group.durationValue],
+                  [c.group.prize, c.group.prizeValue],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-white/[0.065] bg-white/[0.025] p-3.5"
+                  >
+                    <p className="text-[9px] uppercase tracking-[0.12em] text-slate-600">{label}</p>
+                    <p className="mt-1.5 text-sm font-semibold text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-slate-500">{c.group.progress}</span>
+                  <span className="font-semibold text-white">{c.group.cycle}</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.065]">
+                  <div className="h-full w-1/6 rounded-full bg-gradient-to-r from-[#14F195] to-[#23D9FF] shadow-[0_0_14px_rgba(20,241,149,.55)]" />
+                </div>
+              </div>
+              <div className="mt-7 flex items-center justify-between border-t border-white/[0.065] pt-5">
+                <div className="flex -space-x-2">
+                  {[0, 1, 2, 3, 4, 5].map((item) => (
+                    <span
+                      key={item}
+                      className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#090e17] bg-gradient-to-br from-slate-700 to-slate-900 text-[8px] text-slate-300"
+                    >
+                      {item + 1}
+                    </span>
+                  ))}
+                </div>
+                <span className="inline-flex items-center gap-2 text-[10px] font-medium text-[#14F195]">
+                  <Icons.shield size={15} stroke="currentColor" /> Regras verificáveis
                 </span>
               </div>
             </div>
-          </Reveal>
+          </div>
         </div>
       </section>
 
-      {/* Comparison table */}
+      {/* Bloco 5 — SAS Passport */}
       <section
-        id="compare"
-        className="w-full mx-auto px-4 md:px-6 py-16 md:py-24 max-w-6xl border-t border-white/[0.06] z-10"
+        id="passport"
+        className="rfi-passport-section relative overflow-hidden border-y border-white/[0.055]"
       >
-        <Reveal>
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-            {t("landing.cmp.title1")}{" "}
-            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">
-              {t("landing.cmp.title2")}
-            </span>
-          </h2>
-          <p className="text-gray-400 text-center max-w-2xl mx-auto mb-10 md:mb-16 text-sm md:text-base">
-            {t("landing.cmp.body")}
-          </p>
-        </Reveal>
-
-        <Reveal
-          delay={0.1}
-          className="flex flex-col md:flex-row gap-0 rounded-[24px] md:rounded-[32px] overflow-hidden backdrop-blur-xl w-full"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(153,69,255,0.04) 0%, rgba(255,255,255,0.02) 60%)",
-            border: "1px solid rgba(153,69,255,0.18)",
-            boxShadow: "0 12px 40px rgba(153,69,255,0.08), inset 0 1px 0 rgba(153,69,255,0.10)",
-          }}
-        >
-          <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] flex-1">
-            <p className="text-gray-500 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
-              {t("landing.cmp.compare")}
-            </p>
-            <ul className="space-y-3 md:space-y-5 text-gray-400 font-medium text-xs md:text-sm">
-              {(
-                [
-                  ["fee", "fee"],
-                  ["yield", "yield"],
-                  ["scoring", "scoring"],
-                  ["liquidity", "liquidity"],
-                  ["custody", "custody"],
-                ] as const
-              ).map(([key]) => (
-                <li
-                  key={key}
-                  className="h-auto md:h-10 flex items-center justify-between md:justify-start gap-1 px-2 -mx-2 py-1.5"
+        <div
+          aria-hidden
+          className="absolute right-[-12rem] top-[-10rem] h-[620px] w-[620px] rounded-full bg-[#8A5CFF]/[0.085] blur-[130px]"
+        />
+        <div className="relative mx-auto grid max-w-7xl gap-14 px-4 py-20 md:px-8 md:py-28 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
+          <div>
+            <SectionHeading
+              eyebrow={c.passportEyebrow}
+              title={c.passportTitle}
+              body={c.passportBody}
+            />
+            <div className="mt-7 flex flex-wrap gap-2">
+              {c.passportPoints.map((point) => (
+                <span
+                  key={point}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[10px] text-slate-300"
                 >
-                  <span className="md:hidden font-bold">{t(`landing.cmp.row.${key}.short`)}</span>
-                  <span className="md:block hidden">{t(`landing.cmp.row.${key}.label`)}</span>
-                </li>
+                  <Icons.check size={12} stroke="#14F195" sw={2} />
+                  {point}
+                </span>
               ))}
-            </ul>
-          </div>
-
-          <div className="p-6 md:p-10 border-b md:border-b-0 md:border-r border-white/[0.06] bg-gradient-to-b from-[#FF4D4F]/[0.08] to-transparent shadow-[inset_0_0_60px_rgba(255,77,79,0.06)] flex-1 transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110">
-            <p className="text-gray-400 font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
-              {t("landing.cmp.legacy")}
-            </p>
-            <ul className="space-y-3 md:space-y-5 text-gray-300 font-medium text-xs md:text-sm text-center md:text-left">
-              {(
-                [
-                  ["fee.legacy", true],
-                  ["yield.legacy", true],
-                  ["scoring.legacy", false],
-                  ["liquidity.legacy", false],
-                  ["custody.legacy", false],
-                ] as const
-              ).map(([key, redText]) => (
-                <li
-                  key={key}
-                  className={`h-auto md:h-10 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-white/[0.04] ${
-                    redText ? "text-red-400" : ""
-                  }`}
-                >
-                  <svg
-                    className="w-3.5 h-3.5 shrink-0 text-red-400/70"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                  >
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                  <span>{t(`landing.cmp.row.${key}`)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="p-6 md:p-10 bg-gradient-to-b from-[#14F195]/10 to-transparent relative border-t-4 md:border-t-0 md:border-l-4 border-[#14F195] flex-1 shadow-[inset_0_0_60px_rgba(20,241,149,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110">
-            <div className="absolute top-2 right-2 md:top-4 md:right-6 bg-[#14F195] text-[#06090F] text-[8px] md:text-[10px] font-black px-2 py-1 rounded tracking-widest animate-pulse shadow-[0_0_16px_rgba(20,241,149,0.5)]">
-              COFI
             </div>
-            <p className="text-[#14F195] font-bold mb-6 uppercase text-[10px] md:text-xs tracking-widest text-center md:text-left">
-              {t("landing.cmp.cofi")}
-            </p>
-            <ul className="space-y-3 md:space-y-5 text-white font-bold text-xs md:text-sm text-center md:text-left">
-              {(
-                [
-                  ["fee.cofi", false],
-                  ["yield.cofi", true],
-                  ["scoring.cofi", false],
-                  ["liquidity.cofi", false],
-                  ["custody.cofi", false],
-                ] as const
-              ).map(([key, greenText]) => (
-                <li
-                  key={key}
-                  className={`h-auto md:h-10 flex items-center justify-center md:justify-start gap-2 px-2 -mx-2 py-1.5 rounded transition-colors hover:bg-[#14F195]/[0.06] ${
-                    greenText ? "text-[#14F195]" : ""
-                  }`}
-                >
-                  <svg
-                    className="w-3.5 h-3.5 shrink-0 text-[#14F195]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 12l5 5L20 6" />
-                  </svg>
-                  <span>{t(`landing.cmp.row.${key}`)}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-7 space-y-3 text-xs leading-6">
+              <p className="border-l-2 border-[#14F195] pl-4 text-slate-300">{c.today}</p>
+              <p className="border-l-2 border-[#8A5CFF] pl-4 text-slate-500">
+                <span className="font-bold uppercase tracking-wider text-[#aa88ff]">Roadmap</span> ·{" "}
+                {c.roadmap}
+              </p>
+            </div>
+            <Button href="/reputacao" secondary className="mt-8">
+              {c.knowPassport}
+            </Button>
           </div>
-        </Reveal>
+
+          <div className="relative mx-auto w-full max-w-[600px]">
+            <div className="absolute -inset-6 rounded-[3rem] bg-[conic-gradient(from_190deg,rgba(20,241,149,.12),rgba(35,217,255,.07),rgba(138,92,255,.17),transparent_70%)] blur-2xl" />
+            <div className="rfi-passport-card relative overflow-hidden rounded-[2rem] p-5 shadow-[0_35px_110px_rgba(0,0,0,.55)] md:p-8">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-[#14F195] via-[#23D9FF] to-[#8A5CFF]" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <RFILogoMark size={42} />
+                  <div>
+                    <p className="font-[var(--font-syne)] text-sm font-bold text-white">
+                      SAS DIGITAL PASSPORT
+                    </p>
+                    <p className="mt-1 font-[var(--font-jetbrains-mono)] text-[8px] tracking-[0.16em] text-slate-600">
+                      ID · G8ZX...PEZF
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full border border-[#14F195]/25 bg-[#14F195]/[0.07] px-3 py-1.5 text-[9px] font-bold text-[#14F195]">
+                  TIER 2
+                </span>
+              </div>
+
+              <div className="mt-8 grid gap-6 sm:grid-cols-[.8fr_1.2fr]">
+                <div className="relative flex min-h-[210px] items-center justify-center rounded-2xl border border-white/[0.07] bg-black/20">
+                  <div className="absolute h-40 w-40 rounded-full bg-[conic-gradient(#14F195_0_72%,rgba(255,255,255,.06)_72%_100%)] p-[7px] shadow-[0_0_40px_rgba(20,241,149,.12)]">
+                    <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-[#090d17]">
+                      <span className="font-[var(--font-syne)] text-5xl font-bold tracking-[-0.06em] text-white">
+                        72
+                      </span>
+                      <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[#14F195]">
+                        {c.trusted}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    [c.punctuality, "100%", "check", "green"],
+                    [c.groups, "5", "groups", "cyan"],
+                    [c.attestations, "8", "shield", "purple"],
+                    [c.evolution, "+12", "trend", "green"],
+                  ].map(([label, value, icon, tone]) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-white/[0.065] bg-white/[0.025] p-3.5"
+                    >
+                      <IconBadge name={icon} tone={tone as "green" | "cyan" | "purple"} />
+                      <p className="mt-4 text-[9px] leading-4 text-slate-500">{label}</p>
+                      <p className="mt-1 font-[var(--font-syne)] text-xl font-bold text-white">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-5 flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Score
+                </span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#14F195] via-[#23D9FF] to-[#8A5CFF]" />
+                </div>
+                <span className="font-[var(--font-jetbrains-mono)] text-[9px] text-white">
+                  72 / 100
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* FAQ */}
-      <section className="w-full mx-auto px-4 md:px-6 py-20 md:py-32 max-w-4xl border-t border-white/[0.06] z-10">
-        <Reveal>
-          <h2 className="text-3xl md:text-5xl font-black text-center mb-12">
-            {t("landing.faq.title1")}{" "}
-            <span className="text-[#9945FF] drop-shadow-[0_0_18px_rgba(153,69,255,0.22)]">
-              {t("landing.faq.title2")}
-            </span>
-          </h2>
-        </Reveal>
+      {/* Comparativo */}
+      <section id="comparativo" className="rfi-comparison-section relative overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-0 h-px w-[70%] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#8A5CFF]/45 to-transparent"
+        />
+        <div className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
+          <div className="mx-auto max-w-3xl text-center">
+            <Eyebrow>
+              {lang === "pt" ? "Comparativo transparente" : "Transparent comparison"}
+            </Eyebrow>
+            <h2 className="font-[var(--font-syne)] text-3xl font-bold leading-[1.08] tracking-[-0.045em] text-white md:text-5xl">
+              {lang === "pt" ? (
+                <>
+                  Onde a RoundFi cria uma{" "}
+                  <span className="rfi-gradient-text">nova alternativa</span>
+                </>
+              ) : (
+                <>
+                  Where RoundFi creates a <span className="rfi-gradient-text">new alternative</span>
+                </>
+              )}
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
+              {lang === "pt"
+                ? "Não é uma promessa de superioridade universal. É uma comparação direta entre propostas, estruturas e o valor que permanece com o participante."
+                : "This is not a claim of universal superiority. It is a direct comparison of purpose, structure and the value that remains with the participant."}
+            </p>
+          </div>
 
-        <div className="space-y-4">
-          {([1, 2, 3, 4, 5] as const).map((n, index) => (
-            <Reveal key={n} delay={index * 0.06}>
-              <div className="border-b border-white/10 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  className="w-full flex justify-between items-center py-6 text-left hover:text-[#14F195] transition-colors"
-                >
-                  <span className="text-base md:text-lg font-bold">{t(`landing.faq.q${n}`)}</span>
-                  <span className="text-2xl text-gray-500 font-light shrink-0 ml-4">
-                    {openFaq === index ? "−" : "+"}
-                  </span>
-                </button>
+          <div className="rfi-comparison-shell mt-12 overflow-x-auto rounded-[1.75rem]">
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-[1.05fr_1fr_1fr_1.08fr] border-b border-white/[0.07] text-[9px] font-bold uppercase tracking-[0.16em]">
+                <div className="p-5 text-slate-500">{lang === "pt" ? "Critério" : "Criteria"}</div>
+                <div className="border-l border-white/[0.06] bg-[#ff5a6b]/[0.025] p-5 text-[#ff8894]">
+                  {lang === "pt" ? "Consórcio tradicional" : "Traditional consortium"}
+                </div>
+                <div className="border-l border-white/[0.06] bg-[#23D9FF]/[0.025] p-5 text-[#69dff5]">
+                  {lang === "pt" ? "Protocolos financeiros" : "Financial protocols"}
+                </div>
+                <div className="border-l-2 border-[#14F195] bg-[#14F195]/[0.055] p-5 text-[#14F195]">
+                  RoundFi
+                </div>
+              </div>
+              {[
+                [
+                  lang === "pt" ? "Objetivo principal" : "Primary purpose",
+                  lang === "pt"
+                    ? "Aquisição planejada por carta"
+                    : "Planned acquisition through a credit letter",
+                  lang === "pt" ? "Crédito, liquidez ou rendimento" : "Credit, liquidity or yield",
+                  lang === "pt"
+                    ? "Objetivos colaborativos + reputação"
+                    : "Collaborative goals + reputation",
+                ],
+                [
+                  lang === "pt" ? "Organização" : "Organization",
+                  lang === "pt" ? "Administradora central" : "Central administrator",
+                  lang === "pt" ? "Pools e regras do protocolo" : "Pools and protocol rules",
+                  lang === "pt" ? "Grupos com regras verificáveis" : "Groups with verifiable rules",
+                ],
+                [
+                  lang === "pt" ? "Forma de recebimento" : "Distribution",
+                  lang === "pt" ? "Sorteio ou lance" : "Draw or bid",
+                  lang === "pt"
+                    ? "Depende da posição financeira"
+                    : "Depends on the financial position",
+                  lang === "pt"
+                    ? "Modalidade definida antes da entrada"
+                    : "Modality disclosed before joining",
+                ],
+                [
+                  lang === "pt" ? "Histórico do participante" : "Participant history",
+                  lang === "pt" ? "Permanece na instituição" : "Remains with the institution",
+                  lang === "pt"
+                    ? "Atividade fragmentada por carteira"
+                    : "Wallet activity is fragmented",
+                  lang === "pt" ? "SAS Passport evolutivo" : "Evolving SAS Passport",
+                ],
+                [
+                  lang === "pt" ? "Transparência" : "Transparency",
+                  lang === "pt"
+                    ? "Contrato e extratos do operador"
+                    : "Operator contracts and statements",
+                  lang === "pt" ? "Transações públicas on-chain" : "Public on-chain transactions",
+                  lang === "pt"
+                    ? "Pagamentos, ciclos e eventos verificáveis"
+                    : "Verifiable payments, cycles and events",
+                ],
+                [
+                  lang === "pt" ? "Custos e condições" : "Costs and terms",
+                  lang === "pt" ? "Variam por administradora" : "Vary by administrator",
+                  lang === "pt" ? "Variam por protocolo e mercado" : "Vary by protocol and market",
+                  lang === "pt"
+                    ? "Exibidos por grupo e nível antes da entrada"
+                    : "Shown by group and tier before joining",
+                ],
+              ].map(([criterion, consortium, protocols, roundfi]) => (
                 <div
-                  className={`transition-all duration-300 ease-in-out ${
-                    openFaq === index ? "max-h-96 opacity-100 mb-6" : "max-h-0 opacity-0"
-                  }`}
+                  key={criterion}
+                  className="grid grid-cols-[1.05fr_1fr_1fr_1.08fr] border-b border-white/[0.055] text-xs last:border-b-0"
                 >
-                  <p className="text-gray-400 text-sm md:text-base leading-relaxed pr-4 md:pr-8">
-                    {t(`landing.faq.a${n}`)}
+                  <div className="flex items-center p-5 font-semibold text-slate-300">
+                    {criterion}
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-white/[0.055] bg-[#ff5a6b]/[0.018] p-5 text-slate-400">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff7180]/70" />
+                    {consortium}
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-white/[0.055] bg-[#23D9FF]/[0.018] p-5 text-slate-400">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#23D9FF]/70" />
+                    {protocols}
+                  </div>
+                  <div className="flex items-center gap-2 border-l-2 border-[#14F195] bg-[#14F195]/[0.045] p-5 font-semibold text-white">
+                    <Icons.check size={14} stroke="#14F195" sw={2} />
+                    {roundfi}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="mt-4 text-center text-[10px] leading-5 text-slate-600">
+            {lang === "pt"
+              ? "Comparação conceitual. Taxas, riscos, garantias e condições variam entre produtos e devem ser avaliados antes da participação."
+              : "Conceptual comparison. Fees, risks, collateral and terms vary by product and must be assessed before participation."}
+          </p>
+        </div>
+      </section>
+
+      {/* Simulador */}
+      <section
+        id="simulador"
+        className="rfi-simulator-section relative overflow-hidden border-y border-white/[0.055]"
+      >
+        <div
+          aria-hidden
+          className="absolute -left-52 top-20 h-[560px] w-[560px] rounded-full bg-[#14F195]/[0.065] blur-[130px]"
+        />
+        <div
+          aria-hidden
+          className="absolute -right-52 bottom-0 h-[600px] w-[600px] rounded-full bg-[#8A5CFF]/[0.08] blur-[140px]"
+        />
+        <div className="relative mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
+          <SectionHeading
+            eyebrow={lang === "pt" ? "Simule sua jornada" : "Simulate your journey"}
+            title={
+              lang === "pt"
+                ? "Transforme um objetivo em um ciclo possível"
+                : "Turn a goal into a possible cycle"
+            }
+            body={
+              lang === "pt"
+                ? "Ajuste o objetivo, o tamanho do grupo e um ciclo ilustrativo de recebimento para entender a dinâmica básica."
+                : "Adjust the goal, group size and an illustrative distribution cycle to understand the basic dynamics."
+            }
+          />
+
+          <div className="mt-12 grid gap-5 lg:grid-cols-[.88fr_1.12fr]">
+            <div className="rfi-sim-control rounded-[1.75rem] p-5 md:p-7">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#14F195]">
+                    {lang === "pt" ? "Configuração do cenário" : "Scenario setup"}
+                  </p>
+                  <h3 className="mt-2 font-[var(--font-syne)] text-xl font-bold text-white">
+                    {lang === "pt" ? "Seu grupo ilustrativo" : "Your illustrative group"}
+                  </h3>
+                </div>
+                <IconBadge name="scales" tone="green" />
+              </div>
+
+              <label className="mt-8 block">
+                <span className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    {lang === "pt" ? "Objetivo financeiro" : "Financial goal"}
+                  </span>
+                  <strong className="font-[var(--font-syne)] text-lg text-white">
+                    {money.format(simGoal)}
+                  </strong>
+                </span>
+                <input
+                  aria-label={lang === "pt" ? "Objetivo financeiro" : "Financial goal"}
+                  className="rfi-range mt-4 w-full"
+                  type="range"
+                  min="6000"
+                  max="100000"
+                  step="1000"
+                  value={simGoal}
+                  onChange={(event) => setSimGoal(Number(event.target.value))}
+                />
+                <span className="mt-2 flex justify-between text-[9px] text-slate-600">
+                  <span>R$ 6 mil</span>
+                  <span>R$ 100 mil</span>
+                </span>
+              </label>
+
+              <label className="mt-7 block border-t border-white/[0.06] pt-6">
+                <span className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    {lang === "pt" ? "Participantes e ciclos" : "Participants and cycles"}
+                  </span>
+                  <strong className="text-base text-white">{simParticipants}</strong>
+                </span>
+                <input
+                  aria-label={lang === "pt" ? "Participantes e ciclos" : "Participants and cycles"}
+                  className="rfi-range rfi-range-cyan mt-4 w-full"
+                  type="range"
+                  min="6"
+                  max="24"
+                  step="1"
+                  value={simParticipants}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    setSimParticipants(next);
+                    setSimReceiptCycle((current) => Math.min(current, next));
+                  }}
+                />
+                <span className="mt-2 flex justify-between text-[9px] text-slate-600">
+                  <span>6</span>
+                  <span>24</span>
+                </span>
+              </label>
+
+              <label className="mt-7 block border-t border-white/[0.06] pt-6">
+                <span className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    {lang === "pt"
+                      ? "Ciclo ilustrativo de recebimento"
+                      : "Illustrative distribution cycle"}
+                  </span>
+                  <strong className="text-base text-[#aa82ff]">{safeReceiptCycle}</strong>
+                </span>
+                <input
+                  aria-label={
+                    lang === "pt"
+                      ? "Ciclo ilustrativo de recebimento"
+                      : "Illustrative distribution cycle"
+                  }
+                  className="rfi-range rfi-range-purple mt-4 w-full"
+                  type="range"
+                  min="1"
+                  max={simParticipants}
+                  step="1"
+                  value={safeReceiptCycle}
+                  onChange={(event) => setSimReceiptCycle(Number(event.target.value))}
+                />
+              </label>
+            </div>
+
+            <div className="rfi-sim-result relative overflow-hidden rounded-[1.75rem] p-5 md:p-7">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#23D9FF]">
+                    {lang === "pt" ? "Projeção resumida" : "Projection summary"}
+                  </p>
+                  <p className="mt-3 text-xs text-slate-500">
+                    {lang === "pt"
+                      ? "Contribuição estimada por ciclo"
+                      : "Estimated contribution per cycle"}
+                  </p>
+                  <p className="rfi-gradient-text mt-1 font-[var(--font-syne)] text-4xl font-bold tracking-[-0.05em] md:text-5xl">
+                    {money.format(contributionPerCycle)}
                   </p>
                 </div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#14F195]/20 bg-[#14F195]/[0.06] px-3 py-2 text-[9px] font-bold text-[#14F195]">
+                  <Icons.shield size={14} stroke="currentColor" />
+                  {lang === "pt" ? "Cenário educativo" : "Educational scenario"}
+                </span>
               </div>
-            </Reveal>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <a
-            href="https://github.com/alrimarleskovar/RoundFinancial/tree/main/grant"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#14F195] font-bold hover:underline transition-all"
-          >
-            {t("landing.faq.docsLink")}
-          </a>
+
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                {[
+                  [
+                    lang === "pt" ? "Montante do objetivo" : "Goal amount",
+                    money.format(simGoal),
+                    "wallet",
+                    "green",
+                  ],
+                  [
+                    lang === "pt" ? "Acumulado até o ciclo" : "Accumulated by cycle",
+                    money.format(contributedAtReceipt),
+                    "chart",
+                    "cyan",
+                  ],
+                  [
+                    lang === "pt" ? "Ciclos restantes" : "Remaining cycles",
+                    String(remainingCycles),
+                    "refresh",
+                    "purple",
+                  ],
+                  [
+                    lang === "pt" ? "Histórico gerado" : "History generated",
+                    lang === "pt" ? "Passport" : "Passport",
+                    "score",
+                    "green",
+                  ],
+                ].map(([label, value, icon, tone]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-white/[0.065] bg-black/20 p-3.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <IconBadge name={icon} tone={tone as "green" | "cyan" | "purple"} />
+                      <div>
+                        <p className="text-[9px] leading-4 text-slate-500">{label}</p>
+                        <p className="mt-1 font-[var(--font-syne)] text-base font-bold text-white">
+                          {value}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                {/* The vertical axis is normalised to the goal, so the goal
+                    slider alone would move nothing on screen. Carrying the
+                    money in the caption keeps all three controls visibly
+                    connected to the chart. */}
+                <div className="flex items-center justify-between text-[9px] text-slate-500">
+                  <span>{lang === "pt" ? "Início" : "Start"}</span>
+                  <span className="text-[#aa82ff]">
+                    {lang === "pt"
+                      ? `Ciclo ${safeReceiptCycle} · ${money.format(contributedAtReceipt)} contribuídos`
+                      : `Cycle ${safeReceiptCycle} · ${money.format(contributedAtReceipt)} contributed`}
+                  </span>
+                  <span>
+                    {lang === "pt"
+                      ? `Encerramento · ${money.format(simGoal)}`
+                      : `Completion · ${money.format(simGoal)}`}
+                  </span>
+                </div>
+                <svg className="mt-2 h-32 w-full" viewBox="0 0 600 150" aria-hidden>
+                  <defs>
+                    {/* userSpaceOnUse because the coordinates below are
+                        viewBox units. Without it the default is
+                        objectBoundingBox, where x1="35" means 3500% — the
+                        gradient degenerates and the whole stroke paints in
+                        the first stop, losing the green→cyan→purple run. */}
+                    <linearGradient
+                      id="simLine"
+                      gradientUnits="userSpaceOnUse"
+                      x1="35"
+                      y1="130"
+                      x2="565"
+                      y2="25"
+                    >
+                      <stop stopColor="#14F195" />
+                      <stop offset=".52" stopColor="#23D9FF" />
+                      <stop offset="1" stopColor="#8A5CFF" />
+                    </linearGradient>
+                    <linearGradient id="simArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop stopColor="#23D9FF" stopOpacity=".18" />
+                      <stop offset="1" stopColor="#23D9FF" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d={chart.area} fill="url(#simArea)" />
+                  <path
+                    d={chart.stroke}
+                    fill="none"
+                    stroke="url(#simLine)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <line
+                    x1={chart.marker.x}
+                    x2={chart.marker.x}
+                    y1="18"
+                    y2={chart.fillBase}
+                    stroke="#8A5CFF"
+                    strokeOpacity=".45"
+                    strokeDasharray="4 5"
+                  />
+                  <circle
+                    cx={chart.marker.x}
+                    cy={chart.marker.y}
+                    r="7"
+                    fill="#090D17"
+                    stroke="#A87CFF"
+                    strokeWidth="4"
+                  />
+                </svg>
+              </div>
+
+              <p className="mt-4 flex items-start gap-2 text-[9px] leading-5 text-slate-600">
+                <Icons.info size={14} stroke="#23D9FF" />
+                {lang === "pt"
+                  ? "Simulação educativa. Não inclui taxas, garantias, rendimento ou risco. O recebimento real depende da modalidade e das regras do grupo."
+                  : "Educational simulation. It excludes fees, collateral, yield and risk. Actual distribution depends on the group modality and rules."}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Waitlist */}
-      <section className="w-full mx-auto px-4 md:px-6 py-12 md:py-16 max-w-6xl z-10">
-        <Reveal>
-          <div className="relative rounded-[2rem] group">
-            {/* Fixed chromatic halo that pulses opacity on the
-                card's edges — no rotation. */}
-            <div
-              className="absolute -inset-px rounded-[2rem] blur-2xl pointer-events-none rfi-pulse-halo"
-              style={{
-                background: "linear-gradient(120deg, #14F195, #00C8FF, #9945FF, #14F195)",
-              }}
-              aria-hidden
-            />
-            {/* Inner card */}
-            <div className="relative bg-[#06090F]/85 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[#14F195]/30">
-              <div className="text-center md:text-left">
-                <div className="inline-flex items-center gap-2 mb-3 text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-[#14F195]">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#14F195] opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#14F195]" />
-                  </span>
-                  {t("landing.waitlist.eyebrow")}
-                </div>
-                <h3 className="text-2xl md:text-3xl font-bold mb-2">
-                  {t("landing.waitlist.title")}
+      {/* Confiança + FAQ */}
+      <section id="seguranca" className="rfi-trust-section relative overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-0 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-[#23D9FF]/[0.035] blur-[120px]"
+        />
+        <div className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
+          <SectionHeading eyebrow={c.trustEyebrow} title={c.trustTitle} body={c.trustBody} />
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            {c.trustItems.map((item, index) => (
+              <article
+                key={item.title}
+                className="rfi-trust-card rfi-card-breathe group rounded-2xl p-5 transition hover:-translate-y-1"
+                style={{ "--rfi-breathe-delay": `${index * 0.9}s` } as CSSProperties}
+              >
+                <IconBadge
+                  name={["scales", "layers", "cubes"][index]}
+                  tone={["green", "cyan", "purple"][index] as "green" | "cyan" | "purple"}
+                />
+                <h3 className="mt-5 font-[var(--font-syne)] text-base font-bold text-white">
+                  {item.title}
                 </h3>
-                <p className="text-gray-400">{t("landing.waitlist.body")}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{item.body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-6 flex flex-wrap gap-5 text-xs font-semibold">
+            <a
+              className="text-[#52ddb9] hover:text-white"
+              href={LINKS.security}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {c.seeSecurity} ↗
+            </a>
+            <a
+              className="text-[#52cce5] hover:text-white"
+              href={LINKS.docs}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {c.seeDocs} ↗
+            </a>
+            <a
+              className="text-[#a98cff] hover:text-white"
+              href={LINKS.github}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {c.seeGithub} ↗
+            </a>
+          </div>
+
+          <div className="mx-auto mt-16 max-w-4xl">
+            <h3 className="text-center font-[var(--font-syne)] text-xl font-bold text-white">
+              {c.faqTitle}
+            </h3>
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {c.faqs.map((faq) => (
+                <details key={faq.q} className="rfi-faq-card group rounded-xl">
+                  <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-semibold text-white">
+                    {faq.q}
+                    <span className="text-lg text-[#14F195] transition group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+                  <p className="border-t border-white/[0.055] px-4 py-4 text-xs leading-6 text-slate-400">
+                    {faq.a}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="waitlist"
+        className="rfi-prefooter relative overflow-hidden border-t border-white/[0.055]"
+      >
+        <div className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-20">
+          <div className="rfi-waitlist-card relative overflow-hidden rounded-[2rem] p-6 md:p-10">
+            <div
+              aria-hidden
+              className="absolute inset-x-[8%] -top-20 h-36 bg-gradient-to-r from-[#14F195]/25 via-[#23D9FF]/18 to-[#8A5CFF]/30 blur-[60px]"
+            />
+            <div className="relative grid items-center gap-8 lg:grid-cols-[.95fr_1.05fr]">
+              <div>
+                <p className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.18em] text-[#14F195]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#14F195] shadow-[0_0_10px_#14F195]" />
+                  {lang === "pt" ? "Lista de espera ativa" : "Active waitlist"}
+                </p>
+                <h2 className="mt-4 font-[var(--font-syne)] text-3xl font-bold tracking-[-0.045em] text-white md:text-4xl">
+                  {lang === "pt" ? "Seja o primeiro a testar." : "Be among the first to test."}
+                </h2>
+                <p className="mt-3 max-w-lg text-sm leading-6 text-slate-400">
+                  {lang === "pt"
+                    ? "Entre na lista e acompanhe os próximos ciclos de validação da RoundFi."
+                    : "Join the list and follow RoundFi’s next validation cycles."}
+                </p>
+                <p className="mt-3 inline-flex items-center gap-2 text-[10px] text-slate-600">
+                  <Icons.info size={14} stroke="#14F195" />
+                  {c.noMoney}
+                </p>
               </div>
-              {waitlistSubmitted ? (
-                <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-[#14F195]/10 border border-[#14F195]/30 text-[#14F195] font-bold">
-                  <span className="text-xl">✓</span>
-                  {t("landing.waitlist.success")}
+
+              {waitlistJoined ? (
+                <div className="flex min-h-20 items-center gap-4 rounded-2xl border border-[#14F195]/25 bg-[#14F195]/[0.06] px-5 py-4">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#14F195]/10 text-[#14F195]">
+                    <Icons.check size={20} stroke="currentColor" sw={2} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-white">
+                      {lang === "pt"
+                        ? "Interesse registrado no preview"
+                        : "Interest saved in the preview"}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {lang === "pt"
+                        ? "A integração com a lista oficial será conectada na implementação."
+                        : "The official waitlist integration will be connected during implementation."}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (waitlistEmail.trim().length > 3) {
-                      // Demo-only: no backend wiring yet. Stores nothing,
-                      // shows confirmation feedback. Real waitlist hooks in
-                      // post-M3 (devnet launch).
-                      setWaitlistSubmitted(true);
-                    }
-                  }}
-                  className="flex w-full md:w-auto bg-black/50 rounded-2xl p-2 border border-white/10 focus-within:border-[#14F195] focus-within:shadow-[0_0_24px_rgba(20,241,149,0.25)] transition-all"
+                  className="rfi-waitlist-form flex flex-col gap-3 rounded-2xl p-2.5 sm:flex-row"
+                  onSubmit={handleWaitlist}
                 >
+                  <label className="sr-only" htmlFor="waitlist-email">
+                    Email
+                  </label>
                   <input
+                    id="waitlist-email"
                     type="email"
                     required
                     value={waitlistEmail}
-                    onChange={(e) => setWaitlistEmail(e.target.value)}
-                    placeholder={t("landing.waitlist.placeholder")}
-                    className="bg-transparent border-none outline-none text-white px-4 py-3 w-full md:w-64"
+                    onChange={(event) => setWaitlistEmail(event.target.value)}
+                    placeholder={lang === "pt" ? "seu@email.com" : "you@email.com"}
+                    className="min-h-12 flex-1 bg-transparent px-3 text-sm text-white outline-none placeholder:text-slate-600"
                   />
                   <button
                     type="submit"
-                    className="bg-[#14F195] text-black font-bold px-6 py-3 rounded-xl hover:scale-105 hover:shadow-[0_0_24px_rgba(20,241,149,0.5)] transition-all whitespace-nowrap"
+                    className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-xl bg-[#14F195] px-6 text-sm font-bold text-[#03130D] shadow-[0_0_30px_rgba(20,241,149,.28)] transition hover:bg-[#42f6ac]"
                   >
-                    {t("landing.waitlist.cta")} →
+                    {lang === "pt" ? "Inscrever-se" : "Join waitlist"}
+                    <span className="transition group-hover:translate-x-1">→</span>
                   </button>
                 </form>
               )}
             </div>
           </div>
-        </Reveal>
+        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-white/[0.06] pt-16 md:pt-20 pb-8 md:pb-10 bg-black/20">
-        <div className="max-w-7xl w-full mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-10 md:mb-20 text-center md:text-left">
-          <div className="col-span-1 md:col-span-2 flex flex-col items-center md:items-start">
-            <div className="mb-4 md:mb-6 h-16 flex items-center gap-5 md:gap-6 flex-wrap justify-center md:justify-start">
-              <div className="grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all h-full flex items-center">
-                <RFILogoMark size={56} style={{ width: "auto", height: "100%" }} />
+      <footer className="relative overflow-hidden border-t border-white/[0.06] bg-[#03060b]">
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-0 h-px w-[82%] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#23D9FF]/30 to-transparent"
+        />
+        <div className="mx-auto max-w-7xl px-4 py-12 md:px-8 md:py-16">
+          <div className="grid gap-12 lg:grid-cols-[1.45fr_repeat(4,.72fr)]">
+            <div>
+              <RFILogoLockup size={42} />
+              <p className="mt-5 max-w-sm text-xs leading-6 text-slate-500">{c.footer}</p>
+              {/* Technology strip, same treatment as the current landing's
+                  footer: greyscale at rest, full colour on hover.
+
+                  Marks only — every entry here has a real SVG in
+                  app/public/partners/. The row previously carried text chips
+                  for names we had no asset for; that fallback is gone, so a
+                  logo appearing here means we actually hold the file.
+
+                  Two names were deliberately dropped rather than drawn:
+
+                  SEC3 — one of FOUR candidate firms for the external audit,
+                  selection still pending. SECURITY.md states outright that no
+                  external auditor has reviewed this code, and a logo in a
+                  footer reads as "audited by". The slot stays empty until an
+                  engagement is signed, and then only for the firm that did
+                  the work.
+
+                  SAS — the Solana Attestation Service integration is real
+                  (roundfi-reputation mints against the schema), but it has no
+                  distinct mark of its own in the repo and the Solana logo
+                  already stands for the ecosystem it belongs to. */}
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                {(
+                  [
+                    { label: "SOLANA", src: "/partners/solana.svg", href: "https://solana.com" },
+                    {
+                      label: "KAMINO",
+                      src: "/partners/kamino.svg",
+                      href: "https://app.kamino.finance",
+                    },
+                    {
+                      label: "COLOSSEUM",
+                      src: "/partners/colosseum.svg",
+                      href: "https://www.colosseum.com",
+                    },
+                  ] as const
+                ).map((partner) => (
+                  <a
+                    key={partner.label}
+                    href={partner.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={partner.label}
+                    className="flex items-center opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0"
+                  >
+                    <Image
+                      src={partner.src}
+                      alt={partner.label}
+                      width={120}
+                      height={28}
+                      // Next.js leaves SVGs out of the optimizer by
+                      // default; the hint avoids a console warning.
+                      unoptimized
+                      // Tailwind's h-*/w-auto override the intrinsic size
+                      // above so each mark keeps its own aspect ratio.
+                      // Rounded because the assets we hold are square
+                      // app-icon marks and kamino.svg ships an OPAQUE
+                      // navy plate — square-cornered it reads as a broken
+                      // tile rather than a logo. See the README in
+                      // app/public/partners for the assets we'd rather have.
+                      className="h-6 w-auto rounded-[5px] md:h-7"
+                    />
+                  </a>
+                ))}
               </div>
-              <div className="h-8 w-px bg-white/10 hidden md:block" aria-hidden />
-              {(
-                [
-                  { src: "/partners/solana.svg", alt: "Solana", href: "https://solana.com" },
-                  {
-                    src: "/partners/colosseum.svg",
-                    alt: "Colosseum",
-                    href: "https://www.colosseum.com",
-                  },
-                  {
-                    src: "/partners/kamino.svg",
-                    alt: "Kamino",
-                    href: "https://app.kamino.finance",
-                  },
-                ] as const
-              ).map((p) => (
-                <a
-                  key={p.alt}
-                  href={p.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all flex items-center"
-                  title={p.alt}
-                >
-                  <Image
-                    src={p.src}
-                    alt={p.alt}
-                    width={120}
-                    height={28}
-                    // SVGs aren't run through the optimizer (Next.js
-                    // disables that by default for security). Hint
-                    // avoids a console warning + matches semantics.
-                    unoptimized
-                    // h-5 / md:h-7 + w-auto from Tailwind override the
-                    // explicit width/height so the partner logo keeps
-                    // its native aspect ratio at the design height.
-                    className="h-5 md:h-7 w-auto"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </a>
-              ))}
             </div>
-            <p className="text-gray-500 max-w-sm leading-relaxed text-xs md:text-sm">
-              {t("landing.footer.tagline").split(t("landing.footer.tagline.cofi"))[0]}
-              <span className="text-gray-400">{t("landing.footer.tagline.cofi")}</span>
-              {t("landing.footer.tagline").split(t("landing.footer.tagline.cofi"))[1]}
-            </p>
-          </div>
-          <div>
-            <h4 className="text-white font-bold mb-4 md:mb-6 text-sm md:text-base">
-              {t("landing.footer.protocol")}
-            </h4>
-            <ul className="text-gray-500 space-y-3 md:space-y-4 text-xs md:text-sm">
-              <li>
-                <a href="#simulator" className="hover:text-white transition-colors">
-                  {t("landing.footer.link.savings")}
-                </a>
-              </li>
-              <li>
-                <a href="#security" className="hover:text-white transition-colors">
-                  {t("landing.footer.link.score")}
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/alrimarleskovar/RoundFinancial/blob/main/docs/status.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
-                >
-                  {t("landing.footer.link.audit")}
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-white font-bold mb-4 md:mb-6 text-sm md:text-base">
-              {t("landing.footer.community")}
-            </h4>
-            <ul className="text-gray-500 space-y-3 md:space-y-4 text-xs md:text-sm">
-              <li>
-                <a
-                  href="https://x.com/roundfinancesol"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-[#14F195] transition-colors inline-flex items-center gap-2"
-                >
-                  <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                  {t("landing.footer.link.twitter")}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-white transition-colors">
-                  {t("landing.footer.link.discord")}
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/alrimarleskovar/RoundFinancial"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
-                >
-                  {t("landing.footer.link.github")}
-                </a>
-              </li>
-            </ul>
+            {[
+              [
+                c.product,
+                [
+                  ["Grupos", "/grupos"],
+                  ["Passport", "/reputacao"],
+                  [lang === "pt" ? "Simulador" : "Simulator", "#simulador"],
+                ],
+              ],
+              [
+                c.protocol,
+                [
+                  [lang === "pt" ? "Segurança" : "Security", LINKS.security],
+                  ["Docs", LINKS.docs],
+                  ["Devnet", LINKS.devnet],
+                ],
+              ],
+              [
+                c.community,
+                [
+                  ["GitHub", LINKS.github],
+                  ["X / Twitter", "https://x.com/roundfinancesol"],
+                  ["Superteam", "https://superteam.fun/"],
+                ],
+              ],
+              [
+                c.legal,
+                [
+                  ["Status", LINKS.devnet],
+                  [lang === "pt" ? "Riscos" : "Risks", LINKS.security],
+                  [lang === "pt" ? "Código aberto" : "Open source", LINKS.github],
+                ],
+              ],
+            ].map(([title, items]) => (
+              <div key={title as string}>
+                <p className="text-xs font-bold text-white">{title as string}</p>
+                <ul className="mt-5 space-y-3.5">
+                  {(items as string[][]).map(([label, href]) => (
+                    <li key={label}>
+                      <a
+                        href={href}
+                        className="text-xs text-slate-500 transition hover:text-[#72e6c3]"
+                      >
+                        {label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="text-center text-gray-600 text-[8px] md:text-xs tracking-widest border-t border-white/[0.06] pt-6 md:pt-10 uppercase px-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
-          <span>{t("landing.footer.copyright")}</span>
-          <a
-            href="/admin"
-            className="text-gray-700 hover:text-[#FFD23F] transition-colors no-underline"
-          >
-            ◆ {t("landing.footer.admin")}
-          </a>
-          <a
-            href="/lab"
-            className="text-gray-700 hover:text-[#14F195] transition-colors no-underline"
-          >
-            ◆ {t("landing.footer.lab")}
-          </a>
+        <div className="border-t border-white/[0.05]">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-5 text-[9px] uppercase tracking-[0.12em] text-slate-700 sm:flex-row md:px-8">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-6">
+              <span>© 2026 RoundFi Protocol</span>
+              {/* Operator surfaces, carried over from the current landing's
+                  footer with the same treatment: dim by default, each with
+                  its own accent on hover. They live down here rather than in
+                  the nav on purpose — they're internal tools, not part of the
+                  public journey. Labels stay untranslated because they are
+                  the same in both dictionaries today. */}
+              <a href="/admin" className="transition-colors hover:text-[#FFD23F]">
+                ◆ Admin · Demo Studio
+              </a>
+              <a href="/lab" className="transition-colors hover:text-[#14F195]">
+                ◆ Stress Lab
+              </a>
+            </div>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#14F195] shadow-[0_0_9px_#14F195]" />
+              {c.devnetFooter}
+            </span>
+          </div>
         </div>
       </footer>
     </main>

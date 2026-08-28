@@ -8,87 +8,79 @@ import { useTheme } from "@/lib/theme";
 //   RFILogoMark, RFILogoLockup, RFIPill, RFICard, MonoLabel.
 // Each consumes tokens via useTheme() so palette switches propagate.
 
+// The official mark, as shipped in the brand handoff. It used to be an
+// inline SVG that approximated the logo with two hand-drawn paths; the
+// handoff's identity rule is explicit that the mark must not be redrawn,
+// simplified, or re-approximated in SVG, so this renders the real asset.
+//
+// Used at 28-64px across TopBar, SideNav, MobileHome, loading and
+// admin/ops — the source PNG is 299x301, so every one of those is a
+// downscale and stays crisp on retina.
 export function RFILogoMark({ size = 28, style }: { size?: number; style?: CSSProperties }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" style={style} fill="none">
-      <defs>
-        <linearGradient
-          id={`rfi-g-${size}`}
-          x1="8"
-          y1="8"
-          x2="56"
-          y2="56"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0" stopColor="#27D67B" />
-          <stop offset=".45" stopColor="#3BC6D9" />
-          <stop offset="1" stopColor="#1E90C9" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M32 6a26 26 0 1 1 -22.2 12.5"
-        stroke={`url(#rfi-g-${size})`}
-        strokeWidth="7"
-        strokeLinecap="round"
-      />
-      <path
-        d="M38 14c10 4 16 14 14 26c-1.6 9 -8 15 -15 18c7 -10 5 -24 -6 -34c2 -5 4 -8 7 -10 z"
-        fill={`url(#rfi-g-${size})`}
-        opacity=".9"
-      />
-    </svg>
+    <img
+      src="/brand/roundfi-official-mark.png"
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      width={size}
+      height={size}
+      style={{ display: "block", width: size, height: size, objectFit: "contain", ...style }}
+    />
   );
 }
 
+// The official lockup — mark plus wordmark as ONE asset, rather than the
+// mark beside text set in Syne. Same identity rule as above.
+//
+// The previous version took a `color` prop to tint the wordmark. It is
+// gone: the wordmark is now baked into the artwork in white, so a caller
+// could not honour it. Nothing passed it — the landing is the only
+// consumer of the lockup, and the app chrome uses the bare mark — so this
+// removes a prop that had no call site rather than one that mattered.
 export function RFILogoLockup({
   size = 28,
   subline = false,
-  color,
 }: {
   size?: number;
   subline?: boolean;
-  color?: string;
 }) {
   const { tokens } = useTheme();
-  const textColor = color ?? tokens.text;
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: size * 0.32 }}>
-      <RFILogoMark size={size} />
-      <div
+    <div
+      aria-label="RoundFi"
+      role="img"
+      style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}
+    >
+      <img
+        src="/brand/roundfi-official-white-lockup.png"
+        alt=""
+        aria-hidden="true"
+        draggable={false}
         style={{
-          display: "flex",
-          flexDirection: "column",
-          lineHeight: 1,
-          gap: 2,
+          display: "block",
+          width: "auto",
+          height: size,
+          maxWidth: "none",
+          objectFit: "contain",
         }}
-      >
+      />
+      {subline && (
         <span
           style={{
-            fontFamily: "Syne, system-ui",
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            fontSize: size * 0.78,
-            color: textColor,
+            fontFamily: "DM Sans, system-ui",
+            fontWeight: 400,
+            fontSize: size * 0.28,
+            color: tokens.text2,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            marginTop: size * 0.16,
+            marginLeft: size * 1.2,
           }}
         >
-          Round<span style={{ fontWeight: 800 }}>Fi</span>
+          Collaborative Finance
         </span>
-        {subline && (
-          <span
-            style={{
-              fontFamily: "DM Sans, system-ui",
-              fontWeight: 400,
-              fontSize: size * 0.28,
-              color: tokens.text2,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginTop: 2,
-            }}
-          >
-            Collaborative Finance
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -215,81 +207,5 @@ export function MonoLabel({
     >
       {children}
     </span>
-  );
-}
-
-// ─── Marca oficial (handoff Caio, 02/08/2026) ────────────────────────
-// Aditivo de propósito. O `RFILogoMark` acima tem 5+ consumidores fora da
-// landing — TopBar, SideNav, MobileHome, loading, admin/ops — e trocar a
-// implementação dele levaria a marca oficial para o app inteiro de uma vez.
-// Isso pode até ser o desejado, mas é decisão de escopo, não efeito
-// colateral de uma landing. Enquanto a v2 é candidata, ela usa estes dois
-// e o resto do app segue como está.
-//
-// Na graduação: mover o corpo destes para RFILogoMark / RFILogoLockup e
-// apagar estes dois — os consumidores não mudam, porque a assinatura é a
-// mesma.
-//
-// Regra de identidade do handoff: não redesenhar, não simplificar, não
-// voltar a aproximar por SVG. Por isso é <img> do PNG oficial, não um path.
-
-export function RFIOfficialMark({ size = 28, style }: { size?: number; style?: CSSProperties }) {
-  return (
-    <img
-      src="/brand/roundfi-official-mark.png"
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      width={size}
-      height={size}
-      style={{ display: "block", width: size, height: size, objectFit: "contain", ...style }}
-    />
-  );
-}
-
-export function RFIOfficialLockup({
-  size = 28,
-  subline = false,
-}: {
-  size?: number;
-  subline?: boolean;
-}) {
-  const { tokens } = useTheme();
-  return (
-    <div
-      aria-label="RoundFi"
-      role="img"
-      style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}
-    >
-      <img
-        src="/brand/roundfi-official-white-lockup.png"
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        style={{
-          display: "block",
-          width: "auto",
-          height: size,
-          maxWidth: "none",
-          objectFit: "contain",
-        }}
-      />
-      {subline && (
-        <span
-          style={{
-            fontFamily: "DM Sans, system-ui",
-            fontWeight: 400,
-            fontSize: size * 0.28,
-            color: tokens.text2,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            marginTop: size * 0.16,
-            marginLeft: size * 1.2,
-          }}
-        >
-          Collaborative Finance
-        </span>
-      )}
-    </div>
   );
 }
